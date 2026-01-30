@@ -20,6 +20,7 @@ from typing import Any, Optional
 from aiohttp import web
 
 from aragora.rbac.checker import get_permission_checker
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
@@ -312,8 +313,11 @@ class QuickScanHandler:
         if auth_error:
             return auth_error
 
+        body, err = await parse_json_body(request, context="handle_post_quick_scan")
+        if err:
+            return err
+
         try:
-            body = await request.json()
             repo_path = body.get("repo_path")
 
             if not repo_path:

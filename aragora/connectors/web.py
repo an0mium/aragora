@@ -178,7 +178,7 @@ class WebConnector(BaseConnector):
                     follow_redirects=False,  # Disabled for SSRF protection
                     limits=httpx.Limits(max_connections=20, max_keepalive_connections=5),
                 )
-            except Exception as e:
+            except (httpx.HTTPError, OSError, ValueError) as e:
                 logger.error(f"Failed to create HTTP client: {e}")
                 raise  # Fail fast instead of retrying infinitely
         return self._http_client
@@ -188,7 +188,7 @@ class WebConnector(BaseConnector):
         if self._http_client:
             try:
                 await self._http_client.aclose()
-            except Exception as e:
+            except (httpx.HTTPError, OSError) as e:
                 logger.warning(f"Error closing HTTP client: {e}")
             finally:
                 self._http_client = None
@@ -282,9 +282,9 @@ class WebConnector(BaseConnector):
         except RuntimeError as e:
             # DuckDuckGo library can raise RuntimeError for various issues
             return [self._create_error_evidence(f"Search service error: {e}")]
-        except Exception as e:
-            # Catch-all for truly unexpected errors
-            logger.warning(f"Unexpected search error: {type(e).__name__}: {e}")
+        except (ValueError, TypeError, AttributeError) as e:
+            # Handle other common errors from search library
+            logger.warning(f"Search error: {type(e).__name__}: {e}")
             return [self._create_error_evidence(f"Search failed: {e}")]
 
     def _is_local_ip(self, url: str) -> bool:
@@ -311,7 +311,7 @@ class WebConnector(BaseConnector):
                 # Not an IP address, allow
                 return False
 
-        except Exception as e:
+        except (ValueError, OSError) as e:
             # If parsing fails, err on side of caution
             logger.warning(f"[web] URL security validation failed for {url}: {e}")
             return True
@@ -376,7 +376,7 @@ class WebConnector(BaseConnector):
 
             return True, ""
 
-        except Exception as e:
+        except (ValueError, OSError) as e:
             logger.warning(f"[web] IP validation error for {url}: {e}")
             return False, f"Security validation error: {e}"
 
@@ -414,7 +414,7 @@ class WebConnector(BaseConnector):
         }
         try:
             cache_file.write_text(json.dumps(cache_data, indent=2))
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             # If caching fails, don't break the search
             logger.debug(f"Failed to cache search results: {e}")
 
@@ -592,11 +592,11 @@ class WebConnector(BaseConnector):
                 # Transient - retry with backoff
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
-            except Exception as e:
-                # Unexpected errors - don't retry
+            except (ValueError, TypeError, KeyError) as e:
+                # Data parsing/processing errors - don't retry
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
-                logger.warning(f"Unexpected fetch error for {url}: {type(e).__name__}: {e}")
+                logger.warning(f"Fetch data error for {url}: {type(e).__name__}: {e}")
                 return self._create_error_evidence(f"Error fetching {url}: {e}")
 
             # If we get here, we had a transient error - apply backoff and retry

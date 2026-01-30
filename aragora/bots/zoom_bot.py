@@ -102,7 +102,7 @@ class ZoomOAuthManager:
         except ImportError:
             logger.warning("aiohttp not installed for Zoom OAuth")
             return None
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Zoom OAuth error: {e}")
             return None
 
@@ -164,7 +164,7 @@ class AragoraZoomBot:
             )
 
             return hmac.compare_digest(expected, signature)
-        except Exception as e:
+        except (ValueError, UnicodeDecodeError) as e:
             logger.error(f"Zoom signature verification error: {e}")
             return False
 
@@ -291,7 +291,7 @@ class AragoraZoomBot:
                         )
         except ImportError:
             logger.warning("aiohttp not available for post-meeting summary")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Error generating post-meeting summary: {e}")
 
     async def _send_chat_message(
@@ -345,7 +345,7 @@ class AragoraZoomBot:
         except ImportError:
             logger.warning("aiohttp not installed for Zoom API calls")
             return {"status": "error", "message": "aiohttp not installed"}
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Zoom send error: {e}")
             return {"status": "error", "message": str(e)[:100]}
 

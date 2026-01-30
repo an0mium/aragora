@@ -12,6 +12,8 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
+from aragora.utils.datetime_helpers import parse_timestamp, utc_now
+
 
 class DocumentStatus(Enum):
     """Processing status for ingested documents."""
@@ -238,13 +240,6 @@ class IngestedDocument:
         if isinstance(status, str):
             status = DocumentStatus(status)
 
-        def parse_dt(val: Any) -> datetime | None:
-            if val is None:
-                return None
-            if isinstance(val, datetime):
-                return val
-            return datetime.fromisoformat(val)
-
         return cls(
             id=data.get("id", str(uuid4())),
             filename=data.get("filename", ""),
@@ -270,9 +265,9 @@ class IngestedDocument:
             headings=data.get("headings", []),
             tables_count=data.get("tables_count", 0),
             images_count=data.get("images_count", 0),
-            created_at=parse_dt(data.get("created_at")) or datetime.now(timezone.utc),
-            processed_at=parse_dt(data.get("processed_at")),
-            indexed_at=parse_dt(data.get("indexed_at")),
+            created_at=parse_timestamp(data.get("created_at"), default=utc_now()),
+            processed_at=parse_timestamp(data.get("processed_at")),
+            indexed_at=parse_timestamp(data.get("indexed_at")),
             metadata=data.get("metadata", {}),
             tags=data.get("tags", []),
         )

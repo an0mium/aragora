@@ -242,7 +242,7 @@ class MongoDBConnector(EnterpriseConnector):
                             from bson import ObjectId
 
                             query["_id"] = {"$gt": ObjectId(cursor_data["last_id"])}
-                    except (json.JSONDecodeError, Exception) as e:
+                    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
                         logger.debug(f"Failed to parse cursor, starting from beginning: {e}")
 
                 # Sort by timestamp or _id
@@ -303,7 +303,7 @@ class MongoDBConnector(EnterpriseConnector):
                         }
                     )
 
-            except Exception as e:
+            except (OSError, ConnectionError, ValueError, KeyError, RuntimeError) as e:
                 logger.warning(f"Failed to sync collection {collection_name}: {e}")
                 state.errors.append(f"{collection_name}: {str(e)}")
                 continue
@@ -349,7 +349,7 @@ class MongoDBConnector(EnterpriseConnector):
                             }
                         )
                     continue
-                except Exception as e:
+                except (OSError, ConnectionError, ValueError, KeyError) as e:
                     logger.debug(f"Text search not available, falling back to regex: {e}")
 
                 # Fallback to regex search on string fields
@@ -384,7 +384,7 @@ class MongoDBConnector(EnterpriseConnector):
                             }
                         )
 
-            except Exception as e:
+            except (OSError, ConnectionError, ValueError, KeyError) as e:
                 logger.debug(f"Search failed on {collection_name}: {e}")
                 continue
 
@@ -424,7 +424,7 @@ class MongoDBConnector(EnterpriseConnector):
                     from bson import ObjectId
 
                     query_id = ObjectId(doc_id)
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     logger.debug("ObjectId conversion failed for doc_id %s: %s", doc_id, e)
 
             doc = await collection.find_one({"_id": query_id})
@@ -442,7 +442,7 @@ class MongoDBConnector(EnterpriseConnector):
 
             return None
 
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -485,7 +485,7 @@ class MongoDBConnector(EnterpriseConnector):
                     logger.info(f"[{self.name}] Change stream started")
                     async for change in stream:
                         await self._handle_change(change)
-            except Exception as e:
+            except (OSError, ConnectionError, asyncio.TimeoutError, RuntimeError) as e:
                 logger.error(f"[{self.name}] Change stream error: {e}")
                 self.cdc_manager.stop()
 
@@ -509,7 +509,7 @@ class MongoDBConnector(EnterpriseConnector):
                 # Fallback to sync-based processing
                 asyncio.create_task(self.sync(max_items=10))
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"[{self.name}] Change handler error: {e}")
 
     async def stop_change_stream(self):

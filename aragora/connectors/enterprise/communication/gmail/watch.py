@@ -147,9 +147,8 @@ class GmailWatchMixin(GmailBaseMethods):
                     "labels": watch_labels,
                 }
 
-        except Exception as e:
-            if not isinstance(e, (RuntimeError, ConnectionError)):
-                self.record_failure()
+        except (OSError, ConnectionError) as e:
+            self.record_failure()
             logger.error(f"[Gmail] Watch setup failed: {e}")
             raise
 
@@ -208,7 +207,7 @@ class GmailWatchMixin(GmailBaseMethods):
                         "error": error.get("message", "Unknown error"),
                     }
 
-        except Exception as e:
+        except (OSError, ConnectionError) as e:
             self.record_failure()
             logger.error(f"[Gmail] Failed to stop watch: {e}")
             raise
@@ -289,7 +288,7 @@ class GmailWatchMixin(GmailBaseMethods):
                     try:
                         msg = await self.get_message(msg_id)
                         new_messages.append(msg)
-                    except Exception as e:
+                    except (OSError, ValueError, KeyError, RuntimeError) as e:
                         logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
 
                 if history_id:
@@ -306,7 +305,7 @@ class GmailWatchMixin(GmailBaseMethods):
             logger.info(f"[Gmail] Webhook processed: {len(new_messages)} new messages")
             return new_messages
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             if self._gmail_state:
                 self._gmail_state.sync_errors += 1
                 self._gmail_state.last_error = str(e)
@@ -361,7 +360,7 @@ class GmailWatchMixin(GmailBaseMethods):
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"[Gmail] Watch renewal failed: {e}")
                 # Retry in 1 minute on failure
                 await asyncio.sleep(60)

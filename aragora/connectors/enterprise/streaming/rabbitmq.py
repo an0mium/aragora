@@ -6,6 +6,10 @@ Message queue ingestion from RabbitMQ with:
 - Message acknowledgment for reliable delivery
 - Dead letter queue handling
 - JSON and binary message deserialization
+- Connection retry with exponential backoff
+- Circuit breaker for broker failures
+- Dead letter queue (DLQ) for failed messages
+- Graceful shutdown on SIGTERM
 
 Requires: aio-pika
 
@@ -29,9 +33,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
+from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
 
 from aragora.connectors.base import Evidence
 
@@ -42,6 +47,17 @@ from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
     SyncState,
+)
+from aragora.connectors.enterprise.streaming.resilience import (
+    CircuitBreakerOpenError,
+    DLQHandler,
+    DLQMessage,
+    ExponentialBackoff,
+    GracefulShutdown,
+    HealthMonitor,
+    HealthStatus,
+    StreamingCircuitBreaker,
+    StreamingResilienceConfig,
 )
 from aragora.reasoning.provenance import SourceType
 
@@ -85,6 +101,12 @@ class RabbitMQConfig:
     auto_ack: bool = False  # Manual ack for reliability
     requeue_on_error: bool = True
     message_handler: Callable | None = None
+
+    # Resilience settings
+    resilience: StreamingResilienceConfig = field(default_factory=StreamingResilienceConfig)
+    enable_circuit_breaker: bool = True
+    enable_dlq: bool = True
+    enable_graceful_shutdown: bool = True
 
 
 @dataclass
@@ -167,16 +189,25 @@ class RabbitMQConnector(EnterpriseConnector):
     - Reliable message delivery with manual acknowledgment
     - Dead letter queue support for failed messages
     - Support for multiple serialization formats
+    - Connection retry with exponential backoff
+    - Circuit breaker for broker failures
+    - Graceful shutdown on SIGTERM
 
     Uses aio-pika for async operation.
     """
 
-    def __init__(self, config: RabbitMQConfig, **kwargs):
+    def __init__(
+        self,
+        config: RabbitMQConfig,
+        dlq_sender: Callable[[str, DLQMessage], Awaitable[None]] | None = None,
+        **kwargs,
+    ):
         """
         Initialize RabbitMQ connector.
 
         Args:
             config: RabbitMQConfig with connection and processing settings
+            dlq_sender: Optional custom DLQ sender function
         """
         super().__init__(connector_id="rabbitmq", **kwargs)
         self.config = config
@@ -188,88 +219,196 @@ class RabbitMQConnector(EnterpriseConnector):
         self._error_count = 0
         self._acked_count = 0
         self._nacked_count = 0
+        self._dlq_count = 0
+
+        # Resilience components
+        self._circuit_breaker: StreamingCircuitBreaker | None = None
+        self._dlq_handler: DLQHandler | None = None
+        self._health_monitor: HealthMonitor | None = None
+        self._graceful_shutdown: GracefulShutdown | None = None
+
+        if config.enable_circuit_breaker:
+            self._circuit_breaker = StreamingCircuitBreaker(
+                name="rabbitmq-broker",
+                config=config.resilience,
+            )
+
+        if config.enable_dlq:
+            self._dlq_handler = DLQHandler(
+                config=config.resilience,
+                dlq_sender=dlq_sender or self._default_dlq_sender,
+            )
+
+        self._health_monitor = HealthMonitor(
+            name="rabbitmq-connector",
+            config=config.resilience,
+        )
+
+        if config.enable_graceful_shutdown:
+            self._graceful_shutdown = GracefulShutdown()
+
+    async def _default_dlq_sender(self, queue_name: str, message: DLQMessage) -> None:
+        """Default DLQ sender using RabbitMQ channel."""
+        if not self._channel:
+            logger.warning("[RabbitMQ] No channel available for DLQ sender")
+            return
+
+        try:
+            import aio_pika
+
+            # Build DLQ queue name
+            dlq_queue = queue_name
+
+            # Declare DLQ queue if it doesn't exist
+            await self._channel.declare_queue(
+                dlq_queue,
+                durable=self.config.durable,
+            )
+
+            # Create message
+            msg = aio_pika.Message(
+                body=message.to_json().encode("utf-8"),
+                headers={
+                    "x-original-topic": message.original_topic,
+                    "x-error-type": message.error_type,
+                    "x-error-message": message.error_message[:500],  # Limit error message
+                    "x-retry-count": str(message.retry_count),
+                },
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+                if self.config.durable
+                else aio_pika.DeliveryMode.NOT_PERSISTENT,
+            )
+
+            # Publish to DLQ
+            await self._channel.default_exchange.publish(
+                msg,
+                routing_key=dlq_queue,
+            )
+            logger.info(f"[RabbitMQ] Sent message to DLQ: {dlq_queue}")
+
+        except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+            logger.error(f"[RabbitMQ] Failed to send to DLQ: {e}")
+            raise
 
     async def connect(self) -> bool:
         """
-        Connect to RabbitMQ server.
+        Connect to RabbitMQ server with retry and circuit breaker.
 
         Returns:
             True if connection successful
         """
-        try:
-            import aio_pika
+        backoff = ExponentialBackoff(self.config.resilience)
 
-            # Build connection URL with SSL if needed
-            url = self.config.url
-            if self.config.ssl:
-                import ssl as ssl_module
+        for attempt in range(self.config.resilience.max_retries + 1):
+            # Check circuit breaker
+            if self._circuit_breaker and self._circuit_breaker.is_open:
+                if not await self._circuit_breaker.can_execute():
+                    logger.warning("[RabbitMQ] Circuit breaker is open, skipping connect")
+                    return False
 
-                ssl_context = ssl_module.create_default_context()
-                if self.config.ssl_cafile:
-                    ssl_context.load_verify_locations(self.config.ssl_cafile)
-                if self.config.ssl_certfile and self.config.ssl_keyfile:
-                    ssl_context.load_cert_chain(
-                        self.config.ssl_certfile,
-                        self.config.ssl_keyfile,
-                    )
-                self._connection = await aio_pika.connect_robust(url, ssl_context=ssl_context)
-            else:
-                self._connection = await aio_pika.connect_robust(url)
+            try:
+                success = await self._connect_internal()
+                if success:
+                    if self._circuit_breaker:
+                        await self._circuit_breaker.record_success()
+                    if self._health_monitor:
+                        await self._health_monitor.record_success()
+                    return True
 
-            # Create channel with QoS - connection is guaranteed to be set at this point
-            assert self._connection is not None
-            self._channel = await self._connection.channel()
-            assert self._channel is not None
-            await self._channel.set_qos(prefetch_count=self.config.prefetch_count)
-
-            # Declare exchange if specified
-            if self.config.exchange:
-                exchange = await self._channel.declare_exchange(
-                    self.config.exchange,
-                    type=self.config.exchange_type,
-                    durable=self.config.durable,
+            except ImportError:
+                # Don't retry import errors
+                logger.error(
+                    "[RabbitMQ] aio-pika not installed. Install with: pip install aio-pika"
                 )
-            else:
-                exchange = self._channel.default_exchange
+                return False
 
-            # Build queue arguments
-            queue_args: dict[str, Any] = {}
-            if self.config.dead_letter_exchange:
-                queue_args["x-dead-letter-exchange"] = self.config.dead_letter_exchange
-            if self.config.dead_letter_routing_key:
-                queue_args["x-dead-letter-routing-key"] = self.config.dead_letter_routing_key
-            if self.config.message_ttl:
-                queue_args["x-message-ttl"] = self.config.message_ttl
+            except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+                if self._circuit_breaker:
+                    await self._circuit_breaker.record_failure(e)
+                if self._health_monitor:
+                    await self._health_monitor.record_failure(e)
 
-            # Declare queue
-            self._queue = await self._channel.declare_queue(
-                self.config.queue,
+                if attempt == self.config.resilience.max_retries:
+                    logger.error(f"[RabbitMQ] Connection failed after {attempt + 1} attempts: {e}")
+                    return False
+
+                delay = backoff.get_delay(attempt)
+                logger.warning(
+                    f"[RabbitMQ] Connection attempt {attempt + 1}/{self.config.resilience.max_retries + 1} "
+                    f"failed: {e}. Retrying in {delay:.2f}s"
+                )
+                await asyncio.sleep(delay)
+
+        return False
+
+    async def _connect_internal(self) -> bool:
+        """Internal connection logic."""
+        import aio_pika
+
+        # Build connection URL with SSL if needed
+        url = self.config.url
+        if self.config.ssl:
+            import ssl as ssl_module
+
+            ssl_context = ssl_module.create_default_context()
+            if self.config.ssl_cafile:
+                ssl_context.load_verify_locations(self.config.ssl_cafile)
+            if self.config.ssl_certfile and self.config.ssl_keyfile:
+                ssl_context.load_cert_chain(
+                    self.config.ssl_certfile,
+                    self.config.ssl_keyfile,
+                )
+            self._connection = await aio_pika.connect_robust(url, ssl_context=ssl_context)
+        else:
+            self._connection = await aio_pika.connect_robust(url)
+
+        # Create channel with QoS - connection is guaranteed to be set at this point
+        assert self._connection is not None
+        self._channel = await self._connection.channel()
+        assert self._channel is not None
+        await self._channel.set_qos(prefetch_count=self.config.prefetch_count)
+
+        # Declare exchange if specified
+        if self.config.exchange:
+            exchange = await self._channel.declare_exchange(
+                self.config.exchange,
+                type=self.config.exchange_type,
                 durable=self.config.durable,
-                auto_delete=self.config.auto_delete,
-                exclusive=self.config.exclusive,
-                arguments=queue_args or None,
+            )
+        else:
+            exchange = self._channel.default_exchange
+
+        # Build queue arguments
+        queue_args: dict[str, Any] = {}
+        if self.config.dead_letter_exchange:
+            queue_args["x-dead-letter-exchange"] = self.config.dead_letter_exchange
+        if self.config.dead_letter_routing_key:
+            queue_args["x-dead-letter-routing-key"] = self.config.dead_letter_routing_key
+        if self.config.message_ttl:
+            queue_args["x-message-ttl"] = self.config.message_ttl
+
+        # Declare queue
+        self._queue = await self._channel.declare_queue(
+            self.config.queue,
+            durable=self.config.durable,
+            auto_delete=self.config.auto_delete,
+            exclusive=self.config.exclusive,
+            arguments=queue_args or None,
+        )
+
+        # Bind queue to exchange if specified
+        if self.config.exchange:
+            assert self._queue is not None
+            await self._queue.bind(
+                exchange,
+                routing_key=self.config.routing_key or self.config.queue,
             )
 
-            # Bind queue to exchange if specified
-            if self.config.exchange:
-                assert self._queue is not None
-                await self._queue.bind(
-                    exchange,
-                    routing_key=self.config.routing_key or self.config.queue,
-                )
-
-            logger.info(
-                f"[RabbitMQ] Connected to {self.config.url}, "
-                f"queue={self.config.queue}, exchange={self.config.exchange or 'default'}"
-            )
-            return True
-
-        except ImportError:
-            logger.error("[RabbitMQ] aio-pika not installed. Install with: pip install aio-pika")
-            return False
-        except Exception as e:
-            logger.error(f"[RabbitMQ] Connection failed: {e}")
-            return False
+        logger.info(
+            f"[RabbitMQ] Connected to {self.config.url}, "
+            f"queue={self.config.queue}, exchange={self.config.exchange or 'default'}"
+        )
+        return True
 
     async def disconnect(self) -> None:
         """Disconnect from RabbitMQ server."""
@@ -282,23 +421,38 @@ class RabbitMQConnector(EnterpriseConnector):
             logger.info("[RabbitMQ] Disconnected")
 
     async def start(self) -> None:
-        """Start consuming messages."""
+        """Start consuming messages with graceful shutdown support."""
         if not self._connection:
             connected = await self.connect()
             if not connected:
                 raise RuntimeError("Failed to connect to RabbitMQ")
         self._running = True
 
+        # Set up graceful shutdown
+        if self._graceful_shutdown:
+            self._graceful_shutdown.setup_signal_handlers()
+            self._graceful_shutdown.register_cleanup(self._cleanup)
+
+    async def _cleanup(self) -> None:
+        """Cleanup on graceful shutdown."""
+        logger.info("[RabbitMQ] Performing graceful shutdown cleanup...")
+        await self.disconnect()
+
     async def stop(self) -> None:
         """Stop consuming messages."""
         await self.disconnect()
 
-    async def consume(self, max_messages: int | None = None) -> AsyncIterator[RabbitMQMessage]:
+    async def consume(
+        self,
+        max_messages: int | None = None,
+        process_fn: Callable[[RabbitMQMessage], Awaitable[None]] | None = None,
+    ) -> AsyncIterator[RabbitMQMessage]:
         """
-        Consume messages from RabbitMQ queue.
+        Consume messages from RabbitMQ queue with resilience.
 
         Args:
             max_messages: Optional limit on messages to consume
+            process_fn: Optional async function to process each message
 
         Yields:
             RabbitMQMessage objects
@@ -312,13 +466,30 @@ class RabbitMQConnector(EnterpriseConnector):
         try:
             async with self._queue.iterator() as queue_iter:
                 async for message in queue_iter:
+                    # Check for graceful shutdown
+                    if self._graceful_shutdown and self._graceful_shutdown.is_shutting_down:
+                        logger.info("[RabbitMQ] Shutdown signal received, stopping consume")
+                        break
+
+                    start_time = time.time()
+
                     try:
                         # Deserialize message
                         rabbitmq_msg = self._deserialize_message(message)
+
+                        # Process message if handler provided
+                        if process_fn:
+                            await self._process_with_resilience(rabbitmq_msg, process_fn)
+
                         yield rabbitmq_msg
 
                         self._consumed_count += 1
                         messages_consumed += 1
+
+                        # Record success metrics
+                        if self._health_monitor:
+                            latency_ms = (time.time() - start_time) * 1000
+                            await self._health_monitor.record_success(latency_ms=latency_ms)
 
                         # Auto-ack if configured
                         if self.config.auto_ack:
@@ -328,10 +499,42 @@ class RabbitMQConnector(EnterpriseConnector):
                         if max_messages and messages_consumed >= max_messages:
                             break
 
-                    except Exception as e:
+                    except CircuitBreakerOpenError as e:
+                        logger.warning(f"[RabbitMQ] Circuit breaker open: {e}")
+                        # Requeue and wait for recovery
+                        await message.nack(requeue=True)
+                        await asyncio.sleep(e.recovery_time)
+
+                    except (ValueError, RuntimeError, KeyError, json.JSONDecodeError) as e:
                         self._error_count += 1
                         logger.warning(f"[RabbitMQ] Error processing message: {e}")
-                        if self.config.requeue_on_error:
+
+                        if self._health_monitor:
+                            await self._health_monitor.record_failure(e)
+
+                        # Handle DLQ
+                        if self._dlq_handler:
+                            rabbitmq_msg = self._deserialize_message(message)
+                            sent_to_dlq = await self._dlq_handler.handle_failure(
+                                topic=rabbitmq_msg.queue,
+                                key=rabbitmq_msg.message_id,
+                                value=rabbitmq_msg.body,
+                                headers=rabbitmq_msg.headers,
+                                timestamp=rabbitmq_msg.timestamp,
+                                error=e,
+                                delivery_tag=rabbitmq_msg.delivery_tag,
+                            )
+                            if sent_to_dlq:
+                                self._dlq_count += 1
+                                # Acknowledge the original message since it went to DLQ
+                                await message.ack()
+                                self._acked_count += 1
+                            elif self.config.requeue_on_error:
+                                await message.nack(requeue=True)
+                            else:
+                                await message.reject(requeue=False)
+                                self._nacked_count += 1
+                        elif self.config.requeue_on_error:
                             await message.nack(requeue=True)
                         else:
                             await message.reject(requeue=False)
@@ -340,6 +543,18 @@ class RabbitMQConnector(EnterpriseConnector):
         except asyncio.CancelledError:
             logger.info("[RabbitMQ] Consumer cancelled")
             raise
+
+    async def _process_with_resilience(
+        self,
+        message: RabbitMQMessage,
+        process_fn: Callable[[RabbitMQMessage], Awaitable[None]],
+    ) -> None:
+        """Process a message with circuit breaker protection."""
+        if self._circuit_breaker:
+            async with await self._circuit_breaker.call():
+                await process_fn(message)
+        else:
+            await process_fn(message)
 
     def _deserialize_message(self, message) -> RabbitMQMessage:
         """Deserialize a RabbitMQ message."""
@@ -413,7 +628,7 @@ class RabbitMQConnector(EnterpriseConnector):
         priority: int = None,
     ) -> bool:
         """
-        Publish a message to RabbitMQ.
+        Publish a message to RabbitMQ with resilience.
 
         Args:
             body: Message body (will be JSON serialized if dict)
@@ -428,6 +643,14 @@ class RabbitMQConnector(EnterpriseConnector):
         Returns:
             True if published successfully
         """
+        # Check circuit breaker
+        if self._circuit_breaker:
+            if not await self._circuit_breaker.can_execute():
+                raise CircuitBreakerOpenError(
+                    self._circuit_breaker.name,
+                    self._circuit_breaker._time_until_recovery(),
+                )
+
         try:
             import aio_pika
 
@@ -469,16 +692,25 @@ class RabbitMQConnector(EnterpriseConnector):
                 routing_key=routing_key or self.config.routing_key or self.config.queue,
             )
 
+            if self._circuit_breaker:
+                await self._circuit_breaker.record_success()
+            if self._health_monitor:
+                await self._health_monitor.record_success()
+
             logger.debug(f"[RabbitMQ] Published message to {routing_key or self.config.queue}")
             return True
 
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+            if self._circuit_breaker:
+                await self._circuit_breaker.record_failure(e)
+            if self._health_monitor:
+                await self._health_monitor.record_failure(e)
             logger.error(f"[RabbitMQ] Failed to publish message: {e}")
             return False
 
     def get_stats(self) -> dict[str, Any]:
         """Get connector statistics."""
-        return {
+        stats = {
             "connector_id": self.connector_id,
             "url": self.config.url.split("@")[-1],  # Hide credentials
             "queue": self.config.queue,
@@ -488,7 +720,31 @@ class RabbitMQConnector(EnterpriseConnector):
             "acked_count": self._acked_count,
             "nacked_count": self._nacked_count,
             "error_count": self._error_count,
+            "dlq_count": self._dlq_count,
         }
+
+        # Add resilience stats
+        if self._circuit_breaker:
+            stats["circuit_breaker"] = self._circuit_breaker.get_stats()
+
+        if self._dlq_handler:
+            stats["dlq"] = self._dlq_handler.get_stats()
+
+        return stats
+
+    async def get_health(self) -> HealthStatus:
+        """Get connector health status."""
+        if self._health_monitor:
+            return await self._health_monitor.get_status()
+        return HealthStatus(
+            healthy=self._running,
+            last_check=datetime.now(timezone.utc),
+        )
+
+    def reset_circuit_breaker(self) -> None:
+        """Reset the circuit breaker to closed state."""
+        if self._circuit_breaker:
+            self._circuit_breaker.reset()
 
     # Required abstract method implementations
 

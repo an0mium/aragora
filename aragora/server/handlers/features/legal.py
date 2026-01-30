@@ -34,6 +34,7 @@ from ..base import (
     success_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils import parse_json_body
 
 logger = logging.getLogger(__name__)
 
@@ -584,11 +585,7 @@ class LegalHandler(BaseHandler):
 
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
-        if hasattr(request, "json"):
-            if callable(request.json):
-                return await request.json()
-            return request.json
-        return {}
+        return await parse_json_body(request, "legal")
 
     async def _emit_connector_event(
         self,

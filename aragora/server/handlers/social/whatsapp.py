@@ -290,7 +290,7 @@ class WhatsAppHandler(BaseHandler):
         return error_response("Forbidden", 403)
 
     @auto_error_response("handle whatsapp webhook")
-    @rate_limit(rpm=100, limiter_name="whatsapp_webhook")
+    @rate_limit(requests_per_minute=100, limiter_name="whatsapp_webhook")
     def _handle_webhook(self, handler: Any) -> HandlerResult:
         """Handle incoming WhatsApp webhook events.
 

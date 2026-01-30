@@ -143,7 +143,7 @@ class AgentConfigHandler(SecureHandler):
         # Get specific config: /api/agents/configs/{name}
         return self._get_config(config_name)
 
-    @rate_limit(rpm=30, limiter_name="config_list")
+    @rate_limit(requests_per_minute=30, limiter_name="config_list")
     @handle_errors("list configs")
     def _list_configs(self, query_params: dict) -> HandlerResult:
         """List all available YAML agent configurations.
@@ -192,7 +192,7 @@ class AgentConfigHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=30, limiter_name="config_get")
+    @rate_limit(requests_per_minute=30, limiter_name="config_get")
     @handle_errors("get config")
     def _get_config(self, name: str) -> HandlerResult:
         """Get a specific agent configuration by name.
@@ -214,7 +214,7 @@ class AgentConfigHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=10, limiter_name="config_create")
+    @rate_limit(requests_per_minute=10, limiter_name="config_create")
     @handle_errors("create agent from config")
     def _create_agent_from_config(self, name: str) -> HandlerResult:
         """Create an agent from a YAML configuration.
@@ -247,7 +247,7 @@ class AgentConfigHandler(SecureHandler):
             logger.error(f"Failed to create agent from config {name}: {e}")
             return error_response(f"Failed to create agent: {e}", 500)
 
-    @rate_limit(rpm=5, limiter_name="config_reload")
+    @rate_limit(requests_per_minute=5, limiter_name="config_reload")
     @handle_errors("reload configs")
     def _reload_configs(self) -> HandlerResult:
         """Reload all configurations from disk.
@@ -272,7 +272,7 @@ class AgentConfigHandler(SecureHandler):
             logger.error(f"Failed to reload configs: {e}")
             return error_response(f"Reload failed: {e}", 500)
 
-    @rate_limit(rpm=30, limiter_name="config_search")
+    @rate_limit(requests_per_minute=30, limiter_name="config_search")
     @handle_errors("search configs")
     def _search_configs(self, query_params: dict) -> HandlerResult:
         """Search configurations by expertise, capability, or tag.

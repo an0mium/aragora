@@ -15,7 +15,6 @@ __all__ = [
 ]
 
 import asyncio
-import json
 import logging
 from typing import Any, Optional
 
@@ -30,6 +29,7 @@ from .base import (
     json_response,
 )
 from aragora.rbac.decorators import require_permission
+from .utils import parse_json_body
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -282,13 +282,13 @@ class SkillsHandler(BaseHandler):
             )
 
         # Parse request body
-        try:
-            if hasattr(request, "json"):
-                body = await request.json()
-            else:
-                body = request.get("body", {})
-        except (json.JSONDecodeError, TypeError, AttributeError):
-            return error_response("Invalid JSON body", 400)
+        if hasattr(request, "json"):
+            # aiohttp request - use safe parser
+            body, err = await parse_json_body(request, context="invoke_skill")
+            if err:
+                return error_response("Invalid JSON body", 400)
+        else:
+            body = request.get("body", {})
 
         skill_name = body.get("skill")
         if not skill_name:

@@ -324,7 +324,7 @@ class AuthHandler(SecureHandler):
 
         return None  # Allowed
 
-    @rate_limit(rpm=2, limiter_name="auth_register")
+    @rate_limit(requests_per_minute=2, limiter_name="auth_register")
     @handle_errors("user registration")
     @log_request("user registration")
     def _handle_register(self, handler) -> HandlerResult:
@@ -414,7 +414,7 @@ class AuthHandler(SecureHandler):
             status=201,
         )
 
-    @rate_limit(rpm=3, limiter_name="auth_login")
+    @rate_limit(requests_per_minute=3, limiter_name="auth_login")
     @handle_errors("user login")
     @log_request("user login")
     def _handle_login(self, handler) -> HandlerResult:
@@ -544,7 +544,7 @@ class AuthHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=20, limiter_name="auth_refresh")
+    @rate_limit(requests_per_minute=20, limiter_name="auth_refresh")
     @handle_errors("token refresh")
     def _handle_refresh(self, handler) -> HandlerResult:
         """Handle token refresh."""
@@ -607,7 +607,7 @@ class AuthHandler(SecureHandler):
 
         return json_response({"tokens": tokens.to_dict()})
 
-    @rate_limit(rpm=10, limiter_name="auth_logout")
+    @rate_limit(requests_per_minute=10, limiter_name="auth_logout")
     @handle_errors("logout")
     def _handle_logout(self, handler) -> HandlerResult:
         """Handle user logout (token invalidation)."""
@@ -657,7 +657,7 @@ class AuthHandler(SecureHandler):
 
         return json_response({"message": "Logged out successfully"})
 
-    @rate_limit(rpm=3, limiter_name="auth_logout_all")
+    @rate_limit(requests_per_minute=3, limiter_name="auth_logout_all")
     @handle_errors("logout all devices")
     @log_request("logout all devices")
     def _handle_logout_all(self, handler) -> HandlerResult:
@@ -722,7 +722,7 @@ class AuthHandler(SecureHandler):
         "Expires": "0",
     }
 
-    @rate_limit(rpm=30, limiter_name="auth_get_me")
+    @rate_limit(requests_per_minute=30, limiter_name="auth_get_me")
     @handle_errors("get user info")
     def _handle_get_me(self, handler) -> HandlerResult:
         """Get current user information."""
@@ -764,7 +764,7 @@ class AuthHandler(SecureHandler):
             headers=self.AUTH_NO_CACHE_HEADERS,
         )
 
-    @rate_limit(rpm=5, limiter_name="auth_update_me")
+    @rate_limit(requests_per_minute=5, limiter_name="auth_update_me")
     @handle_errors("update user info")
     def _handle_update_me(self, handler) -> HandlerResult:
         """Update current user information."""
@@ -802,7 +802,7 @@ class AuthHandler(SecureHandler):
 
         return json_response({"user": user.to_dict()})
 
-    @rate_limit(rpm=3, limiter_name="auth_change_password")
+    @rate_limit(requests_per_minute=3, limiter_name="auth_change_password")
     @handle_errors("change password")
     def _handle_change_password(self, handler) -> HandlerResult:
         """Change user password."""
@@ -865,7 +865,7 @@ class AuthHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=3, limiter_name="auth_forgot_password")
+    @rate_limit(requests_per_minute=3, limiter_name="auth_forgot_password")
     @handle_errors("forgot password")
     @log_request("forgot password")
     def _handle_forgot_password(self, handler) -> HandlerResult:
@@ -1067,7 +1067,7 @@ This is an automated message. Please do not reply.
             # No event loop - create one for this task
             asyncio.run(send_email())
 
-    @rate_limit(rpm=5, limiter_name="auth_reset_password")
+    @rate_limit(requests_per_minute=5, limiter_name="auth_reset_password")
     @handle_errors("reset password")
     @log_request("reset password")
     def _handle_reset_password(self, handler) -> HandlerResult:
@@ -1160,7 +1160,7 @@ This is an automated message. Please do not reply.
             }
         )
 
-    @rate_limit(rpm=10, limiter_name="auth_revoke_token")
+    @rate_limit(requests_per_minute=10, limiter_name="auth_revoke_token")
     @handle_errors("revoke token")
     def _handle_revoke_token(self, handler) -> HandlerResult:
         """Explicitly revoke a specific token."""
@@ -1214,7 +1214,7 @@ This is an automated message. Please do not reply.
         else:
             return error_response("Invalid token - could not revoke", 400)
 
-    @rate_limit(rpm=3, limiter_name="auth_api_key_gen")
+    @rate_limit(requests_per_minute=3, limiter_name="auth_api_key_gen")
     @handle_errors("generate API key")
     def _handle_generate_api_key(self, handler) -> HandlerResult:
         """Generate a new API key for the user."""
@@ -1277,7 +1277,7 @@ This is an automated message. Please do not reply.
             }
         )
 
-    @rate_limit(rpm=5, limiter_name="auth_revoke_api_key")
+    @rate_limit(requests_per_minute=5, limiter_name="auth_revoke_api_key")
     @handle_errors("revoke API key")
     def _handle_revoke_api_key(self, handler) -> HandlerResult:
         """Revoke the user's API key."""
@@ -1320,7 +1320,7 @@ This is an automated message. Please do not reply.
 
         return json_response({"message": "API key revoked"})
 
-    @rate_limit(rpm=10, limiter_name="auth_list_api_keys")
+    @rate_limit(requests_per_minute=10, limiter_name="auth_list_api_keys")
     @handle_errors("list API keys")
     def _handle_list_api_keys(self, handler) -> HandlerResult:
         """List API keys for the current user."""
@@ -1354,7 +1354,7 @@ This is an automated message. Please do not reply.
 
         return json_response({"keys": keys, "count": len(keys)})
 
-    @rate_limit(rpm=5, limiter_name="auth_revoke_api_key_prefix")
+    @rate_limit(requests_per_minute=5, limiter_name="auth_revoke_api_key_prefix")
     @handle_errors("revoke API key (prefix)")
     def _handle_revoke_api_key_prefix(self, handler, prefix: str) -> HandlerResult:
         """Revoke the user's API key by prefix."""
@@ -1398,7 +1398,7 @@ This is an automated message. Please do not reply.
     # MFA/2FA Methods
     # =========================================================================
 
-    @rate_limit(rpm=5, limiter_name="mfa_setup")
+    @rate_limit(requests_per_minute=5, limiter_name="mfa_setup")
     @handle_errors("MFA setup")
     @log_request("MFA setup")
     def _handle_mfa_setup(self, handler) -> HandlerResult:
@@ -1441,7 +1441,7 @@ This is an automated message. Please do not reply.
             }
         )
 
-    @rate_limit(rpm=5, limiter_name="mfa_enable")
+    @rate_limit(requests_per_minute=5, limiter_name="mfa_enable")
     @handle_errors("MFA enable")
     @log_request("MFA enable")
     def _handle_mfa_enable(self, handler) -> HandlerResult:
@@ -1519,7 +1519,7 @@ This is an automated message. Please do not reply.
             }
         )
 
-    @rate_limit(rpm=5, limiter_name="mfa_disable")
+    @rate_limit(requests_per_minute=5, limiter_name="mfa_disable")
     @handle_errors("MFA disable")
     @log_request("MFA disable")
     def _handle_mfa_disable(self, handler) -> HandlerResult:
@@ -1584,7 +1584,7 @@ This is an automated message. Please do not reply.
 
         return json_response({"message": "MFA disabled successfully"})
 
-    @rate_limit(rpm=10, limiter_name="mfa_verify")
+    @rate_limit(requests_per_minute=10, limiter_name="mfa_verify")
     @handle_errors("MFA verify")
     @log_request("MFA verify")
     def _handle_mfa_verify(self, handler) -> HandlerResult:
@@ -1699,7 +1699,7 @@ This is an automated message. Please do not reply.
 
         return error_response("Invalid MFA code", 400)
 
-    @rate_limit(rpm=3, limiter_name="mfa_backup")
+    @rate_limit(requests_per_minute=3, limiter_name="mfa_backup")
     @handle_errors("MFA backup codes")
     @log_request("MFA backup codes")
     def _handle_mfa_backup_codes(self, handler) -> HandlerResult:
@@ -1765,7 +1765,7 @@ This is an automated message. Please do not reply.
     # Session Management
     # =========================================================================
 
-    @rate_limit(rpm=30, limiter_name="auth_sessions")
+    @rate_limit(requests_per_minute=30, limiter_name="auth_sessions")
     @handle_errors("list sessions")
     def _handle_list_sessions(self, handler) -> HandlerResult:
         """List all active sessions for the current user.
@@ -1813,7 +1813,7 @@ This is an automated message. Please do not reply.
             }
         )
 
-    @rate_limit(rpm=10, limiter_name="auth_revoke_session")
+    @rate_limit(requests_per_minute=10, limiter_name="auth_revoke_session")
     @handle_errors("revoke session")
     def _handle_revoke_session(self, handler, session_id: str) -> HandlerResult:
         """Revoke a specific session.

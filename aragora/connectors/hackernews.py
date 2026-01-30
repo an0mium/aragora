@@ -191,7 +191,7 @@ class HackerNewsConnector(BaseConnector):
             logger.info(f"HackerNews search '{query}' returned {len(results)} results")
             return results
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError) as e:
             # Return empty list on failure (connector exceptions already logged)
             logger.debug(f"HackerNews search failed: {e}")
             return []
@@ -235,7 +235,7 @@ class HackerNewsConnector(BaseConnector):
                 self._cache_put(evidence_id, evidence)
             return evidence
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError) as e:
             logger.debug(f"HackerNews fetch failed for {evidence_id}: {e}")
             return None
 
@@ -249,7 +249,7 @@ class HackerNewsConnector(BaseConnector):
                 evidence = self._parse_hit(hit)
                 if evidence:
                     results.append(evidence)
-            except Exception as e:
+            except (KeyError, TypeError, ValueError) as e:
                 logger.debug(f"Error parsing HN hit: {e}")
                 continue
 

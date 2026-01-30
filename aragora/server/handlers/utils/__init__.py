@@ -72,6 +72,7 @@ from .responses import (
 )
 from .routing import PathMatcher, RouteDispatcher
 from .safe_data import safe_get, safe_get_nested, safe_json_parse
+from .json_body import parse_json_body, parse_json_body_allow_array
 from .sanitization import (
     RESPONSE_SENSITIVE_FIELDS,
     sanitize_response,
@@ -155,4 +156,7 @@ __all__ = [
     "UnauthorizedError",
     "get_auth_context",
     "require_authenticated",
+    # JSON body parsing
+    "parse_json_body",
+    "parse_json_body_allow_array",
 ]

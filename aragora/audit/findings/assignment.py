@@ -32,6 +32,9 @@ from enum import Enum
 from typing import Any, Callable
 from uuid import uuid4
 
+from aragora.utils.datetime_helpers import parse_timestamp, utc_now
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -107,11 +110,6 @@ class FindingAssignment:
     def from_dict(cls, data: dict[str, Any]) -> "FindingAssignment":
         """Create from dictionary."""
 
-        def parse_dt(val: Any) -> datetime | None:
-            if isinstance(val, str):
-                return datetime.fromisoformat(val)
-            return None
-
         return cls(
             id=data.get("id", str(uuid4())),
             finding_id=data.get("finding_id", ""),
@@ -122,13 +120,13 @@ class FindingAssignment:
             team_name=data.get("team_name", ""),
             assigned_by=data.get("assigned_by", ""),
             assigned_by_name=data.get("assigned_by_name", ""),
-            assigned_at=parse_dt(data.get("assigned_at")) or datetime.now(timezone.utc),
+            assigned_at=parse_timestamp(data.get("assigned_at"), default=utc_now()),
             priority=AssignmentPriority(data.get("priority", "medium")),
-            due_date=parse_dt(data.get("due_date")),
+            due_date=parse_timestamp(data.get("due_date")),
             sla_hours=data.get("sla_hours"),
             is_active=data.get("is_active", True),
-            completed_at=parse_dt(data.get("completed_at")),
-            unassigned_at=parse_dt(data.get("unassigned_at")),
+            completed_at=parse_timestamp(data.get("completed_at")),
+            unassigned_at=parse_timestamp(data.get("unassigned_at")),
             unassigned_by=data.get("unassigned_by"),
             auto_assigned=data.get("auto_assigned", False),
             auto_assign_rule=data.get("auto_assign_rule", ""),

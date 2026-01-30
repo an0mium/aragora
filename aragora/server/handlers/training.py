@@ -173,7 +173,7 @@ class TrainingHandler(BaseHandler):
         return self._exporters["gauntlet"]
 
     @require_permission("training:export")
-    @rate_limit(rpm=10, limiter_name="training_export")
+    @rate_limit(requests_per_minute=10, limiter_name="training_export")
     @handle_errors("export SFT training data")
     def handle_export_sft(
         self,
@@ -278,7 +278,7 @@ class TrainingHandler(BaseHandler):
             return error_response(safe_error_message(e, "SFT export"), 500)
 
     @require_permission("training:export")
-    @rate_limit(rpm=10, limiter_name="training_export")
+    @rate_limit(requests_per_minute=10, limiter_name="training_export")
     @handle_errors("export DPO training data")
     def handle_export_dpo(
         self,
@@ -359,7 +359,7 @@ class TrainingHandler(BaseHandler):
             return error_response(safe_error_message(e, "DPO export"), 500)
 
     @require_permission("training:export")
-    @rate_limit(rpm=10, limiter_name="training_export")
+    @rate_limit(requests_per_minute=10, limiter_name="training_export")
     @handle_errors("export Gauntlet training data")
     def handle_export_gauntlet(
         self,
@@ -451,7 +451,7 @@ class TrainingHandler(BaseHandler):
             logger.exception("training_gauntlet_export_failed error=%s", e)
             return error_response(safe_error_message(e, "Gauntlet export"), 500)
 
-    @rate_limit(rpm=30, limiter_name="training_stats")
+    @rate_limit(requests_per_minute=30, limiter_name="training_stats")
     @handle_errors("get training stats")
     @require_permission("training:read")
     def handle_stats(
@@ -508,7 +508,7 @@ class TrainingHandler(BaseHandler):
 
         return json_response(stats)
 
-    @rate_limit(rpm=60, limiter_name="training_formats")
+    @rate_limit(requests_per_minute=60, limiter_name="training_formats")
     @require_permission("training:read")
     def handle_formats(
         self,
@@ -597,7 +597,7 @@ class TrainingHandler(BaseHandler):
                 return None
         return self._exporters["pipeline"]
 
-    @rate_limit(rpm=60, limiter_name="training_jobs")
+    @rate_limit(requests_per_minute=60, limiter_name="training_jobs")
     @require_permission("training:read")
     def handle_list_jobs(
         self,
@@ -727,7 +727,7 @@ class TrainingHandler(BaseHandler):
             return error_response(safe_error_message(e, "cancel training job"), 500)
 
     @require_permission("training:export")
-    @rate_limit(rpm=10, limiter_name="training_job_export")
+    @rate_limit(requests_per_minute=10, limiter_name="training_job_export")
     def _export_job_data(
         self,
         job_id: str,
@@ -762,7 +762,7 @@ class TrainingHandler(BaseHandler):
             return error_response(safe_error_message(e, "export training data"), 500)
 
     @require_permission("training:create")
-    @rate_limit(rpm=5, limiter_name="training_job_start")
+    @rate_limit(requests_per_minute=5, limiter_name="training_job_start")
     def _start_job(
         self,
         job_id: str,
@@ -798,7 +798,7 @@ class TrainingHandler(BaseHandler):
             return error_response(safe_error_message(e, "start training"), 500)
 
     @require_permission("training:create")
-    @rate_limit(rpm=10, limiter_name="training_job_complete")
+    @rate_limit(requests_per_minute=10, limiter_name="training_job_complete")
     def _complete_job(
         self,
         job_id: str,

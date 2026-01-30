@@ -219,7 +219,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                     channel_id=channel_id,
                 )
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
             logger.error(f"Google Chat send_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
@@ -278,7 +278,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                     channel_id=channel_id,
                 )
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
             logger.error(f"Google Chat update_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
@@ -313,7 +313,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                     return True
                 return False
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
             logger.error(f"Google Chat delete_message error: {e}")
             return False
@@ -775,7 +775,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                 self._record_success()
                 return spaces
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
             logger.error(f"Google Chat list_spaces error: {e}")
             return []

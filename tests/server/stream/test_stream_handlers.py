@@ -419,13 +419,9 @@ class TestAgentConsistencyHandler:
             with patch("aiohttp.web.json_response") as mock_response:
                 mock_response.return_value = MagicMock()
                 # FlipDetector is imported inside the handler, so patch at the source
-                with patch(
-                    "aragora.insights.flip_detector.FlipDetector"
-                ) as mock_fd:
+                with patch("aragora.insights.flip_detector.FlipDetector") as mock_fd:
                     mock_fd.return_value.get_agent_consistency.return_value = None
-                    with patch(
-                        "aragora.persistence.db_config.get_db_path"
-                    ) as mock_db:
+                    with patch("aragora.persistence.db_config.get_db_path") as mock_db:
                         mock_db.return_value = ":memory:"
                         await handler._handle_agent_consistency(request)
 
@@ -548,9 +544,7 @@ class TestLaboratoryEmergentTraitsHandler:
         with patch("aiohttp.web.json_response") as mock_response:
             mock_response.return_value = MagicMock()
             await handler._handle_laboratory_emergent_traits(request)
-            mock_persona.get_emergent_traits.assert_called_once_with(
-                min_confidence=0.7, limit=25
-            )
+            mock_persona.get_emergent_traits.assert_called_once_with(min_confidence=0.7, limit=25)
 
 
 class TestLaboratoryCrossPollinationsHandler:
@@ -601,15 +595,15 @@ class TestMetricsHandler:
         with patch("aiohttp.web.Response") as mock_response:
             mock_response.return_value = MagicMock()
             # get_prometheus_metrics is imported inside the handler from aragora.server.prometheus
-            with patch(
-                "aragora.server.prometheus.get_prometheus_metrics"
-            ) as mock_metrics:
+            with patch("aragora.server.prometheus.get_prometheus_metrics") as mock_metrics:
                 mock_metrics.return_value = "# HELP test_metric Test\n"
                 await handler._handle_metrics(request)
 
             call_kwargs = mock_response.call_args[1]
-            assert "prometheus" in call_kwargs.get("content_type", "").lower() or \
-                   call_kwargs.get("text") == "# HELP test_metric Test\n"
+            assert (
+                "prometheus" in call_kwargs.get("content_type", "").lower()
+                or call_kwargs.get("text") == "# HELP test_metric Test\n"
+            )
 
     @pytest.mark.asyncio
     async def test_handles_missing_prometheus_client(self, handler, request_factory):

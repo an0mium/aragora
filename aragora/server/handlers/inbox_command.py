@@ -30,6 +30,7 @@ from aiohttp import web
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.utils.auth import get_auth_context, UnauthorizedError
+from aragora.server.handlers.utils import parse_json_body
 from aragora.services import (
     ServiceRegistry,
     EmailPrioritizer,
@@ -296,7 +297,9 @@ class InboxCommandHandler:
             await self._check_permission(request, "inbox:write")
             self._ensure_services()
 
-            body = await request.json()
+            body, err = await parse_json_body(request, context="inbox_quick_action")
+            if err:
+                return err
             action = body.get("action")
             email_ids = body.get("emailIds", [])
             params = body.get("params", {})
@@ -346,7 +349,9 @@ class InboxCommandHandler:
             await self._check_permission(request, "inbox:write")
             self._ensure_services()
 
-            body = await request.json()
+            body, err = await parse_json_body(request, context="inbox_bulk_action")
+            if err:
+                return err
             action = body.get("action")
             filter_type = body.get("filter")
             params = body.get("params", {})
@@ -451,7 +456,9 @@ class InboxCommandHandler:
             await self._check_permission(request, "inbox:write")
             self._ensure_services()
 
-            body = await request.json()
+            body, err = await parse_json_body(request, context="inbox_reprioritize")
+            if err:
+                return err
             email_ids = body.get("emailIds")
             force_tier = body.get("force_tier")
 
@@ -1056,7 +1063,13 @@ class InboxCommandHandler:
         email_ids: Optional[list[str]],
         force_tier: str | None = None,
     ) -> dict[str, Any]:
-        """Reprioritize emails using AI."""
+        """
+        Reprioritize emails using AI.
+
+        Uses batch operations to avoid N+1 query patterns:
+        1. Batch fetch emails using gmail_connector.get_messages()
+        2. Batch score using prioritizer.score_emails() (loads sender profiles once)
+        """
         from aragora.services.email_prioritization import ScoringTier
 
         if not self.prioritizer:
@@ -1088,70 +1101,98 @@ class InboxCommandHandler:
         changes: list[dict[str, Any]] = []
         processed_count = 0
 
-        # Re-score each email
-        for email_id, cached_email in emails_to_process:
+        # Build map of email_id -> cached_email for quick lookup
+        cache_map = {eid: cached for eid, cached in emails_to_process if cached}
+        email_ids_to_fetch = list(cache_map.keys())
+
+        if not email_ids_to_fetch:
+            return {"count": 0, "changes": []}
+
+        # Batch fetch emails from Gmail if connector available
+        # This reduces N individual get_message() calls to 1 batch call
+        email_messages = []
+        if self.gmail_connector:
+            try:
+                email_messages = await self.gmail_connector.get_messages(email_ids_to_fetch)
+            except Exception as e:
+                logger.warning(f"Batch email fetch failed: {e}")
+                # Fall back to individual fetches on batch failure
+                for eid in email_ids_to_fetch:
+                    try:
+                        msg = await self.gmail_connector.get_message(eid)
+                        if msg:
+                            email_messages.append(msg)
+                    except Exception as fetch_err:
+                        logger.debug(f"Could not fetch email {eid}: {fetch_err}")
+
+        if not email_messages:
+            # No Gmail connector or all fetches failed
+            return {
+                "count": len(email_ids_to_fetch),
+                "changes": [],
+                "tier_used": force_tier or "auto",
+            }
+
+        # Batch score all emails at once
+        # This loads sender profiles in bulk (1-2 queries instead of N)
+        try:
+            results = await self.prioritizer.score_emails(email_messages, force_tier=scoring_tier)
+        except Exception as e:
+            logger.warning(f"Batch scoring failed: {e}")
+            return {
+                "count": 0,
+                "changes": [],
+                "error": f"Batch scoring failed: {e}",
+            }
+
+        # Process results and update cache
+        for email_msg, result in zip(email_messages, results):
+            email_id = email_msg.id
+            cached_email = cache_map.get(email_id)
             if not cached_email:
+                processed_count += 1
                 continue
 
             old_priority = cached_email.get("priority", "medium")
             old_confidence = cached_email.get("confidence", 0.5)
 
-            try:
-                # Get fresh emails from Gmail if connector available
-                if self.gmail_connector:
-                    try:
-                        email_msg = await self.gmail_connector.get_message(email_id)
-                        if email_msg:
-                            result = await self.prioritizer.score_email(
-                                email_msg, force_tier=scoring_tier
-                            )
+            new_priority = result.priority.name.lower()
+            new_confidence = result.confidence
 
-                            new_priority = result.priority.name.lower()
-                            new_confidence = result.confidence
+            # Update cache (get, modify, set pattern for TTL cache)
+            updated_email = dict(cached_email)
+            updated_email.update(
+                {
+                    "priority": new_priority,
+                    "confidence": new_confidence,
+                    "reasoning": result.rationale,
+                    "tier_used": result.tier_used.value,
+                    "scores": {
+                        "sender": result.sender_score,
+                        "urgency": result.content_urgency_score,
+                        "context": result.context_relevance_score,
+                        "time_sensitivity": result.time_sensitivity_score,
+                    },
+                    "suggested_labels": result.suggested_labels,
+                    "auto_archive": result.auto_archive,
+                }
+            )
+            _email_cache.set(email_id, updated_email)
 
-                            # Update cache (get, modify, set pattern for TTL cache)
-                            updated_email = dict(cached_email)
-                            updated_email.update(
-                                {
-                                    "priority": new_priority,
-                                    "confidence": new_confidence,
-                                    "reasoning": result.rationale,
-                                    "tier_used": result.tier_used.value,
-                                    "scores": {
-                                        "sender": result.sender_score,
-                                        "urgency": result.content_urgency_score,
-                                        "context": result.context_relevance_score,
-                                        "time_sensitivity": result.time_sensitivity_score,
-                                    },
-                                    "suggested_labels": result.suggested_labels,
-                                    "auto_archive": result.auto_archive,
-                                }
-                            )
-                            _email_cache.set(email_id, updated_email)
+            # Track if priority changed
+            if old_priority != new_priority:
+                changes.append(
+                    {
+                        "email_id": email_id,
+                        "old_priority": old_priority,
+                        "new_priority": new_priority,
+                        "old_confidence": old_confidence,
+                        "new_confidence": new_confidence,
+                        "tier_used": result.tier_used.value,
+                    }
+                )
 
-                            # Track if priority changed
-                            if old_priority != new_priority:
-                                changes.append(
-                                    {
-                                        "email_id": email_id,
-                                        "old_priority": old_priority,
-                                        "new_priority": new_priority,
-                                        "old_confidence": old_confidence,
-                                        "new_confidence": new_confidence,
-                                        "tier_used": result.tier_used.value,
-                                    }
-                                )
-
-                            processed_count += 1
-                    except Exception as e:
-                        logger.debug(f"Could not fetch email {email_id}: {e}")
-                        processed_count += 1
-                else:
-                    # No Gmail connector - just mark as processed
-                    processed_count += 1
-
-            except Exception as e:
-                logger.warning(f"Failed to reprioritize email {email_id}: {e}")
+            processed_count += 1
 
         return {
             "count": processed_count,

@@ -253,6 +253,7 @@ import {
   EvolutionAPI,
   OpenApiAPI,
   ProbesAPI,
+  FactsAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -771,6 +772,12 @@ export class AragoraClient {
   /** Probes API - Capability probing. */
   readonly probes: ProbesAPI;
 
+  /**
+   * Facts API namespace.
+   * Provides CRUD operations for knowledge facts and relationships.
+   */
+  readonly facts: FactsAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -893,6 +900,7 @@ export class AragoraClient {
     this.evolution = new EvolutionAPI(this);
     this.openapi = new OpenApiAPI(this);
     this.probes = new ProbesAPI(this);
+    this.facts = new FactsAPI(this);
   }
 
   // ===========================================================================

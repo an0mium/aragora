@@ -299,7 +299,7 @@ class RecoveryStrategy:
                         # Retry after token refresh
                         attempt += 1
                         continue
-                    except Exception as refresh_error:
+                    except (OSError, ValueError, RuntimeError, TypeError) as refresh_error:
                         logger.error(
                             f"[{self.connector_name}] Token refresh failed: {refresh_error}"
                         )
@@ -313,7 +313,7 @@ class RecoveryStrategy:
                     if self.config.escalation_callback:
                         try:
                             self.config.escalation_callback(e, self._consecutive_failures)
-                        except Exception as cb_error:
+                        except (OSError, ValueError, RuntimeError, TypeError) as cb_error:
                             logger.error(f"Escalation callback failed: {cb_error}")
                     # Fall through to fail
 

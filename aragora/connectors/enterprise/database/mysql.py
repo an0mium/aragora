@@ -358,7 +358,7 @@ class MySQLConnector(EnterpriseConnector):
                                     }
                                 )
 
-                    except Exception as e:
+                    except (ValueError, RuntimeError, OSError) as e:
                         logger.debug(f"Search failed on {table}: {e}")
                         continue
 
@@ -409,7 +409,7 @@ class MySQLConnector(EnterpriseConnector):
 
                     return None
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -508,7 +508,7 @@ class MySQLConnector(EnterpriseConnector):
                     # Process through CDC manager
                     await self.cdc_manager.process_event(event)
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"[MySQL CDC] Binlog processing error: {e}")
             raise
         finally:
@@ -554,7 +554,7 @@ class MySQLConnector(EnterpriseConnector):
                 "host": self.host,
                 "binlog_cdc_enabled": self.enable_binlog_cdc,
             }
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:
             return {
                 "healthy": False,
                 "error": str(e),

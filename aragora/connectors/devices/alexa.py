@@ -172,7 +172,7 @@ class AlexaConnector(DeviceConnector):
             self._initialized = True
             logger.info("Alexa connector initialized successfully")
             return True
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Alexa connector initialization failed: {e}")
             return False
 
@@ -316,7 +316,7 @@ class AlexaConnector(DeviceConnector):
 
             return True
 
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             logger.warning(f"Error verifying skill ID: {e}")
             return False
 
@@ -554,7 +554,7 @@ class AlexaConnector(DeviceConnector):
                 card_content=f"Topic: {topic}\nStatus: In Progress",
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.error(f"Failed to start debate: {e}")
             return VoiceDeviceResponse(
                 text="I'm sorry, I couldn't start the debate right now. Please try again later.",
@@ -577,7 +577,7 @@ class AlexaConnector(DeviceConnector):
                 card_content="Recommendation: Option A\nConfidence: High\nConsensus: 4/5 agents",
             )
 
-        except Exception as e:
+        except (RuntimeError, LookupError, OSError) as e:
             logger.error(f"Failed to get decision: {e}")
             return VoiceDeviceResponse(
                 text="I couldn't retrieve your decision right now. Please try again later.",
@@ -601,7 +601,7 @@ class AlexaConnector(DeviceConnector):
                 reprompt="Which debate would you like to hear about?",
             )
 
-        except Exception as e:
+        except (RuntimeError, LookupError, OSError) as e:
             logger.error(f"Failed to list debates: {e}")
             return VoiceDeviceResponse(
                 text="I couldn't retrieve your debates right now. Please try again later.",
@@ -625,7 +625,7 @@ class AlexaConnector(DeviceConnector):
                 card_content="Round: 3/5\nPhase: Discussion\nTrending: Option B",
             )
 
-        except Exception as e:
+        except (RuntimeError, LookupError, OSError) as e:
             logger.error(f"Failed to get status: {e}")
             return VoiceDeviceResponse(
                 text="I couldn't get the debate status right now. Please try again later.",
@@ -710,7 +710,7 @@ class AlexaConnector(DeviceConnector):
                 logger.warning(f"Failed to send proactive notification: {error}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error sending proactive notification: {e}")
             return False
 
@@ -793,7 +793,7 @@ class AlexaConnector(DeviceConnector):
             logger.info(f"Linked Alexa user to Aragora user {aragora_user_id}")
             return True
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to link account: {e}")
             return False
 
@@ -815,7 +815,7 @@ class AlexaConnector(DeviceConnector):
 
             return store.delete_device_session(device_id)
 
-        except Exception as e:
+        except (ImportError, RuntimeError) as e:
             logger.error(f"Failed to unlink account: {e}")
             return False
 

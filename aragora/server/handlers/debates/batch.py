@@ -54,7 +54,7 @@ class BatchOperationsMixin:
     @with_timeout_sync(90.0)
     @require_permission("debates:create")
     @user_rate_limit(action="debate_create")
-    @rate_limit(rpm=10, limiter_name="batch_submit")
+    @rate_limit(requests_per_minute=10, limiter_name="batch_submit")
     @handle_errors("submit batch")
     def _submit_batch(self: _DebatesHandlerProtocol, handler: Any) -> HandlerResult:
         """Submit a batch of debates for processing.

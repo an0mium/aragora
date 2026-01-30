@@ -176,7 +176,7 @@ class MigrationRunner:
         try:
             self._backend.execute_write(f"SELECT pg_advisory_unlock({MIGRATION_LOCK_ID})")
             logger.info("Released migration advisory lock")
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             # Log but don't raise - lock will be released on connection close anyway
             logger.warning(f"Failed to release migration lock: {e}")
 
@@ -265,7 +265,7 @@ class MigrationRunner:
                     applied.append(migration)
                     logger.info(f"Applied migration {migration.version}")
 
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError) as e:
                     logger.error(f"Failed to apply migration {migration.version}: {e}")
                     raise
         finally:
@@ -336,7 +336,7 @@ class MigrationRunner:
                     rolled_back.append(migration)
                     logger.info(f"Rolled back migration {migration.version}")
 
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError) as e:
                     logger.error(f"Failed to rollback migration {migration.version}: {e}")
                     raise
 

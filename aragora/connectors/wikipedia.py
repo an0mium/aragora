@@ -216,7 +216,7 @@ class WikipediaConnector(BaseConnector):
         except httpx.HTTPStatusError as e:
             logger.error(f"Wikipedia API error: {e.response.status_code}")
             return []
-        except Exception as e:
+        except (httpx.RequestError, ValueError, KeyError) as e:
             logger.error(f"Wikipedia search failed: {e}")
             return []
 
@@ -270,7 +270,7 @@ class WikipediaConnector(BaseConnector):
         except httpx.TimeoutException:
             logger.warning(f"Wikipedia fetch timeout for: {title}")
             return None
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError, ValueError, KeyError) as e:
             logger.error(f"Wikipedia fetch failed for {title}: {e}")
             return None
 
@@ -345,7 +345,7 @@ class WikipediaConnector(BaseConnector):
                     "description": data.get("description", ""),
                 },
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to parse Wikipedia response: {e}")
             return None
 
@@ -389,7 +389,13 @@ class WikipediaConnector(BaseConnector):
                 }
                 for s in sections
             ]
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            httpx.TimeoutException,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"Failed to get sections for {title}: {e}")
             return []
 
@@ -430,6 +436,12 @@ class WikipediaConnector(BaseConnector):
                 return [link.get("title") for link in links if link.get("title")]
 
             return []
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            httpx.TimeoutException,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"Failed to get related articles for {title}: {e}")
             return []

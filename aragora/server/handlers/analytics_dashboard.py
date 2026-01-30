@@ -147,7 +147,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         return normalized in self.ROUTES
 
     @require_permission("analytics:read")
-    @rate_limit(rpm=60)
+    @rate_limit(requests_per_minute=60)
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         normalized = strip_version_prefix(path)
@@ -914,10 +914,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             ]
         }
         """
-        try:
-            limit = min(int(query_params.get("limit", "20")), 100)
-        except ValueError:
-            limit = 20
+        limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
 
         agent_filter = query_params.get("agent")
         type_filter = query_params.get("flip_type")

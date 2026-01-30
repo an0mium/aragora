@@ -204,7 +204,7 @@ class KMCheckpointHandler(BaseHandler):
             # Fail open for backwards compatibility but log the error
             return None
 
-    @rate_limit(rpm=20)
+    @rate_limit(requests_per_minute=20)
     async def _list_checkpoints(self, handler) -> HandlerResult:
         """List all KM checkpoints.
 
@@ -256,7 +256,7 @@ class KMCheckpointHandler(BaseHandler):
             logger.error("IO error listing checkpoints: %s", e)
             return error_response("Failed to list checkpoints", status=500)
 
-    @rate_limit(rpm=5, limiter_name="km_checkpoint_write")
+    @rate_limit(requests_per_minute=5, limiter_name="km_checkpoint_write")
     async def _create_checkpoint(self, handler) -> HandlerResult:
         """Create a new KM checkpoint.
 
@@ -340,7 +340,7 @@ class KMCheckpointHandler(BaseHandler):
             # Check SLO compliance
             check_and_record_slo("km_checkpoint", latency_ms)
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def _get_checkpoint(self, handler: Any, name: str) -> HandlerResult:
         """Get checkpoint details by name.
 
@@ -384,7 +384,7 @@ class KMCheckpointHandler(BaseHandler):
             logger.error("Failed to get checkpoint: %s", e)
             return error_response("Checkpoint service unavailable", status=503)
 
-    @rate_limit(rpm=5, limiter_name="km_checkpoint_write")
+    @rate_limit(requests_per_minute=5, limiter_name="km_checkpoint_write")
     async def _delete_checkpoint(self, handler: Any, name: str) -> HandlerResult:
         """Delete a checkpoint.
 
@@ -419,7 +419,7 @@ class KMCheckpointHandler(BaseHandler):
             latency = time.perf_counter() - start_time
             record_checkpoint_operation("delete", success, latency)
 
-    @rate_limit(rpm=3, limiter_name="km_checkpoint_restore")
+    @rate_limit(requests_per_minute=3, limiter_name="km_checkpoint_restore")
     async def _restore_checkpoint(self, handler: Any, name: str) -> HandlerResult:
         """Restore KM state from a checkpoint.
 
@@ -501,7 +501,7 @@ class KMCheckpointHandler(BaseHandler):
             # Check SLO compliance
             check_and_record_slo("km_checkpoint", latency_ms)
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def _compare_checkpoint(self, handler: Any, name: str) -> HandlerResult:
         """Compare checkpoint with current KM state.
 
@@ -566,7 +566,7 @@ class KMCheckpointHandler(BaseHandler):
             latency = time.perf_counter() - start_time
             record_checkpoint_operation("compare", success, latency)
 
-    @rate_limit(rpm=10, limiter_name="km_checkpoint_compare")
+    @rate_limit(requests_per_minute=10, limiter_name="km_checkpoint_compare")
     async def _compare_checkpoints(self, handler: Any) -> HandlerResult:
         """Compare two checkpoints.
 

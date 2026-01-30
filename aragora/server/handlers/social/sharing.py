@@ -310,7 +310,7 @@ class SharingHandler(BaseHandler):
 
         return json_response(settings.to_dict())
 
-    @rate_limit(rpm=30, limiter_name="share_update")
+    @rate_limit(requests_per_minute=30, limiter_name="share_update")
     @handle_errors("update share settings")
     def _update_share_settings(self, debate_id: str, handler) -> HandlerResult:
         """Update sharing settings for a debate.
@@ -402,7 +402,7 @@ class SharingHandler(BaseHandler):
             }
         )
 
-    @rate_limit(rpm=60, limiter_name="shared_debate_access")
+    @rate_limit(requests_per_minute=60, limiter_name="shared_debate_access")
     @handle_errors("get shared debate")
     def _get_shared_debate(self, token: str, query_params: dict) -> HandlerResult:
         """Access a shared debate via token.

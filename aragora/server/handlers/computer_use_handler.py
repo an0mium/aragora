@@ -242,7 +242,7 @@ class ComputerUseHandler(BaseHandler):
 
         return json_response({"task": task})
 
-    @rate_limit(rpm=10, limiter_name="computer_use_create")
+    @rate_limit(requests_per_minute=10, limiter_name="computer_use_create")
     @handle_errors("create task")
     @log_request("create computer use task")
     def _handle_create_task(self, handler: Any) -> HandlerResult:
@@ -417,7 +417,7 @@ class ComputerUseHandler(BaseHandler):
             }
         )
 
-    @rate_limit(rpm=10, limiter_name="computer_use_policy")
+    @rate_limit(requests_per_minute=10, limiter_name="computer_use_policy")
     @handle_errors("create policy")
     @log_request("create computer use policy")
     def _handle_create_policy(self, handler: Any) -> HandlerResult:

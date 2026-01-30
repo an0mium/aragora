@@ -551,7 +551,7 @@ class PostgresControlPlanePolicyStore:
 
     def get_policy(self, policy_id: str) -> ControlPlanePolicy | None:
         """Get a policy by ID."""
-        rows = self._backend.execute_read(  # type: ignore[attr-defined]
+        rows = self._backend.execute_read(
             "SELECT * FROM control_plane_policies WHERE id = $1",
             (policy_id,),
         )
@@ -579,7 +579,7 @@ class PostgresControlPlanePolicyStore:
         )
         params.extend([limit, offset])
 
-        rows = self._backend.execute_read(query, tuple(params))  # type: ignore[attr-defined]
+        rows = self._backend.execute_read(query, tuple(params))
         policies = [self._row_to_policy(row) for row in rows]
 
         # Filter by workspace in Python (JSONB array contains)
@@ -664,22 +664,22 @@ class PostgresControlPlanePolicyStore:
 
     def delete_policy(self, policy_id: str) -> bool:
         """Delete a policy."""
-        result = self._backend.execute_write(  # type: ignore[func-returns-value]
+        result = self._backend.execute_write(
             "DELETE FROM control_plane_policies WHERE id = $1",
             (policy_id,),
         )
-        deleted = result > 0 if isinstance(result, int) else True
+        deleted = int(result) > 0 if result is not None else True
         if deleted:
             logger.info("control_plane_policy_deleted", policy_id=policy_id)
         return deleted
 
     def toggle_policy(self, policy_id: str, enabled: bool) -> bool:
         """Enable or disable a policy."""
-        result = self._backend.execute_write(  # type: ignore[func-returns-value]
+        result = self._backend.execute_write(
             "UPDATE control_plane_policies SET enabled = $1 WHERE id = $2",
             (enabled, policy_id),
         )
-        return result > 0 if isinstance(result, int) else True
+        return int(result) > 0 if result is not None else True
 
     def create_violation(self, violation: PolicyViolation) -> PolicyViolation:
         """Record a policy violation."""
@@ -755,7 +755,7 @@ class PostgresControlPlanePolicyStore:
         query += f" ORDER BY timestamp DESC LIMIT ${param_idx} OFFSET ${param_idx + 1}"
         params.extend([limit, offset])
 
-        rows = self._backend.execute_read(query, tuple(params))  # type: ignore[attr-defined]
+        rows = self._backend.execute_read(query, tuple(params))
         return [self._row_to_violation_dict(row) for row in rows]
 
     def count_violations(
@@ -784,7 +784,7 @@ class PostgresControlPlanePolicyStore:
 
         query += " GROUP BY violation_type"
 
-        rows = self._backend.execute_read(query, tuple(params))  # type: ignore[attr-defined]
+        rows = self._backend.execute_read(query, tuple(params))
         return {row["violation_type"]: row["count"] for row in rows}
 
     def update_violation_status(
@@ -796,7 +796,7 @@ class PostgresControlPlanePolicyStore:
     ) -> bool:
         """Update violation status."""
         resolved_at = datetime.now(timezone.utc).isoformat() if status == "resolved" else None
-        result = self._backend.execute_write(  # type: ignore[func-returns-value]
+        result = self._backend.execute_write(
             """
             UPDATE control_plane_violations
             SET status = $1, resolved_at = $2, resolved_by = $3, resolution_notes = $4
@@ -804,7 +804,7 @@ class PostgresControlPlanePolicyStore:
             """,
             (status, resolved_at, resolved_by, resolution_notes, violation_id),
         )
-        return result > 0 if isinstance(result, int) else True
+        return int(result) > 0 if result is not None else True
 
     def _row_to_policy(self, row: Any) -> ControlPlanePolicy:
         """Convert a database row to a ControlPlanePolicy."""

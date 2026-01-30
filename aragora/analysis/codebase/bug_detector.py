@@ -1156,7 +1156,7 @@ class BugDetector:
         """Scan a single file for bugs."""
         try:
             content = file_path.read_text(encoding="utf-8", errors="ignore")
-        except Exception as e:
+        except OSError as e:
             logger.debug(f"Failed to read {file_path}: {e}")
             return [], 0, ""
 
@@ -1181,7 +1181,7 @@ class BugDetector:
             try:
                 pattern_bugs = pattern.detect(content, str(file_path), ast_tree)
                 bugs.extend(pattern_bugs)
-            except Exception as e:
+            except (re.error, ValueError, AttributeError) as e:
                 logger.debug(f"Pattern {pattern.name} failed on {file_path}: {e}")
 
         return bugs, lines, language
@@ -1254,7 +1254,7 @@ EXPLANATION: <brief explanation>"""
 
         except ImportError:
             logger.warning("[BugDetector] Debate arena not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"[BugDetector] Agent verification failed: {e}")
 
         return bugs

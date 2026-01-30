@@ -54,7 +54,7 @@ class SearchOperationsMixin:
     """Mixin providing search operations for DebatesHandler."""
 
     @require_permission("debates:read")
-    @rate_limit(rpm=30, limiter_name="debates_search")
+    @rate_limit(requests_per_minute=30, limiter_name="debates_search")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_SEARCH, key_prefix="debates_search", skip_first=True)
     def _search_debates(

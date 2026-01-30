@@ -12,6 +12,7 @@ This eliminates ~150 lines of duplicate code per agent.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, AsyncGenerator, Optional
 
@@ -302,7 +303,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                 return content
         except (AgentAPIError, AgentCircuitOpenError):
             raise  # Re-raise without double-recording
-        except Exception:
+        except (OSError, ValueError, TypeError, RuntimeError, asyncio.TimeoutError):
             # Record failure for unexpected errors
             if cb is not None:
                 cb.record_failure()

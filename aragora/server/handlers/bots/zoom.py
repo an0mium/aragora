@@ -120,7 +120,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -131,7 +131,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
 
         return None
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

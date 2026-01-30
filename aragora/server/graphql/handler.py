@@ -196,7 +196,7 @@ class GraphQLHandler(BaseHandler):
             headers={"Allow": "POST"},
         )
 
-    @rate_limit(rpm=60, limiter_name="graphql")
+    @rate_limit(requests_per_minute=60, limiter_name="graphql")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle POST requests (GraphQL execution).
 

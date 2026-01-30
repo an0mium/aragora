@@ -44,7 +44,7 @@ class FederationHandlerProtocol(Protocol):
 class FederationOperationsMixin:
     """Mixin providing federation operations for KnowledgeMoundHandler."""
 
-    @rate_limit(rpm=10, limiter_name="federation_admin")
+    @rate_limit(requests_per_minute=10, limiter_name="federation_admin")
     @handle_errors("register federated region")
     def _handle_register_region(self: FederationHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/federation/regions - Register a federated region."""
@@ -154,7 +154,7 @@ class FederationOperationsMixin:
             }
         )
 
-    @rate_limit(rpm=5, limiter_name="federation_sync")
+    @rate_limit(requests_per_minute=5, limiter_name="federation_sync")
     @handle_errors("sync to region")
     def _handle_sync_to_region(self: FederationHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/federation/sync/push - Sync to a region."""
@@ -221,7 +221,7 @@ class FederationOperationsMixin:
             }
         )
 
-    @rate_limit(rpm=5, limiter_name="federation_sync")
+    @rate_limit(requests_per_minute=5, limiter_name="federation_sync")
     @handle_errors("pull from region")
     def _handle_pull_from_region(self: FederationHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/federation/sync/pull - Pull from a region."""

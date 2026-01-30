@@ -231,7 +231,7 @@ class MemoryCoordinator:
                 reason="transaction_rollback",
             )
             return result.get("deleted", False)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
             logger.error("[coordinator] Continuum rollback failed: %s", e)
             return False
 
@@ -246,7 +246,7 @@ class MemoryCoordinator:
                 consensus_id=op.result,
                 cascade_dissents=True,
             )
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
             logger.error("[coordinator] Consensus rollback failed: %s", e)
             return False
 
@@ -261,7 +261,7 @@ class MemoryCoordinator:
                 debate_id=op.result,
                 cascade_critiques=True,
             )
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
             logger.error("[coordinator] Critique rollback failed: %s", e)
             return False
 
@@ -283,7 +283,7 @@ class MemoryCoordinator:
             else:
                 logger.warning("[coordinator] Mound has no delete method")
                 return False
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
             logger.error("[coordinator] Mound rollback failed: %s", e)
             return False
 
@@ -348,7 +348,7 @@ class MemoryCoordinator:
                 if op.status == WriteStatus.PENDING:
                     op.mark_failed("timeout")
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Transaction %s failed: %s", transaction.id, e)
             for op in transaction.operations:
                 if op.status == WriteStatus.PENDING:
@@ -484,7 +484,7 @@ class MemoryCoordinator:
                 op.mark_success(result)
                 return
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 if attempt < opts.max_retries:
                     await asyncio.sleep(opts.retry_delay_seconds)
                 else:
@@ -608,7 +608,7 @@ class MemoryCoordinator:
                         op.target,
                         op.id,
                     )
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 logger.error("[coordinator] Rollback failed for %s: %s", op.id, e)
 
         transaction.rolled_back = True

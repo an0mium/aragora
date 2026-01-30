@@ -41,6 +41,10 @@ class BaseDebateAgent(Agent):
     Extends the core Agent class with additional functionality
     for persona-based debate participation. Used by email agents,
     specialized domain agents, and other custom agent implementations.
+
+    Provides stub implementations for abstract methods from Agent,
+    allowing subclasses to focus on specialized analysis methods
+    without requiring LLM integration.
     """
 
     persona: str = ""
@@ -53,6 +57,7 @@ class BaseDebateAgent(Agent):
         role: AgentRole = "proposer",
         persona: str = "",
         focus: str = "",
+        system_prompt: str = "",
     ):
         """Initialize a base debate agent.
 
@@ -62,10 +67,59 @@ class BaseDebateAgent(Agent):
             role: Role in debate (proposer, critic, synthesizer, judge)
             persona: Character/style description for the agent
             focus: Specific area of focus for analysis
+            system_prompt: Optional system prompt for the agent
         """
         super().__init__(name=name, model=model, role=role)
         self.persona = persona or self.persona
         self.focus = focus or self.focus
+        if system_prompt:
+            self.system_prompt = system_prompt
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response - stub implementation for specialized agents.
+
+        Subclasses that need LLM generation should override this method.
+        Non-LLM agents use specialized analysis methods instead.
+
+        Args:
+            prompt: The prompt to generate a response for
+            context: Optional list of previous messages
+
+        Returns:
+            Empty string (stub implementation)
+        """
+        return ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        """Critique a proposal - stub implementation for specialized agents.
+
+        Subclasses that need critique functionality should override this method.
+        Non-LLM agents use specialized analysis methods instead.
+
+        Args:
+            proposal: The proposal/response to critique
+            task: The task or question being addressed
+            context: Optional conversation context
+            target_agent: Name of the agent whose proposal is being critiqued
+
+        Returns:
+            A minimal Critique object (stub implementation)
+        """
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200] if proposal else "",
+            issues=[],
+            suggestions=[],
+            severity=5.0,
+            reasoning="Stub critique - this agent uses specialized analysis methods",
+        )
 
 
 class CritiqueMixin:

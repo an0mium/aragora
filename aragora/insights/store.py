@@ -10,6 +10,7 @@ Stores and retrieves insights with:
 import asyncio
 import json
 import logging
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -246,7 +247,7 @@ class InsightStore(SQLiteStore):
                         ],
                     )
                     stored_count = len(all_insights)
-                except Exception as e:
+                except (sqlite3.Error, TypeError, ValueError) as e:
                     logger.error(f"Error batch storing insights: {e}")
 
             # Store agent performances in batch
@@ -313,7 +314,7 @@ class InsightStore(SQLiteStore):
                     try:
                         self._km_adapter.store_insight(insight)
                         logger.debug(f"Insight synced to Knowledge Mound: {insight.id}")
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:
                         logger.warning(f"Failed to sync insight to KM: {e}")
 
         return stored_count
@@ -722,7 +723,7 @@ class InsightStore(SQLiteStore):
             event_log = self.db_path.parent / "wisdom_events.jsonl"
             with open(event_log, "a") as f:
                 f.write(json.dumps(event_data) + "\n")
-        except Exception as e:
+        except OSError as e:
             # Never crash main loop due to logging, but note the failure
             logger.warning(f"Failed to log wisdom event: {e}")
 

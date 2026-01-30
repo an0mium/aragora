@@ -115,7 +115,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/queue/")
 
-    @rate_limit(rpm=60)
+    @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
     ) -> HandlerResult | None:
@@ -674,8 +674,8 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         if queue is None:
             return error_response("Queue not available", 503)
 
-        limit = min(int(query_params.get("limit", ["50"])[0]), 100)
-        offset = int(query_params.get("offset", ["0"])[0])
+        limit = safe_query_int(query_params, "limit", default=50, min_val=1, max_val=100)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=10000)
 
         try:
             from aragora.queue import JobStatus

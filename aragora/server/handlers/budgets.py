@@ -58,7 +58,7 @@ class BudgetHandler(BaseHandler):
             return True
         return False
 
-    @rate_limit(rpm=60)
+    @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self,
         path: str,

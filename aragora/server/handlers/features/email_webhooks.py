@@ -33,6 +33,7 @@ from ..base import (
     error_response,
     success_response,
 )
+from ..utils import parse_json_body
 from aragora.rbac.decorators import require_permission
 from aragora.connectors.chat.webhook_security import (
     should_allow_unverified,
@@ -909,7 +910,7 @@ class EmailWebhooksHandler(BaseHandler):
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
-                return await request.json()
+                return await parse_json_body(request, "email_webhooks._get_json_body")
             return request.json
         return {}
 

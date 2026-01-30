@@ -488,15 +488,9 @@ class TestGetSecurityEvents:
 
     def test_filter_by_user(self, audit_store: AuditStore):
         """Should filter security events by user."""
-        audit_store.log_event(
-            action="login.success", resource_type="session", user_id="user-1"
-        )
-        audit_store.log_event(
-            action="password.changed", resource_type="user", user_id="user-1"
-        )
-        audit_store.log_event(
-            action="login.success", resource_type="session", user_id="user-2"
-        )
+        audit_store.log_event(action="login.success", resource_type="session", user_id="user-1")
+        audit_store.log_event(action="password.changed", resource_type="user", user_id="user-1")
+        audit_store.log_event(action="login.success", resource_type="session", user_id="user-2")
 
         events = audit_store.get_security_events(user_id="user-1")
         assert len(events) == 2
@@ -504,12 +498,8 @@ class TestGetSecurityEvents:
 
     def test_filter_by_org(self, audit_store: AuditStore):
         """Should filter security events by org."""
-        audit_store.log_event(
-            action="api_key.created", resource_type="api_key", org_id="org-1"
-        )
-        audit_store.log_event(
-            action="api_key.created", resource_type="api_key", org_id="org-2"
-        )
+        audit_store.log_event(action="api_key.created", resource_type="api_key", org_id="org-1")
+        audit_store.log_event(action="api_key.created", resource_type="api_key", org_id="org-2")
 
         events = audit_store.get_security_events(org_id="org-1")
         assert len(events) == 1

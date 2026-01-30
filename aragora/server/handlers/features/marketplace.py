@@ -33,6 +33,7 @@ from ..base import (
     error_response,
     success_response,
 )
+from ..utils import parse_json_body
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -481,7 +482,7 @@ class MarketplaceHandler(BaseHandler):
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         if hasattr(request, "json"):
-            body = await request.json()
+            body = await parse_json_body(request, "marketplace._get_json_body")
             return body if isinstance(body, dict) else {}
         return {}
 

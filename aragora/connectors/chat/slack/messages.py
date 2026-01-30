@@ -198,7 +198,7 @@ class SlackMessagesMixin:
                     continue
                 logger.error(f"[slack] send_ephemeral network error after all retries: {e}")
 
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 last_error = str(e)
                 logger.exception(f"[slack] send_ephemeral unexpected error: {e}")
                 # Don't retry unexpected errors
@@ -335,7 +335,7 @@ class SlackMessagesMixin:
                 logger.error(f"[slack] response_url network error: {e}")
                 return SendMessageResponse(success=False, error=f"Connection error: {e}")
 
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 logger.exception(f"[slack] response_url unexpected error: {e}")
                 return SendMessageResponse(success=False, error=str(e))
 

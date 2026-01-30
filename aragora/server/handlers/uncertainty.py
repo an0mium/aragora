@@ -47,7 +47,7 @@ class UncertaintyHandler(BaseHandler):
         return False
 
     @require_permission("uncertainty:read")
-    @rate_limit(rpm=60)
+    @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
     ) -> HandlerResult | None:

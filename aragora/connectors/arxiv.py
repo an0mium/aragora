@@ -205,7 +205,7 @@ class ArXivConnector(BaseConnector):
         except ET.ParseError as e:
             logger.error(f"ArXiv XML parsing error: {e}")
             return []
-        except Exception as e:
+        except (OSError, UnicodeDecodeError, AttributeError) as e:
             logger.error(f"ArXiv search failed unexpectedly ({type(e).__name__}): {e}")
             return []
 
@@ -266,7 +266,7 @@ class ArXivConnector(BaseConnector):
         except ET.ParseError as e:
             logger.error(f"ArXiv XML parsing error for {evidence_id}: {e}")
             return None
-        except Exception as e:
+        except (OSError, UnicodeDecodeError, AttributeError) as e:
             logger.error(
                 f"ArXiv fetch failed unexpectedly for {evidence_id} ({type(e).__name__}): {e}"
             )
@@ -290,7 +290,7 @@ class ArXivConnector(BaseConnector):
                     evidence = self._parse_entry(entry, namespaces)
                     if evidence:
                         results.append(evidence)
-                except Exception as e:
+                except (KeyError, TypeError, ValueError, AttributeError) as e:
                     logger.debug(f"Error parsing ArXiv entry: {e}")
                     continue
 

@@ -30,6 +30,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -247,7 +248,7 @@ class ThreatIntelEnrichment:
         except ImportError:
             logger.debug("[threat_intel] ThreatIntelligenceService not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, OSError) as e:
             logger.warning(f"[threat_intel] Failed to create ThreatIntelligenceService: {e}")
             return None
 
@@ -262,7 +263,7 @@ class ThreatIntelEnrichment:
         except ImportError:
             logger.debug("[threat_intel] CVEClient not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, OSError) as e:
             logger.warning(f"[threat_intel] Failed to create CVEClient: {e}")
             return None
 
@@ -454,7 +455,7 @@ class ThreatIntelEnrichment:
                     "recommended_version": vuln.recommended_version,
                     "published_at": vuln.published_at.isoformat() if vuln.published_at else None,
                 }
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
             logger.debug(f"[threat_intel] CVE lookup failed for {cve_id}: {e}")
 
         return None
@@ -477,7 +478,7 @@ class ThreatIntelEnrichment:
                     description=f"Abuse score: {result.abuse_score}, Reports: {result.total_reports}",
                     tags=result.categories[:5] if result.categories else [],
                 )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
             logger.debug(f"[threat_intel] IP lookup failed for {ip}: {e}")
 
         return None
@@ -501,7 +502,7 @@ class ThreatIntelEnrichment:
                         result.details.get("description", "")[:200] if result.details else None
                     ),
                 )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
             logger.debug(f"[threat_intel] URL lookup failed: {e}")
 
         return None
@@ -526,7 +527,7 @@ class ThreatIntelEnrichment:
                     first_seen=result.first_seen,
                     last_seen=result.last_seen,
                 )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError, asyncio.TimeoutError) as e:
             logger.debug(f"[threat_intel] Hash lookup failed for {hash_value}: {e}")
 
         return None
@@ -784,7 +785,7 @@ class ThreatIntelEnrichment:
         if self._threat_client:
             try:
                 await self._threat_client.close()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.debug("Error closing threat intel client: %s", e)
 
 

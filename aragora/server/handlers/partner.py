@@ -51,7 +51,7 @@ class PartnerHandler(BaseHandler):
         return path in self.ROUTES or path.startswith("/api/v1/partners/keys/")
 
     @require_permission("partner:read")
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route requests to appropriate methods."""
         method = handler.command

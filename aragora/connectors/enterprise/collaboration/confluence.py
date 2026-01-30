@@ -358,7 +358,7 @@ class ConfluenceConnector(EnterpriseConnector):
                     break
                 start += limit
 
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError, OSError) as e:
                 logger.warning(f"[{self.name}] Failed to get comments for page {page_id}: {e}")
                 break
 
@@ -497,7 +497,7 @@ class ConfluenceConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, OSError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -538,7 +538,7 @@ class ConfluenceConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, OSError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

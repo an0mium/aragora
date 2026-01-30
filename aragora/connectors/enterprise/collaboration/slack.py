@@ -263,7 +263,7 @@ class SlackConnector(EnterpriseConnector):
             self._users_cache[user_id] = user
             return user
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"[{self.name}] Failed to get user {user_id}: {e}")
             return None
 
@@ -361,7 +361,7 @@ class SlackConnector(EnterpriseConnector):
 
             return replies
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"[{self.name}] Failed to get thread replies: {e}")
             return []
 
@@ -572,7 +572,7 @@ class SlackConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -620,7 +620,7 @@ class SlackConnector(EnterpriseConnector):
                 confidence=0.75,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -670,7 +670,7 @@ class SlackConnector(EnterpriseConnector):
                 "manual_away": data.get("manual_away", False),
                 "connection_count": data.get("connection_count", 0),
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.debug(f"[{self.name}] Failed to get presence for {user_id}: {e}")
             return {"presence": "away", "online": False}
 
@@ -706,7 +706,7 @@ class SlackConnector(EnterpriseConnector):
                 return None
             logger.debug(f"[{self.name}] Failed to lookup user by email {email}: {e}")
             return None
-        except Exception as e:
+        except (ValueError, KeyError) as e:
             logger.debug(f"[{self.name}] Failed to lookup user by email {email}: {e}")
             return None
 
@@ -758,7 +758,7 @@ class SlackConnector(EnterpriseConnector):
 
             return messages
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.debug(f"[{self.name}] Message search failed: {e}")
             return []
 
@@ -783,7 +783,7 @@ class SlackConnector(EnterpriseConnector):
                 f"[{self.name}] Authenticated as {data.get('user')} in workspace {data.get('team')}"
             )
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.error(f"[{self.name}] Authentication failed: {e}")
             return False
 
@@ -825,7 +825,7 @@ class SlackConnector(EnterpriseConnector):
 
             return channels
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.debug(f"[{self.name}] Failed to get channels for user {user_id}: {e}")
             return []
 
@@ -868,7 +868,7 @@ class SlackConnector(EnterpriseConnector):
 
             return data.get("ts")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.error(f"[{self.name}] Failed to post message: {e}")
             return None
 

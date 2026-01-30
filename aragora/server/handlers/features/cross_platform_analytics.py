@@ -40,6 +40,7 @@ from ..base import (
     success_response,
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
+from ..utils import parse_json_body
 
 logger = logging.getLogger(__name__)
 
@@ -1162,7 +1163,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
-                return await request.json()
+                return await parse_json_body(request, "cross_platform_analytics._get_json_body")
             return request.json
         return {}
 

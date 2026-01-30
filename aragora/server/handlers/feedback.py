@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     ServerContext,
     error_response,
+    get_clamped_int_param,
     json_response,
 )
 
@@ -351,7 +352,7 @@ async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
 
     try:
         query = ctx.get("query", {})
-        days = int(query.get("days", 30))
+        days = get_clamped_int_param(query, "days", 30, min_val=1, max_val=365)
         store = get_feedback_store()
         summary = store.get_nps_summary(days)
         return json_response(summary)

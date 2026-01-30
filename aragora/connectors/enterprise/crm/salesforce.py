@@ -614,7 +614,7 @@ class SalesforceConnector(EnterpriseConnector):
                     if items_yielded % batch_size == 0:
                         await asyncio.sleep(0)
 
-            except Exception as e:
+            except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 logger.error(f"[{self.name}] Failed to sync {object_name}: {e}")
 
         # Update cursor for next sync
@@ -672,7 +672,7 @@ class SalesforceConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -711,7 +711,7 @@ class SalesforceConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

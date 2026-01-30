@@ -293,7 +293,7 @@ class CVEClient:
             cve_data = vulnerabilities[0].get("cve", {})
             return self._parse_nvd_cve(cve_data)
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("nvd")
             logger.error(f"[CVEClient] NVD query failed: {e}")
             return None
@@ -397,7 +397,7 @@ class CVEClient:
 
             return self._parse_osv_vuln(data)
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("osv")
             logger.error(f"[CVEClient] OSV query failed: {e}")
             return None
@@ -448,7 +448,7 @@ class CVEClient:
 
             return findings
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("osv")
             logger.error(f"[CVEClient] OSV package query failed: {e}")
             return []
@@ -629,7 +629,7 @@ class CVEClient:
 
             return findings
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TimeoutError) as e:
             self._record_failure("github")
             logger.error(f"[CVEClient] GitHub advisory query failed: {e}")
             return []

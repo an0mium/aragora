@@ -254,7 +254,7 @@ class EHRAdapter(ABC):
                 self._smart_config = SMARTConfiguration.from_dict(response.json())
                 logger.debug(f"Discovered SMART configuration from {discovery_url}")
                 return
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError) as e:
             logger.debug(f"SMART discovery failed: {e}")
 
         # Fallback: try FHIR metadata endpoint
@@ -271,7 +271,7 @@ class EHRAdapter(ABC):
                     self._smart_config = security
                     logger.debug("Extracted SMART config from FHIR metadata")
                     return
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError) as e:
             logger.debug(f"FHIR metadata fetch failed: {e}")
 
         # Use configured endpoints as fallback
@@ -301,7 +301,7 @@ class EHRAdapter(ABC):
                         authorization_endpoint=extensions.get("authorize", ""),
                         token_endpoint=extensions.get("token", ""),
                     )
-        except Exception as e:
+        except (KeyError, IndexError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to parse SMART configuration from capability statement: {e}")
         return None
 
@@ -511,7 +511,7 @@ class EHRAdapter(ABC):
             response.raise_for_status()
             return response.json() if response.content else {}
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             self._errors_count += 1
             logger.error(f"EHR request failed: {method} {path}: {e}")
             raise

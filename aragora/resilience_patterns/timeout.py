@@ -122,7 +122,7 @@ def with_timeout(
                 if config.on_timeout:
                     try:
                         config.on_timeout(operation)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                         logger.warning(f"Timeout callback error for {operation}: {e}")
 
                 logger.warning(message)
@@ -172,7 +172,7 @@ def with_timeout_sync(
                 if config.on_timeout:
                     try:
                         config.on_timeout(operation)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                         logger.warning(f"Timeout callback error for {operation}: {e}")
                 raise config.error_class(
                     message,
@@ -223,7 +223,7 @@ async def timeout_context(
         if on_timeout:
             try:
                 on_timeout(context_name)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(f"Timeout callback error for {context_name}: {e}")
         logger.warning(message)
         raise TimeoutError(message, timeout_seconds=seconds, operation=context_name) from None
@@ -255,7 +255,7 @@ def timeout_context_sync(
         if on_timeout:
             try:
                 on_timeout(context_name)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(f"Timeout callback error for {context_name}: {e}")
         raise TimeoutError(message, timeout_seconds=seconds, operation=context_name)
 

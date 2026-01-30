@@ -20,6 +20,8 @@ from enum import Enum
 from typing import Any, Callable
 from uuid import uuid4
 
+from aragora.utils.datetime_helpers import parse_timestamp, utc_now
+
 logger = logging.getLogger(__name__)
 
 
@@ -260,27 +262,22 @@ class FindingWorkflowData:
     def from_dict(cls, data: dict[str, Any]) -> "FindingWorkflowData":
         """Create from dictionary."""
 
-        def parse_dt(val: Any) -> datetime | None:
-            if isinstance(val, str):
-                return datetime.fromisoformat(val)
-            return None
-
         return cls(
             finding_id=data.get("finding_id", ""),
             current_state=WorkflowState(data.get("current_state", "open")),
             history=[WorkflowEvent.from_dict(e) for e in data.get("history", [])],
             assigned_to=data.get("assigned_to"),
             assigned_by=data.get("assigned_by"),
-            assigned_at=parse_dt(data.get("assigned_at")),
+            assigned_at=parse_timestamp(data.get("assigned_at")),
             priority=data.get("priority", 3),
-            due_date=parse_dt(data.get("due_date")),
+            due_date=parse_timestamp(data.get("due_date")),
             linked_findings=data.get("linked_findings", []),
             parent_finding_id=data.get("parent_finding_id"),
-            created_at=parse_dt(data.get("created_at")) or datetime.now(timezone.utc),
-            updated_at=parse_dt(data.get("updated_at")) or datetime.now(timezone.utc),
-            resolved_at=parse_dt(data.get("resolved_at")),
+            created_at=parse_timestamp(data.get("created_at"), default=utc_now()),
+            updated_at=parse_timestamp(data.get("updated_at"), default=utc_now()),
+            resolved_at=parse_timestamp(data.get("resolved_at")),
             time_in_states=data.get("time_in_states", {}),
-            state_entered_at=parse_dt(data.get("state_entered_at")) or datetime.now(timezone.utc),
+            state_entered_at=parse_timestamp(data.get("state_entered_at"), default=utc_now()),
         )
 
 

@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Optional
 
+import httpx
+
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -373,7 +375,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 rows=rows,
             )
 
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError, KeyError) as e:
             logger.warning(f"[{self.name}] Failed to fetch sheet '{sheet_title}': {e}")
             return None
 
@@ -493,7 +495,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 if items_yielded >= batch_size:
                     await asyncio.sleep(0)
 
-            except Exception as e:
+            except (httpx.HTTPStatusError, httpx.RequestError) as e:
                 logger.error(f"[{self.name}] Failed to sync spreadsheet {spreadsheet_id}: {e}")
 
         # Process folder IDs
@@ -547,7 +549,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                         if items_yielded >= batch_size:
                             await asyncio.sleep(0)
 
-                    except Exception as e:
+                    except (httpx.HTTPStatusError, httpx.RequestError) as e:
                         logger.error(
                             f"[{self.name}] Failed to sync spreadsheet {spreadsheet_id}: {e}"
                         )
@@ -607,7 +609,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -640,7 +642,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -676,7 +678,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 "row_count": sheet.row_count,
             }
 
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.error(f"[{self.name}] DataFrame conversion failed: {e}")
             return None
 

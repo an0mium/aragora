@@ -259,7 +259,7 @@ class SystemHandler(BaseHandler):
         else:
             return data[:limit]
 
-    @rate_limit(rpm=30, limiter_name="history_cycles")
+    @rate_limit(requests_per_minute=30, limiter_name="history_cycles")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_cycles", skip_first=True)
     @handle_errors("get cycles")
     def _get_history_cycles(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
@@ -272,7 +272,7 @@ class SystemHandler(BaseHandler):
 
         return json_response({"cycles": []})
 
-    @rate_limit(rpm=30, limiter_name="history_events")
+    @rate_limit(requests_per_minute=30, limiter_name="history_events")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_events", skip_first=True)
     @handle_errors("get events")
     def _get_history_events(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
@@ -285,7 +285,7 @@ class SystemHandler(BaseHandler):
 
         return json_response({"events": []})
 
-    @rate_limit(rpm=20, limiter_name="history_debates")
+    @rate_limit(requests_per_minute=20, limiter_name="history_debates")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_debates", skip_first=True)
     @handle_errors("get debates")
     def _get_history_debates(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
@@ -312,7 +312,7 @@ class SystemHandler(BaseHandler):
 
         return json_response({"debates": debates})
 
-    @rate_limit(rpm=30, limiter_name="history_summary")
+    @rate_limit(requests_per_minute=30, limiter_name="history_summary")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_summary", skip_first=True)
     def _get_history_summary(self, handler, loop_id: str | None) -> HandlerResult:
         """Get history summary statistics."""

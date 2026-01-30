@@ -35,6 +35,7 @@ from aragora.server.handlers.secure import (
     SecureHandler,
     UnauthorizedError,
 )
+from aragora.server.handlers.utils import parse_json_body
 
 logger = logging.getLogger(__name__)
 
@@ -445,7 +446,7 @@ class RoutingRulesHandler(SecureHandler):
         """Extract JSON body from request."""
         try:
             if hasattr(request, "json"):
-                return await request.json()
+                return await parse_json_body(request, "routing_rules._get_json_body")
             if hasattr(request, "body"):
                 body = request.body
                 if isinstance(body, bytes):

@@ -136,7 +136,8 @@ def _extract_workspace_id(request: Any, user_id: str | None = None) -> str | Non
     # Authenticated user: validate workspace membership if store is available
     try:
         store = request.app.get("workspace_store")
-    except Exception:
+    except Exception as e:
+        logger.debug("Could not get workspace_store from app: %s", e)
         return workspace_id
 
     if store is None:
@@ -160,8 +161,9 @@ def _extract_workspace_id(request: Any, user_id: str | None = None) -> str | Non
             "User %s attempted workspace %s not in memberships", user_id, workspace_id
         )
         return None
-    except Exception:
+    except Exception as e:
         # Graceful degradation: on store errors, allow header through
+        logger.warning("Workspace membership check failed, allowing header: %s", e)
         return workspace_id
 
 

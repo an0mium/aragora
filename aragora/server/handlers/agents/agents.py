@@ -330,7 +330,7 @@ class AgentsHandler(SecureHandler):
 
         return None
 
-    @rate_limit(rpm=30, limiter_name="agents_list")
+    @rate_limit(requests_per_minute=30, limiter_name="agents_list")
     @handle_errors("list agents")
     @ttl_cache(ttl_seconds=CACHE_TTL_LEADERBOARD, key_prefix="agents_list")
     def _list_agents(self, include_stats: bool = False) -> HandlerResult:
@@ -381,7 +381,7 @@ class AgentsHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=10, limiter_name="local_agents")
+    @rate_limit(requests_per_minute=10, limiter_name="local_agents")
     @handle_errors("list local agents")
     def _list_local_agents(self) -> HandlerResult:
         """List detected local LLM servers (Ollama, LM Studio, etc.).
@@ -412,7 +412,7 @@ class AgentsHandler(SecureHandler):
                 }
             )
 
-    @rate_limit(rpm=10, limiter_name="local_status")
+    @rate_limit(requests_per_minute=10, limiter_name="local_status")
     @handle_errors("get local status")
     def _get_local_status(self) -> HandlerResult:
         """Get overall local LLM availability status with recommendations.
@@ -450,7 +450,7 @@ class AgentsHandler(SecureHandler):
                 }
             )
 
-    @rate_limit(rpm=30, limiter_name="agent_health")
+    @rate_limit(requests_per_minute=30, limiter_name="agent_health")
     @handle_errors("get agent health")
     def _get_agent_health(self) -> HandlerResult:
         """Get runtime health status for all agents.
@@ -610,7 +610,7 @@ class AgentsHandler(SecureHandler):
 
         return json_response(health)
 
-    @rate_limit(rpm=60, limiter_name="agent_availability")
+    @rate_limit(requests_per_minute=60, limiter_name="agent_availability")
     @handle_errors("get agent availability")
     def _get_agent_availability(self) -> HandlerResult:
         """Report agent availability based on configured secrets."""
@@ -641,7 +641,7 @@ class AgentsHandler(SecureHandler):
 
         return json_response(availability)
 
-    @rate_limit(rpm=30, limiter_name="leaderboard")
+    @rate_limit(requests_per_minute=30, limiter_name="leaderboard")
     def _get_leaderboard(self, limit: int, domain: str | None) -> HandlerResult:
         """Get agent leaderboard with consistency scores (batched to avoid N+1)."""
         elo = self.get_elo_system()

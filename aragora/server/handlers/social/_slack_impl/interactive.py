@@ -30,7 +30,7 @@ class InteractiveMixin(MessagingMixin):
     """Mixin providing interactive component handling for the Slack handler."""
 
     @auto_error_response("handle slack interactive")
-    @rate_limit(rpm=60, limiter_name="slack_interactive")
+    @rate_limit(requests_per_minute=60, limiter_name="slack_interactive")
     def _handle_interactive(self, handler: Any) -> HandlerResult:
         """Handle interactive component callbacks.
 

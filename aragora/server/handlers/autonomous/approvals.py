@@ -16,6 +16,7 @@ from aragora.server.handlers.utils.auth import (
     UnauthorizedError,
     ForbiddenError,
 )
+from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
@@ -189,7 +190,9 @@ class ApprovalHandler:
                 )
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
-            data = await request.json()
+            data, err = await parse_json_body(request, context="approve_request")
+            if err:
+                return err
             # Use authenticated user as approver, or override if specified
             approved_by = data.get("approved_by") or auth_ctx.user_id
 
@@ -263,7 +266,9 @@ class ApprovalHandler:
                 )
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
-            data = await request.json()
+            data, err = await parse_json_body(request, context="reject_request")
+            if err:
+                return err
             # Use authenticated user as rejecter, or override if specified
             rejected_by = data.get("rejected_by") or auth_ctx.user_id
             reason = data.get("reason", "No reason provided")

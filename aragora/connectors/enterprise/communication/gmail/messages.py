@@ -145,7 +145,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             async with semaphore:
                 try:
                     return await self.get_message(msg_id, format=format)
-                except Exception as e:
+                except (OSError, ValueError, KeyError, RuntimeError) as e:
                     logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
                     return None
 
@@ -325,7 +325,7 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         try:
             data = await self._api_request("/history", params=params)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             # History ID may be expired - need full sync
             if "404" in str(e) or "historyId" in str(e).lower():
                 logger.warning("[Gmail] History ID expired, need full sync")
@@ -407,7 +407,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                 },
             )
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"[Gmail] Fetch failed: {e}")
             return None
 
@@ -473,7 +473,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                     if items_yielded >= batch_size:
                         await asyncio.sleep(0)
 
-                except Exception as e:
+                except (OSError, ValueError, KeyError, RuntimeError) as e:
                     logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
 
             return
@@ -521,7 +521,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                     if items_yielded >= self.max_results:
                         return
 
-                except Exception as e:
+                except (OSError, ValueError, KeyError, RuntimeError) as e:
                     logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
 
             if not page_token:
@@ -616,9 +616,8 @@ class GmailMessagesMixin(GmailBaseMethods):
                     "thread_id": result.get("threadId"),
                     "success": True,
                 }
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                self.record_failure()
+        except (OSError, ConnectionError):
+            self.record_failure()
             raise
 
     async def reply_to_message(
@@ -729,9 +728,8 @@ class GmailMessagesMixin(GmailBaseMethods):
                     "in_reply_to": original_message_id,
                     "success": True,
                 }
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                self.record_failure()
+        except (OSError, ConnectionError):
+            self.record_failure()
             raise
 
     async def sync_with_prioritization(
@@ -823,7 +821,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                     }
                 )
 
-            except Exception as e:
+            except (OSError, ValueError, KeyError, RuntimeError) as e:
                 logger.warning(f"[Gmail] Prioritization failed for message {msg.id}: {e}")
                 results.append(
                     {

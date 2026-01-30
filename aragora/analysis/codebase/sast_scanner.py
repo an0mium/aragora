@@ -905,7 +905,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                 version = stdout.decode().strip().split("\n")[0]
                 return True, version
             return False, None
-        except Exception as e:
+        except (FileNotFoundError, OSError, asyncio.TimeoutError) as e:
             logger.debug(f"Semgrep check failed: {e}")
             return False, None
 
@@ -950,7 +950,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                 for ruleset in additional:
                     if ruleset["id"] not in existing_ids:
                         rulesets.append(ruleset)
-            except Exception as e:
+            except (OSError, ValueError, asyncio.TimeoutError) as e:
                 logger.debug(f"Failed to fetch registry rulesets: {e}")
 
         return rulesets
@@ -1128,7 +1128,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
 
             except ImportError:
                 logger.debug("SecurityEventEmitter not available for event emission")
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 logger.warning(f"Failed to emit security event: {e}")
 
     async def _scan_with_semgrep(
@@ -1216,7 +1216,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             errors.append("Semgrep scan timed out")
         except json.JSONDecodeError as e:
             errors.append(f"Failed to parse Semgrep output: {e}")
-        except Exception as e:
+        except OSError as e:
             errors.append(f"Semgrep scan failed: {e}")
 
         # Return partial result on error
@@ -1288,7 +1288,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                 metadata=metadata,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.warning(f"Failed to parse Semgrep result: {e}")
             return None
 
@@ -1367,7 +1367,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                     progress = 15 + int((idx / total_files) * 80)
                     await progress_callback(progress, 100, f"Scanned {idx + 1}/{total_files} files")
 
-        except Exception as e:
+        except OSError as e:
             errors.append(f"Local scan error: {e}")
 
         return SASTScanResult(
@@ -1439,7 +1439,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
                     if finding.severity >= self.config.min_severity:
                         findings.append(finding)
 
-        except Exception as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.debug(f"Error scanning {file_path}: {e}")
 
         return findings

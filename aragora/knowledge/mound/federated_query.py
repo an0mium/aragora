@@ -170,7 +170,7 @@ class EmbeddingRelevanceScorer:
             return True
 
         try:
-            from aragora.core.embeddings import get_default_provider  # type: ignore[attr-defined]
+            from aragora.core.embeddings import get_default_provider
 
             self._provider = get_default_provider()
             self._initialized = True
@@ -528,7 +528,7 @@ class FederatedQueryAggregator:
     def _record_prometheus_metrics(self, result: FederatedQueryResult) -> None:
         """Record federated query metrics to Prometheus."""
         try:
-            from aragora.observability.metrics import (  # type: ignore[attr-defined]
+            from aragora.observability.metrics import (
                 record_km_federated_query,
                 set_km_active_adapters,
             )
@@ -559,15 +559,15 @@ class FederatedQueryAggregator:
                 items = await asyncio.wait_for(task, timeout=self._timeout_seconds)
                 results[source] = (items, None)
             except asyncio.TimeoutError:
-                results[source] = ([], f"Timeout after {self._timeout_seconds}s")  # type: ignore[assignment]
+                results[source] = ([], f"Timeout after {self._timeout_seconds}s")
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.debug(f"Query to {source.value} failed with expected error: {e}")
-                results[source] = ([], str(e))  # type: ignore[assignment]
+                results[source] = ([], str(e))
             except Exception as e:
                 logger.warning(f"Query to {source.value} failed with unexpected error: {e}")
-                results[source] = ([], str(e))  # type: ignore[assignment]
+                results[source] = ([], str(e))
 
-        return results  # type: ignore[return-value]
+        return results
 
     async def _query_sequential(
         self,
@@ -584,12 +584,12 @@ class FederatedQueryAggregator:
                 results[source] = (items, None)
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.debug(f"Sequential query to {source.value} failed with expected error: {e}")
-                results[source] = ([], str(e))  # type: ignore[assignment]
+                results[source] = ([], str(e))
             except Exception as e:
                 logger.warning(
                     f"Sequential query to {source.value} failed with unexpected error: {e}"
                 )
-                results[source] = ([], str(e))  # type: ignore[assignment]
+                results[source] = ([], str(e))
 
         return results
 

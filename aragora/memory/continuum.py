@@ -1763,5 +1763,6 @@ def reset_continuum_memory() -> None:
     """Reset the global ContinuumMemory instance (for testing)."""
     global _global_continuum_memory
     if _global_continuum_memory:
-        _global_continuum_memory.close()  # type: ignore[attr-defined]
+        if hasattr(_global_continuum_memory, "close"):
+            getattr(_global_continuum_memory, "close")()
     _global_continuum_memory = None

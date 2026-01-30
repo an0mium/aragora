@@ -94,7 +94,7 @@ class RetryPolicy:
             except asyncio.CancelledError:
                 # Don't retry on cancellation
                 raise
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
                 last_exception = e
                 if attempt < self.max_retries:
                     delay = self.calculate_delay(attempt)
@@ -275,7 +275,7 @@ class SyncJob:
         except ImportError:
             logger.warning("croniter not installed, falling back to interval")
             return datetime.now(timezone.utc) + timedelta(hours=1)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.error(f"Invalid cron expression '{cron_expr}': {e}")
             return None
 
@@ -481,7 +481,7 @@ class SyncScheduler:
                 f"({history.duration_seconds:.1f}s)"
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Sync failed for {job.connector_id}: {e}")
             history.status = SyncStatus.FAILED
             history.completed_at = datetime.now(timezone.utc)
@@ -577,7 +577,7 @@ class SyncScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
                 consecutive_errors += 1
                 delay = error_backoff.calculate_delay(consecutive_errors - 1)
 
@@ -704,5 +704,5 @@ class SyncScheduler:
 
             logger.info(f"Loaded scheduler state: {len(self._history)} history entries")
 
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
             logger.warning(f"Failed to load scheduler state: {e}")

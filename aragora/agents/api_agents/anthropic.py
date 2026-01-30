@@ -5,6 +5,7 @@ Supports web search tool for web-capable responses when URLs
 or web-related keywords are detected in the prompt.
 """
 
+import asyncio
 import logging
 import re
 from typing import AsyncGenerator
@@ -288,7 +289,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         )
         except (AgentAPIError, AgentCircuitOpenError):
             raise  # Re-raise without double-recording
-        except Exception:
+        except (OSError, ValueError, TypeError, RuntimeError, asyncio.TimeoutError):
             # Record failure for unexpected errors
             if self._circuit_breaker is not None:
                 self._circuit_breaker.record_failure()

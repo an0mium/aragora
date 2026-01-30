@@ -199,7 +199,7 @@ class NotionConnector(EnterpriseConnector):
         try:
             data = await self._api_request(f"/pages/{page_id}")
             return self._parse_page(data)
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"[{self.name}] Failed to get page {page_id}: {e}")
             return None
 
@@ -208,7 +208,7 @@ class NotionConnector(EnterpriseConnector):
         try:
             data = await self._api_request(f"/databases/{database_id}")
             return self._parse_database(data)
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"[{self.name}] Failed to get database {database_id}: {e}")
             return None
 
@@ -1003,7 +1003,7 @@ class NotionConnector(EnterpriseConnector):
 
             return page
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, OSError) as e:
             logger.error(f"[{self.name}] Failed to create page: {e}")
             return None
 
@@ -1047,7 +1047,7 @@ class NotionConnector(EnterpriseConnector):
 
             return page
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, OSError) as e:
             logger.error(f"[{self.name}] Failed to update page {page_id}: {e}")
             return None
 
@@ -1078,7 +1078,7 @@ class NotionConnector(EnterpriseConnector):
             logger.info(f"[{self.name}] Appended content to page {page_id}")
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.error(f"[{self.name}] Failed to append content: {e}")
             return False
 
@@ -1101,7 +1101,7 @@ class NotionConnector(EnterpriseConnector):
             logger.info(f"[{self.name}] Deleted block {block_id}")
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.error(f"[{self.name}] Failed to delete block {block_id}: {e}")
             return False
 

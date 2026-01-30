@@ -126,7 +126,7 @@ class SyncState:
         try:
             with open(path) as f:
                 return cls.from_dict(json.load(f))
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(f"Failed to load sync state from {path}: {e}")
             return None
 
@@ -431,7 +431,7 @@ class EnterpriseConnector(BaseConnector):
             result = await self._request_with_retry(request_func, operation)
             self.record_success()
             return result
-        except Exception:
+        except (OSError, ValueError, TypeError, RuntimeError):
             self.record_failure()
             raise
 
@@ -535,7 +535,7 @@ class EnterpriseConnector(BaseConnector):
                     if self._on_progress:
                         self._on_progress(items_synced + items_updated, state.items_total)
 
-                except Exception as e:
+                except (OSError, ValueError, TypeError, RuntimeError, KeyError) as e:
                     items_failed += 1
                     error_msg = f"Failed to ingest {item.id}: {e}"
                     errors.append(error_msg)
@@ -549,7 +549,7 @@ class EnterpriseConnector(BaseConnector):
             if state.status != SyncStatus.CANCELLED:
                 state.status = SyncStatus.COMPLETED
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             state.status = SyncStatus.FAILED
             errors.append(f"Sync failed: {e}")
             logger.error(f"[{self.name}] Sync failed: {e}")

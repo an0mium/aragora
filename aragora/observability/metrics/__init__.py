@@ -291,6 +291,42 @@ from aragora.observability.metrics.evidence import (  # noqa: F401, E402
     CULTURE_PATTERNS,
 )
 
+# Ranking metrics (new Phase 3 submodule)
+from aragora.observability.metrics.ranking import (  # noqa: F401, E402
+    init_ranking_metrics,
+    record_calibration_adjustment as record_calibration_adjustment_v2,
+    record_learning_bonus as record_learning_bonus_v2,
+    record_voting_accuracy_update as record_voting_accuracy_update_v2,
+    record_selection_feedback_adjustment as record_selection_feedback_adjustment_v2,
+    record_performance_routing_decision,
+    record_performance_routing_latency,
+    track_performance_routing,
+    record_novelty_score_calculation,
+    record_novelty_penalty,
+    record_echo_chamber_detection,
+    record_relationship_bias_adjustment,
+    record_rlm_selection_recommendation,
+    record_calibration_cost_calculation,
+    record_budget_filtering_event,
+    record_outcome_complexity_adjustment,
+    record_analytics_selection_recommendation,
+    CALIBRATION_ADJUSTMENTS,
+    LEARNING_BONUSES,
+    VOTING_ACCURACY_UPDATES,
+    SELECTION_FEEDBACK_ADJUSTMENTS,
+    PERFORMANCE_ROUTING_DECISIONS,
+    PERFORMANCE_ROUTING_LATENCY,
+    NOVELTY_SCORE_CALCULATIONS,
+    NOVELTY_PENALTIES,
+    ECHO_CHAMBER_DETECTIONS,
+    RELATIONSHIP_BIAS_ADJUSTMENTS,
+    RLM_SELECTION_RECOMMENDATIONS,
+    CALIBRATION_COST_CALCULATIONS,
+    BUDGET_FILTERING_EVENTS,
+    OUTCOME_COMPLEXITY_ADJUSTMENTS,
+    ANALYTICS_SELECTION_RECOMMENDATIONS,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup
@@ -361,4 +397,6 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     track_debate,
     track_phase,
     track_websocket_connection,
+    # Handler instrumentation
+    track_handler,
 )

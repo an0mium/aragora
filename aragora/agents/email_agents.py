@@ -93,7 +93,7 @@ class SenderReputationAgent(BaseDebateAgent):
     - Sender's typical email importance
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         persona = EmailAgentPersona(
             name="SenderReputationAgent",
             role="Sender Relationship Analyst",
@@ -694,20 +694,20 @@ def get_email_agent_team(
     Returns:
         List of configured email agents
     """
-    agents = [
-        SenderReputationAgent(),  # type: ignore[abstract]
-        ContentUrgencyAgent(),  # type: ignore[abstract]
-        ContextRelevanceAgent(knowledge_mound=knowledge_mound),  # type: ignore[abstract]
+    agents: list[BaseDebateAgent] = [
+        SenderReputationAgent(),
+        ContentUrgencyAgent(),
+        ContextRelevanceAgent(knowledge_mound=knowledge_mound),
     ]
 
     if include_billing:
-        agents.append(BillingCriticalityAgent())  # type: ignore[abstract]
+        agents.append(BillingCriticalityAgent())
 
     if include_timeline:
-        agents.append(TimelineAgent())  # type: ignore[abstract]
+        agents.append(TimelineAgent())
 
     if include_categorization:
-        agents.append(CategorizationAgent())  # type: ignore[abstract]
+        agents.append(CategorizationAgent())
 
     return agents
 
@@ -720,9 +720,9 @@ def get_categorization_agent_team() -> list[BaseDebateAgent]:
         List of agents specialized for categorization
     """
     return [
-        CategorizationAgent(),  # type: ignore[abstract]
-        ContentUrgencyAgent(),  # type: ignore[abstract]
-        BillingCriticalityAgent(),  # type: ignore[abstract]
+        CategorizationAgent(),
+        ContentUrgencyAgent(),
+        BillingCriticalityAgent(),
     ]
 
 

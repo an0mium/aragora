@@ -107,13 +107,14 @@ class KnowledgeSharingMixin:
             logger.warning("Store does not support access grants, grant not persisted")
 
         # Record in federation coordinator if available
-        await self._record_sharing_consent(  # type: ignore[attr-defined]
-            from_workspace_id=from_workspace_id,
-            to_workspace_id=to_workspace_id,
-            scope="knowledge_item",
-            operations=permissions or ["read"],
-            granted_by=shared_by,
-        )
+        if hasattr(self, "_record_sharing_consent"):
+            await self._record_sharing_consent(
+                from_workspace_id=from_workspace_id,
+                to_workspace_id=to_workspace_id,
+                scope="knowledge_item",
+                operations=permissions or ["read"],
+                granted_by=shared_by,
+            )
 
         logger.info(
             f"Shared item {item_id} from {from_workspace_id} "
@@ -121,13 +122,14 @@ class KnowledgeSharingMixin:
         )
 
         # Send notification asynchronously (best effort)
-        await self._send_share_notification(  # type: ignore[attr-defined]
-            item_id=item_id,
-            item_title=getattr(item, "content", "")[:50],
-            from_user_id=shared_by,
-            to_workspace_id=to_workspace_id,
-            permissions=permissions,
-        )
+        if hasattr(self, "_send_share_notification"):
+            await self._send_share_notification(
+                item_id=item_id,
+                item_title=getattr(item, "content", "")[:50],
+                from_user_id=shared_by,
+                to_workspace_id=to_workspace_id,
+                permissions=permissions,
+            )
 
         return grant
 
@@ -188,13 +190,14 @@ class KnowledgeSharingMixin:
         )
 
         # Send notification asynchronously (best effort)
-        await self._send_user_share_notification(  # type: ignore[attr-defined]
-            item_id=item_id,
-            item_title=getattr(item, "content", "")[:50],
-            from_user_id=shared_by,
-            to_user_id=user_id,
-            permissions=permissions,
-        )
+        if hasattr(self, "_send_user_share_notification"):
+            await self._send_user_share_notification(
+                item_id=item_id,
+                item_title=getattr(item, "content", "")[:50],
+                from_user_id=shared_by,
+                to_user_id=user_id,
+                permissions=permissions,
+            )
 
         return grant
 
@@ -324,7 +327,7 @@ class KnowledgeSharingMixin:
         self._ensure_initialized()
 
         # Get existing grant
-        grants = await self.get_share_grants(item_id)  # type: ignore[attr-defined]
+        grants = await self.get_share_grants(item_id)
         existing = next((g for g in grants if g.grantee_id == grantee_id), None)
 
         if not existing:
@@ -373,14 +376,15 @@ class KnowledgeSharingMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            consent = DataSharingConsent(  # type: ignore[call-arg]
+            consent = DataSharingConsent(
                 from_workspace_id=from_workspace_id,
                 to_workspace_id=to_workspace_id,
-                scope=scope,  # type: ignore[arg-type]
-                operations=operations,  # type: ignore[arg-type]
+                scope=scope,
+                operations=operations,
                 granted_by=granted_by,
             )
-            await coordinator.record_consent(consent)  # type: ignore[attr-defined]
+            if hasattr(coordinator, "record_consent"):
+                await coordinator.record_consent(consent)
         except ImportError:
             # CrossWorkspaceCoordinator not available
             pass

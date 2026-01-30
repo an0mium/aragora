@@ -17,7 +17,6 @@ __all__ = [
     "BindingsHandler",
 ]
 
-import json
 import logging
 from typing import Any, Optional
 
@@ -33,6 +32,7 @@ from .base import (
 )
 from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
+from .utils import parse_json_body
 
 logger = logging.getLogger(__name__)
 
@@ -235,14 +235,9 @@ class BindingsHandler(BaseHandler):
             )
 
         # Parse request body
-        try:
-            if hasattr(request, "json"):
-                body = await request.json()
-            else:
-                body = request.get("body", {})
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"Invalid JSON body in create binding: {e}")
-            return error_response("Invalid JSON body", 400)
+        body, err = await parse_json_body(request, context="create_binding")
+        if err:
+            return err
 
         # Validate required fields
         required = ["provider", "account_id", "peer_pattern", "agent_binding"]
@@ -303,14 +298,9 @@ class BindingsHandler(BaseHandler):
             )
 
         # Parse request body
-        try:
-            if hasattr(request, "json"):
-                body = await request.json()
-            else:
-                body = request.get("body", {})
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"Invalid JSON body in resolve binding: {e}")
-            return error_response("Invalid JSON body", 400)
+        body, err = await parse_json_body(request, context="resolve_binding")
+        if err:
+            return err
 
         # Validate required fields
         required = ["provider", "account_id", "peer_id"]

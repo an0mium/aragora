@@ -35,6 +35,7 @@ from aragora.server.handlers.base import (
     require_permission,
 )
 from aragora.server.middleware.rate_limit import rate_limit
+from aragora.observability.metrics import track_handler
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +218,8 @@ def get_context_service():
 # =============================================================================
 
 
-@rate_limit(rpm=60)
+@rate_limit(requests_per_minute=60)
+@track_handler("email/prioritize")
 async def handle_prioritize_email(
     email_data: dict[str, Any],
     user_id: str = "default",
@@ -305,7 +307,8 @@ async def handle_prioritize_email(
         }
 
 
-@rate_limit(rpm=60)
+@rate_limit(requests_per_minute=60)
+@track_handler("email/rank_inbox")
 async def handle_rank_inbox(
     emails: list[dict[str, Any]],
     user_id: str = "default",
@@ -379,7 +382,8 @@ async def handle_rank_inbox(
         }
 
 
-@rate_limit(rpm=60)
+@rate_limit(requests_per_minute=60)
+@track_handler("email/feedback")
 async def handle_email_feedback(
     email_id: str,
     action: str,
@@ -851,6 +855,8 @@ async def handle_apply_category_label(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=30)
+@track_handler("email/gmail/oauth/url")
 async def handle_gmail_oauth_url(
     redirect_uri: str,
     state: str = "",
@@ -901,6 +907,8 @@ async def handle_gmail_oauth_url(
         }
 
 
+@rate_limit(requests_per_minute=30)
+@track_handler("email/gmail/oauth/callback")
 async def handle_gmail_oauth_callback(
     code: str,
     redirect_uri: str,
@@ -944,6 +952,8 @@ async def handle_gmail_oauth_callback(
         }
 
 
+@rate_limit(requests_per_minute=60)
+@track_handler("email/gmail/status", method="GET")
 async def handle_gmail_status(
     user_id: str = "default",
     workspace_id: str = "default",

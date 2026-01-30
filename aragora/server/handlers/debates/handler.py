@@ -509,7 +509,7 @@ class DebatesHandler(
 
         return error_response(f"Unknown batch export endpoint: {path}", 404)
 
-    @rate_limit(rpm=30, limiter_name="debates_list")
+    @rate_limit(requests_per_minute=30, limiter_name="debates_list")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_DEBATES_LIST, key_prefix="debates_list", skip_first=True)
     @handle_errors("list debates")
@@ -983,7 +983,7 @@ class DebatesHandler(
 
     @with_timeout_sync(120.0)
     @user_rate_limit(action="debate_create")
-    @rate_limit(rpm=5, limiter_name="debates_create")
+    @rate_limit(requests_per_minute=5, limiter_name="debates_create")
     @require_quota("debate")
     def _create_debate(self, handler) -> HandlerResult:
         """Start an ad-hoc debate with specified question.

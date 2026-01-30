@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -94,6 +95,19 @@ class KeyRotationConfig:
     re_encrypt_batch_size: int = 100
     """Batch size for re-encryption operations."""
 
+    re_encrypt_timeout: float = 3600.0
+    """Timeout in seconds for re-encryption operations."""
+
+    stores_to_re_encrypt: list[str] = field(
+        default_factory=lambda: [
+            "integrations",
+            "webhooks",
+            "gmail_tokens",
+            "enterprise_sync",
+        ]
+    )
+    """List of data stores to re-encrypt on key rotation."""
+
     # Overlap period
     key_overlap_days: int = 7
     """Days to keep old key version active after rotation."""
@@ -107,6 +121,29 @@ class KeyRotationConfig:
     notify_on_failure: bool = True
     notify_days_before: int = 7
     """Days before expiry to send reminder notification."""
+
+    # Alias for backward compatibility with operations module
+    alert_days_before: int = 7
+    """Alias for notify_days_before (backward compatibility)."""
+
+    @classmethod
+    def from_env(cls) -> "KeyRotationConfig":
+        """Create config from environment variables.
+
+        Environment variables:
+            ARAGORA_KEY_ROTATION_INTERVAL_DAYS: Rotation interval (default: 90)
+            ARAGORA_KEY_ROTATION_OVERLAP_DAYS: Key overlap days (default: 7)
+            ARAGORA_KEY_ROTATION_RE_ENCRYPT: Whether to re-encrypt (default: true)
+            ARAGORA_KEY_ROTATION_ALERT_DAYS: Alert days before expiry (default: 7)
+        """
+        return cls(
+            rotation_interval_days=int(os.environ.get("ARAGORA_KEY_ROTATION_INTERVAL_DAYS", "90")),
+            key_overlap_days=int(os.environ.get("ARAGORA_KEY_ROTATION_OVERLAP_DAYS", "7")),
+            re_encrypt_on_rotation=os.environ.get("ARAGORA_KEY_ROTATION_RE_ENCRYPT", "true").lower()
+            == "true",
+            notify_days_before=int(os.environ.get("ARAGORA_KEY_ROTATION_ALERT_DAYS", "7")),
+            alert_days_before=int(os.environ.get("ARAGORA_KEY_ROTATION_ALERT_DAYS", "7")),
+        )
 
 
 @dataclass
@@ -146,6 +183,40 @@ class KeyRotationJob:
             "retries": self.retries,
             "metadata": self.metadata,
         }
+
+
+@dataclass
+class KeyRotationResult:
+    """Result of a key rotation operation.
+
+    Backward-compatible with aragora.operations.key_rotation.KeyRotationResult.
+    """
+
+    success: bool
+    key_id: str
+    old_version: int
+    new_version: int
+    started_at: datetime
+    completed_at: datetime
+    duration_seconds: float
+    records_re_encrypted: int = 0
+
+    @classmethod
+    def from_job(cls, job: KeyRotationJob) -> "KeyRotationResult":
+        """Create a KeyRotationResult from a KeyRotationJob."""
+        started = job.started_at or job.scheduled_at
+        completed = job.completed_at or datetime.now(timezone.utc)
+        duration = (completed - started).total_seconds()
+        return cls(
+            success=job.status == RotationStatus.COMPLETED,
+            key_id=job.key_id,
+            old_version=job.old_version or 0,
+            new_version=job.new_version or 0,
+            started_at=started,
+            completed_at=completed,
+            duration_seconds=duration,
+            records_re_encrypted=job.records_re_encrypted,
+        )
 
 
 @dataclass
@@ -222,6 +293,11 @@ class KeyRotationScheduler:
     def config(self) -> KeyRotationConfig:
         """Get current configuration."""
         return self._config
+
+    @config.setter
+    def config(self, value: KeyRotationConfig) -> None:
+        """Set current configuration."""
+        self._config = value
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for notifications."""
@@ -640,8 +716,28 @@ _key_rotation_scheduler: KeyRotationScheduler | None = None
 
 
 def get_key_rotation_scheduler() -> KeyRotationScheduler | None:
-    """Get the global key rotation scheduler instance."""
+    """Get the global key rotation scheduler instance.
+
+    Returns None if no scheduler has been set or started.
+    """
     return _key_rotation_scheduler
+
+
+def get_or_create_key_rotation_scheduler() -> KeyRotationScheduler:
+    """Get the global key rotation scheduler, creating one if it doesn't exist.
+
+    This is for backward compatibility with aragora.operations.key_rotation.
+    """
+    global _key_rotation_scheduler
+    if _key_rotation_scheduler is None:
+        _key_rotation_scheduler = KeyRotationScheduler()
+    return _key_rotation_scheduler
+
+
+def reset_key_rotation_scheduler() -> None:
+    """Reset the global scheduler instance (for testing)."""
+    global _key_rotation_scheduler
+    _key_rotation_scheduler = None
 
 
 def set_key_rotation_scheduler(scheduler: KeyRotationScheduler | None) -> None:
@@ -691,12 +787,15 @@ __all__ = [
     "KeyRotationScheduler",
     "KeyRotationConfig",
     "KeyRotationJob",
+    "KeyRotationResult",
     "KeyInfo",
     "RotationStatus",
     "SchedulerStatus",
     "SchedulerStats",
     "get_key_rotation_scheduler",
+    "get_or_create_key_rotation_scheduler",
     "set_key_rotation_scheduler",
+    "reset_key_rotation_scheduler",
     "start_key_rotation_scheduler",
     "stop_key_rotation_scheduler",
 ]

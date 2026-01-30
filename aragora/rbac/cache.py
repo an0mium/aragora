@@ -195,7 +195,7 @@ class RBACDistributedCache:
             self._redis_checked = True
             logger.info("RBAC cache connected to Redis (distributed mode)")
             return self._redis
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             # Check if distributed state is required (multi-instance or production)
             if is_distributed_state_required():
                 raise DistributedStateError(
@@ -231,7 +231,7 @@ class RBACDistributedCache:
                 )
                 self._pubsub_thread.start()
                 logger.debug("RBAC cache pub/sub listener started")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Failed to start RBAC cache pub/sub: {e}")
 
     def stop(self) -> None:
@@ -255,7 +255,7 @@ class RBACDistributedCache:
                     key = message.get("data", "")
                     if key:
                         self._invalidate_local(key)
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 if self._running:
                     logger.debug(f"RBAC pub/sub error: {e}")
                     time.sleep(1)
@@ -310,7 +310,7 @@ class RBACDistributedCache:
                         self._l1_set(cache_key, result)
                     return result
                 self._stats.l2_misses += 1
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis get_decision error: {e}")
 
@@ -343,7 +343,7 @@ class RBACDistributedCache:
                     self.config.decision_ttl_seconds,
                     json.dumps(decision, default=str),
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, TypeError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis set_decision error: {e}")
 
@@ -387,7 +387,7 @@ class RBACDistributedCache:
                         self._l1_set(f"roles:{cache_key}", list(roles))
                     return roles
                 self._stats.l2_misses += 1
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis get_user_roles error: {e}")
 
@@ -409,7 +409,7 @@ class RBACDistributedCache:
                     self.config.role_ttl_seconds,
                     json.dumps(list(roles)),
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, TypeError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis set_user_roles error: {e}")
 
@@ -440,7 +440,7 @@ class RBACDistributedCache:
                         self._l1_set(cache_key, list(perms))
                     return perms
                 self._stats.l2_misses += 1
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis get_role_permissions error: {e}")
 
@@ -462,7 +462,7 @@ class RBACDistributedCache:
                     self.config.permission_ttl_seconds,
                     json.dumps(list(permissions)),
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, TypeError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis set_role_permissions error: {e}")
 
@@ -495,7 +495,7 @@ class RBACDistributedCache:
                 # Broadcast invalidation
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, f"user:{user_id}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis invalidate_user error: {e}")
 
@@ -521,7 +521,7 @@ class RBACDistributedCache:
 
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, f"role:{role_name}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis invalidate_role error: {e}")
 
@@ -546,7 +546,7 @@ class RBACDistributedCache:
 
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, "all")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis invalidate_all error: {e}")
 

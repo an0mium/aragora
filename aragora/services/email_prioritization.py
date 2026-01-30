@@ -293,6 +293,7 @@ class EmailPrioritizer:
         self,
         email: "EmailMessage",
         force_tier: ScoringTier | None = None,
+        _sender_profile: SenderProfile | None = None,
     ) -> EmailPriorityResult:
         """
         Score a single email for priority.
@@ -305,12 +306,13 @@ class EmailPrioritizer:
         Args:
             email: Email message to score
             force_tier: Force a specific tier (for testing)
+            _sender_profile: Pre-loaded sender profile (for batch operations)
 
         Returns:
             EmailPriorityResult with priority and rationale
         """
-        # Get or create sender profile
-        sender_profile = await self._get_sender_profile(email.from_address)
+        # Get or create sender profile (use pre-loaded if provided)
+        sender_profile = _sender_profile or await self._get_sender_profile(email.from_address)
 
         # Tier 1: Rule-based scoring
         if force_tier is None or force_tier == ScoringTier.TIER_1_RULES:
@@ -336,6 +338,71 @@ class EmailPrioritizer:
         result = await self._tier_3_debate(email, sender_profile)
         return result
 
+    async def score_emails(
+        self,
+        emails: list["EmailMessage"],
+        force_tier: ScoringTier | None = None,
+    ) -> list[EmailPriorityResult]:
+        """
+        Score multiple emails for priority in batch.
+
+        This method optimizes performance by:
+        1. Loading all sender profiles in a single batch operation
+        2. Scoring emails concurrently with pre-loaded profiles
+
+        This reduces the N+1 query problem where sender profiles would
+        otherwise be loaded individually for each email.
+
+        Args:
+            emails: List of email messages to score
+            force_tier: Force a specific tier (for testing)
+
+        Returns:
+            List of EmailPriorityResult in the same order as input emails
+        """
+        if not emails:
+            return []
+
+        # Batch load all sender profiles upfront (reduces N queries to 1-2)
+        # Filter out None/empty addresses to avoid errors in batch loading
+        sender_addresses = list({email.from_address for email in emails if email.from_address})
+        try:
+            sender_profiles = await self._get_sender_profiles_batch(sender_addresses)
+        except Exception as e:
+            logger.warning(f"Failed to batch load sender profiles: {e}")
+            sender_profiles = {}
+
+        # Score all emails concurrently using pre-loaded profiles
+        tasks = [
+            self.score_email(
+                email,
+                force_tier=force_tier,
+                _sender_profile=sender_profiles.get(email.from_address),
+            )
+            for email in emails
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results, handling any exceptions
+        scored_results: list[EmailPriorityResult] = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.warning(f"Failed to score email {emails[i].id}: {result}")
+                # Create a default low-priority result for failed emails
+                scored_results.append(
+                    EmailPriorityResult(
+                        email_id=emails[i].id,
+                        priority=EmailPriority.MEDIUM,
+                        confidence=0.0,
+                        tier_used=ScoringTier.TIER_1_RULES,
+                        rationale=f"Scoring failed: {result}",
+                    )
+                )
+            else:
+                scored_results.append(result)
+
+        return scored_results
+
     async def rank_inbox(
         self,
         emails: list["EmailMessage"],
@@ -344,6 +411,9 @@ class EmailPrioritizer:
         """
         Rank a list of emails by priority.
 
+        Uses batch scoring to optimize performance by loading all sender
+        profiles upfront (reduces N queries to 1-2).
+
         Args:
             emails: List of emails to rank
             limit: Optional limit on results
@@ -351,25 +421,16 @@ class EmailPrioritizer:
         Returns:
             List of EmailPriorityResult sorted by priority
         """
-        # Score all emails concurrently
-        tasks = [self.score_email(email) for email in emails]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Filter out errors
-        scored_results = []
-        for result in results:
-            if isinstance(result, Exception):
-                logger.warning(f"Failed to score email: {result}")
-            else:
-                scored_results.append(result)
+        # Use batch scoring to avoid N+1 queries
+        scored_results = await self.score_emails(emails)
 
         # Sort by priority (lower = more important), then by confidence
-        scored_results.sort(key=lambda r: (r.priority.value, -r.confidence))  # type: ignore[union-attr]
+        scored_results.sort(key=lambda r: (r.priority.value, -r.confidence))
 
         if limit:
             scored_results = scored_results[:limit]
 
-        return scored_results  # type: ignore[return-value]
+        return scored_results
 
     async def _get_sender_profile(self, email_address: str) -> SenderProfile:
         """Get or create sender profile from cache/mound."""
@@ -417,6 +478,150 @@ class EmailPrioritizer:
 
         self._sender_profiles[email_address] = profile
         return profile
+
+    async def _get_sender_profiles_batch(
+        self, email_addresses: list[str]
+    ) -> dict[str, SenderProfile]:
+        """
+        Batch load sender profiles for multiple email addresses.
+
+        This method optimizes profile loading by:
+        1. Returning cached profiles immediately
+        2. Batch loading blocklist status for uncached addresses
+        3. Batch loading sender history from knowledge mound
+
+        Args:
+            email_addresses: List of email addresses to load profiles for
+
+        Returns:
+            Dictionary mapping email addresses to their SenderProfile
+        """
+        profiles: dict[str, SenderProfile] = {}
+
+        # Separate cached from uncached addresses
+        uncached_addresses = []
+        for addr in email_addresses:
+            if addr in self._sender_profiles:
+                profiles[addr] = self._sender_profiles[addr]
+            else:
+                uncached_addresses.append(addr)
+
+        if not uncached_addresses:
+            return profiles
+
+        # Batch load blocklist status
+        blocked_addresses: set[str] = set()
+        if self.sender_history and self.user_id:
+            try:
+                # Try batch method if available, otherwise fall back to individual checks
+                if hasattr(self.sender_history, "are_blocked"):
+                    blocked_addresses = await self.sender_history.are_blocked(
+                        self.user_id, uncached_addresses
+                    )
+                else:
+                    # Concurrent individual checks as fallback
+                    check_tasks = [
+                        self.sender_history.is_blocked(self.user_id, addr)
+                        for addr in uncached_addresses
+                    ]
+                    results = await asyncio.gather(*check_tasks, return_exceptions=True)
+                    for addr, result in zip(uncached_addresses, results):
+                        if isinstance(result, bool) and result:
+                            blocked_addresses.add(addr)
+            except Exception as e:
+                logger.warning(f"Failed to batch check blocklist: {e}")
+
+        # Batch load sender histories from knowledge mound
+        sender_histories: dict[str, dict[str, Any]] = {}
+        if self.mound:
+            try:
+                sender_histories = await self._load_sender_histories_batch(uncached_addresses)
+            except Exception as e:
+                logger.warning(f"Failed to batch load sender histories: {e}")
+
+        # Pre-compute VIP and internal domain lookups (case-insensitive)
+        vip_addresses_lower = {a.lower() for a in self.config.vip_addresses}
+        vip_domains_lower = {d.lower() for d in self.config.vip_domains}
+        internal_domains_lower = {d.lower() for d in self.config.internal_domains}
+
+        # Create profiles for uncached addresses
+        for addr in uncached_addresses:
+            domain = addr.split("@")[-1] if "@" in addr else ""
+            addr_lower = addr.lower()
+            domain_lower = domain.lower()
+
+            profile = SenderProfile(
+                email=addr,
+                domain=domain,
+                is_vip=(addr_lower in vip_addresses_lower or domain_lower in vip_domains_lower),
+                is_internal=domain_lower in internal_domains_lower,
+                is_blocked=addr in blocked_addresses,
+            )
+
+            # Apply history if available
+            history = sender_histories.get(addr)
+            if history:
+                profile.response_rate = history.get("response_rate", 0.0)
+                profile.avg_response_time_hours = history.get("avg_response_time", 24.0)
+                profile.total_emails_received = history.get("total_received", 0)
+                profile.total_emails_responded = history.get("total_responded", 0)
+                if history.get("last_interaction"):
+                    try:
+                        profile.last_interaction = datetime.fromisoformat(
+                            history["last_interaction"]
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+            # Cache and add to results
+            self._sender_profiles[addr] = profile
+            profiles[addr] = profile
+
+        return profiles
+
+    async def _load_sender_histories_batch(
+        self, email_addresses: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Batch load sender interaction histories from Knowledge Mound.
+
+        Args:
+            email_addresses: List of email addresses to load history for
+
+        Returns:
+            Dictionary mapping email addresses to their history metadata
+        """
+        if not self.mound or not email_addresses:
+            return {}
+
+        histories: dict[str, dict[str, Any]] = {}
+
+        try:
+            # Try batch query if supported by knowledge mound
+            if hasattr(self.mound, "query_batch"):
+                queries = [f"sender_history:{addr}" for addr in email_addresses]
+                results = await self.mound.query_batch(queries=queries, limit=1)
+                for addr, result in zip(email_addresses, results):
+                    if result and hasattr(result, "items") and result.items:
+                        histories[addr] = result.items[0].metadata
+            else:
+                # Fall back to concurrent individual queries
+                query_tasks = [
+                    self.mound.query(query=f"sender_history:{addr}", limit=1)
+                    for addr in email_addresses
+                ]
+                results = await asyncio.gather(*query_tasks, return_exceptions=True)
+                for addr, result in zip(email_addresses, results):
+                    if isinstance(result, Exception):
+                        logger.debug(f"Failed to load history for {addr}: {result}")
+                        continue
+                    if result and hasattr(result, "items") and result.items:
+                        histories[addr] = result.items[0].metadata
+
+        except Exception as e:
+            logger.debug(f"Batch sender history load failed: {e}")
+
+        return histories
 
     async def _load_sender_history(self, email_address: str) -> Optional[dict[str, Any]]:
         """Load sender interaction history from Knowledge Mound."""

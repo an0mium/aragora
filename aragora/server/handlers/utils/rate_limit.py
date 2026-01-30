@@ -271,7 +271,7 @@ def rate_limit(
 
     Example:
         class MyHandler(BaseHandler):
-            @rate_limit(rpm=30)
+            @rate_limit(requests_per_minute=30)
             def _list_items(self, handler) -> HandlerResult:
                 ...
 

@@ -38,6 +38,7 @@ from aragora.storage.backends import (
     PostgreSQLBackend,
     SQLiteBackend,
 )
+from aragora.utils.datetime_helpers import parse_timestamp, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -434,22 +435,6 @@ class ImpersonationStore:
 
     def _row_to_session(self, row: tuple) -> SessionRecord:
         """Convert database row to SessionRecord."""
-
-        def parse_dt(val: Any) -> datetime:
-            if isinstance(val, datetime):
-                return val
-            if isinstance(val, str):
-                try:
-                    return datetime.fromisoformat(val)
-                except ValueError:
-                    pass
-            return datetime.now(timezone.utc)
-
-        def parse_dt_opt(val: Any) -> datetime | None:
-            if val is None:
-                return None
-            return parse_dt(val)
-
         return SessionRecord(
             session_id=row[0],
             admin_user_id=row[1],
@@ -457,12 +442,12 @@ class ImpersonationStore:
             target_user_id=row[3],
             target_email=row[4],
             reason=row[5],
-            started_at=parse_dt(row[6]),
-            expires_at=parse_dt(row[7]),
+            started_at=parse_timestamp(row[6], default=utc_now()),
+            expires_at=parse_timestamp(row[7], default=utc_now()),
             ip_address=row[8] or "",
             user_agent=row[9] or "",
             actions_performed=row[10] or 0,
-            ended_at=parse_dt_opt(row[11]),
+            ended_at=parse_timestamp(row[11]),
             ended_by=row[12],
         )
 
@@ -606,20 +591,9 @@ class ImpersonationStore:
 
     def _row_to_audit(self, row: tuple) -> AuditRecord:
         """Convert database row to AuditRecord."""
-
-        def parse_dt(val: Any) -> datetime:
-            if isinstance(val, datetime):
-                return val
-            if isinstance(val, str):
-                try:
-                    return datetime.fromisoformat(val)
-                except ValueError:
-                    pass
-            return datetime.now(timezone.utc)
-
         return AuditRecord(
             audit_id=row[0],
-            timestamp=parse_dt(row[1]),
+            timestamp=parse_timestamp(row[1], default=utc_now()),
             event_type=row[2],
             session_id=row[3],
             admin_user_id=row[4],

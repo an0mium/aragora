@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.versioning.compat import strip_version_prefix
 from aragora.storage.integration_store import (
     IntegrationConfig,
@@ -766,7 +767,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     async def configure_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
         user_id = _get_user_id_from_request(request)
-        data = await request.json()
+        data = await parse_json_body(request, "integrations.configure_integration")
         result = await handler.configure_integration(integration_type, data, user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type
@@ -775,7 +776,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     async def update_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
         user_id = _get_user_id_from_request(request)
-        data = await request.json()
+        data = await parse_json_body(request, "integrations.update_integration")
         result = await handler.update_integration(integration_type, data, user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type

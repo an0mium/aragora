@@ -192,7 +192,7 @@ class CrossDebateConfig:
                     stacklevel=2,
                 )
                 self.persist_to_disk = False
-            except Exception as e:
+            except RuntimeError as e:
                 logging.getLogger(__name__).exception(
                     f"CrossDebateConfig: Unexpected error determining storage path: {e}"
                 )
@@ -256,7 +256,7 @@ class CrossDebateMemory:
                         "[CrossDebateMemory] AragoraRLM initialized via factory "
                         "(will use compression fallback since official RLM not installed)"
                     )
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, RuntimeError) as e:
                 logger.warning(f"[CrossDebateMemory] Failed to get RLM from factory: {e}")
         return self._rlm
 
@@ -276,7 +276,7 @@ class CrossDebateMemory:
             if get_compressor is not None:
                 try:
                     self._compressor = get_compressor()
-                except Exception as e:
+                except (ImportError, AttributeError, TypeError, RuntimeError) as e:
                     logger.warning(f"Failed to get compressor from factory: {e}")
             else:
                 logger.warning("RLM factory not available for cross-debate memory")
@@ -520,7 +520,7 @@ class CrossDebateMemory:
                         f"via {approach}"
                     )
                     return result.answer
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                 logger.warning(f"[CrossDebateMemory] AragoraRLM compression failed: {e}")
 
         # FALLBACK: Try HierarchicalCompressor directly
@@ -541,7 +541,7 @@ class CrossDebateMemory:
                     from aragora.rlm.types import AbstractionLevel
 
                     return result.context.get_at_level(AbstractionLevel.SUMMARY) or context[:2000]
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                 logger.warning(f"[CrossDebateMemory] HierarchicalCompressor failed: {e}")
 
         # FINAL FALLBACK: Simple truncation
@@ -703,7 +703,7 @@ class CrossDebateMemory:
 
                 return result.answer if hasattr(result, "answer") else str(result)
 
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                 logger.warning(f"[CrossDebateMemory] AragoraRLM query failed, using fallback: {e}")
 
         # FINAL FALLBACK: keyword-based search on compressed context
@@ -858,8 +858,10 @@ Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
                 "entries": [e.to_dict() for e in self._entries.values()],
             }
             self.config.storage_path.write_text(json.dumps(data, indent=2))
-        except Exception as e:
-            logger.error(f"Failed to save cross-debate memory: {e}")
+        except (OSError, IOError, PermissionError) as e:
+            logger.error(f"Failed to save cross-debate memory (I/O): {e}")
+        except (TypeError, ValueError) as e:
+            logger.error(f"Failed to save cross-debate memory (serialization): {e}")
 
     async def _load_from_disk(self) -> None:
         """Load memory from disk."""
@@ -871,8 +873,10 @@ Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
             for entry_data in data.get("entries", []):
                 entry = DebateMemoryEntry.from_dict(entry_data)
                 self._entries[entry.debate_id] = entry
-        except Exception as e:
-            logger.error(f"Failed to load cross-debate memory: {e}")
+        except (OSError, IOError, PermissionError) as e:
+            logger.error(f"Failed to load cross-debate memory (I/O): {e}")
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
+            logger.error(f"Failed to load cross-debate memory (parse): {e}")
 
     def get_statistics(self) -> dict[str, Any]:
         """Get memory statistics."""

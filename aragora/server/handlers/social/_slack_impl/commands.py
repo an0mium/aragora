@@ -38,7 +38,7 @@ class CommandsMixin(BlocksMixin):
     """Mixin providing slash command handling for the Slack handler."""
 
     @auto_error_response("handle slack slash command")
-    @rate_limit(rpm=30, limiter_name="slack_commands")
+    @rate_limit(requests_per_minute=30, limiter_name="slack_commands")
     def _handle_slash_command(self, handler: Any) -> HandlerResult:
         """Handle Slack slash commands.
 

@@ -308,7 +308,7 @@ class DocumentParser:
             else:
                 # Default to plain text
                 return self._parse_text(content_bytes, format)
-        except Exception as e:
+        except (ValueError, KeyError, IndexError, TypeError, UnicodeDecodeError, OSError) as e:
             logger.error(f"Failed to parse document: {e}")
             return ParsedDocument(
                 content="",
@@ -378,7 +378,7 @@ class DocumentParser:
 
         except ImportError:
             pass  # Fall through to pypdf
-        except Exception as e:
+        except (ValueError, KeyError, OSError, TypeError) as e:
             errors.append(f"pdfplumber error: {e}")
 
         # Fallback to pypdf
@@ -419,7 +419,7 @@ class DocumentParser:
 
         except ImportError:
             errors.append("No PDF parser available (install pypdf or pdfplumber)")
-        except Exception as e:
+        except (ValueError, KeyError, OSError, TypeError) as e:
             errors.append(f"pypdf error: {e}")
 
         return ParsedDocument(
@@ -494,7 +494,7 @@ class DocumentParser:
 
         except ImportError:
             errors.append("python-docx not installed (pip install python-docx)")
-        except Exception as e:
+        except (ValueError, KeyError, OSError, TypeError, AttributeError) as e:
             errors.append(f"docx parse error: {e}")
 
         return ParsedDocument(
@@ -568,7 +568,7 @@ class DocumentParser:
 
         except ImportError:
             errors.append("openpyxl not installed (pip install openpyxl)")
-        except Exception as e:
+        except (ValueError, KeyError, OSError, TypeError, IndexError) as e:
             errors.append(f"Excel parse error: {e}")
 
         return ParsedDocument(
@@ -653,7 +653,7 @@ class DocumentParser:
 
         except ImportError:
             errors.append("python-pptx not installed (pip install python-pptx)")
-        except Exception as e:
+        except (ValueError, KeyError, OSError, TypeError, AttributeError) as e:
             errors.append(f"PowerPoint parse error: {e}")
 
         return ParsedDocument(
@@ -699,7 +699,7 @@ class DocumentParser:
                 format=DocumentFormat.HTML,
                 errors=["beautifulsoup4 not installed for HTML parsing"],
             )
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.HTML,
@@ -720,7 +720,7 @@ class DocumentParser:
                 format=DocumentFormat.JSON,
                 metadata={"keys": list(data.keys()) if isinstance(data, dict) else []},
             )
-        except Exception as e:
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as e:
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.JSON,
@@ -749,7 +749,7 @@ class DocumentParser:
                 format=DocumentFormat.YAML,
                 errors=["pyyaml not installed"],
             )
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.YAML,
@@ -781,7 +781,7 @@ class DocumentParser:
                 format=DocumentFormat.XML,
                 metadata={"root_tag": root.tag},
             )
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.XML,
@@ -806,7 +806,7 @@ class DocumentParser:
                 tables=[rows],
                 metadata={"rows": len(rows), "columns": len(rows[0]) if rows else 0},
             )
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError, IndexError) as e:
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.CSV,
@@ -897,7 +897,7 @@ class DocumentParser:
                 errors=errors,
             )
 
-        except Exception as e:
+        except (json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Failed to parse Jupyter notebook: {e}")
             return ParsedDocument(
                 content="",
@@ -973,7 +973,7 @@ class DocumentParser:
                 format=DocumentFormat.EPUB,
                 errors=errors,
             )
-        except Exception as e:
+        except (ValueError, KeyError, OSError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Failed to parse EPUB: {e}")
             return ParsedDocument(
                 content="",
@@ -1022,7 +1022,7 @@ class DocumentParser:
                 format=DocumentFormat.MOBI,
                 errors=errors,
             )
-        except Exception as e:
+        except (ValueError, KeyError, OSError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Failed to parse MOBI: {e}")
             return ParsedDocument(
                 content="",
@@ -1059,7 +1059,7 @@ class DocumentParser:
                                 doc.filename = name  # Ensure filename is set
                                 extracted_docs.append(doc)
                                 metadata["files"].append(name)
-                            except Exception as e:
+                            except (OSError, ValueError, KeyError, zipfile.BadZipFile) as e:
                                 errors.append(f"Failed to extract {name}: {e}")
 
             elif format in (DocumentFormat.TAR, DocumentFormat.GZIP):
@@ -1086,7 +1086,7 @@ class DocumentParser:
                                             doc.filename = member.name  # Ensure filename is set
                                             extracted_docs.append(doc)
                                             metadata["files"].append(member.name)
-                                    except Exception as e:
+                                    except (OSError, ValueError, KeyError, tarfile.TarError) as e:
                                         errors.append(f"Failed to extract {member.name}: {e}")
                 except tarfile.ReadError:
                     # Try as plain gzip (single file)
@@ -1094,7 +1094,7 @@ class DocumentParser:
                         decompressed = gzip.decompress(content)
                         # Try to parse as text
                         return self._parse_text(decompressed)
-                    except Exception as e:
+                    except (OSError, ValueError, gzip.BadGzipFile) as e:
                         errors.append(f"Failed to decompress gzip: {e}")
 
             # Combine all extracted documents
@@ -1117,7 +1117,7 @@ class DocumentParser:
                 errors=errors,
             )
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile, tarfile.TarError) as e:
             logger.error(f"Failed to parse archive: {e}")
             return ParsedDocument(
                 content="",

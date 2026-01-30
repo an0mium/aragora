@@ -27,7 +27,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -35,6 +34,7 @@ from typing import Any
 from aiohttp import web
 
 from aragora.connectors.accounting.gusto import GustoConnector
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.params import get_pagination_params
 
@@ -550,7 +550,9 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
     Generate a financial report.
     """
     try:
-        data = await request.json()
+        data, err = await parse_json_body(request, context="accounting_report")
+        if err:
+            return err
         report_type = data.get("type", "profit_loss")
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
@@ -601,13 +603,6 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
                 }
             )
 
-    except json.JSONDecodeError:
-        return web.json_response(
-            {
-                "error": "Invalid JSON body",
-            },
-            status=400,
-        )
     except Exception as e:
         logger.error(f"Error generating report: {e}")
         return web.json_response(
@@ -1035,10 +1030,9 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
                 status=400,
             )
 
-        try:
-            body = await request.json()
-        except json.JSONDecodeError:
-            body = {}
+        body, err = await parse_json_body(request, context="gusto_journal_entry", allow_empty=True)
+        if err:
+            return err
 
         account_mappings = {}
         raw_mappings = body.get("account_mappings", {}) if isinstance(body, dict) else {}

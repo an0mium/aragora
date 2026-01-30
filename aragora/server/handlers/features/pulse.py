@@ -413,7 +413,7 @@ class PulseHandler(BaseHandler):
         return None
 
     @require_auth
-    @rate_limit(rpm=5, limiter_name="pulse_debate_topic")
+    @rate_limit(requests_per_minute=5, limiter_name="pulse_debate_topic")
     def _start_debate_on_topic(self, handler) -> HandlerResult:
         """Start a debate on a trending topic.
 
@@ -571,7 +571,7 @@ class PulseHandler(BaseHandler):
         return json_response(status)
 
     @require_auth
-    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("start scheduler")
     def _start_scheduler(self, handler) -> HandlerResult:
         """Start the pulse debate scheduler.
@@ -638,7 +638,7 @@ class PulseHandler(BaseHandler):
             return error_response(str(e), 400)
 
     @require_auth
-    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("stop scheduler")
     def _stop_scheduler(self, handler) -> HandlerResult:
         """Stop the pulse debate scheduler.
@@ -678,7 +678,7 @@ class PulseHandler(BaseHandler):
         )
 
     @require_auth
-    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("pause scheduler")
     def _pause_scheduler(self, handler) -> HandlerResult:
         """Pause the pulse debate scheduler.
@@ -703,7 +703,7 @@ class PulseHandler(BaseHandler):
         )
 
     @require_auth
-    @rate_limit(rpm=5, limiter_name="scheduler_control")
+    @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("resume scheduler")
     def _resume_scheduler(self, handler) -> HandlerResult:
         """Resume the pulse debate scheduler.
@@ -728,7 +728,7 @@ class PulseHandler(BaseHandler):
         )
 
     @require_auth
-    @rate_limit(rpm=10, limiter_name="scheduler_config")
+    @rate_limit(requests_per_minute=10, limiter_name="scheduler_config")
     @auto_error_response("update scheduler config")
     def _update_scheduler_config(self, handler) -> HandlerResult:
         """Update scheduler configuration.

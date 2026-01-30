@@ -140,7 +140,7 @@ class EmailPriorityAnalyzer:
                         "[EmailPriority] AragoraRLM initialized "
                         "(will use compression fallback since official RLM not installed)"
                     )
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError) as e:
                 logger.debug(f"[EmailPriority] Failed to initialize AragoraRLM: {e}")
                 return None
         return self._rlm
@@ -181,7 +181,7 @@ class EmailPriorityAnalyzer:
                         if kw not in self._preferences.important_keywords:
                             self._preferences.important_keywords.append(kw)
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.warning(f"[EmailPriority] Failed to load preferences: {e}")
 
         return self._preferences
@@ -488,7 +488,7 @@ class EmailPriorityAnalyzer:
                     except ValueError:
                         pass
 
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, AttributeError) as e:
                 logger.debug(f"[EmailPriority] AragoraRLM analysis failed: {e}")
 
         return score
@@ -810,7 +810,7 @@ class EmailFeedbackLearner:
             logger.debug(f"[EmailFeedback] Recorded {action} for {email_id}")
             return True
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"[EmailFeedback] Failed to record interaction: {e}")
             return False
 
@@ -833,7 +833,7 @@ class EmailFeedbackLearner:
                 return True
             return False
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"[EmailFeedback] Consolidation failed: {e}")
             return False
 

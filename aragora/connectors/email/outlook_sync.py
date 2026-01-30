@@ -363,7 +363,7 @@ class OutlookSyncService:
             )
             return True
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, httpx.HTTPError, json.JSONDecodeError) as e:
             self._status = OutlookSyncStatus.ERROR
             if self._state:
                 self._state.last_error = str(e)
@@ -446,7 +446,7 @@ class OutlookSyncService:
                         )
                         if synced:
                             synced_messages.append(synced)
-                    except Exception as e:
+                    except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
                         logger.warning(f"[OutlookSync] Failed to fetch message {message_id}: {e}")
 
         # Callback for batch
@@ -554,7 +554,7 @@ class OutlookSyncService:
                                 synced = await self._process_message(msg, is_new=False)
                                 if synced:
                                     synced_messages.append(synced)
-                            except Exception as e:
+                            except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
                                 logger.warning(
                                     f"[OutlookSync] Failed to fetch message {msg_id}: {e}"
                                 )
@@ -582,7 +582,7 @@ class OutlookSyncService:
                 )
                 return synced_messages
 
-            except Exception as e:
+            except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = OutlookSyncStatus.ERROR
                 if self._state:
                     self._state.last_error = str(e)
@@ -638,7 +638,7 @@ class OutlookSyncService:
                         synced = await self._process_message(msg, is_new=True)
                         if synced:
                             synced_messages.append(synced)
-                    except Exception as e:
+                    except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
                         logger.warning(f"[OutlookSync] Failed to fetch message {msg_id}: {e}")
 
                 # Update state
@@ -660,7 +660,7 @@ class OutlookSyncService:
                 )
                 return synced_messages
 
-            except Exception as e:
+            except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = OutlookSyncStatus.ERROR
                 if self._state:
                     self._state.last_error = str(e)
@@ -687,7 +687,7 @@ class OutlookSyncService:
                     self._state.total_messages_prioritized += 1
             except asyncio.TimeoutError:
                 logger.warning(f"[OutlookSync] Prioritization timeout for {message.id}")
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, OSError) as e:
                 logger.warning(f"[OutlookSync] Prioritization failed for {message.id}: {e}")
 
         synced = OutlookSyncedMessage(
@@ -752,7 +752,7 @@ class OutlookSyncService:
                 else:
                     logger.error(f"[OutlookSync] Failed to create subscription: {response.text}")
 
-        except Exception as e:
+        except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
             logger.error(f"[OutlookSync] Subscription setup failed: {e}")
 
     async def _renew_subscription(self) -> None:
@@ -802,7 +802,7 @@ class OutlookSyncService:
                 else:
                     logger.error(f"[OutlookSync] Failed to renew subscription: {response.text}")
 
-        except Exception as e:
+        except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
             logger.error(f"[OutlookSync] Subscription renewal failed: {e}")
 
     async def _delete_subscription(self) -> None:
@@ -835,7 +835,7 @@ class OutlookSyncService:
             self._state.subscription_expiry = None
             await self._save_state()
 
-        except Exception as e:
+        except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
             logger.warning(f"[OutlookSync] Failed to delete subscription: {e}")
 
     async def _subscription_renewal_loop(self) -> None:
@@ -862,7 +862,7 @@ class OutlookSyncService:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, httpx.HTTPError, ValueError) as e:
                 logger.error(f"[OutlookSync] Renewal loop error: {e}")
                 await asyncio.sleep(60)
 
@@ -879,7 +879,7 @@ class OutlookSyncService:
                 await client.close()
                 if data:
                     return OutlookSyncState.from_dict(json.loads(data))
-            except Exception as e:
+            except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
                 logger.warning(f"[OutlookSync] Failed to load state from Redis: {e}")
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
@@ -894,7 +894,7 @@ class OutlookSyncService:
                 await conn.close()
                 if row:
                     return OutlookSyncState.from_dict(json.loads(row["state"]))
-            except Exception as e:
+            except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
                 logger.warning(f"[OutlookSync] Failed to load state from Postgres: {e}")
 
         return None
@@ -914,7 +914,7 @@ class OutlookSyncService:
                 client = redis.from_url(self.config.redis_url)
                 await client.set(state_key, state_json)
                 await client.close()
-            except Exception as e:
+            except (OSError, ConnectionError, TypeError) as e:
                 logger.warning(f"[OutlookSync] Failed to save state to Redis: {e}")
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
@@ -932,7 +932,7 @@ class OutlookSyncService:
                     state_json,
                 )
                 await conn.close()
-            except Exception as e:
+            except (OSError, ConnectionError, TypeError) as e:
                 logger.warning(f"[OutlookSync] Failed to save state to Postgres: {e}")
 
     def get_stats(self) -> dict[str, Any]:

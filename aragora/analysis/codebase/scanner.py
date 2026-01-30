@@ -158,7 +158,7 @@ class DependencyScanner:
                 f"{result.critical_count} critical, {result.high_count} high"
             )
 
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:
             result.status = "failed"
             result.error = str(e)
             result.completed_at = datetime.now(timezone.utc)
@@ -216,7 +216,7 @@ class DependencyScanner:
             result.status = "completed"
             result.completed_at = datetime.now(timezone.utc)
 
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:
             result.status = "failed"
             result.error = str(e)
             result.completed_at = datetime.now(timezone.utc)
@@ -256,7 +256,7 @@ class DependencyScanner:
                 content = f.read()
 
             return parser(content, file_path)
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError, KeyError, IndexError) as e:
             logger.error(f"[Scanner] Failed to parse {file_path}: {e}")
             return []
 
@@ -276,7 +276,7 @@ class DependencyScanner:
                         dep.version,
                     )
                     dep.vulnerabilities = vulns
-                except Exception as e:
+                except (OSError, ValueError, KeyError, TimeoutError) as e:
                     logger.warning(f"[Scanner] Failed to query {dep.name}: {e}")
 
         await asyncio.gather(

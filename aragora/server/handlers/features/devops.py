@@ -38,6 +38,7 @@ from ..base import (
     success_response,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
+from ..utils import parse_json_body
 
 # Permission constants for DevOps operations
 DEVOPS_READ_PERMISSION = "devops:read"
@@ -860,7 +861,7 @@ class DevOpsHandler(SecureHandler):
         """Parse JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
-                return await request.json()
+                return await parse_json_body(request, "devops._get_json_body")
             return request.json
         return {}
 

@@ -137,11 +137,11 @@ class MetaLearnerBridge:
         confidence = (metrics.prediction_accuracy + metrics.pattern_retention_rate) / 2
 
         # Create pattern node
-        from aragora.knowledge.mound import KnowledgeNode, NodeType
+        from aragora.knowledge.mound import KnowledgeNode
         from aragora.memory.tier_manager import MemoryTier
 
         node = KnowledgeNode(
-            node_type=NodeType.PATTERN,
+            node_type="fact",  # Meta-learning patterns stored as facts
             content=content,
             confidence=confidence,
             provenance=provenance,
@@ -196,7 +196,7 @@ class MetaLearnerBridge:
             base_confidence = max(0.0, base_confidence - 0.1)
 
         node = KnowledgeNode(
-            node_type=NodeType.PATTERN,
+            node_type="fact",  # Pattern summaries stored as facts
             content=content,
             confidence=base_confidence,
             provenance=provenance,

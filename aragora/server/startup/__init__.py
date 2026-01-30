@@ -81,6 +81,15 @@ from aragora.server.startup.database import (  # noqa: F401
     close_postgres_pool,
     init_postgres_pool,
 )
+from aragora.server.startup.parallel import (  # noqa: F401
+    InitTask,
+    ParallelInitializer,
+    ParallelInitResult,
+    PhaseResult,
+    cleanup_on_failure,
+    parallel_init,
+    run_phase,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -506,4 +515,12 @@ __all__ = [
     "run_startup_sequence",
     "get_km_config_from_env",
     "init_knowledge_mound_from_env",
+    # Parallel initialization
+    "parallel_init",
+    "ParallelInitializer",
+    "ParallelInitResult",
+    "PhaseResult",
+    "InitTask",
+    "run_phase",
+    "cleanup_on_failure",
 ]

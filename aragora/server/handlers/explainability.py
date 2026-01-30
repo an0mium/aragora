@@ -310,7 +310,7 @@ class ExplainabilityHandler(BaseHandler):
         """Check if this is a legacy (non-versioned) route."""
         return not path.startswith("/api/v1/")
 
-    @rate_limit(rpm=60)
+    @rate_limit(requests_per_minute=60)
     @require_permission("explainability:read")
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -637,7 +637,7 @@ h3 {{ color: #666; }}
     # Batch Processing Methods
     # ========================================================================
 
-    @rate_limit(rpm=20)
+    @rate_limit(requests_per_minute=20)
     def _handle_batch_create(self, handler: Any) -> HandlerResult:
         """Create a new batch explainability job.
 
@@ -916,7 +916,7 @@ h3 {{ color: #666; }}
     # Compare Explanations
     # ========================================================================
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def _handle_compare(self, handler: Any) -> HandlerResult:
         """Compare explanations between multiple debates.
 

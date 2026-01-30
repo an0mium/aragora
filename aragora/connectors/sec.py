@@ -215,7 +215,7 @@ class SECConnector(BaseConnector):
 
             return None
 
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.TimeoutException, OSError, ValueError, KeyError) as e:
             logger.debug(f"CIK lookup failed for {query}: {e}")
             return None
 
@@ -248,7 +248,7 @@ class SECConnector(BaseConnector):
         except httpx.TimeoutException:
             logger.warning(f"SEC EDGAR timeout for CIK {cik}")
             return []
-        except Exception as e:
+        except (httpx.HTTPStatusError, OSError, ValueError, KeyError) as e:
             logger.error(f"SEC EDGAR fetch failed for CIK {cik}: {e}")
             return []
 
@@ -298,7 +298,7 @@ class SECConnector(BaseConnector):
 
             return results
 
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.TimeoutException, OSError, ValueError, KeyError) as e:
             logger.debug(f"SEC full-text search failed: {e}")
             return []
 

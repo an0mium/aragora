@@ -155,7 +155,10 @@ async def parse_json_body_allow_array(
         if not isinstance(parsed, (dict, list)):
             logger.debug("JSON body is not an object or array in %s", context)
             return None, web.json_response(
-                {"error": "Request body must be a JSON object or array", "code": "INVALID_BODY_TYPE"},
+                {
+                    "error": "Request body must be a JSON object or array",
+                    "code": "INVALID_BODY_TYPE",
+                },
                 status=400,
             )
 

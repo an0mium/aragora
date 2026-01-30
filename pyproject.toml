@@ -352,6 +352,7 @@ ignore = ["E402", "E501"]
 "scripts/*" = ["T201", "F401", "F841", "BLE001", "G004"]
 "tests/*" = ["T201", "F401", "F841", "BLE001", "G004"]
 "examples/*" = ["T201", "BLE001"]
+"sdk/cookbook/*" = ["T201", "BLE001", "F841"]
 # BLE001: Ignore bare exception handlers in all modules (to be fixed incrementally)
 # 4,673 existing violations documented - 87 fixed in Phase 30 (auth, storage modules)
 # G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)

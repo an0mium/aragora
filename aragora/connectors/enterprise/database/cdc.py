@@ -458,7 +458,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
 
             return True
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to handle change event: {e}")
             return False
 
@@ -557,7 +557,7 @@ class CompositeHandler(ChangeEventHandler):
             try:
                 result = await handler.handle(event)
                 results.append(result)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, RuntimeError) as e:
                 logger.error(f"Handler {handler.__class__.__name__} failed: {e}")
                 results.append(False)
 
@@ -639,7 +639,7 @@ class CDCStreamManager:
 
             return success
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to process event {event.id}: {e}")
             return False
 

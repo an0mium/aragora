@@ -1160,3 +1160,23 @@ export {
   type TriageResult as EmailTriageResult,
   type InboxTriageResponse,
 } from './email-debate';
+
+// Facts (Knowledge CRUD)
+export {
+  FactsAPI,
+  type Fact,
+  type Relationship,
+  type RelationshipType,
+  type CreateFactRequest,
+  type UpdateFactRequest,
+  type ListFactsOptions,
+  type PaginatedFacts,
+  type SearchOptions,
+  type SearchedFact,
+  type CreateRelationshipRequest,
+  type UpdateRelationshipRequest,
+  type GetRelationshipsOptions,
+  type BatchCreateResponse,
+  type BatchDeleteResponse,
+  type FactStats,
+} from './facts';

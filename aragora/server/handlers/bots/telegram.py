@@ -125,7 +125,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             status.update(extra_status)
         return json_response(status)
 
-    @rate_limit(rpm=60)
+    @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -136,7 +136,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
         return None
 
-    @rate_limit(rpm=120)
+    @rate_limit(requests_per_minute=120)
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

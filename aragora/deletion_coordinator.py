@@ -374,7 +374,7 @@ class UnifiedDeletionCoordinator:
             for hook in self._pre_deletion_hooks:
                 try:
                     await hook(user_id)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, OSError) as e:
                     result.warnings.append(f"Pre-deletion hook failed: {e}")
                     logger.warning(f"Pre-deletion hook failed for {user_id}: {e}")
 
@@ -402,7 +402,7 @@ class UnifiedDeletionCoordinator:
                         self._backup_coordinator.mark_backup_for_purge(backup_id, user_id)
 
                     logger.info(f"Marked {len(backup_ids)} backups for purge for user {user_id}")
-                except Exception as e:
+                except (RuntimeError, ValueError, LookupError, OSError) as e:
                     result.warnings.append(f"Backup coordination failed: {e}")
                     logger.warning(f"Backup coordination failed for {user_id}: {e}")
 
@@ -417,7 +417,7 @@ class UnifiedDeletionCoordinator:
                     count = await deleter.delete_for_user(user_id)
                     result.entities_deleted[entity_type] = count
                     logger.info(f"Deleted {count} {entity_type} entities for user {user_id}")
-                except Exception as e:
+                except (RuntimeError, ValueError, LookupError, OSError) as e:
                     result.errors.append(f"Failed to delete {entity_type}: {e}")
                     logger.error(f"Failed to delete {entity_type} for user {user_id}: {e}")
 
@@ -436,7 +436,7 @@ class UnifiedDeletionCoordinator:
             for post_hook in self._post_deletion_hooks:
                 try:
                     await post_hook(user_id, result)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, OSError) as e:
                     result.warnings.append(f"Post-deletion hook failed: {e}")
                     logger.warning(f"Post-deletion hook failed for {user_id}: {e}")
 
@@ -449,7 +449,7 @@ class UnifiedDeletionCoordinator:
                     actor_id=actor_id,
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, LookupError, OSError) as e:
             result.status = CascadeStatus.FAILED
             result.errors.append(f"Cascade deletion failed: {e}")
             result.completed_at = datetime.now(timezone.utc)
@@ -495,7 +495,7 @@ class UnifiedDeletionCoordinator:
                 if not is_deleted:
                     all_storage_verified = False
                     result.errors.append(f"Data still exists for entity type: {entity_type}")
-            except Exception as e:
+            except (RuntimeError, ValueError, LookupError, OSError) as e:
                 result.entity_results[entity_type] = False
                 all_storage_verified = False
                 result.errors.append(f"Failed to verify {entity_type} deletion: {e}")
@@ -509,7 +509,7 @@ class UnifiedDeletionCoordinator:
                 result.backup_verified = backup_verified
                 if not backup_verified:
                     result.errors.append("User data may still exist in backups")
-            except Exception as e:
+            except (RuntimeError, ValueError, LookupError, OSError) as e:
                 result.backup_verified = False
                 result.errors.append(f"Failed to verify backup purge: {e}")
         else:
@@ -686,7 +686,7 @@ class UnifiedDeletionCoordinator:
 
                     results.append(result)
 
-                except Exception as e:
+                except (RuntimeError, ValueError, LookupError, OSError) as e:
                     logger.error(f"Failed to process deletion for {deletion_req.user_id}: {e}")
                     # Create a failed result
                     failed_result = CascadeResult(
@@ -700,7 +700,7 @@ class UnifiedDeletionCoordinator:
 
         except ImportError:
             logger.warning("Deletion scheduler not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, LookupError, OSError) as e:
             logger.exception(f"Error processing pending deletions: {e}")
 
         return results

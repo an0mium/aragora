@@ -63,7 +63,7 @@ class GmailStateMixin:
                     return state
             except ImportError:
                 logger.warning("[Gmail] redis package not installed, cannot use Redis backend")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError) as e:
                 logger.warning(f"[Gmail] Failed to load state from Redis: {e}")
 
         elif backend == "postgres" and postgres_dsn:
@@ -83,7 +83,7 @@ class GmailStateMixin:
                     return state
             except ImportError:
                 logger.warning("[Gmail] asyncpg package not installed, cannot use Postgres backend")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError) as e:
                 logger.warning(f"[Gmail] Failed to load state from Postgres: {e}")
 
         # Memory backend or fallback
@@ -131,7 +131,7 @@ class GmailStateMixin:
                 return True
             except ImportError:
                 logger.warning("[Gmail] redis package not installed, cannot use Redis backend")
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 logger.warning(f"[Gmail] Failed to save state to Redis: {e}")
                 return False
 
@@ -154,7 +154,7 @@ class GmailStateMixin:
                 return True
             except ImportError:
                 logger.warning("[Gmail] asyncpg package not installed, cannot use Postgres backend")
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 logger.warning(f"[Gmail] Failed to save state to Postgres: {e}")
                 return False
 

@@ -286,7 +286,7 @@ class TelegramHandler(BaseHandler):
             logger.error(f"Error setting Telegram webhook: {e}")
 
     @auto_error_response("handle telegram webhook")
-    @rate_limit(rpm=100, limiter_name="telegram_webhook")
+    @rate_limit(requests_per_minute=100, limiter_name="telegram_webhook")
     def _handle_webhook(self, handler: Any) -> HandlerResult:
         """Handle incoming Telegram webhook updates.
 

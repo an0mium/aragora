@@ -932,7 +932,7 @@ class DecisionRouter:
                 )
             except ImportError:
                 logger.debug("RBAC module not available, skipping authorization")
-            except Exception as e:
+            except (PermissionError, ValueError) as e:
                 logger.warning(f"RBAC check failed: {e}")
                 return DecisionResult(  # type: ignore[call-arg]
                     request_id=request.request_id,
@@ -963,7 +963,7 @@ class DecisionRouter:
                     workspace_id=request.context.workspace_id,
                     content_preview=request.content[:200] if request.content else None,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, TypeError, ValueError) as e:
                 logger.debug(f"Audit log (started) failed: {e}")
 
         # Check cache first
@@ -1038,7 +1038,7 @@ class DecisionRouter:
                 span.set_attribute("decision.cache_hit", cache_hit)
                 if request.config and request.config.agents:
                     span.set_attribute("decision.agent_count", len(request.config.agents))
-            except Exception as e:
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Tracing not available: {e}")
 
         try:
@@ -1092,7 +1092,7 @@ class DecisionRouter:
                         workspace_id=request.context.workspace_id,
                         error=result.error,
                     )
-                except Exception as audit_err:
+                except (OSError, RuntimeError, TypeError, ValueError) as audit_err:
                     logger.debug(f"Audit log (completed) failed: {audit_err}")
 
             # Cache the result
@@ -1114,7 +1114,7 @@ class DecisionRouter:
                 span.set_attribute("decision.error", str(e)[:200])
                 try:
                     span.record_exception(e)
-                except Exception as trace_err:  # noqa: BLE001 - Tracing must not break main flow
+                except (AttributeError, RuntimeError, TypeError) as trace_err:
                     logger.debug(f"Failed to record exception in span: {trace_err}")
 
             error_duration = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -1152,7 +1152,7 @@ class DecisionRouter:
                         workspace_id=request.context.workspace_id,
                         error=str(e),
                     )
-                except Exception as audit_err:
+                except (OSError, RuntimeError, TypeError, ValueError) as audit_err:
                     logger.debug(f"Audit log (error) failed: {audit_err}")
 
             error_result = DecisionResult(
@@ -1176,14 +1176,14 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception as e:  # noqa: BLE001 - Span cleanup must not raise
+                except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Span context exit error: {e}")
 
             # Clean up in-flight status after a delay
             if self._enable_deduplication and _decision_cache:
                 try:
                     await _decision_cache.clear_in_flight(request)
-                except Exception as e:  # noqa: BLE001 - Cache cleanup must not raise
+                except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                     logger.debug(f"Failed to clear in-flight cache: {e}")
 
     async def _route_to_debate(self, request: DecisionRequest) -> DecisionResult:
@@ -1195,7 +1195,7 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("debate", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception as e:  # noqa: BLE001 - Tracing must not block
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Failed to create debate trace span: {e}")
 
         try:
@@ -1281,7 +1281,7 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Trace span cleanup error: {e}")
 
     async def _route_to_workflow(self, request: DecisionRequest) -> DecisionResult:
@@ -1292,7 +1292,7 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("workflow", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception as e:  # noqa: BLE001 - Tracing must not block
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Trace span error: {e}")
 
         try:
@@ -1343,7 +1343,7 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Trace span cleanup error: {e}")
 
     async def _route_to_gauntlet(self, request: DecisionRequest) -> DecisionResult:
@@ -1354,7 +1354,7 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("gauntlet", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception as e:  # noqa: BLE001 - Tracing must not block
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Trace span error: {e}")
 
         try:
@@ -1400,7 +1400,7 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Trace span cleanup error: {e}")
 
     async def _route_to_quick(self, request: DecisionRequest) -> DecisionResult:
@@ -1411,7 +1411,7 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("quick", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception as e:  # noqa: BLE001 - Tracing must not block
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Trace span error: {e}")
 
         # Use first configured agent for quick response

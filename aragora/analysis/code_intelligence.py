@@ -309,7 +309,7 @@ class TreeSitterParser:
                     ts_lang = TSLanguage(module.language())
                     parser.language = ts_lang
                     self._parsers[lang] = parser
-                except Exception as e:
+                except (ImportError, RuntimeError, OSError) as e:
                     logger.warning(f"Failed to init tree-sitter for {lang.value}: {e}")
 
             # TypeScript shares JavaScript parser with different queries
@@ -321,7 +321,7 @@ class TreeSitterParser:
                     ts_lang = TSLanguage(tree_sitter_typescript.language_typescript())
                     parser.language = ts_lang
                     self._parsers[Language.TYPESCRIPT] = parser
-                except Exception as e:
+                except (ImportError, RuntimeError, OSError) as e:
                     logger.warning(f"Failed to init tree-sitter for TypeScript: {e}")
 
             logger.info(f"Tree-sitter initialized for: {list(self._parsers.keys())}")
@@ -343,7 +343,7 @@ class TreeSitterParser:
         parser = self._parsers[language]
         try:
             return parser.parse(source)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Tree-sitter parse error: {e}")
             return None
 
@@ -412,7 +412,7 @@ class CodeIntelligence:
 
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as e:
+        except (OSError, UnicodeDecodeError) as e:
             analysis.errors.append(f"Failed to read file: {e}")
             return analysis
 
@@ -484,7 +484,7 @@ class CodeIntelligence:
 
             try:
                 results[path_str] = self.analyze_file(path_str)
-            except Exception as e:
+            except (OSError, UnicodeDecodeError, ValueError) as e:
                 logger.warning(f"Failed to analyze {path}: {e}")
 
         return results
@@ -544,7 +544,7 @@ class CodeIntelligence:
                                 end_column=match.end(),
                             )
                         )
-            except Exception as e:
+            except (OSError, UnicodeDecodeError) as e:
                 logger.debug(f"Error searching {path}: {e}")
 
         return usages

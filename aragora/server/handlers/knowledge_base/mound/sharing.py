@@ -46,7 +46,7 @@ class SharingOperationsMixin:
     """Mixin providing cross-workspace sharing operations for KnowledgeMoundHandler."""
 
     @require_permission("sharing:create")
-    @rate_limit(rpm=30, limiter_name="knowledge_share")
+    @rate_limit(requests_per_minute=30, limiter_name="knowledge_share")
     @handle_errors("share item")
     def _handle_share_item(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/share - Share item with workspace/user."""
@@ -197,7 +197,7 @@ class SharingOperationsMixin:
         )
 
     @require_permission("sharing:create")
-    @rate_limit(rpm=30, limiter_name="knowledge_share")
+    @rate_limit(requests_per_minute=30, limiter_name="knowledge_share")
     @handle_errors("revoke share")
     def _handle_revoke_share(self: SharingHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle DELETE /api/knowledge/mound/share - Revoke a share."""

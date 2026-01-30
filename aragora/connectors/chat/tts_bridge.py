@@ -164,7 +164,7 @@ class TTSBridge:
                 output_dir=str(self._get_temp_dir()),
             )
             return Path(audio_path)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"TTS synthesis failed: {e}")
             raise
 
@@ -313,7 +313,7 @@ class TTSBridge:
                 logger.debug(f"Failed to clean up temp audio file {audio_path}: {e}")
 
             return response.success
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Failed to send voice response: {e}")
             return False
 
@@ -325,7 +325,7 @@ class TTSBridge:
             try:
                 shutil.rmtree(self._temp_dir)
                 self._temp_dir = None
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Failed to cleanup TTS temp dir: {e}")
 
 

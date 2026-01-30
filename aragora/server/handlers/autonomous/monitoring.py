@@ -12,6 +12,7 @@ from aragora.server.handlers.utils.auth import (
     UnauthorizedError,
     ForbiddenError,
 )
+from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
 from aragora.server.validation.query_params import safe_query_int
 
@@ -77,7 +78,9 @@ class MonitoringHandler:
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
-            data = await request.json()
+            data, err = await parse_json_body(request, context="record_metric")
+            if err:
+                return err
             metric_name = data.get("metric_name")
             value = data.get("value")
 

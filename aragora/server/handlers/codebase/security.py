@@ -195,7 +195,7 @@ async def handle_scan_repository(
                 # Emit security events for findings (triggers debate for critical findings)
                 await _emit_scan_events(result, repo_id, scan_id, workspace_id)
 
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.exception(f"Scan {scan_id} failed: {e}")
                 with _scan_lock:
                     scan_result.status = "failed"
@@ -220,7 +220,7 @@ async def handle_scan_repository(
             }
         )
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to start scan: {e}")
         return error_response(str(e), 500)
 
@@ -254,7 +254,7 @@ async def handle_get_scan_status(
             latest = max(repo_scans.values(), key=lambda s: s.started_at)
             return success_response({"scan_result": latest.to_dict()})
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get scan status: {e}")
         return error_response(str(e), 500)
 
@@ -325,7 +325,7 @@ async def handle_get_vulnerabilities(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get vulnerabilities: {e}")
         return error_response(str(e), 500)
 
@@ -348,7 +348,7 @@ async def handle_get_cve_details(
 
         return success_response({"vulnerability": vuln.to_dict()})
 
-    except Exception as e:
+    except (OSError, ValueError, KeyError, asyncio.TimeoutError) as e:
         logger.exception(f"Failed to get CVE details: {e}")
         return error_response(str(e), 500)
 
@@ -382,7 +382,7 @@ async def handle_query_package_vulnerabilities(
             }
         )
 
-    except Exception as e:
+    except (OSError, ValueError, KeyError, asyncio.TimeoutError) as e:
         logger.exception(f"Failed to query package vulnerabilities: {e}")
         return error_response(str(e), 500)
 
@@ -444,7 +444,7 @@ async def handle_list_scans(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to list scans: {e}")
         return error_response(str(e), 500)
 
@@ -540,7 +540,7 @@ async def _emit_scan_events(
             f"{critical_count} critical, {high_count} high severity findings"
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, RuntimeError) as e:
         logger.warning(f"[Security] Failed to emit scan events: {e}")
 
 
@@ -631,7 +631,7 @@ async def _emit_secrets_events(
             f"{critical_count} critical, {high_count} high severity findings"
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, RuntimeError) as e:
         logger.warning(f"[Security] Failed to emit secrets scan events: {e}")
 
 
@@ -730,7 +730,7 @@ async def handle_scan_secrets(
                 # Emit security events for findings (triggers debate for critical secrets)
                 await _emit_secrets_events(result, repo_id, scan_id, workspace_id)
 
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.exception(f"Secrets scan {scan_id} failed: {e}")
                 with _secrets_scan_lock:
                     scan_result.status = "failed"
@@ -756,7 +756,7 @@ async def handle_scan_secrets(
             }
         )
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to start secrets scan: {e}")
         return error_response(str(e), 500)
 
@@ -790,7 +790,7 @@ async def handle_get_secrets_scan_status(
             latest = max(repo_scans.values(), key=lambda s: s.started_at)
             return success_response({"scan_result": latest.to_dict()})
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get secrets scan status: {e}")
         return error_response(str(e), 500)
 
@@ -852,7 +852,7 @@ async def handle_get_secrets(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get secrets: {e}")
         return error_response(str(e), 500)
 
@@ -916,7 +916,7 @@ async def handle_list_secrets_scans(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to list secrets scans: {e}")
         return error_response(str(e), 500)
 
@@ -1224,7 +1224,7 @@ async def handle_scan_sast(
                 if critical_findings:
                     await _emit_sast_events(result, repo_id, scan_id, workspace_id)
 
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.exception(f"[SAST] Scan failed for {repo_id}: {e}")
             finally:
                 if repo_id in _running_sast_scans:
@@ -1241,7 +1241,7 @@ async def handle_scan_sast(
             }
         )
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.exception(f"[SAST] Failed to start scan: {e}")
         return error_response(str(e), 500)
 
@@ -1279,7 +1279,7 @@ async def handle_get_sast_scan_status(
                 }
             )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"[SAST] Failed to get scan status: {e}")
         return error_response(str(e), 500)
 
@@ -1332,7 +1332,7 @@ async def handle_get_sast_findings(
                 }
             )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"[SAST] Failed to get findings: {e}")
         return error_response(str(e), 500)
 
@@ -1368,7 +1368,7 @@ async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
                 }
             )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
         return error_response(str(e), 500)
 
@@ -1426,7 +1426,7 @@ async def _emit_sast_events(
 
             await emitter.emit(event)
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, RuntimeError) as e:
         logger.warning(f"Failed to emit SAST events: {e}")
 
 
@@ -1546,7 +1546,7 @@ async def handle_generate_sbom(
             }
         )
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to generate SBOM: {e}")
         return error_response(str(e), 500)
 
@@ -1591,7 +1591,7 @@ async def handle_get_sbom(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get SBOM: {e}")
         return error_response(str(e), 500)
 
@@ -1637,7 +1637,7 @@ async def handle_list_sboms(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to list SBOMs: {e}")
         return error_response(str(e), 500)
 
@@ -1678,7 +1678,7 @@ async def handle_download_sbom(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to download SBOM: {e}")
         return error_response(str(e), 500)
 
@@ -1727,7 +1727,7 @@ async def handle_compare_sboms(
                     else:  # SPDX
                         for pkg in data.get("packages", []):
                             components[pkg.get("name", "")] = pkg.get("versionInfo", "")
-            except Exception as e:
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
                 logger.debug("Failed to parse SBOM components: %s", e)
             return components
 
@@ -1781,6 +1781,6 @@ async def handle_compare_sboms(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
         logger.exception(f"Failed to compare SBOMs: {e}")
         return error_response(str(e), 500)

@@ -319,7 +319,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                         # Update cursor
                         state.cursor = f"{table}:{pk_value}"
 
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError, KeyError) as e:
                 logger.warning(f"Failed to sync table {table}: {e}")
                 state.errors.append(f"{table}: {str(e)}")
                 continue
@@ -364,7 +364,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                                     "rank": row.get("rank", 0),
                                 }
                             )
-                    except Exception as e:
+                    except (ValueError, RuntimeError, OSError) as e:
                         # Fallback to ILIKE search (FTS may not be configured)
                         logger.debug(f"FTS query failed on {table}, falling back to ILIKE: {e}")
                         columns = await self._get_table_columns(table)
@@ -393,7 +393,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                                     }
                                 )
 
-                except Exception as e:
+                except (ValueError, RuntimeError, OSError) as e:
                     logger.debug(f"Search failed on {table}: {e}")
                     continue
 
@@ -442,7 +442,7 @@ class PostgreSQLConnector(EnterpriseConnector):
 
                 return None
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -487,7 +487,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                 # Fallback to sync-based processing
                 asyncio.create_task(self.sync(max_items=10))
 
-        except Exception as e:
+        except (ValueError, KeyError, json.JSONDecodeError) as e:
             logger.warning(f"[{self.name}] Notification handler error: {e}")
 
     async def stop_listener(self):

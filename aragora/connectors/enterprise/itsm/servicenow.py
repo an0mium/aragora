@@ -501,7 +501,7 @@ class ServiceNowConnector(EnterpriseConnector):
                     )
                 )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
             logger.warning(f"[{self.name}] Failed to get comments for {sys_id}: {e}")
 
         return comments
@@ -655,7 +655,7 @@ class ServiceNowConnector(EnterpriseConnector):
                         )
                     )
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
                 logger.error(f"[{self.name}] Search in {tbl} failed: {e}")
 
         return results[:limit]
@@ -706,7 +706,7 @@ class ServiceNowConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -805,7 +805,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
             return hmac.compare_digest(expected, provided)
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.error(f"[{self.name}] Signature verification error: {e}")
             return False
 
@@ -854,7 +854,7 @@ class ServiceNowConnector(EnterpriseConnector):
                     data = resp.json()
                     results = data.get("result", [])
                     return results[0] if results else None
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"[{self.name}] Reference resolution failed: {e}")
 
         return None

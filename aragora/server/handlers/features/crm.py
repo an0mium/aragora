@@ -34,6 +34,7 @@ from typing import Any
 
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.responses import error_response
 from aragora.server.validation.query_params import safe_query_int
 
@@ -1175,8 +1176,7 @@ class CRMHandler(SecureHandler):
 
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
-        body = await request.json()
-        return body if isinstance(body, dict) else {}
+        return await parse_json_body(request, "crm")
 
     def _json_response(self, status: int, data: Any) -> HandlerResult:
         """Create a JSON response."""

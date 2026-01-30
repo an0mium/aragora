@@ -558,7 +558,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
                 updated=updated,
                 etag=item.get("etag"),
             )
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
             logger.warning(f"Failed to parse event: {e}")
             return None
 
@@ -656,7 +656,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
                     time_max=time_max,
                 )
                 all_events.extend(events)
-            except Exception as e:
+            except (OSError, ValueError, KeyError, RuntimeError) as e:
                 logger.warning(f"Failed to get events from {cal_id}: {e}")
 
         # Sort by start time
@@ -765,5 +765,5 @@ class GoogleCalendarConnector(EnterpriseConnector):
                             "all_day": event.all_day,
                         },
                     )
-            except Exception as e:
+            except (OSError, ValueError, KeyError, RuntimeError) as e:
                 logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")

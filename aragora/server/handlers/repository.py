@@ -106,7 +106,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             return True
         return False
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None
     ) -> HandlerResult | None:

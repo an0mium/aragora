@@ -179,7 +179,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         path = strip_version_prefix(path)
         return path in self.ROUTES or path.startswith("/api/nomic/")
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     @require_permission("nomic:read", handler_arg=2)
     async def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:  # type: ignore[override]
         """Route nomic endpoint requests.
@@ -625,7 +625,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
     # POST Handlers - Control Operations
     # =========================================================================
 
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     @require_permission("nomic:admin", handler_arg=2)
     async def handle_post(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any

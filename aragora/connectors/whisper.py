@@ -348,7 +348,13 @@ class WhisperConnector(BaseConnector):
 
         try:
             result_data = await self._request_with_retry(do_request, "transcribe")
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            ConnectorRateLimitError,
+            ConnectorConfigError,
+            OSError,
+        ) as e:
             logger.error(f"[Whisper] Transcription failed: {e}")
             raise
 
@@ -450,7 +456,13 @@ class WhisperConnector(BaseConnector):
 
                     total_duration += result.duration_seconds
 
-                except Exception as e:
+                except (
+                    httpx.HTTPStatusError,
+                    httpx.TimeoutException,
+                    ConnectorRateLimitError,
+                    ConnectorConfigError,
+                    OSError,
+                ) as e:
                     logger.warning(f"[Whisper] Stream chunk {chunk_count} failed: {e}")
 
                 buffer = b""
@@ -471,7 +483,13 @@ class WhisperConnector(BaseConnector):
                         confidence=result.confidence,
                     )
 
-            except Exception as e:
+            except (
+                httpx.HTTPStatusError,
+                httpx.TimeoutException,
+                ConnectorRateLimitError,
+                ConnectorConfigError,
+                OSError,
+            ) as e:
                 logger.warning(f"[Whisper] Final stream chunk failed: {e}")
 
     async def search(

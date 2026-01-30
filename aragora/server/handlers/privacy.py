@@ -94,7 +94,7 @@ class PrivacyHandler(SecureHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    @rate_limit(rpm=5, limiter_name="privacy_export")
+    @rate_limit(requests_per_minute=5, limiter_name="privacy_export")
     @handle_errors("data export")
     @log_request("data export")
     def _handle_export(self, handler, query_params: dict) -> HandlerResult:
@@ -335,7 +335,7 @@ class PrivacyHandler(SecureHandler):
 
         return json_response(inventory)
 
-    @rate_limit(rpm=1, limiter_name="privacy_delete")
+    @rate_limit(requests_per_minute=1, limiter_name="privacy_delete")
     @handle_errors("account deletion")
     @log_request("account deletion")
     def _handle_delete_account(self, handler) -> HandlerResult:
@@ -533,7 +533,7 @@ class PrivacyHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=5, limiter_name="privacy_preferences")
+    @rate_limit(requests_per_minute=5, limiter_name="privacy_preferences")
     @handle_errors("update privacy preferences")
     @log_request("update privacy preferences")
     def _handle_update_preferences(self, handler) -> HandlerResult:

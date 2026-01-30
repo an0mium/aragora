@@ -210,7 +210,7 @@ class S3Connector(EnterpriseConnector):
 
             return "[PDF extraction requires pypdf or PyPDF2]"
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning(f"PDF extraction failed: {e}")
             return f"[PDF extraction failed: {e}]"
 
@@ -226,7 +226,7 @@ class S3Connector(EnterpriseConnector):
 
         except ImportError:
             return "[DOCX extraction requires python-docx]"
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.warning(f"DOCX extraction failed: {e}")
             return f"[DOCX extraction failed: {e}]"
 
@@ -328,7 +328,7 @@ class S3Connector(EnterpriseConnector):
 
                         items_processed += 1
 
-                    except Exception as e:
+                    except (OSError, ValueError, KeyError) as e:
                         logger.warning(f"Failed to process {key}: {e}")
                         continue
 
@@ -340,7 +340,7 @@ class S3Connector(EnterpriseConnector):
                     state.cursor = None
                     break
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.error(f"S3 sync failed: {e}")
             state.errors.append(str(e))
 

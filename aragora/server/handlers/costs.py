@@ -28,6 +28,7 @@ from typing import Any
 
 from aiohttp import web
 
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
@@ -515,7 +516,9 @@ class CostHandler:
             - name: Optional budget name
         """
         try:
-            body = await request.json()
+            body, err = await parse_json_body(request, context="set_budget")
+            if err:
+                return err
             budget_amount = body.get("budget")
             workspace_id = body.get("workspace_id", "default")
             daily_limit = body.get("daily_limit")
@@ -661,7 +664,9 @@ class CostHandler:
         """
         try:
             recommendation_id = request.match_info.get("recommendation_id")
-            body = await request.json()
+            body, err = await parse_json_body(request, context="apply_recommendation")
+            if err:
+                return err
             user_id = body.get("user_id", "unknown")
 
             from aragora.billing.optimizer import get_cost_optimizer
@@ -815,7 +820,9 @@ class CostHandler:
             - days: Days to simulate (default: 30)
         """
         try:
-            body = await request.json()
+            body, err = await parse_json_body(request, context="simulate_forecast")
+            if err:
+                return err
             workspace_id = body.get("workspace_id", "default")
             scenario_data = body.get("scenario", {})
             days = body.get("days", 30)

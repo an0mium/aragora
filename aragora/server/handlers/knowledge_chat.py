@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 from aragora.resilience import with_timeout
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ def _get_bridge():
     return _bridge
 
 
+@require_permission("knowledge:read")
 @with_timeout(15.0)
 async def handle_knowledge_search(
     query: str,
@@ -116,6 +118,7 @@ async def handle_knowledge_search(
         }
 
 
+@require_permission("knowledge:read")
 @with_timeout(15.0)
 async def handle_knowledge_inject(
     messages: list[dict[str, Any]],
@@ -161,6 +164,7 @@ async def handle_knowledge_inject(
         }
 
 
+@require_permission("knowledge:update")
 @with_timeout(20.0)
 async def handle_store_chat_knowledge(
     messages: list[dict[str, Any]],
@@ -223,6 +227,7 @@ async def handle_store_chat_knowledge(
         }
 
 
+@require_permission("knowledge:read")
 async def handle_channel_knowledge_summary(
     channel_id: str,
     workspace_id: str = "default",
@@ -283,7 +288,7 @@ class KnowledgeChatHandler(BaseHandler):
                 return True
         return False
 
-    @rate_limit(rpm=60, limiter_name="knowledge_chat_read")
+    @rate_limit(requests_per_minute=60, limiter_name="knowledge_chat_read")
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -324,7 +329,7 @@ class KnowledgeChatHandler(BaseHandler):
 
         return None
 
-    @rate_limit(rpm=30, limiter_name="knowledge_chat_write")
+    @rate_limit(requests_per_minute=30, limiter_name="knowledge_chat_write")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

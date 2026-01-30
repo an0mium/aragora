@@ -215,7 +215,7 @@ class TestLoopRegistration:
         loops_data = server._get_loops_data()
 
         assert len(loops_data) == 2
-        loop1 = next(l for l in loops_data if l["loop_id"] == "loop-1")
+        loop1 = next(lp for lp in loops_data if lp["loop_id"] == "loop-1")
         assert loop1["name"] == "Loop 1"
         assert loop1["cycle"] == 3
         assert loop1["phase"] == "design"
@@ -346,6 +346,7 @@ class TestAudienceRateLimiting:
         """First request for a client is allowed."""
         # Create a rate limiter for the client
         from aragora.server.stream.emitter import TokenBucket
+
         server._rate_limiters["client-1"] = TokenBucket(rate_per_minute=60, burst_size=10)
 
         allowed, error = server._check_audience_rate_limit("client-1")
@@ -361,6 +362,7 @@ class TestAudienceRateLimiting:
     def test_exhausted_rate_limiter_returns_error(self, server):
         """Request when rate limit exhausted returns error."""
         from aragora.server.stream.emitter import TokenBucket
+
         # Create a rate limiter with 0 tokens
         limiter = TokenBucket(rate_per_minute=60, burst_size=0)
         server._rate_limiters["client-1"] = limiter
@@ -546,10 +548,7 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=register_loop, args=(f"loop-{i}",))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=register_loop, args=(f"loop-{i}",)) for i in range(10)]
 
         for t in threads:
             t.start()
@@ -584,10 +583,7 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=update_state, args=(i,))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=update_state, args=(i,)) for i in range(10)]
 
         for t in threads:
             t.start()

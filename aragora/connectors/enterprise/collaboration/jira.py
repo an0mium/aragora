@@ -468,7 +468,7 @@ class JiraConnector(EnterpriseConnector):
                     break
                 start_at += max_results
 
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError, OSError) as e:
                 logger.warning(f"[{self.name}] Failed to get comments for {issue_key}: {e}")
                 break
 
@@ -670,7 +670,7 @@ class JiraConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, OSError) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 
@@ -727,7 +727,7 @@ class JiraConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, OSError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 

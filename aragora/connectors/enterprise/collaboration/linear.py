@@ -1030,7 +1030,7 @@ class LinearConnector(EnterpriseConnector):
             await self.get_current_user()
             logger.info("Connected to Linear API")
             return True
-        except Exception as e:
+        except (LinearError, ValueError, OSError) as e:
             logger.error(f"Failed to connect to Linear: {e}")
             return False
 
@@ -1078,7 +1078,7 @@ class LinearConnector(EnterpriseConnector):
                     )
                 )
 
-        except Exception as e:
+        except (LinearError, ValueError, KeyError) as e:
             logger.error(f"Search failed: {e}")
 
         return results[:limit]
@@ -1131,7 +1131,7 @@ class LinearConnector(EnterpriseConnector):
                         metadata={"type": "project", "state": project.state},
                     )
 
-        except Exception as e:
+        except (LinearError, ValueError, KeyError) as e:
             logger.error(f"Failed to fetch {evidence_id}: {e}")
 
         return None
@@ -1268,7 +1268,7 @@ class LinearConnector(EnterpriseConnector):
             sync_state = SyncState(connector_id=self.name)
             async for _ in self.incremental_sync(sync_state):
                 items_synced += 1
-        except Exception as e:
+        except (LinearError, ValueError, OSError) as e:
             errors.append(str(e))
 
         duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000

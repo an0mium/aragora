@@ -485,7 +485,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
             result = await _make_request()
             self._circuit_breaker.record_success()
             return result
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
             logger.warning(f"API request failed, recording circuit breaker failure: {e}")
             self._circuit_breaker.record_failure()
             raise
@@ -707,7 +707,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                 created=created,
                 last_modified=last_modified,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.warning(f"Failed to parse event: {e}")
             return None
 
@@ -822,7 +822,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
                 result[cal_id or "default"] = busy_slots
 
-            except Exception as e:
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
                 logger.warning(f"Failed to get events for calendar {cal_id}: {e}")
                 result[cal_id or "default"] = []
 
@@ -886,7 +886,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                     time_max=time_max,
                 )
                 all_events.extend(events)
-            except Exception as e:
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
                 logger.warning(f"Failed to get events from {cal_id}: {e}")
 
         # Sort by start time
@@ -957,7 +957,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
             data = await self._api_request("GET", endpoint)
             return self._parse_event(data, calendar_id or "default")
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
             logger.warning(f"Failed to get event {event_id}: {e}")
             return None
 
@@ -1041,7 +1041,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                             "all_day": event.all_day,
                         },
                     )
-            except Exception as e:
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
                 logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")
 
 

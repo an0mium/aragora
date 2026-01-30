@@ -279,7 +279,7 @@ class OutlookConnector(EnterpriseConnector):
             logger.info("[Outlook] Authentication successful")
             return True
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.error(f"[Outlook] Authentication failed: {e}")
             return False
 
@@ -402,7 +402,7 @@ class OutlookConnector(EnterpriseConnector):
         except httpx.HTTPStatusError:
             # Already handled above
             raise
-        except Exception as e:
+        except (OSError, ConnectionError) as e:
             self.record_failure()
             logger.error(f"Outlook API error: {e}")
             raise
@@ -744,7 +744,7 @@ class OutlookConnector(EnterpriseConnector):
                 },
             )
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"[Outlook] Fetch failed: {e}")
             return None
 
@@ -807,7 +807,7 @@ class OutlookConnector(EnterpriseConnector):
                     if items_yielded >= batch_size:
                         await asyncio.sleep(0)
 
-                except Exception as e:
+                except (OSError, ValueError, KeyError, RuntimeError) as e:
                     logger.warning(f"[Outlook] Failed to fetch message {msg_id}: {e}")
 
             return
@@ -861,7 +861,7 @@ class OutlookConnector(EnterpriseConnector):
                         if items_yielded >= self.max_results:
                             return
 
-                    except Exception as e:
+                    except (OSError, ValueError, KeyError, RuntimeError) as e:
                         logger.warning(f"[Outlook] Failed to fetch message {msg_id}: {e}")
 
                 if not page_token:
@@ -932,8 +932,8 @@ class OutlookConnector(EnterpriseConnector):
                 "success": True,
                 "message": "Message sent",
             }
-        except Exception as e:
-            raise RuntimeError(f"Failed to send email: {e}")
+        except (OSError, ConnectionError, RuntimeError) as e:
+            raise RuntimeError(f"Failed to send email: {e}") from e
 
     async def reply_to_message(
         self,
@@ -986,8 +986,8 @@ class OutlookConnector(EnterpriseConnector):
                 "success": True,
                 "in_reply_to": original_message_id,
             }
-        except Exception as e:
-            raise RuntimeError(f"Failed to send reply: {e}")
+        except (OSError, ConnectionError, RuntimeError) as e:
+            raise RuntimeError(f"Failed to send reply: {e}") from e
 
     def _message_to_sync_item(self, msg: EmailMessage) -> SyncItem:
         """Convert EmailMessage to SyncItem for Knowledge Mound ingestion."""

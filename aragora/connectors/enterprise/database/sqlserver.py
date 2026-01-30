@@ -373,7 +373,7 @@ class SQLServerConnector(EnterpriseConnector):
                                     }
                                 )
 
-                    except Exception as e:
+                    except (OSError, ConnectionError, ValueError, KeyError) as e:
                         logger.debug(f"Search failed on {table}: {e}")
                         continue
 
@@ -425,7 +425,7 @@ class SQLServerConnector(EnterpriseConnector):
 
                     return None
 
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -487,7 +487,7 @@ class SQLServerConnector(EnterpriseConnector):
 
         except asyncio.CancelledError:
             logger.info("[SQL Server CDC] Polling cancelled")
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError, RuntimeError) as e:
             logger.error(f"[SQL Server CDC] Polling error: {e}")
             raise
 
@@ -522,7 +522,7 @@ class SQLServerConnector(EnterpriseConnector):
 
                 try:
                     await cursor.execute(cdc_query, from_lsn, max_lsn)
-                except Exception as e:
+                except (OSError, ConnectionError, ValueError) as e:
                     logger.debug(f"[SQL Server CDC] No changes or error for {table}: {e}")
                     return
 
@@ -594,7 +594,7 @@ class SQLServerConnector(EnterpriseConnector):
 
         except asyncio.CancelledError:
             logger.info("[SQL Server CT] Polling cancelled")
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError, RuntimeError) as e:
             logger.error(f"[SQL Server CT] Polling error: {e}")
             raise
 
@@ -634,7 +634,7 @@ class SQLServerConnector(EnterpriseConnector):
 
                 try:
                     await cursor.execute(ct_query, last_version)
-                except Exception as e:
+                except (OSError, ConnectionError, ValueError) as e:
                     logger.debug(f"[SQL Server CT] No changes or error for {table}: {e}")
                     return
 
@@ -715,7 +715,7 @@ class SQLServerConnector(EnterpriseConnector):
                 "cdc_enabled": self.use_cdc,
                 "change_tracking_enabled": self.use_change_tracking,
             }
-        except Exception as e:
+        except (OSError, ConnectionError, asyncio.TimeoutError, RuntimeError) as e:
             return {
                 "healthy": False,
                 "error": str(e),

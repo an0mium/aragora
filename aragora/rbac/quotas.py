@@ -225,7 +225,7 @@ class QuotaEnforcer:
             self._redis = get_redis_client()
             if self._redis:
                 logger.info("Quota enforcer using Redis persistence")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Redis not available for quota persistence: {e}")
             self._redis = None
 
@@ -254,7 +254,7 @@ class QuotaEnforcer:
 
             # Set TTL of 90 days on the key
             redis.expire(redis_key, 90 * 24 * 3600)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, TypeError) as e:
             logger.warning(f"Failed to persist quota usage to Redis: {e}")
 
     def _load_from_persistence(self) -> None:
@@ -288,7 +288,7 @@ class QuotaEnforcer:
                                 record = UsageRecord.from_storage_dict(data)
                                 self._usage[usage_key].append(record)
                                 loaded_count += 1
-                            except Exception as e:
+                            except (ValueError, TypeError, KeyError) as e:
                                 logger.warning(f"Failed to parse quota record: {e}")
 
                 if cursor == 0:
@@ -296,7 +296,7 @@ class QuotaEnforcer:
 
             if loaded_count > 0:
                 logger.info(f"Loaded {loaded_count} quota usage records from Redis")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.warning(f"Failed to load quota usage from Redis: {e}")
 
     def set_policy(

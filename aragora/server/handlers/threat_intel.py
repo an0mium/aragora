@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
     rate_limit,
     validate_body,
 )
+from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.decorators import require_permission
 from aragora.services.threat_intelligence import (
     ThreatIntelligenceService,
@@ -107,7 +108,9 @@ class ThreatIntelHandler(BaseHandler):
             }
         """
         try:
-            body = await request.json()
+            body, err = await parse_json_body(request, context="check_url")
+            if err:
+                return err
             url = body.get("url", "").strip()
 
             if not url:
@@ -162,7 +165,9 @@ class ThreatIntelHandler(BaseHandler):
             }
         """
         try:
-            body = await request.json()
+            body, err = await parse_json_body(request, context="check_urls_batch")
+            if err:
+                return err
             urls = body.get("urls", [])
 
             if not urls:
@@ -264,7 +269,9 @@ class ThreatIntelHandler(BaseHandler):
             }
         """
         try:
-            body = await request.json()
+            body, err = await parse_json_body(request, context="check_ips_batch")
+            if err:
+                return err
             ips = body.get("ips", [])
 
             if not ips:
@@ -359,7 +366,9 @@ class ThreatIntelHandler(BaseHandler):
             }
         """
         try:
-            body = await request.json()
+            body, err = await parse_json_body(request, context="check_hashes_batch")
+            if err:
+                return err
             hashes = body.get("hashes", [])
 
             if not hashes:
@@ -428,7 +437,9 @@ class ThreatIntelHandler(BaseHandler):
             }
         """
         try:
-            body = await request.json()
+            body, err = await parse_json_body(request, context="scan_email_content")
+            if err:
+                return err
             email_body = body.get("body", "")
             headers = body.get("headers", {})
 

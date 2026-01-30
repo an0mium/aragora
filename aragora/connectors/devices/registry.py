@@ -263,7 +263,7 @@ class DeviceConnectorRegistry:
                 else:
                     logger.debug(f"Device connector not configured: {platform}")
 
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError, TypeError) as e:
                 logger.warning(f"Failed to initialize {platform}: {e}")
                 results[platform] = False
 
@@ -277,7 +277,7 @@ class DeviceConnectorRegistry:
         for connector in connectors:
             try:
                 await connector.shutdown()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning(f"Error shutting down {connector.platform_name}: {e}")
 
         with self._lock:

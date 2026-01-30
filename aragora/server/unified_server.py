@@ -1106,16 +1106,51 @@ class UnifiedServer:
                 logger.error(f"HTTP server unexpected error: {e}")
                 break
 
-    async def start(self) -> None:
-        """Start HTTP and WebSocket servers."""
-        # Run startup sequence (monitoring, tracing, metrics, background tasks, etc.)
-        from aragora.server.startup import run_startup_sequence
+    async def start(self, use_parallel_init: bool | None = None) -> None:
+        """Start HTTP and WebSocket servers.
 
-        startup_status = await run_startup_sequence(
-            nomic_dir=self.nomic_dir,
-            stream_emitter=self.stream_server.emitter,
-        )
-        self._watchdog_task = startup_status.get("watchdog_task")
+        Args:
+            use_parallel_init: Use parallel initialization for faster startup.
+                If None, determined by ARAGORA_PARALLEL_INIT env var (default: True).
+        """
+        import time as time_mod
+
+        startup_start = time_mod.perf_counter()
+
+        # Determine whether to use parallel initialization
+        if use_parallel_init is None:
+            use_parallel_init = os.environ.get("ARAGORA_PARALLEL_INIT", "true").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+
+        # Run startup sequence (monitoring, tracing, metrics, background tasks, etc.)
+        if use_parallel_init:
+            from aragora.server.startup import parallel_init
+
+            logger.info("[startup] Using parallel initialization")
+            startup_status = await parallel_init(
+                nomic_dir=self.nomic_dir,
+                stream_emitter=self.stream_server.emitter,
+            )
+
+            # Log parallel init timing
+            if startup_status.get("_parallel_init_duration_ms"):
+                duration_ms = startup_status["_parallel_init_duration_ms"]
+                logger.info(f"[startup] Parallel init completed in {duration_ms:.0f}ms")
+
+            # Extract watchdog task from results
+            self._watchdog_task = startup_status.get("watchdog_task")
+        else:
+            from aragora.server.startup import run_startup_sequence
+
+            logger.info("[startup] Using sequential initialization")
+            startup_status = await run_startup_sequence(
+                nomic_dir=self.nomic_dir,
+                stream_emitter=self.stream_server.emitter,
+            )
+            self._watchdog_task = startup_status.get("watchdog_task")
 
         # Upgrade stores from SQLite to PostgreSQL now that the pool exists.
         # init_handler_stores() ran in __init__() before the pool was available,
@@ -1146,7 +1181,12 @@ class UnifiedServer:
         # and ensure route index is built before accepting requests
         UnifiedHandler._init_handlers()
 
+        # Log startup timing
+        startup_elapsed_ms = (time_mod.perf_counter() - startup_start) * 1000
+        init_mode = "parallel" if use_parallel_init else "sequential"
+
         logger.info("Starting unified server...")
+        logger.info(f"  Init mode:  {init_mode} ({startup_elapsed_ms:.0f}ms)")
         protocol = "https" if self.ssl_enabled else "http"
         logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
         logger.info(f"  WebSocket:  ws://localhost:{self.ws_port}")

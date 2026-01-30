@@ -226,7 +226,13 @@ class TwitterConnector(BaseConnector):
             logger.info(f"Twitter search '{query[:50]}...' returned {len(results)} results")
             return results[:limit]
 
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            httpx.TimeoutException,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.debug(f"Twitter search failed: {e}")
             return []
 
@@ -279,7 +285,13 @@ class TwitterConnector(BaseConnector):
                 self._cache_put(evidence_id, evidence)
             return evidence
 
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            httpx.TimeoutException,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.debug(f"Twitter fetch failed for {evidence_id}: {e}")
             return None
 
@@ -297,7 +309,7 @@ class TwitterConnector(BaseConnector):
                 evidence = self._parse_tweet(tweet, includes, users)
                 if evidence:
                     results.append(evidence)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.debug(f"Error parsing tweet: {e}")
                 continue
 
@@ -474,7 +486,13 @@ class TwitterConnector(BaseConnector):
             logger.info(f"Twitter user {user_id} returned {len(results)} tweets")
             return results
 
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            httpx.TimeoutException,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.debug(f"Twitter get_user_tweets failed for {user_id}: {e}")
             return []
 

@@ -730,7 +730,7 @@ class HL7Parser:
             try:
                 segment = HL7Segment.parse(line, field_sep, encoding_chars)
                 segments.append(segment)
-            except Exception as e:
+            except (ValueError, IndexError) as e:
                 if self.strict:
                     raise ValueError(f"Failed to parse segment: {line}") from e
                 logger.warning(f"Skipping invalid segment: {line} ({e})")
@@ -759,7 +759,7 @@ class HL7Parser:
                     message.obr = OBRSegment.from_segment(segment)
                 elif segment.segment_type == "SCH":
                     message.sch = SCHSegment.from_segment(segment)
-            except Exception as e:
+            except (ValueError, KeyError, IndexError, AttributeError) as e:
                 if self.strict:
                     raise
                 logger.warning(f"Failed to parse typed segment {segment.segment_type}: {e}")
@@ -794,7 +794,7 @@ class HL7Parser:
                 # Decode as UTF-8 (or ASCII, which is subset)
                 raw = part.decode("utf-8", errors="replace")
                 messages.append(self.parse(raw))
-            except Exception as e:
+            except (ValueError, UnicodeDecodeError) as e:
                 if self.strict:
                     raise
                 logger.warning(f"Failed to parse MLLP message: {e}")
@@ -1128,7 +1128,7 @@ class HL7v2Connector(EnterpriseConnector):
                             writer.write(self.parser.encode_mllp(ack))
                             await writer.drain()
 
-                    except Exception as e:
+                    except (ValueError, UnicodeDecodeError) as e:
                         logger.error(f"Error processing MLLP message: {e}")
                         self._parsing_errors += 1
                         # Send NACK
@@ -1139,7 +1139,7 @@ class HL7v2Connector(EnterpriseConnector):
 
             except asyncio.IncompleteReadError:
                 logger.debug(f"Client {peer} disconnected")
-            except Exception as e:
+            except (ConnectionResetError, BrokenPipeError, OSError) as e:
                 logger.error(f"MLLP connection error: {e}")
             finally:
                 writer.close()
@@ -1227,7 +1227,7 @@ class HL7v2Connector(EnterpriseConnector):
                     if item:
                         yield item
 
-                except Exception as e:
+                except (ValueError, OSError, UnicodeDecodeError) as e:
                     logger.error(f"Error processing file {file_path}: {e}")
                     self._parsing_errors += 1
 
@@ -1322,7 +1322,7 @@ class HL7v2Connector(EnterpriseConnector):
 
                 with open(self.audit_log_path, "a") as f:
                     f.write(json.dumps(audit_entry) + "\n")
-            except Exception as e:
+            except OSError as e:
                 logger.error(f"Failed to write audit log: {e}")
 
     async def search(  # type: ignore[override]

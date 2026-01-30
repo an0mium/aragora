@@ -422,7 +422,7 @@ class WorkspaceHandler(SecureHandler):
     # Workspace Handlers
     # =========================================================================
 
-    @rate_limit(rpm=30, limiter_name="workspace_create")
+    @rate_limit(requests_per_minute=30, limiter_name="workspace_create")
     @handle_errors("create workspace")
     @log_request("create workspace")
     def _handle_create_workspace(self, handler) -> HandlerResult:
@@ -549,7 +549,7 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"workspace": workspace.to_dict()})
 
-    @rate_limit(rpm=10, limiter_name="workspace_delete")
+    @rate_limit(requests_per_minute=10, limiter_name="workspace_delete")
     @handle_errors("delete workspace")
     @log_request("delete workspace")
     def _handle_delete_workspace(self, handler, workspace_id: str) -> HandlerResult:
@@ -592,7 +592,7 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"message": "Workspace deleted successfully"})
 
-    @rate_limit(rpm=30, limiter_name="workspace_member")
+    @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("add workspace member")
     @log_request("add workspace member")
     def _handle_add_member(self, handler, workspace_id: str) -> HandlerResult:
@@ -645,7 +645,7 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"message": f"Member {user_id} added to workspace"}, status=201)
 
-    @rate_limit(rpm=30, limiter_name="workspace_member")
+    @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("remove workspace member")
     @log_request("remove workspace member")
     def _handle_remove_member(self, handler, workspace_id: str, user_id: str) -> HandlerResult:
@@ -797,7 +797,7 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=30, limiter_name="workspace_member")
+    @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("update member role")
     @log_request("update member role")
     def _handle_update_member_role(self, handler, workspace_id: str, user_id: str) -> HandlerResult:
@@ -951,7 +951,7 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=20, limiter_name="retention_policy")
+    @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
     @handle_errors("create retention policy")
     @log_request("create retention policy")
     def _handle_create_policy(self, handler) -> HandlerResult:
@@ -1059,7 +1059,7 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=20, limiter_name="retention_policy")
+    @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
     @handle_errors("update retention policy")
     @log_request("update retention policy")
     def _handle_update_policy(self, handler, policy_id: str) -> HandlerResult:
@@ -1115,7 +1115,7 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
-    @rate_limit(rpm=10, limiter_name="retention_policy")
+    @rate_limit(requests_per_minute=10, limiter_name="retention_policy")
     @handle_errors("delete retention policy")
     @log_request("delete retention policy")
     def _handle_delete_policy(self, handler, policy_id: str) -> HandlerResult:
@@ -1147,7 +1147,7 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"message": "Policy deleted successfully"})
 
-    @rate_limit(rpm=5, limiter_name="retention_execute")
+    @rate_limit(requests_per_minute=5, limiter_name="retention_execute")
     @handle_errors("execute retention policy")
     @log_request("execute retention policy")
     def _handle_execute_policy(self, handler, policy_id: str, query_params: dict) -> HandlerResult:
@@ -1210,7 +1210,7 @@ class WorkspaceHandler(SecureHandler):
     # Classification Handlers
     # =========================================================================
 
-    @rate_limit(rpm=60, limiter_name="classify")
+    @rate_limit(requests_per_minute=60, limiter_name="classify")
     @handle_errors("classify content")
     def _handle_classify_content(self, handler) -> HandlerResult:
         """Classify content sensitivity."""

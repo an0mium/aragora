@@ -330,11 +330,11 @@ class DeviceConnector(ABC):
                     self._record_success()
                     try:
                         return True, response.json(), None
-                    except Exception:
+                    except (ValueError, KeyError):
                         # Response may not be JSON
                         return True, {"status": "ok", "text": response.text}, None
 
-            except Exception as e:
+            except (OSError, TimeoutError, RuntimeError, ValueError) as e:
                 last_error = f"Request error: {e}"
                 self._record_failure()
 
@@ -433,7 +433,7 @@ class DeviceConnector(ABC):
                 if self.config.batch_delay_ms > 0:
                     await asyncio.sleep(self.config.batch_delay_ms / 1000)
 
-            except Exception as e:
+            except (OSError, TimeoutError, RuntimeError, ValueError, ConnectionError) as e:
                 logger.error(f"Failed to send to device {device.device_id}: {e}")
                 results.append(
                     SendResult(

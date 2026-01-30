@@ -12,6 +12,7 @@ from aragora.server.handlers.utils.auth import (
     UnauthorizedError,
     ForbiddenError,
 )
+from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
@@ -224,7 +225,9 @@ class LearningHandler:
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
-            data = await request.json()
+            data, err = await parse_json_body(request, context="record_debate_outcome")
+            if err:
+                return err
             debate_id = data.get("debate_id")
             agents = data.get("agents", [])
             winner = data.get("winner")
@@ -300,7 +303,9 @@ class LearningHandler:
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
-            data = await request.json()
+            data, err = await parse_json_body(request, context="record_user_feedback")
+            if err:
+                return err
             debate_id = data.get("debate_id")
             agent_id = data.get("agent_id")
             feedback_type = data.get("feedback_type")

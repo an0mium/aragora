@@ -352,6 +352,7 @@ __all__ = [
     "track_websocket_connection",
     "measure_latency",
     "measure_async_latency",
+    "track_handler",
     "record_debate_completion",
     "record_phase_duration",
     "record_agent_participation",
@@ -1633,6 +1634,55 @@ def measure_async_latency(endpoint: str) -> Callable[[F], F]:
             finally:
                 latency = time.perf_counter() - start
                 REQUEST_LATENCY.labels(endpoint=endpoint).observe(latency)
+
+        return cast(F, wrapper)
+
+    return decorator
+
+
+def track_handler(handler_name: str, method: str = "POST") -> Callable[[F], F]:
+    """Decorator factory to track async handler metrics.
+
+    Tracks:
+    - Request count with success/error status
+    - Request latency (p50/p95/p99 via histogram)
+    - Error rate
+
+    Args:
+        handler_name: The handler name for labeling (e.g., "email/prioritize")
+        method: HTTP method for this handler (default: POST)
+
+    Example:
+        @track_handler("email/prioritize")
+        async def handle_prioritize_email(data):
+            ...
+
+        @track_handler("payments/process", method="POST")
+        async def handle_process_payment(data):
+            ...
+    """
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            _init_metrics()
+            start = time.perf_counter()
+            status = 200
+            try:
+                result = await func(*args, **kwargs)
+                # Check if result indicates failure
+                if isinstance(result, dict):
+                    if result.get("success") is False:
+                        status = result.get("status", 400)
+                    elif "error" in result and "success" not in result:
+                        status = result.get("status", 500)
+                return result
+            except Exception:
+                status = 500
+                raise
+            finally:
+                latency = time.perf_counter() - start
+                record_request(method, handler_name, status, latency)
 
         return cast(F, wrapper)
 

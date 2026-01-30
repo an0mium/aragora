@@ -429,7 +429,7 @@ class ToolBridge:
                 if not self.error_handler.should_retry(last_error):
                     break
 
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
                 last_error = e
                 if not self.error_handler.should_retry(e):
                     break
@@ -511,7 +511,7 @@ class ToolBridge:
                 timestamp=datetime.now(timezone.utc),
                 partial_result=result,
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
             yield ProgressUpdate(
                 progress=0.0,
                 message=str(e),

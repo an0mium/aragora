@@ -134,7 +134,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    @rate_limit(rpm=30, limiter_name="teams_status")
+    @rate_limit(requests_per_minute=30, limiter_name="teams_status")
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -145,7 +145,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
         return None
 
-    @rate_limit(rpm=60, limiter_name="teams_messages")
+    @rate_limit(requests_per_minute=60, limiter_name="teams_messages")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

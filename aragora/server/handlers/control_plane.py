@@ -694,7 +694,7 @@ class ControlPlaneHandler(BaseHandler):
     # =========================================================================
 
     @user_rate_limit(action="agent_call")
-    @rate_limit(rpm=60, limiter_name="control_plane_post")
+    @rate_limit(requests_per_minute=60, limiter_name="control_plane_post")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

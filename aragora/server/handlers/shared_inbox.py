@@ -40,6 +40,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
+from aragora.observability.metrics import track_handler
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -382,6 +383,7 @@ def _get_store():
 # =============================================================================
 
 
+@track_handler("inbox/shared/create")
 async def handle_create_shared_inbox(
     workspace_id: str,
     name: str,
@@ -465,6 +467,7 @@ async def handle_create_shared_inbox(
         }
 
 
+@track_handler("inbox/shared/list", method="GET")
 async def handle_list_shared_inboxes(
     workspace_id: str,
     user_id: str | None = None,
@@ -566,6 +569,7 @@ async def handle_get_shared_inbox(
         }
 
 
+@track_handler("inbox/shared/messages", method="GET")
 async def handle_get_inbox_messages(
     inbox_id: str,
     status: str | None = None,
@@ -669,6 +673,7 @@ async def handle_get_inbox_messages(
         }
 
 
+@track_handler("inbox/shared/messages/assign")
 async def handle_assign_message(
     inbox_id: str,
     message_id: str,

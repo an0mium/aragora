@@ -69,7 +69,7 @@ class A2AHandler(BaseHandler):
             return True
         return False
 
-    @rate_limit(rpm=120)
+    @rate_limit(requests_per_minute=120)
     @require_permission("a2a:read")
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any

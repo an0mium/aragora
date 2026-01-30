@@ -177,7 +177,7 @@ class GoogleHomeConnector(DeviceConnector):
             logger.info("Google Home connector initialized successfully")
             return True
 
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, ValueError) as e:
             logger.warning(f"Google Home connector initialization failed: {e}")
             return False
 
@@ -277,9 +277,9 @@ class GoogleHomeConnector(DeviceConnector):
                 self._token_expires_at = time.time() + expires_in
                 return self._access_token
             else:
-                raise Exception(f"Token exchange failed: {error}")
+                raise RuntimeError(f"Token exchange failed: {error}")
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to get access token: {e}")
             raise
 
@@ -559,7 +559,7 @@ class GoogleHomeConnector(DeviceConnector):
                 logger.warning(f"Failed to request sync: {error}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error requesting sync: {e}")
             return False
 
@@ -615,7 +615,7 @@ class GoogleHomeConnector(DeviceConnector):
                 logger.warning(f"Failed to report state: {error}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error reporting state: {e}")
             return False
 
@@ -694,7 +694,7 @@ class GoogleHomeConnector(DeviceConnector):
                 logger.warning(f"Failed to send broadcast: {error}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error sending broadcast: {e}")
             return False
 
@@ -776,7 +776,7 @@ class GoogleHomeConnector(DeviceConnector):
             logger.info(f"Linked Google user to Aragora user {aragora_user_id}")
             return True
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to link account: {e}")
             return False
 
@@ -798,7 +798,7 @@ class GoogleHomeConnector(DeviceConnector):
 
             return store.delete_device_session(device_id)
 
-        except Exception as e:
+        except (ImportError, RuntimeError) as e:
             logger.error(f"Failed to unlink account: {e}")
             return False
 

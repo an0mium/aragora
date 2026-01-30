@@ -265,7 +265,7 @@ class NewsAPIConnector(BaseConnector):
         except httpx.HTTPStatusError as e:
             logger.error(f"NewsAPI HTTP error: {e.response.status_code}")
             return []
-        except Exception as e:
+        except (httpx.RequestError, ValueError, KeyError) as e:
             logger.error(f"NewsAPI search failed: {e}")
             return []
 
@@ -328,7 +328,13 @@ class NewsAPIConnector(BaseConnector):
             logger.info(f"NewsAPI headlines returned {len(results)} results")
             return results
 
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            httpx.TimeoutException,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"NewsAPI headlines failed: {e}")
             return []
 
@@ -389,7 +395,13 @@ class NewsAPIConnector(BaseConnector):
 
             return data.get("sources", [])
 
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            httpx.TimeoutException,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"NewsAPI get_sources failed: {e}")
             return []
 
@@ -403,7 +415,7 @@ class NewsAPIConnector(BaseConnector):
                 if evidence:
                     results.append(evidence)
                     self._cache_put(evidence.id, evidence)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.debug(f"Error parsing article: {e}")
                 continue
 

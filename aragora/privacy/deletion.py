@@ -388,7 +388,7 @@ class DeletionStore:
                 len(self._holds),
             )
 
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
             logger.error("Failed to load deletion store: %s", e)
 
     def _persist(self) -> None:
@@ -404,7 +404,7 @@ class DeletionStore:
             with open(self.storage_path, "w") as f:
                 json.dump(data, f, indent=2)
 
-        except Exception as e:
+        except OSError as e:
             logger.error("Failed to persist deletion store: %s", e)
 
 
@@ -504,7 +504,7 @@ class DeletionCascadeManager:
                     entity_type.value,
                     user_id,
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 error_msg = f"Failed to delete {entity_type.value}: {str(e)}"
                 errors.append(error_msg)
                 logger.error(error_msg)
@@ -539,7 +539,7 @@ class DeletionCascadeManager:
                         entity_type.value,
                         user_id,
                     )
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 failed.append(entity_type.value)
                 logger.error(
                     "Verification error for %s: %s",
@@ -830,7 +830,7 @@ class GDPRDeletionScheduler:
                 request.request_id,
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             request.status = DeletionStatus.FAILED
             request.errors.append(str(e))
             request.completed_at = datetime.now(timezone.utc)
@@ -863,7 +863,7 @@ class GDPRDeletionScheduler:
             try:
                 result = await self.execute_deletion(request.request_id)
                 processed.append(result)
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 logger.error(
                     "Error processing deletion %s: %s",
                     request.request_id,
@@ -901,7 +901,7 @@ class GDPRDeletionScheduler:
         while self._running:
             try:
                 await self.process_pending_deletions()
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 logger.error("Error in deletion scheduler loop: %s", e)
 
             await asyncio.sleep(self._check_interval)

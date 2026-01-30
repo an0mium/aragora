@@ -349,7 +349,7 @@ class FormalVerificationHandler(BaseHandler):
             return error_response(f"Unknown path: {path}", 404)
 
     @handle_errors("formal verification claim")
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def _handle_verify_claim(self, handler, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/claim - Verify a single claim.
@@ -416,7 +416,7 @@ class FormalVerificationHandler(BaseHandler):
         return json_response(result_dict)
 
     @handle_errors("formal verification batch")
-    @rate_limit(rpm=10)
+    @rate_limit(requests_per_minute=10)
     async def _handle_verify_batch(self, handler, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/batch - Batch verification of multiple claims.
@@ -541,7 +541,7 @@ class FormalVerificationHandler(BaseHandler):
         return json_response(status)
 
     @handle_errors("formal verification translate")
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     async def _handle_translate(self, handler, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/translate - Translate claim to formal language only.

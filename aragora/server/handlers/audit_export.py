@@ -12,7 +12,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
 import tempfile
 from datetime import datetime, timezone, timedelta
@@ -21,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.server.handlers.utils.decorators import require_permission
 
@@ -170,10 +170,9 @@ async def handle_audit_export(request: web.Request) -> web.Response:
     """
     audit = get_audit_log()
 
-    try:
-        body = await request.json()
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
+    body, err = await parse_json_body(request, context="audit_export")
+    if err:
+        return err
 
     # Validate required fields
     if not body.get("start_date"):
@@ -257,9 +256,8 @@ async def handle_audit_verify(request: web.Request) -> web.Response:
     """
     audit = get_audit_log()
 
-    try:
-        body = await request.json()
-    except json.JSONDecodeError:
+    body, err = await parse_json_body(request, context="audit_verify")
+    if err:
         body = {}
 
     start_date = None

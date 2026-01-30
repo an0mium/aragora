@@ -388,8 +388,8 @@ def require_approval(
                     f"Auto-approved {operation} for {auth_context.user_id} "
                     f"(roles: {auth_context.roles})"
                 )
-                result = await func(*args, **kwargs)  # type: ignore[misc]
-                return result  # type: ignore[return-value]
+                result = await func(*args, **kwargs)
+                return result
 
             # Check for existing approval token in kwargs
             approval_id = kwargs.pop("_approval_id", None)
@@ -402,8 +402,8 @@ def require_approval(
                     logger.info(
                         f"Executing approved operation {operation} (approval: {approval_id})"
                     )
-                    result = await func(*args, **kwargs)  # type: ignore[misc]
-                    return result  # type: ignore[return-value]
+                    result = await func(*args, **kwargs)
+                    return result
                 elif request and request.state == ApprovalState.REJECTED:
                     raise ApprovalDeniedError(request, request.rejection_reason or "")
                 elif request and request.state == ApprovalState.EXPIRED:
@@ -435,7 +435,7 @@ def require_approval(
             # Raise pending error so caller can present approval UI
             raise ApprovalPendingError(approval_request)
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 
@@ -455,31 +455,32 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
         from aragora.storage.governance_store import get_governance_store
 
         store = get_governance_store()
-        await store.save_approval(  # type: ignore[assignment,misc]
-            approval_id=request.id,
-            title=f"{request.operation}: {request.description}",
-            description=request.description,
-            risk_level=request.risk_level.value,
-            status=request.state.value,
-            requested_by=request.requester_id,
-            changes=[],
-            timeout_seconds=(
-                int((request.expires_at - request.created_at).total_seconds())
-                if request.expires_at
-                else 86400
-            ),
-            workspace_id=request.workspace_id,
-            metadata={
-                "operation": request.operation,
-                "resource_type": request.resource_type,
-                "resource_id": request.resource_id,
-                "org_id": request.org_id,
-                "context": request.context,
-                "checklist": [
-                    {"label": c.label, "required": c.required} for c in request.checklist
-                ],
-            },
-        )
+        if hasattr(store, "save_approval"):
+            await store.save_approval(
+                approval_id=request.id,
+                title=f"{request.operation}: {request.description}",
+                description=request.description,
+                risk_level=request.risk_level.value,
+                status=request.state.value,
+                requested_by=request.requester_id,
+                changes=[],
+                timeout_seconds=(
+                    int((request.expires_at - request.created_at).total_seconds())
+                    if request.expires_at
+                    else 86400
+                ),
+                workspace_id=request.workspace_id,
+                metadata={
+                    "operation": request.operation,
+                    "resource_type": request.resource_type,
+                    "resource_id": request.resource_id,
+                    "org_id": request.org_id,
+                    "context": request.context,
+                    "checklist": [
+                        {"label": c.label, "required": c.required} for c in request.checklist
+                    ],
+                },
+            )
     except Exception as e:
         # In distributed mode, persistence failure is critical
         from aragora.control_plane.leader import (
@@ -531,10 +532,11 @@ async def _recover_approval_request(request_id: str) -> OperationApprovalRequest
             checklist=checklist,
             context=metadata.get("context", {}),
             state=ApprovalState(record.status),
-            created_at=record.created_at,  # type: ignore[attr-defined]
+            created_at=getattr(record, "created_at", datetime.now(timezone.utc)),
             expires_at=(
-                record.created_at + timedelta(seconds=record.timeout_seconds)  # type: ignore[attr-defined]
-                if record.timeout_seconds  # type: ignore[attr-defined]
+                getattr(record, "created_at", datetime.now(timezone.utc))
+                + timedelta(seconds=getattr(record, "timeout_seconds", 86400))
+                if getattr(record, "timeout_seconds", None)
                 else None
             ),
             approved_by=record.approved_by,

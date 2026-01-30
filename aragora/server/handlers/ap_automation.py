@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def get_ap_automation():
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("finance:write")
 async def handle_add_invoice(
     data: dict[str, Any],
@@ -136,6 +138,7 @@ async def handle_add_invoice(
         return error_response(f"Failed to add invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=120)
 @require_permission("ap:read")
 async def handle_list_invoices(
     data: dict[str, Any],
@@ -198,6 +201,7 @@ async def handle_list_invoices(
         return error_response(f"Failed to list invoices: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=120)
 @require_permission("ap:read")
 async def handle_get_invoice(
     data: dict[str, Any],
@@ -223,6 +227,7 @@ async def handle_get_invoice(
         return error_response(f"Failed to get invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("finance:write")
 async def handle_record_payment(
     data: dict[str, Any],
@@ -280,6 +285,7 @@ async def handle_record_payment(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=30)
 @require_permission("finance:approve")
 async def handle_optimize_payments(
     data: dict[str, Any],
@@ -340,6 +346,7 @@ async def handle_optimize_payments(
         return error_response(f"Failed to optimize payments: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=30)
 @require_permission("finance:approve")
 async def handle_batch_payments(
     data: dict[str, Any],
@@ -398,6 +405,7 @@ async def handle_batch_payments(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("ap:read")
 async def handle_get_forecast(
     data: dict[str, Any],
@@ -433,6 +441,7 @@ async def handle_get_forecast(
         return error_response(f"Failed to generate forecast: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)
 @require_permission("ap:read")
 async def handle_get_discounts(
     data: dict[str, Any],

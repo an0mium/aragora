@@ -147,7 +147,7 @@ class TeamsUserIdentityBridge:
                     user.email = stored_user.email or user.email
                     user.name = stored_user.name or user.name
                     user.roles = getattr(stored_user, "roles", [])
-            except Exception as e:
+            except (AttributeError, KeyError, LookupError) as e:
                 logger.debug(f"Could not enrich user from repo: {e}")
 
         return user
@@ -249,7 +249,7 @@ class TeamsUserIdentityBridge:
                 existing = user_repo.get_by_email(teams_user.email)
                 if existing:
                     return existing.id
-            except Exception as e:
+            except (AttributeError, KeyError, LookupError) as e:
                 logger.debug(f"Could not search by email: {e}")
 
         if create_if_missing:
@@ -282,7 +282,7 @@ class TeamsUserIdentityBridge:
                         name=full_name or "Teams User",
                     )
                     logger.info(f"Created Aragora user for Teams user: {user_id}")
-                except Exception as e:
+                except (ValueError, TypeError, RuntimeError) as e:
                     logger.warning(f"Could not create user in repository: {e}")
 
             return user_id
@@ -349,7 +349,7 @@ class TeamsUserIdentityBridge:
             )
             logger.info(f"Linked Teams user {aad_object_id} to Aragora user {aragora_user_id}")
             return True
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to link Teams user: {e}")
             return False
 

@@ -234,7 +234,7 @@ class DocumentQueryEngine:
             from aragora.documents.indexing.hybrid_search import create_hybrid_searcher
 
             searcher = await create_hybrid_searcher()
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.warning(f"Could not create hybrid searcher: {e}")
             searcher = None
 
@@ -509,7 +509,7 @@ class DocumentQueryEngine:
                 vector_weight=self.config.vector_weight,
             )
             return results
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Search failed: {e}")
             return []
 
@@ -549,7 +549,7 @@ class DocumentQueryEngine:
         # Try to generate answer
         try:
             answer, model_used = await self._call_llm(prompt, context_messages)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError) as e:
             logger.error(f"LLM call failed: {e}")
             answer = "I encountered an error while generating the answer."
             model_used = "error"
@@ -615,7 +615,7 @@ ANSWER:"""
                 messages = context_messages + [{"role": "user", "content": prompt}]
                 response = await agent.generate(messages if context_messages else prompt)
                 return response, self.config.model
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Primary model failed: {e}, trying fallback")
 
         # Try fallback model
@@ -626,7 +626,7 @@ ANSWER:"""
             if agent:
                 response = await agent.generate(prompt)
                 return response, self.config.fallback_model
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError) as e:
             logger.error(f"Fallback model also failed: {e}")
 
         # Last resort: return error message
@@ -657,7 +657,7 @@ ANSWER:"""
                 # Fallback to non-streaming
                 response = await agent.generate(prompt) if agent else "No model available."
                 yield response
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError) as e:
             logger.error(f"Streaming failed: {e}")
             yield f"Error generating answer: {str(e)}"
 

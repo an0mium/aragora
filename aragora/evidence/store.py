@@ -728,12 +728,18 @@ class EvidenceStore(SQLiteStore):
         """
         import time
 
+        # SECURITY: Validate retention_days to prevent SQL injection
+        if not isinstance(retention_days, int) or retention_days < 0 or retention_days > 36500:
+            raise ValueError(
+                f"retention_days must be an integer between 0 and 36500, got: {retention_days!r}"
+            )
+
         start_time = time.time()
 
         with self.connection() as conn:
             cursor = conn.cursor()
 
-            # Calculate cutoff date
+            # Calculate cutoff date (safe after validation)
             cutoff_query = f"datetime('now', '-{retention_days} days')"
 
             # Find expired evidence not linked to any debate

@@ -356,7 +356,7 @@ class PlaywrightConnector:
                 selector=selector,
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
-        except Exception as e:
+        except (TimeoutError, ValueError, RuntimeError) as e:
             return ActionResult(
                 success=False,
                 action="click",
@@ -401,7 +401,7 @@ class PlaywrightConnector:
                 value=value,
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
-        except Exception as e:
+        except (TimeoutError, ValueError, RuntimeError) as e:
             return ActionResult(
                 success=False,
                 action="fill",
@@ -446,7 +446,7 @@ class PlaywrightConnector:
                 value=value,
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
-        except Exception as e:
+        except (TimeoutError, ValueError, RuntimeError) as e:
             return ActionResult(
                 success=False,
                 action="select",
@@ -564,7 +564,7 @@ class PlaywrightConnector:
                 timeout=timeout_ms or self.timeout_ms,
             )
             return True
-        except Exception:
+        except (TimeoutError, ValueError, RuntimeError):
             return False
 
     async def execute_script(
@@ -613,7 +613,7 @@ class PlaywrightConnector:
                     timeout=timeout_ms or self.timeout_ms,
                 )
                 result[field_name] = await self._page.text_content(selector) or ""
-            except Exception as e:
+            except (TimeoutError, ValueError, RuntimeError) as e:
                 result[field_name] = None
                 logger.warning(f"Failed to extract {field_name} ({selector}): {e}")
 

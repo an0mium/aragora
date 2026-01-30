@@ -207,7 +207,7 @@ class IMessageConnector(ChatPlatformConnector):
                     channel_id=channel_id,
                     timestamp=datetime.now().isoformat(),
                 )
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -303,7 +303,7 @@ class IMessageConnector(ChatPlatformConnector):
                     content_type=content_type,
                     size=len(content),
                 )
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -344,7 +344,7 @@ class IMessageConnector(ChatPlatformConnector):
                     size=len(content),
                     content=content,
                 )
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -375,7 +375,7 @@ class IMessageConnector(ChatPlatformConnector):
                     self._record_success()
                     return True
                 return False
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             logger.debug(f"Typing indicator error: {e}")
             return False
 
@@ -434,7 +434,7 @@ class IMessageConnector(ChatPlatformConnector):
                 else:
                     self._record_failure(Exception(f"Tapback failed: {response.status_code}"))
                     return False
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -462,7 +462,7 @@ class IMessageConnector(ChatPlatformConnector):
                     self._record_success()
                     return True
                 return False
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             logger.debug(f"Mark read error: {e}")
             return False
 
@@ -712,7 +712,7 @@ class IMessageConnector(ChatPlatformConnector):
                         "chat_identifier": chat.get("chatIdentifier"),
                     },
                 )
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -762,7 +762,7 @@ class IMessageConnector(ChatPlatformConnector):
                     display_name=handle.get("firstName") or user_id,
                     metadata=handle,
                 )
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             logger.warning(f"Failed to get user info for {user_id}, returning default: {e}")
             return ChatUser(
                 id=user_id,
@@ -813,7 +813,7 @@ class IMessageConnector(ChatPlatformConnector):
                     duration_seconds=kwargs.get("duration", 0.0),
                     file=attachment,
                 )
-        except Exception as e:
+        except (httpx.HTTPError, OSError, KeyError) as e:
             logger.error(f"Failed to get voice message: {e}")
         return None
 
@@ -850,7 +850,7 @@ class IMessageConnector(ChatPlatformConnector):
                         "success": False,
                         "error": f"HTTP {response.status_code}",
                     }
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             return {
                 "platform": self.platform_name,
                 "success": False,
@@ -889,7 +889,7 @@ class IMessageConnector(ChatPlatformConnector):
                 self._record_success()
                 data = response.json()
                 return data.get("data", [])
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -933,7 +933,7 @@ class IMessageConnector(ChatPlatformConnector):
                     messages.append(msg)
 
                 return messages
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
             raise
 

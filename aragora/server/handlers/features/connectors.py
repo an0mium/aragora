@@ -40,6 +40,7 @@ class ConnectorTypeMeta(TypedDict, total=False):
 
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
@@ -979,8 +980,7 @@ class ConnectorsHandler(SecureHandler):
 
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
-        body = await request.json()
-        return body if isinstance(body, dict) else {}
+        return await parse_json_body(request, "connectors")
 
     def _json_response(self, status: int, data: Any) -> dict[str, Any]:
         """Create a JSON response."""

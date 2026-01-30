@@ -32,7 +32,7 @@ class EventsMixin(MessagingMixin):
     """Mixin providing Slack Events API handling."""
 
     @auto_error_response("handle slack events")
-    @rate_limit(rpm=100, limiter_name="slack_events")
+    @rate_limit(requests_per_minute=100, limiter_name="slack_events")
     def _handle_events(self, handler: Any) -> HandlerResult:
         """Handle Slack Events API callbacks.
 

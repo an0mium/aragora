@@ -290,7 +290,7 @@ class PostgresInsightStore(PostgresStore):
                         ],
                     )
                     stored_count = len(all_insights)
-                except Exception as e:
+                except (OSError, ValueError, TypeError) as e:
                     logger.error(f"Error batch storing insights: {e}")
 
             # Store agent performances in batch
@@ -355,7 +355,7 @@ class PostgresInsightStore(PostgresStore):
                     try:
                         self._km_adapter.store_insight(insight)
                         logger.debug(f"Insight synced to Knowledge Mound: {insight.id}")
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:
                         logger.warning(f"Failed to sync insight to KM: {e}")
 
         return stored_count

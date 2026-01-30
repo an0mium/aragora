@@ -991,6 +991,295 @@ class TestPrioritizeInbox:
             assert isinstance(results, list)
 
 
+class TestEmailPrioritizerBatchScoring:
+    """Tests for batch scoring methods to fix N+1 query pattern."""
+
+    @pytest.fixture
+    def prioritizer(self):
+        """Create a prioritizer instance."""
+        from aragora.services.email_prioritization import (
+            EmailPrioritizer,
+            EmailPrioritizationConfig,
+        )
+
+        config = EmailPrioritizationConfig(
+            vip_addresses={"vip@company.com"},
+            vip_domains={"vip-domain.com"},
+            internal_domains={"company.com"},
+        )
+        return EmailPrioritizer(config=config)
+
+    def _create_mock_email(self, id_suffix: str, from_address: str):
+        """Helper to create mock emails."""
+        email = MagicMock()
+        email.id = f"email_{id_suffix}"
+        email.from_address = from_address
+        email.subject = f"Test Email {id_suffix}"
+        email.body_text = "Test content"
+        email.body_html = None
+        email.snippet = "Test content"
+        email.is_important = False
+        email.is_starred = False
+        email.labels = []
+        email.headers = {}
+        return email
+
+    @pytest.mark.asyncio
+    async def test_score_emails_empty_list(self, prioritizer):
+        """Test batch scoring with empty list returns empty list."""
+        results = await prioritizer.score_emails([])
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_score_emails_single_email(self, prioritizer):
+        """Test batch scoring with single email."""
+        email = self._create_mock_email("1", "sender@example.com")
+
+        results = await prioritizer.score_emails([email])
+
+        assert len(results) == 1
+        assert results[0].email_id == "email_1"
+
+    @pytest.mark.asyncio
+    async def test_score_emails_multiple_emails(self, prioritizer):
+        """Test batch scoring with multiple emails."""
+        emails = [
+            self._create_mock_email("1", "sender1@example.com"),
+            self._create_mock_email("2", "sender2@example.com"),
+            self._create_mock_email("3", "sender3@example.com"),
+        ]
+
+        results = await prioritizer.score_emails(emails)
+
+        assert len(results) == 3
+        assert [r.email_id for r in results] == ["email_1", "email_2", "email_3"]
+
+    @pytest.mark.asyncio
+    async def test_score_emails_preserves_order(self, prioritizer):
+        """Test that batch scoring preserves input order."""
+        emails = [
+            self._create_mock_email("a", "a@example.com"),
+            self._create_mock_email("b", "b@example.com"),
+            self._create_mock_email("c", "c@example.com"),
+        ]
+
+        results = await prioritizer.score_emails(emails)
+
+        assert [r.email_id for r in results] == ["email_a", "email_b", "email_c"]
+
+    @pytest.mark.asyncio
+    async def test_score_emails_with_duplicate_senders(self, prioritizer):
+        """Test batch scoring with same sender appearing multiple times."""
+        emails = [
+            self._create_mock_email("1", "same@example.com"),
+            self._create_mock_email("2", "same@example.com"),
+            self._create_mock_email("3", "different@example.com"),
+        ]
+
+        results = await prioritizer.score_emails(emails)
+
+        assert len(results) == 3
+        # Same sender should be cached and reused
+        assert "same@example.com" in prioritizer._sender_profiles
+        assert "different@example.com" in prioritizer._sender_profiles
+
+    @pytest.mark.asyncio
+    async def test_score_emails_with_force_tier(self, prioritizer):
+        """Test batch scoring with forced tier."""
+        from aragora.services.email_prioritization import ScoringTier
+
+        emails = [
+            self._create_mock_email("1", "sender@example.com"),
+        ]
+
+        results = await prioritizer.score_emails(emails, force_tier=ScoringTier.TIER_1_RULES)
+
+        assert len(results) == 1
+        assert results[0].tier_used == ScoringTier.TIER_1_RULES
+
+    @pytest.mark.asyncio
+    async def test_get_sender_profiles_batch_empty(self, prioritizer):
+        """Test batch profile loading with empty list."""
+        profiles = await prioritizer._get_sender_profiles_batch([])
+        assert profiles == {}
+
+    @pytest.mark.asyncio
+    async def test_get_sender_profiles_batch_uses_cache(self, prioritizer):
+        """Test batch profile loading uses cached profiles."""
+        from aragora.services.email_prioritization import SenderProfile
+
+        # Pre-populate cache
+        cached = SenderProfile(email="cached@example.com", domain="example.com", is_vip=True)
+        prioritizer._sender_profiles["cached@example.com"] = cached
+
+        profiles = await prioritizer._get_sender_profiles_batch(["cached@example.com"])
+
+        assert len(profiles) == 1
+        assert profiles["cached@example.com"].is_vip is True
+
+    @pytest.mark.asyncio
+    async def test_get_sender_profiles_batch_creates_new(self, prioritizer):
+        """Test batch profile loading creates new profiles."""
+        profiles = await prioritizer._get_sender_profiles_batch(
+            ["new1@example.com", "new2@example.com"]
+        )
+
+        assert len(profiles) == 2
+        assert "new1@example.com" in profiles
+        assert "new2@example.com" in profiles
+        # Should be cached now
+        assert "new1@example.com" in prioritizer._sender_profiles
+
+    @pytest.mark.asyncio
+    async def test_get_sender_profiles_batch_mixed(self, prioritizer):
+        """Test batch profile loading with mix of cached and new."""
+        from aragora.services.email_prioritization import SenderProfile
+
+        # Pre-populate one
+        cached = SenderProfile(email="cached@example.com", domain="example.com")
+        prioritizer._sender_profiles["cached@example.com"] = cached
+
+        profiles = await prioritizer._get_sender_profiles_batch(
+            ["cached@example.com", "new@example.com"]
+        )
+
+        assert len(profiles) == 2
+        assert "cached@example.com" in profiles
+        assert "new@example.com" in profiles
+
+    @pytest.mark.asyncio
+    async def test_get_sender_profiles_batch_vip_detection(self, prioritizer):
+        """Test batch profile loading detects VIP addresses/domains."""
+        profiles = await prioritizer._get_sender_profiles_batch(
+            ["vip@company.com", "anyone@vip-domain.com", "regular@other.com"]
+        )
+
+        assert profiles["vip@company.com"].is_vip is True
+        assert profiles["anyone@vip-domain.com"].is_vip is True
+        assert profiles["regular@other.com"].is_vip is False
+
+    @pytest.mark.asyncio
+    async def test_get_sender_profiles_batch_internal_detection(self, prioritizer):
+        """Test batch profile loading detects internal domains."""
+        profiles = await prioritizer._get_sender_profiles_batch(
+            ["colleague@company.com", "external@other.com"]
+        )
+
+        assert profiles["colleague@company.com"].is_internal is True
+        assert profiles["external@other.com"].is_internal is False
+
+    @pytest.mark.asyncio
+    async def test_score_emails_handles_individual_failures(self, prioritizer):
+        """Test batch scoring gracefully handles individual failures."""
+        from aragora.services.email_prioritization import EmailPriority
+
+        emails = [
+            self._create_mock_email("1", "sender1@example.com"),
+            self._create_mock_email("2", "sender2@example.com"),
+        ]
+        # Make one email cause an error during scoring by patching score_email
+        original_score_email = prioritizer.score_email
+        call_count = 0
+
+        async def failing_score_email(email, *args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if email.id == "email_2":
+                raise ValueError("Simulated scoring failure")
+            return await original_score_email(email, *args, **kwargs)
+
+        prioritizer.score_email = failing_score_email
+
+        results = await prioritizer.score_emails(emails)
+
+        # Should return results for all emails, with fallback for failed ones
+        assert len(results) == 2
+        assert results[0].email_id == "email_1"
+        # Failed email should have a fallback result
+        assert results[1].email_id == "email_2"
+        assert results[1].confidence == 0.0  # Fallback has 0 confidence
+        assert "Scoring failed" in results[1].rationale
+
+    @pytest.mark.asyncio
+    async def test_score_emails_handles_none_from_address(self, prioritizer):
+        """Test batch scoring handles None from_address gracefully."""
+        emails = [
+            self._create_mock_email("1", "sender1@example.com"),
+            self._create_mock_email("2", "sender2@example.com"),
+        ]
+        # Set from_address to None - should be filtered out during profile loading
+        emails[1].from_address = None
+
+        results = await prioritizer.score_emails(emails)
+
+        # Should return results for all emails
+        assert len(results) == 2
+        # First email should score normally
+        assert results[0].email_id == "email_1"
+        # Second email without from_address should still get a result
+        assert results[1].email_id == "email_2"
+
+    @pytest.mark.asyncio
+    async def test_load_sender_histories_batch_without_mound(self, prioritizer):
+        """Test batch history loading without knowledge mound returns empty."""
+        histories = await prioritizer._load_sender_histories_batch(["a@b.com"])
+        assert histories == {}
+
+    @pytest.mark.asyncio
+    async def test_load_sender_histories_batch_with_mound(self, prioritizer):
+        """Test batch history loading with knowledge mound."""
+        mock_mound = MagicMock(spec=["query"])  # Only has query, not query_batch
+        mock_result = MagicMock()
+        mock_result.items = [MagicMock(metadata={"response_rate": 0.9})]
+        mock_mound.query = AsyncMock(return_value=mock_result)
+        prioritizer.mound = mock_mound
+
+        histories = await prioritizer._load_sender_histories_batch(["sender@example.com"])
+
+        assert "sender@example.com" in histories
+        assert histories["sender@example.com"]["response_rate"] == 0.9
+
+    @pytest.mark.asyncio
+    async def test_load_sender_histories_batch_uses_batch_api_if_available(self, prioritizer):
+        """Test batch history loading uses query_batch if available."""
+        mock_mound = MagicMock()
+        mock_result = MagicMock()
+        mock_result.items = [MagicMock(metadata={"response_rate": 0.8})]
+        mock_mound.query_batch = AsyncMock(return_value=[mock_result, None])
+        prioritizer.mound = mock_mound
+
+        histories = await prioritizer._load_sender_histories_batch(
+            ["sender1@example.com", "sender2@example.com"]
+        )
+
+        mock_mound.query_batch.assert_called_once()
+        assert "sender1@example.com" in histories
+
+    @pytest.mark.asyncio
+    async def test_rank_inbox_uses_batch_scoring(self, prioritizer):
+        """Test rank_inbox uses batch scoring internally."""
+        emails = [
+            self._create_mock_email("1", "sender@example.com"),
+            self._create_mock_email("2", "sender@example.com"),
+        ]
+
+        # Spy on score_emails to verify it's called
+        original_score_emails = prioritizer.score_emails
+        call_count = 0
+
+        async def spy_score_emails(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return await original_score_emails(*args, **kwargs)
+
+        prioritizer.score_emails = spy_score_emails
+
+        results = await prioritizer.rank_inbox(emails)
+
+        assert call_count == 1  # Should be called once for batch
+        assert len(results) == 2
+
+
 class TestThreatIntelligence:
     """Tests for threat intelligence integration."""
 

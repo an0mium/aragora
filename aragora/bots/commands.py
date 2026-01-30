@@ -222,7 +222,7 @@ class CommandRegistry:
             result = await command.handler(exec_ctx)
             self._update_cooldown(command, ctx.user_id)
             return result
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Command '{command_name}' failed: {e}", exc_info=True)
             return CommandResult.fail(f"Command failed: {str(e)}")
 
@@ -350,7 +350,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                         return CommandResult.ok(f"Aragora returned status {resp.status}")
         except asyncio.TimeoutError:
             return CommandResult.fail("Health check timed out.")
-        except Exception as e:
+        except OSError as e:
             return CommandResult.fail(f"Health check failed: {str(e)}")
 
     @registry.command(
@@ -384,14 +384,14 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
             )
 
             # Map platform to InputSource
-            platform_to_source = {
+            platform_to_source: dict[Platform, InputSource] = {
                 Platform.DISCORD: InputSource.DISCORD,
                 Platform.TEAMS: InputSource.TEAMS,
                 Platform.SLACK: InputSource.SLACK,
-                Platform.TELEGRAM: InputSource.TELEGRAM,  # type: ignore[attr-defined]
-                Platform.WHATSAPP: InputSource.WHATSAPP,  # type: ignore[attr-defined]
+                Platform.TELEGRAM: InputSource.TELEGRAM,
+                Platform.WHATSAPP: InputSource.WHATSAPP,
             }
-            source = platform_to_source.get(ctx.platform, InputSource.API)  # type: ignore[attr-defined]
+            source = platform_to_source.get(ctx.platform, InputSource.API)
 
             response_channel = ResponseChannel(
                 platform=ctx.platform.value,
@@ -416,19 +416,24 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
             router = get_decision_router()
             result = await router.route(request)
 
-            if result.debate_id:  # type: ignore[attr-defined]
+            # Extract debate_id from debate_result if available
+            debate_id = ""
+            if result.debate_result and hasattr(result.debate_result, "debate_id"):
+                debate_id = str(result.debate_result.debate_id)
+
+            if debate_id:
                 return CommandResult.ok(
                     f"Debate started on: **{topic}**\n"
-                    f"Debate ID: `{result.debate_id}`\n"  # type: ignore[attr-defined]
-                    f"View at: {api_base.replace('http://', 'https://')}/debate/{result.debate_id}",  # type: ignore[attr-defined]
-                    data={"debate_id": result.debate_id},  # type: ignore[attr-defined]
+                    f"Debate ID: `{debate_id}`\n"
+                    f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
+                    data={"debate_id": debate_id},
                 )
             else:
                 return CommandResult.fail(result.error or "Failed to start debate via router")
 
         except ImportError:
             logger.debug("DecisionRouter not available, falling back to HTTP")
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"DecisionRouter failed, falling back to HTTP: {e}")
 
         # Fallback to HTTP API if DecisionRouter unavailable
@@ -469,7 +474,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
 
         except asyncio.TimeoutError:
             return CommandResult.fail("Request timed out. Please try again.")
-        except Exception as e:
+        except OSError as e:
             return CommandResult.fail(f"Failed to start debate: {str(e)}")
 
     @registry.command(
@@ -523,5 +528,5 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
 
         except asyncio.TimeoutError:
             return CommandResult.fail("Request timed out. Please try again.")
-        except Exception as e:
+        except OSError as e:
             return CommandResult.fail(f"Failed to start gauntlet: {str(e)}")

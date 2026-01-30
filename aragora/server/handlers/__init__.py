@@ -180,7 +180,11 @@ from .onboarding import (
     handle_quick_start,
     handle_analytics,
     get_onboarding_handlers,
+    OnboardingHandler,
 )
+from .backup_handler import BackupHandler
+from .features.gmail_labels import GmailLabelsHandler
+from .features.gmail_threads import GmailThreadsHandler
 from .organizations import OrganizationsHandler
 from .persona import PersonaHandler
 from .policy import PolicyHandler
@@ -441,6 +445,11 @@ ALL_HANDLERS = [
     # Computer use and IoT gateway
     ComputerUseHandler,  # Computer use tasks, actions, and policies
     GatewayHandler,  # IoT gateway devices, channels, routing, messages
+    # Additional handlers for API documentation coverage
+    OnboardingHandler,  # Onboarding flow endpoints
+    BackupHandler,  # Backup management endpoints
+    GmailLabelsHandler,  # Gmail labels and filters API
+    GmailThreadsHandler,  # Gmail threads API
 ]
 
 # Handler stability classifications

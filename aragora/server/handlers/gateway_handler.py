@@ -300,7 +300,7 @@ class GatewayHandler(BaseHandler):
             }
         )
 
-    @rate_limit(rpm=30, limiter_name="gateway_register")
+    @rate_limit(requests_per_minute=30, limiter_name="gateway_register")
     @handle_errors("register device")
     @log_request("register device")
     def _handle_register_device(self, handler: Any) -> HandlerResult:
@@ -342,7 +342,7 @@ class GatewayHandler(BaseHandler):
             status=201,
         )
 
-    @rate_limit(rpm=10, limiter_name="gateway_unregister")
+    @rate_limit(requests_per_minute=10, limiter_name="gateway_unregister")
     @handle_errors("unregister device")
     @log_request("unregister device")
     def _handle_unregister_device(self, device_id: str, handler: Any) -> HandlerResult:
@@ -464,7 +464,7 @@ class GatewayHandler(BaseHandler):
     # Message Routing
     # =========================================================================
 
-    @rate_limit(rpm=60, limiter_name="gateway_route")
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_route")
     @handle_errors("route message")
     def _handle_route_message(self, handler: Any) -> HandlerResult:
         """Handle POST /api/v1/gateway/messages/route."""

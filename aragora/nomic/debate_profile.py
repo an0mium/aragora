@@ -34,6 +34,7 @@ from aragora.config.settings import AgentSettings, DebateSettings
 
 logger = logging.getLogger(__name__)
 
+
 def _default_rounds() -> int:
     return DebateSettings().default_rounds
 

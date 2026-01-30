@@ -31,9 +31,14 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, Sequence, TypeVar
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
+
+if TYPE_CHECKING:
+    from aragora.ml.embeddings import LocalEmbeddingService
+    from aragora.ml.consensus_predictor import ConsensusPredictor
+    from aragora.ml.quality_scorer import QualityScorer
 
 logger = logging.getLogger(__name__)
 
@@ -542,6 +547,10 @@ class MLFallbackService:
 
     Attempts ML operations first, falls back to heuristics on failure.
     """
+
+    _embedding_service: LocalEmbeddingService | None
+    _consensus_predictor: ConsensusPredictor | None
+    _quality_scorer: QualityScorer | None
 
     def __init__(self, manager: MLDegradationManager | None = None):
         self._manager = manager or _global_manager

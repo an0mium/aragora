@@ -543,7 +543,7 @@ class TestLoopRegistry:
         loops = loop_registry.get_list()
         assert len(loops) == 2
 
-        loop1 = next(l for l in loops if l["loop_id"] == "loop-1")
+        loop1 = next(lp for lp in loops if lp["loop_id"] == "loop-1")
         assert loop1["name"] == "Loop 1"
         assert loop1["cycle"] == 2
         assert loop1["phase"] == "design"
@@ -689,6 +689,7 @@ class TestWebSocketBroadcaster:
         # Should be a JSON array
         call_arg = ws.send.call_args[0][0]
         import json
+
         parsed = json.loads(call_arg)
         assert isinstance(parsed, list)
         assert len(parsed) == 2
@@ -708,20 +709,32 @@ class TestWebSocketBroadcaster:
         """_group_events_by_agent groups TOKEN_DELTA by agent."""
         events = [
             StreamEvent(
-                type=StreamEventType.TOKEN_DELTA, loop_id="test", agent="claude",
-                data={"token": "A"}, agent_seq=1
+                type=StreamEventType.TOKEN_DELTA,
+                loop_id="test",
+                agent="claude",
+                data={"token": "A"},
+                agent_seq=1,
             ),
             StreamEvent(
-                type=StreamEventType.TOKEN_DELTA, loop_id="test", agent="gpt4",
-                data={"token": "X"}, agent_seq=1
+                type=StreamEventType.TOKEN_DELTA,
+                loop_id="test",
+                agent="gpt4",
+                data={"token": "X"},
+                agent_seq=1,
             ),
             StreamEvent(
-                type=StreamEventType.TOKEN_DELTA, loop_id="test", agent="claude",
-                data={"token": "B"}, agent_seq=2
+                type=StreamEventType.TOKEN_DELTA,
+                loop_id="test",
+                agent="claude",
+                data={"token": "B"},
+                agent_seq=2,
             ),
             StreamEvent(
-                type=StreamEventType.TOKEN_DELTA, loop_id="test", agent="gpt4",
-                data={"token": "Y"}, agent_seq=2
+                type=StreamEventType.TOKEN_DELTA,
+                loop_id="test",
+                agent="gpt4",
+                data={"token": "Y"},
+                agent_seq=2,
             ),
         ]
 
@@ -740,15 +753,19 @@ class TestWebSocketBroadcaster:
         """Non-token events flush buffered tokens."""
         events = [
             StreamEvent(
-                type=StreamEventType.TOKEN_DELTA, loop_id="test", agent="claude",
-                data={"token": "A"}, agent_seq=1
+                type=StreamEventType.TOKEN_DELTA,
+                loop_id="test",
+                agent="claude",
+                data={"token": "A"},
+                agent_seq=1,
             ),
+            StreamEvent(type=StreamEventType.ROUND_START, loop_id="test", round=1, data={}),
             StreamEvent(
-                type=StreamEventType.ROUND_START, loop_id="test", round=1, data={}
-            ),
-            StreamEvent(
-                type=StreamEventType.TOKEN_DELTA, loop_id="test", agent="claude",
-                data={"token": "B"}, agent_seq=2
+                type=StreamEventType.TOKEN_DELTA,
+                loop_id="test",
+                agent="claude",
+                data={"token": "B"},
+                agent_seq=2,
             ),
         ]
 

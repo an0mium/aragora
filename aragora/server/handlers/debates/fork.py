@@ -56,7 +56,7 @@ class ForkOperationsMixin:
 
     @require_permission("debates:create")
     @user_rate_limit(action="debate_create")
-    @rate_limit(rpm=5, limiter_name="debates_fork")
+    @rate_limit(requests_per_minute=5, limiter_name="debates_fork")
     @require_storage
     def _fork_debate(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Create a counterfactual fork of a debate at a specific branch point.
@@ -185,7 +185,7 @@ class ForkOperationsMixin:
             return error_response(safe_error_message(e, "create fork"), 500)
 
     @user_rate_limit(action="vote")
-    @rate_limit(rpm=10, limiter_name="debates_verify_outcome")
+    @rate_limit(requests_per_minute=10, limiter_name="debates_verify_outcome")
     @handle_errors("verify debate outcome")
     def _verify_outcome(
         self: _DebatesHandlerProtocol, handler: Any, debate_id: str
@@ -363,7 +363,7 @@ class ForkOperationsMixin:
             return error_response(safe_error_message(e, "get followup suggestions"), 500)
 
     @user_rate_limit(action="debate_create")
-    @rate_limit(rpm=5, limiter_name="debates_followup")
+    @rate_limit(requests_per_minute=5, limiter_name="debates_followup")
     @require_storage
     def _create_followup_debate(
         self: _DebatesHandlerProtocol, handler: Any, debate_id: str

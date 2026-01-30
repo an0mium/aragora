@@ -200,7 +200,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
             logger.info("[Gmail] Authentication successful")
             return True
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.error(f"[Gmail] Authentication failed: {e}")
             return False
 
@@ -299,7 +299,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         except httpx.HTTPStatusError:
             # Already handled above
             raise
-        except Exception as e:
+        except (OSError, ConnectionError) as e:
             self.record_failure()
             logger.error(f"Gmail API error: {e}")
             raise

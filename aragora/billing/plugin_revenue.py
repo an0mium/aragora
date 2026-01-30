@@ -389,12 +389,12 @@ class PluginRevenueTracker:
             Balance information
         """
         with self._connection() as conn:
-            # Get total earnings
+            # Get total earnings (excluding refunds) and total refunds separately
             row = conn.execute(
                 """
                 SELECT
-                    COALESCE(SUM(developer_amount_cents), 0) as total_earnings,
-                    COALESCE(SUM(CASE WHEN event_type = 'refund' THEN -developer_amount_cents ELSE 0 END), 0) as total_refunds
+                    COALESCE(SUM(CASE WHEN event_type != 'refund' THEN developer_amount_cents ELSE 0 END), 0) as total_earnings,
+                    COALESCE(SUM(CASE WHEN event_type = 'refund' THEN developer_amount_cents ELSE 0 END), 0) as total_refunds
                 FROM revenue_events
                 WHERE developer_id = ?
                 """,

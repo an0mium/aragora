@@ -166,7 +166,7 @@ def _encrypt_config(
         latency = time.perf_counter() - start
         record_encryption_operation("encrypt", "sync_store", latency)
         return result
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         record_encryption_error("encrypt", type(e).__name__)
         if is_encryption_required():
             raise EncryptionError(
@@ -210,7 +210,7 @@ def _decrypt_config(
         latency = time.perf_counter() - start
         record_encryption_operation("decrypt", "sync_store", latency)
         return result
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.warning(f"Config decryption failed for {connector_id}: {e}")
         record_encryption_error("decrypt", type(e).__name__)
         return config
@@ -609,7 +609,7 @@ class SyncStore:
                         "from previous server instance"
                     )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, KeyError) as e:
             logger.warning(f"SyncStore: Failed to recover running jobs: {e}")
 
         return recovered

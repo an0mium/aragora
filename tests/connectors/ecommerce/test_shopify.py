@@ -778,10 +778,12 @@ class TestConnect:
     async def test_connect_success(self, connector):
         """Successful connect sets session and returns True."""
         mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=_make_mock_response(
-            {"shop": {"name": "Test Store"}},
-            status=200,
-        ))
+        mock_session.get = MagicMock(
+            return_value=_make_mock_response(
+                {"shop": {"name": "Test Store"}},
+                status=200,
+            )
+        )
         mock_session_cls = MagicMock(return_value=mock_session)
 
         with patch("aiohttp.ClientSession", mock_session_cls):
@@ -796,7 +798,7 @@ class TestConnect:
         mock_session.get = MagicMock(return_value=_make_mock_response({}, status=401))
         mock_session_cls = MagicMock(return_value=mock_session)
 
-        with patch("aragora.connectors.ecommerce.shopify.aiohttp.ClientSession", mock_session_cls):
+        with patch("aiohttp.ClientSession", mock_session_cls):
             result = await connector.connect()
 
         assert result is False
@@ -823,7 +825,7 @@ class TestConnect:
         mock_session.get = MagicMock(side_effect=RuntimeError("boom"))
         mock_session_cls = MagicMock(return_value=mock_session)
 
-        with patch("aragora.connectors.ecommerce.shopify.aiohttp.ClientSession", mock_session_cls):
+        with patch("aiohttp.ClientSession", mock_session_cls):
             result = await connector.connect()
 
         assert result is False
@@ -869,8 +871,8 @@ class TestRequest:
     @pytest.mark.asyncio
     async def test_request_get(self, connector):
         """GET request returns parsed JSON."""
-        mock_session = AsyncMock()
-        mock_session.request.return_value = _make_mock_response({"data": 1})
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"data": 1}))
         connector._session = mock_session
 
         result = await connector._request("GET", "/test.json")
@@ -879,8 +881,8 @@ class TestRequest:
     @pytest.mark.asyncio
     async def test_request_post_with_json(self, connector):
         """POST request forwards JSON body."""
-        mock_session = AsyncMock()
-        mock_session.request.return_value = _make_mock_response({"id": 1})
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"id": 1}))
         connector._session = mock_session
 
         body = {"order": {"note": "rush"}}
@@ -892,7 +894,7 @@ class TestRequest:
     async def test_request_return_headers(self, connector):
         """return_headers=True returns (data, headers) tuple."""
         headers = {"Link": '<url>; rel="next"', "X-Custom": "val"}
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         resp_mock = AsyncMock()
         resp_mock.status = 200
         resp_mock.json = AsyncMock(return_value={"items": []})
@@ -901,7 +903,7 @@ class TestRequest:
         ctx = AsyncMock()
         ctx.__aenter__ = AsyncMock(return_value=resp_mock)
         ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session.request.return_value = ctx
+        mock_session.request = MagicMock(return_value=ctx)
         connector._session = mock_session
 
         data, hdrs = await connector._request(
@@ -915,7 +917,7 @@ class TestRequest:
     @pytest.mark.asyncio
     async def test_request_http_error_raises(self, connector):
         """HTTP 4xx raises ConnectorAPIError."""
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         resp_mock = AsyncMock()
         resp_mock.status = 422
         resp_mock.text = AsyncMock(return_value='{"errors":"bad data"}')
@@ -923,7 +925,7 @@ class TestRequest:
         ctx = AsyncMock()
         ctx.__aenter__ = AsyncMock(return_value=resp_mock)
         ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session.request.return_value = ctx
+        mock_session.request = MagicMock(return_value=ctx)
         connector._session = mock_session
 
         with pytest.raises(ConnectorAPIError) as exc_info:
@@ -933,7 +935,7 @@ class TestRequest:
     @pytest.mark.asyncio
     async def test_request_500_error(self, connector):
         """Server errors are wrapped as ConnectorAPIError with status 500."""
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         resp_mock = AsyncMock()
         resp_mock.status = 500
         resp_mock.text = AsyncMock(return_value="Internal Server Error")
@@ -941,7 +943,7 @@ class TestRequest:
         ctx = AsyncMock()
         ctx.__aenter__ = AsyncMock(return_value=resp_mock)
         ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session.request.return_value = ctx
+        mock_session.request = MagicMock(return_value=ctx)
         connector._session = mock_session
 
         with pytest.raises(ConnectorAPIError) as exc_info:
@@ -951,7 +953,7 @@ class TestRequest:
     @pytest.mark.asyncio
     async def test_request_429_rate_limit(self, connector):
         """HTTP 429 raises ConnectorAPIError with status 429."""
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         resp_mock = AsyncMock()
         resp_mock.status = 429
         resp_mock.text = AsyncMock(return_value="Rate limited")
@@ -959,7 +961,7 @@ class TestRequest:
         ctx = AsyncMock()
         ctx.__aenter__ = AsyncMock(return_value=resp_mock)
         ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session.request.return_value = ctx
+        mock_session.request = MagicMock(return_value=ctx)
         connector._session = mock_session
 
         with pytest.raises(ConnectorAPIError) as exc_info:
@@ -969,8 +971,8 @@ class TestRequest:
     @pytest.mark.asyncio
     async def test_request_params_forwarded(self, connector):
         """Query params are forwarded to the session."""
-        mock_session = AsyncMock()
-        mock_session.request.return_value = _make_mock_response({"ok": True})
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"ok": True}))
         connector._session = mock_session
 
         await connector._request("GET", "/orders.json", params={"status": "open"})
@@ -1925,7 +1927,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_request_preserves_status_code(self, connector):
         """ConnectorAPIError carries the original HTTP status code."""
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         resp_mock = AsyncMock()
         resp_mock.status = 403
         resp_mock.text = AsyncMock(return_value="Forbidden")
@@ -1933,7 +1935,7 @@ class TestErrorHandling:
         ctx = AsyncMock()
         ctx.__aenter__ = AsyncMock(return_value=resp_mock)
         ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session.request.return_value = ctx
+        mock_session.request = MagicMock(return_value=ctx)
         connector._session = mock_session
 
         with pytest.raises(ConnectorAPIError) as exc_info:
@@ -1979,7 +1981,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_request_error_includes_message(self, connector):
         """ConnectorAPIError message contains the error text from Shopify."""
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         resp_mock = AsyncMock()
         resp_mock.status = 400
         resp_mock.text = AsyncMock(return_value='{"errors":"Invalid product"}')
@@ -1987,7 +1989,7 @@ class TestErrorHandling:
         ctx = AsyncMock()
         ctx.__aenter__ = AsyncMock(return_value=resp_mock)
         ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session.request.return_value = ctx
+        mock_session.request = MagicMock(return_value=ctx)
         connector._session = mock_session
 
         with pytest.raises(ConnectorAPIError) as exc_info:

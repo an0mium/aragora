@@ -159,9 +159,8 @@ class GmailLabelsMixin(GmailBaseMethods):
                     "labels": result.get("labelIds", []),
                     "success": True,
                 }
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                self.record_failure()
+        except (OSError, ConnectionError):
+            self.record_failure()
             raise
 
     async def archive_message(self, message_id: str) -> dict[str, Any]:
@@ -221,9 +220,8 @@ class GmailLabelsMixin(GmailBaseMethods):
                     "message_id": message_id,
                     "success": True,
                 }
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                self.record_failure()
+        except (OSError, ConnectionError):
+            self.record_failure()
             raise
 
     async def untrash_message(self, message_id: str) -> dict[str, Any]:
@@ -266,9 +264,8 @@ class GmailLabelsMixin(GmailBaseMethods):
                     "message_id": message_id,
                     "success": True,
                 }
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                self.record_failure()
+        except (OSError, ConnectionError):
+            self.record_failure()
             raise
 
     async def mark_as_read(self, message_id: str) -> dict[str, Any]:
@@ -423,7 +420,7 @@ class GmailLabelsMixin(GmailBaseMethods):
         # Add SNOOZED label if it exists (custom label)
         try:
             await self.modify_message(message_id, add_labels=["SNOOZED"])
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             # SNOOZED label might not exist, that's okay
             logger.debug(f"Could not add SNOOZED label (may not exist): {e}")
 
@@ -487,9 +484,8 @@ class GmailLabelsMixin(GmailBaseMethods):
                     "modified_count": len(message_ids),
                     "success": True,
                 }
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                self.record_failure()
+        except (OSError, ConnectionError):
+            self.record_failure()
             raise
 
     async def batch_archive(self, message_ids: list[str]) -> dict[str, Any]:
@@ -552,7 +548,6 @@ class GmailLabelsMixin(GmailBaseMethods):
                     "deleted_count": len(message_ids),
                     "success": True,
                 }
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                self.record_failure()
+        except (OSError, ConnectionError):
+            self.record_failure()
             raise

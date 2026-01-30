@@ -203,7 +203,7 @@ class RLMContextHandler(BaseHandler):
     # Static Route Handlers
     # ============================================================================
 
-    @rate_limit(rpm=60, limiter_name="rlm_stats")
+    @rate_limit(requests_per_minute=60, limiter_name="rlm_stats")
     @handle_errors("get RLM stats")
     def handle_stats(
         self,
@@ -256,7 +256,7 @@ class RLMContextHandler(BaseHandler):
                 }
             )
 
-    @rate_limit(rpm=120, limiter_name="rlm_strategies")
+    @rate_limit(requests_per_minute=120, limiter_name="rlm_strategies")
     def handle_strategies(
         self,
         path: str,
@@ -318,7 +318,7 @@ class RLMContextHandler(BaseHandler):
             }
         )
 
-    @rate_limit(rpm=20, limiter_name="rlm_codebase_health")
+    @rate_limit(requests_per_minute=20, limiter_name="rlm_codebase_health")
     @handle_errors("get RLM codebase health")
     def handle_codebase_health(
         self,
@@ -423,7 +423,7 @@ class RLMContextHandler(BaseHandler):
         return json_response(response)
 
     @require_auth
-    @rate_limit(rpm=20, limiter_name="rlm_compress")
+    @rate_limit(requests_per_minute=20, limiter_name="rlm_compress")
     @handle_errors("compress content")
     def handle_compress(
         self,
@@ -539,7 +539,7 @@ class RLMContextHandler(BaseHandler):
             return error_response(safe_error_message(e, "compression"), 500)
 
     @require_auth
-    @rate_limit(rpm=30, limiter_name="rlm_query")
+    @rate_limit(requests_per_minute=30, limiter_name="rlm_query")
     @handle_errors("query context")
     def handle_query(
         self,
@@ -688,7 +688,7 @@ class RLMContextHandler(BaseHandler):
             }
         )
 
-    @rate_limit(rpm=60, limiter_name="rlm_contexts")
+    @rate_limit(requests_per_minute=60, limiter_name="rlm_contexts")
     def handle_list_contexts(
         self,
         path: str,
@@ -848,7 +848,7 @@ class RLMContextHandler(BaseHandler):
     # Streaming Handlers
     # ============================================================================
 
-    @rate_limit(rpm=30, limiter_name="rlm_stream_modes")
+    @rate_limit(requests_per_minute=30, limiter_name="rlm_stream_modes")
     @handle_errors("get stream modes")
     def handle_stream_modes(
         self,
@@ -901,7 +901,7 @@ class RLMContextHandler(BaseHandler):
                 }
             )
 
-    @rate_limit(rpm=30, limiter_name="rlm_stream")
+    @rate_limit(requests_per_minute=30, limiter_name="rlm_stream")
     @handle_errors("stream context")
     def handle_stream(
         self,

@@ -22,6 +22,7 @@ These endpoints support enterprise compliance requirements.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import logging
 from datetime import datetime, timezone, timedelta
@@ -1632,24 +1633,37 @@ class ComplianceHandler(BaseHandler):
             return []
 
     def _render_soc2_html(self, report: dict[str, Any]) -> str:
-        """Render SOC 2 report as HTML."""
+        """Render SOC 2 report as HTML.
+
+        All user-controlled data is escaped to prevent XSS attacks.
+        """
         controls_html = ""
         for control in report.get("controls", []):
             status_class = "success" if control["status"] == "compliant" else "warning"
+            # Escape all control fields to prevent XSS
             controls_html += f"""
             <tr>
-                <td>{control["control_id"]}</td>
-                <td>{control["category"]}</td>
-                <td>{control["name"]}</td>
-                <td class="{status_class}">{control["status"]}</td>
+                <td>{html.escape(str(control["control_id"]))}</td>
+                <td>{html.escape(str(control["category"]))}</td>
+                <td>{html.escape(str(control["name"]))}</td>
+                <td class="{html.escape(status_class)}">{html.escape(str(control["status"]))}</td>
             </tr>
             """
+
+        # Escape all report fields to prevent XSS
+        report_id = html.escape(str(report.get("report_id", "")))
+        report_type = html.escape(str(report.get("report_type", "")))
+        organization = html.escape(str(report.get("organization", "")))
+        period_start = html.escape(str(report.get("period", {}).get("start", "")))
+        period_end = html.escape(str(report.get("period", {}).get("end", "")))
+        generated_at = html.escape(str(report.get("generated_at", "")))
+        summary = report.get("summary", {})
 
         return f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>SOC 2 Type II Report - {report["report_id"]}</title>
+            <title>SOC 2 Type II Report - {report_id}</title>
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 40px; }}
                 h1 {{ color: #333; }}
@@ -1661,15 +1675,15 @@ class ComplianceHandler(BaseHandler):
             </style>
         </head>
         <body>
-            <h1>{report["report_type"]}</h1>
-            <p><strong>Report ID:</strong> {report["report_id"]}</p>
-            <p><strong>Period:</strong> {report["period"]["start"]} to {report["period"]["end"]}</p>
-            <p><strong>Organization:</strong> {report["organization"]}</p>
+            <h1>{report_type}</h1>
+            <p><strong>Report ID:</strong> {report_id}</p>
+            <p><strong>Period:</strong> {period_start} to {period_end}</p>
+            <p><strong>Organization:</strong> {organization}</p>
 
             <h2>Summary</h2>
-            <p>Controls Tested: {report["summary"]["controls_tested"]}</p>
-            <p>Controls Effective: {report["summary"]["controls_effective"]}</p>
-            <p>Exceptions: {report["summary"]["exceptions"]}</p>
+            <p>Controls Tested: {html.escape(str(summary.get("controls_tested", 0)))}</p>
+            <p>Controls Effective: {html.escape(str(summary.get("controls_effective", 0)))}</p>
+            <p>Exceptions: {html.escape(str(summary.get("exceptions", 0)))}</p>
 
             <h2>Controls</h2>
             <table>
@@ -1682,7 +1696,7 @@ class ComplianceHandler(BaseHandler):
                 {controls_html}
             </table>
 
-            <p><em>Generated: {report["generated_at"]}</em></p>
+            <p><em>Generated: {generated_at}</em></p>
         </body>
         </html>
         """

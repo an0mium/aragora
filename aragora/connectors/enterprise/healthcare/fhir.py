@@ -21,6 +21,8 @@ from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, AsyncIterator, Optional
 
+import httpx
+
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -647,7 +649,7 @@ class FHIRConnector(EnterpriseConnector):
                     else:
                         # Fallback to metadata
                         token_url = f"{self.base_url}/oauth2/token"
-                except Exception as e:
+                except httpx.RequestError as e:
                     logger.debug(f"[{self.name}] SMART config discovery failed, using default: {e}")
                     token_url = f"{self.base_url}/oauth2/token"
 
@@ -673,7 +675,7 @@ class FHIRConnector(EnterpriseConnector):
                 else:
                     logger.warning(f"[{self.name}] Authentication failed: {response.status_code}")
 
-        except Exception as e:
+        except httpx.RequestError as e:
             logger.warning(f"[{self.name}] Authentication error: {e}")
 
     def _get_headers(self) -> dict[str, str]:
@@ -867,7 +869,7 @@ class FHIRConnector(EnterpriseConnector):
                                 updated_at = datetime.fromisoformat(
                                     last_updated.replace("Z", "+00:00")
                                 )
-                            except Exception as e:
+                            except ValueError as e:
                                 logger.debug(f"Invalid FHIR lastUpdated format: {e}")
 
                         # Create sync item
@@ -903,7 +905,7 @@ class FHIRConnector(EnterpriseConnector):
                     # Clear params for pagination URL
                     params = {}
 
-            except Exception as e:
+            except (FHIRError, httpx.RequestError) as e:
                 logger.error(f"[{self.name}] Error syncing {resource_name}: {e}")
                 state.errors.append(f"{resource_name}: {str(e)}")
 
@@ -967,7 +969,7 @@ class FHIRConnector(EnterpriseConnector):
                             }
                         )
 
-            except Exception as e:
+            except (FHIRError, httpx.RequestError) as e:
                 logger.debug(f"Search failed for {rt}: {e}")
 
         return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:limit]
@@ -1009,7 +1011,7 @@ class FHIRConnector(EnterpriseConnector):
 
                 return resource
 
-        except Exception as e:
+        except (FHIRError, httpx.RequestError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
 
         return None

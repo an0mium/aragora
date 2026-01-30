@@ -378,7 +378,7 @@ class ChatPlatformConnector(ABC):
                         f"{self.platform_name} {operation} connection failed after {max_retries} attempts"
                     )
 
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, OSError) as e:
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
                 logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
@@ -664,7 +664,7 @@ class ChatPlatformConnector(ABC):
                 success=True,
                 message_id=attachment.id,
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Failed to send voice message on {self.platform_name}: {e}")
             return SendMessageResponse(
                 success=False,
@@ -1808,7 +1808,7 @@ class ChatPlatformConnector(ABC):
                     f"Routed debate {debate_id[:8]} result to {self.platform_name} "
                     f"channel {target_channel}"
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.error(
                     f"Failed to route debate result to {self.platform_name} "
                     f"channel {target_channel}: {e}"

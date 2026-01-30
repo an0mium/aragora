@@ -24,6 +24,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.validation.query_params import safe_query_int
@@ -252,7 +253,9 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
     async def issue_credit(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
         user_id = request.get("user_id", "admin")
-        data = await request.json()
+        data, err = await parse_json_body(request, context="issue_credit")
+        if err:
+            return err
         result = await handler.issue_credit(org_id, data, user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type
@@ -278,7 +281,9 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
     async def adjust_balance(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
         user_id = request.get("user_id", "admin")
-        data = await request.json()
+        data, err = await parse_json_body(request, context="adjust_balance")
+        if err:
+            return err
         result = await handler.adjust_balance(org_id, data, user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type

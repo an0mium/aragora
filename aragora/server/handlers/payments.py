@@ -40,6 +40,7 @@ from uuid import uuid4
 from aiohttp import web
 
 from aragora.audit.unified import audit_data, audit_security
+from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.resilience import (
     JitterMode,
@@ -48,6 +49,7 @@ from aragora.resilience import (
     get_v2_circuit_breaker as get_circuit_breaker,
     with_retry,
 )
+from aragora.observability.metrics import track_handler
 from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -298,6 +300,7 @@ async def _resilient_authnet_call(operation: str, func, *args, **kwargs):
 
 
 @require_permission("payments:charge")
+@track_handler("payments/charge")
 async def handle_charge(request: web.Request) -> web.Response:
     """
     POST /api/payments/charge
@@ -322,7 +325,9 @@ async def handle_charge(request: web.Request) -> web.Response:
     }
     """
     try:
-        body = await request.json()
+        body, err = await parse_json_body(request, context="handle_charge")
+        if err:
+            return err
         provider = _get_provider_from_request(request, body)
 
         amount = Decimal(str(body.get("amount", 0)))
@@ -354,8 +359,6 @@ async def handle_charge(request: web.Request) -> web.Response:
             }
         )
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error processing charge: {e}")
         return web_error_response(str(e), 500)
@@ -527,6 +530,7 @@ async def _charge_authnet(
 
 
 @require_permission("payments:authorize")
+@track_handler("payments/authorize")
 async def handle_authorize(request: web.Request) -> web.Response:
     """
     POST /api/payments/authorize
@@ -534,7 +538,9 @@ async def handle_authorize(request: web.Request) -> web.Response:
     Authorize a payment (capture later).
     """
     try:
-        body = await request.json()
+        body, err = await parse_json_body(request, context="handle_authorize")
+        if err:
+            return err
         provider = _get_provider_from_request(request, body)
 
         amount = Decimal(str(body.get("amount", 0)))
@@ -596,8 +602,6 @@ async def handle_authorize(request: web.Request) -> web.Response:
 
         return web_error_response("Invalid request", 400)
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error authorizing payment: {e}")
         return web_error_response(str(e), 500)
@@ -618,7 +622,9 @@ async def handle_capture(request: web.Request) -> web.Response:
     }
     """
     try:
-        body = await request.json()
+        body, err = await parse_json_body(request, context="handle_capture")
+        if err:
+            return err
         provider = _get_provider_from_request(request, body)
         transaction_id = body.get("transaction_id")
         amount = body.get("amount")
@@ -664,14 +670,13 @@ async def handle_capture(request: web.Request) -> web.Response:
                 }
             )
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error capturing payment: {e}")
         return web_error_response(str(e), 500)
 
 
 @require_permission("payments:refund")
+@track_handler("payments/refund")
 async def handle_refund(request: web.Request) -> web.Response:
     """
     POST /api/payments/refund
@@ -686,8 +691,11 @@ async def handle_refund(request: web.Request) -> web.Response:
         "card_last_four": "1111"  // Required for Authorize.net
     }
     """
+    body = None
     try:
-        body = await request.json()
+        body, err = await parse_json_body(request, context="handle_refund")
+        if err:
+            return err
         provider = _get_provider_from_request(request, body)
         transaction_id = body.get("transaction_id")
         amount = Decimal(str(body.get("amount", 0)))
@@ -766,15 +774,13 @@ async def handle_refund(request: web.Request) -> web.Response:
                 }
             )
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error processing refund: {e}")
         audit_security(
             event_type="refund_error",
             actor_id=request.get("user_id", "unknown"),
             resource_type="payment",
-            resource_id=body.get("transaction_id", "unknown"),
+            resource_id=body.get("transaction_id", "unknown") if body else "unknown",
             reason=str(e),
         )
         return web_error_response(str(e), 500)
@@ -794,7 +800,9 @@ async def handle_void(request: web.Request) -> web.Response:
     }
     """
     try:
-        body = await request.json()
+        body, err = await parse_json_body(request, context="handle_void")
+        if err:
+            return err
         provider = _get_provider_from_request(request, body)
         transaction_id = body.get("transaction_id")
 
@@ -833,8 +841,6 @@ async def handle_void(request: web.Request) -> web.Response:
                 }
             )
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error voiding transaction: {e}")
         return web_error_response(str(e), 500)
@@ -921,7 +927,9 @@ async def handle_create_customer(request: web.Request) -> web.Response:
     }
     """
     try:
-        body = await request.json()
+        body, err = await parse_json_body(request, context="handle_create_customer")
+        if err:
+            return err
         provider = _get_provider_from_request(request, body)
 
         email = body.get("email")
@@ -969,8 +977,6 @@ async def handle_create_customer(request: web.Request) -> web.Response:
                 }
             )
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error creating customer: {e}")
         return web_error_response(str(e), 500)
@@ -1113,7 +1119,9 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
     }
     """
     try:
-        body = await request.json()
+        body, err = await parse_json_body(request, context="handle_create_subscription")
+        if err:
+            return err
         provider = _get_provider_from_request(request, body)
 
         customer_id = body.get("customer_id")
@@ -1181,8 +1189,6 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
                 }
             )
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error creating subscription: {e}")
         return web_error_response(str(e), 500)
@@ -1244,6 +1250,7 @@ async def handle_cancel_subscription(request: web.Request) -> web.Response:
 # =============================================================================
 
 
+@track_handler("payments/webhook/stripe")
 async def handle_stripe_webhook(request: web.Request) -> web.Response:
     """
     POST /api/payments/webhook/stripe
@@ -1301,6 +1308,7 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
         return web_error_response(str(e), 500)
 
 
+@track_handler("payments/webhook/authnet")
 async def handle_authnet_webhook(request: web.Request) -> web.Response:
     """
     POST /api/payments/webhook/authnet
@@ -1308,7 +1316,9 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
     Handle Authorize.net webhook events.
     """
     try:
-        payload = await request.json()
+        payload, err = await parse_json_body(request, context="handle_authnet_webhook")
+        if err:
+            return err
         signature = request.headers.get("X-ANET-Signature")
 
         connector = await get_authnet_connector(request)
@@ -1352,8 +1362,6 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
 
         return web.json_response({"received": True})
 
-    except json.JSONDecodeError:
-        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error handling Authorize.net webhook: {e}")
         return web_error_response(str(e), 500)

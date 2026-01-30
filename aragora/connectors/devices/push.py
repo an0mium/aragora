@@ -97,7 +97,7 @@ class FCMConnector(DeviceConnector):
             self._initialized = True
             logger.info(f"FCM connector initialized for project {self._project_id}")
             return True
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to initialize FCM connector: {e}")
             return False
 
@@ -140,7 +140,7 @@ class FCMConnector(DeviceConnector):
                 "google-auth library not available. Install with: pip install google-auth"
             )
             raise
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"Failed to refresh FCM access token: {e}")
             raise
 
@@ -206,7 +206,7 @@ class FCMConnector(DeviceConnector):
                     timestamp=datetime.now(timezone.utc),
                 )
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"FCM send error: {e}")
             return SendResult(
                 success=False,
@@ -428,7 +428,7 @@ class APNsConnector(DeviceConnector):
             self._initialized = True
             logger.info(f"APNs connector initialized for bundle {self._bundle_id}")
             return True
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to initialize APNs connector: {e}")
             return False
 
@@ -460,7 +460,7 @@ class APNsConnector(DeviceConnector):
         except ImportError:
             logger.warning("PyJWT library not available. Install with: pip install pyjwt")
             raise
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"Failed to generate APNs JWT: {e}")
             raise
 
@@ -532,7 +532,7 @@ class APNsConnector(DeviceConnector):
                     timestamp=datetime.now(timezone.utc),
                 )
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"APNs send error: {e}")
             return SendResult(
                 success=False,
@@ -737,7 +737,7 @@ class WebPushConnector(DeviceConnector):
                 error="pywebpush not installed",
             )
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             error_str = str(e)
             self._record_failure()
 

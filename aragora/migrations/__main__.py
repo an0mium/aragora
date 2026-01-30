@@ -36,7 +36,7 @@ def cmd_upgrade(args: argparse.Namespace) -> int:
         else:
             print("No pending migrations.")
         return 0
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
     finally:
@@ -59,7 +59,7 @@ def cmd_downgrade(args: argparse.Namespace) -> int:
         else:
             print("No migrations to rollback.")
         return 0
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
     finally:
@@ -88,7 +88,7 @@ def cmd_status(args: argparse.Namespace) -> int:
                 print(f"  - {v}")
 
         return 0
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, KeyError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
     finally:
@@ -131,7 +131,7 @@ migration = Migration(
         filepath.write_text(template)
         print(f"Created migration: {filepath}")
         return 0
-    except Exception as e:
+    except OSError as e:
         print(f"Error creating migration: {e}", file=sys.stderr)
         return 1
 

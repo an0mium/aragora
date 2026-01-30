@@ -64,7 +64,7 @@ class VerticalsHandler(SecureHandler):
             return True
         return False
 
-    @rate_limit(rpm=60)
+    @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any = None
     ) -> HandlerResult | None:

@@ -9,7 +9,7 @@ Usage:
     from aragora.server.middleware.rate_limit import rate_limit, RateLimiter
 
     # Use as decorator
-    @rate_limit(rpm=30)
+    @rate_limit(requests_per_minute=30)
     def handle_request(self, handler):
         ...
 

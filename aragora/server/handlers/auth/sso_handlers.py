@@ -45,6 +45,9 @@ _auth_sessions_lock = threading.Lock()
 # Session TTL (10 minutes)
 AUTH_SESSION_TTL = 600
 
+# Max sessions to prevent unbounded growth
+MAX_AUTH_SESSIONS = 1000
+
 
 def _get_sso_provider(provider_type: str = "oidc"):
     """Get or create SSO provider for type."""
@@ -128,17 +131,28 @@ def _get_sso_provider(provider_type: str = "oidc"):
 
 
 def _cleanup_expired_sessions():
-    """Remove expired auth sessions."""
+    """Remove expired auth sessions and enforce size limits."""
     now = time.time()
-    expired = []
 
     with _auth_sessions_lock:
-        for state, session in _auth_sessions.items():
-            if now - session.get("created_at", 0) > AUTH_SESSION_TTL:
-                expired.append(state)
-
+        # Remove expired entries
+        expired = [
+            state
+            for state, session in _auth_sessions.items()
+            if now - session.get("created_at", 0) > AUTH_SESSION_TTL
+        ]
         for state in expired:
             del _auth_sessions[state]
+
+        # Enforce size limit by removing oldest entries if over limit
+        if len(_auth_sessions) > MAX_AUTH_SESSIONS:
+            sorted_sessions = sorted(
+                _auth_sessions.items(),
+                key=lambda x: x[1].get("created_at", 0),
+            )
+            excess = len(_auth_sessions) - MAX_AUTH_SESSIONS
+            for state, _ in sorted_sessions[:excess]:
+                del _auth_sessions[state]
 
 
 # =============================================================================

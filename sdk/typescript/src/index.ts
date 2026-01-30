@@ -287,7 +287,26 @@ export {
 } from './websocket';
 
 // Re-export namespace APIs (for advanced use cases)
-export { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI, BeliefAPI, BotsAPI, UsageAPI } from './namespaces';
+export { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI, BeliefAPI, BotsAPI, UsageAPI, FactsAPI } from './namespaces';
+
+// Re-export Facts types (Knowledge CRUD)
+export type {
+  Fact,
+  Relationship,
+  RelationshipType,
+  CreateFactRequest,
+  UpdateFactRequest,
+  ListFactsOptions,
+  PaginatedFacts,
+  SearchOptions,
+  SearchedFact,
+  CreateRelationshipRequest,
+  UpdateRelationshipRequest,
+  GetRelationshipsOptions,
+  BatchCreateResponse,
+  BatchDeleteResponse,
+  FactStats,
+} from './namespaces';
 
 // Default export for convenience
 export { createClient as default } from './client';

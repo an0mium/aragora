@@ -184,7 +184,7 @@ class RedisCacheBackend(ExportCacheBackend):
                 return content
             self._misses += 1
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug(f"Redis cache get failed: {e}")
             self._misses += 1
             return None
@@ -194,7 +194,7 @@ class RedisCacheBackend(ExportCacheBackend):
             client = self._get_client()
             key = self._make_key(debate_id, format_name, graph_hash)
             client.setex(key, self._ttl, content)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug(f"Redis cache set failed: {e}")
 
     def clear(self) -> int:
@@ -205,7 +205,7 @@ class RedisCacheBackend(ExportCacheBackend):
             if keys:
                 client.delete(*keys)
             return len(keys)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug(f"Redis cache clear failed: {e}")
             return 0
 
@@ -244,7 +244,7 @@ class RedisCacheBackend(ExportCacheBackend):
                 "misses": self._misses,
                 "hit_rate": round(hit_rate, 3),
             }
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug(f"Redis stats failed: {e}")
             return {"backend": "redis", "error": str(e)}
 
@@ -267,7 +267,7 @@ def _get_cache_backend() -> ExportCacheBackend:
                         # Test connection
                         _cache_backend.get_stats()
                         logger.info("Using Redis backend for export cache")
-                    except Exception as e:
+                    except (ImportError, ConnectionError, TimeoutError, OSError, ValueError) as e:
                         logger.warning(f"Redis unavailable ({e}), using in-memory cache")
                         _cache_backend = InMemoryCacheBackend()
                 else:

@@ -179,7 +179,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         try:
             result = await self._run_gh(["api", f"repos/{self.repo}"])
             return result is not None
-        except Exception as e:
+        except (OSError, asyncio.TimeoutError, RuntimeError) as e:
             logger.debug(f"GitHub health check failed: {e}")
             return False
 
@@ -197,7 +197,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
                 timeout=10,
             )
             self._gh_available = result.returncode == 0
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired) as e:
             logger.debug(f"gh CLI check failed: {e}")
             self._gh_available = False
 
@@ -220,7 +220,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
                 return stdout.decode("utf-8")
             logger.debug(f"gh command failed: {stderr.decode()}")
             return None
-        except Exception as e:
+        except (OSError, asyncio.TimeoutError, UnicodeDecodeError) as e:
             logger.warning(f"gh command error: {e}")
             return None
 
@@ -326,7 +326,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
 
         try:
             return base64.b64decode(output.strip()).decode("utf-8")
-        except Exception as e:
+        except (ValueError, UnicodeDecodeError, TypeError) as e:
             logger.debug(f"Base64 decode failed for file content: {e}")
             return None
 

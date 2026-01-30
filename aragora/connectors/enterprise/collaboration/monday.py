@@ -528,7 +528,7 @@ class MondayConnector(EnterpriseConnector):
             if result.get("me"):
                 logger.info(f"Monday.com authenticated as: {result['me'].get('name')}")
                 return True
-        except Exception as e:
+        except (ValueError, OSError, KeyError) as e:
             logger.error(f"Monday.com authentication failed: {e}")
 
         return False
@@ -1230,7 +1230,7 @@ class MondayConnector(EnterpriseConnector):
             items_page = result.get("items_page_by_column_values", {})
             items = [MondayItem.from_api(item) for item in items_page.get("items", [])]
             return items
-        except Exception as e:
+        except (ValueError, KeyError, OSError) as e:
             logger.warning(f"Monday.com search failed: {e}")
             return []
 

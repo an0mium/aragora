@@ -252,7 +252,7 @@ class GmailWebhookPayload:
         try:
             data_json = base64.urlsafe_b64decode(data_b64).decode("utf-8")
             data = json.loads(data_json)
-        except Exception as e:
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as e:
             logger.warning(f"Failed to decode Pub/Sub data: {e}")
             data = {}
 
@@ -403,7 +403,7 @@ class GmailSyncService:
             )
             return True
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, httpx.HTTPError, json.JSONDecodeError) as e:
             self._status = SyncStatus.ERROR
             if self._state:
                 self._state.last_error = str(e)
@@ -516,7 +516,7 @@ class GmailSyncService:
                             synced = await self._process_message(msg, is_new=False)
                             if synced:
                                 synced_messages.append(synced)
-                        except Exception as e:
+                        except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
                             logger.warning(f"[GmailSync] Failed to fetch message {msg_id}: {e}")
 
                     if label not in self._state.synced_labels:
@@ -541,7 +541,7 @@ class GmailSyncService:
                 self._status = SyncStatus.WATCHING if self._watch_task else SyncStatus.IDLE
                 return synced_messages
 
-            except Exception as e:
+            except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = SyncStatus.ERROR
                 if self._state:
                     self._state.last_error = str(e)
@@ -627,7 +627,7 @@ class GmailSyncService:
                         synced = await self._process_message(msg, is_new=True)
                         if synced:
                             synced_messages.append(synced)
-                    except Exception as e:
+                    except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
                         logger.warning(f"[GmailSync] Failed to fetch message {msg_id}: {e}")
 
                 # Update state
@@ -648,7 +648,7 @@ class GmailSyncService:
                 self._status = SyncStatus.WATCHING if self._watch_task else SyncStatus.IDLE
                 return synced_messages
 
-            except Exception as e:
+            except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = SyncStatus.ERROR
                 if self._state:
                     self._state.last_error = str(e)
@@ -684,7 +684,7 @@ class GmailSyncService:
                     self._state.total_messages_prioritized += 1
             except asyncio.TimeoutError:
                 logger.warning(f"[GmailSync] Prioritization timeout for {message.id}")
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, OSError) as e:
                 logger.warning(f"[GmailSync] Prioritization failed for {message.id}: {e}")
 
         synced = SyncedMessage(
@@ -742,7 +742,7 @@ class GmailSyncService:
                 else:
                     logger.error(f"[GmailSync] Failed to set up watch: {response.text}")
 
-        except Exception as e:
+        except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
             logger.error(f"[GmailSync] Watch setup failed: {e}")
 
     async def _stop_watch(self) -> None:
@@ -768,7 +768,7 @@ class GmailSyncService:
                 else:
                     logger.warning(f"[GmailSync] Stop watch returned {response.status_code}")
 
-        except Exception as e:
+        except (OSError, httpx.HTTPError, ValueError) as e:
             logger.warning(f"[GmailSync] Failed to stop watch: {e}")
 
     async def _watch_renewal_loop(self) -> None:
@@ -788,7 +788,7 @@ class GmailSyncService:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, httpx.HTTPError, ValueError) as e:
                 logger.error(f"[GmailSync] Watch renewal failed: {e}")
                 await asyncio.sleep(60)  # Retry in 1 minute
 
@@ -805,7 +805,7 @@ class GmailSyncService:
                 await client.close()
                 if data:
                     return GmailSyncState.from_dict(json.loads(data))
-            except Exception as e:
+            except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
                 logger.warning(f"[GmailSync] Failed to load state from Redis: {e}")
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
@@ -820,7 +820,7 @@ class GmailSyncService:
                 await conn.close()
                 if row:
                     return GmailSyncState.from_dict(json.loads(row["state"]))
-            except Exception as e:
+            except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
                 logger.warning(f"[GmailSync] Failed to load state from Postgres: {e}")
 
         return None
@@ -840,7 +840,7 @@ class GmailSyncService:
                 client = redis.from_url(self.config.redis_url)
                 await client.set(state_key, state_json)
                 await client.close()
-            except Exception as e:
+            except (OSError, ConnectionError, TypeError) as e:
                 logger.warning(f"[GmailSync] Failed to save state to Redis: {e}")
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
@@ -858,7 +858,7 @@ class GmailSyncService:
                     state_json,
                 )
                 await conn.close()
-            except Exception as e:
+            except (OSError, ConnectionError, TypeError) as e:
                 logger.warning(f"[GmailSync] Failed to save state to Postgres: {e}")
 
     def get_stats(self) -> dict[str, Any]:

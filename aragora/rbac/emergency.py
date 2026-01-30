@@ -293,7 +293,7 @@ class BreakGlassAccess:
             redis.expire(user_key, 86400 * 90)  # 90 days
 
             logger.debug(f"Persisted break-glass record {record.id} to Redis")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, TypeError) as e:
             logger.warning(f"Failed to persist break-glass record to Redis: {e}")
 
     def _delete_from_persistence(self, access_id: str) -> None:
@@ -335,7 +335,7 @@ class BreakGlassAccess:
                                 self._active_records[record.id] = record
 
                             loaded_count += 1
-                    except Exception as e:
+                    except (ValueError, TypeError, KeyError) as e:
                         logger.warning(f"Failed to load break-glass record from {key}: {e}")
 
                 if cursor == 0:
@@ -346,7 +346,7 @@ class BreakGlassAccess:
                     f"Loaded {loaded_count} break-glass records from Redis "
                     f"({len(self._active_records)} active)"
                 )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.warning(f"Failed to load break-glass records from Redis: {e}")
 
     async def activate(

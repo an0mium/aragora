@@ -569,7 +569,7 @@ class DocuSignConnector:
                     else None
                 ),
             )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"Failed to get envelope {envelope_id}: {e}")
             return None
 
@@ -654,7 +654,7 @@ class DocuSignConnector:
                 {"status": "voided", "voidedReason": void_reason},
             )
             return True
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to void envelope {envelope_id}: {e}")
             return False
 
@@ -675,7 +675,7 @@ class DocuSignConnector:
                 {},
             )
             return True
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to resend envelope {envelope_id}: {e}")
             return False
 

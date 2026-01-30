@@ -295,7 +295,7 @@ class TeamsConversationStore:
             logger.debug(f"Saved conversation reference for debate: {debate_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to save conversation reference: {e}")
             return False
 
@@ -325,7 +325,7 @@ class TeamsConversationStore:
                 return self._row_to_reference(row)
             return None
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get conversation reference: {e}")
             return None
 
@@ -349,7 +349,7 @@ class TeamsConversationStore:
             conn.commit()
             return result.rowcount > 0
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to delete conversation reference: {e}")
             return False
 
@@ -394,7 +394,7 @@ class TeamsConversationStore:
                 )
             return results
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get conversations by tenant: {e}")
             return []
 
@@ -422,7 +422,7 @@ class TeamsConversationStore:
                 logger.info(f"Cleaned up {count} old conversation references")
             return count
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to cleanup old references: {e}")
             return 0
 

@@ -374,7 +374,7 @@ class RepositoryCrawler:
             async with semaphore:
                 try:
                     return await self._process_file(file_path, repo_path)
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     errors.append(f"Error processing {file_path}: {e}")
                     return None
 
@@ -479,7 +479,7 @@ class RepositoryCrawler:
                         workspace_id=self._workspace_id,
                     )
                     nodes_created += 1
-                except Exception as e:
+                except (ValueError, RuntimeError, OSError) as e:
                     logger.warning(f"Failed to index chunk from {cf.relative_path}: {e}")
 
             # Index symbols
@@ -497,7 +497,7 @@ class RepositoryCrawler:
                             workspace_id=self._workspace_id,
                         )
                         nodes_created += 1
-                    except Exception as e:
+                    except (ValueError, RuntimeError, OSError) as e:
                         logger.warning(f"Failed to index symbol {symbol.name}: {e}")
 
         return nodes_created
@@ -527,7 +527,7 @@ class RepositoryCrawler:
 
             return repo_path
 
-        except Exception as e:
+        except OSError as e:
             raise RuntimeError(f"Failed to clone repository: {e}")
 
     def _extract_repo_name(self, url: str) -> str:
@@ -570,7 +570,7 @@ class RepositoryCrawler:
                 "commit_count": int(count_result.strip()) if count_result else 0,
             }
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning(f"Failed to get git info: {e}")
             return None
 
@@ -594,7 +594,7 @@ class RepositoryCrawler:
                 return stdout.decode("utf-8", errors="replace")
             return None
 
-        except Exception as e:
+        except OSError as e:
             logger.debug(f"Git command failed: {e}")
             return None
 
@@ -613,7 +613,7 @@ class RepositoryCrawler:
                 return set(result.strip().split("\n"))
             return None
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.debug(f"Failed to get changed files: {e}")
             return None
 
@@ -700,7 +700,7 @@ class RepositoryCrawler:
         # Read content
         try:
             content = file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception as e:
+        except OSError as e:
             raise RuntimeError(f"Failed to read file: {e}")
 
         # Calculate hash
@@ -829,7 +829,7 @@ class RepositoryCrawler:
                 sig += f" -> {ast.unparse(node.returns)}"
             return sig
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.debug(f"Failed to extract function signature for {node.name}: {e}")
             return f"def {node.name}(...)"
 

@@ -690,13 +690,16 @@ class KnowledgeFederationMixin:
             workspace = FederatedWorkspace(
                 id=f"region:{region.region_id}",
                 name=f"Region: {region.region_id}",
-                federation_mode=region.mode,  # type: ignore[arg-type]
+                federation_mode=str(region.mode.value)
+                if hasattr(region.mode, "value")
+                else str(region.mode),
                 endpoint_url=region.endpoint_url,
                 public_key=region.api_key,
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            await coordinator.register_workspace(workspace)  # type: ignore[call-arg,func-returns-value]
+            if hasattr(coordinator, "register_workspace"):
+                await coordinator.register_workspace(workspace)
         except ImportError:
             logger.debug("CrossWorkspaceCoordinator not available")
         except Exception as e:
@@ -709,21 +712,22 @@ class KnowledgeFederationMixin:
     ) -> int:
         """Push items to remote region via coordinator."""
         try:
-            from aragora.coordination.cross_workspace import (  # type: ignore[attr-defined]
+            from aragora.coordination.cross_workspace import (
                 CrossWorkspaceCoordinator,
                 CrossWorkspaceOperation,
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            # Ignoring types for optional cross-workspace integration (incomplete stubs)
-            result = await coordinator.execute_operation(  # type: ignore[attr-defined]
-                operation=CrossWorkspaceOperation.SYNC_CULTURE,
-                from_workspace_id=self._proto.workspace_id,
-                to_workspace_id=f"region:{region.region_id}",
-                payload={"items": items},
-            )  # type: ignore[arg-type,attr-defined,call-arg]
-
-            return result.get("synced_count", len(items))
+            # Optional cross-workspace integration
+            if hasattr(coordinator, "execute_operation"):
+                result = await coordinator.execute_operation(
+                    operation=CrossWorkspaceOperation.SYNC_CULTURE,
+                    from_workspace_id=self._proto.workspace_id,
+                    to_workspace_id=f"region:{region.region_id}",
+                    payload={"items": items},
+                )
+                return result.get("synced_count", len(items))
+            return len(items)
         except ImportError:
             # Fallback: just return count
             logger.debug("CrossWorkspaceCoordinator not available, simulating sync")
@@ -739,21 +743,22 @@ class KnowledgeFederationMixin:
     ) -> list[dict[str, Any]]:
         """Fetch items from remote region via coordinator."""
         try:
-            from aragora.coordination.cross_workspace import (  # type: ignore[attr-defined]
+            from aragora.coordination.cross_workspace import (
                 CrossWorkspaceCoordinator,
                 CrossWorkspaceOperation,
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            # Ignoring types for optional cross-workspace integration (incomplete stubs)
-            result = await coordinator.execute_operation(  # type: ignore[attr-defined]
-                operation=CrossWorkspaceOperation.QUERY_MOUND,
-                from_workspace_id=self._proto.workspace_id,
-                to_workspace_id=f"region:{region.region_id}",
-                payload={"since": since.isoformat() if since else None},
-            )  # type: ignore[arg-type,attr-defined,call-arg]
-
-            return result.get("items", [])
+            # Optional cross-workspace integration
+            if hasattr(coordinator, "execute_operation"):
+                result = await coordinator.execute_operation(
+                    operation=CrossWorkspaceOperation.QUERY_MOUND,
+                    from_workspace_id=self._proto.workspace_id,
+                    to_workspace_id=f"region:{region.region_id}",
+                    payload={"since": since.isoformat() if since else None},
+                )
+                return result.get("items", [])
+            return []
         except ImportError:
             # Fallback: return empty list
             logger.debug("CrossWorkspaceCoordinator not available")

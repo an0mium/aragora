@@ -52,10 +52,12 @@ def _error_response(message: str, status: int, headers: dict[str, str]) -> "Hand
 
 
 def rate_limit(
-    requests_per_minute: int = 30,
+    requests_per_minute: int | None = None,
     burst: int | None = None,
     limiter_name: str | None = None,
     key_type: str = "ip",
+    *,
+    rpm: int | None = None,
 ):
     """
     Decorator for rate limiting endpoint handlers.
@@ -65,6 +67,7 @@ def rate_limit(
 
     Args:
         requests_per_minute: Maximum requests per minute per client.
+        rpm: Alias for requests_per_minute (for compatibility with handlers utils).
         burst: Additional burst capacity (default: 2x rate).
         limiter_name: Optional name to share limiter across handlers.
         key_type: How to key the limit ("ip", "token", "endpoint", "combined").
@@ -79,9 +82,14 @@ def rate_limit(
             ...
     """
 
+    # Support both rpm and requests_per_minute for compatibility
+    effective_rpm = (
+        requests_per_minute if requests_per_minute is not None else (rpm if rpm is not None else 30)
+    )
+
     def decorator(func: Callable) -> Callable:
         name = limiter_name or func.__name__
-        limiter = get_rate_limiter(name, requests_per_minute, burst)
+        limiter = get_rate_limiter(name, effective_rpm, burst)
 
         @wraps(func)
         def wrapper(*args, **kwargs):

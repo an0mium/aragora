@@ -465,7 +465,7 @@ class SnowflakeConnector(EnterpriseConnector):
                     if ts_column and updated_at:
                         state.last_item_timestamp = updated_at
 
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError, KeyError) as e:
                 logger.warning(f"Failed to sync table {table}: {e}")
                 state.errors.append(f"{table}: {str(e)}")
                 continue
@@ -522,7 +522,7 @@ class SnowflakeConnector(EnterpriseConnector):
                         }
                     )
 
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.debug(f"Search failed on {tbl}: {e}")
                 continue
 
@@ -573,7 +573,7 @@ class SnowflakeConnector(EnterpriseConnector):
 
             return None
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError, KeyError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
@@ -605,7 +605,7 @@ class SnowflakeConnector(EnterpriseConnector):
             rows = await self._async_query(query)
             if rows:
                 return rows[0]
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Failed to get stats for {table}: {e}")
 
         return {"row_count": 0, "max_id": None}

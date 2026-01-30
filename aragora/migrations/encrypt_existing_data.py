@@ -105,7 +105,7 @@ class EncryptionMigration:
             shutil.copy2(db_path, backup_path)
             logger.info(f"Created backup: {backup_path}")
             return backup_path
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to create backup: {e}")
             return None
 
@@ -179,7 +179,7 @@ class EncryptionMigration:
             if not self.dry_run:
                 conn.commit()
 
-        except Exception as e:
+        except (sqlite3.Error, json.JSONDecodeError, ValueError, KeyError) as e:
             logger.error(f"Error migrating integrations: {e}")
             self.stats["errors"].append(f"integrations: {e}")
             conn.rollback()
@@ -249,7 +249,7 @@ class EncryptionMigration:
             if not self.dry_run:
                 conn.commit()
 
-        except Exception as e:
+        except (sqlite3.Error, ValueError, KeyError) as e:
             logger.error(f"Error migrating webhooks: {e}")
             self.stats["errors"].append(f"webhooks: {e}")
             conn.rollback()
@@ -332,7 +332,7 @@ class EncryptionMigration:
             if not self.dry_run:
                 conn.commit()
 
-        except Exception as e:
+        except (sqlite3.Error, ValueError, KeyError) as e:
             logger.error(f"Error migrating tokens: {e}")
             self.stats["errors"].append(f"tokens: {e}")
             conn.rollback()
@@ -410,7 +410,7 @@ class EncryptionMigration:
             if not self.dry_run:
                 conn.commit()
 
-        except Exception as e:
+        except (sqlite3.Error, json.JSONDecodeError, ValueError, KeyError) as e:
             logger.error(f"Error migrating sync configs: {e}")
             self.stats["errors"].append(f"sync_configs: {e}")
             conn.rollback()
@@ -511,7 +511,7 @@ class EncryptionMigration:
             try:
                 shutil.copy2(backup, original_path)
                 logger.info(f"Restored: {original_path}")
-            except Exception as e:
+            except OSError as e:
                 logger.error(f"Failed to restore {original_path}: {e}")
                 return False
 

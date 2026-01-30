@@ -45,6 +45,7 @@ from ..base import (
     success_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils import parse_json_body
 from aragora.storage.unified_inbox_store import get_unified_inbox_store
 
 logger = logging.getLogger(__name__)
@@ -1505,11 +1506,7 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
-        if hasattr(request, "json"):
-            if callable(request.json):
-                return await request.json()
-            return request.json
-        return {}
+        return await parse_json_body(request, "unified_inbox")
 
     def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""

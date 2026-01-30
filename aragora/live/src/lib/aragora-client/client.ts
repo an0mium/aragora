@@ -29,6 +29,11 @@ import { AnalyticsAPI } from './apis/analytics';
 import { WorkflowsAPI } from './apis/workflows';
 import { AdminAPI } from './apis/admin';
 import { TrainingAPI } from './apis/training';
+import { ControlPlaneAPI } from './apis/control-plane';
+import { GraphDebatesAPI } from './apis/graph-debates';
+import { AuditAPI } from './apis/audit';
+import { KnowledgeAPI } from './apis/knowledge';
+import { ConnectorsAPI } from './apis/connectors';
 import { AragoraWebSocket, createWebSocket, WebSocketOptions } from './apis/websocket';
 
 // =============================================================================
@@ -56,6 +61,11 @@ export class AragoraClient {
   readonly workflows: WorkflowsAPI;
   readonly admin: AdminAPI;
   readonly training: TrainingAPI;
+  readonly controlPlane: ControlPlaneAPI;
+  readonly graphDebates: GraphDebatesAPI;
+  readonly audit: AuditAPI;
+  readonly knowledge: KnowledgeAPI;
+  readonly connectors: ConnectorsAPI;
 
   constructor(config: ClientConfig) {
     this.http = new HttpClient(config);
@@ -67,6 +77,11 @@ export class AragoraClient {
     this.workflows = new WorkflowsAPI(this.http);
     this.admin = new AdminAPI(this.http);
     this.training = new TrainingAPI(this.http);
+    this.controlPlane = new ControlPlaneAPI(this.http);
+    this.graphDebates = new GraphDebatesAPI(this.http);
+    this.audit = new AuditAPI(this.http);
+    this.knowledge = new KnowledgeAPI(this.http);
+    this.connectors = new ConnectorsAPI(this.http);
 
     // Store WebSocket options for lazy initialization
     this.wsOptions = {
@@ -228,3 +243,46 @@ export type {
   TrainingExportResponse,
   TrainingJob,
 } from './apis/training';
+
+export type {
+  Agent,
+  AgentRegistration,
+  Task,
+  TaskSubmission,
+  Deliberation,
+  SystemHealth as ControlPlaneHealth,
+  ControlPlaneStats,
+  PolicyViolation,
+} from './apis/control-plane';
+
+export type {
+  GraphDebateRequest,
+  GraphDebateResponse,
+  GraphNode,
+  Branch,
+  DebateGraph,
+} from './apis/graph-debates';
+
+export type {
+  AuditSession,
+  Finding,
+  AuditEvent,
+  AuditReport,
+  DeepAuditRequest,
+  DeepAuditResponse,
+} from './apis/audit';
+
+export type {
+  KnowledgeNode,
+  Relationship,
+  QueryOptions,
+  QueryResponse,
+  MoundStats,
+} from './apis/knowledge';
+
+export type {
+  Connector,
+  ConnectorType,
+  SyncOperation,
+  Integration,
+} from './apis/connectors';

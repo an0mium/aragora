@@ -356,7 +356,7 @@ class BaseCircuitBreaker:
         if self.config.on_state_change:
             try:
                 self.config.on_state_change(self.name, old_state, new_state)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(f"[{self.name}] State change callback error: {e}")
 
     def _add_result(self, success: bool) -> None:

@@ -177,7 +177,7 @@ class SSOHandler(SecureHandler):
             ("GET", "/auth/sso/status", "handle_status"),
         ]
 
-    @rate_limit(rpm=10)
+    @rate_limit(requests_per_minute=10)
     async def handle_login(
         self, handler: Any, params: dict[str, Any]
     ) -> HandlerResult | dict[str, Any]:
@@ -275,7 +275,7 @@ class SSOHandler(SecureHandler):
                 error_response(safe_error_message(e, "SSO login"), 500, code="SSO_LOGIN_ERROR"),
             )
 
-    @rate_limit(rpm=10)
+    @rate_limit(requests_per_minute=10)
     async def handle_callback(
         self, handler: Any, params: dict[str, Any]
     ) -> HandlerResult | dict[str, Any]:
@@ -434,7 +434,7 @@ class SSOHandler(SecureHandler):
                 ),
             )
 
-    @rate_limit(rpm=10)
+    @rate_limit(requests_per_minute=10)
     async def handle_logout(
         self, handler: Any, params: dict[str, Any]
     ) -> HandlerResult | dict[str, Any]:
@@ -530,7 +530,7 @@ class SSOHandler(SecureHandler):
                 ),
             )
 
-    @rate_limit(rpm=10)
+    @rate_limit(requests_per_minute=10)
     async def handle_metadata(
         self, handler: Any, params: dict[str, Any]
     ) -> HandlerResult | dict[str, Any]:
@@ -594,7 +594,7 @@ class SSOHandler(SecureHandler):
 
         return self._format_response(handler, error_response("Metadata not available", 400))
 
-    @rate_limit(rpm=10)
+    @rate_limit(requests_per_minute=10)
     async def handle_status(
         self, handler: Any, params: dict[str, Any]
     ) -> HandlerResult | dict[str, Any]:
