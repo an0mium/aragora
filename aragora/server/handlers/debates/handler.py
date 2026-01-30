@@ -42,7 +42,7 @@ from aragora.server.validation.schema import (
     validate_against_schema,
 )
 from aragora.server.http_utils import run_async
-from aragora.resilience_patterns import with_timeout_sync
+from aragora.resilience import with_timeout_sync
 
 from ..base import (
     BaseHandler,

@@ -239,7 +239,7 @@ def component_health_status(handler) -> HandlerResult:
         JSON response with component health report
     """
     try:
-        from aragora.resilience_patterns.health import get_global_health_registry
+        from aragora.resilience.health import get_global_health_registry
 
         registry = get_global_health_registry()
         report = registry.get_report()

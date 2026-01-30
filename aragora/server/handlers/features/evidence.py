@@ -50,7 +50,7 @@ from aragora.server.validation.security import (
 )
 from aragora.server.validation.entities import validate_id
 from aragora.server.handlers.utils.responses import HandlerResult
-from aragora.resilience_patterns import with_timeout
+from aragora.resilience import with_timeout
 
 logger = logging.getLogger(__name__)
 

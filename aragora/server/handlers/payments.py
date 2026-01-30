@@ -41,12 +41,12 @@ from aiohttp import web
 
 from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
-from aragora.resilience_patterns import (
-    get_circuit_breaker,
-    with_retry,
+from aragora.resilience import (
+    JitterMode,
     RetryConfig,
     RetryStrategy,
-    JitterMode,
+    get_v2_circuit_breaker as get_circuit_breaker,
+    with_retry,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 

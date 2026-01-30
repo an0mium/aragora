@@ -22,7 +22,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
-from aragora.resilience_patterns import with_timeout
+from aragora.resilience import with_timeout
 
 logger = logging.getLogger(__name__)
 

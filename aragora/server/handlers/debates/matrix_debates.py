@@ -73,7 +73,7 @@ from ..base import (
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
-from aragora.resilience_patterns import with_timeout
+from aragora.resilience import with_timeout
 
 logger = logging.getLogger(__name__)
 

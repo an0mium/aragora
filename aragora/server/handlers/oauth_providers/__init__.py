@@ -1,6 +1,15 @@
 """
 OAuth Provider Implementations.
 
+.. deprecated::
+    This module is **not the canonical OAuth implementation**. The active
+    OAuth handler used by the server lives in ``aragora.server.handlers._oauth/``,
+    which is registered as ``OAuthHandler`` in the handler registry.
+
+    This ``oauth_providers/`` package was created as an abstraction layer for
+    potential future migration but is not imported by any production code.
+    Use ``aragora.server.handlers._oauth`` for all OAuth handler work.
+
 This module provides OAuth provider implementations that can be used
 with the OAuthHandler. Each provider handles its specific OAuth flow.
 
