@@ -117,7 +117,9 @@ class TestPolicyListEndpoint:
         mock_http.path = "/api/v1/policies"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/policies", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -134,7 +136,9 @@ class TestPolicyListEndpoint:
         mock_http.path = "/api/v1/policies?workspace_id=ws1&enabled_only=true&limit=10"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/policies", {}, mock_http)
 
         assert result.status_code == 200
         mock_store.list_policies.assert_called_once()
@@ -150,7 +154,9 @@ class TestPolicyListEndpoint:
         mock_http.path = "/api/v1/policies"
 
         with patch.object(handler, "_get_policy_store", return_value=None):
-            result = await handler.handle("/api/v1/policies", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/policies", {}, mock_http)
 
         assert result.status_code == 503
         body = json.loads(result.body)
@@ -176,7 +182,9 @@ class TestPolicyGetEndpoint:
         mock_http.path = "/api/v1/policies/pol_123"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/policies/pol_123", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -192,7 +200,9 @@ class TestPolicyGetEndpoint:
         mock_http.path = "/api/v1/policies/pol_nonexistent"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_nonexistent", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/policies/pol_nonexistent", {}, mock_http)
 
         assert result.status_code == 404
         body = json.loads(result.body)
@@ -204,8 +214,8 @@ class TestPolicyGetEndpoint:
         # Use a valid path structure but with an invalid ID containing traversal
         mock_http = MagicMock()
         mock_http.path = "/api/v1/policies/..%2fetc"
-
-        result = await handler.handle("/api/v1/policies/..%2fetc", "GET", mock_http)
+        mock_http.command = "GET"
+        result = await handler.handle("/api/v1/policies/..%2fetc", {}, mock_http)
 
         # The validation should reject this - either 400 or the handler won't match (None)
         # Since the ID contains special characters, it should be rejected
@@ -253,7 +263,9 @@ class TestPolicyCreateEndpoint:
                     )
                 },
             ):
-                result = await handler.handle("/api/v1/policies", "POST", mock_http)
+                mock_http.command = "POST"
+
+                result = await handler.handle("/api/v1/policies", {}, mock_http)
 
         assert result.status_code == 201
         body = json.loads(result.body)
@@ -269,7 +281,9 @@ class TestPolicyCreateEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/policies")
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/policies", {}, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -286,7 +300,9 @@ class TestPolicyCreateEndpoint:
         mock_http.path = "/api/v1/policies"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/policies", {}, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -312,7 +328,9 @@ class TestPolicyUpdateEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/policies/pol_123")
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123", "PATCH", mock_http)
+            mock_http.command = "PATCH"
+
+            result = await handler.handle("/api/v1/policies/pol_123", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -328,7 +346,9 @@ class TestPolicyUpdateEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/policies/pol_123")
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_nonexistent", "PATCH", mock_http)
+            mock_http.command = "PATCH"
+
+            result = await handler.handle("/api/v1/policies/pol_nonexistent", {}, mock_http)
 
         assert result.status_code == 404
 
@@ -341,7 +361,9 @@ class TestPolicyUpdateEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/policies/pol_123")
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123", "PATCH", mock_http)
+            mock_http.command = "PATCH"
+
+            result = await handler.handle("/api/v1/policies/pol_123", {}, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -361,7 +383,9 @@ class TestPolicyDeleteEndpoint:
         mock_http.path = "/api/v1/policies/pol_123"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123", "DELETE", mock_http)
+            mock_http.command = "DELETE"
+
+            result = await handler.handle("/api/v1/policies/pol_123", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -377,7 +401,9 @@ class TestPolicyDeleteEndpoint:
         mock_http.path = "/api/v1/policies/pol_nonexistent"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_nonexistent", "DELETE", mock_http)
+            mock_http.command = "DELETE"
+
+            result = await handler.handle("/api/v1/policies/pol_nonexistent", {}, mock_http)
 
         assert result.status_code == 404
 
@@ -395,7 +421,9 @@ class TestPolicyToggleEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/policies/pol_123/toggle")
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123/toggle", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/policies/pol_123/toggle", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -412,7 +440,9 @@ class TestPolicyToggleEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/policies/pol_123/toggle")
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123/toggle", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/policies/pol_123/toggle", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -432,7 +462,9 @@ class TestPolicyToggleEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/policies/pol_123/toggle")
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123/toggle", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/policies/pol_123/toggle", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -450,9 +482,9 @@ class TestPolicyToggleEndpoint:
         )
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle(
-                "/api/v1/policies/pol_nonexistent/toggle", "POST", mock_http
-            )
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/policies/pol_nonexistent/toggle", {}, mock_http)
 
         assert result.status_code == 404
 
@@ -477,7 +509,9 @@ class TestPolicyViolationsEndpoint:
         mock_http.path = "/api/v1/policies/pol_123/violations"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123/violations", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/policies/pol_123/violations", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -494,8 +528,10 @@ class TestPolicyViolationsEndpoint:
         mock_http.path = "/api/v1/policies/pol_nonexistent/violations"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
+            mock_http.command = "GET"
+
             result = await handler.handle(
-                "/api/v1/policies/pol_nonexistent/violations", "GET", mock_http
+                "/api/v1/policies/pol_nonexistent/violations", {}, mock_http
             )
 
         assert result.status_code == 404
@@ -518,7 +554,9 @@ class TestComplianceViolationsListEndpoint:
         mock_http.path = "/api/v1/compliance/violations"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/compliance/violations", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/compliance/violations", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -534,7 +572,9 @@ class TestComplianceViolationsListEndpoint:
         mock_http.path = "/api/v1/compliance/violations?status=open&severity=critical"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/compliance/violations", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/compliance/violations", {}, mock_http)
 
         assert result.status_code == 200
         call_kwargs = mock_store.list_violations.call_args[1]
@@ -561,9 +601,9 @@ class TestComplianceViolationGetEndpoint:
         mock_http.path = "/api/v1/compliance/violations/viol_123"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle(
-                "/api/v1/compliance/violations/viol_123", "GET", mock_http
-            )
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/compliance/violations/viol_123", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -579,8 +619,10 @@ class TestComplianceViolationGetEndpoint:
         mock_http.path = "/api/v1/compliance/violations/viol_nonexistent"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
+            mock_http.command = "GET"
+
             result = await handler.handle(
-                "/api/v1/compliance/violations/viol_nonexistent", "GET", mock_http
+                "/api/v1/compliance/violations/viol_nonexistent", {}, mock_http
             )
 
         assert result.status_code == 404
@@ -606,9 +648,9 @@ class TestComplianceViolationUpdateEndpoint:
         )
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle(
-                "/api/v1/compliance/violations/viol_123", "PATCH", mock_http
-            )
+            mock_http.command = "PATCH"
+
+            result = await handler.handle("/api/v1/compliance/violations/viol_123", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -625,9 +667,9 @@ class TestComplianceViolationUpdateEndpoint:
         )
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle(
-                "/api/v1/compliance/violations/viol_123", "PATCH", mock_http
-            )
+            mock_http.command = "PATCH"
+
+            result = await handler.handle("/api/v1/compliance/violations/viol_123", {}, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -644,9 +686,9 @@ class TestComplianceViolationUpdateEndpoint:
         )
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle(
-                "/api/v1/compliance/violations/viol_123", "PATCH", mock_http
-            )
+            mock_http.command = "PATCH"
+
+            result = await handler.handle("/api/v1/compliance/violations/viol_123", {}, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -668,8 +710,10 @@ class TestComplianceViolationUpdateEndpoint:
             )
 
             with patch.object(handler, "_get_policy_store", return_value=mock_store):
+                mock_http.command = "PATCH"
+
                 result = await handler.handle(
-                    "/api/v1/compliance/violations/viol_123", "PATCH", mock_http
+                    "/api/v1/compliance/violations/viol_123", {}, mock_http
                 )
 
             assert result.status_code == 200, f"Status {status} should be valid"
@@ -697,7 +741,9 @@ class TestComplianceCheckEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/compliance/check")
 
         with patch.object(handler, "_get_compliance_manager", return_value=mock_manager):
-            result = await handler.handle("/api/v1/compliance/check", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/compliance/check", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -734,7 +780,9 @@ class TestComplianceCheckEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/compliance/check")
 
         with patch.object(handler, "_get_compliance_manager", return_value=mock_manager):
-            result = await handler.handle("/api/v1/compliance/check", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/compliance/check", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -750,7 +798,9 @@ class TestComplianceCheckEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/compliance/check")
 
         with patch.object(handler, "_get_compliance_manager", return_value=mock_manager):
-            result = await handler.handle("/api/v1/compliance/check", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/compliance/check", {}, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -777,7 +827,9 @@ class TestComplianceCheckEndpoint:
                     )
                 },
             ):
-                result = await handler.handle("/api/v1/compliance/check", "POST", mock_http)
+                mock_http.command = "POST"
+
+                result = await handler.handle("/api/v1/compliance/check", {}, mock_http)
 
         assert result.status_code == 400
         body = json.loads(result.body)
@@ -790,7 +842,9 @@ class TestComplianceCheckEndpoint:
         mock_http = _create_mock_handler_with_body(body_data, "/api/v1/compliance/check")
 
         with patch.object(handler, "_get_compliance_manager", return_value=None):
-            result = await handler.handle("/api/v1/compliance/check", "POST", mock_http)
+            mock_http.command = "POST"
+
+            result = await handler.handle("/api/v1/compliance/check", {}, mock_http)
 
         assert result.status_code == 503
 
@@ -821,7 +875,9 @@ class TestComplianceStatsEndpoint:
         mock_http.path = "/api/v1/compliance/stats"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/compliance/stats", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/compliance/stats", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -847,7 +903,9 @@ class TestComplianceStatsEndpoint:
         mock_http.path = "/api/v1/compliance/stats"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/compliance/stats", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/compliance/stats", {}, mock_http)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -864,7 +922,8 @@ class TestPolicyHandlerEdgeCases:
         mock_http = MagicMock()
         mock_http.path = "/api/v1/unknown"
 
-        result = await handler.handle("/api/v1/unknown", "GET", mock_http)
+        mock_http.command = "GET"
+        result = await handler.handle("/api/v1/unknown", {}, mock_http)
         assert result is None
 
     @pytest.mark.asyncio
@@ -877,7 +936,9 @@ class TestPolicyHandlerEdgeCases:
         mock_http.path = "/api/v1/policies"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies", "GET", mock_http)
+            mock_http.command = "GET"
+
+            result = await handler.handle("/api/v1/policies", {}, mock_http)
 
         assert result.status_code == 500
         body = json.loads(result.body)
@@ -902,7 +963,9 @@ class TestPolicyHandlerEdgeCases:
         mock_http.user_context.user_id = "user_456"
 
         with patch.object(handler, "_get_policy_store", return_value=mock_store):
-            result = await handler.handle("/api/v1/policies/pol_123", "PATCH", mock_http)
+            mock_http.command = "PATCH"
+
+            result = await handler.handle("/api/v1/policies/pol_123", {}, mock_http)
 
         assert result.status_code == 200
         # Verify user_id was passed to update_policy
