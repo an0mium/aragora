@@ -7,6 +7,7 @@ convoy persistence and status tracking to the canonical Nomic layer.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from .convoy import ConvoyTracker
@@ -16,9 +17,16 @@ from .models import Convoy, ConvoyStatus
 class GastownConvoyAdapter:
     """Adapter that bridges Gastown convoys to the canonical Nomic layer."""
 
-    def __init__(self, tracker: ConvoyTracker | None = None) -> None:
+    def __init__(
+        self,
+        tracker: ConvoyTracker | None = None,
+        storage_path: str | Path | None = None,
+    ) -> None:
         # ConvoyTracker already forwards to Nomic when storage is enabled.
-        self._tracker = tracker or ConvoyTracker(use_nomic_store=True)
+        self._tracker = tracker or ConvoyTracker(
+            storage_path=storage_path,
+            use_nomic_store=True,
+        )
 
     async def create_convoy(
         self,
