@@ -225,6 +225,8 @@ from .template_marketplace import TemplateMarketplaceHandler
 from .email import EmailHandler  # Email prioritization API
 from .email_services import EmailServicesHandler  # Email services (follow-up, snooze, categories)
 from .dependency_analysis import DependencyAnalysisHandler  # Dependency analysis API
+from .computer_use_handler import ComputerUseHandler  # Computer use tasks API
+from .gateway_handler import GatewayHandler  # IoT gateway API
 
 # Accounting handlers
 from .expenses import ExpenseHandler  # Expense tracking API
@@ -436,6 +438,9 @@ ALL_HANDLERS = [
     CRMHandler,  # HubSpot, Salesforce
     SupportHandler,  # Zendesk, Freshdesk, Intercom, HelpScout
     EcommerceHandler,  # Shopify, ShipStation, Walmart
+    # Computer use and IoT gateway
+    ComputerUseHandler,  # Computer use tasks, actions, and policies
+    GatewayHandler,  # IoT gateway devices, channels, routing, messages
 ]
 
 # Handler stability classifications

@@ -13,7 +13,7 @@ Tests cover:
 import pytest
 from unittest.mock import MagicMock, patch
 
-from aragora.resilience_patterns.metrics import (
+from aragora.resilience.pattern_metrics import (
     circuit_breaker_state_changed,
     retry_attempt,
     retry_exhausted,
@@ -32,7 +32,7 @@ class TestMetricsWithoutPrometheus:
         """Test circuit_breaker_state_changed works without prometheus."""
         with patch.dict("sys.modules", {"prometheus_client": None}):
             # Reset module state
-            import aragora.resilience_patterns.metrics as m
+            import aragora.resilience.pattern_metrics as m
 
             m._prometheus_available = None
             m._metrics.clear()
@@ -43,7 +43,7 @@ class TestMetricsWithoutPrometheus:
     def test_retry_no_prometheus(self):
         """Test retry_attempt works without prometheus."""
         with patch.dict("sys.modules", {"prometheus_client": None}):
-            import aragora.resilience_patterns.metrics as m
+            import aragora.resilience.pattern_metrics as m
 
             m._prometheus_available = None
             m._metrics.clear()
@@ -53,7 +53,7 @@ class TestMetricsWithoutPrometheus:
     def test_timeout_no_prometheus(self):
         """Test timeout_occurred works without prometheus."""
         with patch.dict("sys.modules", {"prometheus_client": None}):
-            import aragora.resilience_patterns.metrics as m
+            import aragora.resilience.pattern_metrics as m
 
             m._prometheus_available = None
             m._metrics.clear()
@@ -77,13 +77,13 @@ class TestCircuitBreakerMetrics:
 
     def test_state_change_with_enum_values(self):
         """Test state changes with enum-like objects."""
-        from aragora.resilience_patterns import CircuitState
+        from aragora.resilience import CircuitState
 
         circuit_breaker_state_changed("test_breaker", CircuitState.CLOSED, CircuitState.OPEN)
 
     def test_callback_signature_matches_config(self):
         """Test callback signature matches CircuitBreakerConfig.on_state_change."""
-        from aragora.resilience_patterns import CircuitBreakerConfig, CircuitState
+        from aragora.resilience import CircuitBreakerConfig, CircuitState
 
         # The callback should accept (name, old_state, new_state)
         config = CircuitBreakerConfig(on_state_change=circuit_breaker_state_changed)
@@ -249,7 +249,7 @@ class TestMetricsIntegration:
 
     def test_circuit_breaker_with_metrics_callback(self):
         """Test circuit breaker with metrics callback."""
-        from aragora.resilience_patterns import (
+        from aragora.resilience import (
             BaseCircuitBreaker,
             CircuitBreakerConfig,
         )
@@ -269,7 +269,7 @@ class TestMetricsIntegration:
 
     def test_health_checker_with_metrics(self):
         """Test health checker reporting to metrics."""
-        from aragora.resilience_patterns import HealthChecker
+        from aragora.resilience import HealthChecker
 
         checker = HealthChecker("database", failure_threshold=2)
 

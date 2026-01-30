@@ -13,12 +13,12 @@ import asyncio
 import pytest
 from unittest.mock import MagicMock
 
-from aragora.resilience_patterns import (
+from aragora.resilience import (
     TimeoutConfig,
     with_timeout,
     with_timeout_sync,
 )
-from aragora.resilience_patterns.timeout import TimeoutError as PatternTimeoutError
+from aragora.resilience.timeout import TimeoutError as PatternTimeoutError
 
 
 class TestTimeoutConfig:
@@ -252,7 +252,7 @@ class TestTimeoutContextManagers:
     @pytest.mark.asyncio
     async def test_timeout_context_success(self):
         """Test async context manager with successful operation."""
-        from aragora.resilience_patterns.timeout import timeout_context
+        from aragora.resilience.timeout import timeout_context
 
         async with timeout_context(1.0, context_name="test"):
             await asyncio.sleep(0.01)
@@ -261,7 +261,7 @@ class TestTimeoutContextManagers:
     @pytest.mark.asyncio
     async def test_timeout_context_timeout(self):
         """Test async context manager with timeout."""
-        from aragora.resilience_patterns.timeout import timeout_context
+        from aragora.resilience.timeout import timeout_context
 
         with pytest.raises((asyncio.TimeoutError, PatternTimeoutError)):
             async with timeout_context(0.1, context_name="slow_op"):
@@ -270,7 +270,7 @@ class TestTimeoutContextManagers:
     @pytest.mark.asyncio
     async def test_timeout_context_callback(self):
         """Test callback invocation on timeout."""
-        from aragora.resilience_patterns.timeout import timeout_context
+        from aragora.resilience.timeout import timeout_context
 
         callback_called = False
 
@@ -287,7 +287,7 @@ class TestTimeoutContextManagers:
     @pytest.mark.asyncio
     async def test_timeout_context_preserves_return(self):
         """Test that context manager preserves operations correctly."""
-        from aragora.resilience_patterns.timeout import timeout_context
+        from aragora.resilience.timeout import timeout_context
 
         result = None
         async with timeout_context(1.0):

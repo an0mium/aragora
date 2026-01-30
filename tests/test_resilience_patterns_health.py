@@ -12,7 +12,7 @@ Tests cover:
 from datetime import datetime, timezone
 import pytest
 
-from aragora.resilience_patterns import (
+from aragora.resilience import (
     HealthStatus,
     HealthChecker,
     HealthReport,
@@ -335,7 +335,7 @@ class TestHealthRegistry:
 
     def test_register_component(self):
         """Test registering a health checker."""
-        from aragora.resilience_patterns.health import HealthRegistry
+        from aragora.resilience.health import HealthRegistry
 
         registry = HealthRegistry()
         checker = registry.register("database")
@@ -345,7 +345,7 @@ class TestHealthRegistry:
 
     def test_get_registered(self):
         """Test getting a registered checker."""
-        from aragora.resilience_patterns.health import HealthRegistry
+        from aragora.resilience.health import HealthRegistry
 
         registry = HealthRegistry()
         registry.register("cache")
@@ -356,14 +356,14 @@ class TestHealthRegistry:
 
     def test_get_unregistered(self):
         """Test getting an unregistered checker."""
-        from aragora.resilience_patterns.health import HealthRegistry
+        from aragora.resilience.health import HealthRegistry
 
         registry = HealthRegistry()
         assert registry.get("nonexistent") is None
 
     def test_get_or_create(self):
         """Test get_or_create functionality."""
-        from aragora.resilience_patterns.health import HealthRegistry
+        from aragora.resilience.health import HealthRegistry
 
         registry = HealthRegistry()
 
@@ -374,7 +374,7 @@ class TestHealthRegistry:
 
     def test_unregister(self):
         """Test unregistering a component."""
-        from aragora.resilience_patterns.health import HealthRegistry
+        from aragora.resilience.health import HealthRegistry
 
         registry = HealthRegistry()
         registry.register("temp")
@@ -385,7 +385,7 @@ class TestHealthRegistry:
 
     def test_get_report(self):
         """Test aggregate health report."""
-        from aragora.resilience_patterns.health import HealthRegistry
+        from aragora.resilience.health import HealthRegistry
 
         registry = HealthRegistry()
 
@@ -406,7 +406,7 @@ class TestHealthRegistry:
 
     def test_register_same_name_returns_existing(self):
         """Test that registering the same name returns existing checker."""
-        from aragora.resilience_patterns.health import HealthRegistry
+        from aragora.resilience.health import HealthRegistry
 
         registry = HealthRegistry()
         checker1 = registry.register("service")
@@ -420,7 +420,7 @@ class TestGlobalRegistry:
 
     def test_singleton(self):
         """Test global registry is a singleton."""
-        from aragora.resilience_patterns.health import get_global_health_registry
+        from aragora.resilience.health import get_global_health_registry
 
         reg1 = get_global_health_registry()
         reg2 = get_global_health_registry()
@@ -429,7 +429,7 @@ class TestGlobalRegistry:
     def test_thread_safety(self):
         """Test thread-safe initialization."""
         import concurrent.futures
-        from aragora.resilience_patterns.health import get_global_health_registry
+        from aragora.resilience.health import get_global_health_registry
 
         registries = []
 

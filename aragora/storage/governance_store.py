@@ -48,6 +48,26 @@ from aragora.utils.async_utils import run_async
 logger = logging.getLogger(__name__)
 
 
+def _parse_dt(val: Any) -> datetime:
+    """Parse a datetime value from a database row.
+
+    Handles values from both SQLite (ISO strings) and PostgreSQL
+    (datetime objects, numeric timestamps) backends.
+    """
+    if val is None:
+        return datetime.now()
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val)
+        except ValueError:
+            pass
+    if isinstance(val, (int, float)):
+        return datetime.fromtimestamp(val)
+    return datetime.now()
+
+
 def _record_governance_verification(verification_type: str, result: str) -> None:
     """Record governance verification metric if available."""
     try:
@@ -537,17 +557,6 @@ class GovernanceStore:
 
     def _row_to_approval(self, row: tuple) -> ApprovalRecord:
         """Convert database row to ApprovalRecord."""
-
-        def parse_dt(val: Any) -> datetime:
-            if isinstance(val, datetime):
-                return val
-            if isinstance(val, str):
-                try:
-                    return datetime.fromisoformat(val)
-                except ValueError:
-                    pass
-            return datetime.now()
-
         return ApprovalRecord(
             approval_id=row[0],
             title=row[1],
@@ -555,11 +564,11 @@ class GovernanceStore:
             risk_level=row[3],
             status=row[4],
             requested_by=row[5] or "",
-            requested_at=parse_dt(row[6]),
+            requested_at=_parse_dt(row[6]),
             changes_json=row[7] or "[]",
             timeout_seconds=row[8] or 3600,
             approved_by=row[9],
-            approved_at=parse_dt(row[10]) if row[10] else None,
+            approved_at=_parse_dt(row[10]) if row[10] else None,
             rejection_reason=row[11],
             org_id=row[12],
             workspace_id=row[13],
@@ -700,24 +709,13 @@ class GovernanceStore:
 
     def _row_to_verification(self, row: tuple) -> VerificationRecord:
         """Convert database row to VerificationRecord."""
-
-        def parse_dt(val: Any) -> datetime:
-            if isinstance(val, datetime):
-                return val
-            if isinstance(val, str):
-                try:
-                    return datetime.fromisoformat(val)
-                except ValueError:
-                    pass
-            return datetime.now()
-
         return VerificationRecord(
             verification_id=row[0],
             claim=row[1],
             claim_type=row[2],
             context=row[3] or "",
             result_json=row[4] or "{}",
-            timestamp=parse_dt(row[5]),
+            timestamp=_parse_dt(row[5]),
             verified_by=row[6] or "system",
             confidence=row[7] or 0.0,
             proof_tree_json=row[8],
@@ -884,24 +882,13 @@ class GovernanceStore:
 
     def _row_to_decision(self, row: tuple) -> DecisionRecord:
         """Convert database row to DecisionRecord."""
-
-        def parse_dt(val: Any) -> datetime:
-            if isinstance(val, datetime):
-                return val
-            if isinstance(val, str):
-                try:
-                    return datetime.fromisoformat(val)
-                except ValueError:
-                    pass
-            return datetime.now()
-
         return DecisionRecord(
             decision_id=row[0],
             debate_id=row[1],
             conclusion=row[2] or "",
             consensus_reached=bool(row[3]),
             confidence=row[4] or 0.0,
-            timestamp=parse_dt(row[5]),
+            timestamp=_parse_dt(row[5]),
             evidence_chain_json=row[6] or "[]",
             vote_pivots_json=row[7] or "[]",
             belief_changes_json=row[8] or "[]",
@@ -1284,16 +1271,6 @@ class PostgresGovernanceStore:
 
     def _row_to_approval(self, row: Any) -> ApprovalRecord:
         """Convert database row to ApprovalRecord."""
-
-        def parse_dt(val: Any) -> datetime:
-            if val is None:
-                return datetime.now()
-            if isinstance(val, (int, float)):
-                return datetime.fromtimestamp(val)
-            if isinstance(val, datetime):
-                return val
-            return datetime.now()
-
         return ApprovalRecord(
             approval_id=row["approval_id"],
             title=row["title"],
@@ -1301,7 +1278,7 @@ class PostgresGovernanceStore:
             risk_level=row["risk_level"],
             status=row["status"],
             requested_by=row["requested_by"] or "",
-            requested_at=parse_dt(row["requested_at"]),
+            requested_at=_parse_dt(row["requested_at"]),
             changes_json=(
                 row["changes_json"]
                 if isinstance(row["changes_json"], str)
@@ -1309,7 +1286,7 @@ class PostgresGovernanceStore:
             ),
             timeout_seconds=row["timeout_seconds"] or 3600,
             approved_by=row["approved_by"],
-            approved_at=parse_dt(row["approved_at"]) if row["approved_at"] else None,
+            approved_at=_parse_dt(row["approved_at"]) if row["approved_at"] else None,
             rejection_reason=row["rejection_reason"],
             org_id=row["org_id"],
             workspace_id=row["workspace_id"],
@@ -1464,16 +1441,6 @@ class PostgresGovernanceStore:
 
     def _row_to_verification(self, row: Any) -> VerificationRecord:
         """Convert database row to VerificationRecord."""
-
-        def parse_dt(val: Any) -> datetime:
-            if val is None:
-                return datetime.now()
-            if isinstance(val, (int, float)):
-                return datetime.fromtimestamp(val)
-            if isinstance(val, datetime):
-                return val
-            return datetime.now()
-
         return VerificationRecord(
             verification_id=row["verification_id"],
             claim=row["claim"],
@@ -1484,7 +1451,7 @@ class PostgresGovernanceStore:
                 if isinstance(row["result_json"], str)
                 else json.dumps(row["result_json"] or {})
             ),
-            timestamp=parse_dt(row["timestamp"]),
+            timestamp=_parse_dt(row["timestamp"]),
             verified_by=row["verified_by"] or "system",
             confidence=row["confidence"] or 0.0,
             proof_tree_json=(
@@ -1672,15 +1639,6 @@ class PostgresGovernanceStore:
     def _row_to_decision(self, row: Any) -> DecisionRecord:
         """Convert database row to DecisionRecord."""
 
-        def parse_dt(val: Any) -> datetime:
-            if val is None:
-                return datetime.now()
-            if isinstance(val, (int, float)):
-                return datetime.fromtimestamp(val)
-            if isinstance(val, datetime):
-                return val
-            return datetime.now()
-
         def to_json_str(val: Any) -> str:
             if val is None:
                 return "[]"
@@ -1694,7 +1652,7 @@ class PostgresGovernanceStore:
             conclusion=row["conclusion"] or "",
             consensus_reached=bool(row["consensus_reached"]),
             confidence=row["confidence"] or 0.0,
-            timestamp=parse_dt(row["timestamp"]),
+            timestamp=_parse_dt(row["timestamp"]),
             evidence_chain_json=to_json_str(row["evidence_chain_json"]),
             vote_pivots_json=to_json_str(row["vote_pivots_json"]),
             belief_changes_json=to_json_str(row["belief_changes_json"]),
