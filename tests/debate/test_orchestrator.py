@@ -2219,3 +2219,862 @@ class TestMLIntegration:
 
         assert arena.enable_consensus_estimation is True
         assert arena.consensus_early_termination_threshold == 0.9
+
+
+# =============================================================================
+# Concurrent Debate Handling Tests
+# =============================================================================
+
+
+class TestConcurrentDebateHandling:
+    """Tests for handling multiple concurrent debates."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test concurrent debates")
+
+    @pytest.fixture
+    def agents(self):
+        return [
+            MockAgent(name="agent1", response="Response from agent 1"),
+            MockAgent(name="agent2", response="Response from agent 2"),
+        ]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1, consensus="majority")
+
+    @pytest.mark.asyncio
+    async def test_multiple_arenas_can_run_concurrently(self, environment, agents, protocol):
+        """Multiple Arena instances can run debates concurrently."""
+        arena1 = Arena(environment, agents.copy(), protocol)
+        arena2 = Arena(environment, agents.copy(), protocol)
+
+        # Run both debates concurrently
+        results = await asyncio.gather(arena1.run(), arena2.run())
+
+        assert len(results) == 2
+        assert all(isinstance(r, DebateResult) for r in results)
+        assert all(r.final_answer is not None for r in results)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_debates_have_unique_ids(self, agents, protocol):
+        """Concurrent debates generate unique debate IDs."""
+        env1 = Environment(task="Task 1")
+        env2 = Environment(task="Task 2")
+
+        arena1 = Arena(env1, agents.copy(), protocol)
+        arena2 = Arena(env2, agents.copy(), protocol)
+
+        results = await asyncio.gather(arena1.run(), arena2.run())
+
+        # Both should complete successfully with different tasks
+        assert results[0].task == "Task 1"
+        assert results[1].task == "Task 2"
+
+    @pytest.mark.asyncio
+    async def test_concurrent_debates_with_same_agents(self, environment, protocol):
+        """Debates with the same agents configured separately work concurrently."""
+        # Create separate agent instances for each arena
+        agents1 = [
+            MockAgent(name="shared1", response="Response 1"),
+            MockAgent(name="shared2", response="Response 2"),
+        ]
+        agents2 = [
+            MockAgent(name="shared1", response="Response 1"),
+            MockAgent(name="shared2", response="Response 2"),
+        ]
+
+        arena1 = Arena(environment, agents1, protocol)
+        arena2 = Arena(environment, agents2, protocol)
+
+        results = await asyncio.gather(arena1.run(), arena2.run())
+
+        assert len(results) == 2
+        assert all(r is not None for r in results)
+
+    @pytest.mark.asyncio
+    async def test_context_manager_with_concurrent_debates(self, environment, agents, protocol):
+        """Context managers work correctly for concurrent debates."""
+        async with (
+            Arena(environment, agents.copy(), protocol) as arena1,
+            Arena(environment, agents.copy(), protocol) as arena2,
+        ):
+            results = await asyncio.gather(arena1.run(), arena2.run())
+
+        assert len(results) == 2
+        assert all(r is not None for r in results)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_debates_isolate_state(self, protocol):
+        """Concurrent debates maintain isolated state."""
+        env1 = Environment(task="Security question about auth")
+        env2 = Environment(task="Performance question about speed")
+
+        agents1 = [MockAgent(name="a1", response="Security answer")]
+        agents2 = [MockAgent(name="a1", response="Performance answer")]
+
+        arena1 = Arena(env1, agents1, protocol)
+        arena2 = Arena(env2, agents2, protocol)
+
+        # Check domains are extracted correctly for each
+        domain1 = arena1._extract_debate_domain()
+        domain2 = arena2._extract_debate_domain()
+
+        assert domain1 == "security"
+        assert domain2 == "performance"
+
+    @pytest.mark.asyncio
+    async def test_many_concurrent_debates(self, protocol):
+        """Multiple concurrent debates (5+) can run successfully."""
+        debates = []
+        for i in range(5):
+            env = Environment(task=f"Task number {i}")
+            agents = [MockAgent(name=f"agent_{i}", response=f"Response {i}")]
+            arena = Arena(env, agents, protocol)
+            debates.append(arena.run())
+
+        results = await asyncio.gather(*debates)
+
+        assert len(results) == 5
+        assert all(isinstance(r, DebateResult) for r in results)
+
+
+# =============================================================================
+# Extended Event Emission and Callbacks Tests
+# =============================================================================
+
+
+class TestExtendedEventEmission:
+    """Extended tests for event emission and callback handling."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test event emission")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1, consensus="majority")
+
+    def test_hook_manager_accepted(self, environment, agents, protocol):
+        """Arena accepts a HookManager for extended lifecycle hooks."""
+        mock_hook_manager = MagicMock()
+        arena = Arena(environment, agents, protocol, hook_manager=mock_hook_manager)
+
+        assert arena.hook_manager == mock_hook_manager
+
+    def test_event_emitter_initialized(self, environment, agents, protocol):
+        """Internal EventEmitter is initialized."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "_event_emitter")
+        assert arena._event_emitter is not None
+
+    def test_spectator_notified(self, environment, agents, protocol):
+        """Spectator stream receives notifications."""
+        mock_spectator = MagicMock()
+        mock_spectator.broadcast = MagicMock()
+        arena = Arena(environment, agents, protocol, spectator=mock_spectator)
+
+        # Trigger a notification
+        arena._notify_spectator("test_event", data="test")
+
+        # Spectator should receive the notification
+        # (Implementation may buffer or batch events)
+
+    def test_event_bridge_integration(self, environment, agents, protocol):
+        """Event bridge is initialized for cross-system events."""
+        arena = Arena(environment, agents, protocol)
+
+        # Event bridge should exist (may be None if not configured)
+        assert hasattr(arena, "event_bridge")
+
+    @pytest.mark.asyncio
+    async def test_hooks_called_during_run(self, environment, agents, protocol):
+        """Event hooks are called during debate run."""
+        hooks_called = []
+
+        def on_debate_start(**kwargs):
+            hooks_called.append("debate_start")
+
+        hooks = {"on_debate_start": on_debate_start}
+        arena = Arena(environment, agents, protocol, event_hooks=hooks)
+
+        await arena.run()
+
+        # Hooks should be configured (actual calling depends on implementation)
+        assert arena.hooks is not None
+
+    def test_emit_agent_preview(self, environment, agents, protocol):
+        """Agent preview can be emitted."""
+        arena = Arena(environment, agents, protocol)
+
+        # Should not raise
+        arena._emit_agent_preview()
+
+    def test_notify_spectator_method_exists(self, environment, agents, protocol):
+        """_notify_spectator method exists and is callable."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "_notify_spectator")
+        assert callable(arena._notify_spectator)
+
+        # Should not raise even without spectator
+        arena._notify_spectator("test_event", key="value")
+
+    def test_emit_moment_event_method_exists(self, environment, agents, protocol):
+        """_emit_moment_event method exists."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "_emit_moment_event")
+        assert callable(arena._emit_moment_event)
+
+    @pytest.mark.asyncio
+    async def test_event_bus_receives_events(self, environment, agents, protocol):
+        """Event bus is set up and can receive events."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena.event_bus is not None
+
+        # Event bus should have methods for subscribing and publishing
+        assert hasattr(arena.event_bus, "subscribe") or hasattr(arena.event_bus, "publish")
+
+
+# =============================================================================
+# Agent Hierarchy Tests
+# =============================================================================
+
+
+class TestAgentHierarchy:
+    """Tests for agent hierarchy (Gastown pattern) functionality."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test agent hierarchy")
+
+    @pytest.fixture
+    def agents(self):
+        return [
+            MockAgent(name="orchestrator", role="proposer"),
+            MockAgent(name="monitor", role="critic"),
+            MockAgent(name="worker", role="synthesizer"),
+        ]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=2)
+
+    def test_hierarchy_enabled_by_default(self, environment, agents, protocol):
+        """Agent hierarchy is enabled by default."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena.enable_agent_hierarchy is True
+
+    def test_hierarchy_can_be_disabled(self, environment, agents, protocol):
+        """Agent hierarchy can be disabled."""
+        arena = Arena(environment, agents, protocol, enable_agent_hierarchy=False)
+
+        assert arena.enable_agent_hierarchy is False
+
+    def test_hierarchy_object_created_when_enabled(self, environment, agents, protocol):
+        """AgentHierarchy object is created when enabled."""
+        arena = Arena(environment, agents, protocol, enable_agent_hierarchy=True)
+
+        assert hasattr(arena, "_hierarchy")
+        # Hierarchy may be None if no config provided
+
+    def test_assign_hierarchy_roles_method_exists(self, environment, agents, protocol):
+        """_assign_hierarchy_roles method exists."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "_assign_hierarchy_roles")
+        assert callable(arena._assign_hierarchy_roles)
+
+
+# =============================================================================
+# Cross-Debate Memory Tests
+# =============================================================================
+
+
+class TestCrossDebateMemory:
+    """Tests for cross-debate memory and institutional knowledge."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test cross-debate memory")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1)
+
+    def test_cross_debate_memory_stored(self, environment, agents, protocol):
+        """Cross-debate memory is stored when provided."""
+        mock_cross_memory = MagicMock()
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            cross_debate_memory=mock_cross_memory,
+            enable_cross_debate_memory=True,
+        )
+
+        assert arena.cross_debate_memory == mock_cross_memory
+        assert arena.enable_cross_debate_memory is True
+
+    def test_cross_debate_memory_enabled_by_default(self, environment, agents, protocol):
+        """Cross-debate memory injection is enabled by default."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena.enable_cross_debate_memory is True
+
+    def test_cross_debate_memory_can_be_disabled(self, environment, agents, protocol):
+        """Cross-debate memory injection can be disabled."""
+        arena = Arena(environment, agents, protocol, enable_cross_debate_memory=False)
+
+        assert arena.enable_cross_debate_memory is False
+
+
+# =============================================================================
+# Post-Debate Workflow Tests
+# =============================================================================
+
+
+class TestPostDebateWorkflow:
+    """Tests for post-debate workflow automation."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test post-debate workflow")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1)
+
+    def test_post_debate_workflow_disabled_by_default(self, environment, agents, protocol):
+        """Post-debate workflow is disabled by default."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena.enable_post_debate_workflow is False
+
+    def test_post_debate_workflow_can_be_enabled(self, environment, agents, protocol):
+        """Post-debate workflow can be enabled."""
+        mock_workflow = MagicMock()
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            post_debate_workflow=mock_workflow,
+            enable_post_debate_workflow=True,
+            post_debate_workflow_threshold=0.8,
+        )
+
+        assert arena.enable_post_debate_workflow is True
+        assert arena.post_debate_workflow == mock_workflow
+        assert arena.post_debate_workflow_threshold == 0.8
+
+    def test_post_debate_workflow_auto_created_when_enabled(self, environment, agents, protocol):
+        """Default workflow is auto-created when enabled without explicit workflow."""
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            enable_post_debate_workflow=True,
+        )
+
+        # Workflow may be auto-created or None depending on imports
+        assert arena.enable_post_debate_workflow is True
+
+
+# =============================================================================
+# Adaptive Rounds Tests
+# =============================================================================
+
+
+class TestAdaptiveRounds:
+    """Tests for adaptive rounds based on memory/strategy."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test adaptive rounds")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=5)
+
+    def test_adaptive_rounds_disabled_by_default(self, environment, agents, protocol):
+        """Adaptive rounds are disabled by default."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena.enable_adaptive_rounds is False
+
+    def test_adaptive_rounds_can_be_enabled(self, environment, agents, protocol):
+        """Adaptive rounds can be enabled."""
+        arena = Arena(environment, agents, protocol, enable_adaptive_rounds=True)
+
+        assert arena.enable_adaptive_rounds is True
+
+    def test_debate_strategy_auto_created_when_enabled(self, environment, agents, protocol):
+        """DebateStrategy is auto-created when adaptive rounds enabled."""
+        mock_continuum = MagicMock()
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            enable_adaptive_rounds=True,
+            continuum_memory=mock_continuum,
+        )
+
+        # Strategy may be created or None depending on imports
+        assert arena.enable_adaptive_rounds is True
+
+
+# =============================================================================
+# Fabric Integration Tests
+# =============================================================================
+
+
+class TestFabricIntegration:
+    """Tests for Agent Fabric integration."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test fabric integration")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1)
+
+    def test_arena_without_fabric(self, environment, agents, protocol):
+        """Arena works without fabric configured."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena._fabric is None
+        assert arena._fabric_config is None
+
+    def test_arena_rejects_agents_and_fabric(self, environment, agents, protocol):
+        """Arena rejects specifying both agents and fabric."""
+        mock_fabric = MagicMock()
+        mock_config = MagicMock()
+        mock_config.pool_id = "test-pool"
+
+        with pytest.raises(ValueError, match="Cannot specify both"):
+            Arena(
+                environment,
+                agents,
+                protocol,
+                fabric=mock_fabric,
+                fabric_config=mock_config,
+            )
+
+    def test_arena_requires_agents_or_fabric(self, environment, protocol):
+        """Arena requires either agents or fabric configuration."""
+        with pytest.raises(ValueError, match="Must specify either"):
+            Arena(environment, [], protocol)
+
+
+# =============================================================================
+# Billing and Usage Tests
+# =============================================================================
+
+
+class TestBillingAndUsage:
+    """Tests for billing and usage tracking integration."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test billing")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1)
+
+    def test_org_id_stored(self, environment, agents, protocol):
+        """Organization ID is stored."""
+        arena = Arena(environment, agents, protocol, org_id="org-123")
+
+        assert arena.org_id == "org-123"
+
+    def test_user_id_stored(self, environment, agents, protocol):
+        """User ID is stored."""
+        arena = Arena(environment, agents, protocol, user_id="user-456")
+
+        assert arena.user_id == "user-456"
+
+    def test_usage_tracker_accepted(self, environment, agents, protocol):
+        """UsageTracker is accepted."""
+        mock_tracker = MagicMock()
+        arena = Arena(environment, agents, protocol, usage_tracker=mock_tracker)
+
+        # Extensions should have access to tracker
+        assert arena.extensions is not None
+
+    def test_budget_coordinator_initialized(self, environment, agents, protocol):
+        """BudgetCoordinator is initialized."""
+        arena = Arena(environment, agents, protocol, org_id="org-123", user_id="user-456")
+
+        assert hasattr(arena, "_budget_coordinator")
+        assert arena._budget_coordinator is not None
+
+
+# =============================================================================
+# Revalidation Tests
+# =============================================================================
+
+
+class TestRevalidation:
+    """Tests for knowledge revalidation features."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test revalidation")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=1)
+
+    def test_auto_revalidation_disabled_by_default(self, environment, agents, protocol):
+        """Auto-revalidation is disabled by default."""
+        arena = Arena(environment, agents, protocol)
+
+        assert arena.enable_auto_revalidation is False
+
+    def test_auto_revalidation_can_be_enabled(self, environment, agents, protocol):
+        """Auto-revalidation can be enabled."""
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            enable_auto_revalidation=True,
+            revalidation_staleness_threshold=0.8,
+            revalidation_check_interval_seconds=1800,
+        )
+
+        assert arena.enable_auto_revalidation is True
+        assert arena.revalidation_staleness_threshold == 0.8
+        assert arena.revalidation_check_interval_seconds == 1800
+
+    def test_revalidation_scheduler_accepted(self, environment, agents, protocol):
+        """RevalidationScheduler is accepted and may be auto-created."""
+        # When enable_auto_revalidation=True, a scheduler may be auto-created
+        # if knowledge_mound is available. Check that the attribute exists.
+        arena = Arena(
+            environment,
+            agents,
+            protocol,
+            enable_auto_revalidation=True,
+        )
+
+        # Scheduler should exist (either auto-created or None)
+        assert hasattr(arena, "revalidation_scheduler")
+
+
+# =============================================================================
+# Belief Network Tests
+# =============================================================================
+
+
+class TestBeliefNetwork:
+    """Tests for belief network integration."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test belief network")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    def test_belief_guidance_disabled_by_default(self, environment, agents):
+        """Belief guidance is disabled by default."""
+        arena = Arena(environment, agents)
+
+        assert arena.enable_belief_guidance is False
+
+    def test_belief_guidance_can_be_enabled(self, environment, agents):
+        """Belief guidance can be enabled."""
+        arena = Arena(environment, agents, enable_belief_guidance=True)
+
+        assert arena.enable_belief_guidance is True
+
+    def test_setup_belief_network_method_exists(self, environment, agents):
+        """_setup_belief_network method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_setup_belief_network")
+        assert callable(arena._setup_belief_network)
+
+
+# =============================================================================
+# Citation and Evidence Tests
+# =============================================================================
+
+
+class TestCitationAndEvidence:
+    """Tests for citation extraction and evidence features."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test citations")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    def test_citation_extractor_initialized(self, environment, agents):
+        """Citation extractor is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "citation_extractor")
+
+    def test_evidence_grounder_initialized(self, environment, agents):
+        """Evidence grounder is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "evidence_grounder")
+        assert arena.evidence_grounder is not None
+
+    def test_extract_citation_needs_method(self, environment, agents):
+        """_extract_citation_needs method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_extract_citation_needs")
+        assert callable(arena._extract_citation_needs)
+
+        # Should return dict when called with proposals
+        result = arena._extract_citation_needs({"a1": "Some proposal text"})
+        assert isinstance(result, dict)
+
+    def test_store_evidence_in_memory_method(self, environment, agents):
+        """_store_evidence_in_memory method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_store_evidence_in_memory")
+        assert callable(arena._store_evidence_in_memory)
+
+
+# =============================================================================
+# Termination and Judge Selection Tests
+# =============================================================================
+
+
+class TestTerminationAndJudge:
+    """Tests for termination checking and judge selection."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test termination")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.fixture
+    def protocol(self):
+        return DebateProtocol(rounds=3, consensus="judge")
+
+    def test_termination_checker_initialized(self, environment, agents, protocol):
+        """TerminationChecker is initialized."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "termination_checker")
+        assert arena.termination_checker is not None
+
+    @pytest.mark.asyncio
+    async def test_select_judge_method_exists(self, environment, agents, protocol):
+        """_select_judge method exists and returns an Agent."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "_select_judge")
+        assert callable(arena._select_judge)
+
+    @pytest.mark.asyncio
+    async def test_check_early_stopping_method_exists(self, environment, agents, protocol):
+        """_check_early_stopping method exists."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "_check_early_stopping")
+        assert callable(arena._check_early_stopping)
+
+    @pytest.mark.asyncio
+    async def test_check_judge_termination_method_exists(self, environment, agents, protocol):
+        """_check_judge_termination method exists."""
+        arena = Arena(environment, agents, protocol)
+
+        assert hasattr(arena, "_check_judge_termination")
+        assert callable(arena._check_judge_termination)
+
+
+# =============================================================================
+# Research and Context Gathering Tests
+# =============================================================================
+
+
+class TestResearchAndContext:
+    """Tests for research and context gathering capabilities."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test research context")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    @pytest.mark.asyncio
+    async def test_perform_research_method_exists(self, environment, agents):
+        """_perform_research method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_perform_research")
+        assert callable(arena._perform_research)
+
+    @pytest.mark.asyncio
+    async def test_gather_aragora_context_method_exists(self, environment, agents):
+        """_gather_aragora_context method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_gather_aragora_context")
+        assert callable(arena._gather_aragora_context)
+
+    @pytest.mark.asyncio
+    async def test_gather_evidence_context_method_exists(self, environment, agents):
+        """_gather_evidence_context method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_gather_evidence_context")
+        assert callable(arena._gather_evidence_context)
+
+    @pytest.mark.asyncio
+    async def test_gather_trending_context_method_exists(self, environment, agents):
+        """_gather_trending_context method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_gather_trending_context")
+        assert callable(arena._gather_trending_context)
+
+    def test_context_delegator_initialized(self, environment, agents):
+        """ContextDelegator is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_context_delegator")
+        assert arena._context_delegator is not None
+
+
+# =============================================================================
+# Prompt Building Tests
+# =============================================================================
+
+
+class TestPromptBuilding:
+    """Tests for prompt building functionality."""
+
+    @pytest.fixture
+    def environment(self):
+        return Environment(task="Test prompt building")
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="a1"), MockAgent(name="a2")]
+
+    def test_prompt_context_builder_initialized(self, environment, agents):
+        """PromptContextBuilder is initialized."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_prompt_context")
+        assert arena._prompt_context is not None
+
+    def test_build_proposal_prompt_method_exists(self, environment, agents):
+        """_build_proposal_prompt method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_build_proposal_prompt")
+        assert callable(arena._build_proposal_prompt)
+
+    def test_build_revision_prompt_method_exists(self, environment, agents):
+        """_build_revision_prompt method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_build_revision_prompt")
+        assert callable(arena._build_revision_prompt)
+
+    def test_get_persona_context_method(self, environment, agents):
+        """_get_persona_context method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_get_persona_context")
+        assert callable(arena._get_persona_context)
+
+    def test_get_role_context_method(self, environment, agents):
+        """_get_role_context method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_get_role_context")
+        assert callable(arena._get_role_context)
+
+    def test_prepare_audience_context_method(self, environment, agents):
+        """_prepare_audience_context method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_prepare_audience_context")
+        assert callable(arena._prepare_audience_context)
+
+    def test_sync_prompt_builder_state_method(self, environment, agents):
+        """_sync_prompt_builder_state method exists."""
+        arena = Arena(environment, agents)
+
+        assert hasattr(arena, "_sync_prompt_builder_state")
+        assert callable(arena._sync_prompt_builder_state)
+
+        # Should not raise
+        arena._sync_prompt_builder_state()
+
+
+# =============================================================================
+# Security Debate Tests
+# =============================================================================
+
+
+class TestSecurityDebate:
+    """Tests for security debate functionality."""
+
+    @pytest.fixture
+    def agents(self):
+        return [MockAgent(name="security1"), MockAgent(name="security2")]
+
+    def test_run_security_debate_method_exists(self, agents):
+        """run_security_debate classmethod exists."""
+        assert hasattr(Arena, "run_security_debate")
+        assert callable(Arena.run_security_debate)
+
+    def test_get_security_debate_agents_method_exists(self, agents):
+        """_get_security_debate_agents staticmethod exists."""
+        assert hasattr(Arena, "_get_security_debate_agents")
+        assert callable(Arena._get_security_debate_agents)

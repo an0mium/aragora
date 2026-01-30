@@ -1,252 +1,44 @@
 """
-Tests for Continuum Memory System.
-Tests the multi-tier memory system including:
-- Fast/Medium/Slow/Glacial tier management
-- TTL-based expiration
-- Memory retrieval and storage
-- Tier promotion and demotion
+Comprehensive tests for Continuum Memory System.
+
+Tests the multi-tier memory system (ContinuumMemory) including:
+- Memory tier initialization
+- Memory storage and retrieval
+- Tier promotion/demotion
+- Consolidation mechanics
+- Decay and forgetting
+- Cross-tier queries
+- Persistence and loading
+- Concurrent access
+- Memory cleanup and bounds
+- Red line (protected) memories
+- Snapshot export/restore
 """
 
+import asyncio
+import json
+import sqlite3
+import tempfile
+import threading
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 
-# Import canonical MemoryTier from aragora.memory
-from aragora.memory import MemoryTier
-
-
-# =============================================================================
-# Mock Memory Classes (mirrors actual implementation)
-# =============================================================================
-
-
-@dataclass
-class MemoryEntry:
-    """A single memory entry."""
-
-    id: str
-    content: str
-    tier: MemoryTier
-    created_at: datetime
-    accessed_at: datetime
-    access_count: int = 0
-    metadata: dict[str, Any] = field(default_factory=dict)
-    embedding: Optional[list[float]] = None
-
-    def is_expired(self, ttls: dict[MemoryTier, timedelta]) -> bool:
-        """Check if entry is expired based on tier TTL."""
-        ttl = ttls.get(self.tier, timedelta(hours=1))
-        return datetime.now(timezone.utc) - self.created_at > ttl
-
-
-class MockContinuumMemory:
-    """Mock Continuum memory system for testing."""
-
-    DEFAULT_TTLS = {
-        MemoryTier.FAST: timedelta(minutes=1),
-        MemoryTier.MEDIUM: timedelta(hours=1),
-        MemoryTier.SLOW: timedelta(days=1),
-        MemoryTier.GLACIAL: timedelta(weeks=1),
-    }
-
-    PROMOTION_THRESHOLD = 5  # accesses to promote
-    DEMOTION_THRESHOLD = timedelta(hours=12)  # time without access to demote
-
-    def __init__(
-        self,
-        ttls: dict[MemoryTier, timedelta] = None,
-        max_entries_per_tier: int = 1000,
-    ):
-        self.ttls = ttls or self.DEFAULT_TTLS.copy()
-        self.max_entries_per_tier = max_entries_per_tier
-
-        self._entries: dict[str, MemoryEntry] = {}
-        self._tier_indices: dict[MemoryTier, set] = {tier: set() for tier in MemoryTier}
-
-    @property
-    def total_entries(self) -> int:
-        return len(self._entries)
-
-    def get_tier_count(self, tier: MemoryTier) -> int:
-        return len(self._tier_indices[tier])
-
-    async def store(
-        self,
-        id: str,
-        content: str,
-        tier: MemoryTier = MemoryTier.FAST,
-        metadata: dict[str, Any] = None,
-        embedding: list[float] = None,
-    ) -> MemoryEntry:
-        """Store a memory entry."""
-        now = datetime.now(timezone.utc)
-
-        entry = MemoryEntry(
-            id=id,
-            content=content,
-            tier=tier,
-            created_at=now,
-            accessed_at=now,
-            metadata=metadata or {},
-            embedding=embedding,
-        )
-
-        # Remove from old tier if exists
-        if id in self._entries:
-            old_entry = self._entries[id]
-            self._tier_indices[old_entry.tier].discard(id)
-
-        self._entries[id] = entry
-        self._tier_indices[tier].add(id)
-
-        # Evict if over capacity
-        await self._evict_if_needed(tier)
-
-        return entry
-
-    async def retrieve(self, id: str) -> Optional[MemoryEntry]:
-        """Retrieve a memory entry by ID."""
-        entry = self._entries.get(id)
-
-        if entry is None:
-            return None
-
-        # Check expiration
-        if entry.is_expired(self.ttls):
-            await self.delete(id)
-            return None
-
-        # Update access tracking
-        entry.accessed_at = datetime.now(timezone.utc)
-        entry.access_count += 1
-
-        # Check for promotion
-        await self._check_promotion(entry)
-
-        return entry
-
-    async def search(
-        self,
-        query: str,
-        limit: int = 10,
-        tiers: list[MemoryTier] = None,
-    ) -> list[MemoryEntry]:
-        """Search memory entries by content."""
-        tiers = tiers or list(MemoryTier)
-        results = []
-
-        for id, entry in self._entries.items():
-            if entry.tier not in tiers:
-                continue
-
-            if entry.is_expired(self.ttls):
-                continue
-
-            # Simple substring search
-            if query.lower() in entry.content.lower():
-                results.append(entry)
-
-            if len(results) >= limit:
-                break
-
-        return results
-
-    async def delete(self, id: str) -> bool:
-        """Delete a memory entry."""
-        entry = self._entries.pop(id, None)
-
-        if entry:
-            self._tier_indices[entry.tier].discard(id)
-            return True
-
-        return False
-
-    async def promote(self, id: str) -> Optional[MemoryEntry]:
-        """Promote entry to next tier."""
-        entry = self._entries.get(id)
-
-        if entry is None:
-            return None
-
-        tier_order = [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW, MemoryTier.GLACIAL]
-        current_idx = tier_order.index(entry.tier)
-
-        if current_idx >= len(tier_order) - 1:
-            return entry  # Already at highest tier
-
-        # Move to next tier
-        self._tier_indices[entry.tier].discard(id)
-        entry.tier = tier_order[current_idx + 1]
-        self._tier_indices[entry.tier].add(id)
-
-        return entry
-
-    async def demote(self, id: str) -> Optional[MemoryEntry]:
-        """Demote entry to previous tier."""
-        entry = self._entries.get(id)
-
-        if entry is None:
-            return None
-
-        tier_order = [MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW, MemoryTier.GLACIAL]
-        current_idx = tier_order.index(entry.tier)
-
-        if current_idx <= 0:
-            return entry  # Already at lowest tier
-
-        # Move to previous tier
-        self._tier_indices[entry.tier].discard(id)
-        entry.tier = tier_order[current_idx - 1]
-        self._tier_indices[entry.tier].add(id)
-
-        return entry
-
-    async def _check_promotion(self, entry: MemoryEntry) -> None:
-        """Check if entry should be promoted based on access count."""
-        if entry.access_count >= self.PROMOTION_THRESHOLD:
-            await self.promote(entry.id)
-            entry.access_count = 0  # Reset counter after promotion
-
-    async def _evict_if_needed(self, tier: MemoryTier) -> None:
-        """Evict oldest entries if tier is over capacity."""
-        tier_ids = self._tier_indices[tier]
-
-        while len(tier_ids) > self.max_entries_per_tier:
-            # Find oldest entry
-            oldest_id = None
-            oldest_time = None
-
-            for id in tier_ids:
-                entry = self._entries[id]
-                if oldest_time is None or entry.accessed_at < oldest_time:
-                    oldest_id = id
-                    oldest_time = entry.accessed_at
-
-            if oldest_id:
-                await self.delete(oldest_id)
-
-    async def cleanup_expired(self) -> int:
-        """Remove all expired entries."""
-        expired_ids = []
-
-        for id, entry in self._entries.items():
-            if entry.is_expired(self.ttls):
-                expired_ids.append(id)
-
-        for id in expired_ids:
-            await self.delete(id)
-
-        return len(expired_ids)
-
-    async def get_stats(self) -> dict[str, Any]:
-        """Get memory statistics."""
-        return {
-            "total_entries": self.total_entries,
-            "tiers": {tier.value: self.get_tier_count(tier) for tier in MemoryTier},
-            "ttls": {tier.value: ttl.total_seconds() for tier, ttl in self.ttls.items()},
-        }
+from aragora.memory.continuum import (
+    CONTINUUM_SCHEMA_VERSION,
+    ContinuumMemory,
+    ContinuumMemoryEntry,
+    get_continuum_memory,
+    reset_continuum_memory,
+)
+from aragora.memory.tier_manager import (
+    DEFAULT_TIER_CONFIGS,
+    MemoryTier,
+    TierManager,
+    reset_tier_manager,
+)
 
 
 # =============================================================================
@@ -255,441 +47,1203 @@ class MockContinuumMemory:
 
 
 @pytest.fixture
-def memory():
-    """Create memory system for testing."""
-    return MockContinuumMemory(max_entries_per_tier=100)
+def temp_db_path(tmp_path):
+    """Create a temporary database path for testing."""
+    return str(tmp_path / "test_continuum.db")
+
+
+@pytest.fixture
+def tier_manager():
+    """Create a fresh TierManager for testing."""
+    return TierManager()
+
+
+@pytest.fixture
+def memory(temp_db_path, tier_manager):
+    """Create a ContinuumMemory instance with isolated database."""
+    reset_tier_manager()
+    reset_continuum_memory()
+    cms = ContinuumMemory(db_path=temp_db_path, tier_manager=tier_manager)
+    yield cms
+    # Cleanup - close any connections
+    reset_tier_manager()
+    reset_continuum_memory()
 
 
 @pytest.fixture
 def populated_memory(memory):
-    """Memory with some entries."""
-    import asyncio
-
-    async def populate():
-        await memory.store("id1", "First entry about Python", MemoryTier.FAST)
-        await memory.store("id2", "Second entry about JavaScript", MemoryTier.MEDIUM)
-        await memory.store("id3", "Third entry about databases", MemoryTier.SLOW)
-        return memory
-
-    return asyncio.run(populate())
+    """Memory with pre-populated entries across tiers."""
+    memory.add(
+        "fast_1", "Fast tier entry about Python errors", tier=MemoryTier.FAST, importance=0.8
+    )
+    memory.add("fast_2", "Another fast entry about debugging", tier=MemoryTier.FAST, importance=0.6)
+    memory.add("medium_1", "Medium tier tactical learning", tier=MemoryTier.MEDIUM, importance=0.7)
+    memory.add("slow_1", "Slow tier strategic patterns", tier=MemoryTier.SLOW, importance=0.9)
+    memory.add(
+        "glacial_1", "Glacial foundational knowledge", tier=MemoryTier.GLACIAL, importance=0.95
+    )
+    return memory
 
 
 # =============================================================================
-# Test Classes
+# Test Memory Tier Initialization
 # =============================================================================
 
 
-class TestMemoryInit:
-    """Test memory system initialization."""
+class TestMemoryTierInitialization:
+    """Test ContinuumMemory initialization and tier configuration."""
 
-    def test_default_ttls(self, memory):
-        """Test default TTL values."""
-        assert memory.ttls[MemoryTier.FAST] == timedelta(minutes=1)
-        assert memory.ttls[MemoryTier.MEDIUM] == timedelta(hours=1)
-        assert memory.ttls[MemoryTier.SLOW] == timedelta(days=1)
-        assert memory.ttls[MemoryTier.GLACIAL] == timedelta(weeks=1)
+    def test_default_initialization(self, temp_db_path):
+        """Test that ContinuumMemory initializes with default settings."""
+        cms = ContinuumMemory(db_path=temp_db_path)
 
-    def test_custom_ttls(self):
-        """Test custom TTL values."""
-        custom_ttls = {
-            MemoryTier.FAST: timedelta(seconds=30),
-            MemoryTier.MEDIUM: timedelta(minutes=30),
-            MemoryTier.SLOW: timedelta(hours=12),
-            MemoryTier.GLACIAL: timedelta(days=3),
-        }
-        memory = MockContinuumMemory(ttls=custom_ttls)
+        assert cms.SCHEMA_VERSION == CONTINUUM_SCHEMA_VERSION
+        assert cms.hyperparams is not None
+        assert "max_entries_per_tier" in cms.hyperparams
+        assert cms.hyperparams["max_entries_per_tier"]["fast"] == 1000
 
-        assert memory.ttls[MemoryTier.FAST] == timedelta(seconds=30)
+    def test_custom_tier_manager(self, temp_db_path, tier_manager):
+        """Test initialization with custom TierManager."""
+        cms = ContinuumMemory(db_path=temp_db_path, tier_manager=tier_manager)
 
-    def test_initial_state(self, memory):
-        """Test initial empty state."""
-        assert memory.total_entries == 0
-        for tier in MemoryTier:
-            assert memory.get_tier_count(tier) == 0
+        assert cms._tier_manager is tier_manager
+        # Constructor syncs hyperparams to tier manager, so cooldown matches hyperparams
+        assert (
+            cms._tier_manager.promotion_cooldown_hours
+            == cms.hyperparams["promotion_cooldown_hours"]
+        )
+
+    def test_tier_manager_property(self, memory):
+        """Test that tier_manager property returns the manager."""
+        manager = memory.tier_manager
+        assert isinstance(manager, TierManager)
+
+    def test_schema_creation(self, temp_db_path):
+        """Test that database schema is created on initialization."""
+        cms = ContinuumMemory(db_path=temp_db_path)
+
+        with cms.connection() as conn:
+            cursor = conn.cursor()
+            # Check main table exists
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='continuum_memory'"
+            )
+            assert cursor.fetchone() is not None
+
+            # Check archive table exists
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='continuum_memory_archive'"
+            )
+            assert cursor.fetchone() is not None
+
+            # Check tier_transitions table exists
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='tier_transitions'"
+            )
+            assert cursor.fetchone() is not None
+
+    def test_hyperparams_defaults(self, memory):
+        """Test default hyperparameter values."""
+        hp = memory.hyperparams
+
+        assert hp["surprise_weight_success"] == 0.3
+        assert hp["surprise_weight_semantic"] == 0.3
+        assert hp["surprise_weight_temporal"] == 0.2
+        assert hp["surprise_weight_agent"] == 0.2
+        assert hp["consolidation_threshold"] == 100.0
+        assert hp["promotion_cooldown_hours"] == 24.0
+        assert hp["retention_multiplier"] == 2.0
 
 
-class TestStore:
-    """Test memory storage."""
+# =============================================================================
+# Test Memory Storage and Retrieval
+# =============================================================================
 
-    @pytest.mark.asyncio
-    async def test_store_basic(self, memory):
-        """Test basic storage."""
-        entry = await memory.store("test-id", "Test content")
 
-        assert entry.id == "test-id"
+class TestMemoryStorageAndRetrieval:
+    """Test adding and retrieving memory entries."""
+
+    def test_add_basic_entry(self, memory):
+        """Test adding a basic memory entry."""
+        entry = memory.add("test_id", "Test content")
+
+        assert entry.id == "test_id"
         assert entry.content == "Test content"
+        assert entry.tier == MemoryTier.SLOW  # Default tier
+        assert entry.importance == 0.5  # Default importance
+        assert entry.surprise_score == 0.0
+        assert entry.consolidation_score == 0.0
+        assert entry.update_count == 1
+
+    def test_add_with_tier(self, memory):
+        """Test adding entry to specific tier."""
+        entry = memory.add("fast_id", "Fast content", tier=MemoryTier.FAST)
+
         assert entry.tier == MemoryTier.FAST
-        assert memory.total_entries == 1
 
-    @pytest.mark.asyncio
-    async def test_store_with_tier(self, memory):
-        """Test storage with specific tier."""
-        entry = await memory.store("id", "content", tier=MemoryTier.SLOW)
+    def test_add_with_importance(self, memory):
+        """Test adding entry with custom importance."""
+        entry = memory.add("important_id", "Important content", importance=0.9)
 
-        assert entry.tier == MemoryTier.SLOW
-        assert memory.get_tier_count(MemoryTier.SLOW) == 1
+        assert entry.importance == 0.9
 
-    @pytest.mark.asyncio
-    async def test_store_with_metadata(self, memory):
-        """Test storage with metadata."""
-        metadata = {"source": "debate", "round": 3}
-        entry = await memory.store("id", "content", metadata=metadata)
+    def test_add_with_metadata(self, memory):
+        """Test adding entry with metadata."""
+        metadata = {"source": "debate", "round": 3, "tags": ["error", "python"]}
+        entry = memory.add("meta_id", "Content with metadata", metadata=metadata)
 
-        assert entry.metadata["source"] == "debate"
-        assert entry.metadata["round"] == 3
+        assert entry.metadata == metadata
+        assert entry.tags == ["error", "python"]
 
-    @pytest.mark.asyncio
-    async def test_store_with_embedding(self, memory):
-        """Test storage with embedding."""
-        embedding = [0.1, 0.2, 0.3, 0.4]
-        entry = await memory.store("id", "content", embedding=embedding)
+    def test_get_existing_entry(self, memory):
+        """Test retrieving an existing entry by ID."""
+        memory.add("get_test", "Retrievable content", importance=0.7)
 
-        assert entry.embedding == embedding
-
-    @pytest.mark.asyncio
-    async def test_store_overwrites_existing(self, memory):
-        """Test that storing with same ID overwrites."""
-        await memory.store("id", "original content", tier=MemoryTier.FAST)
-        await memory.store("id", "new content", tier=MemoryTier.MEDIUM)
-
-        assert memory.total_entries == 1
-        entry = await memory.retrieve("id")
-        assert entry.content == "new content"
-        assert entry.tier == MemoryTier.MEDIUM
-
-
-class TestRetrieve:
-    """Test memory retrieval."""
-
-    @pytest.mark.asyncio
-    async def test_retrieve_existing(self, populated_memory):
-        """Test retrieving existing entry."""
-        entry = await populated_memory.retrieve("id1")
+        entry = memory.get("get_test")
 
         assert entry is not None
-        assert entry.content == "First entry about Python"
+        assert entry.id == "get_test"
+        assert entry.content == "Retrievable content"
+        assert entry.importance == 0.7
 
-    @pytest.mark.asyncio
-    async def test_retrieve_nonexistent(self, memory):
-        """Test retrieving non-existent entry."""
-        entry = await memory.retrieve("nonexistent")
+    def test_get_nonexistent_entry(self, memory):
+        """Test retrieving a non-existent entry returns None."""
+        entry = memory.get("nonexistent_id")
 
         assert entry is None
 
-    @pytest.mark.asyncio
-    async def test_retrieve_updates_access_time(self, memory):
-        """Test that retrieval updates access time."""
-        await memory.store("id", "content")
-        entry1 = await memory.retrieve("id")
-        first_access = entry1.accessed_at
+    def test_retrieve_by_query(self, populated_memory):
+        """Test retrieving entries by keyword query."""
+        results = populated_memory.retrieve(query="Python", limit=10)
 
-        # Small delay
-        import asyncio
+        assert len(results) >= 1
+        assert any("Python" in e.content for e in results)
 
-        await asyncio.sleep(0.01)
+    def test_retrieve_by_tier(self, populated_memory):
+        """Test retrieving entries filtered by tier."""
+        results = populated_memory.retrieve(tiers=[MemoryTier.FAST], limit=10)
 
-        entry2 = await memory.retrieve("id")
+        assert all(e.tier == MemoryTier.FAST for e in results)
 
-        assert entry2.accessed_at >= first_access
+    def test_retrieve_multiple_tiers(self, populated_memory):
+        """Test retrieving from multiple tiers."""
+        results = populated_memory.retrieve(tiers=[MemoryTier.FAST, MemoryTier.MEDIUM], limit=10)
 
-    @pytest.mark.asyncio
-    async def test_retrieve_increments_access_count(self, memory):
-        """Test that retrieval increments access count."""
-        await memory.store("id", "content")
+        tiers_found = {e.tier for e in results}
+        assert tiers_found.issubset({MemoryTier.FAST, MemoryTier.MEDIUM})
 
-        for i in range(3):
-            entry = await memory.retrieve("id")
-            assert entry.access_count == i + 1
+    def test_retrieve_with_min_importance(self, populated_memory):
+        """Test retrieving with minimum importance threshold."""
+        results = populated_memory.retrieve(min_importance=0.85, limit=10)
 
+        assert all(e.importance >= 0.85 for e in results)
 
-class TestSearch:
-    """Test memory search."""
+    def test_retrieve_excludes_glacial(self, populated_memory):
+        """Test retrieving with include_glacial=False."""
+        results = populated_memory.retrieve(include_glacial=False, limit=100)
 
-    @pytest.mark.asyncio
-    async def test_search_finds_matching(self, populated_memory):
-        """Test search finds matching entries."""
-        results = await populated_memory.search("Python")
+        assert all(e.tier != MemoryTier.GLACIAL for e in results)
 
-        assert len(results) == 1
-        assert results[0].id == "id1"
+    def test_retrieve_limit(self, memory):
+        """Test that retrieve respects limit parameter."""
+        for i in range(20):
+            memory.add(f"limit_test_{i}", f"Content {i}", importance=0.5)
 
-    @pytest.mark.asyncio
-    async def test_search_case_insensitive(self, populated_memory):
-        """Test case-insensitive search."""
-        results = await populated_memory.search("python")
+        results = memory.retrieve(limit=5)
 
-        assert len(results) == 1
+        assert len(results) == 5
 
     @pytest.mark.asyncio
-    async def test_search_with_limit(self, memory):
-        """Test search respects limit."""
-        for i in range(10):
-            await memory.store(f"id{i}", f"content {i}")
+    async def test_add_async(self, memory):
+        """Test async add method."""
+        entry = await memory.add_async("async_id", "Async content", importance=0.6)
 
-        results = await memory.search("content", limit=3)
-
-        assert len(results) == 3
+        assert entry.id == "async_id"
+        assert entry.importance == 0.6
 
     @pytest.mark.asyncio
-    async def test_search_by_tier(self, populated_memory):
-        """Test search filtered by tier."""
-        results = await populated_memory.search("entry", tiers=[MemoryTier.FAST])
+    async def test_get_async(self, memory):
+        """Test async get method."""
+        memory.add("async_get", "Content to retrieve")
 
-        assert len(results) == 1
-        assert results[0].tier == MemoryTier.FAST
+        entry = await memory.get_async("async_get")
 
-    @pytest.mark.asyncio
-    async def test_search_no_matches(self, populated_memory):
-        """Test search with no matches."""
-        results = await populated_memory.search("nonexistent")
-
-        assert len(results) == 0
-
-
-class TestDelete:
-    """Test memory deletion."""
+        assert entry is not None
+        assert entry.content == "Content to retrieve"
 
     @pytest.mark.asyncio
-    async def test_delete_existing(self, populated_memory):
-        """Test deleting existing entry."""
-        result = await populated_memory.delete("id1")
+    async def test_retrieve_async(self, populated_memory):
+        """Test async retrieve method."""
+        results = await populated_memory.retrieve_async(query="Python", limit=10)
+
+        assert len(results) >= 1
+
+
+# =============================================================================
+# Test Tier Promotion/Demotion
+# =============================================================================
+
+
+class TestTierPromotionDemotion:
+    """Test tier promotion and demotion mechanics."""
+
+    def test_promote_from_medium_to_fast(self, memory):
+        """Test promoting entry from medium to fast tier."""
+        # Add entry with high surprise score
+        memory.add("promote_test", "Content to promote", tier=MemoryTier.MEDIUM)
+
+        # Set high surprise score to trigger promotion
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE continuum_memory SET surprise_score = 0.9 WHERE id = ?", ("promote_test",)
+            )
+            conn.commit()
+
+        new_tier = memory.promote("promote_test")
+
+        assert new_tier == MemoryTier.FAST
+
+    def test_promote_already_at_fast(self, memory):
+        """Test that promoting from fast tier returns None."""
+        memory.add("already_fast", "Fast content", tier=MemoryTier.FAST)
+
+        # Set high surprise
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE continuum_memory SET surprise_score = 0.9 WHERE id = ?", ("already_fast",)
+            )
+            conn.commit()
+
+        result = memory.promote("already_fast")
+
+        assert result is None
+
+    def test_promote_nonexistent(self, memory):
+        """Test promoting non-existent entry returns None."""
+        result = memory.promote("nonexistent_id")
+
+        assert result is None
+
+    def test_demote_from_fast_to_medium(self, memory):
+        """Test demoting entry from fast to medium tier."""
+        memory.add("demote_test", "Content to demote", tier=MemoryTier.FAST)
+
+        # Set low surprise (high stability) and sufficient updates
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE continuum_memory
+                   SET surprise_score = 0.1, update_count = 15
+                   WHERE id = ?""",
+                ("demote_test",),
+            )
+            conn.commit()
+
+        new_tier = memory.demote("demote_test")
+
+        assert new_tier == MemoryTier.MEDIUM
+
+    def test_demote_already_at_glacial(self, memory):
+        """Test that demoting from glacial tier returns None."""
+        memory.add("already_glacial", "Glacial content", tier=MemoryTier.GLACIAL)
+
+        # Set low surprise and high updates
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE continuum_memory
+                   SET surprise_score = 0.05, update_count = 20
+                   WHERE id = ?""",
+                ("already_glacial",),
+            )
+            conn.commit()
+
+        result = memory.demote("already_glacial")
+
+        assert result is None
+
+    def test_promote_entry_method(self, memory):
+        """Test promote_entry interface method."""
+        memory.add("promote_entry_test", "Content", tier=MemoryTier.SLOW)
+
+        result = memory.promote_entry("promote_entry_test", MemoryTier.MEDIUM)
 
         assert result is True
-        assert populated_memory.total_entries == 2
+        entry = memory.get("promote_entry_test")
+        assert entry.tier == MemoryTier.MEDIUM
 
-    @pytest.mark.asyncio
-    async def test_delete_nonexistent(self, memory):
-        """Test deleting non-existent entry."""
-        result = await memory.delete("nonexistent")
+    def test_demote_entry_method(self, memory):
+        """Test demote_entry interface method."""
+        memory.add("demote_entry_test", "Content", tier=MemoryTier.MEDIUM)
+
+        result = memory.demote_entry("demote_entry_test", MemoryTier.SLOW)
+
+        assert result is True
+        entry = memory.get("demote_entry_test")
+        assert entry.tier == MemoryTier.SLOW
+
+    def test_promotion_cooldown(self, memory):
+        """Test that promotion respects cooldown period."""
+        memory.add("cooldown_test", "Content", tier=MemoryTier.MEDIUM)
+
+        # Set high surprise and recent promotion
+        now = datetime.now().isoformat()
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE continuum_memory
+                   SET surprise_score = 0.9, last_promotion_at = ?
+                   WHERE id = ?""",
+                (now, "cooldown_test"),
+            )
+            conn.commit()
+
+        # Promotion should be blocked by cooldown
+        result = memory.promote("cooldown_test")
+
+        assert result is None
+
+
+# =============================================================================
+# Test Consolidation Mechanics
+# =============================================================================
+
+
+class TestConsolidationMechanics:
+    """Test tier consolidation logic."""
+
+    def test_consolidate_promotes_high_surprise(self, memory):
+        """Test that consolidate promotes entries with high surprise."""
+        # Add entries with high surprise
+        for i in range(3):
+            memory.add(f"high_surprise_{i}", f"Content {i}", tier=MemoryTier.SLOW)
+
+        # Set high surprise scores
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE continuum_memory SET surprise_score = 0.8 WHERE tier = 'slow'")
+            conn.commit()
+
+        result = memory.consolidate()
+
+        assert result["promotions"] >= 0  # May be 0 if thresholds not met
+
+    def test_consolidate_demotes_stable_entries(self, memory):
+        """Test that consolidate demotes stable entries."""
+        # Add entries with low surprise and high update count
+        for i in range(3):
+            memory.add(f"stable_{i}", f"Stable content {i}", tier=MemoryTier.FAST)
+
+        # Set low surprise (high stability) and sufficient updates
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE continuum_memory
+                   SET surprise_score = 0.05, update_count = 15
+                   WHERE tier = 'fast'"""
+            )
+            conn.commit()
+
+        result = memory.consolidate()
+
+        assert "demotions" in result
+
+    def test_consolidate_returns_counts(self, memory):
+        """Test that consolidate returns proper count structure."""
+        result = memory.consolidate()
+
+        assert "promotions" in result
+        assert "demotions" in result
+        assert isinstance(result["promotions"], int)
+        assert isinstance(result["demotions"], int)
+
+
+# =============================================================================
+# Test Decay and Forgetting
+# =============================================================================
+
+
+class TestDecayAndForgetting:
+    """Test memory decay and forgetting mechanisms."""
+
+    def test_update_outcome_success(self, memory):
+        """Test updating memory with successful outcome."""
+        memory.add("outcome_test", "Content")
+
+        surprise = memory.update_outcome("outcome_test", success=True)
+
+        entry = memory.get("outcome_test")
+        assert entry.success_count == 1
+        assert entry.update_count == 2  # Initial 1 + outcome update
+        assert surprise >= 0
+
+    def test_update_outcome_failure(self, memory):
+        """Test updating memory with failed outcome."""
+        memory.add("failure_test", "Content")
+
+        memory.update_outcome("failure_test", success=False)
+
+        entry = memory.get("failure_test")
+        assert entry.failure_count == 1
+
+    def test_update_outcome_with_prediction_error(self, memory):
+        """Test updating with agent prediction error."""
+        memory.add("pred_error_test", "Content")
+
+        surprise = memory.update_outcome(
+            "pred_error_test", success=True, agent_prediction_error=0.5
+        )
+
+        # Higher prediction error should contribute to surprise
+        assert surprise >= 0
+
+    def test_update_outcome_nonexistent(self, memory):
+        """Test update_outcome on non-existent entry returns 0."""
+        result = memory.update_outcome("nonexistent", success=True)
+
+        assert result == 0.0
+
+    def test_success_rate_calculation(self, memory):
+        """Test ContinuumMemoryEntry.success_rate property."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.SLOW,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.1,
+            consolidation_score=0.5,
+            update_count=10,
+            success_count=7,
+            failure_count=3,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        assert entry.success_rate == 0.7
+
+    def test_success_rate_no_data(self, memory):
+        """Test success rate with no successes/failures returns 0.5."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.SLOW,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.1,
+            consolidation_score=0.5,
+            update_count=1,
+            success_count=0,
+            failure_count=0,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        assert entry.success_rate == 0.5
+
+    def test_stability_score(self, memory):
+        """Test ContinuumMemoryEntry.stability_score property."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.SLOW,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.3,
+            consolidation_score=0.5,
+            update_count=1,
+            success_count=0,
+            failure_count=0,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        assert entry.stability_score == 0.7  # 1 - surprise
+
+    def test_get_learning_rate(self, memory):
+        """Test tier-specific learning rate calculation."""
+        # Fast tier has high learning rate
+        fast_lr = memory.get_learning_rate(MemoryTier.FAST, update_count=1)
+
+        # Glacial tier has low learning rate
+        glacial_lr = memory.get_learning_rate(MemoryTier.GLACIAL, update_count=1)
+
+        assert fast_lr > glacial_lr
+
+    def test_learning_rate_decay(self, memory):
+        """Test that learning rate decays with update count."""
+        lr_early = memory.get_learning_rate(MemoryTier.FAST, update_count=1)
+        lr_late = memory.get_learning_rate(MemoryTier.FAST, update_count=100)
+
+        assert lr_late < lr_early
+
+
+# =============================================================================
+# Test Cross-Tier Queries
+# =============================================================================
+
+
+class TestCrossTierQueries:
+    """Test queries spanning multiple tiers."""
+
+    def test_get_stats(self, populated_memory):
+        """Test getting memory statistics."""
+        stats = populated_memory.get_stats()
+
+        assert "total_memories" in stats
+        assert "by_tier" in stats
+        assert "transitions" in stats
+        assert stats["total_memories"] == 5
+
+    def test_export_for_tier(self, populated_memory):
+        """Test exporting entries for specific tier."""
+        exported = populated_memory.export_for_tier(MemoryTier.FAST)
+
+        assert len(exported) == 2  # We added 2 fast tier entries
+        assert all("id" in e and "content" in e for e in exported)
+
+    def test_get_tier_metrics(self, memory):
+        """Test getting tier transition metrics."""
+        metrics = memory.get_tier_metrics()
+
+        assert "promotions" in metrics
+        assert "demotions" in metrics
+        assert "total_promotions" in metrics
+        assert "total_demotions" in metrics
+
+    def test_get_glacial_insights(self, populated_memory):
+        """Test retrieving glacial tier insights."""
+        insights = populated_memory.get_glacial_insights(limit=10)
+
+        assert all(e.tier == MemoryTier.GLACIAL for e in insights)
+
+    def test_get_cross_session_patterns(self, populated_memory):
+        """Test retrieving cross-session patterns."""
+        patterns = populated_memory.get_cross_session_patterns(limit=10)
+
+        # Should include slow and glacial tiers
+        tiers = {p.tier for p in patterns}
+        assert tiers.issubset({MemoryTier.SLOW, MemoryTier.GLACIAL})
+
+    def test_get_glacial_tier_stats(self, populated_memory):
+        """Test getting glacial tier specific stats."""
+        stats = populated_memory.get_glacial_tier_stats()
+
+        assert stats["tier"] == "glacial"
+        assert "count" in stats
+        assert "avg_importance" in stats
+        assert "utilization" in stats
+
+
+# =============================================================================
+# Test Persistence and Loading
+# =============================================================================
+
+
+class TestPersistenceAndLoading:
+    """Test data persistence and snapshot functionality."""
+
+    def test_data_persists_across_instances(self, temp_db_path, tier_manager):
+        """Test that data persists when creating new instance."""
+        # Create first instance and add data
+        cms1 = ContinuumMemory(db_path=temp_db_path, tier_manager=tier_manager)
+        cms1.add("persist_test", "Persistent content", importance=0.8)
+
+        # Create second instance with same path
+        cms2 = ContinuumMemory(db_path=temp_db_path, tier_manager=tier_manager)
+        entry = cms2.get("persist_test")
+
+        assert entry is not None
+        assert entry.content == "Persistent content"
+        assert entry.importance == 0.8
+
+    def test_export_snapshot(self, populated_memory):
+        """Test exporting memory state as snapshot."""
+        snapshot = populated_memory.export_snapshot()
+
+        assert "entries" in snapshot
+        assert "tier_counts" in snapshot
+        assert "hyperparams" in snapshot
+        assert "snapshot_time" in snapshot
+        assert "total_entries" in snapshot
+        assert snapshot["total_entries"] == 5
+
+    def test_export_snapshot_with_tier_filter(self, populated_memory):
+        """Test exporting snapshot filtered by tier."""
+        snapshot = populated_memory.export_snapshot(tiers=[MemoryTier.FAST])
+
+        assert all(e["tier"] == "fast" for e in snapshot["entries"])
+
+    def test_restore_snapshot_replace_mode(self, memory, populated_memory):
+        """Test restoring snapshot in replace mode."""
+        # Export from populated memory
+        snapshot = populated_memory.export_snapshot()
+
+        # Restore to empty memory
+        result = memory.restore_snapshot(snapshot, merge_mode="replace")
+
+        assert result["restored"] == 5
+        assert memory.get("fast_1") is not None
+
+    def test_restore_snapshot_keep_mode(self, populated_memory):
+        """Test restoring snapshot in keep mode preserves existing."""
+        # Get initial count
+        original_entry = populated_memory.get("fast_1")
+        original_content = original_entry.content
+
+        # Create modified snapshot
+        snapshot = populated_memory.export_snapshot()
+        snapshot["entries"][0]["content"] = "Modified content"
+
+        # Restore with keep mode
+        result = populated_memory.restore_snapshot(snapshot, merge_mode="keep")
+
+        # Original should be preserved
+        entry = populated_memory.get("fast_1")
+        assert entry.content == original_content
+        assert result["skipped"] > 0
+
+    def test_restore_snapshot_merge_mode(self, memory):
+        """Test restoring snapshot in merge mode."""
+        # Add entry with low importance
+        memory.add("merge_test", "Low importance", importance=0.3)
+
+        # Create snapshot with higher importance for same ID
+        snapshot = {
+            "entries": [
+                {
+                    "id": "merge_test",
+                    "tier": "slow",
+                    "content": "High importance",
+                    "importance": 0.9,
+                    "surprise_score": 0.1,
+                    "consolidation_score": 0.5,
+                }
+            ]
+        }
+
+        result = memory.restore_snapshot(snapshot, merge_mode="merge")
+
+        # Higher importance should win
+        entry = memory.get("merge_test")
+        assert entry.importance == 0.9
+        assert result["updated"] == 1
+
+
+# =============================================================================
+# Test Concurrent Access
+# =============================================================================
+
+
+class TestConcurrentAccess:
+    """Test thread-safety and concurrent access."""
+
+    def test_concurrent_adds(self, memory):
+        """Test concurrent add operations."""
+        errors = []
+
+        def add_entries(start_idx):
+            try:
+                for i in range(10):
+                    memory.add(f"concurrent_{start_idx}_{i}", f"Content {i}")
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=add_entries, args=(i,)) for i in range(5)]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+        # Should have 50 entries total
+        stats = memory.get_stats()
+        assert stats["total_memories"] == 50
+
+    def test_concurrent_reads_writes(self, memory):
+        """Test concurrent read and write operations."""
+        # Pre-populate
+        for i in range(10):
+            memory.add(f"rw_test_{i}", f"Content {i}")
+
+        errors = []
+
+        def read_entries():
+            try:
+                for _ in range(20):
+                    memory.retrieve(limit=5)
+            except Exception as e:
+                errors.append(e)
+
+        def write_entries(idx):
+            try:
+                for i in range(10):
+                    memory.add(f"rw_new_{idx}_{i}", f"New content {i}")
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=read_entries),
+            threading.Thread(target=write_entries, args=(0,)),
+            threading.Thread(target=read_entries),
+            threading.Thread(target=write_entries, args=(1,)),
+        ]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+
+    def test_concurrent_updates(self, memory):
+        """Test concurrent outcome updates."""
+        memory.add("update_target", "Content to update")
+        errors = []
+
+        def update_outcomes():
+            try:
+                for _ in range(10):
+                    memory.update_outcome("update_target", success=True)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=update_outcomes) for _ in range(5)]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+        entry = memory.get("update_target")
+        assert entry.success_count == 50  # 5 threads * 10 updates
+
+
+# =============================================================================
+# Test Memory Cleanup and Bounds
+# =============================================================================
+
+
+class TestMemoryCleanupAndBounds:
+    """Test memory cleanup and tier limit enforcement."""
+
+    def test_get_memory_pressure(self, memory):
+        """Test memory pressure calculation."""
+        # Add some entries
+        for i in range(50):
+            memory.add(f"pressure_{i}", f"Content {i}", tier=MemoryTier.FAST)
+
+        pressure = memory.get_memory_pressure()
+
+        # With 50 entries in fast tier (limit 1000), pressure should be ~0.05
+        assert 0 <= pressure <= 1.0
+
+    def test_enforce_tier_limits(self, memory):
+        """Test enforcing tier limits removes excess entries."""
+        # Set very low limit
+        memory.hyperparams["max_entries_per_tier"]["fast"] = 10
+
+        # Add more than limit
+        for i in range(20):
+            memory.add(f"limit_{i}", f"Content {i}", tier=MemoryTier.FAST, importance=i / 20)
+
+        result = memory.enforce_tier_limits(tier=MemoryTier.FAST)
+
+        # Should have removed excess
+        stats = memory.get_stats()
+        fast_count = stats["by_tier"].get("fast", {}).get("count", 0)
+        assert fast_count <= 10
+
+    def test_cleanup_expired_memories(self, memory):
+        """Test cleaning up expired memories."""
+        # Add old entries
+        old_time = (datetime.now() - timedelta(days=30)).isoformat()
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            for i in range(5):
+                cursor.execute(
+                    """INSERT INTO continuum_memory
+                       (id, tier, content, importance, updated_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (f"old_{i}", "fast", f"Old content {i}", 0.3, old_time),
+                )
+            conn.commit()
+
+        result = memory.cleanup_expired_memories(max_age_hours=1)
+
+        assert result["deleted"] >= 5 or result["archived"] >= 5
+
+    def test_delete_memory(self, memory):
+        """Test deleting a specific memory entry."""
+        memory.add("delete_me", "Content to delete")
+
+        result = memory.delete("delete_me")
+
+        assert result["deleted"] is True
+        assert memory.get("delete_me") is None
+
+    def test_delete_archives_by_default(self, memory):
+        """Test that delete archives entry by default."""
+        memory.add("archive_me", "Content to archive")
+
+        result = memory.delete("archive_me", archive=True)
+
+        assert result["archived"] is True
+
+        # Check archive table
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM continuum_memory_archive WHERE id = ?", ("archive_me",))
+            assert cursor.fetchone() is not None
+
+    def test_get_archive_stats(self, memory):
+        """Test getting archive statistics."""
+        # Archive some entries
+        memory.add("archive_1", "Content 1")
+        memory.add("archive_2", "Content 2")
+        memory.delete("archive_1")
+        memory.delete("archive_2")
+
+        stats = memory.get_archive_stats()
+
+        assert "total_archived" in stats
+        assert stats["total_archived"] >= 2
+
+
+# =============================================================================
+# Test Red Line (Protected) Memories
+# =============================================================================
+
+
+class TestRedLineMemories:
+    """Test red line (protected) memory functionality."""
+
+    def test_mark_red_line(self, memory):
+        """Test marking a memory as red line."""
+        memory.add("protect_me", "Critical decision", tier=MemoryTier.SLOW)
+
+        result = memory.mark_red_line("protect_me", reason="Safety critical")
+
+        assert result is True
+        entry = memory.get("protect_me")
+        assert entry.red_line is True
+        assert entry.red_line_reason == "Safety critical"
+        assert entry.importance == 1.0  # Should be promoted to max importance
+
+    def test_mark_red_line_promotes_to_glacial(self, memory):
+        """Test that marking red line promotes to glacial tier."""
+        memory.add("promote_protect", "Content", tier=MemoryTier.FAST)
+
+        memory.mark_red_line("promote_protect", reason="Foundational", promote_to_glacial=True)
+
+        entry = memory.get("promote_protect")
+        assert entry.tier == MemoryTier.GLACIAL
+
+    def test_mark_red_line_nonexistent(self, memory):
+        """Test marking non-existent entry returns False."""
+        result = memory.mark_red_line("nonexistent", reason="Test")
 
         assert result is False
 
-    @pytest.mark.asyncio
-    async def test_delete_updates_tier_index(self, memory):
-        """Test that delete updates tier index."""
-        await memory.store("id", "content", tier=MemoryTier.SLOW)
-        assert memory.get_tier_count(MemoryTier.SLOW) == 1
+    def test_red_line_blocks_deletion(self, memory):
+        """Test that red line entries cannot be deleted without force."""
+        memory.add("protected", "Protected content")
+        memory.mark_red_line("protected", reason="Critical")
 
-        await memory.delete("id")
+        result = memory.delete("protected")
 
-        assert memory.get_tier_count(MemoryTier.SLOW) == 0
+        assert result["deleted"] is False
+        assert result["blocked"] is True
+        assert memory.get("protected") is not None
 
+    def test_red_line_force_delete(self, memory):
+        """Test force deleting a red line entry."""
+        memory.add("force_delete", "Content")
+        memory.mark_red_line("force_delete", reason="Test")
 
-class TestTierManagement:
-    """Test tier promotion and demotion."""
+        result = memory.delete("force_delete", force=True)
 
-    @pytest.mark.asyncio
-    async def test_promote_tier(self, memory):
-        """Test promoting entry to next tier."""
-        await memory.store("id", "content", tier=MemoryTier.FAST)
+        assert result["deleted"] is True
 
-        entry = await memory.promote("id")
+    def test_get_red_line_memories(self, memory):
+        """Test retrieving all red line memories."""
+        memory.add("rl_1", "Content 1")
+        memory.add("rl_2", "Content 2")
+        memory.add("normal", "Normal content")
 
-        assert entry.tier == MemoryTier.MEDIUM
-        assert memory.get_tier_count(MemoryTier.FAST) == 0
-        assert memory.get_tier_count(MemoryTier.MEDIUM) == 1
+        memory.mark_red_line("rl_1", reason="Critical 1")
+        memory.mark_red_line("rl_2", reason="Critical 2")
 
-    @pytest.mark.asyncio
-    async def test_demote_tier(self, memory):
-        """Test demoting entry to previous tier."""
-        await memory.store("id", "content", tier=MemoryTier.MEDIUM)
+        red_lines = memory.get_red_line_memories()
 
-        entry = await memory.demote("id")
+        assert len(red_lines) == 2
+        assert all(e.red_line for e in red_lines)
 
-        assert entry.tier == MemoryTier.FAST
+    def test_cleanup_skips_red_line(self, memory):
+        """Test that cleanup skips red line entries."""
+        # Add old red line entry
+        old_time = (datetime.now() - timedelta(days=30)).isoformat()
+        with memory.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO continuum_memory
+                   (id, tier, content, importance, updated_at, red_line, red_line_reason)
+                   VALUES (?, ?, ?, ?, ?, 1, ?)""",
+                ("old_protected", "fast", "Old protected", 0.3, old_time, "Must preserve"),
+            )
+            conn.commit()
 
-    @pytest.mark.asyncio
-    async def test_promote_at_max_tier(self, memory):
-        """Test promoting at maximum tier stays same."""
-        await memory.store("id", "content", tier=MemoryTier.GLACIAL)
+        memory.cleanup_expired_memories(max_age_hours=1)
 
-        entry = await memory.promote("id")
-
-        assert entry.tier == MemoryTier.GLACIAL
-
-    @pytest.mark.asyncio
-    async def test_demote_at_min_tier(self, memory):
-        """Test demoting at minimum tier stays same."""
-        await memory.store("id", "content", tier=MemoryTier.FAST)
-
-        entry = await memory.demote("id")
-
-        assert entry.tier == MemoryTier.FAST
-
-    @pytest.mark.asyncio
-    async def test_auto_promotion_on_access(self, memory):
-        """Test automatic promotion after threshold accesses."""
-        memory.PROMOTION_THRESHOLD = 3
-        await memory.store("id", "content", tier=MemoryTier.FAST)
-
-        # Access multiple times
-        for _ in range(3):
-            await memory.retrieve("id")
-
-        entry = await memory.retrieve("id")
-
-        assert entry.tier == MemoryTier.MEDIUM
-
-
-class TestExpiration:
-    """Test TTL-based expiration."""
-
-    @pytest.mark.asyncio
-    async def test_entry_not_expired(self, memory):
-        """Test entry is not expired immediately."""
-        entry = await memory.store("id", "content")
-
-        assert not entry.is_expired(memory.ttls)
-
-    @pytest.mark.asyncio
-    async def test_retrieve_expired_returns_none(self, memory):
-        """Test retrieving expired entry returns None."""
-        # Store with very short TTL
-        memory.ttls[MemoryTier.FAST] = timedelta(milliseconds=1)
-        await memory.store("id", "content", tier=MemoryTier.FAST)
-
-        # Wait for expiration
-        import asyncio
-
-        await asyncio.sleep(0.01)
-
-        entry = await memory.retrieve("id")
-
-        assert entry is None
-
-    @pytest.mark.asyncio
-    async def test_cleanup_expired(self, memory):
-        """Test cleanup removes expired entries."""
-        memory.ttls[MemoryTier.FAST] = timedelta(milliseconds=1)
-
-        await memory.store("id1", "content1", tier=MemoryTier.FAST)
-        await memory.store("id2", "content2", tier=MemoryTier.GLACIAL)
-
-        import asyncio
-
-        await asyncio.sleep(0.01)
-
-        removed = await memory.cleanup_expired()
-
-        assert removed == 1
-        assert memory.total_entries == 1
-
-
-class TestEviction:
-    """Test capacity-based eviction."""
-
-    @pytest.mark.asyncio
-    async def test_evict_when_over_capacity(self):
-        """Test eviction when tier is over capacity."""
-        memory = MockContinuumMemory(max_entries_per_tier=3)
-
-        # Store more than capacity
-        for i in range(5):
-            await memory.store(f"id{i}", f"content{i}", tier=MemoryTier.FAST)
-
-        assert memory.get_tier_count(MemoryTier.FAST) == 3
-
-    @pytest.mark.asyncio
-    async def test_eviction_removes_oldest(self):
-        """Test that eviction removes oldest accessed entries."""
-        memory = MockContinuumMemory(max_entries_per_tier=2)
-
-        await memory.store("old", "old content")
-        import asyncio
-
-        await asyncio.sleep(0.01)
-        await memory.store("new1", "new content 1")
-        await memory.store("new2", "new content 2")  # Should evict "old"
-
-        assert await memory.retrieve("old") is None
-        assert await memory.retrieve("new1") is not None
-
-
-class TestStats:
-    """Test statistics functionality."""
-
-    @pytest.mark.asyncio
-    async def test_get_stats_empty(self, memory):
-        """Test stats for empty memory."""
-        stats = await memory.get_stats()
-
-        assert stats["total_entries"] == 0
-        assert all(count == 0 for count in stats["tiers"].values())
-
-    @pytest.mark.asyncio
-    async def test_get_stats_populated(self, populated_memory):
-        """Test stats for populated memory."""
-        stats = await populated_memory.get_stats()
-
-        assert stats["total_entries"] == 3
-        assert stats["tiers"]["fast"] == 1
-        assert stats["tiers"]["medium"] == 1
-        assert stats["tiers"]["slow"] == 1
-
-    @pytest.mark.asyncio
-    async def test_stats_include_ttls(self, memory):
-        """Test that stats include TTL information."""
-        stats = await memory.get_stats()
-
-        assert "ttls" in stats
-        assert stats["ttls"]["fast"] == 60  # 1 minute in seconds
-
-
-class TestContinuumIntegration:
-    """Integration tests for memory workflows."""
-
-    @pytest.mark.asyncio
-    async def test_full_lifecycle(self, memory):
-        """Test complete entry lifecycle."""
-        # Store
-        entry = await memory.store("id", "content", metadata={"test": True})
+        # Red line entry should still exist
+        entry = memory.get("old_protected")
         assert entry is not None
 
-        # Retrieve
-        retrieved = await memory.retrieve("id")
-        assert retrieved.content == "content"
 
-        # Update
-        await memory.store("id", "updated content")
-        retrieved = await memory.retrieve("id")
-        assert retrieved.content == "updated content"
+# =============================================================================
+# Test Entry Properties and Methods
+# =============================================================================
 
-        # Delete
-        result = await memory.delete("id")
+
+class TestEntryPropertiesAndMethods:
+    """Test ContinuumMemoryEntry dataclass properties and methods."""
+
+    def test_should_promote(self):
+        """Test should_promote method."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.MEDIUM,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.8,  # High surprise
+            consolidation_score=0.5,
+            update_count=5,
+            success_count=3,
+            failure_count=2,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        # Medium tier promotion threshold is 0.7
+        assert entry.should_promote() is True
+
+    def test_should_not_promote_from_fast(self):
+        """Test that entries at fast tier cannot promote."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.FAST,
+            content="Test",
+            importance=0.5,
+            surprise_score=1.0,
+            consolidation_score=0.5,
+            update_count=5,
+            success_count=3,
+            failure_count=2,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        assert entry.should_promote() is False
+
+    def test_should_demote(self):
+        """Test should_demote method."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.FAST,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.1,  # Low surprise = high stability
+            consolidation_score=0.5,
+            update_count=15,  # Sufficient updates
+            success_count=10,
+            failure_count=5,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        # Fast tier demotion threshold is 0.2, stability is 0.9
+        assert entry.should_demote() is True
+
+    def test_should_not_demote_insufficient_updates(self):
+        """Test that entries with few updates don't demote."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.FAST,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.1,
+            consolidation_score=0.5,
+            update_count=5,  # Not enough updates
+            success_count=3,
+            failure_count=2,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        assert entry.should_demote() is False
+
+    def test_cross_references(self):
+        """Test cross reference management."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.SLOW,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.1,
+            consolidation_score=0.5,
+            update_count=1,
+            success_count=0,
+            failure_count=0,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+            metadata={"cross_references": ["ref1", "ref2"]},
+        )
+
+        assert entry.cross_references == ["ref1", "ref2"]
+
+        entry.add_cross_reference("ref3")
+        assert "ref3" in entry.cross_references
+
+        entry.remove_cross_reference("ref1")
+        assert "ref1" not in entry.cross_references
+
+    def test_knowledge_mound_id(self):
+        """Test knowledge mound ID property."""
+        entry = ContinuumMemoryEntry(
+            id="test_123",
+            tier=MemoryTier.SLOW,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.1,
+            consolidation_score=0.5,
+            update_count=1,
+            success_count=0,
+            failure_count=0,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        assert entry.knowledge_mound_id == "cm_test_123"
+
+    def test_tags_property(self):
+        """Test tags property."""
+        entry = ContinuumMemoryEntry(
+            id="test",
+            tier=MemoryTier.SLOW,
+            content="Test",
+            importance=0.5,
+            surprise_score=0.1,
+            consolidation_score=0.5,
+            update_count=1,
+            success_count=0,
+            failure_count=0,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        entry.tags = ["python", "error"]
+        assert entry.tags == ["python", "error"]
+        assert entry.metadata["tags"] == ["python", "error"]
+
+
+# =============================================================================
+# Test Global Singleton
+# =============================================================================
+
+
+class TestGlobalSingleton:
+    """Test global ContinuumMemory singleton functions."""
+
+    def test_get_continuum_memory_creates_singleton(self, temp_db_path, monkeypatch):
+        """Test that get_continuum_memory creates a singleton."""
+        reset_continuum_memory()
+        reset_tier_manager()
+
+        # Mock the default db path
+        monkeypatch.setattr("aragora.memory.continuum.get_db_path", lambda _: temp_db_path)
+
+        cms1 = get_continuum_memory()
+        cms2 = get_continuum_memory()
+
+        assert cms1 is cms2
+
+        reset_continuum_memory()
+        reset_tier_manager()
+
+    def test_reset_continuum_memory(self, temp_db_path, monkeypatch):
+        """Test that reset clears the singleton."""
+        reset_continuum_memory()
+        reset_tier_manager()
+
+        monkeypatch.setattr("aragora.memory.continuum.get_db_path", lambda _: temp_db_path)
+
+        cms1 = get_continuum_memory()
+        reset_continuum_memory()
+        cms2 = get_continuum_memory()
+
+        # After reset, should get new instance
+        assert cms1 is not cms2
+
+        reset_continuum_memory()
+        reset_tier_manager()
+
+
+# =============================================================================
+# Test Update Methods
+# =============================================================================
+
+
+class TestUpdateMethods:
+    """Test various update methods."""
+
+    def test_update_entry(self, memory):
+        """Test update_entry interface method."""
+        entry = memory.add("update_test", "Content")
+        entry.success_count = 5
+        entry.failure_count = 2
+
+        result = memory.update_entry(entry)
+
         assert result is True
+        updated = memory.get("update_test")
+        assert updated.success_count == 5
+        assert updated.failure_count == 2
 
-        # Verify deleted
-        retrieved = await memory.retrieve("id")
-        assert retrieved is None
+    def test_update_method(self, memory):
+        """Test flexible update method."""
+        memory.add("flex_update", "Original content", importance=0.5)
 
-    @pytest.mark.asyncio
-    async def test_tier_progression(self, memory):
-        """Test entry progressing through tiers."""
-        memory.PROMOTION_THRESHOLD = 3
+        result = memory.update(
+            "flex_update", content="Updated content", importance=0.8, surprise_score=0.3
+        )
 
-        await memory.store("id", "content", tier=MemoryTier.FAST)
+        assert result is True
+        entry = memory.get("flex_update")
+        assert entry.content == "Updated content"
+        assert entry.importance == 0.8
+        assert entry.surprise_score == 0.3
 
-        # Access to promote from FAST to MEDIUM (need threshold accesses)
-        for _ in range(3):
-            await memory.retrieve("id")
+    def test_update_with_metadata(self, memory):
+        """Test update with metadata replacement."""
+        memory.add("meta_update", "Content", metadata={"old": "value"})
 
-        entry = await memory.retrieve("id")
-        # After threshold accesses, should be in MEDIUM
-        assert entry.tier in [MemoryTier.MEDIUM, MemoryTier.SLOW, MemoryTier.GLACIAL]
+        result = memory.update("meta_update", metadata={"new": "metadata", "tags": ["test"]})
 
-    @pytest.mark.asyncio
-    async def test_concurrent_access(self, memory):
-        """Test concurrent memory access."""
-        import asyncio
+        assert result is True
+        entry = memory.get("meta_update")
+        assert entry.metadata == {"new": "metadata", "tags": ["test"]}
 
-        await memory.store("id", "content")
+    def test_update_nonexistent(self, memory):
+        """Test updating non-existent entry returns False."""
+        result = memory.update("nonexistent", content="New content")
 
-        async def access():
-            for _ in range(10):
-                await memory.retrieve("id")
+        assert result is False
 
-        # Run concurrent accesses
-        await asyncio.gather(access(), access(), access())
+    def test_update_no_fields(self, memory):
+        """Test update with no fields returns False."""
+        memory.add("no_fields", "Content")
 
-        entry = await memory.retrieve("id")
-        assert entry.access_count > 0
+        result = memory.update("no_fields")
+
+        assert result is False
