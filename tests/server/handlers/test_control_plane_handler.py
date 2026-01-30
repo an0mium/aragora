@@ -1442,8 +1442,16 @@ class TestControlPlaneHandlerPolicyViolations:
 
     def test_list_violations_no_store(self, control_plane_handler, mock_http_handler):
         """Test listing violations when store not available."""
-        with patch.object(control_plane_handler, "_get_policy_store", return_value=None):
-            result = control_plane_handler._handle_list_policy_violations({}, mock_http_handler)
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
+        ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                with patch.object(control_plane_handler, "_get_policy_store", return_value=None):
+                    result = control_plane_handler._handle_list_policy_violations(
+                        {}, mock_http_handler
+                    )
 
         assert result is not None
         assert result.status_code == 503
@@ -1452,10 +1460,18 @@ class TestControlPlaneHandlerPolicyViolations:
         self, control_plane_handler, mock_http_handler, mock_policy_store
     ):
         """Test listing violations successfully."""
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
+
         with patch.object(
-            control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler._handle_list_policy_violations({}, mock_http_handler)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                with patch.object(
+                    control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+                ):
+                    result = control_plane_handler._handle_list_policy_violations(
+                        {}, mock_http_handler
+                    )
 
         assert result is not None
         assert result.status_code == 200
@@ -1467,13 +1483,19 @@ class TestControlPlaneHandlerPolicyViolations:
         self, control_plane_handler, mock_http_handler, mock_policy_store
     ):
         """Test listing violations with query filters."""
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
+
         with patch.object(
-            control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler._handle_list_policy_violations(
-                {"status": "open", "policy_id": "policy-1"},
-                mock_http_handler,
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                with patch.object(
+                    control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+                ):
+                    result = control_plane_handler._handle_list_policy_violations(
+                        {"status": "open", "policy_id": "policy-1"},
+                        mock_http_handler,
+                    )
 
         assert result is not None
         body = json.loads(result.body)
@@ -1483,12 +1505,18 @@ class TestControlPlaneHandlerPolicyViolations:
         self, control_plane_handler, mock_http_handler, mock_policy_store
     ):
         """Test getting a specific violation."""
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
+
         with patch.object(
-            control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler._handle_get_policy_violation(
-                "violation-1", mock_http_handler
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                with patch.object(
+                    control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+                ):
+                    result = control_plane_handler._handle_get_policy_violation(
+                        "violation-1", mock_http_handler
+                    )
 
         assert result is not None
         body = json.loads(result.body)
@@ -1499,23 +1527,36 @@ class TestControlPlaneHandlerPolicyViolations:
     ):
         """Test getting non-existent violation returns 404."""
         mock_policy_store.list_violations.return_value = []
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
 
         with patch.object(
-            control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler._handle_get_policy_violation(
-                "nonexistent", mock_http_handler
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                with patch.object(
+                    control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+                ):
+                    result = control_plane_handler._handle_get_policy_violation(
+                        "nonexistent", mock_http_handler
+                    )
 
         assert result is not None
         assert result.status_code == 404
 
     def test_get_violation_stats(self, control_plane_handler, mock_http_handler, mock_policy_store):
         """Test getting violation statistics."""
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
+
         with patch.object(
-            control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler._handle_get_policy_violation_stats(mock_http_handler)
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                with patch.object(
+                    control_plane_handler, "_get_policy_store", return_value=mock_policy_store
+                ):
+                    result = control_plane_handler._handle_get_policy_violation_stats(
+                        mock_http_handler
+                    )
 
         assert result is not None
         body = json.loads(result.body)
@@ -1574,7 +1615,12 @@ class TestControlPlaneHandlerIntegration:
         assert body.get("acknowledged") is True
 
         # Step 4: Unregister agent (using internal method to avoid decorator issue)
-        result = control_plane_handler._handle_unregister_agent("lifecycle-agent")
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
+        ):
+            result = control_plane_handler._handle_unregister_agent(
+                "lifecycle-agent", mock_http_handler
+            )
 
         assert result is not None
         body = json.loads(result.body)
