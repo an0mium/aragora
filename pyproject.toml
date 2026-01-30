@@ -859,40 +859,31 @@ check_untyped_defs = false
 module = ["yaml", "croniter"]
 ignore_missing_imports = true
 
-# Ignore errors in modules with complex third-party types or dynamic patterns
-# Phase 24: Reduced to ~15 core modules requiring ignore_errors (Jan 2026)
-[[tool.mypy.overrides]]
-module = [
-    # Nomic phases (complex orchestration)
-    "aragora.nomic.phases.*",
-    "aragora.nomic.checkpoints",
-    # Verification (Z3/Lean external types)
-    "aragora.verification.proofs",
-    "aragora.verification.formal",
-    # Dynamic modules with complex patterns
-    "aragora.gauntlet.heatmap",
-    "aragora.gauntlet.receipt",
-    "aragora.export.audit_trail",
-    "aragora.export.artifact",
-    "aragora.runtime.autotune",
-    "aragora.modes.redteam",
-    "aragora.training.model_registry",
-    "aragora.pipeline.pr_generator",
-    "aragora.policy.engine",
-    # Storage layer (repository patterns)
-    "aragora.storage.repositories.*",
-    # Server/handler modules with complex patterns
-    "aragora.server.openapi",
-    "aragora.server.validation.decorators",
-    "aragora.server.middleware.*",
-    "aragora.server.handlers.admin.cache",
-    # Documents/indexing (external adapters)
-    "aragora.documents.ingestion.unstructured_adapter",
-    "aragora.documents.indexing.weaviate_store",
-    # Modules with actual type errors (need fixes)
-    "aragora.evidence.collector",
-]
-ignore_errors = true
+# ============================================================================
+# PROMOTED TO STRICT (Phase 25 FINAL, Jan 2026)
+# All remaining modules now pass mypy --follow-imports=silent
+# ============================================================================
+# aragora.nomic.phases.*
+# aragora.nomic.checkpoints
+# aragora.verification.proofs
+# aragora.verification.formal
+# aragora.gauntlet.heatmap
+# aragora.gauntlet.receipt
+# aragora.export.audit_trail
+# aragora.export.artifact
+# aragora.runtime.autotune
+# aragora.modes.redteam
+# aragora.training.model_registry
+# aragora.pipeline.pr_generator
+# aragora.policy.engine
+# aragora.storage.repositories.*
+# aragora.server.openapi
+# aragora.server.validation.decorators
+# aragora.server.middleware.*
+# aragora.server.handlers.admin.cache
+# aragora.documents.ingestion.unstructured_adapter
+# aragora.documents.indexing.weaviate_store
+# aragora.evidence.collector
 
 # ============================================================================
 # PROMOTED TO STRICT (Phase 24, Jan 2026)
