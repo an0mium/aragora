@@ -337,11 +337,9 @@ class OIDCProvider(SSOProvider):
                     response.raise_for_status()
                     self._discovery_cache = response.json()
             else:
-                # Fallback to sync requests
-                import urllib.request
-
-                with urllib.request.urlopen(discovery_url, timeout=10) as resp:
-                    self._discovery_cache = json.loads(resp.read().decode())
+                raise SSOConfigurationError(
+                    "httpx library required for OIDC. Install with: pip install httpx"
+                )
 
             self._discovery_cached_at = time.time()
             logger.debug(f"OIDC discovery successful for {self.config.issuer_url}")
@@ -529,16 +527,9 @@ class OIDCProvider(SSOProvider):
                     result: dict[str, Any] = response.json()
                     return result
             else:
-                # Fallback to sync
-                import urllib.parse
-                import urllib.request
-
-                req_data = urllib.parse.urlencode(data).encode()
-                req = urllib.request.Request(
-                    token_endpoint, data=req_data, headers=headers, method="POST"
+                raise SSOConfigurationError(
+                    "httpx library required for OIDC. Install with: pip install httpx"
                 )
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    return json.loads(resp.read().decode())
 
         except json.JSONDecodeError as e:
             logger.error(f"Token exchange failed - invalid JSON response: {e}")
@@ -634,11 +625,9 @@ class OIDCProvider(SSOProvider):
                     response.raise_for_status()
                     return response.json()
             else:
-                import urllib.request
-
-                req = urllib.request.Request(userinfo_endpoint, headers=headers)
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    return json.loads(resp.read().decode())
+                raise SSOConfigurationError(
+                    "httpx library required for OIDC. Install with: pip install httpx"
+                )
 
         except json.JSONDecodeError as e:
             logger.warning(f"Userinfo fetch failed - invalid JSON: {e}")
@@ -742,13 +731,9 @@ class OIDCProvider(SSOProvider):
                     response.raise_for_status()
                     tokens = response.json()
             else:
-                import urllib.parse
-                import urllib.request
-
-                req_data = urllib.parse.urlencode(data).encode()
-                req = urllib.request.Request(token_endpoint, data=req_data, method="POST")
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    tokens = json.loads(resp.read().decode())
+                raise SSOConfigurationError(
+                    "httpx library required for OIDC. Install with: pip install httpx"
+                )
 
             # Update user with new tokens
             return SSOUser(

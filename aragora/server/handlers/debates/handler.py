@@ -33,6 +33,7 @@ from aragora.exceptions import (
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.debate_utils import _active_debates
+from ..openapi_decorator import api_endpoint
 from aragora.server.middleware.abac import Action, ResourceType, check_resource_access
 from aragora.server.middleware.tier_enforcement import require_quota
 from aragora.server.validation import validate_debate_id
@@ -509,6 +510,18 @@ class DebatesHandler(
 
         return error_response(f"Unknown batch export endpoint: {path}", 404)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates",
+        summary="List all debates",
+        description="List recent debates with optional organization filtering. Requires authentication.",
+        tags=["Debates"],
+        responses={
+            "200": {"description": "List of debates returned"},
+            "401": {"description": "Unauthorized"},
+            "500": {"description": "Database error"},
+        },
+    )
     @rate_limit(requests_per_minute=30, limiter_name="debates_list")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_DEBATES_LIST, key_prefix="debates_list", skip_first=True)
@@ -532,6 +545,18 @@ class DebatesHandler(
         ]
         return json_response({"debates": debates_list, "count": len(debates_list)})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{slug}",
+        summary="Get debate by slug",
+        description="Retrieve a debate by its slug/ID. Returns in-progress debates if not yet persisted.",
+        tags=["Debates"],
+        parameters=[{"name": "slug", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Debate details returned"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_storage
     @handle_errors("get debate by slug")
     def _get_debate_by_slug(self, handler, slug: str) -> HandlerResult:
@@ -569,6 +594,18 @@ class DebatesHandler(
 
         return error_response(f"Debate not found: {slug}", 404)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/impasse",
+        summary="Detect debate impasse",
+        description="Analyze a debate for impasse indicators like repeated critiques and lack of convergence.",
+        tags=["Debates", "Analysis"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Impasse analysis returned"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_IMPASSE, key_prefix="debates_impasse", skip_first=True)
     @handle_errors("impasse detection")
@@ -599,6 +636,18 @@ class DebatesHandler(
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/convergence",
+        summary="Get convergence status",
+        description="Get the convergence status including similarity scores and consensus state.",
+        tags=["Debates", "Analysis"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Convergence status returned"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_convergence", skip_first=True)
     @handle_errors("convergence check")
@@ -619,6 +668,18 @@ class DebatesHandler(
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/verification-report",
+        summary="Get verification report",
+        description="Get verification results and bonuses applied during consensus, useful for analyzing claim quality.",
+        tags=["Debates", "Verification"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Verification report returned"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_storage
     @ttl_cache(
         ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True
@@ -659,6 +720,18 @@ class DebatesHandler(
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/summary",
+        summary="Get debate summary",
+        description="Get a human-readable summary with verdict, key points, confidence assessment, and actionable next steps.",
+        tags=["Debates"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Debate summary returned"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_summary", skip_first=True)
     @handle_errors("get summary")
@@ -692,6 +765,19 @@ class DebatesHandler(
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/citations",
+        summary="Get evidence citations",
+        description="Get the grounded verdict including claims, evidence snippets, and citation sources.",
+        tags=["Debates", "Evidence"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Evidence citations returned"},
+            "404": {"description": "Debate not found"},
+            "500": {"description": "Database error"},
+        },
+    )
     @require_storage
     def _get_citations(self, handler, debate_id: str) -> HandlerResult:
         """Get evidence citations for a debate.
@@ -760,6 +846,19 @@ class DebatesHandler(
             )
             return error_response("Database error retrieving citations", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/evidence",
+        summary="Get evidence trail",
+        description="Get comprehensive evidence trail combining grounded verdict with related evidence from memory.",
+        tags=["Debates", "Evidence"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Evidence trail returned"},
+            "404": {"description": "Debate not found"},
+            "500": {"description": "Database error"},
+        },
+    )
     @require_storage
     def _get_evidence(self, handler, debate_id: str) -> HandlerResult:
         """Get comprehensive evidence trail for a debate.
@@ -852,6 +951,23 @@ class DebatesHandler(
             )
             return error_response("Database error retrieving evidence", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/messages",
+        summary="Get debate messages",
+        description="Get paginated message history for a debate including role, content, agent, and round information.",
+        tags=["Debates"],
+        parameters=[
+            {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "Paginated messages returned"},
+            "404": {"description": "Debate not found"},
+            "500": {"description": "Database error"},
+        },
+    )
     @require_storage
     def _get_debate_messages(
         self, debate_id: str, limit: int = 50, offset: int = 0
@@ -981,6 +1097,21 @@ class DebatesHandler(
 
         return None
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates",
+        summary="Create a new debate",
+        description="Start an ad-hoc debate with specified question, agents, and configuration. Rate limited and quota enforced.",
+        tags=["Debates"],
+        responses={
+            "200": {"description": "Debate created successfully"},
+            "400": {"description": "Invalid request body or validation error"},
+            "401": {"description": "Unauthorized"},
+            "402": {"description": "Quota exceeded"},
+            "429": {"description": "Rate limit exceeded"},
+            "500": {"description": "Internal server error"},
+        },
+    )
     @with_timeout_sync(120.0)
     @user_rate_limit(action="debate_create")
     @rate_limit(requests_per_minute=5, limiter_name="debates_create")
@@ -1146,6 +1277,19 @@ class DebatesHandler(
         # Note: Usage increment is handled by @require_quota decorator on success
         return json_response(response.to_dict(), status=response.status_code)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates/{id}/cancel",
+        summary="Cancel a running debate",
+        description="Cancel a debate that is currently running. Marks as cancelled and attempts to cancel running tasks.",
+        tags=["Debates"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Debate cancelled successfully"},
+            "400": {"description": "Debate cannot be cancelled"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     def _cancel_debate(self, handler, debate_id: str) -> HandlerResult:
         """Cancel a running debate.
 
@@ -1246,6 +1390,21 @@ class DebatesHandler(
                 return self._delete_debate(handler, debate_id)
         return None
 
+    @api_endpoint(
+        method="PATCH",
+        path="/api/v1/debates/{id}",
+        summary="Update debate metadata",
+        description="Update debate title, tags, status, or custom metadata. Requires write permission.",
+        tags=["Debates"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Debate updated successfully"},
+            "400": {"description": "Invalid update data"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Debate not found"},
+            "500": {"description": "Database error"},
+        },
+    )
     @require_storage
     def _patch_debate(self, handler, debate_id: str) -> HandlerResult:
         """Update debate metadata.
@@ -1371,6 +1530,20 @@ class DebatesHandler(
             logger.warning("Invalid update request for %s: %s", debate_id, e)
             return error_response(f"Invalid update data: {e}", 400)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/debates/{id}",
+        summary="Delete a debate",
+        description="Permanently delete a debate and cascade to associated critiques. Use PATCH with status='archived' for soft-delete.",
+        tags=["Debates"],
+        parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "Debate deleted successfully"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Debate not found"},
+            "500": {"description": "Database error"},
+        },
+    )
     @require_permission("debates:delete")
     @require_storage
     def _delete_debate(self, handler, debate_id: str) -> HandlerResult:

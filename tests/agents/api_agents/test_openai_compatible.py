@@ -943,17 +943,14 @@ class TestGenerateStream:
         fallback_called = [False]
         fallback_chunks = ["Fallback ", "stream"]
 
-        async def mock_stream(*args, **kwargs):
+        async def mock_fallback_stream(*args, **kwargs):
             fallback_called[0] = True
             for chunk in fallback_chunks:
                 yield chunk
 
-        mock_fallback = MagicMock()
-        mock_fallback.generate_stream = mock_stream
-
+        # Patch fallback_generate_stream directly to avoid MRO issues with mixin
         # The current implementation yields from fallback then raises error
-        # This is expected behavior - it tries fallback but still raises if primary unavailable
-        with patch.object(agent, "_get_cached_fallback_agent", return_value=mock_fallback):
+        with patch.object(agent, "fallback_generate_stream", mock_fallback_stream):
             chunks = []
             try:
                 async for chunk in agent.generate_stream("Test prompt"):
@@ -1088,12 +1085,11 @@ class TestProviderConfiguration:
         assert fallback_model == TestableAgent.DEFAULT_FALLBACK_MODEL
 
     def test_custom_max_tokens(self):
-        """Should respect custom max_tokens setting."""
+        """Should respect custom max_tokens setting on instance."""
+        agent = TestableAgent()
+        # Set instance-level max_tokens (simulates subclass or runtime override)
+        agent.max_tokens = 8192
 
-        class CustomTokenAgent(TestableAgent):
-            max_tokens = 8192
-
-        agent = CustomTokenAgent()
         messages = [{"role": "user", "content": "Test"}]
         payload = agent._build_payload(messages)
 

@@ -42,6 +42,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Import botocore exceptions for proper error handling
+# These are optional - if not installed, we use Exception as fallback
+try:
+    from botocore.exceptions import BotoCoreError, ClientError
+except ImportError:
+    # Define placeholder exceptions if botocore isn't installed
+    ClientError = type("ClientError", (Exception,), {})  # type: ignore[misc,assignment]
+    BotoCoreError = type("BotoCoreError", (Exception,), {})  # type: ignore[misc,assignment]
+
 # Secret names that should be loaded from Secrets Manager
 MANAGED_SECRETS = frozenset(
     {
@@ -290,8 +299,13 @@ class SecretManager:
         except ImportError:
             logger.debug("boto3 not installed, AWS Secrets Manager unavailable")
             return None
-        except (OSError, RuntimeError, ValueError, TypeError) as e:
-            logger.warning(f"Failed to initialize AWS client ({region}): {e}")
+        except (BotoCoreError, ClientError) as e:
+            # Catch boto3/botocore specific exceptions
+            logger.warning(f"Failed to initialize AWS client ({region}): {type(e).__name__}: {e}")
+            return None
+        except Exception as e:
+            # Catch any other unexpected exceptions
+            logger.warning(f"Failed to initialize AWS client ({region}): {type(e).__name__}: {e}")
             return None
 
     def _load_from_aws(self) -> dict[str, str]:
@@ -318,12 +332,13 @@ class SecretManager:
                     region,
                 )
                 return secrets
-            except json.JSONDecodeError:
-                logger.error("Failed to parse secrets JSON from AWS (region=%s)", region)
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse secrets JSON from AWS (region=%s): %s", region, e)
                 return {}
-            except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
+            except (ClientError, BotoCoreError) as e:
+                # Handle boto3/botocore specific exceptions
                 last_error = e
-                if type(e).__name__ == "ClientError" and hasattr(e, "response"):
+                if hasattr(e, "response"):
                     error_code = e.response.get("Error", {}).get("Code", "")
                     if error_code == "ResourceNotFoundException":
                         logger.warning(
@@ -335,9 +350,23 @@ class SecretManager:
                     if error_code == "AccessDeniedException":
                         logger.warning("Access denied to AWS Secrets Manager (region=%s)", region)
                         continue
-                    logger.error("AWS Secrets Manager error (region=%s): %s", region, e)
-                    continue
-                logger.error("Unexpected error loading secrets (region=%s): %s", region, e)
+                    logger.error(
+                        "AWS Secrets Manager error (region=%s): %s: %s", region, error_code, e
+                    )
+                else:
+                    logger.error(
+                        "AWS/botocore error (region=%s): %s: %s", region, type(e).__name__, e
+                    )
+                continue
+            except Exception as e:
+                # Catch any other unexpected exceptions
+                last_error = e
+                logger.error(
+                    "Unexpected error loading secrets (region=%s): %s: %s",
+                    region,
+                    type(e).__name__,
+                    e,
+                )
                 continue
 
         if last_error:
@@ -355,12 +384,27 @@ class SecretManager:
         with self._lock:
             # First initialization
             if not self._initialized:
+                logger.debug(
+                    "Initializing SecretManager: use_aws=%s, secret_name=%s, regions=%s",
+                    self.config.use_aws,
+                    self.config.secret_name,
+                    self.config.aws_regions,
+                )
                 if self.config.use_aws:
                     self._cached_secrets = self._load_from_aws()
                     self._cache_timestamp = time.time()
-                    logger.debug(
-                        f"Secrets cache initialized, TTL: {self.config.cache_ttl_seconds}s"
-                    )
+                    if self._cached_secrets:
+                        logger.info(
+                            "Secrets cache initialized with %d secrets, TTL: %ds",
+                            len(self._cached_secrets),
+                            self.config.cache_ttl_seconds,
+                        )
+                    else:
+                        logger.warning(
+                            "Secrets cache initialized but EMPTY - AWS loading may have failed"
+                        )
+                else:
+                    logger.debug("AWS Secrets Manager disabled, using environment variables only")
                 self._initialized = True
                 return
 
@@ -412,6 +456,16 @@ class SecretManager:
         if name in self._cached_secrets:
             self._log_access(name, "aws", True)
             return self._cached_secrets[name]
+
+        # Debug: Log cache miss for managed secrets
+        if name in MANAGED_SECRETS:
+            cached_keys = list(self._cached_secrets.keys())[:10]  # First 10 for brevity
+            logger.debug(
+                "Secret '%s' not in AWS cache. Cache has %d secrets. Sample keys: %s",
+                name,
+                len(self._cached_secrets),
+                cached_keys,
+            )
 
         # 2. Check environment variable
         env_value = os.environ.get(name)

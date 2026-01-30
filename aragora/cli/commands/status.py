@@ -64,15 +64,14 @@ def cmd_status(args: argparse.Namespace) -> None:
     print("\n\U0001f310 Server Status:")
     server_url = args.server if hasattr(args, "server") else DEFAULT_API_URL
     try:
-        import urllib.request
+        import httpx
 
-        req = urllib.request.Request(f"{server_url}/api/health", method="GET")
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            if resp.status == 200:
-                print(f"  \u2713 Server running at {server_url}")
-            else:
-                print(f"  \u26a0 Server returned status {resp.status}")
-    except (OSError, TimeoutError):
+        resp = httpx.get(f"{server_url}/api/health", timeout=2)
+        if resp.status_code == 200:
+            print(f"  \u2713 Server running at {server_url}")
+        else:
+            print(f"  \u26a0 Server returned status {resp.status_code}")
+    except (httpx.HTTPError, OSError, TimeoutError):
         print(f"  \u2717 Server not reachable at {server_url}")
 
     # Check database

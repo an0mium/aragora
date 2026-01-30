@@ -313,8 +313,8 @@ def check_mfa_status(user_id: str, user_store: Any) -> dict:
         try:
             backup_hashes = json.loads(user.mfa_backup_codes)
             backup_count = len(backup_hashes)
-        except (json.JSONDecodeError, TypeError):
-            pass
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"Failed to parse MFA backup codes for user: {e}")
 
     return {
         "mfa_enabled": getattr(user, "mfa_enabled", False),

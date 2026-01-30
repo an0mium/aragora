@@ -19,6 +19,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Protocol
 
 from aragora.rbac.decorators import require_permission
+from ..openapi_decorator import api_endpoint
 
 from ..base import (
     HandlerResult,
@@ -131,6 +132,17 @@ class _DebatesHandlerProtocol(Protocol):
 class ExportOperationsMixin:
     """Mixin providing export formatting operations for DebatesHandler."""
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates/export/batch",
+        summary="Start batch export",
+        description="Start a batch export job for multiple debates. Returns job ID for progress tracking.",
+        tags=["Debates", "Export"],
+        responses={
+            "200": {"description": "Batch export job started"},
+            "400": {"description": "Invalid format or empty debate_ids"},
+        },
+    )
     def _start_batch_export(
         self: _DebatesHandlerProtocol,
         handler: Any,
@@ -332,6 +344,20 @@ class ExportOperationsMixin:
                 }
             )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/export/batch/{job_id}/status",
+        summary="Get batch export status",
+        description="Get the status and progress of a batch export job.",
+        tags=["Debates", "Export"],
+        parameters=[
+            {"name": "job_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Job status returned"},
+            "404": {"description": "Export job not found"},
+        },
+    )
     def _get_batch_export_status(self: _DebatesHandlerProtocol, job_id: str) -> HandlerResult:
         """Get status of a batch export job."""
         job = _batch_export_jobs.get(job_id)
@@ -356,6 +382,21 @@ class ExportOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/export/batch/{job_id}/results",
+        summary="Get batch export results",
+        description="Get the results of a completed batch export job.",
+        tags=["Debates", "Export"],
+        parameters=[
+            {"name": "job_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Export results returned"},
+            "400": {"description": "Export job not complete"},
+            "404": {"description": "Export job not found"},
+        },
+    )
     def _get_batch_export_results(self: _DebatesHandlerProtocol, job_id: str) -> HandlerResult:
         """Get results of a completed batch export."""
         job = _batch_export_jobs.get(job_id)
@@ -444,6 +485,29 @@ class ExportOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/export/{format}",
+        summary="Export debate",
+        description="Export debate in specified format (json, csv, html, txt, md).",
+        tags=["Debates", "Export"],
+        parameters=[
+            {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {
+                "name": "format",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string", "enum": ["json", "csv", "html", "txt", "md"]},
+            },
+            {"name": "table", "in": "query", "schema": {"type": "string", "default": "summary"}},
+        ],
+        responses={
+            "200": {"description": "Export returned in requested format"},
+            "400": {"description": "Invalid format or table"},
+            "404": {"description": "Debate not found"},
+            "500": {"description": "Database error"},
+        },
+    )
     @require_permission("export:read")
     @require_storage
     def _export_debate(

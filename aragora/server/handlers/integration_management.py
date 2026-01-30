@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -638,16 +638,14 @@ class IntegrationsHandler(BaseHandler):
     async def _check_slack_health(self, workspace) -> dict[str, Any]:
         """Check Slack workspace health."""
         try:
-            import json
-            import urllib.request
+            import httpx
 
-            request = urllib.request.Request(
-                "https://slack.com/api/auth.test",
-                headers={"Authorization": f"Bearer {workspace.access_token}"},
-            )
-
-            with urllib.request.urlopen(request, timeout=10) as response:
-                result = json.loads(response.read().decode())
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://slack.com/api/auth.test",
+                    headers={"Authorization": f"Bearer {workspace.access_token}"},
+                )
+                result = resp.json()
 
             if result.get("ok"):
                 return {

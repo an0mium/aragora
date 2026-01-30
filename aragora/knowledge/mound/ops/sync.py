@@ -8,10 +8,15 @@ Provides cross-system synchronization:
 - sync_from_evidence: Sync from EvidenceStore
 - sync_from_critique: Sync from CritiqueStore
 - sync_all: Sync from all connected systems
+
+Performance optimizations:
+- Batched store operations to avoid N+1 query pattern
+- Concurrent processing with configurable batch sizes
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING, Any, Optional, Protocol
@@ -84,6 +89,80 @@ class SyncProtocol(Protocol):
 
 class SyncOperationsMixin:
     """Mixin providing sync operations for KnowledgeMound."""
+
+    async def _batch_store(
+        self: SyncProtocol,
+        requests: list["IngestionRequest"],
+        batch_size: int = 50,
+    ) -> tuple[int, int, int, int, list[str]]:
+        """
+        Store multiple ingestion requests in batches with concurrency control.
+
+        This method addresses the N+1 query pattern by processing requests
+        concurrently in batches rather than one at a time.
+
+        Args:
+            requests: List of IngestionRequest objects to store
+            batch_size: Number of concurrent store operations per batch
+
+        Returns:
+            Tuple of (nodes_synced, nodes_updated, nodes_skipped,
+                     relationships_created, errors)
+        """
+        nodes_synced = 0
+        nodes_updated = 0
+        nodes_skipped = 0
+        relationships_created = 0
+        errors: list[str] = []
+
+        # Process in batches to control concurrency
+        for i in range(0, len(requests), batch_size):
+            batch = requests[i : i + batch_size]
+
+            # Create coroutines for the batch
+            async def store_single(
+                req: "IngestionRequest",
+            ) -> tuple[bool, bool, int, str | None]:
+                """Store a single request and return status."""
+                try:
+                    result = await self.store(req)
+                    return (
+                        not result.deduplicated,  # is_new
+                        result.deduplicated,  # is_update
+                        result.relationships_created,
+                        None,  # no error
+                    )
+                except Exception as e:
+                    # Extract identifier for error message
+                    item_id = (
+                        req.metadata.get("continuum_id")
+                        or req.metadata.get("consensus_id")
+                        or req.metadata.get("fact_id")
+                        or req.metadata.get("evidence_id")
+                        or req.metadata.get("pattern_id")
+                        or "unknown"
+                    )
+                    return (False, False, 0, f"{item_id}: {str(e)}")
+
+            # Execute batch concurrently
+            results = await asyncio.gather(
+                *[store_single(req) for req in batch],
+                return_exceptions=False,
+            )
+
+            # Aggregate results
+            for is_new, is_update, rels, error in results:
+                if error:
+                    nodes_skipped += 1
+                    errors.append(error)
+                elif is_update:
+                    nodes_updated += 1
+                    relationships_created += rels
+                else:
+                    nodes_synced += 1
+                    relationships_created += rels
+
+        return nodes_synced, nodes_updated, nodes_skipped, relationships_created, errors
 
     async def sync_from_continuum(
         self: SyncProtocol,

@@ -31,20 +31,19 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | N
     Returns event emitter if server is available, None otherwise.
     """
     try:
-        import urllib.request
+        import httpx
 
         # Quick health check
-        req = urllib.request.Request(f"{server_url}/api/health", method="GET")
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            if resp.status == 200:
-                # Server is up, try to get emitter
-                try:
-                    from aragora.server.stream import SyncEventEmitter
+        resp = httpx.get(f"{server_url}/api/health", timeout=2)
+        if resp.status_code == 200:
+            # Server is up, try to get emitter
+            try:
+                from aragora.server.stream import SyncEventEmitter
 
-                    return SyncEventEmitter()
-                except ImportError:
-                    pass
-    except (urllib.error.URLError, OSError, TimeoutError):
+                return SyncEventEmitter()
+            except ImportError:
+                pass
+    except (httpx.HTTPError, OSError, TimeoutError):
         # Server not available - network error, timeout, or connection refused
         pass
     return None

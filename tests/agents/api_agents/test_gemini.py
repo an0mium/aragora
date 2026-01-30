@@ -12,7 +12,6 @@ Tests cover:
 """
 
 import asyncio
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -766,8 +765,8 @@ class TestGeminiGenerationParams:
             async def __aexit__(self, *args):
                 pass
 
-            def post(self, url, data=None, headers=None):
-                captured_payload["json"] = data
+            def post(self, url, json=None, headers=None):
+                captured_payload["json"] = json
                 return mock_response
 
         with patch(
@@ -798,8 +797,8 @@ class TestGeminiGenerationParams:
             async def __aexit__(self, *args):
                 pass
 
-            def post(self, url, data=None, headers=None):
-                captured_payload["json"] = data
+            def post(self, url, json=None, headers=None):
+                captured_payload["json"] = json
                 return mock_response
 
         with patch(
@@ -835,8 +834,8 @@ class TestGeminiAPIPayload:
             async def __aexit__(self, *args):
                 pass
 
-            def post(self, url, data=None, headers=None):
-                captured_payload["json"] = data
+            def post(self, url, json=None, headers=None):
+                captured_payload["json"] = json
                 return mock_response
 
         with patch(
@@ -869,8 +868,8 @@ class TestGeminiAPIPayload:
             async def __aexit__(self, *args):
                 pass
 
-            def post(self, url, data=None, headers=None):
-                captured_payload["json"] = data
+            def post(self, url, json=None, headers=None):
+                captured_payload["json"] = json
                 return mock_response
 
         with patch(
@@ -900,7 +899,7 @@ class TestGeminiAPIPayload:
             async def __aexit__(self, *args):
                 pass
 
-            def post(self, url, data=None, headers=None):
+            def post(self, url, json=None, headers=None):
                 captured_url["url"] = url
                 return mock_response
 
@@ -932,7 +931,7 @@ class TestGeminiAPIPayload:
             async def __aexit__(self, *args):
                 pass
 
-            def post(self, url, data=None, headers=None):
+            def post(self, url, json=None, headers=None):
                 captured_headers["headers"] = headers
                 return mock_response
 

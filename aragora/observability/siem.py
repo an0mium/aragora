@@ -287,26 +287,24 @@ class SIEMClient:
 
     def _send_to_splunk(self, events: list[SecurityEvent]) -> None:
         """Send events to Splunk HTTP Event Collector."""
-        import urllib.request
+        import httpx
 
         for event in events:
-            data = json.dumps(
-                {
-                    "event": event.to_dict(),
-                    "index": self.config.index,
-                    "sourcetype": "aragora:security",
-                }
-            ).encode("utf-8")
+            data = {
+                "event": event.to_dict(),
+                "index": self.config.index,
+                "sourcetype": "aragora:security",
+            }
 
-            req = urllib.request.Request(
+            httpx.post(
                 self.config.endpoint,
-                data=data,
+                json=data,
                 headers={
                     "Authorization": f"Splunk {self.config.token}",
                     "Content-Type": "application/json",
                 },
+                timeout=10.0,
             )
-            urllib.request.urlopen(req, timeout=10)
 
     def _send_to_cloudwatch(self, events: list[SecurityEvent]) -> None:
         """Send events to AWS CloudWatch Logs."""
@@ -332,26 +330,24 @@ class SIEMClient:
 
     def _send_to_datadog(self, events: list[SecurityEvent]) -> None:
         """Send events to Datadog Logs."""
-        import urllib.request
+        import httpx
 
         for event in events:
-            data = json.dumps(
-                {
-                    **event.to_dict(),
-                    "ddsource": "aragora",
-                    "service": "aragora-security",
-                }
-            ).encode("utf-8")
+            data = {
+                **event.to_dict(),
+                "ddsource": "aragora",
+                "service": "aragora-security",
+            }
 
-            req = urllib.request.Request(
+            httpx.post(
                 self.config.endpoint or "https://http-intake.logs.datadoghq.com/api/v2/logs",
-                data=data,
+                json=data,
                 headers={
                     "DD-API-KEY": self.config.token,
                     "Content-Type": "application/json",
                 },
+                timeout=10.0,
             )
-            urllib.request.urlopen(req, timeout=10)
 
     def _send_to_syslog(self, events: list[SecurityEvent]) -> None:
         """Send events to syslog."""

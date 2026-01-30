@@ -46,6 +46,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
@@ -191,6 +192,26 @@ class ReceiptsHandler(BaseHandler):
             logger.exception(f"Error handling receipt request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts",
+        summary="List receipts",
+        description="List receipts with filtering and pagination. Supports filtering by verdict, risk level, date range, and signed status.",
+        tags=["Receipts"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "verdict", "in": "query", "schema": {"type": "string"}},
+            {"name": "risk_level", "in": "query", "schema": {"type": "string"}},
+            {"name": "date_from", "in": "query", "schema": {"type": "string"}},
+            {"name": "date_to", "in": "query", "schema": {"type": "string"}},
+            {"name": "signed_only", "in": "query", "schema": {"type": "boolean"}},
+        ],
+        responses={
+            "200": {"description": "List of receipts returned"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @require_permission("receipts:read")
     async def _list_receipts(self, query_params: dict[str, str]) -> HandlerResult:
         """
@@ -266,6 +287,25 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts/search",
+        summary="Search receipts",
+        description="Full-text search across receipt content with optional filtering by verdict and risk level.",
+        tags=["Receipts", "Search"],
+        parameters=[
+            {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}},
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "verdict", "in": "query", "schema": {"type": "string"}},
+            {"name": "risk_level", "in": "query", "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "Search results returned"},
+            "400": {"description": "Invalid search query"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @require_permission("receipts:read")
     async def _search_receipts(self, query_params: dict[str, str]) -> HandlerResult:
         """
@@ -328,6 +368,20 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts/{receipt_id}",
+        summary="Get receipt",
+        description="Get a specific receipt by ID or gauntlet ID.",
+        tags=["Receipts"],
+        parameters=[
+            {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Receipt returned"},
+            "404": {"description": "Receipt not found"},
+        },
+    )
     @require_permission("receipts:read")
     async def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get a specific receipt by ID."""
@@ -343,6 +397,33 @@ class ReceiptsHandler(BaseHandler):
 
         return json_response(receipt.to_full_dict())
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts/{receipt_id}/export",
+        summary="Export receipt",
+        description="Export receipt in specified format (json, html, md, pdf, sarif, csv).",
+        tags=["Receipts", "Export"],
+        parameters=[
+            {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {
+                "name": "format",
+                "in": "query",
+                "schema": {
+                    "type": "string",
+                    "default": "json",
+                    "enum": ["json", "html", "md", "pdf", "sarif", "csv"],
+                },
+            },
+            {"name": "signed", "in": "query", "schema": {"type": "boolean", "default": True}},
+        ],
+        responses={
+            "200": {"description": "Export returned in requested format"},
+            "400": {"description": "Unsupported format"},
+            "404": {"description": "Receipt not found"},
+            "500": {"description": "Export failed"},
+            "501": {"description": "PDF export requires weasyprint package"},
+        },
+    )
     @require_permission("receipts:read")
     async def _export_receipt(self, receipt_id: str, query_params: dict[str, str]) -> HandlerResult:
         """
@@ -446,6 +527,20 @@ class ReceiptsHandler(BaseHandler):
             logger.exception(f"Export failed: {e}")
             return error_response(f"Export failed: {str(e)}", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v2/receipts/{receipt_id}/verify",
+        summary="Verify receipt integrity",
+        description="Verify receipt integrity checksum to ensure data hasn't been tampered with.",
+        tags=["Receipts", "Verification"],
+        parameters=[
+            {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Verification result returned"},
+            "404": {"description": "Receipt not found"},
+        },
+    )
     @require_permission("receipts:verify")
     async def _verify_integrity(self, receipt_id: str) -> HandlerResult:
         """Verify receipt integrity checksum."""
@@ -458,6 +553,20 @@ class ReceiptsHandler(BaseHandler):
 
         return json_response(result)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v2/receipts/{receipt_id}/verify-signature",
+        summary="Verify receipt signature",
+        description="Verify receipt cryptographic signature for authenticity.",
+        tags=["Receipts", "Verification"],
+        parameters=[
+            {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Signature verification result returned"},
+            "404": {"description": "Receipt not found"},
+        },
+    )
     @require_permission("receipts:verify")
     async def _verify_signature(self, receipt_id: str) -> HandlerResult:
         """Verify receipt cryptographic signature."""
@@ -495,6 +604,17 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts/stats",
+        summary="Get receipt statistics",
+        description="Get aggregated statistics about receipts including counts by verdict and risk level.",
+        tags=["Receipts", "Statistics"],
+        responses={
+            "200": {"description": "Statistics returned"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @require_permission("receipts:read")
     async def _get_stats(self) -> HandlerResult:
         """Get receipt statistics."""
@@ -695,8 +815,8 @@ class ReceiptsHandler(BaseHandler):
     ) -> dict[str, Any]:
         """Send formatted receipt to Discord channel."""
         import os
-        import urllib.request
-        import json
+
+        import httpx
 
         bot_token = os.environ.get("DISCORD_BOT_TOKEN")
         if not bot_token:
@@ -708,11 +828,10 @@ class ReceiptsHandler(BaseHandler):
             "Content-Type": "application/json",
         }
 
-        data = json.dumps(formatted).encode("utf-8")
-        request = urllib.request.Request(url, data=data, headers=headers)
-
-        with urllib.request.urlopen(request, timeout=30) as response:
-            result = json.loads(response.read().decode())
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=formatted, headers=headers)
+            resp.raise_for_status()
+            result = resp.json()
 
         return {"message_id": result.get("id")}
 
@@ -792,6 +911,20 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v2/receipts/{receipt_id}/share",
+        summary="Create shareable link",
+        description="Create a time-limited shareable link for a receipt with optional access limits.",
+        tags=["Receipts", "Sharing"],
+        parameters=[
+            {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Share link created"},
+            "404": {"description": "Receipt not found"},
+        },
+    )
     @require_permission("receipts:share")
     async def _share_receipt(self, receipt_id: str, body: dict[str, Any]) -> HandlerResult:
         """

@@ -16,6 +16,7 @@ from aragora.server.validation.security import (
 )
 
 from aragora.rbac.decorators import require_permission
+from ..openapi_decorator import api_endpoint
 
 from ..base import (
     HandlerResult,
@@ -53,6 +54,28 @@ class _DebatesHandlerProtocol(Protocol):
 class SearchOperationsMixin:
     """Mixin providing search operations for DebatesHandler."""
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/search",
+        summary="Search debates",
+        description="Search debates by query string with efficient SQL queries and organization filtering.",
+        tags=["Debates", "Search"],
+        parameters=[
+            {
+                "name": "q",
+                "in": "query",
+                "schema": {"type": "string"},
+                "description": "Search query",
+            },
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "Search results returned"},
+            "400": {"description": "Invalid search query"},
+            "500": {"description": "Database error"},
+        },
+    )
     @require_permission("debates:read")
     @rate_limit(requests_per_minute=30, limiter_name="debates_search")
     @require_storage
