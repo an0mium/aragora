@@ -5,8 +5,6 @@
  * This wraps the flat client methods for scoring, team composition, and plugin management.
  */
 
-import type { RequestOptions } from '../types';
-
 /**
  * Selection plugin information.
  */
@@ -136,7 +134,11 @@ export interface SelectTeamResponse {
  * Interface for the internal client methods used by AgentSelectionAPI.
  */
 interface AgentSelectionClientInterface {
-  request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: unknown }
+  ): Promise<T>;
 }
 
 /**
@@ -212,7 +214,7 @@ export class AgentSelectionAPI {
    */
   async scoreAgents(request: ScoreAgentsRequest): Promise<ScoreAgentsResponse> {
     return this.client.request<ScoreAgentsResponse>('POST', '/api/v1/selection/score', {
-      body: request,
+      json: request,
     });
   }
 
@@ -221,7 +223,7 @@ export class AgentSelectionAPI {
    */
   async selectTeam(request: SelectTeamRequest): Promise<SelectTeamResponse> {
     return this.client.request<SelectTeamResponse>('POST', '/api/v1/selection/team', {
-      body: request,
+      json: request,
     });
   }
 

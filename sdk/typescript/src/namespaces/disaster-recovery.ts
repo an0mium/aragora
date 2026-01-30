@@ -5,8 +5,6 @@
  * This wraps the flat client methods for DR drills, status, and validation.
  */
 
-import type { RequestOptions } from '../types';
-
 /**
  * DR status response.
  */
@@ -113,7 +111,11 @@ export interface DRValidationCheck {
  * Interface for the internal client methods used by DisasterRecoveryAPI.
  */
 interface DRClientInterface {
-  request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: unknown }
+  ): Promise<T>;
 }
 
 /**
@@ -162,7 +164,7 @@ export class DisasterRecoveryAPI {
    */
   async runDrill(request: DRDrillRequest): Promise<DRDrillResult> {
     return this.client.request<DRDrillResult>('POST', '/api/v2/dr/drill', {
-      body: request,
+      json: request,
     });
   }
 
@@ -181,7 +183,7 @@ export class DisasterRecoveryAPI {
    */
   async validate(request?: DRValidateRequest): Promise<DRValidationResult> {
     return this.client.request<DRValidationResult>('POST', '/api/v2/dr/validate', {
-      body: request || {},
+      json: request || {},
     });
   }
 

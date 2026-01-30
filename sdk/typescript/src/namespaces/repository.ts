@@ -5,7 +5,7 @@
  * This wraps the flat client methods for indexing, entity extraction, and graph queries.
  */
 
-import type { RequestOptions, PaginationParams } from '../types';
+import type { PaginationParams } from '../types';
 
 /**
  * Repository index request.
@@ -132,7 +132,11 @@ export interface BatchIndexResponse {
  * Interface for the internal client methods used by RepositoryAPI.
  */
 interface RepositoryClientInterface {
-  request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: unknown }
+  ): Promise<T>;
 }
 
 /**
@@ -177,7 +181,7 @@ export class RepositoryAPI {
    */
   async index(request: IndexRepositoryRequest): Promise<IndexRepositoryResponse> {
     return this.client.request<IndexRepositoryResponse>('POST', '/api/v1/repository/index', {
-      body: request,
+      json: request,
     });
   }
 
@@ -186,7 +190,7 @@ export class RepositoryAPI {
    */
   async incrementalIndex(request: IncrementalIndexRequest): Promise<IndexRepositoryResponse> {
     return this.client.request<IndexRepositoryResponse>('POST', '/api/v1/repository/incremental', {
-      body: request,
+      json: request,
     });
   }
 
@@ -195,7 +199,7 @@ export class RepositoryAPI {
    */
   async batchIndex(request: BatchIndexRequest): Promise<BatchIndexResponse> {
     return this.client.request<BatchIndexResponse>('POST', '/api/v1/repository/batch', {
-      body: request,
+      json: request,
     });
   }
 

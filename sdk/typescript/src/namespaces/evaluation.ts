@@ -5,8 +5,6 @@
  * This wraps the flat client methods for quality scoring and comparison.
  */
 
-import type { RequestOptions } from '../types';
-
 /**
  * Evaluation dimension for scoring.
  */
@@ -82,7 +80,11 @@ export interface ComparisonResult {
  * Interface for the internal client methods used by EvaluationAPI.
  */
 interface EvaluationClientInterface {
-  request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: unknown }
+  ): Promise<T>;
 }
 
 /**
@@ -123,7 +125,7 @@ export class EvaluationAPI {
    */
   async evaluate(request: EvaluateRequest): Promise<EvaluationResult> {
     return this.client.request<EvaluationResult>('POST', '/api/v1/evaluate', {
-      body: request,
+      json: request,
     });
   }
 
@@ -132,7 +134,7 @@ export class EvaluationAPI {
    */
   async compare(request: CompareRequest): Promise<ComparisonResult> {
     return this.client.request<ComparisonResult>('POST', '/api/v1/evaluate/compare', {
-      body: request,
+      json: request,
     });
   }
 

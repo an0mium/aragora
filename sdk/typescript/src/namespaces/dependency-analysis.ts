@@ -6,8 +6,6 @@
  * and license compliance checking.
  */
 
-import type { RequestOptions } from '../types';
-
 /**
  * Dependency analysis request.
  */
@@ -177,7 +175,11 @@ export interface LicenseCheckResult {
  * Interface for the internal client methods used by DependencyAnalysisAPI.
  */
 interface DependencyAnalysisClientInterface {
-  request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: unknown }
+  ): Promise<T>;
 }
 
 /**
@@ -226,7 +228,7 @@ export class DependencyAnalysisAPI {
    */
   async analyze(request: AnalyzeDependenciesRequest): Promise<DependencyAnalysisResult> {
     return this.client.request<DependencyAnalysisResult>('POST', '/api/v1/codebase/analyze-dependencies', {
-      body: request,
+      json: request,
     });
   }
 
@@ -235,7 +237,7 @@ export class DependencyAnalysisAPI {
    */
   async generateSBOM(request: GenerateSBOMRequest): Promise<SBOMResult> {
     return this.client.request<SBOMResult>('POST', '/api/v1/codebase/sbom', {
-      body: request,
+      json: request,
     });
   }
 
@@ -244,7 +246,7 @@ export class DependencyAnalysisAPI {
    */
   async scanVulnerabilities(request: ScanVulnerabilitiesRequest): Promise<VulnerabilityScanResult> {
     return this.client.request<VulnerabilityScanResult>('POST', '/api/v1/codebase/scan-vulnerabilities', {
-      body: request,
+      json: request,
     });
   }
 
@@ -253,7 +255,7 @@ export class DependencyAnalysisAPI {
    */
   async checkLicenses(request: CheckLicensesRequest): Promise<LicenseCheckResult> {
     return this.client.request<LicenseCheckResult>('POST', '/api/v1/codebase/check-licenses', {
-      body: request,
+      json: request,
     });
   }
 
@@ -262,7 +264,7 @@ export class DependencyAnalysisAPI {
    */
   async clearCache(repositoryUrl?: string): Promise<{ cleared: boolean }> {
     return this.client.request<{ cleared: boolean }>('POST', '/api/v1/codebase/clear-cache', {
-      body: { repository_url: repositoryUrl },
+      json: { repository_url: repositoryUrl },
     });
   }
 
