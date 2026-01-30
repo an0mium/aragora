@@ -652,8 +652,8 @@ class ControlPlaneCoordinator:
                 try:
                     # KM adapter can track operational incidents
                     pass  # KM tracking is optional - no-op if not needed
-                except Exception:
-                    pass
+                except (ConnectionError, OSError, AttributeError) as e:
+                    logger.debug(f"Failed to record watchdog issue in KM: {e}")
 
         except Exception as e:
             logger.warning(f"Error handling watchdog issue: {e}")

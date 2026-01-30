@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
@@ -58,6 +57,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.decorators import has_permission, require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -590,11 +590,7 @@ class ControlPlaneHandler(BaseHandler):
             from aragora.control_plane.scheduler import TaskStatus
             from datetime import datetime
 
-            limit = (
-                int(query_params.get("limit", ["50"])[0])
-                if isinstance(query_params.get("limit"), list)
-                else int(query_params.get("limit", 50))
-            )
+            limit = safe_query_int(query_params, "limit", default=50, max_val=1000)
 
             # Get pending and running tasks
             pending = _run_async(
@@ -1376,8 +1372,8 @@ class ControlPlaneHandler(BaseHandler):
                     if query_params.get("workspace_ids")
                     else None
                 ),
-                limit=int(query_params.get("limit", 100)),
-                offset=int(query_params.get("offset", 0)),
+                limit=safe_query_int(query_params, "limit", default=100, max_val=1000),
+                offset=safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000),
             )
 
             entries = _run_async(audit_log.query(query))  # type: ignore[attr-defined]
@@ -1442,8 +1438,8 @@ class ControlPlaneHandler(BaseHandler):
             if not audit_log:
                 return error_response("Audit log not configured", 503)
 
-            start_seq = int(query_params.get("start_seq", 0))
-            end_seq = int(query_params.get("end_seq")) if query_params.get("end_seq") else None
+            start_seq = safe_query_int(query_params, "start_seq", default=0, min_val=0, max_val=9223372036854775807)
+            end_seq = safe_query_int(query_params, "end_seq", default=0, min_val=0, max_val=9223372036854775807) if query_params.get("end_seq") else None
 
             is_valid = _run_async(audit_log.verify_integrity(start_seq, end_seq))  # type: ignore[attr-defined]
 

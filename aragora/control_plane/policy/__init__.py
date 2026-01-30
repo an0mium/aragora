@@ -29,7 +29,7 @@ Usage:
         raise PolicyViolation(result)
 """
 
-from .cache import RedisPolicyCache
+from .cache import RedisPolicyCache, REDIS_AVAILABLE
 from .conflicts import PolicyConflict, PolicyConflictDetector
 from .factories import (
     create_agent_tier_policy,
@@ -80,6 +80,7 @@ __all__ = [
     "PolicyConflict",
     "PolicyConflictDetector",
     "RedisPolicyCache",
+    "REDIS_AVAILABLE",
     "PolicySyncScheduler",
     # Versioning and rollback
     "PolicyVersion",

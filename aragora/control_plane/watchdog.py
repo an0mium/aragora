@@ -778,8 +778,8 @@ def reset_watchdog() -> None:
                 from aragora.utils.async_utils import run_async
 
                 run_async(_default_watchdog.stop())
-            except Exception:
-                pass
+            except (RuntimeError, ImportError, OSError):
+                pass  # Best-effort shutdown cleanup
         else:
             loop.create_task(_default_watchdog.stop())
     _default_watchdog = None
