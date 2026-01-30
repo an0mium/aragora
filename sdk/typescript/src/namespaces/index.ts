@@ -1156,7 +1156,7 @@ export {
   type PriorityLevel,
   type PrioritizationResult,
   type BatchPrioritizationResult,
-  type EmailCategory,
-  type TriageResult,
+  type EmailCategory as EmailDebateCategory,
+  type TriageResult as EmailTriageResult,
   type InboxTriageResponse,
 } from './email-debate';
