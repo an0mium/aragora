@@ -54,6 +54,7 @@ from typing import (
     Callable,
     Literal,
     Protocol,
+    cast,
     runtime_checkable,
 )
 
@@ -116,7 +117,16 @@ class DebateRequest:
         "supermajority",
         "any",
         "byzantine",
-    ] = DEFAULT_CONSENSUS  # type: ignore[assignment]
+    ] = cast(Literal[
+        "majority",
+        "unanimous",
+        "judge",
+        "none",
+        "weighted",
+        "supermajority",
+        "any",
+        "byzantine",
+    ], DEFAULT_CONSENSUS)
     timeout: float = 600.0  # 10 minutes for background debates
     priority: int = 0  # Higher = more urgent
     metadata: dict[str, Any] = field(default_factory=dict)

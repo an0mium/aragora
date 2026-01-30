@@ -28,10 +28,11 @@ from typing import Any, Sequence
 
 import numpy as np
 
+SentenceTransformer: Any
 try:
     from sentence_transformers import SentenceTransformer
 except ImportError:  # pragma: no cover - optional dependency
-    SentenceTransformer = None  # type: ignore[assignment]
+    SentenceTransformer = None
 
 logger = logging.getLogger(__name__)
 

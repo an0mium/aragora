@@ -855,7 +855,7 @@ def on_notification_event(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        func._notification_events = event_types  # type: ignore[attr-defined]
+        setattr(func, "_notification_events", event_types)
         return func
 
     return decorator

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -491,7 +491,8 @@ class KnowledgeMoundHandler(ChangeEventHandler):
             },
         )
 
-        await mound.store(request)  # type: ignore[misc]  # Mixin pattern
+        store = cast(Any, mound).store
+        await store(request)
         logger.debug(f"Ingested change event {event.id} to Knowledge Mound")
 
     async def _handle_delete(self, mound: "KnowledgeMound", event: ChangeEvent) -> None:

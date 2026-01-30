@@ -14,6 +14,10 @@ import hashlib
 import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from aragora.agents.base import AgentType
 
 logger = logging.getLogger(__name__)
 
@@ -247,7 +251,7 @@ def main() -> int:
 
         try:
             agent = create_agent(
-                model_type=spec.provider,  # type: ignore[arg-type]
+                model_type=cast("AgentType", spec.provider),
                 name=f"{spec.provider}_{role}",
                 role=role,
             )

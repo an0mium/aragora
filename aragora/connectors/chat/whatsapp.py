@@ -19,7 +19,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from aragora.connectors.chat.models import MessageButton
 
@@ -515,7 +515,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             content_type=mime_type,
             size=file_size or len(content),
             url=media_url,
-            content=content,  # type: ignore[arg-type]
+            content=cast(bytes, content),
             metadata={"whatsapp_mime_type": mime_type},
         )
 

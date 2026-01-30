@@ -77,7 +77,7 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 import httpx
 
@@ -361,7 +361,8 @@ class GmailSyncService:
             if not self._connector:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-                self._connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
+                _GmailConnector = cast(type["GmailConnector"], GmailConnector)
+                self._connector = _GmailConnector()
                 if refresh_token:
                     success = await self._connector.authenticate(refresh_token=refresh_token)
                     if not success:

@@ -18,7 +18,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Sequence
 
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import AuditFinding, AuditType, FindingSeverity
@@ -767,9 +767,9 @@ class SoftwareAuditor(BaseAuditor):
 
         return findings
 
-    async def cross_document_analysis(  # type: ignore[override]
+    async def cross_document_analysis(
         self,
-        chunks: list[ChunkData],
+        chunks: Sequence[ChunkData],
         context: AuditContext,
     ) -> list[AuditFinding]:
         """Analyze across files for cross-cutting security issues."""

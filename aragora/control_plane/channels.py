@@ -25,7 +25,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     pass
@@ -496,7 +496,7 @@ class TeamsProvider(ChannelProvider):
 
         # Add action button if link provided
         if message.link_url:
-            attachments: list[dict[str, Any]] = card["attachments"]  # type: ignore[assignment]
+            attachments: list[dict[str, Any]] = cast(list[dict[str, Any]], card["attachments"])
             content: dict[str, Any] = attachments[0]["content"]
             content["actions"] = [
                 {

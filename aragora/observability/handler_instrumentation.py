@@ -381,15 +381,16 @@ def record_control_plane_operation(
         latency: Optional operation latency in seconds
     """
     try:
-        from aragora.observability.metrics import (  # type: ignore[attr-defined]
-            _init_metrics,
-            REQUEST_COUNT,
-        )
+        import importlib
 
-        _init_metrics()
+        _metrics = importlib.import_module("aragora.observability.metrics")
+        _init_fn = getattr(_metrics, "_init_metrics", None)
+        if _init_fn is not None:
+            _init_fn()
 
-        if REQUEST_COUNT is not None:
-            REQUEST_COUNT.labels(
+        _req_count = getattr(_metrics, "REQUEST_COUNT", None)
+        if _req_count is not None:
+            _req_count.labels(
                 method="control_plane",
                 endpoint=operation,
                 status=status,

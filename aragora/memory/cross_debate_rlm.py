@@ -218,7 +218,7 @@ class CrossDebateMemory:
         self.config = config or CrossDebateConfig()
         self._entries: dict[str, DebateMemoryEntry] = {}
         self._compressor = None
-        self._rlm = None  # Official RLM instance (preferred over compression)
+        self._rlm: Any = None  # Official RLM instance (preferred over compression)
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -245,7 +245,7 @@ class CrossDebateMemory:
 
         if self._rlm is None:
             try:
-                self._rlm = get_rlm()  # type: ignore[assignment]
+                self._rlm = get_rlm()
                 if HAS_OFFICIAL_RLM:
                     logger.info(
                         "[CrossDebateMemory] TRUE RLM initialized via factory "

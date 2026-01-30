@@ -319,11 +319,12 @@ class KeyRotationScheduler:
     ) -> None:
         """Record Prometheus metrics."""
         try:
-            from aragora.observability.metrics import (  # type: ignore[attr-defined]
-                record_key_rotation,
-            )
+            import importlib
 
-            record_key_rotation(operation, success, duration_seconds)
+            _metrics = importlib.import_module("aragora.observability.metrics")
+            _record_fn = getattr(_metrics, "record_key_rotation", None)
+            if _record_fn is not None:
+                _record_fn(operation, success, duration_seconds)
         except (ImportError, AttributeError):
             pass
         except (TypeError, ValueError, RuntimeError, OSError) as e:

@@ -313,9 +313,9 @@ async def create_default_executor() -> DebateExecutor:
 
         # Create environment and protocol
         env = Environment(task=payload.question)
-        protocol = DebateProtocol(  # type: ignore[misc]
+        protocol = DebateProtocol(
             rounds=payload.rounds,
-            consensus=payload.consensus,
+            consensus=cast(Any, payload.consensus),
         )
 
         # Convert agent strings to Agent objects

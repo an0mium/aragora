@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Any, Optional
 
 from aragora.agents.base import BaseDebateAgent
+from aragora.core import Critique
 
 logger = logging.getLogger(__name__)
 
@@ -144,18 +145,26 @@ Follow testing best practices:
         # Return empty string - use suggest_tests() for test generation
         return ""
 
-    async def critique(  # type: ignore[override]
+    async def critique(
         self,
         proposal: str,
         task: str,
         context: Optional[list[Any]] = None,
-        **kwargs: Any,
-    ) -> str:
+        target_agent: str | None = None,
+    ) -> Critique:
         """Critique is not supported for TestGeneratorAgent.
 
         Use assess_test_quality() for test quality assessment instead.
         """
-        return ""
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200] if proposal else "",
+            issues=[],
+            suggestions=[],
+            severity=5.0,
+            reasoning="TestGeneratorAgent does not support critique - use assess_test_quality()",
+        )
 
     def extract_function_signatures(self, code: str) -> list[FunctionSignature]:
         """

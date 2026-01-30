@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 
+from typing import Sequence
+
 from ..base_auditor import AuditorCapabilities, AuditContext, BaseAuditor, ChunkData
 from ..document_auditor import AuditFinding, AuditType, FindingSeverity
 
@@ -479,9 +481,9 @@ class AccountingAuditor(BaseAuditor):
 
         return findings
 
-    async def cross_document_analysis(  # type: ignore[override]
+    async def cross_document_analysis(
         self,
-        chunks: list[ChunkData],
+        chunks: Sequence[ChunkData],
         context: AuditContext,
     ) -> list[AuditFinding]:
         """Analyze across documents for duplicates and reconciliation issues."""

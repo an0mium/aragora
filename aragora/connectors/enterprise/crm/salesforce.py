@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Optional, cast
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -672,7 +672,7 @@ class SalesforceConnector(EnterpriseConnector):
                 fields = ["Id", "Name", "CreatedDate", "LastModifiedDate"]
 
             try:
-                soql = self._build_soql_query(object_name, fields, last_sync)  # type: ignore[arg-type]
+                soql = self._build_soql_query(object_name, cast(list[str], fields), last_sync)
                 logger.debug(f"[{self.name}] Querying: {soql[:200]}...")
 
                 async for record in self._query(soql):

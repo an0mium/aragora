@@ -45,6 +45,7 @@ from aragora.fabric.models import (
 )
 
 if TYPE_CHECKING:
+    from aragora.core import Agent
     from aragora.core_types import DebateResult, Environment
     from aragora.debate.protocol import DebateProtocol
     from aragora.fabric import AgentFabric
@@ -408,7 +409,7 @@ class FabricDebateRunner:
         try:
             arena = Arena(
                 environment=environment,
-                agents=agents,  # type: ignore[arg-type]  # Adapters implement Agent protocol
+                agents=cast(list["Agent"], agents),
                 protocol=arena_protocol,
                 org_id=config.org_id,
                 user_id=config.user_id,

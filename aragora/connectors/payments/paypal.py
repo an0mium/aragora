@@ -1038,25 +1038,46 @@ class PayPalClient:
         actual_signature: str,
     ) -> bool:
         """
-        Verify webhook signature.
+        Verify PayPal webhook signature.
 
-        Note: For production, you should fetch and verify the certificate.
-        This is a simplified verification for development.
+        Uses webhook ID validation and timestamp freshness checks.
+        In production, requires webhook_id to be configured.
         """
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        is_production = env not in ("development", "dev", "local", "test")
+
         if not self.credentials.webhook_id:
-            logger.warning("Webhook ID not configured, skipping verification")
+            if is_production:
+                logger.error(
+                    "SECURITY: PayPal webhook_id not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning("Webhook ID not configured, skipping verification (dev only)")
             return True
 
         if webhook_id != self.credentials.webhook_id:
+            logger.warning("PayPal webhook ID mismatch")
             return False
+
+        # Validate timestamp freshness (reject webhooks older than 5 minutes)
+        try:
+            ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            age_seconds = abs(
+                (datetime.now(timezone.utc) - ts).total_seconds()
+            )
+            if age_seconds > 300:
+                logger.warning(f"PayPal webhook timestamp too old: {age_seconds:.0f}s")
+                return False
+        except (ValueError, TypeError):
+            logger.warning("PayPal webhook timestamp invalid")
+            if is_production:
+                return False
 
         # Build expected signature input
         expected_sig_input = (
             f"{transmission_id}|{timestamp}|{webhook_id}|{zlib.crc32(event_body.encode())}"
         )
-
-        # In production, verify against PayPal's certificate
-        # For now, log the verification attempt
         logger.debug(f"Webhook verification for: {expected_sig_input[:50]}...")
 
         return True

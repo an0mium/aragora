@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Protocol, cast
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
@@ -190,7 +190,7 @@ try:
     CredentialProvider = _ImportedCredentialProvider
 except ImportError:
     # Fallback for backwards compatibility - use EnvCredentialProvider as the implementation
-    CredentialProvider = CredentialProviderProtocol  # type: ignore[assignment, misc]
+    CredentialProvider = cast(type[CredentialProviderProtocol], CredentialProviderProtocol)
 
     def get_credential_provider(**kwargs: Any) -> "EnvCredentialProvider":
         return EnvCredentialProvider()

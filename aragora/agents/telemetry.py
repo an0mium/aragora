@@ -276,7 +276,7 @@ def with_telemetry(
                     logger.debug(f"telemetry_input_extraction_failed: {e}")
 
             try:
-                result = await func(*args, **kwargs)  # type: ignore[misc]
+                result = await cast(Awaitable[T], func(*args, **kwargs))
 
                 # Extract output tokens if function provided
                 if extract_output:

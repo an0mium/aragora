@@ -35,6 +35,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from collections.abc import AsyncGenerator
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from aragora.connectors.base import Evidence
@@ -517,7 +518,9 @@ class KafkaConnector(EnterpriseConnector):
             timestamp=timestamp,
         )
 
-    async def sync(self, batch_size: int | None = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
+    async def sync(  # type: ignore[override]  # Streaming connector redefines sync as async generator
+        self, batch_size: int | None = None,
+    ) -> AsyncGenerator[SyncItem, None]:
         """
         Sync messages as SyncItems for Knowledge Mound ingestion.
 

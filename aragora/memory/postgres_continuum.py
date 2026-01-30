@@ -939,7 +939,9 @@ class PostgresContinuumMemory(PostgresStore):
             "hyperparams": self.hyperparams,
         }
 
-    async def count(self, tier: MemoryTier | None = None) -> int:  # type: ignore[override]
+    async def count(
+        self, table: str = "", where: str = "", *args: Any, tier: MemoryTier | None = None
+    ) -> int:
         """Count memory entries, optionally filtered by tier."""
         async with self.connection() as conn:
             if tier:

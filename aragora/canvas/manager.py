@@ -605,7 +605,8 @@ class CanvasStateManager:
         # Actually run the debate
         try:
             from aragora.config.settings import DebateSettings
-            from aragora.core import Environment, DebateProtocol
+            from aragora.core import Environment
+            from aragora.debate.protocol import DebateProtocol
             from aragora.debate.orchestrator import Arena
 
             # Update node status to running
@@ -623,7 +624,7 @@ class CanvasStateManager:
             # Create environment and run debate
             env = Environment(task=question)
             defaults = DebateSettings()
-            protocol = DebateProtocol(  # type: ignore[misc]
+            protocol = DebateProtocol(
                 rounds=params.get("rounds", defaults.default_rounds),
                 consensus=params.get("consensus", defaults.default_consensus),
             )

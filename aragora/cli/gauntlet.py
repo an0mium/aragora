@@ -4,12 +4,18 @@ Gauntlet CLI command - adversarial stress-testing.
 Extracted from main.py for modularity.
 """
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import hashlib
 import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from aragora.agents.base import AgentType
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +155,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         # parse_agents guarantees valid roles (proposer, critic, synthesizer)
         try:
             agent = create_agent(
-                model_type=agent_type,  # type: ignore[arg-type]
+                model_type=cast("AgentType", agent_type),
                 name=f"{agent_type}_{role}",
                 role=role,
             )

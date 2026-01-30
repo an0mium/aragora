@@ -21,7 +21,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from aragora.storage.job_queue_store import (
     QueuedJob,
@@ -374,7 +374,7 @@ async def recover_interrupted_transcriptions() -> int:
         ]
 
         for job_type in job_types:
-            stale_recovered = await store.recover_stale_jobs(  # type: ignore[call-arg]
+            stale_recovered = await cast(Any, store).recover_stale_jobs(
                 stale_threshold_seconds=300.0,
                 job_types=[job_type],
             )

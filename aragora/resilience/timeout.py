@@ -40,7 +40,7 @@ else:
     except ImportError:
 
         @asynccontextmanager
-        async def asyncio_timeout(delay: float | None) -> AsyncIterator[None]:  # type: ignore[misc]
+        async def _fallback_timeout(delay: float | None) -> AsyncIterator[None]:
             """Fallback timeout context manager (no actual timeout)."""
             if delay is not None:
                 logger.warning(
@@ -48,6 +48,8 @@ else:
                     "Install with: pip install async-timeout"
                 )
             yield
+
+        asyncio_timeout = _fallback_timeout
 
 
 class TimeoutError(asyncio.TimeoutError):

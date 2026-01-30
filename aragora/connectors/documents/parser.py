@@ -29,7 +29,7 @@ import mimetypes
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import IO, Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -1068,7 +1068,7 @@ class DocumentParser:
                     "r:gz" if format == DocumentFormat.GZIP or content[:2] == b"\x1f\x8b" else "r"
                 )
                 try:
-                    with tarfile.open(fileobj=io.BytesIO(content), mode=mode) as tf:  # type: ignore[call-overload]
+                    with tarfile.open(fileobj=cast(IO[bytes], io.BytesIO(content)), mode=mode) as tf:
                         for member in tf.getmembers():
                             if member.isfile():
                                 ext = Path(member.name).suffix.lower()

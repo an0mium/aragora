@@ -15,7 +15,8 @@ async def _send_email_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
     """Send result via email."""
     # Use existing email notification system
     try:
-        from aragora.server.handlers.social.notifications import send_email_notification  # type: ignore[attr-defined]
+        from aragora.server.handlers.social import notifications as _notif_mod
+        send_email_notification: Any = getattr(_notif_mod, "send_email_notification")
 
         email = origin.metadata.get("email")
         if not email:
@@ -33,7 +34,7 @@ async def _send_email_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
         logger.info(f"Email result sent to {email}")
         return True
 
-    except ImportError:
+    except (ImportError, AttributeError):
         logger.warning("Email notification system not available")
         return False
     except Exception as e:

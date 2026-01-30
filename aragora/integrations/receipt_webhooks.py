@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.integrations.webhooks import (
     WebhookDispatcher,
@@ -106,7 +106,7 @@ class ReceiptWebhookNotifier:
     def _emit(self, payload: ReceiptWebhookPayload) -> None:
         """Emit a webhook event via the dispatcher."""
         try:
-            self.dispatcher.emit(payload.event_type, payload.to_dict())  # type: ignore[attr-defined]
+            cast(Any, self.dispatcher).emit(payload.event_type, payload.to_dict())
             logger.debug(
                 f"Emitted receipt webhook: {payload.event_type} for receipt {payload.receipt_id}"
             )

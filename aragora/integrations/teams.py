@@ -372,7 +372,7 @@ class TeamsIntegration:
         if confidence < self.config.min_consensus_confidence:
             return False
 
-        body = [
+        body: list[dict[str, Any]] = [
             {
                 "type": "TextBlock",
                 "text": f"**Consensus:** {answer[:500]}{'...' if len(answer) > 500 else ''}",
@@ -408,7 +408,7 @@ class TeamsIntegration:
 
         card = AdaptiveCard(
             title="Consensus Reached",
-            body=body,  # type: ignore[arg-type]
+            body=body,
             accent_color="good",
             actions=[
                 {

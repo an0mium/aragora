@@ -9,7 +9,7 @@ and memory usage when subsystems aren't actually used.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar, overload
 
 if TYPE_CHECKING:
     from aragora.debate.orchestrator import Arena
@@ -54,9 +54,15 @@ class LazySubsystem(Generic[T]):
         self.condition = condition
         self.on_create = on_create
 
-    def __get__(self, obj: Optional["Arena"], objtype: type = None) -> T | None:
+    @overload
+    def __get__(self, obj: None, objtype: type = ...) -> "LazySubsystem[T]": ...
+
+    @overload
+    def __get__(self, obj: "Arena", objtype: type = ...) -> T | None: ...
+
+    def __get__(self, obj: Optional["Arena"], objtype: type = None) -> "LazySubsystem[T] | T | None":
         if obj is None:
-            return self  # type: ignore[return-value]  # Descriptor returns self when accessed on class
+            return self
 
         # Check if already initialized
         cached = getattr(obj, self.private_attr, None)

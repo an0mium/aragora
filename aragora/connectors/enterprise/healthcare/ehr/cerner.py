@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from collections.abc import AsyncGenerator
 from typing import Any, AsyncIterator, Optional
 
 from aragora.connectors.enterprise.healthcare.ehr.base import (
@@ -135,11 +136,11 @@ class CernerAdapter(EHRAdapter):
         logger.debug("Found %d Cerner patients matching search", len(patients))
         return patients
 
-    async def get_patient_records(  # type: ignore[override]
+    async def get_patient_records(
         self,
         patient_id: str,
         resource_types: Optional[list[str]] = None,
-    ) -> AsyncIterator[dict[str, Any]]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Get all clinical records for a patient.
 

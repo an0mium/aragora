@@ -143,6 +143,9 @@ class ArenaContextManager:
                 await self._lifecycle.cleanup()
     """
 
+    async def _cleanup(self) -> None:
+        """Cleanup resources. Subclasses should override this."""
+
     async def __aenter__(self) -> "ArenaContextManager":
         """Enter async context - prepare for debate.
 
@@ -163,7 +166,7 @@ class ArenaContextManager:
         Cancels any pending arena-related tasks and clears caches.
         This ensures clean teardown even when tests timeout or fail.
         """
-        await self._cleanup()  # type: ignore[attr-defined]
+        await self._cleanup()
 
 
 __all__ = ["LifecycleManager", "ArenaContextManager"]

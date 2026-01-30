@@ -11,7 +11,7 @@ import logging
 import os
 from typing import Any, Literal, cast
 
-from aragora.agents.base import create_agent
+from aragora.agents.base import AgentType, create_agent
 from aragora.agents.spec import AgentSpec
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.core import Environment
@@ -112,7 +112,7 @@ async def run_debate(
                 role = "critic"
 
         agent = create_agent(
-            model_type=spec.provider,  # type: ignore[arg-type]
+            model_type=cast(AgentType, spec.provider),
             name=spec.name or f"{spec.provider}_{role}",
             role=role,
             model=spec.model,  # Pass model from spec

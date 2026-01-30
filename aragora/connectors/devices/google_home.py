@@ -235,12 +235,15 @@ class GoogleHomeConnector(DeviceConnector):
                 from cryptography.hazmat.primitives import hashes, serialization
                 from cryptography.hazmat.primitives.asymmetric import padding
 
+                from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+
                 key = serialization.load_pem_private_key(
                     private_key.encode(),
                     password=None,
                 )
+                assert isinstance(key, RSAPrivateKey)
                 message = f"{header_b64}.{payload_b64}".encode()
-                signature = key.sign(  # type: ignore[union-attr]  # RSA key sign method
+                signature = key.sign(
                     message,
                     padding.PKCS1v15(),
                     hashes.SHA256(),

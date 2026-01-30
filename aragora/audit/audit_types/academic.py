@@ -390,9 +390,9 @@ class AcademicAuditor(BaseAuditor):
         findings = []
 
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent  # type: ignore[attr-defined]
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            agent = AnthropicAgent(name="academic_reviewer", model=context.model)
+            agent = AnthropicAPIAgent(name="academic_reviewer", model=context.model)
 
             prompt = f"""Analyze this academic text for integrity issues:
 

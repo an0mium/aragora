@@ -329,9 +329,9 @@ class HealthcareAuditor(BaseAuditor):
         findings = []
 
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent  # type: ignore[attr-defined]
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            agent = AnthropicAgent(name="healthcare_analyst", model=context.model)
+            agent = AnthropicAPIAgent(name="healthcare_analyst", model=context.model)
 
             prompt = f"""Analyze this clinical documentation for HIPAA compliance and quality:
 

@@ -639,7 +639,7 @@ async def audit_ai_code(
     """
     from ..document_auditor import AuditSession
 
-    session = AuditSession(workspace_id="quick_audit")  # type: ignore[call-arg]
+    session = AuditSession(name="quick_audit")
     context = AuditContext(session=session)
 
     chunk = ChunkData(

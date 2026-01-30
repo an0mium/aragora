@@ -19,7 +19,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 __all__ = [
     # Logging
@@ -308,7 +308,7 @@ async def store_fact(
         confidence = context.get(confidence_field, 0.5)
         debate_id = context.get("debate_id", "unknown")
 
-        await mound.store_verified_fact(  # type: ignore[misc]
+        await cast(Any, mound).store_verified_fact(
             content=str(content),
             source=f"{source}:{fact_type}",
             confidence=float(confidence),

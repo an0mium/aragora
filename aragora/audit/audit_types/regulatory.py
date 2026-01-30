@@ -408,9 +408,9 @@ class RegulatoryAuditor(BaseAuditor):
         findings = []
 
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent  # type: ignore[attr-defined]
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            agent = AnthropicAgent(name="regulatory_analyst", model=context.model)
+            agent = AnthropicAPIAgent(name="regulatory_analyst", model=context.model)
 
             frameworks_str = ", ".join(f.value.upper() for f in self._frameworks)
 

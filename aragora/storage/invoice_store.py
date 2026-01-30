@@ -861,9 +861,9 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
 
         total_amount = data.get("total_amount", "0")
         if isinstance(total_amount, Decimal):
-            total_amount = float(total_amount)
+            total_amount = str(total_amount)
         elif isinstance(total_amount, str):
-            total_amount = float(Decimal(total_amount))
+            total_amount = str(Decimal(total_amount))
 
         def parse_date(val: Any) -> datetime | None:
             if val is None:
@@ -1051,7 +1051,7 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
                 """,
                 vendor_id,
                 invoice_number,
-                float(total_amount),
+                str(total_amount),
             )
             results = []
             for row in rows:
@@ -1147,51 +1147,54 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
         reference: str | None = None,
     ) -> bool:
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT data_json FROM invoices WHERE id = $1",
-                invoice_id,
-            )
-            if not row:
-                return False
+            # Use a transaction with FOR UPDATE to prevent race conditions
+            # when multiple payments are recorded concurrently
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    "SELECT data_json FROM invoices WHERE id = $1 FOR UPDATE",
+                    invoice_id,
+                )
+                if not row:
+                    return False
 
-            raw_data = row["data_json"]
-            data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+                raw_data = row["data_json"]
+                data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
 
-            payments = data.get("payments", [])
-            payments.append(
-                {
-                    "amount": str(amount),
-                    "payment_date": payment_date.isoformat(),
-                    "payment_method": payment_method,
-                    "reference": reference,
-                }
-            )
-            data["payments"] = payments
+                payments = data.get("payments", [])
+                payments.append(
+                    {
+                        "amount": str(amount),
+                        "payment_date": payment_date.isoformat(),
+                        "payment_method": payment_method,
+                        "reference": reference,
+                    }
+                )
+                data["payments"] = payments
 
-            total_paid = sum(Decimal(p["amount"]) for p in payments)
-            data["amount_paid"] = str(total_paid)
+                total_paid = sum(Decimal(p["amount"]) for p in payments)
+                data["amount_paid"] = str(total_paid)
 
-            total = data.get("total_amount", Decimal("0"))
-            if isinstance(total, str):
-                total = Decimal(total)
-            data["balance_due"] = str(total - total_paid)
+                total = data.get("total_amount", Decimal("0"))
+                if isinstance(total, str):
+                    total = Decimal(total)
+                data["balance_due"] = str(total - total_paid)
 
-            if total_paid >= total:
-                data["status"] = "paid"
+                if total_paid >= total:
+                    data["status"] = "paid"
 
-            data["updated_at"] = datetime.now(timezone.utc).isoformat()
+                data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-            result = await conn.execute(
-                """
-                UPDATE invoices
-                SET status = $1, updated_at = NOW(), data_json = $2
-                WHERE id = $3
-                """,
-                data["status"],
-                json.dumps(data, cls=DecimalEncoder),
-                invoice_id,
-            )
-            return result != "UPDATE 0"
+                result = await conn.execute(
+                    """
+                    UPDATE invoices
+                    SET status = $1, updated_at = NOW(), data_json = $2
+                    WHERE id = $3
+                    """,
+                    data["status"],
+                    json.dumps(data, cls=DecimalEncoder),
+                    invoice_id,
+                )
+                return result != "UPDATE 0"
 
     async def close(self) -> None:
         pass

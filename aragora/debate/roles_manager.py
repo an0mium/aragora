@@ -8,12 +8,13 @@ for agents participating in debates. Extracted from orchestrator.py.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.personas import PersonaManager
     from aragora.core import Agent
+    from aragora.core_types import AgentStance
     from aragora.debate.prompt_builder import PromptBuilder
     from aragora.debate.protocol import DebateProtocol
     from aragora.debate.role_matcher import RoleMatcher
@@ -131,7 +132,7 @@ class RolesManager:
             else:
                 stance_idx = i % len(stances)
 
-            agent.stance = stances[stance_idx]  # type: ignore[assignment]
+            agent.stance = cast("AgentStance", stances[stance_idx])
 
     def apply_agreement_intensity(self) -> None:
         """Apply agreement intensity guidance to all agents' system prompts.

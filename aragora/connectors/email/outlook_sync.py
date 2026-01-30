@@ -438,7 +438,8 @@ class OutlookSyncService:
                 message_id = self._extract_message_id(webhook.resource)
                 if message_id:
                     try:
-                        msg = await self._connector.get_message(message_id)  # type: ignore[attr-defined]  # Dynamic connector method
+                        assert self._connector is not None
+                        msg = await self._connector.get_message(message_id)
                         synced = await self._process_message(
                             msg,
                             is_new=(webhook.change_type == "created"),

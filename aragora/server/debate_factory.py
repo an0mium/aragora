@@ -44,6 +44,7 @@ except ImportError:
     create_agent: Any = None
 
 if TYPE_CHECKING:
+    from aragora.agents.base import AgentType
     from aragora.agents.grounded import MomentDetector
     from aragora.agents.personas import PersonaManager
     from aragora.agents.positions import PositionLedger
@@ -247,7 +248,7 @@ class DebateFactory:
                     role = "critic"
             try:
                 agent = create_agent(
-                    model_type=spec.provider,  # type: ignore[arg-type]
+                    model_type=cast("AgentType", spec.provider),
                     name=spec.name,
                     role=role,
                     model=spec.model,  # Pass model from spec
