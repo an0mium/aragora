@@ -12,11 +12,12 @@ Tests cover:
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.core import Critique, Message
 from aragora.debate.phases.critique_generator import (
     CritiqueGenerator,
     CritiqueResult,
@@ -37,40 +38,6 @@ class MockAgent:
     provider: str = "test-provider"
     model_type: str = "test-model"
     timeout: float = 30.0
-
-
-@dataclass
-class MockCritique:
-    """Mock critique for testing."""
-
-    agent: str = "critic1"
-    target_agent: str = "target1"
-    target_content: str = "Some content"
-    issues: list[str] = field(default_factory=lambda: ["Issue 1", "Issue 2"])
-    suggestions: list[str] = field(default_factory=lambda: ["Suggestion 1"])
-    severity: float = 5.0
-    reasoning: str = "Test reasoning"
-
-    def to_prompt(self) -> str:
-        """Format critique for inclusion in prompts."""
-        issues_str = "\n".join(f"  - {i}" for i in self.issues)
-        suggestions_str = "\n".join(f"  - {s}" for s in self.suggestions)
-        return f"""Critique from {self.agent} (severity: {self.severity:.1f}):
-Issues:
-{issues_str}
-Suggestions:
-{suggestions_str}
-Reasoning: {self.reasoning}"""
-
-
-@dataclass
-class MockMessage:
-    """Mock message for testing."""
-
-    role: str = "critic"
-    agent: str = "critic1"
-    content: str = "Test content"
-    round: int = 1
 
 
 @dataclass
@@ -138,6 +105,25 @@ class MockCircuitBreaker:
         self.successes[agent_name] = self.successes.get(agent_name, 0) + 1
 
 
+def create_critique(
+    agent: str = "critic1",
+    target_agent: str = "target1",
+    issues: list[str] | None = None,
+    suggestions: list[str] | None = None,
+    severity: float = 5.0,
+) -> Critique:
+    """Create a real Critique object for testing."""
+    return Critique(
+        agent=agent,
+        target_agent=target_agent,
+        target_content="Some content",
+        issues=issues if issues is not None else ["Issue 1", "Issue 2"],
+        suggestions=suggestions if suggestions is not None else ["Suggestion 1"],
+        severity=severity,
+        reasoning="Test reasoning",
+    )
+
+
 # =============================================================================
 # CritiqueResult Tests
 # =============================================================================
@@ -151,7 +137,7 @@ class TestCritiqueResult:
         result = CritiqueResult(
             critic=MockAgent(),
             target_agent="target1",
-            critique=MockCritique(),
+            critique=create_critique(),
             error=None,
         )
 
@@ -162,7 +148,7 @@ class TestCritiqueResult:
         result = CritiqueResult(
             critic=MockAgent(),
             target_agent="target1",
-            critique=MockCritique(),
+            critique=create_critique(),
             error=ValueError("Some error"),
         )
 
@@ -212,37 +198,37 @@ class TestIsEffectivelyEmptyCritique:
 
     def test_returns_true_for_empty_issues_and_suggestions(self):
         """Returns True when both issues and suggestions are empty."""
-        critique = MockCritique(issues=[], suggestions=[])
+        critique = create_critique(issues=[], suggestions=[])
 
         assert _is_effectively_empty_critique(critique) is True
 
     def test_returns_true_for_whitespace_only_issues(self):
         """Returns True when issues contain only whitespace."""
-        critique = MockCritique(issues=["   ", "\t", "\n"], suggestions=[])
+        critique = create_critique(issues=["   ", "\t", "\n"], suggestions=[])
 
         assert _is_effectively_empty_critique(critique) is True
 
     def test_returns_true_for_agent_response_was_empty_placeholder(self):
         """Returns True when single issue is 'agent response was empty'."""
-        critique = MockCritique(issues=["agent response was empty"], suggestions=[])
+        critique = create_critique(issues=["agent response was empty"], suggestions=[])
 
         assert _is_effectively_empty_critique(critique) is True
 
     def test_returns_true_for_agent_produced_empty_output_placeholder(self):
         """Returns True for '(agent produced empty output)' placeholder."""
-        critique = MockCritique(issues=["(agent produced empty output)"], suggestions=[])
+        critique = create_critique(issues=["(agent produced empty output)"], suggestions=[])
 
         assert _is_effectively_empty_critique(critique) is True
 
     def test_returns_true_for_unparenthesized_empty_output_placeholder(self):
         """Returns True for 'agent produced empty output' without parens."""
-        critique = MockCritique(issues=["agent produced empty output"], suggestions=[])
+        critique = create_critique(issues=["agent produced empty output"], suggestions=[])
 
         assert _is_effectively_empty_critique(critique) is True
 
     def test_returns_false_for_placeholder_with_real_suggestions(self):
         """Returns False when placeholder issue exists but has real suggestions."""
-        critique = MockCritique(
+        critique = create_critique(
             issues=["agent response was empty"],
             suggestions=["Try adding more detail"],
         )
@@ -251,7 +237,7 @@ class TestIsEffectivelyEmptyCritique:
 
     def test_returns_false_for_real_issues(self):
         """Returns False when there are real issues."""
-        critique = MockCritique(
+        critique = create_critique(
             issues=["The proposal lacks specificity", "Missing error handling"],
             suggestions=[],
         )
@@ -260,7 +246,7 @@ class TestIsEffectivelyEmptyCritique:
 
     def test_returns_false_for_real_suggestions(self):
         """Returns False when there are real suggestions."""
-        critique = MockCritique(
+        critique = create_critique(
             issues=[],
             suggestions=["Add more test coverage", "Consider edge cases"],
         )
@@ -269,7 +255,7 @@ class TestIsEffectivelyEmptyCritique:
 
     def test_returns_false_for_both_real_issues_and_suggestions(self):
         """Returns False when there are both real issues and suggestions."""
-        critique = MockCritique(
+        critique = create_critique(
             issues=["Missing validation"],
             suggestions=["Add input validation"],
         )
@@ -278,7 +264,7 @@ class TestIsEffectivelyEmptyCritique:
 
     def test_handles_mixed_whitespace_and_real_issues(self):
         """Returns False when there's at least one real issue among whitespace."""
-        critique = MockCritique(
+        critique = create_critique(
             issues=["  ", "Real issue here", "\t"],
             suggestions=[],
         )
@@ -450,7 +436,7 @@ class TestExecuteCritiquePhase:
     @pytest.mark.asyncio
     async def test_generates_critiques_for_valid_proposals(self):
         """Generates critiques for proposals that are not empty."""
-        mock_critique = MockCritique(agent="critic1", target_agent="proposer1")
+        mock_critique = create_critique(agent="critic1", target_agent="proposer1")
         critique_cb = AsyncMock(return_value=mock_critique)
 
         gen = CritiqueGenerator(critique_with_agent=critique_cb)
@@ -459,15 +445,13 @@ class TestExecuteCritiquePhase:
         critic = MockAgent(name="critic1")
         critics = [critic]
 
-        with patch("aragora.core.Message", MockMessage):
-            with patch("aragora.core.Critique", MockCritique):
-                messages, critiques = await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        messages, critiques = await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         # Should generate critiques since proposals are valid
         assert critique_cb.called
@@ -475,7 +459,7 @@ class TestExecuteCritiquePhase:
     @pytest.mark.asyncio
     async def test_skips_empty_proposals(self):
         """Skips proposals that contain empty output placeholder."""
-        critique_cb = AsyncMock(return_value=MockCritique())
+        critique_cb = AsyncMock(return_value=create_critique())
 
         gen = CritiqueGenerator(critique_with_agent=critique_cb)
         ctx = MockDebateContext()
@@ -485,15 +469,13 @@ class TestExecuteCritiquePhase:
         }
         critics = [MockAgent(name="critic1")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         # Only the valid proposal should be critiqued
         call_args = critique_cb.call_args_list
@@ -512,15 +494,13 @@ class TestExecuteCritiquePhase:
         ctx.proposals = {"proposer1": "Valid proposal"}
         critics = [MockAgent(name="critic1")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                messages, critiques = await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        messages, critiques = await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         # Should have recorded a failure
         assert "critic1" in ctx.agent_failures
@@ -529,7 +509,7 @@ class TestExecuteCritiquePhase:
     async def test_handles_empty_critiques_with_retry(self):
         """Retries when critique is effectively empty, then fails."""
         # First call returns empty, retry also returns empty
-        empty_critique = MockCritique(issues=[], suggestions=[])
+        empty_critique = create_critique(issues=[], suggestions=[])
         critique_cb = AsyncMock(return_value=empty_critique)
 
         gen = CritiqueGenerator(critique_with_agent=critique_cb)
@@ -537,15 +517,13 @@ class TestExecuteCritiquePhase:
         ctx.proposals = {"proposer1": "Valid proposal"}
         critics = [MockAgent(name="critic1")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         # Should have been called twice (initial + retry)
         assert critique_cb.call_count >= 2
@@ -553,7 +531,7 @@ class TestExecuteCritiquePhase:
     @pytest.mark.asyncio
     async def test_calls_heartbeat_callback_periodically(self):
         """Calls heartbeat callback during critique generation."""
-        mock_critique = MockCritique(agent="critic1", target_agent="proposer1")
+        mock_critique = create_critique(agent="critic1", target_agent="proposer1")
         critique_cb = AsyncMock(return_value=mock_critique)
         heartbeat_cb = MagicMock()
 
@@ -565,15 +543,13 @@ class TestExecuteCritiquePhase:
         ctx.proposals = {"proposer1": "Valid proposal"}
         critics = [MockAgent(name="critic1")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         # Heartbeat should be called
         assert heartbeat_cb.called
@@ -581,7 +557,7 @@ class TestExecuteCritiquePhase:
     @pytest.mark.asyncio
     async def test_uses_select_critics_callback_when_provided(self):
         """Uses select_critics_for_proposal callback when provided."""
-        mock_critique = MockCritique()
+        mock_critique = create_critique()
         critique_cb = AsyncMock(return_value=mock_critique)
         select_critics = MagicMock(return_value=[MockAgent(name="selected-critic")])
 
@@ -593,22 +569,20 @@ class TestExecuteCritiquePhase:
         ctx.proposals = {"proposer1": "Valid proposal"}
         critics = [MockAgent(name="critic1"), MockAgent(name="critic2")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         select_critics.assert_called()
 
     @pytest.mark.asyncio
     async def test_excludes_proposer_from_critics_by_default(self):
         """Excludes the proposer from being a critic of their own proposal."""
-        mock_critique = MockCritique()
+        mock_critique = create_critique()
         critique_cb = AsyncMock(return_value=mock_critique)
 
         gen = CritiqueGenerator(critique_with_agent=critique_cb)
@@ -617,15 +591,13 @@ class TestExecuteCritiquePhase:
         # Include the proposer in the critics list
         critics = [MockAgent(name="proposer1"), MockAgent(name="critic2")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         # Only critic2 should have been used (proposer1 excluded)
         for call in critique_cb.call_args_list:
@@ -642,7 +614,7 @@ class TestExecuteCritiquePhase:
 
             call_times.append(time.time())
             await asyncio.sleep(0.1)
-            return MockCritique()
+            return create_critique()
 
         gen = CritiqueGenerator(
             critique_with_agent=track_critique,
@@ -652,15 +624,13 @@ class TestExecuteCritiquePhase:
         ctx.proposals = {"p1": "Proposal 1", "p2": "Proposal 2"}
         critics = [MockAgent(name="c1"), MockAgent(name="c2")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         # With max_concurrent=1, calls should be sequential
         # We can't guarantee exact order but calls should complete
@@ -668,7 +638,7 @@ class TestExecuteCritiquePhase:
     @pytest.mark.asyncio
     async def test_with_timeout_wrapper_used_when_provided(self):
         """Uses with_timeout wrapper when provided."""
-        mock_critique = MockCritique()
+        mock_critique = create_critique()
         critique_cb = AsyncMock(return_value=mock_critique)
         timeout_wrapper = AsyncMock(return_value=mock_critique)
 
@@ -680,15 +650,13 @@ class TestExecuteCritiquePhase:
         ctx.proposals = {"proposer1": "Valid proposal"}
         critics = [MockAgent(name="critic1")]
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                await gen.execute_critique_phase(
-                    ctx=ctx,
-                    critics=critics,
-                    round_num=1,
-                    partial_messages=[],
-                    partial_critiques=[],
-                )
+        await gen.execute_critique_phase(
+            ctx=ctx,
+            critics=critics,
+            round_num=1,
+            partial_messages=[],
+            partial_critiques=[],
+        )
 
         timeout_wrapper.assert_called()
 
@@ -721,7 +689,7 @@ class TestProcessCritiqueResult:
         partial_messages = []
         partial_critiques = []
 
-        mock_critique = MockCritique(
+        mock_critique = create_critique(
             agent="critic1",
             target_agent="target1",
             issues=["Issue 1"],
@@ -734,18 +702,16 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                returned = gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        returned = gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         # Circuit breaker should record success
         assert circuit_breaker.successes.get("critic1", 0) > 0
@@ -775,7 +741,7 @@ class TestProcessCritiqueResult:
         partial_critiques = []
 
         # Empty critique
-        empty_critique = MockCritique(issues=[], suggestions=[])
+        empty_critique = create_critique(issues=[], suggestions=[])
         crit_result = CritiqueResult(
             critic=MockAgent(name="critic1"),
             target_agent="target1",
@@ -783,18 +749,16 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         # Circuit breaker should record failure
         assert circuit_breaker.failures.get("critic1", 0) > 0
@@ -828,18 +792,16 @@ class TestProcessCritiqueResult:
             error=RuntimeError("Something went wrong"),
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                returned = gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        returned = gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         # Circuit breaker should record failure
         assert circuit_breaker.failures.get("critic1", 0) > 0
@@ -872,18 +834,16 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         # Circuit breaker should have recorded a failure
         assert circuit_breaker.failures.get("critic1", 0) > 0
@@ -902,7 +862,7 @@ class TestProcessCritiqueResult:
         partial_messages = []
         partial_critiques = []
 
-        mock_critique = MockCritique(
+        mock_critique = create_critique(
             agent="critic1",
             target_agent="target1",
             issues=["Issue 1"],
@@ -915,18 +875,16 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         notify_spectator.assert_called_once()
 
@@ -944,7 +902,7 @@ class TestProcessCritiqueResult:
         partial_messages = []
         partial_critiques = []
 
-        mock_critique = MockCritique(
+        mock_critique = create_critique(
             agent="critic1",
             target_agent="target1",
             issues=["Issue 1"],
@@ -956,18 +914,16 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         recorder.record_turn.assert_called_once()
 
@@ -986,7 +942,7 @@ class TestProcessCritiqueResult:
         partial_messages = []
         partial_critiques = []
 
-        mock_critique = MockCritique()
+        mock_critique = create_critique()
         crit_result = CritiqueResult(
             critic=MockAgent(name="critic1"),
             target_agent="target1",
@@ -994,19 +950,17 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                # Should not raise
-                gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        # Should not raise
+        gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
     def test_adds_message_to_context(self):
         """Adds critique message to context messages."""
@@ -1020,7 +974,7 @@ class TestProcessCritiqueResult:
         partial_messages = []
         partial_critiques = []
 
-        mock_critique = MockCritique()
+        mock_critique = create_critique()
         crit_result = CritiqueResult(
             critic=MockAgent(name="critic1"),
             target_agent="target1",
@@ -1028,18 +982,16 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         # Message should be added to context
         assert len(ctx.context_messages) == 1
@@ -1064,18 +1016,16 @@ class TestProcessCritiqueResult:
             error=None,
         )
 
-        with patch("aragora.debate.phases.critique_generator.Message", MockMessage):
-            with patch("aragora.debate.phases.critique_generator.Critique", MockCritique):
-                returned = gen._process_critique_result(
-                    crit_result,
-                    ctx,
-                    round_num=1,
-                    result=result,
-                    new_messages=new_messages,
-                    new_critiques=new_critiques,
-                    partial_messages=partial_messages,
-                    partial_critiques=partial_critiques,
-                )
+        returned = gen._process_critique_result(
+            crit_result,
+            ctx,
+            round_num=1,
+            result=result,
+            new_messages=new_messages,
+            new_critiques=new_critiques,
+            partial_messages=partial_messages,
+            partial_critiques=partial_critiques,
+        )
 
         # Placeholder should be created and added
         assert len(new_critiques) == 1
@@ -1100,7 +1050,7 @@ class TestMoleculeTracking:
 
         gen = CritiqueGenerator(molecule_tracker=tracker)
 
-        with patch("aragora.debate.phases.critique_generator.MoleculeType") as mock_type:
+        with patch("aragora.debate.molecules.MoleculeType") as mock_type:
             mock_type.CRITIQUE = "CRITIQUE"
             gen._create_critique_molecule(
                 debate_id="debate-1",

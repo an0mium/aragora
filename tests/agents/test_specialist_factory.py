@@ -418,10 +418,10 @@ class TestCreateAgent:
 
         config = AgentConfig(vertical=Vertical.LEGAL)
 
-        # Mock TinkerAgent at the import point in specialist_factory
+        # Mock TinkerAgent at the import location
         mock_tinker_agent = MagicMock()
         with patch(
-            "aragora.agents.specialist_factory.TinkerAgent",
+            "aragora.agents.api_agents.tinker.TinkerAgent",
             return_value=mock_tinker_agent,
         ):
             result = await factory.create(config)
@@ -475,10 +475,10 @@ class TestCreateAgent:
 
         config = AgentConfig(vertical=Vertical.LEGAL, org_id="org-123")
 
-        # Mock TinkerAgent at the import point in specialist_factory
+        # Mock TinkerAgent at the import location
         mock_tinker_agent = MagicMock()
         with patch(
-            "aragora.agents.specialist_factory.TinkerAgent",
+            "aragora.agents.api_agents.tinker.TinkerAgent",
             return_value=mock_tinker_agent,
         ):
             result = await factory.create(config)

@@ -987,8 +987,8 @@ class TestEdgeCases:
         # Text should be truncated to 200 characters
         assert len(summary["positions"][0]["text"]) == 200
 
-    def test_synthesize_persona_elo_not_available(self, laboratory):
-        """Test persona synthesis when ELO lookup fails."""
+    def test_synthesize_persona_elo_error_propagates(self, laboratory):
+        """Test that ELO lookup errors propagate."""
         mock_elo = MagicMock()
         mock_elo.get_rating.side_effect = KeyError("Agent not found")
 
@@ -997,11 +997,20 @@ class TestEdgeCases:
             elo_system=mock_elo,
         )
 
-        # Should use defaults when ELO lookup fails
-        persona = lab.synthesize_persona("unknown")
+        # Error should propagate since code doesn't catch exceptions
+        with pytest.raises(KeyError):
+            lab.synthesize_persona("unknown")
+
+    def test_synthesize_persona_no_elo_system(self, laboratory):
+        """Test persona synthesis without ELO system uses defaults."""
+        # Laboratory without ELO system
+        assert laboratory.elo_system is None
+
+        persona = laboratory.synthesize_persona("some_agent")
 
         assert persona.elo_rating == 1500.0
         assert persona.elo_win_rate == 0.0
+        assert persona.elo_calibration == 0.0
 
 
 # ============================================================================

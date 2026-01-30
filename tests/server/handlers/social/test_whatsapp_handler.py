@@ -173,13 +173,19 @@ class TestWebhookVerification:
             method="GET",
         )
 
+        test_verify_token = "test_verify_token_12345"
         query_params = {
             "hub.mode": "subscribe",
-            "hub.verify_token": WHATSAPP_VERIFY_TOKEN,
+            "hub.verify_token": test_verify_token,
             "hub.challenge": "challenge_string_123",
         }
 
-        result = handler.handle("/api/v1/integrations/whatsapp/webhook", query_params, mock_http)
+        with patch(
+            "aragora.server.handlers.social.whatsapp.WHATSAPP_VERIFY_TOKEN", test_verify_token
+        ):
+            result = handler.handle(
+                "/api/v1/integrations/whatsapp/webhook", query_params, mock_http
+            )
 
         assert result is not None
         assert get_status_code(result) == 200
