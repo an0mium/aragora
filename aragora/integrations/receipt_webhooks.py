@@ -136,13 +136,13 @@ class ReceiptWebhookNotifier:
             rounds: Number of debate rounds
             findings_count: Number of findings in the receipt
         """
-        metadata = {}
+        metadata: dict[str, Any] = {}
         if agents:
             metadata["agents"] = agents
         if rounds is not None:
-            metadata["rounds"] = rounds  # type: ignore[assignment]
+            metadata["rounds"] = rounds
         if findings_count is not None:
-            metadata["findings_count"] = findings_count  # type: ignore[assignment]
+            metadata["findings_count"] = findings_count
 
         payload = ReceiptWebhookPayload(
             event_type="receipt_generated",
@@ -229,9 +229,9 @@ class ReceiptWebhookNotifier:
             expires_at: Expiration timestamp (ISO 8601)
             allow_download: Whether download is allowed
         """
-        metadata = {"allow_download": allow_download}
+        metadata: dict[str, Any] = {"allow_download": allow_download}
         if expires_at:
-            metadata["expires_at"] = expires_at  # type: ignore[assignment]
+            metadata["expires_at"] = expires_at
 
         payload = ReceiptWebhookPayload(
             event_type="receipt_shared",

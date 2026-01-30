@@ -487,21 +487,21 @@ class SubsystemCoordinator:
             from aragora.debate.hook_handlers import HookHandlerRegistry
 
             # Collect available subsystems for the registry
-            subsystems = {}
+            subsystems: dict[str, Any] = {}
             if self.continuum_memory:
                 subsystems["continuum_memory"] = self.continuum_memory
             if self.consensus_memory:
-                subsystems["consensus_memory"] = self.consensus_memory  # type: ignore[assignment]
+                subsystems["consensus_memory"] = self.consensus_memory
             if self.calibration_tracker:
-                subsystems["calibration_tracker"] = self.calibration_tracker  # type: ignore[assignment]
+                subsystems["calibration_tracker"] = self.calibration_tracker
             if self.flip_detector:
-                subsystems["flip_detector"] = self.flip_detector  # type: ignore[assignment]
+                subsystems["flip_detector"] = self.flip_detector
             if self.elo_system:
-                subsystems["elo_system"] = self.elo_system  # type: ignore[assignment]
+                subsystems["elo_system"] = self.elo_system
             if self.relationship_tracker:
                 subsystems["relationship_tracker"] = self.relationship_tracker
             if self.tier_analytics_tracker:
-                subsystems["tier_analytics_tracker"] = self.tier_analytics_tracker  # type: ignore[assignment]
+                subsystems["tier_analytics_tracker"] = self.tier_analytics_tracker
 
             self.hook_handler_registry = HookHandlerRegistry(
                 hook_manager=self.hook_manager,

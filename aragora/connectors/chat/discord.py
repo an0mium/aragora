@@ -1004,7 +1004,7 @@ class DiscordConnector(ChatPlatformConnector):
                 },
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError) as e:
             logger.debug(f"Discord get_channel_info error: {e}")
             return None
 
@@ -1072,6 +1072,6 @@ class DiscordConnector(ChatPlatformConnector):
                 },
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError) as e:
             logger.debug(f"Discord get_user_info error: {e}")
             return None

@@ -23,6 +23,7 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -50,6 +51,73 @@ from aragora.connectors.exceptions import (
     ConnectorRateLimitError,
     ConnectorTimeoutError,
 )
+
+
+def _make_aiohttp_session(response_mock=None, *, post_response=None, side_effect=None):
+    """Build a mock aiohttp.ClientSession that supports nested async context managers.
+
+    aiohttp uses the pattern::
+
+        async with aiohttp.ClientSession() as session:
+            async with session.request(...) as resp:
+                ...
+
+    Both levels need proper ``__aenter__`` / ``__aexit__`` support.
+
+    Args:
+        response_mock: The mock response returned by ``session.request()``.
+        post_response: Optional separate mock response for ``session.post()``.
+                       Falls back to *response_mock* if not given.
+        side_effect: If provided, ``session.request()`` will raise this instead
+                     of returning a response.
+    """
+
+    post_resp = post_response or response_mock
+
+    class _ResponseCM:
+        """Async context manager wrapping a mock response."""
+
+        def __init__(self, resp):
+            self._resp = resp
+
+        async def __aenter__(self):
+            return self._resp
+
+        async def __aexit__(self, *args):
+            return False
+
+    class _RaiseCM:
+        """Async context manager that raises on enter."""
+
+        def __init__(self, exc):
+            self._exc = exc
+
+        async def __aenter__(self):
+            raise self._exc
+
+        async def __aexit__(self, *args):
+            return False
+
+    class _MockSession:
+        def post(self, *a, **kw):
+            return _ResponseCM(post_resp)
+
+        def request(self, *a, **kw):
+            if side_effect is not None:
+                return _RaiseCM(side_effect)
+            return _ResponseCM(response_mock)
+
+    class _MockClientSession:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def __aenter__(self):
+            return _MockSession()
+
+        async def __aexit__(self, *args):
+            return False
+
+    return _MockClientSession
 
 
 # =============================================================================
