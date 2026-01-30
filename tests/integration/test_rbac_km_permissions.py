@@ -32,8 +32,8 @@ def admin_context() -> AuthorizationContext:
     return AuthorizationContext(
         user_id="admin-123",
         org_id="org-main",
-        roles=["admin"],
-        permissions=[
+        roles={"admin"},
+        permissions={
             "knowledge.read",
             "knowledge.write",
             "knowledge.delete",
@@ -41,7 +41,7 @@ def admin_context() -> AuthorizationContext:
             "receipts.read",
             "receipts.verify",
             "receipts.export",
-        ],
+        },
     )
 
 
@@ -51,11 +51,11 @@ def viewer_context() -> AuthorizationContext:
     return AuthorizationContext(
         user_id="viewer-456",
         org_id="org-main",
-        roles=["viewer"],
-        permissions=[
+        roles={"viewer"},
+        permissions={
             "knowledge.read",
             "receipts.read",
-        ],
+        },
     )
 
 
@@ -65,10 +65,10 @@ def restricted_context() -> AuthorizationContext:
     return AuthorizationContext(
         user_id="restricted-789",
         org_id="org-main",
-        roles=["basic"],
-        permissions=[
+        roles={"basic"},
+        permissions={
             "debates.read",  # Can read debates but NOT knowledge
-        ],
+        },
     )
 
 
@@ -78,12 +78,12 @@ def other_org_context() -> AuthorizationContext:
     return AuthorizationContext(
         user_id="user-other",
         org_id="org-other",
-        roles=["admin"],  # Admin in their own org
-        permissions=[
+        roles={"admin"},  # Admin in their own org
+        permissions={
             "knowledge.read",
             "knowledge.write",
             "receipts.read",
-        ],
+        },
     )
 
 
