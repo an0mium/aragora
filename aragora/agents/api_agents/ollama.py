@@ -28,6 +28,7 @@ from aragora.agents.api_agents.common import (
     _sanitize_error_message,
     create_client_session,
     handle_agent_errors,
+    iter_chunks_with_timeout,
 )
 from aragora.agents.registry import AgentRegistry
 
@@ -104,13 +105,18 @@ class OllamaAgent(APIAgent):
                 f"{self.base_url}/api/pull",
                 json={"name": model_name, "stream": True},
             ) as response:
-                async for line in response.content:
-                    if line:
-                        try:
-                            data = json.loads(line.decode())
-                            yield data
-                        except json.JSONDecodeError:
-                            continue
+                # Use per-chunk timeout to prevent hanging on stalled streams
+                buffer = ""
+                async for chunk in iter_chunks_with_timeout(response.content, chunk_timeout=300.0):
+                    buffer += chunk.decode("utf-8", errors="ignore")
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        if line.strip():
+                            try:
+                                data = json.loads(line)
+                                yield data
+                            except json.JSONDecodeError:
+                                continue
 
     async def model_info(self, model_name: str | None = None) -> dict:
         """Get detailed info about a model.
@@ -226,16 +232,21 @@ class OllamaAgent(APIAgent):
                             status_code=response.status,
                         )
 
-                    async for line in response.content:
-                        if line:
-                            try:
-                                data = json.loads(line.decode())
-                                if token := data.get("response"):
-                                    yield token
-                                if data.get("done"):
-                                    break
-                            except json.JSONDecodeError:
-                                continue
+                    # Use per-chunk timeout to prevent hanging on stalled streams
+                    buffer = ""
+                    async for chunk in iter_chunks_with_timeout(response.content):
+                        buffer += chunk.decode("utf-8", errors="ignore")
+                        while "\n" in buffer:
+                            line, buffer = buffer.split("\n", 1)
+                            if line.strip():
+                                try:
+                                    data = json.loads(line)
+                                    if token := data.get("response"):
+                                        yield token
+                                    if data.get("done"):
+                                        return
+                                except json.JSONDecodeError:
+                                    continue
 
             except aiohttp.ClientConnectorError as e:
                 raise AgentConnectionError(
