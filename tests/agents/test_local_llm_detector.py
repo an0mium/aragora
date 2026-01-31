@@ -710,18 +710,14 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_detect_local_llms_function(self):
         """Test detect_local_llms convenience function."""
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"models": [{"name": "test-model"}]})
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool(
+            {
+                "/api/tags": create_mock_response(200, {"models": [{"name": "test-model"}]}),
+                "/models": create_mock_response(200, {"data": []}),
+            }
+        )
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             status = await detect_local_llms()
 
             assert isinstance(status, LocalLLMStatus)
@@ -729,18 +725,14 @@ class TestConvenienceFunctions:
 
     def test_detect_local_llms_sync_function(self):
         """Test detect_local_llms_sync convenience function."""
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"models": []})
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool(
+            {
+                "/api/tags": create_mock_response(200, {"models": []}),
+                "/models": create_mock_response(200, {"data": []}),
+            }
+        )
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             status = detect_local_llms_sync()
 
             assert isinstance(status, LocalLLMStatus)
@@ -811,25 +803,32 @@ class TestURLConstruction:
         """Test trailing slash is handled in URL construction."""
         detector = LocalLLMDetector()
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"models": []})
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        # Track URLs called
+        called_urls = []
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = MagicMock()
+
+        @asynccontextmanager
+        async def mock_get_session(provider: str):
+            mock_client = MagicMock()
+
+            async def mock_get(url: str, timeout: float | None = None):
+                called_urls.append(url)
+                return create_mock_response(200, {"models": []})
+
+            mock_client.get = mock_get
+            yield mock_client
+
+        mock_pool.get_session = mock_get_session
 
         # Test with trailing slash in env var
         with patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434/"}):
-            with patch("aiohttp.ClientSession", return_value=mock_session):
+            with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
                 await detector.detect_ollama()
 
-                call_url = mock_session.get.call_args[0][0]
+                assert len(called_urls) == 1
                 # Should not have double slashes
-                assert "//" not in call_url.replace("http://", "")
+                assert "//" not in called_urls[0].replace("http://", "")
 
 
 # =============================================================================
@@ -847,23 +846,23 @@ class TestCachingBehavior:
 
         call_count = 0
 
-        def mock_get(url, **kwargs):
-            nonlocal call_count
-            call_count += 1
+        mock_pool = MagicMock()
 
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(return_value={"models": []})
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
-            return mock_response
+        @asynccontextmanager
+        async def mock_get_session(provider: str):
+            mock_client = MagicMock()
 
-        mock_session = MagicMock()
-        mock_session.get = mock_get
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+            async def mock_get(url: str, timeout: float | None = None):
+                nonlocal call_count
+                call_count += 1
+                return create_mock_response(200, {"models": []})
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+            mock_client.get = mock_get
+            yield mock_client
+
+        mock_pool.get_session = mock_get_session
+
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             await detector.detect_ollama()
             await detector.detect_ollama()
 

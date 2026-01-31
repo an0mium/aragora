@@ -434,7 +434,9 @@ class TestListPolicies:
         """Test listing policies returns correct format."""
         http_handler = create_mock_http_handler(path="/api/v1/policies")
 
-        result = await handler.handle("/api/v1/policies", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -451,7 +453,9 @@ class TestListPolicies:
             path="/api/v1/policies?workspace_id=default&enabled_only=true"
         )
 
-        result = await handler.handle("/api/v1/policies", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -462,7 +466,9 @@ class TestListPolicies:
         handler._get_policy_store = MagicMock(return_value=None)
         http_handler = create_mock_http_handler()
 
-        result = await handler.handle("/api/v1/policies", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -481,7 +487,9 @@ class TestGetPolicy:
         """Test getting a specific policy."""
         http_handler = create_mock_http_handler(path="/api/v1/policies/pol_test123")
 
-        result = await handler.handle("/api/v1/policies/pol_test123", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies/pol_test123", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -494,7 +502,9 @@ class TestGetPolicy:
         """Test getting non-existent policy returns 404."""
         http_handler = create_mock_http_handler(path="/api/v1/policies/nonexistent")
 
-        result = await handler.handle("/api/v1/policies/nonexistent", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies/nonexistent", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -505,7 +515,9 @@ class TestGetPolicy:
         # Use angle brackets which are rejected by SAFE_ID_PATTERN
         http_handler = create_mock_http_handler(path="/api/v1/policies/pol<invalid>")
 
-        result = await handler.handle("/api/v1/policies/pol<invalid>", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies/pol<invalid>", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -534,7 +546,9 @@ class TestCreatePolicy:
         )
 
         with patch("aragora.server.handlers.policy.audit_security") as mock_audit:
-            result = await handler.handle("/api/v1/policies", "POST", http_handler)
+            http_handler.command = "POST"
+
+            result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -552,7 +566,9 @@ class TestCreatePolicy:
             path="/api/v1/policies",
         )
 
-        result = await handler.handle("/api/v1/policies", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -566,7 +582,9 @@ class TestCreatePolicy:
         http_handler.headers = {"Content-Length": "10"}
         http_handler.rfile = BytesIO(b"not json!!")
 
-        result = await handler.handle("/api/v1/policies", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -584,7 +602,9 @@ class TestCreatePolicy:
             path="/api/v1/policies",
         )
 
-        result = await handler.handle("/api/v1/policies", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -608,7 +628,9 @@ class TestUpdatePolicy:
         )
 
         with patch("aragora.server.handlers.policy.audit_security") as mock_audit:
-            result = await handler.handle("/api/v1/policies/pol_test123", "PATCH", http_handler)
+            http_handler.command = "PATCH"
+
+            result = await handler.handle("/api/v1/policies/pol_test123", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -625,7 +647,9 @@ class TestUpdatePolicy:
             path="/api/v1/policies/nonexistent",
         )
 
-        result = await handler.handle("/api/v1/policies/nonexistent", "PATCH", http_handler)
+        http_handler.command = "PATCH"
+
+        result = await handler.handle("/api/v1/policies/nonexistent", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -638,7 +662,9 @@ class TestUpdatePolicy:
             path="/api/v1/policies/pol_test123",
         )
 
-        result = await handler.handle("/api/v1/policies/pol_test123", "PATCH", http_handler)
+        http_handler.command = "PATCH"
+
+        result = await handler.handle("/api/v1/policies/pol_test123", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -658,7 +684,9 @@ class TestDeletePolicy:
         http_handler = create_mock_http_handler(path="/api/v1/policies/pol_test123")
 
         with patch("aragora.server.handlers.policy.audit_security") as mock_audit:
-            result = await handler.handle("/api/v1/policies/pol_test123", "DELETE", http_handler)
+            http_handler.command = "DELETE"
+
+            result = await handler.handle("/api/v1/policies/pol_test123", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -672,7 +700,9 @@ class TestDeletePolicy:
         """Test deleting non-existent policy returns 404."""
         http_handler = create_mock_http_handler(path="/api/v1/policies/nonexistent")
 
-        result = await handler.handle("/api/v1/policies/nonexistent", "DELETE", http_handler)
+        http_handler.command = "DELETE"
+
+        result = await handler.handle("/api/v1/policies/nonexistent", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -696,9 +726,9 @@ class TestTogglePolicy:
         )
 
         with patch("aragora.server.handlers.policy.audit_security") as mock_audit:
-            result = await handler.handle(
-                "/api/v1/policies/pol_disabled/toggle", "POST", http_handler
-            )
+            http_handler.command = "POST"
+
+            result = await handler.handle("/api/v1/policies/pol_disabled/toggle", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -714,7 +744,9 @@ class TestTogglePolicy:
             path="/api/v1/policies/pol_test123/toggle",
         )
 
-        result = await handler.handle("/api/v1/policies/pol_test123/toggle", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/policies/pol_test123/toggle", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -729,7 +761,9 @@ class TestTogglePolicy:
             path="/api/v1/policies/pol_test123/toggle",
         )
 
-        result = await handler.handle("/api/v1/policies/pol_test123/toggle", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/policies/pol_test123/toggle", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -745,7 +779,9 @@ class TestTogglePolicy:
             path="/api/v1/policies/nonexistent/toggle",
         )
 
-        result = await handler.handle("/api/v1/policies/nonexistent/toggle", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/policies/nonexistent/toggle", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -770,9 +806,9 @@ class TestGetPolicyViolations:
 
         http_handler = create_mock_http_handler(path="/api/v1/policies/pol_test123/violations")
 
-        result = await handler.handle(
-            "/api/v1/policies/pol_test123/violations", "GET", http_handler
-        )
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies/pol_test123/violations", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -785,9 +821,9 @@ class TestGetPolicyViolations:
         """Test getting violations for non-existent policy returns 404."""
         http_handler = create_mock_http_handler(path="/api/v1/policies/nonexistent/violations")
 
-        result = await handler.handle(
-            "/api/v1/policies/nonexistent/violations", "GET", http_handler
-        )
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies/nonexistent/violations", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -806,7 +842,9 @@ class TestListViolations:
         """Test listing all violations."""
         http_handler = create_mock_http_handler(path="/api/v1/compliance/violations")
 
-        result = await handler.handle("/api/v1/compliance/violations", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/compliance/violations", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -821,7 +859,9 @@ class TestListViolations:
             path="/api/v1/compliance/violations?status=open&severity=critical"
         )
 
-        result = await handler.handle("/api/v1/compliance/violations", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/compliance/violations", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -840,8 +880,10 @@ class TestGetViolation:
         """Test getting a specific violation."""
         http_handler = create_mock_http_handler(path="/api/v1/compliance/violations/viol_test123")
 
+        http_handler.command = "GET"
+
         result = await handler.handle(
-            "/api/v1/compliance/violations/viol_test123", "GET", http_handler
+            "/api/v1/compliance/violations/viol_test123", {}, http_handler
         )
 
         assert result is not None
@@ -855,9 +897,9 @@ class TestGetViolation:
         """Test getting non-existent violation returns 404."""
         http_handler = create_mock_http_handler(path="/api/v1/compliance/violations/nonexistent")
 
-        result = await handler.handle(
-            "/api/v1/compliance/violations/nonexistent", "GET", http_handler
-        )
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/compliance/violations/nonexistent", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -881,8 +923,10 @@ class TestUpdateViolationStatus:
         )
 
         with patch("aragora.server.handlers.policy.audit_security") as mock_audit:
+            http_handler.command = "PATCH"
+
             result = await handler.handle(
-                "/api/v1/compliance/violations/viol_test123", "PATCH", http_handler
+                "/api/v1/compliance/violations/viol_test123", {}, http_handler
             )
 
         assert result is not None
@@ -900,8 +944,10 @@ class TestUpdateViolationStatus:
             path="/api/v1/compliance/violations/viol_test123",
         )
 
+        http_handler.command = "PATCH"
+
         result = await handler.handle(
-            "/api/v1/compliance/violations/viol_test123", "PATCH", http_handler
+            "/api/v1/compliance/violations/viol_test123", {}, http_handler
         )
 
         assert result is not None
@@ -915,8 +961,10 @@ class TestUpdateViolationStatus:
             path="/api/v1/compliance/violations/viol_test123",
         )
 
+        http_handler.command = "PATCH"
+
         result = await handler.handle(
-            "/api/v1/compliance/violations/viol_test123", "PATCH", http_handler
+            "/api/v1/compliance/violations/viol_test123", {}, http_handler
         )
 
         assert result is not None
@@ -930,8 +978,10 @@ class TestUpdateViolationStatus:
             path="/api/v1/compliance/violations/viol_test123",
         )
 
+        http_handler.command = "PATCH"
+
         result = await handler.handle(
-            "/api/v1/compliance/violations/viol_test123", "PATCH", http_handler
+            "/api/v1/compliance/violations/viol_test123", {}, http_handler
         )
 
         assert result is not None
@@ -945,8 +995,10 @@ class TestUpdateViolationStatus:
             path="/api/v1/compliance/violations/viol_test123",
         )
 
+        http_handler.command = "PATCH"
+
         result = await handler.handle(
-            "/api/v1/compliance/violations/viol_test123", "PATCH", http_handler
+            "/api/v1/compliance/violations/viol_test123", {}, http_handler
         )
 
         assert result is not None
@@ -960,9 +1012,9 @@ class TestUpdateViolationStatus:
             path="/api/v1/compliance/violations/nonexistent",
         )
 
-        result = await handler.handle(
-            "/api/v1/compliance/violations/nonexistent", "PATCH", http_handler
-        )
+        http_handler.command = "PATCH"
+
+        result = await handler.handle("/api/v1/compliance/violations/nonexistent", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -984,7 +1036,9 @@ class TestComplianceCheck:
             path="/api/v1/compliance/check",
         )
 
-        result = await handler.handle("/api/v1/compliance/check", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/compliance/check", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1004,7 +1058,9 @@ class TestComplianceCheck:
             path="/api/v1/compliance/check",
         )
 
-        result = await handler.handle("/api/v1/compliance/check", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/compliance/check", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1017,7 +1073,9 @@ class TestComplianceCheck:
             path="/api/v1/compliance/check",
         )
 
-        result = await handler.handle("/api/v1/compliance/check", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/compliance/check", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -1030,7 +1088,9 @@ class TestComplianceCheck:
             path="/api/v1/compliance/check",
         )
 
-        result = await handler.handle("/api/v1/compliance/check", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/compliance/check", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -1044,7 +1104,9 @@ class TestComplianceCheck:
             path="/api/v1/compliance/check",
         )
 
-        result = await handler.handle("/api/v1/compliance/check", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/compliance/check", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -1063,7 +1125,9 @@ class TestComplianceStats:
         """Test getting compliance statistics."""
         http_handler = create_mock_http_handler(path="/api/v1/compliance/stats")
 
-        result = await handler.handle("/api/v1/compliance/stats", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/compliance/stats", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1079,7 +1143,9 @@ class TestComplianceStats:
             path="/api/v1/compliance/stats?workspace_id=default"
         )
 
-        result = await handler.handle("/api/v1/compliance/stats", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/compliance/stats", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1090,7 +1156,9 @@ class TestComplianceStats:
         handler._get_policy_store = MagicMock(return_value=None)
         http_handler = create_mock_http_handler(path="/api/v1/compliance/stats")
 
-        result = await handler.handle("/api/v1/compliance/stats", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/compliance/stats", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -1110,7 +1178,9 @@ class TestErrorHandling:
         mock_policy_store.list_policies = MagicMock(side_effect=Exception("Database error"))
         http_handler = create_mock_http_handler(path="/api/v1/policies")
 
-        result = await handler.handle("/api/v1/policies", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -1121,7 +1191,9 @@ class TestErrorHandling:
         mock_policy_store.get_policy = MagicMock(side_effect=Exception("Database error"))
         http_handler = create_mock_http_handler(path="/api/v1/policies/pol_test123")
 
-        result = await handler.handle("/api/v1/policies/pol_test123", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies/pol_test123", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -1139,7 +1211,9 @@ class TestErrorHandling:
             path="/api/v1/policies",
         )
 
-        result = await handler.handle("/api/v1/policies", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/policies", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -1153,7 +1227,9 @@ class TestErrorHandling:
             path="/api/v1/compliance/check",
         )
 
-        result = await handler.handle("/api/v1/compliance/check", "POST", http_handler)
+        http_handler.command = "POST"
+
+        result = await handler.handle("/api/v1/compliance/check", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -1172,7 +1248,9 @@ class TestPathValidation:
         """Test policy ID with special characters is rejected."""
         http_handler = create_mock_http_handler(path="/api/v1/policies/pol<script>")
 
-        result = await handler.handle("/api/v1/policies/pol<script>", "GET", http_handler)
+        http_handler.command = "GET"
+
+        result = await handler.handle("/api/v1/policies/pol<script>", {}, http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -1183,8 +1261,10 @@ class TestPathValidation:
         # Use angle brackets which are rejected by SAFE_ID_PATTERN
         http_handler = create_mock_http_handler(path="/api/v1/compliance/violations/viol<script>")
 
+        http_handler.command = "GET"
+
         result = await handler.handle(
-            "/api/v1/compliance/violations/viol<script>", "GET", http_handler
+            "/api/v1/compliance/violations/viol<script>", {}, http_handler
         )
 
         assert result is not None

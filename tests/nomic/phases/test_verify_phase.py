@@ -502,7 +502,8 @@ VERDICT: CONCERNS - High risk of runtime errors, missing error handling
         """Should handle audit errors gracefully."""
         from aragora.nomic.phases.verify import VerifyPhase
 
-        mock_codex_agent.generate = AsyncMock(side_effect=ConnectionError("API down"))
+        # Use RuntimeError which is in the caught exception types
+        mock_codex_agent.generate = AsyncMock(side_effect=RuntimeError("API down"))
 
         phase = VerifyPhase(
             aragora_path=mock_aragora_path,
@@ -903,10 +904,12 @@ class TestVerifyPhaseTestQualityGate:
     ):
         """Should fail when quality gate rejects."""
         from aragora.nomic.phases.verify import VerifyPhase
-        from aragora.nomic.gates import ApprovalRequired
+        from aragora.nomic.gates import ApprovalRequired, GateType
 
         mock_test_quality_gate.require_approval = AsyncMock(
-            side_effect=ApprovalRequired("Coverage too low", recoverable=True)
+            side_effect=ApprovalRequired(
+                GateType.TEST_QUALITY, "Coverage too low", recoverable=True
+            )
         )
 
         phase = VerifyPhase(

@@ -472,6 +472,91 @@ class ConfigValidator:
             return False, f"Redis connectivity check failed: {e}"
 
     @classmethod
+    def check_alembic_migrations(cls) -> tuple[bool, str | None]:
+        """
+        Check if Alembic database migrations are up to date.
+
+        Verifies that the database schema matches the latest migrations
+        to prevent serving traffic with an outdated schema.
+
+        Returns:
+            (success, error_message) tuple. Returns (True, None) if migrations
+            are up to date or Alembic is not configured. Returns (False, message)
+            if migrations are pending.
+        """
+        database_url = os.getenv("DATABASE_URL")
+
+        if not database_url:
+            return True, None  # No database configured
+
+        if not database_url.startswith(("postgresql://", "postgres://")):
+            return True, None  # Not PostgreSQL, skip migration check
+
+        try:
+            from alembic.config import Config
+            from alembic.runtime.migration import MigrationContext
+            from alembic.script import ScriptDirectory
+            from sqlalchemy import create_engine
+        except ImportError:
+            # Alembic not installed - skip check
+            return True, None
+
+        try:
+            # Find alembic.ini - check common locations
+            alembic_ini_paths = [
+                "alembic.ini",
+                "migrations/alembic.ini",
+                os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"),
+            ]
+
+            alembic_ini = None
+            for path in alembic_ini_paths:
+                if os.path.exists(path):
+                    alembic_ini = path
+                    break
+
+            if not alembic_ini:
+                # No alembic.ini found - migrations not configured
+                return True, None
+
+            config = Config(alembic_ini)
+            config.set_main_option("sqlalchemy.url", database_url)
+
+            # Get script directory for head revisions
+            script = ScriptDirectory.from_config(config)
+            heads = set(script.get_heads())
+
+            if not heads:
+                # No migrations defined
+                return True, None
+
+            # Get current database revision
+            engine = create_engine(database_url)
+            with engine.connect() as connection:
+                context = MigrationContext.configure(connection)
+                current_revisions = set(context.get_current_heads())
+
+            engine.dispose()
+
+            # Check if current matches heads
+            if current_revisions != heads:
+                missing = heads - current_revisions
+                if missing:
+                    return False, (
+                        f"Database schema is out of date. "
+                        f"Pending migrations: {', '.join(missing)}. "
+                        f"Run 'alembic upgrade head' before starting the server."
+                    )
+
+            logger.info("Alembic migrations are up to date")
+            return True, None
+
+        except Exception as e:
+            # Log but don't fail startup for migration check errors
+            logger.warning(f"Could not verify Alembic migrations: {e}")
+            return True, None
+
+    @classmethod
     async def check_postgresql_connectivity_async(
         cls,
         timeout_seconds: float = 5.0,
@@ -527,6 +612,7 @@ class ConfigValidator:
         cls,
         check_postgresql: bool = True,
         check_redis: bool = True,
+        check_migrations: bool = True,
     ) -> ValidationResult:
         """
         Validate database and cache connectivity (async version).
@@ -536,17 +622,18 @@ class ConfigValidator:
         Args:
             check_postgresql: Whether to check PostgreSQL connectivity.
             check_redis: Whether to check Redis connectivity.
+            check_migrations: Whether to check Alembic migrations are up to date.
 
         Returns:
             ValidationResult with any connectivity errors.
         """
         errors: list[str] = []
         warnings: list[str] = []
+        is_production = os.getenv("ARAGORA_ENV", "development").lower() == "production"
 
         if check_postgresql:
             success, error = await cls.check_postgresql_connectivity_async()
             if not success and error:
-                is_production = os.getenv("ARAGORA_ENV", "development").lower() == "production"
                 if is_production:
                     errors.append(f"PostgreSQL: {error}")
                 else:
@@ -555,11 +642,18 @@ class ConfigValidator:
         if check_redis:
             success, error = cls.check_redis_connectivity()
             if not success and error:
-                is_production = os.getenv("ARAGORA_ENV", "development").lower() == "production"
                 if is_production:
                     errors.append(f"Redis: {error}")
                 else:
                     warnings.append(f"Redis: {error}")
+
+        if check_migrations:
+            success, error = cls.check_alembic_migrations()
+            if not success and error:
+                if is_production:
+                    errors.append(f"Migrations: {error}")
+                else:
+                    warnings.append(f"Migrations: {error}")
 
         return ValidationResult(
             is_valid=len(errors) == 0,

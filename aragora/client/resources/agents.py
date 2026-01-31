@@ -180,7 +180,9 @@ class AgentsAPI:
         response = await self._client._get_async(f"/api/v1/agent/{agent_id}/consistency")
         return AgentConsistency(**response)
 
-    def get_flips(self, agent_id: str, limit: int = 20, offset: int = 0) -> list[AgentFlip]:
+    def get_flips(
+        self, agent_id: str, limit: int = 20, offset: int = 0
+    ) -> builtins.list[AgentFlip]:
         """
         Get position flip history.
 
@@ -200,7 +202,7 @@ class AgentsAPI:
 
     async def get_flips_async(
         self, agent_id: str, limit: int = 20, offset: int = 0
-    ) -> list[AgentFlip]:
+    ) -> builtins.list[AgentFlip]:
         """Async version of get_flips()."""
         response = await self._client._get_async(
             f"/api/v1/agent/{agent_id}/flips", params={"limit": limit, "offset": offset}
@@ -228,7 +230,7 @@ class AgentsAPI:
 
     def get_moments(
         self, agent_id: str, moment_type: str | None = None, limit: int = 20, offset: int = 0
-    ) -> list[AgentMoment]:
+    ) -> builtins.list[AgentMoment]:
         """
         Get significant moments.
 
@@ -250,7 +252,7 @@ class AgentsAPI:
 
     async def get_moments_async(
         self, agent_id: str, moment_type: str | None = None, limit: int = 20, offset: int = 0
-    ) -> list[AgentMoment]:
+    ) -> builtins.list[AgentMoment]:
         """Async version of get_moments()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if moment_type:
@@ -261,7 +263,7 @@ class AgentsAPI:
 
     def get_positions(
         self, agent_id: str, topic: str | None = None, limit: int = 20, offset: int = 0
-    ) -> list[AgentPosition]:
+    ) -> builtins.list[AgentPosition]:
         """
         Get position history.
 
@@ -283,7 +285,7 @@ class AgentsAPI:
 
     async def get_positions_async(
         self, agent_id: str, topic: str | None = None, limit: int = 20, offset: int = 0
-    ) -> list[AgentPosition]:
+    ) -> builtins.list[AgentPosition]:
         """Async version of get_positions()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if topic:
@@ -294,7 +296,7 @@ class AgentsAPI:
         positions = response.get("positions", response) if isinstance(response, dict) else response
         return [AgentPosition(**p) for p in positions]
 
-    def get_domains(self, agent_id: str) -> list[DomainRating]:
+    def get_domains(self, agent_id: str) -> builtins.list[DomainRating]:
         """
         Get domain-specific ELO ratings.
 
@@ -308,7 +310,7 @@ class AgentsAPI:
         domains = response.get("domains", response) if isinstance(response, dict) else response
         return [DomainRating(**d) for d in domains]
 
-    async def get_domains_async(self, agent_id: str) -> list[DomainRating]:
+    async def get_domains_async(self, agent_id: str) -> builtins.list[DomainRating]:
         """Async version of get_domains()."""
         response = await self._client._get_async(f"/api/v1/agent/{agent_id}/domains")
         domains = response.get("domains", response) if isinstance(response, dict) else response
