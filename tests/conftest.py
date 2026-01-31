@@ -1981,6 +1981,145 @@ def mock_websocket():
 
 
 # ============================================================================
+# Additional Skip Markers for Common Scenarios
+# ============================================================================
+# These markers consolidate common pytest.skip() patterns into proper skip markers.
+
+# Cryptography library (used for JWT, encryption)
+HAS_CRYPTOGRAPHY = _check_import("cryptography")
+REQUIRES_CRYPTOGRAPHY = "cryptography not installed (pip install cryptography)"
+requires_cryptography = not HAS_CRYPTOGRAPHY
+
+# Tree-sitter for code parsing
+HAS_TREE_SITTER = _check_import("tree_sitter")
+REQUIRES_TREE_SITTER = "tree-sitter not installed"
+requires_tree_sitter = not HAS_TREE_SITTER
+
+# Whisper for transcription
+HAS_WHISPER = _check_import("whisper")
+REQUIRES_WHISPER = "whisper not installed"
+requires_whisper = not HAS_WHISPER
+
+# Z3 solver (expanded from existing)
+# Note: HAS_Z3 defined earlier in file
+
+
+def _has_z3_binary() -> bool:
+    """Check if Z3 binary is available and working."""
+    try:
+        import z3
+
+        solver = z3.Solver()
+        x = z3.Int("x")
+        solver.add(x > 0)
+        return solver.check() == z3.sat
+    except (ImportError, Exception):
+        return False
+
+
+HAS_Z3_WORKING = _has_z3_binary()
+REQUIRES_Z3_WORKING = "Z3 solver not installed or not working"
+requires_z3_working = not HAS_Z3_WORKING
+
+# Lean theorem prover
+HAS_LEAN = _check_import("lean")
+REQUIRES_LEAN = "Lean theorem prover not installed"
+requires_lean = not HAS_LEAN
+
+# pydub for audio processing
+HAS_PYDUB = _check_import("pydub")
+REQUIRES_PYDUB = "pydub not installed (pip install pydub)"
+requires_pydub = not HAS_PYDUB
+
+# WeasyPrint for PDF generation
+HAS_WEASYPRINT = _check_import("weasyprint")
+REQUIRES_WEASYPRINT = "WeasyPrint not installed (pip install weasyprint)"
+requires_weasyprint = not HAS_WEASYPRINT
+
+# Milvus vector database
+HAS_MILVUS = _check_import("pymilvus")
+REQUIRES_MILVUS = "pymilvus not installed"
+requires_milvus = not HAS_MILVUS
+
+# aiohttp for async HTTP
+HAS_AIOHTTP = _check_import("aiohttp")
+REQUIRES_AIOHTTP = "aiohttp not installed (pip install aiohttp)"
+requires_aiohttp = not HAS_AIOHTTP
+
+
+# FFmpeg for video processing
+def _has_ffmpeg() -> bool:
+    """Check if FFmpeg is available on PATH."""
+    import shutil
+
+    return shutil.which("ffmpeg") is not None
+
+
+HAS_FFMPEG = _has_ffmpeg()
+REQUIRES_FFMPEG = "FFmpeg not available in PATH"
+requires_ffmpeg = not HAS_FFMPEG
+
+
+def _has_git() -> bool:
+    """Check if git is available on PATH."""
+    import shutil
+
+    return shutil.which("git") is not None
+
+
+HAS_GIT = _has_git()
+REQUIRES_GIT = "git not available in PATH"
+requires_git = not HAS_GIT
+
+
+# Platform-specific capabilities
+def _supports_symlinks() -> bool:
+    """Check if the system supports symlinks."""
+    import os
+    import tempfile
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = os.path.join(tmpdir, "test")
+            link_path = os.path.join(tmpdir, "link")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.symlink(test_file, link_path)
+            return True
+    except (OSError, NotImplementedError):
+        return False
+
+
+HAS_SYMLINKS = _supports_symlinks()
+REQUIRES_SYMLINKS = "Symlink creation not supported on this platform"
+requires_symlinks = not HAS_SYMLINKS
+
+
+def _supports_signals() -> bool:
+    """Check if the system supports signal-based timeouts (Unix-like)."""
+    import os
+
+    return os.name != "nt"  # Not Windows
+
+
+HAS_SIGNALS = _supports_signals()
+REQUIRES_SIGNALS = "Signal-based timeout not available on Windows"
+requires_signals = not HAS_SIGNALS
+
+
+# PostgreSQL database availability
+def _has_postgres_configured() -> bool:
+    """Check if PostgreSQL is configured via environment."""
+    database_url = os.environ.get("DATABASE_URL", "")
+    return "postgres" in database_url.lower()
+
+
+HAS_POSTGRES_CONFIGURED = _has_postgres_configured()
+REQUIRES_POSTGRES = "PostgreSQL not configured (set DATABASE_URL)"
+requires_postgres = not HAS_POSTGRES_CONFIGURED
+
+
+# ============================================================================
 # Skip Count Monitoring
 # ============================================================================
 # Track skip counts to warn when threshold is exceeded.

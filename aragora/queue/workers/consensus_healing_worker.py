@@ -263,7 +263,8 @@ class ConsensusHealingWorker:
                     return cast(list[dict[str, Any]], result)
                 return []
             return []
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to query stale debates: {type(e).__name__}: {e}")
             return []
 
     def _determine_reason(self, debate_info: dict[str, Any]) -> HealingReason:

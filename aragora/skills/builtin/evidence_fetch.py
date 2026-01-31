@@ -204,8 +204,11 @@ class EvidenceFetchSkill(Skill):
             extractor.feed(html)
             return " ".join(extractor.text_parts)
 
-        except Exception:
+        except Exception as e:
             # Fall back to basic text extraction
+            logger.debug(
+                f"HTML parsing failed, using fallback text extraction: {type(e).__name__}: {e}"
+            )
             import re
 
             text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL)

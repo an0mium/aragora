@@ -713,7 +713,8 @@ class ContainerPool:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
             return stdout.decode().strip().lower() == "true"
 
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Container health check failed: {type(e).__name__}: {e}")
             return False
 
     async def _cleanup_loop(self) -> None:

@@ -1654,8 +1654,11 @@ class OpenClawAdapter:
                 actor_id,
                 permission,
             )
-        except Exception:
+        except Exception as e:
             # Fallback to sync check
+            logger.debug(
+                f"Async permission check failed, falling back to sync: {type(e).__name__}: {e}"
+            )
             return self.rbac_checker.check_permission(actor_id, permission)
 
     async def _log_audit(
@@ -1680,8 +1683,9 @@ class OpenClawAdapter:
                 details,
                 severity,
             )
-        except Exception:
+        except Exception as e:
             # Fallback to sync log
+            logger.debug(f"Async audit log failed, falling back to sync: {type(e).__name__}: {e}")
             self.audit_logger.log(
                 event.value,
                 actor_id,

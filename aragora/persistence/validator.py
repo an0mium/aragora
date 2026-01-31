@@ -120,7 +120,8 @@ def _get_table_count(db_path: Path) -> int:
         count: int = cursor.fetchone()[0]
         conn.close()
         return count
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Failed to get table count for {db_path}: {type(e).__name__}: {e}")
         return 0
 
 

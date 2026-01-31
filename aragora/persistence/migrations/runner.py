@@ -487,7 +487,8 @@ class MigrationRunner:
         try:
             cursor = conn.execute("SELECT version, checksum FROM _migration_checksums")
             return {row[0]: row[1] for row in cursor.fetchall()}
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get applied checksums: {type(e).__name__}: {e}")
             return {}
 
     def _get_applied_details(self, conn) -> dict[int, AppliedMigration]:
@@ -505,7 +506,8 @@ class MigrationRunner:
                 )
                 for row in cursor.fetchall()
             }
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get applied migration details: {type(e).__name__}: {e}")
             return {}
 
     def get_migration_history(self, db_name: str) -> list[AppliedMigration]:

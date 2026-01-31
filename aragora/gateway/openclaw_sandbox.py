@@ -683,7 +683,8 @@ class OpenClawActionSandbox:
         # Resolve to absolute
         try:
             resolved = resolved.resolve()
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to resolve path '{path}': {type(e).__name__}: {e}")
             return {"allowed": False, "reason": "Invalid path"}
 
         resolved_str = str(resolved)

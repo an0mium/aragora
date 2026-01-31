@@ -311,7 +311,8 @@ class FileAnalysisSkill(Skill):
             return result.get("encoding", "utf-8") or "utf-8"
         except ImportError:
             return "utf-8"
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Encoding detection failed for {path}: {type(e).__name__}: {e}")
             return "utf-8"
 
     def _analyze_code(

@@ -960,8 +960,9 @@ class CanvasStateManager:
         except ImportError:
             # KnowledgeMound not available
             return []
-        except Exception:
+        except Exception as e:
             # If primary knowledge mound fails, return empty results
+            logger.debug(f"Knowledge mound query failed: {type(e).__name__}: {e}")
             return []
 
     # =========================================================================

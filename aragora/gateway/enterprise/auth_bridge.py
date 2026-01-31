@@ -690,8 +690,11 @@ class AuthBridge:
                 try:
                     claims = await provider._validate_id_token(token)
                     return self._claims_to_context(claims, TokenType.OIDC_ID)
-                except Exception:
+                except Exception as e:
                     # Fall back to userinfo fetch with access token
+                    logger.debug(
+                        f"ID token validation failed, falling back to userinfo: {type(e).__name__}: {e}"
+                    )
                     tokens = {"access_token": token}
                     user = await provider._get_user_info(tokens)
                     return self._sso_user_to_context(user, TokenType.OIDC_ACCESS)

@@ -697,6 +697,15 @@ class RedisGatewayStore:
                 )
         return self._redis
 
+    async def _get_pipeline(self, redis: Any) -> Any:
+        """Get a Redis pipeline, supporting async factory implementations."""
+        import inspect
+
+        pipe = redis.pipeline()
+        if inspect.isawaitable(pipe):
+            return await pipe
+        return pipe
+
     def _msg_key(self, message_id: str) -> str:
         return f"{self._key_prefix}msg:{message_id}"
 
@@ -727,7 +736,7 @@ class RedisGatewayStore:
         key = self._msg_key(message.message_id)
         data = json.dumps(_message_to_dict(message))
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.set(key, data, ex=self._message_ttl)
         pipe.zadd(self._msg_index_key(), {message.message_id: message.timestamp})
         await pipe.execute()
@@ -760,7 +769,7 @@ class RedisGatewayStore:
         redis = await self._get_redis()
         key = self._msg_key(message_id)
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.delete(key)
         pipe.zrem(self._msg_index_key(), message_id)
         results = await pipe.execute()
@@ -779,7 +788,7 @@ class RedisGatewayStore:
             keys = [
                 self._msg_key(mid.decode() if isinstance(mid, bytes) else mid) for mid in msg_ids
             ]
-            pipe = redis.pipeline()
+            pipe = await self._get_pipeline(redis)
             pipe.delete(*keys)
             pipe.delete(self._msg_index_key())
             await pipe.execute()
@@ -794,7 +803,7 @@ class RedisGatewayStore:
             keys = [
                 self._msg_key(mid.decode() if isinstance(mid, bytes) else mid) for mid in msg_ids
             ]
-            pipe = redis.pipeline()
+            pipe = await self._get_pipeline(redis)
             pipe.delete(*keys)
             pipe.zremrangebyscore(self._msg_index_key(), "-inf", cutoff)
             await pipe.execute()
@@ -806,7 +815,7 @@ class RedisGatewayStore:
         key = self._dev_key(device.device_id)
         data = json.dumps(_device_to_dict(device))
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.set(key, data, ex=self._device_ttl)
         pipe.sadd(self._dev_index_key(), device.device_id)
         await pipe.execute()
@@ -837,7 +846,7 @@ class RedisGatewayStore:
         redis = await self._get_redis()
         key = self._dev_key(device_id)
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.delete(key)
         pipe.srem(self._dev_index_key(), device_id)
         results = await pipe.execute()
@@ -849,7 +858,7 @@ class RedisGatewayStore:
         key = self._rule_key(rule.rule_id)
         data = json.dumps(_rule_to_dict(rule))
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.set(key, data)
         pipe.zadd(self._rule_index_key(), {rule.rule_id: rule.priority})
         await pipe.execute()
@@ -881,7 +890,7 @@ class RedisGatewayStore:
         redis = await self._get_redis()
         key = self._rule_key(rule_id)
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.delete(key)
         pipe.zrem(self._rule_index_key(), rule_id)
         results = await pipe.execute()
@@ -897,7 +906,7 @@ class RedisGatewayStore:
         data = json.dumps(session)
         score = session.get("last_seen", session.get("created_at", time.time()))
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.set(key, data, ex=self._session_ttl)
         pipe.zadd(self._session_index_key(), {session_id: score})
         await pipe.execute()
@@ -931,7 +940,7 @@ class RedisGatewayStore:
         redis = await self._get_redis()
         key = self._session_key(session_id)
 
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.delete(key)
         pipe.zrem(self._session_index_key(), session_id)
         results = await pipe.execute()
@@ -949,7 +958,7 @@ class RedisGatewayStore:
                 self._session_key(sid.decode() if isinstance(sid, bytes) else sid)
                 for sid in session_ids
             ]
-            pipe = redis.pipeline()
+            pipe = await self._get_pipeline(redis)
             pipe.delete(*keys)
             pipe.delete(self._session_index_key())
             await pipe.execute()
@@ -964,7 +973,7 @@ class RedisGatewayStore:
             self._session_key(sid.decode() if isinstance(sid, bytes) else sid)
             for sid in session_ids
         ]
-        pipe = redis.pipeline()
+        pipe = await self._get_pipeline(redis)
         pipe.delete(*keys)
         pipe.zremrangebyscore(self._session_index_key(), "-inf", cutoff)
         await pipe.execute()

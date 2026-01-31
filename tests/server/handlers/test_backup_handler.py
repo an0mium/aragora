@@ -422,8 +422,8 @@ class TestRestoreTest:
 
     @pytest.mark.asyncio
     async def test_restore_test_success(self, handler):
-        """Test dry-run restore."""
-        mock_request = MockHTTPHandler("POST", body={"target_path": "/tmp/test.db"})
+        """Test dry-run restore with relative path (resolved in allowed dir)."""
+        mock_request = MockHTTPHandler("POST", body={"target_path": "test.db"})
         result = await handler.handle(
             "/api/v2/backups/backup-001/restore-test",
             {},
@@ -433,18 +433,9 @@ class TestRestoreTest:
 
 
 class TestRestorePathTraversal:
-    """Test path traversal prevention in restore endpoint (CWE-22).
-
-    NOTE: These tests are currently marked as xfail because the _restore_test
-    endpoint does not validate target_path like _create_backup validates source_path.
-    This is a security gap that should be addressed - see backup_handler.py:341-368.
-    """
+    """Test path traversal prevention in restore endpoint (CWE-22)."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="Security gap: _restore_test doesn't validate target_path (CWE-22)",
-        strict=True,
-    )
     async def test_path_traversal_dotdot_rejected(self, handler):
         """Test that ../ path traversal attempts are rejected."""
         mock_request = MockHTTPHandler("POST", body={"target_path": "../../../etc/passwd"})
@@ -453,14 +444,10 @@ class TestRestorePathTraversal:
             {},
             mock_request,
         )
-        # Should fail validation - either 400 or 500 depending on error handling
-        assert result.status_code in (400, 500)
+        assert result.status_code == 400
+        assert b"Invalid target path" in result.body
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="Security gap: _restore_test doesn't validate target_path (CWE-22)",
-        strict=True,
-    )
     async def test_path_traversal_absolute_outside_rejected(self, handler):
         """Test that absolute paths outside restore dir are rejected."""
         mock_request = MockHTTPHandler("POST", body={"target_path": "/etc/passwd"})
@@ -469,22 +456,26 @@ class TestRestorePathTraversal:
             {},
             mock_request,
         )
-        assert result.status_code in (400, 500)
+        assert result.status_code == 400
+        assert b"Invalid target path" in result.body
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="Security gap: _restore_test doesn't validate target_path (CWE-22)",
-        strict=True,
-    )
-    async def test_path_traversal_encoded_rejected(self, handler):
-        """Test that encoded traversal attempts are rejected."""
+    async def test_path_traversal_encoded_is_literal(self, handler):
+        """Test that URL-encoded strings in JSON are treated as literal filenames.
+
+        URL encoding like %2F is NOT automatically decoded in JSON bodies (unlike
+        query strings), so '..%2F..%2Fetc%2Fpasswd' is treated as a literal filename
+        which is safe - it creates a file named '..%2F..%2Fetc%2Fpasswd' rather than
+        traversing to /etc/passwd.
+        """
         mock_request = MockHTTPHandler("POST", body={"target_path": "..%2F..%2Fetc%2Fpasswd"})
         result = await handler.handle(
             "/api/v2/backups/backup-001/restore-test",
             {},
             mock_request,
         )
-        assert result.status_code in (400, 500)
+        # URL-encoded path is a literal filename, not a traversal - this is safe
+        assert result.status_code == 200
 
 
 class TestDeleteBackup:

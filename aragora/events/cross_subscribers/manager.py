@@ -794,7 +794,8 @@ class CrossSubscriberManager(
             if METRICS_AVAILABLE:
                 set_circuit_breaker_state(name, False)  # Closed = not open
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Circuit breaker reset failed for '{name}': {type(e).__name__}: {e}")
             return False
 
     def reset_all_circuit_breakers(self) -> None:

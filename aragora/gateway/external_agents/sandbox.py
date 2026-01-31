@@ -277,8 +277,8 @@ class ProcessSandbox(SandboxBackend):
             try:
                 instance["process"].kill()
                 await instance["process"].wait()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to kill sandbox process: {type(e).__name__}: {e}")
 
         # Clean up work directory
         work_dir = instance.get("work_dir")
@@ -327,7 +327,8 @@ class DockerSandbox(SandboxBackend):
             return proc.returncode == 0
         except FileNotFoundError:
             return False
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Docker availability check failed: {type(e).__name__}: {e}")
             return False
 
     async def create(self, config: SandboxConfig) -> str:

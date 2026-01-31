@@ -43,7 +43,8 @@ def _parse_dt(value: Any) -> datetime | None:
         return value
     try:
         return datetime.fromisoformat(str(value))
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Failed to parse datetime value '{value}': {type(e).__name__}: {e}")
         return None
 
 
@@ -54,7 +55,8 @@ def _json_loads(value: Any, default: Any) -> Any:
         return value
     try:
         return json.loads(value)
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Failed to parse JSON value: {type(e).__name__}: {e}")
         return default
 
 

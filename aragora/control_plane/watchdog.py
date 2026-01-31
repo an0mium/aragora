@@ -336,7 +336,10 @@ class ThreeTierWatchdog:
                 loop = task.get_loop()
                 if loop.is_closed():
                     continue
-            except Exception:
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get task loop during watchdog stop: {type(e).__name__}: {e}"
+                )
                 continue
 
             if not task.done():

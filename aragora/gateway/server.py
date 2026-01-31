@@ -509,7 +509,8 @@ class LocalGateway:
             if not ws.closed:
                 try:
                     await ws.send_json(event)
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Failed to send to WebSocket subscriber: {type(e).__name__}: {e}")
                     self._ws_subscribers.discard(ws)
 
     # =========================================================================

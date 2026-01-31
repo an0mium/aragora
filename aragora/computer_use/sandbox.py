@@ -323,7 +323,8 @@ class DockerSandboxProvider(SandboxProvider):
             )
             stdout, _ = await proc.communicate()
             return stdout.decode().strip() == "true"
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Docker container health check failed: {type(e).__name__}: {e}")
             return False
 
 
@@ -368,7 +369,8 @@ class ProcessSandboxProvider(SandboxProvider):
             try:
                 proc.terminate()
                 await asyncio.wait_for(proc.wait(), timeout=5.0)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Process terminate/wait failed, killing: {type(e).__name__}: {e}")
                 proc.kill()
 
         instance.status = SandboxStatus.STOPPED

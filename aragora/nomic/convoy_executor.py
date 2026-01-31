@@ -101,14 +101,20 @@ class GastownConvoyExecutor:
         for agent in self.implementers:
             try:
                 await self.hierarchy.register_agent(agent.name, AgentRole.CREW)
-            except Exception:
+            except Exception as e:
+                logger.debug(
+                    f"Failed to register implementer agent {agent.name}: {type(e).__name__}: {e}"
+                )
                 continue
         for agent in self.reviewers:
             if any(a.name == agent.name for a in self.implementers):
                 continue
             try:
                 await self.hierarchy.register_agent(agent.name, AgentRole.WITNESS)
-            except Exception:
+            except Exception as e:
+                logger.debug(
+                    f"Failed to register reviewer agent {agent.name}: {type(e).__name__}: {e}"
+                )
                 continue
 
     async def _ensure_initialized(self) -> None:

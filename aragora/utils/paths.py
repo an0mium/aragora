@@ -6,6 +6,7 @@ Provides safe path operations to prevent directory traversal attacks.
 
 import logging
 from pathlib import Path
+from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,23 @@ def safe_path(
         PosixPath('/data/other')
     """
     raw_path = str(user_path)
+
+    # SECURITY: Decode URL-encoded characters to prevent encoded traversal attacks
+    # like %2e%2e%2f (../) or double-encoded %%32e variants.
+    # Decode up to 3 times to catch multi-layer encoding attempts.
+    decoded_path = raw_path
+    for _ in range(3):
+        next_decoded = unquote(decoded_path)
+        if next_decoded == decoded_path:
+            break
+        decoded_path = next_decoded
+
+    # If decoding revealed different content, use decoded version for validation
+    if decoded_path != raw_path:
+        raw_path = decoded_path
+        user_path = decoded_path
+        logger.debug(f"URL-decoded path for validation: {decoded_path}")
+
     if raw_path.startswith(("\\\\", "//")):
         logger.warning(f"Path traversal blocked: {user_path}")
         raise PathTraversalError(f"Path traversal blocked: {user_path}")
