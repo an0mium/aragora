@@ -23,14 +23,6 @@ logger = logging.getLogger(__name__)
 
 HTTPX_AVAILABLE = importlib.util.find_spec("httpx") is not None
 
-from aragora.connectors.exceptions import (
-    ConnectorAPIError,
-    ConnectorAuthError,
-    ConnectorError,
-    ConnectorNetworkError,
-    ConnectorRateLimitError,
-    ConnectorTimeoutError,
-)
 
 try:
     from aragora.observability.tracing import build_trace_headers
@@ -53,61 +45,6 @@ DEFAULT_TIMEOUT = 30.0  # seconds
 DEFAULT_RETRIES = 3
 CIRCUIT_BREAKER_THRESHOLD = 5
 CIRCUIT_BREAKER_COOLDOWN = 60.0  # seconds
-
-
-def _classify_slack_error(
-    error_str: str,
-    status_code: int = 0,
-    retry_after: float | None = None,
-) -> ConnectorError:
-    """Classify a Slack error string into a specific ConnectorError type.
-
-    This helper ensures proper error classification for logging and metrics
-    while maintaining the tuple-return pattern for backward compatibility.
-    """
-    error_lower = error_str.lower()
-
-    # Rate limit errors
-    if status_code == 429 or "rate" in error_lower or "ratelimited" in error_lower:
-        return ConnectorRateLimitError(
-            error_str,
-            connector_name="slack",
-            retry_after=retry_after or 60.0,
-        )
-
-    # Auth errors
-    auth_keywords = {
-        "invalid_auth",
-        "token_expired",
-        "token_revoked",
-        "not_authed",
-        "account_inactive",
-    }
-    if any(kw in error_lower for kw in auth_keywords):
-        return ConnectorAuthError(error_str, connector_name="slack")
-
-    # Timeout errors
-    if "timeout" in error_lower:
-        return ConnectorTimeoutError(error_str, connector_name="slack")
-
-    # Network errors
-    if "connection" in error_lower or "network" in error_lower:
-        return ConnectorNetworkError(error_str, connector_name="slack")
-
-    # Server errors
-    if status_code >= 500:
-        return ConnectorAPIError(
-            error_str,
-            connector_name="slack",
-            status_code=status_code,
-        )
-
-    # Default to generic API error
-    return ConnectorAPIError(
-        error_str,
-        connector_name="slack",
-        status_code=status_code if status_code >= 400 else None,
-    )
 
 
 def _is_retryable_error(status_code: int, error: str | None = None) -> bool:

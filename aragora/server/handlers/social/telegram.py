@@ -287,11 +287,11 @@ class TelegramHandler(BaseHandler):
                 payload["secret_token"] = TELEGRAM_WEBHOOK_SECRET
 
             pool = get_http_pool()
-            async with pool.get_session("telegram_handler") as client:
+            async with pool.get_session("telegram") as client:
                 response = await client.post(
                     url,
                     json=payload,
-                    timeout=30.0,
+                    timeout=30,
                 )
                 result = response.json()
                 if result.get("ok"):
@@ -841,7 +841,7 @@ class TelegramHandler(BaseHandler):
 
         try:
             pool = get_http_pool()
-            async with pool.get_session("telegram_handler") as client:
+            async with pool.get_session("telegram_gauntlet") as client:
                 resp = await client.post(
                     "http://localhost:8080/api/gauntlet/run",
                     json={
@@ -853,7 +853,7 @@ class TelegramHandler(BaseHandler):
                             "user_id": user_id,
                         },
                     },
-                    timeout=120.0,
+                    timeout=120,
                 )
                 data = resp.json()
 
@@ -1116,8 +1116,9 @@ class TelegramHandler(BaseHandler):
         reply_markup: Optional[dict[str, Any]] = None,
     ) -> None:
         """Send a message to Telegram chat."""
-        from aragora.server.http_client_pool import get_http_pool
         import time
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if not TELEGRAM_BOT_TOKEN:
             logger.warning("Cannot send message: TELEGRAM_BOT_TOKEN not configured")
@@ -1137,11 +1138,11 @@ class TelegramHandler(BaseHandler):
                 payload["reply_markup"] = reply_markup
 
             pool = get_http_pool()
-            async with pool.get_session("telegram_handler") as client:
+            async with pool.get_session("telegram") as client:
                 response = await client.post(
                     url,
                     json=payload,
-                    timeout=30.0,
+                    timeout=30,
                 )
                 result = response.json()
                 if not result.get("ok"):
@@ -1162,8 +1163,9 @@ class TelegramHandler(BaseHandler):
         show_alert: bool = False,
     ) -> None:
         """Answer a callback query."""
-        from aragora.server.http_client_pool import get_http_pool
         import time
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if not TELEGRAM_BOT_TOKEN:
             return
@@ -1179,11 +1181,11 @@ class TelegramHandler(BaseHandler):
             }
 
             pool = get_http_pool()
-            async with pool.get_session("telegram_handler") as client:
+            async with pool.get_session("telegram") as client:
                 response = await client.post(
                     url,
                     json=payload,
-                    timeout=10.0,
+                    timeout=10,
                 )
                 result = response.json()
                 if not result.get("ok"):
@@ -1203,8 +1205,9 @@ class TelegramHandler(BaseHandler):
         results: list[dict[str, Any]],
     ) -> None:
         """Answer an inline query."""
-        from aragora.server.http_client_pool import get_http_pool
         import time
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if not TELEGRAM_BOT_TOKEN:
             return
@@ -1220,11 +1223,11 @@ class TelegramHandler(BaseHandler):
             }
 
             pool = get_http_pool()
-            async with pool.get_session("telegram_handler") as client:
+            async with pool.get_session("telegram") as client:
                 response = await client.post(
                     url,
                     json=payload,
-                    timeout=10.0,
+                    timeout=10,
                 )
                 result = response.json()
                 if not result.get("ok"):
@@ -1289,7 +1292,7 @@ class TelegramHandler(BaseHandler):
         try:
             url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/sendVoice"
 
-            # Create multipart form data with audio file
+            # Use httpx multipart file upload
             files = {
                 "voice": ("voice.ogg", audio_bytes, "audio/ogg"),
             }
@@ -1299,12 +1302,12 @@ class TelegramHandler(BaseHandler):
             }
 
             pool = get_http_pool()
-            async with pool.get_session("telegram_handler") as client:
+            async with pool.get_session("telegram_voice") as client:
                 response = await client.post(
                     url,
-                    data=data,
                     files=files,
-                    timeout=60.0,
+                    data=data,
+                    timeout=60,
                 )
                 result = response.json()
                 if not result.get("ok"):

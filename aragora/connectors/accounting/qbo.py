@@ -37,7 +37,7 @@ from aragora.connectors.exceptions import (
 )
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.resilience import CircuitBreaker
-from aragora.resilience.http_client import CircuitBreakerMixin, classify_http_error
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -438,12 +438,11 @@ class QBOQueryBuilder:
         return sanitized
 
 
-class QuickBooksConnector(CircuitBreakerMixin):
+class QuickBooksConnector:
     """
     QuickBooks Online integration connector.
 
     Handles OAuth authentication and API operations.
-    Uses CircuitBreakerMixin for standardized circuit breaker setup and methods.
     """
 
     BASE_URL_SANDBOX = "https://sandbox-quickbooks.api.intuit.com"
@@ -489,14 +488,17 @@ class QuickBooksConnector(CircuitBreakerMixin):
         self._credentials: QBOCredentials | None = None
         self._http_client: Any | None = None
 
-        # Use mixin for circuit breaker initialization
-        self.init_circuit_breaker(
-            name="qbo",
-            circuit_breaker=circuit_breaker,
-            enable=enable_circuit_breaker,
-            failure_threshold=3,  # Strict for financial data
-            cooldown_seconds=60.0,
-        )
+        # Circuit breaker for API resilience
+        if circuit_breaker is not None:
+            self._circuit_breaker = circuit_breaker
+        elif enable_circuit_breaker:
+            self._circuit_breaker = CircuitBreaker(
+                name="qbo",
+                failure_threshold=3,  # Strict for financial data
+                cooldown_seconds=60.0,
+            )
+        else:
+            self._circuit_breaker = None
 
     @property
     def is_configured(self) -> bool:
@@ -547,9 +549,6 @@ class QuickBooksConnector(CircuitBreakerMixin):
             OAuth credentials
         """
         import base64
-        import urllib.parse
-
-        from aragora.server.http_client_pool import get_http_pool
 
         auth_header = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
 
@@ -561,13 +560,11 @@ class QuickBooksConnector(CircuitBreakerMixin):
                     "Authorization": f"Basic {auth_header}",
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
-                content=urllib.parse.urlencode(
-                    {
-                        "grant_type": "authorization_code",
-                        "code": authorization_code,
-                        "redirect_uri": self.redirect_uri,
-                    }
-                ),
+                data={
+                    "grant_type": "authorization_code",
+                    "code": authorization_code,
+                    "redirect_uri": self.redirect_uri,
+                },
             )
             if response.status_code != 200:
                 error_text = response.text
@@ -598,9 +595,6 @@ class QuickBooksConnector(CircuitBreakerMixin):
             )
 
         import base64
-        import urllib.parse
-
-        from aragora.server.http_client_pool import get_http_pool
 
         auth_header = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
 
@@ -612,12 +606,10 @@ class QuickBooksConnector(CircuitBreakerMixin):
                     "Authorization": f"Basic {auth_header}",
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
-                content=urllib.parse.urlencode(
-                    {
-                        "grant_type": "refresh_token",
-                        "refresh_token": self._credentials.refresh_token,
-                    }
-                ),
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": self._credentials.refresh_token,
+                },
             )
             if response.status_code != 200:
                 error_text = response.text
@@ -654,9 +646,6 @@ class QuickBooksConnector(CircuitBreakerMixin):
         """
         Make authenticated API request with retry logic and circuit breaker.
 
-        Uses CircuitBreakerMixin helper methods for consistent circuit breaker
-        handling and classify_http_error for uniform error classification.
-
         Args:
             method: HTTP method
             endpoint: API endpoint
@@ -674,11 +663,9 @@ class QuickBooksConnector(CircuitBreakerMixin):
 
         import httpx
 
-        from aragora.server.http_client_pool import get_http_pool
-
-        # Check circuit breaker using mixin method
-        if not self.check_circuit_breaker():
-            cooldown = self.get_circuit_cooldown()
+        # Check circuit breaker before making request
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            cooldown = self._circuit_breaker.cooldown_remaining()
             raise ConnectorAPIError(
                 f"Circuit breaker open - retry in {cooldown:.1f}s",
                 connector_name="qbo",
@@ -700,6 +687,8 @@ class QuickBooksConnector(CircuitBreakerMixin):
             "Content-Type": "application/json",
         }
 
+        # Retryable status codes
+        retryable_statuses = {429, 500, 502, 503, 504}
         last_error: Exception | None = None
 
         pool = get_http_pool()
@@ -711,24 +700,19 @@ class QuickBooksConnector(CircuitBreakerMixin):
                         url,
                         headers=headers,
                         json=data,
-                        timeout=30,
+                        timeout=30.0,
                     )
-
-                    # Use shared error classification
-                    error_info = classify_http_error(
-                        status_code=response.status_code,
-                        headers=dict(response.headers),
-                    )
-
                     # Handle rate limiting with Retry-After header
-                    if error_info.is_rate_limit and attempt < max_retries:
-                        delay = error_info.retry_after or base_delay * (2**attempt)
-                        logger.warning(f"QBO rate limited, waiting {delay}s")
-                        await asyncio.sleep(delay)
-                        continue
+                    if response.status_code == 429:
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after and attempt < max_retries:
+                            delay = float(retry_after)
+                            logger.warning(f"QBO rate limited, waiting {delay}s")
+                            await asyncio.sleep(delay)
+                            continue
 
-                    # Retry on transient errors
-                    if error_info.is_transient and attempt < max_retries:
+                    # Retry on server errors
+                    if response.status_code in retryable_statuses and attempt < max_retries:
                         delay = base_delay * (2**attempt)
                         logger.warning(
                             f"QBO request failed ({response.status_code}), "
@@ -741,16 +725,18 @@ class QuickBooksConnector(CircuitBreakerMixin):
 
                     if response.status_code >= 400:
                         error = response_data.get("Fault", {}).get("Error", [{}])[0]
-                        # Record failure using mixin method
-                        self.record_circuit_failure()
+                        # Record failure for persistent errors
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
                         raise ConnectorAPIError(
                             f"QBO API error: {error.get('Message', 'Unknown error')}",
                             connector_name="qbo",
                             status_code=response.status_code,
                         )
 
-                    # Success - record using mixin method
-                    self.record_circuit_success()
+                    # Success - record it
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
 
                     return response_data
 
@@ -765,7 +751,8 @@ class QuickBooksConnector(CircuitBreakerMixin):
                     await asyncio.sleep(delay)
                     continue
                 # Record failure after all retries exhausted
-                self.record_circuit_failure()
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_failure()
                 raise ConnectorNetworkError(
                     f"QBO connection failed after {max_retries} retries: {e}",
                     connector_name="qbo",
@@ -782,7 +769,8 @@ class QuickBooksConnector(CircuitBreakerMixin):
                     await asyncio.sleep(delay)
                     continue
                 # Record failure after all retries exhausted
-                self.record_circuit_failure()
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_failure()
                 raise ConnectorTimeoutError(
                     f"QBO request timed out after {max_retries} retries",
                     connector_name="qbo",
@@ -805,23 +793,12 @@ class QuickBooksConnector(CircuitBreakerMixin):
         offset: int = 0,
     ) -> list[QBOCustomer]:
         """List customers."""
-        # Use QBOQueryBuilder for safe query construction
-        query = (
-            QBOQueryBuilder("Customer")
-            .select(
-                "Id",
-                "DisplayName",
-                "CompanyName",
-                "PrimaryEmailAddr",
-                "PrimaryPhone",
-                "Balance",
-                "Active",
-            )
-            .where_eq("Active", active_only)
-            .limit(limit)
-            .offset(offset)
-            .build()
-        )
+        # Validate pagination parameters to prevent injection
+        limit, offset = self._validate_pagination(limit, offset)
+        # active_only is a bool - convert safely to QBO boolean literal
+        active_str = "true" if active_only else "false"
+
+        query = f"SELECT Id, DisplayName, CompanyName, PrimaryEmailAddr, PrimaryPhone, Balance, Active FROM Customer WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
 
         response = await self._request("GET", f"query?query={query}")
 
@@ -874,28 +851,26 @@ class QuickBooksConnector(CircuitBreakerMixin):
         offset: int = 0,
     ) -> list[QBOTransaction]:
         """List invoices."""
-        # Use QBOQueryBuilder for safe query construction
-        builder = QBOQueryBuilder("Invoice").select(
-            "Id",
-            "DocNumber",
-            "TxnDate",
-            "DueDate",
-            "TotalAmt",
-            "Balance",
-            "CustomerRef",
-            "VendorRef",
-            "PrivateNote",
-            "Line",
-        )
+        # Validate pagination parameters to prevent injection
+        limit, offset = self._validate_pagination(limit, offset)
+
+        conditions = []
 
         if start_date:
-            builder = builder.where_gte("TxnDate", start_date)
+            # Validate and format date safely
+            safe_start = self._format_date_for_query(start_date, "start_date")
+            conditions.append(f"TxnDate >= '{safe_start}'")
         if end_date:
-            builder = builder.where_lte("TxnDate", end_date)
+            # Validate and format date safely
+            safe_end = self._format_date_for_query(end_date, "end_date")
+            conditions.append(f"TxnDate <= '{safe_end}'")
         if customer_id:
-            builder = builder.where_ref("CustomerRef", customer_id)
+            # Validate customer_id is numeric to prevent injection
+            safe_customer_id = self._validate_numeric_id(customer_id, "customer_id")
+            conditions.append(f"CustomerRef = '{safe_customer_id}'")
 
-        query = builder.limit(limit).offset(offset).build()
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        query = f"SELECT Id, DocNumber, TxnDate, DueDate, TotalAmt, Balance, CustomerRef, VendorRef, PrivateNote, Line FROM Invoice WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
 
         response = await self._request("GET", f"query?query={query}")
 

@@ -167,14 +167,15 @@ class SlackConnector(EnterpriseConnector):
         json_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make a request to Slack Web API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         headers = await self._get_auth_header()
         headers["Content-Type"] = "application/json; charset=utf-8"
 
         url = f"https://slack.com/api/{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("slack") as client:
             if method == "GET":
                 response = await client.get(url, headers=headers, params=params, timeout=60)
             else:

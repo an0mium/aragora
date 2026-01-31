@@ -935,6 +935,45 @@ class TestGetGatewayStore:
         with pytest.raises(ValueError, match="Unknown backend"):
             get_gateway_store("unknown")
 
+    def test_redis_backend_explicit(self):
+        """Test explicit redis backend."""
+        with patch("aragora.gateway.persistence.RedisGatewayStore") as MockRedisStore:
+            mock_instance = MagicMock()
+            MockRedisStore.return_value = mock_instance
+            store = get_gateway_store("redis", redis_url="redis://localhost:6379")
+            assert store is mock_instance
+            MockRedisStore.assert_called_once_with(redis_url="redis://localhost:6379")
+
+    def test_auto_backend_with_redis_url(self):
+        """Test auto backend with REDIS_URL env var."""
+        with patch.dict(os.environ, {"REDIS_URL": "redis://redis.example.com:6379"}):
+            with patch("aragora.gateway.persistence.RedisGatewayStore") as MockRedisStore:
+                mock_instance = MagicMock()
+                MockRedisStore.return_value = mock_instance
+                # Mock the import check
+                with patch.dict("sys.modules", {"redis.asyncio": MagicMock()}):
+                    store = get_gateway_store("auto")
+                    assert store is mock_instance
+                    MockRedisStore.assert_called_once_with(
+                        redis_url="redis://redis.example.com:6379"
+                    )
+
+    def test_auto_backend_redis_import_error_fallback(self):
+        """Test auto backend falls back to file when redis import fails."""
+        with patch.dict(os.environ, {"REDIS_URL": "redis://localhost:6379"}):
+            # Simulate ImportError during the import check in get_gateway_store
+            original_import = __builtins__["__import__"]
+
+            def mock_import(name, *args, **kwargs):
+                if name == "redis.asyncio":
+                    raise ImportError("No module named 'redis'")
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=mock_import):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    store = get_gateway_store("auto", path=Path(tmpdir) / "test.json")
+                    assert isinstance(store, FileGatewayStore)
+
 
 # =============================================================================
 # Session Timeout/Expiration Pattern Tests
@@ -1519,843 +1558,88 @@ class TestSessionEdgeCases:
 
 
 # =============================================================================
-# RedisGatewayStore Tests (Mocked)
+# Factory Edge Case Tests
 # =============================================================================
 
 
-class TestRedisGatewayStore:
-    """Test RedisGatewayStore with mocked Redis client."""
-
-    @pytest.fixture
-    def mock_redis(self):
-        """Create a mock Redis client with async support."""
-        mock = MagicMock()
-        mock.pipeline = MagicMock(return_value=MagicMock())
-        mock.pipeline.return_value.execute = AsyncMock(return_value=[1, 1])
-        mock.set = AsyncMock()
-        mock.get = AsyncMock()
-        mock.delete = AsyncMock(return_value=1)
-        mock.mget = AsyncMock(return_value=[])
-        mock.zadd = AsyncMock()
-        mock.zrevrange = AsyncMock(return_value=[])
-        mock.zrange = AsyncMock(return_value=[])
-        mock.zrangebyscore = AsyncMock(return_value=[])
-        mock.zrem = AsyncMock()
-        mock.zremrangebyscore = AsyncMock()
-        mock.sadd = AsyncMock()
-        mock.smembers = AsyncMock(return_value=set())
-        mock.srem = AsyncMock()
-        mock.close = AsyncMock()
-        return mock
-
-    @pytest.fixture
-    def store(self, mock_redis):
-        """Create RedisGatewayStore with mocked Redis."""
-        store = RedisGatewayStore(
-            redis_url="redis://localhost:6379",
-            key_prefix="test:gateway:",
-            message_ttl_seconds=3600,
-            device_ttl_seconds=7200,
-            session_ttl_seconds=1800,
-        )
-        store._redis = mock_redis
-        return store
-
-    # Message tests
-
-    @pytest.mark.asyncio
-    async def test_save_message(self, store, mock_redis):
-        """Test save_message creates key and adds to sorted set."""
-        msg = InboxMessage(
-            message_id="m1",
-            channel="slack",
-            sender="alice",
-            content="hello",
-            timestamp=1000.0,
-        )
-
-        # Setup pipeline mock
-        pipeline = MagicMock()
-        pipeline.set = MagicMock()
-        pipeline.zadd = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[True, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        await store.save_message(msg)
-
-        # Verify pipeline operations
-        pipeline.set.assert_called_once()
-        call_args = pipeline.set.call_args
-        assert "test:gateway:msg:m1" in call_args[0]
-        assert call_args[1]["ex"] == 3600  # message_ttl_seconds
-
-        pipeline.zadd.assert_called_once()
-        zadd_call = pipeline.zadd.call_args
-        assert "test:gateway:msg:index" in zadd_call[0]
-        assert zadd_call[0][1] == {"m1": 1000.0}
-
-    @pytest.mark.asyncio
-    async def test_load_messages(self, store, mock_redis):
-        """Test load_messages retrieves from sorted set."""
-        import json
-
-        # Setup mock returns
-        mock_redis.zrevrange = AsyncMock(return_value=[b"m1", b"m2"])
-        mock_redis.mget = AsyncMock(
-            return_value=[
-                json.dumps(
-                    {
-                        "message_id": "m1",
-                        "channel": "slack",
-                        "sender": "alice",
-                        "content": "hello",
-                        "timestamp": 2000.0,
-                    }
-                ),
-                json.dumps(
-                    {
-                        "message_id": "m2",
-                        "channel": "slack",
-                        "sender": "bob",
-                        "content": "hi",
-                        "timestamp": 1000.0,
-                    }
-                ),
-            ]
-        )
-
-        messages = await store.load_messages(limit=10)
-
-        assert len(messages) == 2
-        assert messages[0].message_id == "m1"
-        assert messages[1].message_id == "m2"
-        mock_redis.zrevrange.assert_called_once_with("test:gateway:msg:index", 0, 9)
-
-    @pytest.mark.asyncio
-    async def test_load_messages_empty(self, store, mock_redis):
-        """Test load_messages with empty result set."""
-        mock_redis.zrevrange = AsyncMock(return_value=[])
-
-        messages = await store.load_messages()
-
-        assert messages == []
-
-    @pytest.mark.asyncio
-    async def test_load_messages_with_bytes_keys(self, store, mock_redis):
-        """Test load_messages handles bytes keys from Redis."""
-        import json
-
-        mock_redis.zrevrange = AsyncMock(return_value=[b"msg1", "msg2"])  # Mixed bytes and str
-        mock_redis.mget = AsyncMock(
-            return_value=[
-                json.dumps(
-                    {
-                        "message_id": "msg1",
-                        "channel": "slack",
-                        "sender": "a",
-                        "content": "test1",
-                    }
-                ),
-                json.dumps(
-                    {
-                        "message_id": "msg2",
-                        "channel": "slack",
-                        "sender": "b",
-                        "content": "test2",
-                    }
-                ),
-            ]
-        )
-
-        messages = await store.load_messages()
-
-        assert len(messages) == 2
-
-    @pytest.mark.asyncio
-    async def test_delete_message(self, store, mock_redis):
-        """Test delete_message removes key and from sorted set."""
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.zrem = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[1, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        result = await store.delete_message("m1")
-
-        assert result is True
-        pipeline.delete.assert_called_once_with("test:gateway:msg:m1")
-        pipeline.zrem.assert_called_once_with("test:gateway:msg:index", "m1")
-
-    @pytest.mark.asyncio
-    async def test_delete_message_not_found(self, store, mock_redis):
-        """Test delete_message returns False when message doesn't exist."""
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.zrem = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[0, 0])
-        mock_redis.pipeline.return_value = pipeline
-
-        result = await store.delete_message("nonexistent")
-
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_clear_messages_all(self, store, mock_redis):
-        """Test clear_messages removes all messages."""
-        mock_redis.zrange = AsyncMock(return_value=[b"m1", b"m2", b"m3"])
-
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[3, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        count = await store.clear_messages()
-
-        assert count == 3
-
-    @pytest.mark.asyncio
-    async def test_clear_messages_older_than(self, store, mock_redis):
-        """Test clear_messages with age threshold."""
-        import time
-
-        mock_redis.zrangebyscore = AsyncMock(return_value=[b"old1", b"old2"])
-
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.zremrangebyscore = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[2, 2])
-        mock_redis.pipeline.return_value = pipeline
-
-        count = await store.clear_messages(older_than_seconds=3600)
-
-        assert count == 2
-        # Verify zrangebyscore was called with cutoff time
-        call_args = mock_redis.zrangebyscore.call_args[0]
-        assert call_args[0] == "test:gateway:msg:index"
-        assert call_args[1] == "-inf"
-
-    # Device tests
-
-    @pytest.mark.asyncio
-    async def test_save_device(self, store, mock_redis):
-        """Test save_device creates key and adds to set index."""
-        device = DeviceNode(
-            device_id="d1",
-            name="Laptop",
-            device_type="laptop",
-            status=DeviceStatus.ONLINE,
-        )
-
-        pipeline = MagicMock()
-        pipeline.set = MagicMock()
-        pipeline.sadd = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[True, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        await store.save_device(device)
-
-        pipeline.set.assert_called_once()
-        call_args = pipeline.set.call_args
-        assert "test:gateway:dev:d1" in call_args[0]
-        assert call_args[1]["ex"] == 7200  # device_ttl_seconds
-
-        pipeline.sadd.assert_called_once()
-        sadd_call = pipeline.sadd.call_args
-        assert "test:gateway:dev:index" in sadd_call[0]
-        assert "d1" in sadd_call[0]
-
-    @pytest.mark.asyncio
-    async def test_load_devices(self, store, mock_redis):
-        """Test load_devices retrieves from set."""
-        import json
-
-        mock_redis.smembers = AsyncMock(return_value={b"d1", b"d2"})
-        mock_redis.mget = AsyncMock(
-            return_value=[
-                json.dumps(
-                    {
-                        "device_id": "d1",
-                        "name": "Laptop",
-                        "device_type": "laptop",
-                        "status": "online",
-                    }
-                ),
-                json.dumps(
-                    {
-                        "device_id": "d2",
-                        "name": "Phone",
-                        "device_type": "phone",
-                        "status": "offline",
-                    }
-                ),
-            ]
-        )
-
-        devices = await store.load_devices()
-
-        assert len(devices) == 2
-
-    @pytest.mark.asyncio
-    async def test_load_devices_empty(self, store, mock_redis):
-        """Test load_devices with empty result."""
-        mock_redis.smembers = AsyncMock(return_value=set())
-
-        devices = await store.load_devices()
-
-        assert devices == []
-
-    @pytest.mark.asyncio
-    async def test_delete_device(self, store, mock_redis):
-        """Test delete_device removes key and from set."""
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.srem = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[1, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        result = await store.delete_device("d1")
-
-        assert result is True
-        pipeline.delete.assert_called_once_with("test:gateway:dev:d1")
-        pipeline.srem.assert_called_once_with("test:gateway:dev:index", "d1")
-
-    # Rule tests
-
-    @pytest.mark.asyncio
-    async def test_save_rule(self, store, mock_redis):
-        """Test save_rule creates key and adds to sorted set by priority."""
-        rule = RoutingRule(
-            rule_id="r1",
-            agent_id="claude",
-            priority=10,
-        )
-
-        pipeline = MagicMock()
-        pipeline.set = MagicMock()
-        pipeline.zadd = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[True, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        await store.save_rule(rule)
-
-        pipeline.set.assert_called_once()
-        pipeline.zadd.assert_called_once()
-        zadd_call = pipeline.zadd.call_args
-        assert "test:gateway:rule:index" in zadd_call[0]
-        assert zadd_call[0][1] == {"r1": 10}  # priority as score
-
-    @pytest.mark.asyncio
-    async def test_load_rules(self, store, mock_redis):
-        """Test load_rules retrieves sorted by priority (descending)."""
-        import json
-
-        mock_redis.zrevrange = AsyncMock(return_value=[b"r1", b"r2"])
-        mock_redis.mget = AsyncMock(
-            return_value=[
-                json.dumps(
-                    {
-                        "rule_id": "r1",
-                        "agent_id": "claude",
-                        "priority": 10,
-                    }
-                ),
-                json.dumps(
-                    {
-                        "rule_id": "r2",
-                        "agent_id": "gpt",
-                        "priority": 5,
-                    }
-                ),
-            ]
-        )
-
-        rules = await store.load_rules()
-
-        assert len(rules) == 2
-        assert rules[0].rule_id == "r1"
-        assert rules[0].priority == 10
-        mock_redis.zrevrange.assert_called_once_with("test:gateway:rule:index", 0, -1)
-
-    @pytest.mark.asyncio
-    async def test_delete_rule(self, store, mock_redis):
-        """Test delete_rule removes key and from sorted set."""
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.zrem = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[1, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        result = await store.delete_rule("r1")
-
-        assert result is True
-        pipeline.delete.assert_called_once_with("test:gateway:rule:r1")
-        pipeline.zrem.assert_called_once_with("test:gateway:rule:index", "r1")
-
-    # Session tests
-
-    @pytest.mark.asyncio
-    async def test_save_session(self, store, mock_redis):
-        """Test save_session creates key with TTL."""
-        session = {
-            "session_id": "s1",
-            "user_id": "u1",
-            "last_seen": 1000.0,
-        }
-
-        pipeline = MagicMock()
-        pipeline.set = MagicMock()
-        pipeline.zadd = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[True, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        await store.save_session(session)
-
-        pipeline.set.assert_called_once()
-        call_args = pipeline.set.call_args
-        assert "test:gateway:sess:s1" in call_args[0]
-        assert call_args[1]["ex"] == 1800  # session_ttl_seconds
-
-        pipeline.zadd.assert_called_once()
-        zadd_call = pipeline.zadd.call_args
-        assert zadd_call[0][1] == {"s1": 1000.0}  # last_seen as score
-
-    @pytest.mark.asyncio
-    async def test_save_session_no_session_id(self, store, mock_redis):
-        """Test save_session with missing session_id is a no-op."""
-        session = {"user_id": "u1", "last_seen": 100.0}
-
-        await store.save_session(session)
-
-        # Pipeline should not be created
-        mock_redis.pipeline.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_load_sessions(self, store, mock_redis):
-        """Test load_sessions retrieves sorted by last_seen."""
-        import json
-
-        mock_redis.zrevrange = AsyncMock(return_value=[b"s1", b"s2"])
-        mock_redis.mget = AsyncMock(
-            return_value=[
-                json.dumps(
-                    {
-                        "session_id": "s1",
-                        "user_id": "u1",
-                        "last_seen": 2000.0,
-                    }
-                ),
-                json.dumps(
-                    {
-                        "session_id": "s2",
-                        "user_id": "u2",
-                        "last_seen": 1000.0,
-                    }
-                ),
-            ]
-        )
-
-        sessions = await store.load_sessions(limit=10)
-
-        assert len(sessions) == 2
-        assert sessions[0]["session_id"] == "s1"
-        mock_redis.zrevrange.assert_called_once_with("test:gateway:sess:index", 0, 9)
-
-    @pytest.mark.asyncio
-    async def test_delete_session(self, store, mock_redis):
-        """Test delete_session removes key and from sorted set."""
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.zrem = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[1, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        result = await store.delete_session("s1")
-
-        assert result is True
-        pipeline.delete.assert_called_once_with("test:gateway:sess:s1")
-        pipeline.zrem.assert_called_once_with("test:gateway:sess:index", "s1")
-
-    @pytest.mark.asyncio
-    async def test_clear_sessions_all(self, store, mock_redis):
-        """Test clear_sessions removes all sessions."""
-        mock_redis.zrange = AsyncMock(return_value=[b"s1", b"s2"])
-
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[2, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        count = await store.clear_sessions()
-
-        assert count == 2
-
-    @pytest.mark.asyncio
-    async def test_clear_sessions_older_than(self, store, mock_redis):
-        """Test clear_sessions with age threshold."""
-        mock_redis.zrangebyscore = AsyncMock(return_value=[b"old_s1"])
-
-        pipeline = MagicMock()
-        pipeline.delete = MagicMock()
-        pipeline.zremrangebyscore = MagicMock()
-        pipeline.execute = AsyncMock(return_value=[1, 1])
-        mock_redis.pipeline.return_value = pipeline
-
-        count = await store.clear_sessions(older_than_seconds=3600)
-
-        assert count == 1
-
-    @pytest.mark.asyncio
-    async def test_close(self, store, mock_redis):
-        """Test close releases Redis connection."""
-        await store.close()
-
-        mock_redis.close.assert_called_once()
-        assert store._redis is None
-
-    # Edge cases
-
-    @pytest.mark.asyncio
-    async def test_malformed_message_in_redis(self, store, mock_redis):
-        """Test load_messages handles malformed data gracefully."""
-        mock_redis.zrevrange = AsyncMock(return_value=[b"m1", b"m2"])
-        mock_redis.mget = AsyncMock(
-            return_value=[
-                "not valid json",
-                '{"message_id": "m2", "channel": "s", "sender": "a", "content": "hi"}',
-            ]
-        )
-
-        messages = await store.load_messages()
-
-        assert len(messages) == 1
-        assert messages[0].message_id == "m2"
-
-    @pytest.mark.asyncio
-    async def test_none_values_in_mget(self, store, mock_redis):
-        """Test load handles None values from mget (expired keys)."""
-        import json
-
-        mock_redis.zrevrange = AsyncMock(return_value=[b"m1", b"m2", b"m3"])
-        mock_redis.mget = AsyncMock(
-            return_value=[
-                json.dumps({"message_id": "m1", "channel": "s", "sender": "a", "content": "1"}),
-                None,  # Expired or deleted
-                json.dumps({"message_id": "m3", "channel": "s", "sender": "a", "content": "3"}),
-            ]
-        )
-
-        messages = await store.load_messages()
-
-        assert len(messages) == 2
-        assert messages[0].message_id == "m1"
-        assert messages[1].message_id == "m3"
-
-
-class TestRedisGatewayStoreImport:
-    """Test Redis import handling."""
-
-    @pytest.mark.asyncio
-    async def test_redis_import_error(self):
-        """Test that ImportError is raised when redis is not installed."""
-        store = RedisGatewayStore()
-        store._redis = None
-
-        with patch.dict("sys.modules", {"redis.asyncio": None}):
-            with patch("builtins.__import__", side_effect=ImportError("No module named 'redis'")):
-                with pytest.raises(ImportError, match="redis-py with async support required"):
-                    await store._get_redis()
-
-
 class TestGetGatewayStoreEdgeCases:
-    """Test get_gateway_store factory edge cases."""
+    """Edge case tests for get_gateway_store factory."""
 
     def test_auto_backend_with_redis_env_var(self):
-        """Test auto backend uses Redis when REDIS_URL env var is set."""
-        with patch.dict(os.environ, {"REDIS_URL": "redis://localhost:6379"}):
-            # Mock the redis import to succeed
-            with patch("aragora.gateway.persistence.aioredis", create=True):
-                # Note: Don't pass path as it's not compatible with RedisGatewayStore
-                store = get_gateway_store("auto")
-                assert isinstance(store, RedisGatewayStore)
-
-    def test_auto_backend_redis_import_error_fallback(self):
-        """Test auto backend falls back to file when redis import fails."""
+        """Test that auto backend attempts Redis when REDIS_URL is set."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(os.environ, {"REDIS_URL": "redis://localhost:6379"}):
-                # Mock the redis import to fail
-                with patch.dict("sys.modules", {"redis.asyncio": None}):
+            # Save original env
+            original_redis_url = os.environ.get("REDIS_URL")
+            try:
+                os.environ["REDIS_URL"] = "redis://localhost:6379"
+                # Since redis may not be installed, it should fall back to file
+                # We patch to simulate redis import failure
+                import builtins
+
+                original_import = builtins.__import__
+
+                def mock_import(name, *args, **kwargs):
+                    if "redis" in name:
+                        raise ImportError("No module named 'redis'")
+                    return original_import(name, *args, **kwargs)
+
+                with patch.object(builtins, "__import__", mock_import):
                     store = get_gateway_store("auto", path=Path(tmpdir) / "test.json")
                     assert isinstance(store, FileGatewayStore)
+            finally:
+                if original_redis_url is None:
+                    os.environ.pop("REDIS_URL", None)
+                else:
+                    os.environ["REDIS_URL"] = original_redis_url
 
-    def test_redis_backend_explicit(self):
-        """Test explicit redis backend creates RedisGatewayStore."""
-        store = get_gateway_store(
-            "redis",
-            redis_url="redis://localhost:6379",
-            key_prefix="custom:",
-        )
-        assert isinstance(store, RedisGatewayStore)
-        assert store._key_prefix == "custom:"
+    def test_auto_backend_redis_import_error(self):
+        """Test fallback to file store when redis is not importable."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_redis_url = os.environ.get("REDIS_URL")
+            try:
+                os.environ["REDIS_URL"] = "redis://localhost:6379"
+                import builtins
+
+                original_import = builtins.__import__
+
+                def mock_import(name, *args, **kwargs):
+                    if "redis" in name:
+                        raise ImportError("No module named 'redis'")
+                    return original_import(name, *args, **kwargs)
+
+                with patch.object(builtins, "__import__", mock_import):
+                    store = get_gateway_store("auto", path=Path(tmpdir) / "test.json")
+                    # Should fall back to FileGatewayStore
+                    assert isinstance(store, FileGatewayStore)
+            finally:
+                if original_redis_url is None:
+                    os.environ.pop("REDIS_URL", None)
+                else:
+                    os.environ["REDIS_URL"] = original_redis_url
 
     def test_file_backend_creates_directory(self):
-        """Test file backend handles nested paths."""
+        """Test that file backend creates parent directories on save."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            nested_path = Path(tmpdir) / "deep" / "nested" / "gateway.json"
+            nested_path = Path(tmpdir) / "nested" / "dir" / "gateway.json"
             store = get_gateway_store("file", path=nested_path)
             assert isinstance(store, FileGatewayStore)
             assert store._path == nested_path
 
-
-# =============================================================================
-# Concurrency Tests
-# =============================================================================
-
-
-class TestPersistenceConcurrency:
-    """Test concurrent operations for gateway stores."""
-
-    @pytest.fixture
-    def memory_store(self):
-        return InMemoryGatewayStore()
-
-    @pytest.fixture
-    def file_store(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield FileGatewayStore(
-                path=Path(tmpdir) / "gateway.json",
-                auto_save=True,
-                auto_save_interval=0,
-            )
-
-    # Concurrent message tests
-
-    @pytest.mark.asyncio
-    async def test_concurrent_message_saves_memory(self, memory_store):
-        """Test multiple concurrent save_message calls (memory store)."""
-
-        async def save_msg(i: int):
-            msg = InboxMessage(
-                message_id=f"m{i}",
-                channel="slack",
-                sender=f"user{i}",
-                content=f"content{i}",
-            )
-            await memory_store.save_message(msg)
-
-        # Run 50 concurrent saves
-        await asyncio.gather(*[save_msg(i) for i in range(50)])
-
-        messages = await memory_store.load_messages(limit=100)
-        assert len(messages) == 50
-
-    @pytest.mark.asyncio
-    async def test_concurrent_message_saves_file(self, file_store):
-        """Test multiple concurrent save_message calls (file store)."""
-
-        async def save_msg(i: int):
-            msg = InboxMessage(
-                message_id=f"m{i}",
-                channel="slack",
-                sender=f"user{i}",
-                content=f"content{i}",
-            )
-            await file_store.save_message(msg)
-
-        # Run 30 concurrent saves
-        await asyncio.gather(*[save_msg(i) for i in range(30)])
-
-        messages = await file_store.load_messages(limit=100)
-        assert len(messages) == 30
-
-    # Concurrent device tests
-
-    @pytest.mark.asyncio
-    async def test_concurrent_device_saves_memory(self, memory_store):
-        """Test multiple concurrent save_device calls (memory store)."""
-
-        async def save_dev(i: int):
-            device = DeviceNode(
-                device_id=f"d{i}",
-                name=f"Device{i}",
-                device_type="laptop",
-            )
-            await memory_store.save_device(device)
-
-        await asyncio.gather(*[save_dev(i) for i in range(50)])
-
-        devices = await memory_store.load_devices()
-        assert len(devices) == 50
-
-    @pytest.mark.asyncio
-    async def test_concurrent_save_delete_device_memory(self, memory_store):
-        """Test concurrent save and delete operations (memory store)."""
-        # First save some devices
-        for i in range(20):
-            device = DeviceNode(device_id=f"d{i}", name=f"Device{i}", device_type="laptop")
-            await memory_store.save_device(device)
-
-        # Concurrently delete odd devices and save new ones
-        async def delete_odd(i: int):
-            if i % 2 == 1:
-                await memory_store.delete_device(f"d{i}")
-
-        async def save_new(i: int):
-            device = DeviceNode(device_id=f"new{i}", name=f"New{i}", device_type="phone")
-            await memory_store.save_device(device)
-
-        await asyncio.gather(
-            *[delete_odd(i) for i in range(20)],
-            *[save_new(i) for i in range(10)],
-        )
-
-        devices = await memory_store.load_devices()
-        # 10 original even devices + 10 new devices = 20
-        assert len(devices) == 20
-
-    # Concurrent rule tests
-
-    @pytest.mark.asyncio
-    async def test_concurrent_rule_saves_memory(self, memory_store):
-        """Test multiple concurrent save_rule calls (memory store)."""
-
-        async def save_rule(i: int):
-            rule = RoutingRule(
-                rule_id=f"r{i}",
-                agent_id=f"agent{i}",
-                priority=i,
-            )
-            await memory_store.save_rule(rule)
-
-        await asyncio.gather(*[save_rule(i) for i in range(50)])
-
-        rules = await memory_store.load_rules()
-        assert len(rules) == 50
-        # Verify priority ordering (highest first)
-        assert rules[0].priority == 49
-
-    # Concurrent session tests
-
-    @pytest.mark.asyncio
-    async def test_concurrent_session_saves_memory(self, memory_store):
-        """Test multiple concurrent save_session calls (memory store)."""
-
-        async def save_session(i: int):
-            session = {
-                "session_id": f"s{i}",
-                "user_id": f"u{i}",
-                "last_seen": float(i),
-            }
-            await memory_store.save_session(session)
-
-        await asyncio.gather(*[save_session(i) for i in range(50)])
-
-        sessions = await memory_store.load_sessions(limit=100)
-        assert len(sessions) == 50
-
-    @pytest.mark.asyncio
-    async def test_concurrent_clear_while_saving_memory(self, memory_store):
-        """Test concurrent clear_sessions while saving new sessions."""
-        import time
-
-        now = time.time()
-
-        # Pre-populate with old sessions
-        for i in range(10):
-            await memory_store.save_session(
-                {
-                    "session_id": f"old{i}",
-                    "user_id": f"old_u{i}",
-                    "last_seen": now - 7200,  # 2 hours ago
-                }
-            )
-
-        # Concurrently clear old sessions and add new ones
-        async def clear_old():
-            await memory_store.clear_sessions(older_than_seconds=3600)
-
-        async def save_new(i: int):
-            await memory_store.save_session(
-                {
-                    "session_id": f"new{i}",
-                    "user_id": f"new_u{i}",
-                    "last_seen": now,
-                }
-            )
-
-        await asyncio.gather(
-            clear_old(),
-            *[save_new(i) for i in range(10)],
-        )
-
-        sessions = await memory_store.load_sessions()
-        # All sessions should be new ones (old ones cleared)
-        for sess in sessions:
-            assert sess["session_id"].startswith("new")
-
-    # Mixed operations
-
-    @pytest.mark.asyncio
-    async def test_mixed_operations_memory(self, memory_store):
-        """Test concurrent operations across different entity types."""
-
-        async def save_msg(i: int):
-            msg = InboxMessage(message_id=f"m{i}", channel="s", sender="a", content=str(i))
-            await memory_store.save_message(msg)
-
-        async def save_dev(i: int):
-            device = DeviceNode(device_id=f"d{i}", name=f"D{i}", device_type="laptop")
-            await memory_store.save_device(device)
-
-        async def save_rule(i: int):
-            rule = RoutingRule(rule_id=f"r{i}", agent_id=f"a{i}", priority=i)
-            await memory_store.save_rule(rule)
-
-        async def save_sess(i: int):
-            session = {"session_id": f"s{i}", "user_id": f"u{i}", "last_seen": float(i)}
-            await memory_store.save_session(session)
-
-        # Run all operations concurrently
-        await asyncio.gather(
-            *[save_msg(i) for i in range(20)],
-            *[save_dev(i) for i in range(20)],
-            *[save_rule(i) for i in range(20)],
-            *[save_sess(i) for i in range(20)],
-        )
-
-        # Verify all entities saved correctly
-        assert len(await memory_store.load_messages(limit=100)) == 20
-        assert len(await memory_store.load_devices()) == 20
-        assert len(await memory_store.load_rules()) == 20
-        assert len(await memory_store.load_sessions(limit=100)) == 20
-
-    @pytest.mark.asyncio
-    async def test_rapid_updates_same_entity_memory(self, memory_store):
-        """Test rapid concurrent updates to the same entity."""
-
-        # Rapidly update the same device 50 times
-        async def update_device(version: int):
-            device = DeviceNode(
-                device_id="same_device",
-                name=f"Version{version}",
-                device_type="laptop",
-            )
-            await memory_store.save_device(device)
-
-        await asyncio.gather(*[update_device(i) for i in range(50)])
-
-        devices = await memory_store.load_devices()
-        # Should only have one device (last update wins)
-        assert len(devices) == 1
-        assert devices[0].device_id == "same_device"
+    def test_file_backend_default_path(self):
+        """Test that file backend uses default path when none provided."""
+        store = get_gateway_store("file")
+        assert isinstance(store, FileGatewayStore)
+        expected_default = Path.home() / ".aragora" / "gateway.json"
+        assert store._path == expected_default
 
 
 # =============================================================================
-# FileGatewayStore Edge Cases
+# FileGatewayStore Edge Case Tests
 # =============================================================================
 
 
 class TestFileGatewayStoreEdgeCases:
-    """Test FileGatewayStore edge cases."""
+    """Edge case tests for FileGatewayStore."""
 
     @pytest.fixture
     def temp_path(self):
@@ -2364,17 +1648,31 @@ class TestFileGatewayStoreEdgeCases:
 
     @pytest.mark.asyncio
     async def test_malformed_message_in_file(self, temp_path):
-        """Test partial load continues with malformed messages."""
+        """Test that malformed messages are skipped during load."""
         import json
 
-        # Create file with mixed valid/invalid data
         temp_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "version": 1,
+            "saved_at": 100.0,
             "messages": [
-                {"message_id": "m1", "channel": "s", "sender": "a", "content": "valid"},
-                {"invalid": "message"},  # Missing required fields
-                {"message_id": "m3", "channel": "s", "sender": "a", "content": "also_valid"},
+                {
+                    "message_id": "m1",
+                    "channel": "slack",
+                    "sender": "alice",
+                    "content": "valid message",
+                },
+                {
+                    # Malformed: missing required fields
+                    "message_id": "m2",
+                    # missing channel, sender, content
+                },
+                {
+                    "message_id": "m3",
+                    "channel": "slack",
+                    "sender": "bob",
+                    "content": "another valid message",
+                },
             ],
             "devices": [],
             "rules": [],
@@ -2385,24 +1683,42 @@ class TestFileGatewayStoreEdgeCases:
 
         store = FileGatewayStore(path=temp_path)
         messages = await store.load_messages()
-        await store.close()
 
-        # Should load the 2 valid messages
+        # Should have loaded 2 valid messages, skipped the malformed one
         assert len(messages) == 2
+        message_ids = [m.message_id for m in messages]
+        assert "m1" in message_ids
+        assert "m3" in message_ids
+        assert "m2" not in message_ids
+        await store.close()
 
     @pytest.mark.asyncio
     async def test_malformed_device_in_file(self, temp_path):
-        """Test partial load continues with malformed devices."""
+        """Test that malformed devices are skipped during load."""
         import json
 
         temp_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "version": 1,
+            "saved_at": 100.0,
             "messages": [],
             "devices": [
-                {"device_id": "d1", "name": "Valid", "device_type": "laptop"},
-                {},  # Empty device
-                {"device_id": "d3", "name": "Also Valid", "device_type": "phone"},
+                {
+                    "device_id": "d1",
+                    "name": "Laptop",
+                    "device_type": "laptop",
+                },
+                {
+                    # Malformed: status is invalid enum value
+                    "device_id": "d2",
+                    "name": "Phone",
+                    "status": "invalid_status",  # This will cause error
+                },
+                {
+                    "device_id": "d3",
+                    "name": "Server",
+                    "device_type": "server",
+                },
             ],
             "rules": [],
             "sessions": [],
@@ -2412,115 +1728,174 @@ class TestFileGatewayStoreEdgeCases:
 
         store = FileGatewayStore(path=temp_path)
         devices = await store.load_devices()
+
+        # Should have loaded 2 valid devices, skipped the malformed one
+        assert len(devices) == 2
+        device_ids = [d.device_id for d in devices]
+        assert "d1" in device_ids
+        assert "d3" in device_ids
         await store.close()
 
-        assert len(devices) == 2
+    @pytest.mark.asyncio
+    async def test_malformed_rule_in_file(self, temp_path):
+        """Test that malformed rules are skipped during load."""
+        import json
+
+        temp_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "version": 1,
+            "saved_at": 100.0,
+            "messages": [],
+            "devices": [],
+            "rules": [
+                {
+                    "rule_id": "r1",
+                    "agent_id": "claude",
+                },
+                {
+                    # Malformed: missing required fields
+                    # missing rule_id and agent_id
+                },
+                {
+                    "rule_id": "r3",
+                    "agent_id": "gemini",
+                },
+            ],
+            "sessions": [],
+        }
+        with open(temp_path, "w") as f:
+            json.dump(data, f)
+
+        store = FileGatewayStore(path=temp_path)
+        rules = await store.load_rules()
+
+        # Should have loaded 2 valid rules, skipped the malformed one
+        assert len(rules) == 2
+        rule_ids = [r.rule_id for r in rules]
+        assert "r1" in rule_ids
+        assert "r3" in rule_ids
+        await store.close()
+
+    @pytest.mark.asyncio
+    async def test_malformed_session_in_file(self, temp_path):
+        """Test that malformed sessions are skipped during load."""
+        import json
+
+        temp_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "version": 1,
+            "saved_at": 100.0,
+            "messages": [],
+            "devices": [],
+            "rules": [],
+            "sessions": [
+                {
+                    "session_id": "s1",
+                    "user_id": "u1",
+                    "status": "active",
+                },
+                {
+                    # Missing session_id - should be skipped
+                    "user_id": "u2",
+                    "status": "active",
+                },
+                {
+                    "session_id": "s3",
+                    "user_id": "u3",
+                    "status": "active",
+                },
+            ],
+        }
+        with open(temp_path, "w") as f:
+            json.dump(data, f)
+
+        store = FileGatewayStore(path=temp_path)
+        sessions = await store.load_sessions()
+
+        # Should have loaded 2 valid sessions, skipped the one without session_id
+        assert len(sessions) == 2
+        session_ids = [s["session_id"] for s in sessions]
+        assert "s1" in session_ids
+        assert "s3" in session_ids
+        await store.close()
 
     @pytest.mark.asyncio
     async def test_auto_save_interval_throttling(self, temp_path):
-        """Test auto-save interval throttling behavior."""
+        """Test that auto-save is throttled by interval."""
         store = FileGatewayStore(
             path=temp_path,
             auto_save=True,
-            auto_save_interval=10.0,  # 10 seconds
+            auto_save_interval=10.0,  # 10 second interval
         )
 
-        # First save should write
+        # First save should work
         msg1 = InboxMessage(message_id="m1", channel="s", sender="a", content="1")
         await store.save_message(msg1)
 
-        # Check file was created
-        assert temp_path.exists()
-
-        # Second save should be throttled (no immediate write)
-        store._last_save = store._last_save  # Record the last save time
+        # Second save should be throttled (interval not elapsed)
         msg2 = InboxMessage(message_id="m2", channel="s", sender="a", content="2")
         await store.save_message(msg2)
 
-        # Force close to ensure write
+        # _dirty should still be True because interval hasn't elapsed
+        assert store._dirty is True
+
         await store.close()
-
-        # Verify both messages persisted
-        store2 = FileGatewayStore(path=temp_path)
-        messages = await store2.load_messages()
-        await store2.close()
-
-        assert len(messages) == 2
 
     @pytest.mark.asyncio
     async def test_dirty_flag_behavior(self, temp_path):
-        """Test dirty flag lifecycle."""
-        store = FileGatewayStore(
-            path=temp_path,
-            auto_save=False,  # Disable auto-save to test dirty flag
-            auto_save_interval=0,
-        )
+        """Test that dirty flag is set on modifications."""
+        store = FileGatewayStore(path=temp_path, auto_save=False)
 
         # Initially not dirty
         assert store._dirty is False
 
-        # Save message sets dirty flag
-        msg = InboxMessage(message_id="m1", channel="s", sender="a", content="1")
+        # Save message should set dirty
+        msg = InboxMessage(message_id="m1", channel="s", sender="a", content="hi")
         await store.save_message(msg)
         assert store._dirty is True
 
-        # Force save clears dirty flag
+        # Force save clears dirty
         await store._save(force=True)
         assert store._dirty is False
+
+        # Delete should set dirty
+        await store.delete_message("m1")
+        assert store._dirty is True
 
         await store.close()
 
     @pytest.mark.asyncio
     async def test_force_save_ignores_interval(self, temp_path):
-        """Test force save bypasses interval throttling."""
-        import time
-
+        """Test that force save ignores the auto-save interval."""
         store = FileGatewayStore(
             path=temp_path,
-            auto_save=True,
-            auto_save_interval=3600,  # Very long interval
+            auto_save=False,
+            auto_save_interval=1000.0,  # Very long interval
         )
 
-        msg = InboxMessage(message_id="m1", channel="s", sender="a", content="1")
+        # Save a message
+        msg = InboxMessage(message_id="m1", channel="s", sender="a", content="hi")
         await store.save_message(msg)
 
-        # Set last_save to recent time
-        store._last_save = time.time()
-        store._dirty = True
-
-        # Force save should still work
+        # Force save should work regardless of interval
         await store._save(force=True)
         assert store._dirty is False
+        assert temp_path.exists()
 
         await store.close()
 
 
 # =============================================================================
-# Data Integrity Tests
+# Data Integrity Edge Cases
 # =============================================================================
 
 
 class TestDataIntegrityEdgeCases:
-    """Test data integrity edge cases."""
+    """Tests for data integrity edge cases."""
 
-    @pytest.fixture
-    def memory_store(self):
-        return InMemoryGatewayStore()
-
-    @pytest.fixture
-    def file_store(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield FileGatewayStore(
-                path=Path(tmpdir) / "gateway.json",
-                auto_save=True,
-                auto_save_interval=0,
-            )
-
-    @pytest.mark.asyncio
-    async def test_large_metadata_handling(self, file_store):
+    def test_large_metadata_handling(self):
         """Test serialization with large metadata."""
         large_metadata = {f"key_{i}": f"value_{i}" * 100 for i in range(100)}
-
         msg = InboxMessage(
             message_id="m1",
             channel="slack",
@@ -2528,41 +1903,1544 @@ class TestDataIntegrityEdgeCases:
             content="test",
             metadata=large_metadata,
         )
-        await file_store.save_message(msg)
+        d = _message_to_dict(msg)
+        restored = _dict_to_message(d)
 
-        messages = await file_store.load_messages()
-        assert len(messages) == 1
-        assert len(messages[0].metadata) == 100
+        assert restored.metadata == large_metadata
+        assert len(restored.metadata) == 100
 
-    @pytest.mark.asyncio
-    async def test_special_characters_in_strings(self, file_store):
-        """Test handling of special characters."""
+    def test_special_characters_in_strings(self):
+        """Test serialization with special characters."""
+        special_content = (
+            "Test with \"quotes\", 'apostrophes', \n newlines, \t tabs, and \\ backslashes"
+        )
+        special_sender = "user@domain.com"
+
         msg = InboxMessage(
             message_id="m1",
             channel="slack",
-            sender="alice",
-            content='Content with "quotes", \\backslash, \n\tnewlines\ttabs, and <html>',
+            sender=special_sender,
+            content=special_content,
+            metadata={"special": "value with <html> & entities"},
         )
-        await file_store.save_message(msg)
+        d = _message_to_dict(msg)
+        restored = _dict_to_message(d)
 
-        messages = await file_store.load_messages()
-        assert len(messages) == 1
-        assert '"quotes"' in messages[0].content
-        assert "\\backslash" in messages[0].content
+        assert restored.sender == special_sender
+        assert restored.content == special_content
+        assert restored.metadata["special"] == "value with <html> & entities"
 
-    @pytest.mark.asyncio
-    async def test_empty_string_fields(self, file_store):
-        """Test handling of empty string fields."""
+    def test_empty_string_fields(self):
+        """Test serialization with empty string fields."""
         msg = InboxMessage(
             message_id="m1",
             channel="",
             sender="",
             content="",
+            thread_id="",
         )
-        await file_store.save_message(msg)
+        d = _message_to_dict(msg)
+        restored = _dict_to_message(d)
 
-        messages = await file_store.load_messages()
+        assert restored.channel == ""
+        assert restored.sender == ""
+        assert restored.content == ""
+        assert restored.thread_id == ""
+
+        # Test device with empty strings
+        device = DeviceNode(
+            device_id="",
+            name="",
+            device_type="",
+        )
+        d = _device_to_dict(device)
+        restored_device = _dict_to_device(d)
+
+        assert restored_device.name == ""
+        assert restored_device.device_type == ""
+
+        # Test rule with empty patterns
+        rule = RoutingRule(
+            rule_id="r1",
+            agent_id="",
+            channel_pattern="",
+            sender_pattern="",
+            content_pattern="",
+        )
+        d = _rule_to_dict(rule)
+        restored_rule = _dict_to_rule(d)
+
+        assert restored_rule.agent_id == ""
+        assert restored_rule.channel_pattern == ""
+        assert restored_rule.sender_pattern == ""
+        assert restored_rule.content_pattern == ""
+
+
+# =============================================================================
+# Concurrency Tests
+# =============================================================================
+
+
+class TestPersistenceConcurrency:
+    """
+    Test concurrent operations for gateway persistence stores.
+
+    Verifies thread/async safety for both InMemoryGatewayStore and FileGatewayStore.
+    """
+
+    @pytest.fixture
+    def memory_store(self):
+        return InMemoryGatewayStore()
+
+    @pytest.fixture
+    def temp_path(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "gateway.json"
+
+    @pytest.fixture
+    def file_store(self, temp_path):
+        return FileGatewayStore(path=temp_path, auto_save=True, auto_save_interval=0)
+
+    # -------------------------------------------------------------------------
+    # Helper methods
+    # -------------------------------------------------------------------------
+
+    def _create_message(self, i: int) -> InboxMessage:
+        """Create a test message with given index."""
+        return InboxMessage(
+            message_id=f"msg-{i}",
+            channel="test-channel",
+            sender=f"sender-{i}",
+            content=f"Content for message {i}",
+            priority=MessagePriority.NORMAL,
+        )
+
+    def _create_device(self, i: int) -> DeviceNode:
+        """Create a test device with given index."""
+        return DeviceNode(
+            device_id=f"device-{i}",
+            name=f"Device {i}",
+            device_type="test",
+            status=DeviceStatus.ONLINE,
+        )
+
+    def _create_rule(self, i: int, priority: int | None = None) -> RoutingRule:
+        """Create a test routing rule with given index."""
+        return RoutingRule(
+            rule_id=f"rule-{i}",
+            agent_id=f"agent-{i}",
+            priority=priority if priority is not None else i,
+        )
+
+    def _create_session(self, i: int) -> dict:
+        """Create a test session with given index."""
+        import time
+
+        return {
+            "session_id": f"session-{i}",
+            "user_id": f"user-{i}",
+            "device_id": f"device-{i}",
+            "status": "active",
+            "created_at": time.time(),
+            "last_seen": time.time(),
+        }
+
+    # -------------------------------------------------------------------------
+    # Concurrent Message Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_concurrent_message_saves_memory(self, memory_store):
+        """Test multiple concurrent save_message calls on InMemoryGatewayStore."""
+        num_messages = 50
+        messages = [self._create_message(i) for i in range(num_messages)]
+
+        # Save all messages concurrently
+        await asyncio.gather(*[memory_store.save_message(msg) for msg in messages])
+
+        # Verify all messages are saved without data loss
+        loaded = await memory_store.load_messages(limit=num_messages + 10)
+        assert len(loaded) == num_messages
+
+        loaded_ids = {m.message_id for m in loaded}
+        expected_ids = {f"msg-{i}" for i in range(num_messages)}
+        assert loaded_ids == expected_ids
+
+    @pytest.mark.asyncio
+    async def test_concurrent_message_saves_file(self, file_store):
+        """Test multiple concurrent save_message calls on FileGatewayStore."""
+        num_messages = 30
+        messages = [self._create_message(i) for i in range(num_messages)]
+
+        # Save all messages concurrently
+        await asyncio.gather(*[file_store.save_message(msg) for msg in messages])
+
+        # Verify all messages are saved without data loss
+        loaded = await file_store.load_messages(limit=num_messages + 10)
+        assert len(loaded) == num_messages
+
+        loaded_ids = {m.message_id for m in loaded}
+        expected_ids = {f"msg-{i}" for i in range(num_messages)}
+        assert loaded_ids == expected_ids
+
+    @pytest.mark.asyncio
+    async def test_concurrent_save_then_load_memory(self, memory_store):
+        """Test concurrent save followed by load on InMemoryGatewayStore."""
+        num_messages = 20
+
+        async def save_and_load(i: int):
+            msg = self._create_message(i)
+            await memory_store.save_message(msg)
+            # Small delay to allow other saves to happen
+            await asyncio.sleep(0.001)
+            return await memory_store.load_messages(limit=100)
+
+        results = await asyncio.gather(*[save_and_load(i) for i in range(num_messages)])
+
+        # Final check: all messages should be present
+        final_loaded = await memory_store.load_messages(limit=100)
+        assert len(final_loaded) == num_messages
+
+    @pytest.mark.asyncio
+    async def test_concurrent_save_then_load_file(self, file_store):
+        """Test concurrent save followed by load on FileGatewayStore."""
+        num_messages = 15
+
+        async def save_and_load(i: int):
+            msg = self._create_message(i)
+            await file_store.save_message(msg)
+            await asyncio.sleep(0.001)
+            return await file_store.load_messages(limit=100)
+
+        await asyncio.gather(*[save_and_load(i) for i in range(num_messages)])
+
+        # Final check: all messages should be present
+        final_loaded = await file_store.load_messages(limit=100)
+        assert len(final_loaded) == num_messages
+
+    # -------------------------------------------------------------------------
+    # Concurrent Device Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_concurrent_device_saves_memory(self, memory_store):
+        """Test multiple concurrent save_device calls on InMemoryGatewayStore."""
+        num_devices = 50
+        devices = [self._create_device(i) for i in range(num_devices)]
+
+        await asyncio.gather(*[memory_store.save_device(dev) for dev in devices])
+
+        loaded = await memory_store.load_devices()
+        assert len(loaded) == num_devices
+
+        loaded_ids = {d.device_id for d in loaded}
+        expected_ids = {f"device-{i}" for i in range(num_devices)}
+        assert loaded_ids == expected_ids
+
+    @pytest.mark.asyncio
+    async def test_concurrent_device_saves_file(self, file_store):
+        """Test multiple concurrent save_device calls on FileGatewayStore."""
+        num_devices = 30
+        devices = [self._create_device(i) for i in range(num_devices)]
+
+        await asyncio.gather(*[file_store.save_device(dev) for dev in devices])
+
+        loaded = await file_store.load_devices()
+        assert len(loaded) == num_devices
+
+    @pytest.mark.asyncio
+    async def test_concurrent_save_delete_device_memory(self, memory_store):
+        """Test concurrent save_device and delete_device on InMemoryGatewayStore."""
+        num_devices = 40
+
+        # First, save all devices
+        devices = [self._create_device(i) for i in range(num_devices)]
+        await asyncio.gather(*[memory_store.save_device(dev) for dev in devices])
+
+        # Concurrently delete even-numbered devices while saving new ones
+        async def delete_device(i: int):
+            await memory_store.delete_device(f"device-{i}")
+
+        async def save_new_device(i: int):
+            new_dev = self._create_device(num_devices + i)
+            await memory_store.save_device(new_dev)
+
+        # Delete even, save new
+        tasks = []
+        for i in range(0, num_devices, 2):
+            tasks.append(delete_device(i))
+        for i in range(10):
+            tasks.append(save_new_device(i))
+
+        await asyncio.gather(*tasks)
+
+        # Verify registry integrity
+        loaded = await memory_store.load_devices()
+
+        # We deleted 20 even-numbered devices (0,2,4,...,38)
+        # We added 10 new devices (40-49)
+        # Expected: 20 odd devices + 10 new = 30
+        assert len(loaded) == 30
+
+        loaded_ids = {d.device_id for d in loaded}
+        # Odd devices from 0-39
+        expected_odd = {f"device-{i}" for i in range(1, num_devices, 2)}
+        # New devices 40-49
+        expected_new = {f"device-{i}" for i in range(num_devices, num_devices + 10)}
+        assert loaded_ids == expected_odd | expected_new
+
+    @pytest.mark.asyncio
+    async def test_concurrent_save_delete_device_file(self, file_store):
+        """Test concurrent save_device and delete_device on FileGatewayStore."""
+        num_devices = 20
+
+        # First, save all devices
+        devices = [self._create_device(i) for i in range(num_devices)]
+        await asyncio.gather(*[file_store.save_device(dev) for dev in devices])
+
+        # Concurrently delete even-numbered and save new
+        tasks = []
+        for i in range(0, num_devices, 2):
+            tasks.append(file_store.delete_device(f"device-{i}"))
+        for i in range(5):
+            new_dev = self._create_device(num_devices + i)
+            tasks.append(file_store.save_device(new_dev))
+
+        await asyncio.gather(*tasks)
+
+        loaded = await file_store.load_devices()
+        # 10 odd + 5 new = 15
+        assert len(loaded) == 15
+
+    # -------------------------------------------------------------------------
+    # Concurrent Rule Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_concurrent_rule_saves_memory(self, memory_store):
+        """Test multiple concurrent save_rule calls on InMemoryGatewayStore."""
+        num_rules = 50
+        rules = [self._create_rule(i) for i in range(num_rules)]
+
+        await asyncio.gather(*[memory_store.save_rule(r) for r in rules])
+
+        loaded = await memory_store.load_rules()
+        assert len(loaded) == num_rules
+
+    @pytest.mark.asyncio
+    async def test_concurrent_rule_saves_file(self, file_store):
+        """Test multiple concurrent save_rule calls on FileGatewayStore."""
+        num_rules = 30
+        rules = [self._create_rule(i) for i in range(num_rules)]
+
+        await asyncio.gather(*[file_store.save_rule(r) for r in rules])
+
+        loaded = await file_store.load_rules()
+        assert len(loaded) == num_rules
+
+    @pytest.mark.asyncio
+    async def test_concurrent_rules_priority_ordering_memory(self, memory_store):
+        """Verify priority ordering is maintained after concurrent saves on InMemoryGatewayStore."""
+        num_rules = 30
+        # Create rules with varied priorities
+        rules = [self._create_rule(i, priority=i * 10) for i in range(num_rules)]
+
+        # Shuffle and save concurrently
+        import random
+
+        shuffled = rules.copy()
+        random.shuffle(shuffled)
+
+        await asyncio.gather(*[memory_store.save_rule(r) for r in shuffled])
+
+        loaded = await memory_store.load_rules()
+        assert len(loaded) == num_rules
+
+        # Verify ordering: highest priority first
+        priorities = [r.priority for r in loaded]
+        assert priorities == sorted(priorities, reverse=True)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_rules_priority_ordering_file(self, file_store):
+        """Verify priority ordering is maintained after concurrent saves on FileGatewayStore."""
+        num_rules = 20
+        rules = [self._create_rule(i, priority=i * 5) for i in range(num_rules)]
+
+        import random
+
+        shuffled = rules.copy()
+        random.shuffle(shuffled)
+
+        await asyncio.gather(*[file_store.save_rule(r) for r in shuffled])
+
+        loaded = await file_store.load_rules()
+        assert len(loaded) == num_rules
+
+        priorities = [r.priority for r in loaded]
+        assert priorities == sorted(priorities, reverse=True)
+
+    # -------------------------------------------------------------------------
+    # Concurrent Session Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_concurrent_session_saves_memory(self, memory_store):
+        """Test multiple concurrent save_session calls on InMemoryGatewayStore."""
+        num_sessions = 50
+        sessions = [self._create_session(i) for i in range(num_sessions)]
+
+        await asyncio.gather(*[memory_store.save_session(s) for s in sessions])
+
+        loaded = await memory_store.load_sessions(limit=100)
+        assert len(loaded) == num_sessions
+
+        loaded_ids = {s["session_id"] for s in loaded}
+        expected_ids = {f"session-{i}" for i in range(num_sessions)}
+        assert loaded_ids == expected_ids
+
+    @pytest.mark.asyncio
+    async def test_concurrent_session_saves_file(self, file_store):
+        """Test multiple concurrent save_session calls on FileGatewayStore."""
+        num_sessions = 30
+        sessions = [self._create_session(i) for i in range(num_sessions)]
+
+        await asyncio.gather(*[file_store.save_session(s) for s in sessions])
+
+        loaded = await file_store.load_sessions(limit=100)
+        assert len(loaded) == num_sessions
+
+    @pytest.mark.asyncio
+    async def test_concurrent_clear_sessions_while_saving_memory(self, memory_store):
+        """Test concurrent clear_sessions while saving on InMemoryGatewayStore."""
+        # First, populate with some sessions
+        initial_sessions = [self._create_session(i) for i in range(20)]
+        await asyncio.gather(*[memory_store.save_session(s) for s in initial_sessions])
+
+        # Now run concurrent clears and saves
+        new_sessions = [self._create_session(100 + i) for i in range(10)]
+
+        async def clear_old():
+            await memory_store.clear_sessions()
+
+        async def save_new(s):
+            await asyncio.sleep(0.002)  # slight delay to interleave
+            await memory_store.save_session(s)
+
+        tasks = [clear_old()]
+        tasks.extend([save_new(s) for s in new_sessions])
+
+        await asyncio.gather(*tasks)
+
+        # The final state depends on timing, but we should not have any corruption
+        loaded = await memory_store.load_sessions(limit=100)
+        # All loaded sessions should be valid dicts with session_id
+        for sess in loaded:
+            assert "session_id" in sess
+            assert isinstance(sess["session_id"], str)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_clear_sessions_while_saving_file(self, file_store):
+        """Test concurrent clear_sessions while saving on FileGatewayStore."""
+        initial_sessions = [self._create_session(i) for i in range(15)]
+        await asyncio.gather(*[file_store.save_session(s) for s in initial_sessions])
+
+        new_sessions = [self._create_session(100 + i) for i in range(5)]
+
+        async def clear_old():
+            await file_store.clear_sessions()
+
+        async def save_new(s):
+            await asyncio.sleep(0.002)
+            await file_store.save_session(s)
+
+        tasks = [clear_old()]
+        tasks.extend([save_new(s) for s in new_sessions])
+
+        await asyncio.gather(*tasks)
+
+        # Verify no corruption
+        loaded = await file_store.load_sessions(limit=100)
+        for sess in loaded:
+            assert "session_id" in sess
+
+    # -------------------------------------------------------------------------
+    # Mixed Operations Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_mixed_operations_memory(self, memory_store):
+        """Test concurrent operations across different entity types on InMemoryGatewayStore."""
+        num_each = 15
+
+        messages = [self._create_message(i) for i in range(num_each)]
+        devices = [self._create_device(i) for i in range(num_each)]
+        rules = [self._create_rule(i) for i in range(num_each)]
+        sessions = [self._create_session(i) for i in range(num_each)]
+
+        # Mix all operations
+        tasks = []
+        tasks.extend([memory_store.save_message(m) for m in messages])
+        tasks.extend([memory_store.save_device(d) for d in devices])
+        tasks.extend([memory_store.save_rule(r) for r in rules])
+        tasks.extend([memory_store.save_session(s) for s in sessions])
+
+        await asyncio.gather(*tasks)
+
+        # Verify no cross-contamination
+        loaded_messages = await memory_store.load_messages(limit=100)
+        loaded_devices = await memory_store.load_devices()
+        loaded_rules = await memory_store.load_rules()
+        loaded_sessions = await memory_store.load_sessions(limit=100)
+
+        assert len(loaded_messages) == num_each
+        assert len(loaded_devices) == num_each
+        assert len(loaded_rules) == num_each
+        assert len(loaded_sessions) == num_each
+
+        # Verify each type has correct data
+        assert all(m.message_id.startswith("msg-") for m in loaded_messages)
+        assert all(d.device_id.startswith("device-") for d in loaded_devices)
+        assert all(r.rule_id.startswith("rule-") for r in loaded_rules)
+        assert all(s["session_id"].startswith("session-") for s in loaded_sessions)
+
+    @pytest.mark.asyncio
+    async def test_mixed_operations_file(self, file_store):
+        """Test concurrent operations across different entity types on FileGatewayStore."""
+        num_each = 10
+
+        messages = [self._create_message(i) for i in range(num_each)]
+        devices = [self._create_device(i) for i in range(num_each)]
+        rules = [self._create_rule(i) for i in range(num_each)]
+        sessions = [self._create_session(i) for i in range(num_each)]
+
+        tasks = []
+        tasks.extend([file_store.save_message(m) for m in messages])
+        tasks.extend([file_store.save_device(d) for d in devices])
+        tasks.extend([file_store.save_rule(r) for r in rules])
+        tasks.extend([file_store.save_session(s) for s in sessions])
+
+        await asyncio.gather(*tasks)
+
+        loaded_messages = await file_store.load_messages(limit=100)
+        loaded_devices = await file_store.load_devices()
+        loaded_rules = await file_store.load_rules()
+        loaded_sessions = await file_store.load_sessions(limit=100)
+
+        assert len(loaded_messages) == num_each
+        assert len(loaded_devices) == num_each
+        assert len(loaded_rules) == num_each
+        assert len(loaded_sessions) == num_each
+
+    @pytest.mark.asyncio
+    async def test_mixed_save_delete_operations_memory(self, memory_store):
+        """Test mixed save and delete operations concurrently on InMemoryGatewayStore."""
+        # Setup initial data
+        for i in range(20):
+            await memory_store.save_message(self._create_message(i))
+            await memory_store.save_device(self._create_device(i))
+
+        # Run concurrent saves and deletes
+        tasks = []
+        # Delete some messages
+        for i in range(0, 10, 2):
+            tasks.append(memory_store.delete_message(f"msg-{i}"))
+        # Save new messages
+        for i in range(20, 30):
+            tasks.append(memory_store.save_message(self._create_message(i)))
+        # Delete some devices
+        for i in range(0, 10, 2):
+            tasks.append(memory_store.delete_device(f"device-{i}"))
+        # Save new devices
+        for i in range(20, 30):
+            tasks.append(memory_store.save_device(self._create_device(i)))
+
+        await asyncio.gather(*tasks)
+
+        # Verify final state
+        messages = await memory_store.load_messages(limit=100)
+        devices = await memory_store.load_devices()
+
+        # 20 - 5 deleted + 10 new = 25 messages
+        # 20 - 5 deleted + 10 new = 25 devices
+        assert len(messages) == 25
+        assert len(devices) == 25
+
+    # -------------------------------------------------------------------------
+    # FileGatewayStore Specific Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_file_auto_save_interval_throttling(self, temp_path):
+        """Test concurrent writes with auto_save_interval throttling."""
+        # Use a longer interval to test throttling
+        store = FileGatewayStore(path=temp_path, auto_save=True, auto_save_interval=1.0)
+
+        num_messages = 20
+        messages = [self._create_message(i) for i in range(num_messages)]
+
+        # Save all concurrently - most should be throttled
+        await asyncio.gather(*[store.save_message(m) for m in messages])
+
+        # Force final save
+        await store.close()
+
+        # Reload and verify
+        store2 = FileGatewayStore(path=temp_path)
+        loaded = await store2.load_messages(limit=100)
+        assert len(loaded) == num_messages
+        await store2.close()
+
+    @pytest.mark.asyncio
+    async def test_file_write_atomicity(self, temp_path):
+        """Test file write atomicity (temp file rename)."""
+        store = FileGatewayStore(path=temp_path, auto_save=True, auto_save_interval=0)
+
+        # Do several concurrent writes
+        num_messages = 25
+        messages = [self._create_message(i) for i in range(num_messages)]
+        await asyncio.gather(*[store.save_message(m) for m in messages])
+
+        # The temp file should not exist (it gets renamed)
+        temp_file = temp_path.with_suffix(".tmp")
+        assert not temp_file.exists()
+
+        # The main file should exist and be valid JSON
+        assert temp_path.exists()
+
+        import json
+
+        with open(temp_path) as f:
+            data = json.load(f)
+        assert "messages" in data
+        assert len(data["messages"]) == num_messages
+
+        await store.close()
+
+    @pytest.mark.asyncio
+    async def test_concurrent_load_and_save_file(self, temp_path):
+        """Test concurrent load and save operations on FileGatewayStore."""
+        store = FileGatewayStore(path=temp_path, auto_save=True, auto_save_interval=0)
+
+        # Pre-populate
+        for i in range(10):
+            await store.save_message(self._create_message(i))
+
+        # Concurrent loads and saves
+        async def load_op():
+            return await store.load_messages(limit=100)
+
+        async def save_op(i: int):
+            await store.save_message(self._create_message(100 + i))
+
+        tasks = []
+        for i in range(10):
+            tasks.append(load_op())
+            tasks.append(save_op(i))
+
+        results = await asyncio.gather(*tasks)
+
+        # Verify final state
+        final = await store.load_messages(limit=100)
+        assert len(final) == 20  # 10 original + 10 new
+
+        await store.close()
+
+    @pytest.mark.asyncio
+    async def test_file_persistence_after_concurrent_ops(self, temp_path):
+        """Test data persists correctly after concurrent operations."""
+        store1 = FileGatewayStore(path=temp_path, auto_save=True, auto_save_interval=0)
+
+        # Mixed concurrent operations
+        tasks = []
+        for i in range(15):
+            tasks.append(store1.save_message(self._create_message(i)))
+            tasks.append(store1.save_device(self._create_device(i)))
+            tasks.append(store1.save_rule(self._create_rule(i)))
+            tasks.append(store1.save_session(self._create_session(i)))
+
+        await asyncio.gather(*tasks)
+        await store1.close()
+
+        # Verify with new instance
+        store2 = FileGatewayStore(path=temp_path)
+
+        messages = await store2.load_messages(limit=100)
+        devices = await store2.load_devices()
+        rules = await store2.load_rules()
+        sessions = await store2.load_sessions(limit=100)
+
+        assert len(messages) == 15
+        assert len(devices) == 15
+        assert len(rules) == 15
+        assert len(sessions) == 15
+
+        await store2.close()
+
+    @pytest.mark.asyncio
+    async def test_rapid_concurrent_updates_same_entity(self, memory_store):
+        """Test rapid concurrent updates to the same entity."""
+        device_id = "device-shared"
+        num_updates = 30
+
+        async def update_device(i: int):
+            device = DeviceNode(
+                device_id=device_id,
+                name=f"Device Update {i}",
+                device_type="test",
+                status=DeviceStatus.ONLINE if i % 2 == 0 else DeviceStatus.OFFLINE,
+            )
+            await memory_store.save_device(device)
+
+        await asyncio.gather(*[update_device(i) for i in range(num_updates)])
+
+        # Should have exactly one device (all updates to same ID)
+        devices = await memory_store.load_devices()
+        assert len(devices) == 1
+        assert devices[0].device_id == device_id
+
+    @pytest.mark.asyncio
+    async def test_rapid_concurrent_updates_same_entity_file(self, file_store):
+        """Test rapid concurrent updates to the same entity on FileGatewayStore."""
+        device_id = "device-shared"
+        num_updates = 20
+
+        async def update_device(i: int):
+            device = DeviceNode(
+                device_id=device_id,
+                name=f"Device Update {i}",
+                device_type="test",
+                status=DeviceStatus.ONLINE if i % 2 == 0 else DeviceStatus.OFFLINE,
+            )
+            await file_store.save_device(device)
+
+        await asyncio.gather(*[update_device(i) for i in range(num_updates)])
+
+        devices = await file_store.load_devices()
+        assert len(devices) == 1
+        assert devices[0].device_id == device_id
+
+    @pytest.mark.asyncio
+    async def test_concurrent_delete_nonexistent_memory(self, memory_store):
+        """Test concurrent deletes of non-existent entities don't cause issues."""
+        # Try to delete entities that don't exist
+        tasks = []
+        for i in range(20):
+            tasks.append(memory_store.delete_message(f"nonexistent-msg-{i}"))
+            tasks.append(memory_store.delete_device(f"nonexistent-dev-{i}"))
+            tasks.append(memory_store.delete_rule(f"nonexistent-rule-{i}"))
+            tasks.append(memory_store.delete_session(f"nonexistent-sess-{i}"))
+
+        results = await asyncio.gather(*tasks)
+
+        # All deletes should return False
+        assert all(r is False for r in results)
+
+        # Store should remain empty
+        assert len(await memory_store.load_messages()) == 0
+        assert len(await memory_store.load_devices()) == 0
+        assert len(await memory_store.load_rules()) == 0
+        assert len(await memory_store.load_sessions()) == 0
+
+    @pytest.mark.asyncio
+    async def test_concurrent_delete_nonexistent_file(self, file_store):
+        """Test concurrent deletes of non-existent entities on FileGatewayStore."""
+        tasks = []
+        for i in range(15):
+            tasks.append(file_store.delete_message(f"nonexistent-msg-{i}"))
+            tasks.append(file_store.delete_device(f"nonexistent-dev-{i}"))
+            tasks.append(file_store.delete_rule(f"nonexistent-rule-{i}"))
+            tasks.append(file_store.delete_session(f"nonexistent-sess-{i}"))
+
+        results = await asyncio.gather(*tasks)
+        assert all(r is False for r in results)
+
+
+# =============================================================================
+# RedisGatewayStore Tests
+# =============================================================================
+
+
+class TestRedisGatewayStore:
+    """Test RedisGatewayStore with mocked Redis client."""
+
+    @pytest.fixture
+    def mock_redis(self):
+        """Create a mock Redis client."""
+        mock = AsyncMock()
+        mock.pipeline.return_value = AsyncMock()
+        mock.pipeline.return_value.execute = AsyncMock(return_value=[1, 1])
+        return mock
+
+    @pytest.fixture
+    def store(self, mock_redis):
+        """Create a RedisGatewayStore with mocked Redis."""
+        store = RedisGatewayStore(
+            redis_url="redis://localhost:6379",
+            key_prefix="test:gateway:",
+            message_ttl_seconds=3600,
+            device_ttl_seconds=7200,
+            session_ttl_seconds=1800,
+        )
+        store._redis = mock_redis
+        return store
+
+    # -------------------------------------------------------------------------
+    # Import Error Handling
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_get_redis_import_error(self):
+        """Test ImportError when redis module not installed."""
+        import builtins
+
+        store = RedisGatewayStore()
+        store._redis = None
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "redis.asyncio":
+                raise ImportError("No module named 'redis'")
+            return original_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", mock_import):
+            with pytest.raises(ImportError, match="redis-py with async support required"):
+                await store._get_redis()
+
+    @pytest.mark.asyncio
+    async def test_get_redis_reuses_existing_client(self, store, mock_redis):
+        """Test that _get_redis returns existing client."""
+        result = await store._get_redis()
+        assert result is mock_redis
+
+    # -------------------------------------------------------------------------
+    # Message Operations
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_save_message_creates_key_and_sorted_set(self, store, mock_redis):
+        """Test save_message creates key and adds to sorted set."""
+        msg = InboxMessage(
+            message_id="m1",
+            channel="slack",
+            sender="alice",
+            content="Hello",
+            timestamp=1000.0,
+        )
+
+        await store.save_message(msg)
+
+        pipe = mock_redis.pipeline.return_value
+        pipe.set.assert_called_once()
+        # Verify the key
+        call_args = pipe.set.call_args
+        assert call_args[0][0] == "test:gateway:msg:m1"
+        # Verify TTL
+        assert call_args[1]["ex"] == 3600
+
+        pipe.zadd.assert_called_once()
+        zadd_call = pipe.zadd.call_args
+        assert zadd_call[0][0] == "test:gateway:msg:index"
+        assert zadd_call[0][1] == {"m1": 1000.0}
+
+        pipe.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_messages_retrieves_from_sorted_set(self, store, mock_redis):
+        """Test load_messages retrieves from sorted set with proper ordering."""
+        import json
+
+        # Mock the sorted set response (newest first)
+        mock_redis.zrevrange.return_value = [b"m2", b"m1"]
+
+        # Mock the message data
+        msg1_data = _message_to_dict(
+            InboxMessage(
+                message_id="m1",
+                channel="slack",
+                sender="alice",
+                content="First",
+                timestamp=100.0,
+            )
+        )
+        msg2_data = _message_to_dict(
+            InboxMessage(
+                message_id="m2",
+                channel="slack",
+                sender="bob",
+                content="Second",
+                timestamp=200.0,
+            )
+        )
+        mock_redis.mget.return_value = [json.dumps(msg2_data), json.dumps(msg1_data)]
+
+        messages = await store.load_messages(limit=10)
+
+        mock_redis.zrevrange.assert_called_once_with("test:gateway:msg:index", 0, 9)
+        mock_redis.mget.assert_called_once()
+        assert len(messages) == 2
+        assert messages[0].message_id == "m2"
+        assert messages[1].message_id == "m1"
+
+    @pytest.mark.asyncio
+    async def test_load_messages_empty_result(self, store, mock_redis):
+        """Test load_messages returns empty list when no messages."""
+        mock_redis.zrevrange.return_value = []
+
+        messages = await store.load_messages()
+
+        assert messages == []
+        mock_redis.mget.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_load_messages_handles_bytes_keys(self, store, mock_redis):
+        """Test load_messages handles bytes vs string keys from Redis."""
+        import json
+
+        # Redis returns bytes for keys
+        mock_redis.zrevrange.return_value = [b"m1"]
+        msg_data = _message_to_dict(
+            InboxMessage(message_id="m1", channel="s", sender="a", content="test")
+        )
+        mock_redis.mget.return_value = [json.dumps(msg_data)]
+
+        messages = await store.load_messages()
+
+        # Verify key was decoded properly
+        mget_call = mock_redis.mget.call_args[0][0]
+        assert mget_call[0] == "test:gateway:msg:m1"
         assert len(messages) == 1
-        assert messages[0].channel == ""
-        assert messages[0].sender == ""
-        assert messages[0].content == ""
+
+    @pytest.mark.asyncio
+    async def test_load_messages_skips_invalid_data(self, store, mock_redis):
+        """Test load_messages skips entries with invalid JSON."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"m1", b"m2"]
+        valid_msg = _message_to_dict(
+            InboxMessage(message_id="m2", channel="s", sender="a", content="test")
+        )
+        mock_redis.mget.return_value = ["invalid json{{{", json.dumps(valid_msg)]
+
+        messages = await store.load_messages()
+
+        assert len(messages) == 1
+        assert messages[0].message_id == "m2"
+
+    @pytest.mark.asyncio
+    async def test_delete_message_removes_key_and_from_set(self, store, mock_redis):
+        """Test delete_message removes key and from sorted set."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [1, 1]
+
+        result = await store.delete_message("m1")
+
+        assert result is True
+        pipe.delete.assert_called_once_with("test:gateway:msg:m1")
+        pipe.zrem.assert_called_once_with("test:gateway:msg:index", "m1")
+        pipe.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_delete_message_returns_false_when_not_found(self, store, mock_redis):
+        """Test delete_message returns False when message not found."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [0, 0]
+
+        result = await store.delete_message("nonexistent")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_clear_messages_all(self, store, mock_redis):
+        """Test clear_messages clears all messages."""
+        mock_redis.zrange.return_value = [b"m1", b"m2", b"m3"]
+        pipe = mock_redis.pipeline.return_value
+
+        count = await store.clear_messages()
+
+        assert count == 3
+        mock_redis.zrange.assert_called_once_with("test:gateway:msg:index", 0, -1)
+        pipe.delete.assert_called()
+        # Verify all keys and index are deleted
+        delete_calls = pipe.delete.call_args_list
+        assert len(delete_calls) == 2  # One for keys, one for index
+
+    @pytest.mark.asyncio
+    async def test_clear_messages_empty(self, store, mock_redis):
+        """Test clear_messages with no messages returns 0."""
+        mock_redis.zrange.return_value = []
+
+        count = await store.clear_messages()
+
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_clear_messages_older_than(self, store, mock_redis):
+        """Test clear_messages with older_than_seconds."""
+        mock_redis.zrangebyscore.return_value = [b"m1", b"m2"]
+        pipe = mock_redis.pipeline.return_value
+
+        with patch("time.time", return_value=1000.0):
+            count = await store.clear_messages(older_than_seconds=100)
+
+        assert count == 2
+        mock_redis.zrangebyscore.assert_called_once_with("test:gateway:msg:index", "-inf", 900.0)
+        pipe.delete.assert_called()
+        pipe.zremrangebyscore.assert_called_once_with("test:gateway:msg:index", "-inf", 900.0)
+
+    @pytest.mark.asyncio
+    async def test_clear_messages_older_than_none_found(self, store, mock_redis):
+        """Test clear_messages with older_than returns 0 when none found."""
+        mock_redis.zrangebyscore.return_value = []
+
+        count = await store.clear_messages(older_than_seconds=100)
+
+        assert count == 0
+
+    # -------------------------------------------------------------------------
+    # Device Operations
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_save_device_creates_key_and_set(self, store, mock_redis):
+        """Test save_device creates key and adds to set index."""
+        device = DeviceNode(
+            device_id="d1",
+            name="Laptop",
+            device_type="laptop",
+            status=DeviceStatus.ONLINE,
+        )
+
+        await store.save_device(device)
+
+        pipe = mock_redis.pipeline.return_value
+        pipe.set.assert_called_once()
+        call_args = pipe.set.call_args
+        assert call_args[0][0] == "test:gateway:dev:d1"
+        assert call_args[1]["ex"] == 7200  # device_ttl_seconds
+
+        pipe.sadd.assert_called_once_with("test:gateway:dev:index", "d1")
+        pipe.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_devices_retrieves_all_from_set(self, store, mock_redis):
+        """Test load_devices retrieves all from set."""
+        import json
+
+        mock_redis.smembers.return_value = {b"d1", b"d2"}
+        dev1 = _device_to_dict(DeviceNode(device_id="d1", name="Laptop", device_type="laptop"))
+        dev2 = _device_to_dict(DeviceNode(device_id="d2", name="Phone", device_type="mobile"))
+        mock_redis.mget.return_value = [json.dumps(dev1), json.dumps(dev2)]
+
+        devices = await store.load_devices()
+
+        mock_redis.smembers.assert_called_once_with("test:gateway:dev:index")
+        assert len(devices) == 2
+
+    @pytest.mark.asyncio
+    async def test_load_devices_empty(self, store, mock_redis):
+        """Test load_devices returns empty list when no devices."""
+        mock_redis.smembers.return_value = set()
+
+        devices = await store.load_devices()
+
+        assert devices == []
+        mock_redis.mget.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_load_devices_handles_bytes(self, store, mock_redis):
+        """Test load_devices handles bytes from Redis."""
+        import json
+
+        mock_redis.smembers.return_value = {b"d1"}
+        dev = _device_to_dict(DeviceNode(device_id="d1", name="Laptop", device_type="laptop"))
+        mock_redis.mget.return_value = [json.dumps(dev)]
+
+        devices = await store.load_devices()
+
+        mget_call = mock_redis.mget.call_args[0][0]
+        assert mget_call[0] == "test:gateway:dev:d1"
+        assert len(devices) == 1
+
+    @pytest.mark.asyncio
+    async def test_load_devices_skips_invalid(self, store, mock_redis):
+        """Test load_devices skips invalid data."""
+        import json
+
+        mock_redis.smembers.return_value = {b"d1", b"d2"}
+        valid_dev = _device_to_dict(DeviceNode(device_id="d2", name="Phone", device_type="mobile"))
+        mock_redis.mget.return_value = ["not json", json.dumps(valid_dev)]
+
+        devices = await store.load_devices()
+
+        assert len(devices) == 1
+
+    @pytest.mark.asyncio
+    async def test_delete_device_removes_key_and_from_set(self, store, mock_redis):
+        """Test delete_device removes key and from set."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [1, 1]
+
+        result = await store.delete_device("d1")
+
+        assert result is True
+        pipe.delete.assert_called_once_with("test:gateway:dev:d1")
+        pipe.srem.assert_called_once_with("test:gateway:dev:index", "d1")
+
+    @pytest.mark.asyncio
+    async def test_delete_device_returns_false(self, store, mock_redis):
+        """Test delete_device returns False when not found."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [0, 0]
+
+        result = await store.delete_device("nonexistent")
+
+        assert result is False
+
+    # -------------------------------------------------------------------------
+    # Rule Operations
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_save_rule_creates_key_and_sorted_set_by_priority(self, store, mock_redis):
+        """Test save_rule creates key and adds to sorted set by priority."""
+        rule = RoutingRule(
+            rule_id="r1",
+            agent_id="claude",
+            priority=10,
+        )
+
+        await store.save_rule(rule)
+
+        pipe = mock_redis.pipeline.return_value
+        pipe.set.assert_called_once()
+        call_args = pipe.set.call_args
+        assert call_args[0][0] == "test:gateway:rule:r1"
+        # Rules don't have TTL set explicitly
+
+        pipe.zadd.assert_called_once_with("test:gateway:rule:index", {"r1": 10})
+        pipe.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_rules_sorted_by_priority_descending(self, store, mock_redis):
+        """Test load_rules retrieves sorted by priority (descending)."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"r_high", b"r_low"]
+        rule_high = _rule_to_dict(RoutingRule(rule_id="r_high", agent_id="gpt", priority=100))
+        rule_low = _rule_to_dict(RoutingRule(rule_id="r_low", agent_id="claude", priority=1))
+        mock_redis.mget.return_value = [json.dumps(rule_high), json.dumps(rule_low)]
+
+        rules = await store.load_rules()
+
+        mock_redis.zrevrange.assert_called_once_with("test:gateway:rule:index", 0, -1)
+        assert len(rules) == 2
+        assert rules[0].rule_id == "r_high"
+        assert rules[0].priority == 100
+        assert rules[1].rule_id == "r_low"
+
+    @pytest.mark.asyncio
+    async def test_load_rules_empty(self, store, mock_redis):
+        """Test load_rules returns empty list when no rules."""
+        mock_redis.zrevrange.return_value = []
+
+        rules = await store.load_rules()
+
+        assert rules == []
+
+    @pytest.mark.asyncio
+    async def test_load_rules_skips_invalid(self, store, mock_redis):
+        """Test load_rules skips invalid data."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"r1", b"r2"]
+        valid = _rule_to_dict(RoutingRule(rule_id="r2", agent_id="claude"))
+        mock_redis.mget.return_value = ["{invalid", json.dumps(valid)]
+
+        rules = await store.load_rules()
+
+        assert len(rules) == 1
+        assert rules[0].rule_id == "r2"
+
+    @pytest.mark.asyncio
+    async def test_delete_rule_removes_key_and_from_set(self, store, mock_redis):
+        """Test delete_rule removes key and from sorted set."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [1, 1]
+
+        result = await store.delete_rule("r1")
+
+        assert result is True
+        pipe.delete.assert_called_once_with("test:gateway:rule:r1")
+        pipe.zrem.assert_called_once_with("test:gateway:rule:index", "r1")
+
+    @pytest.mark.asyncio
+    async def test_delete_rule_returns_false(self, store, mock_redis):
+        """Test delete_rule returns False when not found."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [0, 0]
+
+        result = await store.delete_rule("nonexistent")
+
+        assert result is False
+
+    # -------------------------------------------------------------------------
+    # Session Operations
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_save_session_creates_key_with_ttl(self, store, mock_redis):
+        """Test save_session creates key with TTL."""
+        session = {
+            "session_id": "s1",
+            "user_id": "u1",
+            "device_id": "d1",
+            "status": "active",
+            "last_seen": 1000.0,
+        }
+
+        await store.save_session(session)
+
+        pipe = mock_redis.pipeline.return_value
+        pipe.set.assert_called_once()
+        call_args = pipe.set.call_args
+        assert call_args[0][0] == "test:gateway:sess:s1"
+        assert call_args[1]["ex"] == 1800  # session_ttl_seconds
+
+        pipe.zadd.assert_called_once_with("test:gateway:sess:index", {"s1": 1000.0})
+
+    @pytest.mark.asyncio
+    async def test_save_session_without_session_id_no_op(self, store, mock_redis):
+        """Test save_session does nothing without session_id."""
+        session = {"user_id": "u1"}  # Missing session_id
+
+        await store.save_session(session)
+
+        mock_redis.pipeline.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_save_session_uses_created_at_fallback(self, store, mock_redis):
+        """Test save_session uses created_at if last_seen missing."""
+        session = {
+            "session_id": "s1",
+            "created_at": 500.0,
+        }
+
+        await store.save_session(session)
+
+        pipe = mock_redis.pipeline.return_value
+        pipe.zadd.assert_called_once_with("test:gateway:sess:index", {"s1": 500.0})
+
+    @pytest.mark.asyncio
+    async def test_load_sessions_sorted_by_last_seen(self, store, mock_redis):
+        """Test load_sessions retrieves sorted by last_seen."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"s2", b"s1"]
+        sess1 = {"session_id": "s1", "last_seen": 100.0}
+        sess2 = {"session_id": "s2", "last_seen": 200.0}
+        mock_redis.mget.return_value = [json.dumps(sess2), json.dumps(sess1)]
+
+        sessions = await store.load_sessions(limit=10)
+
+        mock_redis.zrevrange.assert_called_once_with("test:gateway:sess:index", 0, 9)
+        assert len(sessions) == 2
+        assert sessions[0]["session_id"] == "s2"
+
+    @pytest.mark.asyncio
+    async def test_load_sessions_empty(self, store, mock_redis):
+        """Test load_sessions returns empty list when no sessions."""
+        mock_redis.zrevrange.return_value = []
+
+        sessions = await store.load_sessions()
+
+        assert sessions == []
+
+    @pytest.mark.asyncio
+    async def test_load_sessions_handles_bytes(self, store, mock_redis):
+        """Test load_sessions handles bytes from Redis."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"s1"]
+        sess = {"session_id": "s1", "status": "active"}
+        mock_redis.mget.return_value = [json.dumps(sess)]
+
+        sessions = await store.load_sessions()
+
+        mget_call = mock_redis.mget.call_args[0][0]
+        assert mget_call[0] == "test:gateway:sess:s1"
+        assert len(sessions) == 1
+
+    @pytest.mark.asyncio
+    async def test_load_sessions_skips_invalid(self, store, mock_redis):
+        """Test load_sessions skips invalid data."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"s1", b"s2"]
+        valid = {"session_id": "s2", "status": "active"}
+        mock_redis.mget.return_value = ["not json{{", json.dumps(valid)]
+
+        sessions = await store.load_sessions()
+
+        assert len(sessions) == 1
+        assert sessions[0]["session_id"] == "s2"
+
+    @pytest.mark.asyncio
+    async def test_load_sessions_skips_non_dict(self, store, mock_redis):
+        """Test load_sessions skips non-dict JSON."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"s1", b"s2"]
+        valid = {"session_id": "s2"}
+        mock_redis.mget.return_value = [json.dumps([1, 2, 3]), json.dumps(valid)]
+
+        sessions = await store.load_sessions()
+
+        assert len(sessions) == 1
+
+    @pytest.mark.asyncio
+    async def test_delete_session_removes_key_and_from_set(self, store, mock_redis):
+        """Test delete_session removes key and from sorted set."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [1, 1]
+
+        result = await store.delete_session("s1")
+
+        assert result is True
+        pipe.delete.assert_called_once_with("test:gateway:sess:s1")
+        pipe.zrem.assert_called_once_with("test:gateway:sess:index", "s1")
+
+    @pytest.mark.asyncio
+    async def test_delete_session_returns_false(self, store, mock_redis):
+        """Test delete_session returns False when not found."""
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.return_value = [0, 0]
+
+        result = await store.delete_session("nonexistent")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_clear_sessions_all(self, store, mock_redis):
+        """Test clear_sessions clears all sessions."""
+        mock_redis.zrange.return_value = [b"s1", b"s2"]
+        pipe = mock_redis.pipeline.return_value
+
+        count = await store.clear_sessions()
+
+        assert count == 2
+        mock_redis.zrange.assert_called_once_with("test:gateway:sess:index", 0, -1)
+        pipe.delete.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_clear_sessions_empty(self, store, mock_redis):
+        """Test clear_sessions with no sessions."""
+        mock_redis.zrange.return_value = []
+
+        count = await store.clear_sessions()
+
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_clear_sessions_older_than(self, store, mock_redis):
+        """Test clear_sessions with older_than_seconds."""
+        mock_redis.zrangebyscore.return_value = [b"s1"]
+        pipe = mock_redis.pipeline.return_value
+
+        with patch("time.time", return_value=1000.0):
+            count = await store.clear_sessions(older_than_seconds=200)
+
+        assert count == 1
+        mock_redis.zrangebyscore.assert_called_once_with("test:gateway:sess:index", "-inf", 800.0)
+        pipe.zremrangebyscore.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_clear_sessions_older_than_none_found(self, store, mock_redis):
+        """Test clear_sessions older_than returns 0 when none found."""
+        mock_redis.zrangebyscore.return_value = []
+
+        count = await store.clear_sessions(older_than_seconds=100)
+
+        assert count == 0
+
+    # -------------------------------------------------------------------------
+    # Pipeline Execution and TTL Configuration
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_pipeline_execution(self, store, mock_redis):
+        """Test that pipeline is used for atomic operations."""
+        msg = InboxMessage(message_id="m1", channel="s", sender="a", content="test")
+
+        await store.save_message(msg)
+
+        mock_redis.pipeline.assert_called_once()
+        pipe = mock_redis.pipeline.return_value
+        pipe.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_ttl_configuration(self):
+        """Test TTL configuration is applied correctly."""
+        store = RedisGatewayStore(
+            redis_url="redis://localhost",
+            message_ttl_seconds=100,
+            device_ttl_seconds=200,
+            session_ttl_seconds=300,
+        )
+
+        assert store._message_ttl == 100
+        assert store._device_ttl == 200
+        assert store._session_ttl == 300
+
+    @pytest.mark.asyncio
+    async def test_key_prefix_configuration(self):
+        """Test key prefix configuration."""
+        store = RedisGatewayStore(
+            redis_url="redis://localhost",
+            key_prefix="custom:prefix:",
+        )
+
+        assert store._msg_key("m1") == "custom:prefix:msg:m1"
+        assert store._dev_key("d1") == "custom:prefix:dev:d1"
+        assert store._rule_key("r1") == "custom:prefix:rule:r1"
+        assert store._session_key("s1") == "custom:prefix:sess:s1"
+        assert store._msg_index_key() == "custom:prefix:msg:index"
+        assert store._dev_index_key() == "custom:prefix:dev:index"
+        assert store._rule_index_key() == "custom:prefix:rule:index"
+        assert store._session_index_key() == "custom:prefix:sess:index"
+
+    # -------------------------------------------------------------------------
+    # Close / Cleanup
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_close_closes_redis_connection(self, store, mock_redis):
+        """Test close properly closes Redis connection."""
+        await store.close()
+
+        mock_redis.close.assert_called_once()
+        assert store._redis is None
+
+    @pytest.mark.asyncio
+    async def test_close_no_op_when_no_connection(self):
+        """Test close is safe when no connection exists."""
+        store = RedisGatewayStore()
+        store._redis = None
+
+        # Should not raise
+        await store.close()
+
+    # -------------------------------------------------------------------------
+    # Edge Cases
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_load_messages_with_null_data(self, store, mock_redis):
+        """Test load_messages handles null data in mget response."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"m1", b"m2"]
+        valid_msg = _message_to_dict(
+            InboxMessage(message_id="m2", channel="s", sender="a", content="test")
+        )
+        mock_redis.mget.return_value = [None, json.dumps(valid_msg)]
+
+        messages = await store.load_messages()
+
+        assert len(messages) == 1
+        assert messages[0].message_id == "m2"
+
+    @pytest.mark.asyncio
+    async def test_string_keys_from_redis(self, store, mock_redis):
+        """Test handling when Redis returns strings instead of bytes."""
+        import json
+
+        # Some Redis clients may return strings
+        mock_redis.zrevrange.return_value = ["m1", "m2"]
+        msg1 = _message_to_dict(
+            InboxMessage(message_id="m1", channel="s", sender="a", content="test1")
+        )
+        msg2 = _message_to_dict(
+            InboxMessage(message_id="m2", channel="s", sender="a", content="test2")
+        )
+        mock_redis.mget.return_value = [json.dumps(msg1), json.dumps(msg2)]
+
+        messages = await store.load_messages()
+
+        assert len(messages) == 2
+
+    @pytest.mark.asyncio
+    async def test_default_redis_url(self):
+        """Test default Redis URL."""
+        store = RedisGatewayStore()
+        assert store._redis_url == "redis://localhost:6379"
+
+    @pytest.mark.asyncio
+    async def test_default_key_prefix(self):
+        """Test default key prefix."""
+        store = RedisGatewayStore()
+        assert store._key_prefix == "aragora:gateway:"
+
+    @pytest.mark.asyncio
+    async def test_default_ttl_values(self):
+        """Test default TTL values."""
+        store = RedisGatewayStore()
+        assert store._message_ttl == 86400 * 7  # 7 days
+        assert store._device_ttl == 86400 * 30  # 30 days
+        assert store._session_ttl == 86400  # 1 day
+
+    @pytest.mark.asyncio
+    async def test_load_devices_handles_none_data(self, store, mock_redis):
+        """Test load_devices handles None data in mget response."""
+        import json
+
+        mock_redis.smembers.return_value = {b"d1", b"d2"}
+        valid_dev = _device_to_dict(DeviceNode(device_id="d2", name="Phone", device_type="mobile"))
+        mock_redis.mget.return_value = [None, json.dumps(valid_dev)]
+
+        devices = await store.load_devices()
+
+        assert len(devices) == 1
+        assert devices[0].device_id == "d2"
+
+    @pytest.mark.asyncio
+    async def test_load_rules_handles_none_data(self, store, mock_redis):
+        """Test load_rules handles None data in mget response."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"r1", b"r2"]
+        valid_rule = _rule_to_dict(RoutingRule(rule_id="r2", agent_id="claude"))
+        mock_redis.mget.return_value = [None, json.dumps(valid_rule)]
+
+        rules = await store.load_rules()
+
+        assert len(rules) == 1
+        assert rules[0].rule_id == "r2"
+
+    @pytest.mark.asyncio
+    async def test_load_sessions_handles_none_data(self, store, mock_redis):
+        """Test load_sessions handles None data in mget response."""
+        import json
+
+        mock_redis.zrevrange.return_value = [b"s1", b"s2"]
+        valid_sess = {"session_id": "s2", "status": "active"}
+        mock_redis.mget.return_value = [None, json.dumps(valid_sess)]
+
+        sessions = await store.load_sessions()
+
+        assert len(sessions) == 1
+        assert sessions[0]["session_id"] == "s2"
+
+    @pytest.mark.asyncio
+    async def test_save_session_uses_time_fallback(self, store, mock_redis):
+        """Test save_session uses current time if no timestamps."""
+        session = {
+            "session_id": "s1",
+            "user_id": "u1",
+        }
+
+        with patch("time.time", return_value=999.0):
+            await store.save_session(session)
+
+        pipe = mock_redis.pipeline.return_value
+        pipe.zadd.assert_called_once_with("test:gateway:sess:index", {"s1": 999.0})

@@ -11,12 +11,8 @@ import logging
 import os
 
 from aragora.connectors.exceptions import (
-    ConnectorAPIError,
-    ConnectorAuthError,
     ConnectorError,
-    ConnectorNetworkError,
-    ConnectorRateLimitError,
-    ConnectorTimeoutError,
+    classify_connector_error,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,33 +66,12 @@ def _classify_teams_error(
 ) -> ConnectorError:
     """Classify a Teams/Graph API error into a specific ConnectorError type.
 
-    Uses the ConnectorError imports to ensure they're not removed by linters.
+    This is a thin wrapper around the shared classify_connector_error function
+    for backward compatibility.
     """
-    error_lower = error_str.lower()
-
-    # Rate limit errors (429 or keyword match)
-    if status_code == 429 or "rate" in error_lower or "throttl" in error_lower:
-        return ConnectorRateLimitError(
-            error_str, connector_name="teams", retry_after=retry_after or 60.0
-        )
-
-    # Auth errors (401, 403, or keyword match)
-    if status_code in (401, 403) or any(
-        kw in error_lower for kw in ["unauthorized", "forbidden", "invalid_token", "token expired"]
-    ):
-        return ConnectorAuthError(error_str, connector_name="teams")
-
-    # Timeout errors
-    if "timeout" in error_lower or "timed out" in error_lower:
-        return ConnectorTimeoutError(error_str, connector_name="teams")
-
-    # Network errors
-    if any(kw in error_lower for kw in ["connect", "network", "dns", "refused"]):
-        return ConnectorNetworkError(error_str, connector_name="teams")
-
-    # API errors with status code
-    if status_code >= 400:
-        return ConnectorAPIError(error_str, connector_name="teams", status_code=status_code)
-
-    # Default fallback
-    return ConnectorAPIError(error_str, connector_name="teams")
+    return classify_connector_error(
+        error_str,
+        connector_name="teams",
+        status_code=status_code if status_code else None,
+        retry_after=retry_after,
+    )

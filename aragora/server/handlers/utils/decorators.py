@@ -519,6 +519,27 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "queue:create": ["admin", "owner"],
     # Evolution permissions
     "evolution:read": ["member", "admin", "owner"],
+    # Gateway permissions (OpenClaw, external agents)
+    "gateway:read": ["member", "admin", "owner"],
+    "gateway:sessions.read": ["member", "admin", "owner"],
+    "gateway:sessions.create": ["admin", "owner"],
+    "gateway:sessions.delete": ["admin", "owner"],
+    "gateway:actions.read": ["member", "admin", "owner"],
+    "gateway:actions.execute": ["admin", "owner"],
+    "gateway:actions.cancel": ["admin", "owner"],
+    "gateway:credentials.read": ["admin", "owner"],
+    "gateway:credentials.create": ["admin", "owner"],
+    "gateway:credentials.delete": ["owner"],
+    "gateway:credentials.rotate": ["admin", "owner"],
+    "gateway:metrics.read": ["admin", "owner"],
+    "gateway:audit.read": ["admin", "owner"],
+    "gateway:admin": ["owner"],
+    "gateway.execute": ["admin", "owner"],
+    "gateway.read": ["member", "admin", "owner"],
+    "gateway.create": ["admin", "owner"],
+    "gateway.delete": ["admin", "owner"],
+    "gateway.install": ["admin", "owner"],
+    "gateway.uninstall": ["admin", "owner"],
 }
 
 

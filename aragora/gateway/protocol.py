@@ -3,20 +3,32 @@ Gateway Protocol Adapter.
 
 Provides a minimal session/presence protocol layer that can be used to
 match OpenClaw-style gateway behavior without requiring full protocol parity.
+
+Supports optional policy intercept hooks for enterprise security:
+- Session creation policy checks
+- Action execution policy enforcement
+- Message filtering and audit logging
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.gateway.persistence import GatewayStore
 from aragora.gateway.server import GatewayConfig, LocalGateway
 
+if TYPE_CHECKING:
+    from aragora.gateway.openclaw_policy import OpenClawPolicy
+    from aragora.gateway.openclaw_proxy import OpenClawSecureProxy
+
 OPENCLAW_PROTOCOL_VERSION = 3
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -41,20 +53,56 @@ class CloseRequest:
     reason: str
 
 
+@dataclass
+class PolicyInterceptResult:
+    """Result of a policy intercept check."""
+
+    allowed: bool
+    reason: str | None = None
+    modified_payload: dict[str, Any] | None = None
+    audit_data: dict[str, Any] | None = None
+
+
 class GatewayProtocolAdapter:
     """
     Minimal protocol adapter for gateway session + presence semantics.
 
     This is intentionally lightweight: it provides session lifecycle and
     presence tracking that can be extended into full Moltbot parity.
+
+    Supports optional policy hooks for enterprise security:
+    - pre_session_hook: Called before session creation
+    - post_session_hook: Called after session creation
+    - action_policy_hook: Called to evaluate actions
+    - audit_hook: Called for audit logging
     """
 
-    def __init__(self, gateway: LocalGateway, store: GatewayStore | None = None):
+    def __init__(
+        self,
+        gateway: LocalGateway,
+        store: GatewayStore | None = None,
+        policy: "OpenClawPolicy | None" = None,
+        secure_proxy: "OpenClawSecureProxy | None" = None,
+        pre_session_hook: Callable[[str, str, dict[str, Any] | None], PolicyInterceptResult]
+        | None = None,
+        post_session_hook: Callable[[GatewaySession], None] | None = None,
+        action_policy_hook: Callable[[str, str, dict[str, Any]], PolicyInterceptResult]
+        | None = None,
+        audit_hook: Callable[[dict[str, Any]], None] | None = None,
+    ):
         self._gateway = gateway
         self._sessions: dict[str, GatewaySession] = {}
         self._store = store
         self._store_loaded = False
         self._store_lock = asyncio.Lock()
+
+        # Policy integration
+        self._policy = policy
+        self._secure_proxy = secure_proxy
+        self._pre_session_hook = pre_session_hook
+        self._post_session_hook = post_session_hook
+        self._action_policy_hook = action_policy_hook
+        self._audit_hook = audit_hook
 
     async def _ensure_loaded(self) -> None:
         if self._store is None or self._store_loaded:
@@ -103,6 +151,29 @@ class GatewayProtocolAdapter:
             "end_reason": session.end_reason,
         }
 
+    def _emit_audit(self, event_type: str, data: dict[str, Any]) -> None:
+        """Emit an audit event via the audit hook."""
+        if self._audit_hook:
+            try:
+                self._audit_hook(
+                    {
+                        "event_type": event_type,
+                        "timestamp": time.time(),
+                        "source": "gateway_protocol",
+                        **data,
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Audit hook failed: {e}")
+
+    def set_policy(self, policy: "OpenClawPolicy") -> None:
+        """Set the policy engine for this adapter."""
+        self._policy = policy
+
+    def set_secure_proxy(self, proxy: "OpenClawSecureProxy") -> None:
+        """Set the secure proxy for action routing."""
+        self._secure_proxy = proxy
+
     async def get_stats(self) -> dict[str, Any]:
         """Return gateway stats for protocol responses."""
         return await self._gateway.get_stats()
@@ -116,9 +187,28 @@ class GatewayProtocolAdapter:
         user_id: str,
         device_id: str,
         metadata: Optional[dict[str, Any]] = None,
-    ) -> GatewaySession:
-        """Create a new session."""
+    ) -> GatewaySession | PolicyInterceptResult:
+        """Create a new session.
+
+        If a pre_session_hook is configured and returns allowed=False,
+        returns a PolicyInterceptResult instead of a session.
+        """
         await self._ensure_loaded()
+
+        # Check pre-session policy hook
+        if self._pre_session_hook:
+            result = self._pre_session_hook(user_id, device_id, metadata)
+            if not result.allowed:
+                self._emit_audit(
+                    "session_denied",
+                    {
+                        "user_id": user_id,
+                        "device_id": device_id,
+                        "reason": result.reason,
+                    },
+                )
+                return result
+
         session_id = f"sess-{uuid.uuid4().hex[:12]}"
         session = GatewaySession(
             session_id=session_id,
@@ -128,7 +218,71 @@ class GatewayProtocolAdapter:
         )
         self._sessions[session_id] = session
         await self._persist_session(session)
+
+        # Call post-session hook
+        if self._post_session_hook:
+            try:
+                self._post_session_hook(session)
+            except Exception as e:
+                logger.warning(f"Post-session hook failed: {e}")
+
+        self._emit_audit(
+            "session_created",
+            {
+                "session_id": session_id,
+                "user_id": user_id,
+                "device_id": device_id,
+            },
+        )
+
         return session
+
+    async def evaluate_action(
+        self,
+        session_id: str,
+        action_type: str,
+        action_params: dict[str, Any],
+    ) -> PolicyInterceptResult:
+        """Evaluate an action against policy.
+
+        Used to check if an action should be allowed before execution.
+        Returns PolicyInterceptResult with allowed=True/False.
+        """
+        session = self._sessions.get(session_id)
+        if not session:
+            return PolicyInterceptResult(
+                allowed=False,
+                reason="Session not found",
+            )
+
+        # Use action policy hook if available
+        if self._action_policy_hook:
+            result = self._action_policy_hook(session_id, action_type, action_params)
+            self._emit_audit(
+                "action_evaluated",
+                {
+                    "session_id": session_id,
+                    "action_type": action_type,
+                    "allowed": result.allowed,
+                    "reason": result.reason,
+                },
+            )
+            return result
+
+        # If secure proxy is configured, use it for evaluation
+        if self._secure_proxy:
+            # Map to proxy action types
+            proxy_session = self._secure_proxy.get_session(session_id)
+            if not proxy_session:
+                return PolicyInterceptResult(
+                    allowed=False,
+                    reason="No proxy session",
+                )
+            # Proxy will handle policy evaluation
+            return PolicyInterceptResult(allowed=True)
+
+        # No policy configured - allow by default
+        return PolicyInterceptResult(allowed=True)
 
     async def close_session(self, session_id: str, reason: str = "ended") -> GatewaySession | None:
         """End a session and record a reason."""
@@ -140,6 +294,17 @@ class GatewayProtocolAdapter:
         session.end_reason = reason
         session.last_seen = time.time()
         await self._persist_session(session)
+
+        self._emit_audit(
+            "session_closed",
+            {
+                "session_id": session_id,
+                "user_id": session.user_id,
+                "reason": reason,
+                "duration_seconds": time.time() - session.created_at,
+            },
+        )
+
         return session
 
     async def update_presence(

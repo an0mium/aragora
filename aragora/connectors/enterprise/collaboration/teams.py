@@ -183,6 +183,8 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
     async def _get_access_token(self) -> str:
         """Get valid access token, refreshing if needed."""
+        from aragora.server.http_client_pool import get_http_pool
+
         now = datetime.now(timezone.utc)
 
         if self._access_token and self._token_expiry and now < self._token_expiry:
@@ -199,11 +201,10 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                 "Set TEAMS_TENANT_ID, TEAMS_CLIENT_ID, and TEAMS_CLIENT_SECRET"
             )
 
-        import httpx
-
         token_url = self.TOKEN_URL.format(tenant_id=tenant_id)
 
-        async with httpx.AsyncClient(timeout=30) as client:
+        pool = get_http_pool()
+        async with pool.get_session("teams") as client:
             response = await client.post(
                 token_url,
                 data={
@@ -212,6 +213,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                     "client_secret": client_secret,
                     "scope": "https://graph.microsoft.com/.default",
                 },
+                timeout=30,
             )
             response.raise_for_status()
             data = response.json()
@@ -230,7 +232,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         use_beta: bool = False,
     ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = await self._get_access_token()
         headers = {
@@ -242,7 +244,8 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         base = self.GRAPH_BETA if use_beta else self.GRAPH_BASE
         url = f"{base}{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("teams") as client:
             response = await client.request(
                 method,
                 url,
@@ -260,16 +263,17 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         max_items: int | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Paginate through Graph API results."""
+        from aragora.server.http_client_pool import get_http_pool
+
         items_yielded = 0
         next_link = None
 
         while True:
             if next_link:
                 # Use full URL for pagination
-                import httpx
-
                 token = await self._get_access_token()
-                async with httpx.AsyncClient() as client:
+                pool = get_http_pool()
+                async with pool.get_session("teams") as client:
                     response = await client.get(
                         next_link,
                         headers={
@@ -663,6 +667,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
     ) -> list:
         """Search Teams messages using Microsoft Search API."""
         from aragora.connectors.base import Evidence
+        from aragora.server.http_client_pool import get_http_pool
 
         # Build search request
         search_request = {
@@ -677,10 +682,9 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         }
 
         try:
-            import httpx
-
             token = await self._get_access_token()
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("teams") as client:
                 response = await client.post(
                     f"{self.GRAPH_BASE}/search/query",
                     headers={

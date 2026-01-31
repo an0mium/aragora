@@ -58,6 +58,19 @@ from aragora.gateway.credential_proxy import (
     set_credential_proxy,
     reset_credential_proxy,
 )
+from aragora.gateway.decision_router import (
+    DecisionRouter,
+    RoutingCriteria,
+    RouteDecision,
+    RoutingRule as DecisionRoutingRule,
+    TenantRoutingConfig as DecisionTenantConfig,
+    RouteDestination,
+    RiskLevel,
+    ActionCategory,
+    RoutingEventType as DecisionRoutingEventType,
+    RoutingMetrics,
+    SimpleAnomalyDetector,
+)
 
 __all__ = [
     # Server
@@ -106,4 +119,16 @@ __all__ = [
     "get_credential_proxy",
     "set_credential_proxy",
     "reset_credential_proxy",
+    # Decision Router
+    "DecisionRouter",
+    "RoutingCriteria",
+    "RouteDecision",
+    "DecisionRoutingRule",
+    "DecisionTenantConfig",
+    "RouteDestination",
+    "RiskLevel",
+    "ActionCategory",
+    "DecisionRoutingEventType",
+    "RoutingMetrics",
+    "SimpleAnomalyDetector",
 ]

@@ -174,14 +174,15 @@ class ConfluenceConnector(EnterpriseConnector):
         json_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make a request to Confluence REST API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         headers = await self._get_auth_header()
         headers["Accept"] = "application/json"
 
         url = f"{self.base_url}/rest/api{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("confluence") as client:
             response = await client.request(
                 method,
                 url,

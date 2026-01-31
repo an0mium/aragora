@@ -30,7 +30,6 @@ from aragora.connectors.enterprise.base import (
 )
 from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
-from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -534,6 +533,7 @@ class FHIRConnector(EnterpriseConnector):
             user_role="service",
         )
 
+        self._client = None
         self._access_token = None
         self._token_expires_at: datetime | None = None
 
@@ -545,8 +545,10 @@ class FHIRConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"FHIR ({self.base_url})"
 
-    async def _get_client(self):
-        """Get HTTP client with authentication."""
+    async def _ensure_authenticated(self):
+        """Ensure authentication is current."""
+        from aragora.server.http_client_pool import get_http_pool
+
         # Check token expiration
         if self._access_token and self._token_expires_at:
             if datetime.now(timezone.utc) >= self._token_expires_at:
@@ -556,8 +558,7 @@ class FHIRConnector(EnterpriseConnector):
         if not self._access_token:
             await self._authenticate()
 
-        # Return a marker that we're using the pool
-        return "pool"
+        return get_http_pool()
 
     async def _request(
         self,
@@ -567,6 +568,8 @@ class FHIRConnector(EnterpriseConnector):
         headers: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """Make HTTP request with circuit breaker protection."""
+        from aragora.server.http_client_pool import get_http_pool
+
         # Check circuit breaker before making request
         if self._circuit_breaker and not self._circuit_breaker.can_proceed():
             cooldown = self._circuit_breaker.cooldown_remaining()
@@ -576,7 +579,7 @@ class FHIRConnector(EnterpriseConnector):
             )
 
         try:
-            await self._get_client()  # Ensure authentication
+            await self._ensure_authenticated()
             pool = get_http_pool()
             async with pool.get_session("fhir") as client:
                 response = await client.request(method, url, params=params, headers=headers)
@@ -615,6 +618,8 @@ class FHIRConnector(EnterpriseConnector):
 
     async def _authenticate(self):
         """Authenticate using SMART on FHIR OAuth2."""
+        from aragora.server.http_client_pool import get_http_pool
+
         # Get credentials
         client_id = self.client_id or await self.credentials.get_credential("FHIR_CLIENT_ID")
         client_secret = await self.credentials.get_credential("FHIR_CLIENT_SECRET")
@@ -624,8 +629,8 @@ class FHIRConnector(EnterpriseConnector):
             return
 
         try:
-            pool = get_http_pool()
             # Discover token endpoint from capability statement
+            pool = get_http_pool()
             async with pool.get_session("fhir") as client:
                 # Get SMART configuration
                 smart_url = f"{self.base_url}/.well-known/smart-configuration"
@@ -786,7 +791,10 @@ class FHIRConnector(EnterpriseConnector):
 
         Uses _lastUpdated for incremental sync.
         """
-        await self._get_client()  # Ensure authentication
+        from aragora.server.http_client_pool import get_http_pool
+
+        await self._ensure_authenticated()
+        pool = get_http_pool()
 
         for resource_type in self.resource_types:
             resource_name = resource_type.value
@@ -808,7 +816,6 @@ class FHIRConnector(EnterpriseConnector):
                     url = state.cursor.split(":", 1)[1]
 
                 while url:
-                    pool = get_http_pool()
                     async with pool.get_session("fhir") as client:
                         response = await client.get(
                             url,
@@ -911,7 +918,7 @@ class FHIRConnector(EnterpriseConnector):
 
         Uses FHIR search parameters with content-based matching.
         """
-        await self._get_client()  # Ensure authentication
+        client = await self._get_client()
         results = []
 
         resource_types = (
@@ -926,40 +933,38 @@ class FHIRConnector(EnterpriseConnector):
                     "_count": str(limit),
                 }
 
-                pool = get_http_pool()
-                async with pool.get_session("fhir") as client:
-                    response = await client.get(
-                        f"{self.base_url}/{rt}",
-                        params=params,
-                        headers=self._get_headers(),
+                response = await client.get(
+                    f"{self.base_url}/{rt}",
+                    params=params,
+                    headers=self._get_headers(),
+                )
+
+                if response.status_code == 200:
+                    bundle = response.json()
+                    entries = bundle.get("entry", [])
+
+                    # Log for audit
+                    self._audit_logger.log_search(
+                        resource_type=rt,
+                        query_params=params,
+                        results_count=len(entries),
+                        reason="search",
                     )
 
-                    if response.status_code == 200:
-                        bundle = response.json()
-                        entries = bundle.get("entry", [])
+                    for entry in entries:
+                        resource = entry.get("resource", {})
 
-                        # Log for audit
-                        self._audit_logger.log_search(
-                            resource_type=rt,
-                            query_params=params,
-                            results_count=len(entries),
-                            reason="search",
+                        if self.enable_phi_redaction:
+                            resource = self._redactor.redact_fhir_resource(resource, rt)
+
+                        results.append(
+                            {
+                                "resource_type": rt,
+                                "resource_id": resource.get("id"),
+                                "content": self._resource_to_content(resource),
+                                "score": entry.get("search", {}).get("score", 0.5),
+                            }
                         )
-
-                        for entry in entries:
-                            resource = entry.get("resource", {})
-
-                            if self.enable_phi_redaction:
-                                resource = self._redactor.redact_fhir_resource(resource, rt)
-
-                            results.append(
-                                {
-                                    "resource_type": rt,
-                                    "resource_id": resource.get("id"),
-                                    "content": self._resource_to_content(resource),
-                                    "score": entry.get("search", {}).get("score", 0.5),
-                                }
-                            )
 
             except (FHIRError, httpx.RequestError) as e:
                 logger.debug(f"Search failed for {rt}: {e}")
@@ -981,29 +986,27 @@ class FHIRConnector(EnterpriseConnector):
             return None
 
         try:
-            await self._get_client()  # Ensure authentication
+            client = await self._get_client()
 
-            pool = get_http_pool()
-            async with pool.get_session("fhir") as client:
-                response = await client.get(
-                    f"{self.base_url}/{resource_type}/{resource_id}",
-                    headers=self._get_headers(),
+            response = await client.get(
+                f"{self.base_url}/{resource_type}/{resource_id}",
+                headers=self._get_headers(),
+            )
+
+            if response.status_code == 200:
+                resource = response.json()
+
+                # Log for audit
+                self._audit_logger.log_read(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    reason="fetch",
                 )
 
-                if response.status_code == 200:
-                    resource = response.json()
+                if self.enable_phi_redaction:
+                    resource = self._redactor.redact_fhir_resource(resource, resource_type)
 
-                    # Log for audit
-                    self._audit_logger.log_read(
-                        resource_type=resource_type,
-                        resource_id=resource_id,
-                        reason="fetch",
-                    )
-
-                    if self.enable_phi_redaction:
-                        resource = self._redactor.redact_fhir_resource(resource, resource_type)
-
-                    return resource
+                return resource
 
         except (FHIRError, httpx.RequestError) as e:
             logger.error(f"[{self.name}] Fetch failed: {e}")

@@ -129,6 +129,18 @@ from .extraction_adapter import (
     KnowledgeGraphNode,
     BatchExtractionResult,
 )
+from .openclaw_adapter import (
+    OpenClawAdapter,
+    OpenClawKnowledgeItem,
+    ActionPattern,
+    ActionStatus,
+    PatternType,
+    KMContextUpdate,
+    TaskPrioritizationUpdate,
+    KMValidationResult as OpenClawKMValidationResult,
+    OpenClawKMSyncResult,
+    SyncResult as OpenClawSyncResult,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -234,4 +246,15 @@ __all__ = [
     "AdapterSpec",
     "CreatedAdapter",
     "ADAPTER_SPECS",
+    # OpenClaw adapter (OpenClaw → Knowledge Mound)
+    "OpenClawAdapter",
+    "OpenClawKnowledgeItem",
+    "ActionPattern",
+    "ActionStatus",
+    "PatternType",
+    "KMContextUpdate",
+    "TaskPrioritizationUpdate",
+    "OpenClawKMValidationResult",
+    "OpenClawKMSyncResult",
+    "OpenClawSyncResult",
 ]

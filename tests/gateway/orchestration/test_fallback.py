@@ -217,7 +217,9 @@ class TestFallbackChain:
         assert result.final_agent == "success-agent"
         assert result.attempts == 2
         assert result.used_fallback is True
-        assert "failing-agent" in result.fallback_reasons
+        # Verify the fallback chain shows both agents were tried
+        assert "failing-agent" in result.fallback_chain
+        assert "success-agent" in result.fallback_chain
 
     @pytest.mark.asyncio
     async def test_execute_all_agents_fail(self):

@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.resilience import CircuitBreaker
+from aragora.server.http_client_pool import get_http_pool
 
 
 class PlaidEnvironment(str, Enum):
@@ -329,8 +330,6 @@ class PlaidConnector:
         """Make authenticated request to Plaid API with circuit breaker protection."""
         import httpx
 
-        from aragora.server.http_client_pool import get_http_pool
-
         # Check circuit breaker before making request
         if self._circuit_breaker and not self._circuit_breaker.can_proceed():
             cooldown = self._circuit_breaker.cooldown_remaining()
@@ -355,7 +354,7 @@ class PlaidConnector:
                     url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=30,
+                    timeout=30.0,
                 )
                 response_data = response.json()
 
@@ -876,9 +875,8 @@ Provide:
                         cat_str = cat_match.group(1).lower()
                         try:
                             txn.accounting_category = TransactionCategory(cat_str)
-                        except ValueError as e:
-                            logger.warning(f"[Plaid] Invalid category '{cat_str}' from agent: {e}")
-                            # Keep original category; agent-provided value was invalid
+                        except ValueError:
+                            pass
 
                     conf_match = re.search(r"CONFIDENCE:\s*([\d.]+)", answer, re.IGNORECASE)
                     if conf_match:

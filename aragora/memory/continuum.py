@@ -1163,27 +1163,30 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             if not entries:
                 return 0
 
-            # Batch update all entries in a single transaction (avoid N+1)
+            # Batch update all entries in a single transaction using executemany
             prewarm_time: str = datetime.now().isoformat()
+            current_time: str = datetime.now().isoformat()
+
+            # Prepare batch update data
+            update_data: list[tuple[str, str, str]] = []
+            for entry in entries:
+                if entry.metadata is None:
+                    entry.metadata = {}
+                entry.metadata["last_prewarm"] = prewarm_time
+                metadata_json: str = json.dumps(entry.metadata)
+                update_data.append((metadata_json, current_time, entry.id))
 
             with self.connection() as conn:
                 cursor: sqlite3.Cursor = conn.cursor()
-                # Use json_patch to update metadata in batch
-                # For SQLite, we need to update each row but in a single transaction
-                for entry in entries:
-                    if entry.metadata is None:
-                        entry.metadata = {}
-                    entry.metadata["last_prewarm"] = prewarm_time
-                    metadata_json: str = json.dumps(entry.metadata)
-
-                    cursor.execute(
-                        """
-                        UPDATE continuum_memory
-                        SET metadata = ?, accessed_at = CURRENT_TIMESTAMP
-                        WHERE id = ?
-                        """,
-                        (metadata_json, entry.id),
-                    )
+                # Use executemany for batch update (more efficient than N individual queries)
+                cursor.executemany(
+                    """
+                    UPDATE continuum_memory
+                    SET metadata = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    update_data,
+                )
                 conn.commit()
 
             count: int = len(entries)

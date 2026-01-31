@@ -213,7 +213,7 @@ class OutlookConnector(EnterpriseConnector):
         """
         import os
 
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         client_id = (
             os.environ.get("OUTLOOK_CLIENT_ID")
@@ -235,7 +235,8 @@ class OutlookConnector(EnterpriseConnector):
         token_url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 
         try:
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("outlook") as client:
                 if code and redirect_uri:
                     # Exchange code for tokens
                     response = await client.post(
@@ -287,7 +288,7 @@ class OutlookConnector(EnterpriseConnector):
         """Refresh the access token using refresh token."""
         import os
 
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self._refresh_token:
             raise ValueError("No refresh token available")
@@ -306,7 +307,8 @@ class OutlookConnector(EnterpriseConnector):
         tenant = os.environ.get("OUTLOOK_TENANT_ID", "common")
         token_url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("outlook") as client:
             response = await client.post(
                 token_url,
                 data={
@@ -356,6 +358,8 @@ class OutlookConnector(EnterpriseConnector):
         """Make a request to Microsoft Graph API with circuit breaker protection."""
         import httpx
 
+        from aragora.server.http_client_pool import get_http_pool
+
         # Check circuit breaker first
         if not self.check_circuit_breaker():
             cb_status = self.get_circuit_breaker_status()
@@ -377,7 +381,8 @@ class OutlookConnector(EnterpriseConnector):
             url = f"https://graph.microsoft.com/v1.0/{self.user_id}{endpoint}"
 
         try:
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("outlook") as client:
                 response = await client.request(
                     method,
                     url,
@@ -408,7 +413,10 @@ class OutlookConnector(EnterpriseConnector):
             raise
 
     def _get_client(self):
-        """Get HTTP client context manager for API requests."""
+        """Get HTTP client context manager for API requests.
+
+        Note: This method is deprecated. Use get_http_pool().get_session('outlook') instead.
+        """
         import httpx
 
         return httpx.AsyncClient(timeout=60)

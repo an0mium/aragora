@@ -196,7 +196,7 @@ class SharePointConnector(EnterpriseConnector):
             token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
 
             pool = get_http_pool()
-            async with pool.get_session("sharepoint") as client:
+            async with pool.get_session("microsoft") as client:
                 response = await client.post(
                     token_url,
                     data={
@@ -233,7 +233,7 @@ class SharePointConnector(EnterpriseConnector):
         url = f"https://graph.microsoft.com/v1.0{endpoint}"
 
         pool = get_http_pool()
-        async with pool.get_session("sharepoint") as client:
+        async with pool.get_session("microsoft") as client:
             response = await client.request(
                 method,
                 url,
@@ -417,7 +417,7 @@ class SharePointConnector(EnterpriseConnector):
 
         try:
             pool = get_http_pool()
-            async with pool.get_session("sharepoint") as client:
+            async with pool.get_session("microsoft") as client:
                 response = await client.get(
                     url,
                     headers={"Authorization": f"Bearer {token}"},

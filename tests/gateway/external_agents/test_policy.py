@@ -1,12 +1,13 @@
-"""Tests for external agent policy engine."""
+"""Tests for external agent policy."""
 
 import pytest
 
 from aragora.gateway.external_agents.base import AgentCapability
 from aragora.gateway.external_agents.policy import (
-    PolicyEngine,
+    ExternalAgentPolicy,
     PolicyDecision,
     PolicyAction,
+    PolicyViolation,
     CapabilityRule,
     SensitivityLevel,
 )
@@ -40,24 +41,20 @@ class TestCapabilityRule:
     def test_default_rule(self):
         """Test rule with defaults."""
         rule = CapabilityRule(
-            capability=AgentCapability.WEB_SEARCH,
+            capability="web_search",
             action=PolicyAction.ALLOW,
         )
-        assert rule.capability == AgentCapability.WEB_SEARCH
+        assert rule.capability == "web_search"
         assert rule.action == PolicyAction.ALLOW
-        assert rule.reason is None
-        assert rule.tenant_ids is None
 
-    def test_rule_with_tenant_restriction(self):
-        """Test rule with tenant restriction."""
+    def test_rule_with_conditions(self):
+        """Test rule with conditions."""
         rule = CapabilityRule(
-            capability=AgentCapability.SHELL_ACCESS,
+            capability="shell_access",
             action=PolicyAction.DENY,
-            reason="Security policy",
-            tenant_ids=["tenant-1", "tenant-2"],
+            conditions={"tenant_ids": ["tenant-1", "tenant-2"]},
         )
-        assert rule.tenant_ids == ["tenant-1", "tenant-2"]
-        assert rule.reason == "Security policy"
+        assert rule.conditions["tenant_ids"] == ["tenant-1", "tenant-2"]
 
 
 class TestPolicyDecision:
@@ -89,167 +86,167 @@ class TestPolicyDecision:
             allowed=False,
             action=PolicyAction.REQUIRE_APPROVAL,
             requires_approval=True,
-            approval_gate="admin-approval",
+            approval_id="approval-123",
         )
         assert decision.requires_approval is True
-        assert decision.approval_gate == "admin-approval"
+        assert decision.approval_id == "approval-123"
 
 
-class TestPolicyEngine:
-    """Tests for PolicyEngine."""
+class TestPolicyViolation:
+    """Tests for PolicyViolation dataclass."""
 
-    def test_default_engine(self):
-        """Test engine with default rules."""
-        engine = PolicyEngine()
-        assert len(engine._rules) > 0  # Should have default rules
-
-    def test_add_rule(self):
-        """Test adding a rule."""
-        engine = PolicyEngine(default_rules=[])
-        rule = CapabilityRule(
-            capability=AgentCapability.WEB_SEARCH,
-            action=PolicyAction.ALLOW,
+    def test_violation_creation(self):
+        """Test violation creation."""
+        violation = PolicyViolation(
+            policy_id="policy-123",
+            policy_name="Security Policy",
+            violation_type="capability_blocked",
+            severity="high",
+            details="Shell access is not allowed",
         )
-        engine.add_rule(rule)
-        assert AgentCapability.WEB_SEARCH in engine._rules
+        assert violation.policy_id == "policy-123"
+        assert violation.severity == "high"
 
-    def test_remove_rule(self):
-        """Test removing a rule."""
-        engine = PolicyEngine(default_rules=[])
-        rule = CapabilityRule(
-            capability=AgentCapability.WEB_SEARCH,
-            action=PolicyAction.ALLOW,
+
+class TestExternalAgentPolicy:
+    """Tests for ExternalAgentPolicy."""
+
+    def test_default_policy(self):
+        """Test policy with default values."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
         )
-        engine.add_rule(rule)
-        result = engine.remove_rule(AgentCapability.WEB_SEARCH)
-        assert result is True
-        assert AgentCapability.WEB_SEARCH not in engine._rules
+        assert policy.enabled is True
+        assert policy.default_action == PolicyAction.DENY
+        assert policy.max_executions_per_minute == 60
 
-    def test_check_allowed_capability(self):
-        """Test checking allowed capability."""
-        engine = PolicyEngine(default_rules=[])
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.WEB_SEARCH,
-                action=PolicyAction.ALLOW,
-            )
+    def test_policy_with_capability_rules(self):
+        """Test policy with capability rules."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            capability_rules=[
+                CapabilityRule(
+                    capability="web_search",
+                    action=PolicyAction.ALLOW,
+                ),
+                CapabilityRule(
+                    capability="shell_access",
+                    action=PolicyAction.DENY,
+                ),
+            ],
         )
+        assert len(policy.capability_rules) == 2
 
-        decision = engine.check_capability(AgentCapability.WEB_SEARCH)
-        assert decision.allowed is True
-        assert decision.action == PolicyAction.ALLOW
-
-    def test_check_denied_capability(self):
-        """Test checking denied capability."""
-        engine = PolicyEngine(default_rules=[])
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.SHELL_ACCESS,
-                action=PolicyAction.DENY,
-                reason="Security policy",
-            )
+    def test_get_capability_action_allow(self):
+        """Test getting action for allowed capability."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            capability_rules=[
+                CapabilityRule(
+                    capability="web_search",
+                    action=PolicyAction.ALLOW,
+                ),
+            ],
         )
+        action = policy.get_capability_action("web_search")
+        assert action == PolicyAction.ALLOW
 
-        decision = engine.check_capability(AgentCapability.SHELL_ACCESS)
-        assert decision.allowed is False
-        assert decision.action == PolicyAction.DENY
+    def test_get_capability_action_deny(self):
+        """Test getting action for denied capability."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            capability_rules=[
+                CapabilityRule(
+                    capability="shell_access",
+                    action=PolicyAction.DENY,
+                ),
+            ],
+        )
+        action = policy.get_capability_action("shell_access")
+        assert action == PolicyAction.DENY
 
-    def test_check_unknown_capability_denied(self):
-        """Test that unknown capabilities are denied by default."""
-        engine = PolicyEngine(default_rules=[])
-        # Don't add any rules
-        decision = engine.check_capability(AgentCapability.WEB_SEARCH)
-        assert decision.allowed is False
+    def test_get_capability_action_default(self):
+        """Test default action for unknown capability."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            default_action=PolicyAction.DENY,
+        )
+        action = policy.get_capability_action("unknown_capability")
+        assert action == PolicyAction.DENY
 
     def test_tenant_override(self):
         """Test tenant-specific override."""
-        engine = PolicyEngine(default_rules=[])
-        # Default deny
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.SHELL_ACCESS,
-                action=PolicyAction.DENY,
-            )
-        )
-        # Allow for specific tenant
-        engine.add_tenant_override(
-            "tenant-123",
-            AgentCapability.SHELL_ACCESS,
-            PolicyAction.ALLOW,
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            capability_rules=[
+                CapabilityRule(
+                    capability="shell_access",
+                    action=PolicyAction.DENY,
+                ),
+            ],
+            tenant_overrides={
+                "tenant-123": {
+                    "allowed_capabilities": ["shell_access"],
+                }
+            },
         )
 
         # Without tenant - denied
-        decision = engine.check_capability(AgentCapability.SHELL_ACCESS)
-        assert decision.allowed is False
+        action = policy.get_capability_action("shell_access")
+        assert action == PolicyAction.DENY
 
-        # With tenant - allowed
-        decision = engine.check_capability(
-            AgentCapability.SHELL_ACCESS,
-            tenant_id="tenant-123",
-        )
-        assert decision.allowed is True
+        # With tenant override - allowed
+        action = policy.get_capability_action("shell_access", tenant_id="tenant-123")
+        assert action == PolicyAction.ALLOW
 
-    def test_check_multiple_capabilities(self):
-        """Test checking multiple capabilities."""
-        engine = PolicyEngine(default_rules=[])
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.WEB_SEARCH,
-                action=PolicyAction.ALLOW,
-            )
-        )
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.EXECUTE_CODE,
-                action=PolicyAction.ALLOW,
-            )
-        )
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.SHELL_ACCESS,
-                action=PolicyAction.DENY,
-            )
+    def test_tenant_blocked_capabilities(self):
+        """Test tenant-blocked capabilities."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            capability_rules=[
+                CapabilityRule(
+                    capability="web_search",
+                    action=PolicyAction.ALLOW,
+                ),
+            ],
+            tenant_overrides={
+                "tenant-456": {
+                    "blocked_capabilities": ["web_search"],
+                }
+            },
         )
 
-        decisions = engine.check_capabilities(
-            [
-                AgentCapability.WEB_SEARCH,
-                AgentCapability.EXECUTE_CODE,
-                AgentCapability.SHELL_ACCESS,
-            ]
+        # Default - allowed
+        action = policy.get_capability_action("web_search")
+        assert action == PolicyAction.ALLOW
+
+        # With tenant block - denied
+        action = policy.get_capability_action("web_search", tenant_id="tenant-456")
+        assert action == PolicyAction.DENY
+
+    def test_blocked_agents(self):
+        """Test blocked agents list."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            blocked_agents=["unsafe-agent", "untrusted-agent"],
         )
+        assert "unsafe-agent" in policy.blocked_agents
+        assert "untrusted-agent" in policy.blocked_agents
 
-        assert len(decisions) == 3
-        assert decisions[AgentCapability.WEB_SEARCH].allowed is True
-        assert decisions[AgentCapability.EXECUTE_CODE].allowed is True
-        assert decisions[AgentCapability.SHELL_ACCESS].allowed is False
-
-    def test_require_approval_action(self):
-        """Test require approval action."""
-        engine = PolicyEngine(default_rules=[])
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.DATABASE_WRITE,
-                action=PolicyAction.REQUIRE_APPROVAL,
-                approval_gate="db-admin",
-            )
+    def test_allowed_agents(self):
+        """Test allowed agents list."""
+        policy = ExternalAgentPolicy(
+            policy_id="test-policy",
+            policy_name="Test Policy",
+            allowed_agents=["openclaw", "openhands"],
         )
-
-        decision = engine.check_capability(AgentCapability.DATABASE_WRITE)
-        assert decision.allowed is False
-        assert decision.requires_approval is True
-        assert decision.approval_gate == "db-admin"
-
-    def test_audit_only_action(self):
-        """Test audit only action (allowed but logged)."""
-        engine = PolicyEngine(default_rules=[])
-        engine.add_rule(
-            CapabilityRule(
-                capability=AgentCapability.WEB_BROWSE,
-                action=PolicyAction.AUDIT_ONLY,
-            )
-        )
-
-        decision = engine.check_capability(AgentCapability.WEB_BROWSE)
-        assert decision.allowed is True
-        assert decision.action == PolicyAction.AUDIT_ONLY
+        assert "openclaw" in policy.allowed_agents
+        assert "openhands" in policy.allowed_agents

@@ -579,6 +579,105 @@ class connector_error_handler:
         return False
 
 
+def classify_connector_error(
+    error_str: str,
+    connector_name: str,
+    status_code: int | None = None,
+    retry_after: float | None = None,
+) -> ConnectorError:
+    """
+    Classify an error string into a specific ConnectorError type.
+
+    This is the shared error classification function used by all chat connectors
+    (Telegram, Slack, Teams, etc.) to consistently categorize API errors.
+
+    Args:
+        error_str: The error message or description from the API
+        connector_name: Name of the connector (e.g., "telegram", "slack", "teams")
+        status_code: HTTP status code if available
+        retry_after: Retry-After value in seconds if available
+
+    Returns:
+        An appropriate ConnectorError subclass based on the error type
+
+    Example:
+        error = classify_connector_error(
+            "Rate limit exceeded",
+            connector_name="slack",
+            status_code=429,
+            retry_after=60.0,
+        )
+    """
+    error_lower = error_str.lower()
+
+    # Rate limit errors (429 or keyword match)
+    if (
+        status_code == 429
+        or "rate" in error_lower
+        or "ratelimited" in error_lower
+        or "too many" in error_lower
+        or "throttl" in error_lower
+    ):
+        return ConnectorRateLimitError(
+            error_str,
+            connector_name=connector_name,
+            retry_after=retry_after or 60.0,
+        )
+
+    # Auth errors (401, 403, or keyword match)
+    auth_keywords = {
+        "unauthorized",
+        "forbidden",
+        "invalid_auth",
+        "invalid_token",
+        "token_expired",
+        "token_revoked",
+        "token expired",
+        "not_authed",
+        "account_inactive",
+        "token",
+    }
+    if status_code in (401, 403) or any(kw in error_lower for kw in auth_keywords):
+        return ConnectorAuthError(error_str, connector_name=connector_name)
+
+    # Not found errors - return as APIError with status code for backward compatibility
+    # (original Telegram/Teams classifiers returned ConnectorAPIError for 404)
+    if status_code == 404 or "not found" in error_lower or "chat not found" in error_lower:
+        return ConnectorAPIError(error_str, connector_name=connector_name, status_code=404)
+
+    # Timeout errors
+    if "timeout" in error_lower or "timed out" in error_lower:
+        return ConnectorTimeoutError(error_str, connector_name=connector_name)
+
+    # Network errors
+    network_keywords = {"connection", "network", "connect", "dns", "refused"}
+    if any(kw in error_lower for kw in network_keywords):
+        return ConnectorNetworkError(error_str, connector_name=connector_name)
+
+    # Server errors (5xx)
+    if status_code is not None and status_code >= 500:
+        return ConnectorAPIError(
+            error_str,
+            connector_name=connector_name,
+            status_code=status_code,
+        )
+
+    # API errors with status code (4xx)
+    if status_code is not None and status_code >= 400:
+        return ConnectorAPIError(
+            error_str,
+            connector_name=connector_name,
+            status_code=status_code,
+        )
+
+    # Default to generic API error
+    return ConnectorAPIError(
+        error_str,
+        connector_name=connector_name,
+        status_code=status_code,
+    )
+
+
 __all__ = [
     # Base
     "ConnectorError",
@@ -598,5 +697,6 @@ __all__ = [
     "is_retryable_error",
     "get_retry_delay",
     "classify_exception",
+    "classify_connector_error",
     "connector_error_handler",
 ]

@@ -54,10 +54,20 @@ from aragora.agents.external.models import (
     ToolInvocation,
     ToolPermission,
 )
+from aragora.agents.external.proxy import (
+    ExternalAgentProxy,
+    PolicyDeniedError,
+    ProxyConfig,
+)
 from aragora.agents.external.registry import (
     ExternalAdapterSpec,
     ExternalAgentRegistry,
     register_all_adapters,
+)
+from aragora.agents.external.security import (
+    ExternalAgentSecurityPolicy,
+    PolicyCheckResult,
+    ToolPermissionGate,
 )
 
 __all__ = [
@@ -90,4 +100,12 @@ __all__ = [
     "ExternalAgentRegistry",
     "ExternalAdapterSpec",
     "register_all_adapters",
+    # Security
+    "ExternalAgentSecurityPolicy",
+    "PolicyCheckResult",
+    "ToolPermissionGate",
+    # Proxy
+    "ExternalAgentProxy",
+    "ProxyConfig",
+    "PolicyDeniedError",
 ]

@@ -88,7 +88,10 @@ import tracemalloc
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.core import Critique, Message, Vote
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -96,6 +99,96 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Configure logging
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Mock Agent for Profiling
+# =============================================================================
+
+
+class MockAgent:
+    """
+    Mock agent implementation for profiling purposes.
+
+    This class provides a concrete implementation of the Agent interface
+    without requiring actual API calls. Used for benchmarking Arena
+    initialization, weight calculation, and other non-generation operations.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        model_type: str = "mock",
+        provider: str = "mock",
+        role: str = "proposer",
+    ):
+        """
+        Initialize a mock agent.
+
+        Args:
+            name: Unique identifier for the agent
+            model_type: Model type identifier (default: "mock")
+            provider: Provider identifier (default: "mock")
+            role: Agent role (default: "proposer")
+        """
+        self.name = name
+        self.model = f"{provider}/{model_type}"
+        self.model_type = model_type
+        self.provider = provider
+        self.role = role
+        self.system_prompt = ""
+        self.agent_type = "mock"
+        self.stance = "neutral"
+        self.tool_manifest = None
+
+    async def generate(self, prompt: str, context: list["Message"] | None = None) -> str:
+        """Generate a mock response."""
+        return f"Mock response from {self.name} for prompt: {prompt[:50]}..."
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list["Message"] | None = None,
+        target_agent: str | None = None,
+    ) -> "Critique":
+        """Generate a mock critique."""
+        from aragora.core import Critique
+
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:100],
+            issues=["Mock issue 1", "Mock issue 2"],
+            suggestions=["Mock suggestion 1"],
+            severity=5.0,
+            reasoning="Mock reasoning for critique",
+        )
+
+    async def vote(self, proposals: dict[str, str], task: str) -> "Vote":
+        """Generate a mock vote."""
+        from aragora.core import Vote
+
+        # Vote for first proposal
+        choice = list(proposals.keys())[0] if proposals else "none"
+        return Vote(
+            agent=self.name,
+            choice=choice,
+            confidence=0.8,
+            reasoning="Mock voting reasoning",
+            continue_debate=True,
+        )
+
+    def set_system_prompt(self, prompt: str) -> None:
+        """Update the agent's system prompt."""
+        self.system_prompt = prompt
+
+    def has_tool_permission(self, tool_name: str) -> bool:
+        """Check if agent has permission to use a specific tool."""
+        return True
+
+    def __repr__(self) -> str:
+        return f"MockAgent(name={self.name}, model={self.model}, role={self.role})"
 
 
 @dataclass
@@ -370,13 +463,12 @@ def profile_weight_calculation():
             WeightCalculator,
             WeightCalculatorConfig,
         )
-        from aragora.core import Agent
     except ImportError as e:
         print(f"Could not import weight calculator: {e}")
         return None
 
     # Create mock agents
-    agents = [Agent(name=f"agent-{i}", model_type="mock", provider="mock") for i in range(5)]
+    agents = [MockAgent(name=f"agent-{i}", model_type="mock", provider="mock") for i in range(5)]
 
     config = WeightCalculatorConfig(
         enable_self_vote_mitigation=True,
@@ -510,12 +602,12 @@ def profile_arena_init():
     try:
         from aragora.debate.orchestrator import Arena
         from aragora.debate.protocol import DebateProtocol
-        from aragora.core import Agent, Environment
+        from aragora.core import Environment
     except ImportError as e:
         print(f"Could not import Arena: {e}")
         return None
 
-    agents = [Agent(name=f"agent-{i}", model_type="mock", provider="mock") for i in range(3)]
+    agents = [MockAgent(name=f"agent-{i}", model_type="mock", provider="mock") for i in range(3)]
 
     protocol = DebateProtocol(
         rounds=3,
@@ -531,6 +623,8 @@ def profile_arena_init():
             agents=agents,
             protocol=protocol,
             auto_create_knowledge_mound=False,
+            enable_knowledge_retrieval=False,
+            enable_knowledge_ingestion=False,
             enable_checkpointing=False,
             enable_performance_monitor=False,
             enable_telemetry=False,
@@ -642,11 +736,13 @@ def run_memory_profile():
     try:
         from aragora.debate.orchestrator import Arena
         from aragora.debate.protocol import DebateProtocol
-        from aragora.core import Agent, Environment
+        from aragora.core import Environment
 
         snapshot1 = tracemalloc.take_snapshot()
 
-        agents = [Agent(name=f"agent-{i}", model_type="mock", provider="mock") for i in range(5)]
+        agents = [
+            MockAgent(name=f"agent-{i}", model_type="mock", provider="mock") for i in range(5)
+        ]
         protocol = DebateProtocol(rounds=5, consensus="majority")
         env = Environment(task="Memory profiling task")
 
@@ -655,6 +751,8 @@ def run_memory_profile():
             agents=agents,
             protocol=protocol,
             auto_create_knowledge_mound=False,
+            enable_knowledge_retrieval=False,
+            enable_knowledge_ingestion=False,
             enable_checkpointing=False,
         )
 

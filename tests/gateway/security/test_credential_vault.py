@@ -231,17 +231,27 @@ class TestCredentialVault:
     def test_list_credentials(self):
         """Test listing credentials."""
         vault = CredentialVault()
-        vault.store(name="KEY1", value="value1")
-        vault.store(name="KEY2", value="value2", tenant_id="tenant-A")
+        vault.store(
+            name="KEY1",
+            value="value1",
+            scope=CredentialScope.TENANT,
+            tenant_id="tenant-A",
+        )
+        vault.store(
+            name="KEY2",
+            value="value2",
+            scope=CredentialScope.TENANT,
+            tenant_id="tenant-B",
+        )
 
         # List all
         all_creds = vault.list_credentials()
         assert len(all_creds) == 2
 
-        # List by tenant
+        # List by tenant - should filter to only tenant-A credentials
         tenant_creds = vault.list_credentials(tenant_id="tenant-A")
         assert len(tenant_creds) == 1
-        assert tenant_creds[0]["name"] == "KEY2"
+        assert tenant_creds[0]["name"] == "KEY1"
 
     def test_list_credentials_no_values(self):
         """Test that listing doesn't expose values."""

@@ -174,7 +174,9 @@ class TestRegisterDebateOrigin:
 
     def test_handles_sqlite_error_gracefully(self, mock_sqlite_store):
         """register_debate_origin handles SQLite errors gracefully."""
-        mock_sqlite_store.save.side_effect = Exception("DB locked")
+        import sqlite3
+
+        mock_sqlite_store.save.side_effect = sqlite3.OperationalError("DB locked")
 
         with patch(
             "aragora.server.debate_origin.registry._get_sqlite_store",
@@ -188,7 +190,7 @@ class TestRegisterDebateOrigin:
                     "aragora.server.debate_origin.registry._get_postgres_store_sync",
                     return_value=None,
                 ):
-                    # Should not raise
+                    # Should not raise - the function catches sqlite3.OperationalError
                     origin = register_debate_origin(
                         debate_id="error-test",
                         platform="slack",
@@ -197,6 +199,8 @@ class TestRegisterDebateOrigin:
                     )
 
         # Origin should still be in memory
+        assert origin is not None
+        assert origin.debate_id == "error-test"
         assert "error-test" in _origin_store
 
     def test_persists_to_redis_when_available(self, mock_sqlite_store):

@@ -223,7 +223,7 @@ class TestProcessSandbox:
         )
 
         assert result.success is False
-        assert "timeout" in result.error.lower()
+        assert "timed out" in result.error.lower()
 
         # Cleanup
         await sandbox.destroy(instance_id)

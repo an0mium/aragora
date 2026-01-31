@@ -22,6 +22,7 @@ from typing import Any, AsyncIterator, Optional
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -309,8 +310,6 @@ class OutlookCalendarConnector(EnterpriseConnector):
         import os
         import urllib.parse
 
-        from aragora.server.http_client_pool import get_http_pool
-
         client_id = (
             os.environ.get("OUTLOOK_CALENDAR_CLIENT_ID")
             or os.environ.get("OUTLOOK_CLIENT_ID")
@@ -372,8 +371,6 @@ class OutlookCalendarConnector(EnterpriseConnector):
         """
         import os
         import urllib.parse
-
-        from aragora.server.http_client_pool import get_http_pool
 
         if refresh_token:
             self._refresh_token = refresh_token
@@ -437,8 +434,6 @@ class OutlookCalendarConnector(EnterpriseConnector):
     ) -> dict[str, Any]:
         """Make authenticated API request."""
         import httpx
-
-        from aragora.server.http_client_pool import get_http_pool
 
         token = await self._ensure_token()
 

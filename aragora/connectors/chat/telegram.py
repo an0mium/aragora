@@ -28,12 +28,7 @@ except ImportError:
     HTTPX_AVAILABLE = False
 
 from aragora.connectors.exceptions import (
-    ConnectorAPIError,
-    ConnectorAuthError,
-    ConnectorError,
-    ConnectorNetworkError,
-    ConnectorRateLimitError,
-    ConnectorTimeoutError,
+    classify_connector_error,
 )
 
 # Distributed tracing support
@@ -46,46 +41,6 @@ except ImportError:
 
     def build_trace_headers() -> dict[str, str]:
         return {}
-
-
-def _classify_telegram_error(
-    error_str: str,
-    error_code: int | None = None,
-    retry_after: float | None = None,
-) -> ConnectorError:
-    """Classify a Telegram error into a specific ConnectorError type."""
-    error_lower = error_str.lower()
-
-    # Rate limit errors
-    if error_code == 429 or "rate" in error_lower or "too many" in error_lower:
-        return ConnectorRateLimitError(
-            error_str,
-            connector_name="telegram",
-            retry_after=retry_after or 60.0,
-        )
-
-    # Auth errors
-    if error_code == 401 or "unauthorized" in error_lower or "token" in error_lower:
-        return ConnectorAuthError(error_str, connector_name="telegram")
-
-    # Not found
-    if error_code == 404 or "not found" in error_lower or "chat not found" in error_lower:
-        return ConnectorAPIError(error_str, connector_name="telegram", status_code=404)
-
-    # Timeout errors
-    if "timeout" in error_lower:
-        return ConnectorTimeoutError(error_str, connector_name="telegram")
-
-    # Network errors
-    if "connection" in error_lower or "network" in error_lower:
-        return ConnectorNetworkError(error_str, connector_name="telegram")
-
-    # Default to generic API error
-    return ConnectorAPIError(
-        error_str,
-        connector_name="telegram",
-        status_code=error_code,
-    )
 
 
 from .base import ChatPlatformConnector
@@ -243,8 +198,8 @@ class TelegramConnector(ChatPlatformConnector):
                             await asyncio.sleep(min(retry_after, 60))
                             continue
 
-                        classified = _classify_telegram_error(
-                            error_desc, error_code=429, retry_after=retry_after
+                        classified = classify_connector_error(
+                            error_desc, "telegram", status_code=429, retry_after=retry_after
                         )
                         self._record_failure(classified)
                         return False, None, error_desc
@@ -265,7 +220,9 @@ class TelegramConnector(ChatPlatformConnector):
                             await asyncio.sleep(delay + jitter)
                             continue
 
-                        classified = _classify_telegram_error(error_desc, error_code=error_code)
+                        classified = classify_connector_error(
+                            error_desc, "telegram", status_code=error_code
+                        )
                         logger.error(
                             f"[telegram] {operation} failed [{type(classified).__name__}]: {error_desc}"
                         )
@@ -300,13 +257,13 @@ class TelegramConnector(ChatPlatformConnector):
             except (httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
                 # Unexpected error - don't retry
                 last_error = f"Unexpected error: {e}"
-                classified = _classify_telegram_error(last_error)
+                classified = classify_connector_error(last_error, "telegram")
                 logger.exception(
                     f"[telegram] {operation} unexpected error [{type(classified).__name__}]: {e}"
                 )
                 break
 
-        classified = _classify_telegram_error(last_error or "Unknown error")
+        classified = classify_connector_error(last_error or "Unknown error", "telegram")
         self._record_failure(classified)
         return False, None, last_error or "Unknown error"
 

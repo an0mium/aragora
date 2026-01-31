@@ -124,9 +124,11 @@ class CredentialVault:
         try:
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         except ImportError:
-            # Fallback to simple encoding if cryptography not available
-            logger.warning("cryptography not installed - using encoded storage only")
-            return value.encode("utf-8")
+            # SECURITY: Never store credentials unencrypted - fail securely
+            raise RuntimeError(
+                "cryptography library is required for credential vault. "
+                "Install with: pip install cryptography"
+            )
 
         nonce = secrets.token_bytes(12)
         aesgcm = AESGCM(self._encryption_key)
@@ -138,7 +140,11 @@ class CredentialVault:
         try:
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         except ImportError:
-            return encrypted.decode("utf-8")
+            # SECURITY: Never allow decryption without proper crypto library
+            raise RuntimeError(
+                "cryptography library is required for credential vault. "
+                "Install with: pip install cryptography"
+            )
 
         nonce = encrypted[:12]
         ciphertext = encrypted[12:]

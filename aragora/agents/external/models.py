@@ -43,25 +43,24 @@ class ToolPermission(Enum):
     API_CALL = "api_call"
     SCREENSHOT = "screenshot"
 
-    # Mapping to existing RBAC permission keys (computer_use.*)
-    _PERMISSION_MAP = {
-        "file_read": "computer_use.file_read",
-        "file_write": "computer_use.file_write",
-        "shell_execute": "computer_use.shell",
-        "network_access": "computer_use.network",
-        "browser_use": "computer_use.browser",
-        "code_execute": "computer_use.execute",
-        "api_call": "computer_use.network",  # Reuse network permission
-        "screenshot": "computer_use.screenshot",
-    }
-
     def to_permission_key(self) -> str:
         """Convert to Aragora RBAC permission key.
 
         Uses existing computer_use.* permissions for consistency with
         the broader RBAC system.
         """
-        return self._PERMISSION_MAP.get(self.value, f"computer_use.{self.value}")
+        # Mapping to existing RBAC permission keys (computer_use.*)
+        permission_map = {
+            "file_read": "computer_use.file_read",
+            "file_write": "computer_use.file_write",
+            "shell_execute": "computer_use.shell",
+            "network_access": "computer_use.network",
+            "browser_use": "computer_use.browser",
+            "code_execute": "computer_use.execute",
+            "api_call": "computer_use.network",  # Reuse network permission
+            "screenshot": "computer_use.screenshot",
+        }
+        return permission_map.get(self.value, f"computer_use.{self.value}")
 
 
 @dataclass

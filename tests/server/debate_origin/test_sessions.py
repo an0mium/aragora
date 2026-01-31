@@ -136,7 +136,7 @@ class TestGetSessionsForDebate:
         )
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("debate-multi")
@@ -149,7 +149,7 @@ class TestGetSessionsForDebate:
     async def test_returns_empty_when_import_error(self):
         """get_sessions_for_debate returns empty list on ImportError."""
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             side_effect=ImportError("Module not found"),
         ):
             sessions = await get_sessions_for_debate("debate-no-module")
@@ -165,7 +165,7 @@ class TestGetSessionsForDebate:
         )
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("debate-runtime")
@@ -181,7 +181,7 @@ class TestGetSessionsForDebate:
         )
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("debate-conn")
@@ -195,7 +195,7 @@ class TestGetSessionsForDebate:
         mock_manager.find_sessions_for_debate = AsyncMock(side_effect=TimeoutError("Query timeout"))
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("debate-timeout")
@@ -211,7 +211,7 @@ class TestGetSessionsForDebate:
         )
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("invalid-id")
@@ -225,7 +225,7 @@ class TestGetSessionsForDebate:
         mock_manager.find_sessions_for_debate = AsyncMock(side_effect=KeyError("debate_id"))
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("missing-key")
@@ -239,7 +239,7 @@ class TestGetSessionsForDebate:
         mock_manager.find_sessions_for_debate = AsyncMock(return_value=[])
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("debate-no-sessions")
@@ -265,7 +265,7 @@ class TestGetSessionsForDebate:
         mock_manager.find_sessions_for_debate = AsyncMock(return_value=mock_sessions)
 
         with patch(
-            "aragora.server.debate_origin.sessions.get_debate_session_manager",
+            "aragora.connectors.debate_session.get_debate_session_manager",
             return_value=mock_manager,
         ):
             sessions = await get_sessions_for_debate("debate-many")

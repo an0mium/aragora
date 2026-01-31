@@ -8,12 +8,18 @@ Supports Gemini, Ollama (local), and direct OpenAI/Anthropic API calls.
 from __future__ import annotations
 
 from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+from aragora.agents.api_agents.autogen_agent import AutoGenAgent, AutoGenConfig
 
 # Re-export all agents for backward compatibility
+from aragora.agents.api_agents.crewai_agent import CrewAIAgent, CrewAIConfig
 from aragora.agents.api_agents.base import APIAgent
 from aragora.agents.api_agents.external_framework import (
     ExternalFrameworkAgent,
     ExternalFrameworkConfig,
+)
+from aragora.agents.api_agents.langgraph_agent import (
+    LangGraphAgent,
+    LangGraphConfig,
 )
 from aragora.agents.api_agents.common import MAX_STREAM_BUFFER_SIZE
 from aragora.agents.api_agents.gemini import GeminiAgent
@@ -91,6 +97,15 @@ __all__ = [
     # External framework proxy
     "ExternalFrameworkAgent",
     "ExternalFrameworkConfig",
+    # LangGraph (state machine agent framework)
+    "LangGraphAgent",
+    "LangGraphConfig",
+    # AutoGen (Microsoft multi-agent framework)
+    "AutoGenAgent",
+    "AutoGenConfig",
+    # CrewAI (multi-agent orchestration framework)
+    "CrewAIAgent",
+    "CrewAIConfig",
     # Tinker (fine-tuned models)
     "TinkerAgent",
     "TinkerLlamaAgent",

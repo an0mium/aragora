@@ -452,6 +452,132 @@ class CritiqueStore(SQLiteStore):
             )
         return critiques
 
+    def get_critiques_batch(self, debate_ids: list[str]) -> dict[str, list[Critique]]:
+        """
+        Batch-fetch critiques for multiple debates in a single query.
+
+        This method avoids N+1 queries by fetching all critiques for multiple
+        debates at once, rather than querying each debate separately.
+
+        Args:
+            debate_ids: List of debate IDs to fetch critiques for
+
+        Returns:
+            Dict mapping debate_id -> list of Critique objects.
+            Includes empty lists for debate_ids with no critiques.
+        """
+        if not debate_ids:
+            return {}
+
+        # Initialize result with empty lists for all requested IDs
+        result: dict[str, list[Critique]] = {debate_id: [] for debate_id in debate_ids}
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Use parameterized IN clause to fetch all critiques in one query
+            placeholders = ",".join("?" * len(debate_ids))
+            cursor.execute(
+                f"""
+                SELECT debate_id, agent, target_agent, issues, suggestions, severity, reasoning
+                FROM critiques
+                WHERE debate_id IN ({placeholders})
+                ORDER BY created_at ASC
+                """,
+                debate_ids,
+            )
+
+            # Group critiques by debate_id
+            for row in cursor.fetchall():
+                debate_id = row[0]
+                if debate_id in result:
+                    result[debate_id].append(
+                        Critique(
+                            agent=row[1],
+                            target_agent=row[2],
+                            target_content="",
+                            issues=safe_json_loads(row[3], []),
+                            suggestions=safe_json_loads(row[4], []),
+                            severity=row[5] if row[5] is not None else 0.0,
+                            reasoning=row[6] or "",
+                        )
+                    )
+
+        return result
+
+    def get_debates_with_critiques_batch(
+        self,
+        debate_ids: list[str],
+    ) -> list[dict]:
+        """
+        Batch-fetch debates with their critiques using a JOIN.
+
+        This method fetches multiple debates along with their critiques in a
+        single query using LEFT JOIN, avoiding N+1 queries.
+
+        Args:
+            debate_ids: List of debate IDs to fetch
+
+        Returns:
+            List of debate dicts, each with a 'critiques' field containing
+            the list of associated critiques.
+        """
+        if not debate_ids:
+            return []
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Use LEFT JOIN to fetch debates and critiques together
+            placeholders = ",".join("?" * len(debate_ids))
+            cursor.execute(
+                f"""
+                SELECT d.id, d.task, d.final_answer, d.consensus_reached, d.confidence,
+                       d.rounds_used, d.duration_seconds, d.grounded_verdict, d.created_at,
+                       c.agent, c.target_agent, c.issues, c.suggestions, c.severity, c.reasoning
+                FROM debates d
+                LEFT JOIN critiques c ON d.id = c.debate_id
+                WHERE d.id IN ({placeholders})
+                ORDER BY d.id, c.created_at ASC
+                """,
+                debate_ids,
+            )
+
+            # Group results by debate
+            debates_map: dict[str, dict] = {}
+            for row in cursor.fetchall():
+                debate_id = row[0]
+
+                if debate_id not in debates_map:
+                    debates_map[debate_id] = {
+                        "id": debate_id,
+                        "task": row[1],
+                        "final_answer": row[2],
+                        "consensus_reached": bool(row[3]),
+                        "confidence": row[4],
+                        "rounds_used": row[5],
+                        "duration_seconds": row[6],
+                        "grounded_verdict": safe_json_loads(row[7], None),
+                        "created_at": row[8],
+                        "critiques": [],
+                    }
+
+                # Add critique if present (LEFT JOIN may return NULL for debates without critiques)
+                if row[9] is not None:  # agent column indicates critique exists
+                    debates_map[debate_id]["critiques"].append(
+                        Critique(
+                            agent=row[9],
+                            target_agent=row[10],
+                            target_content="",
+                            issues=safe_json_loads(row[11], []),
+                            suggestions=safe_json_loads(row[12], []),
+                            severity=row[13] if row[13] is not None else 0.0,
+                            reasoning=row[14] or "",
+                        )
+                    )
+
+            return list(debates_map.values())
+
     def get_relevant(self, issue_type: str | None = None, limit: int = 10) -> list[Pattern]:
         """Backward-compatible wrapper for retrieve_patterns()."""
         return self.retrieve_patterns(issue_type=issue_type, min_success=1, limit=limit)
@@ -773,6 +899,133 @@ class CritiqueStore(SQLiteStore):
             ]
 
             return patterns
+
+    def retrieve_patterns_with_embeddings(
+        self,
+        issue_type: str | None = None,
+        min_success: int = 2,
+        limit: int = 10,
+        decay_halflife_days: int = 30,
+    ) -> list[tuple[Pattern, bytes | None]]:
+        """
+        Retrieve successful patterns with their embeddings using a JOIN.
+
+        This method avoids N+1 queries by fetching patterns and embeddings
+        in a single query using LEFT JOIN, rather than querying embeddings
+        separately for each pattern.
+
+        Args:
+            issue_type: Filter by issue category (e.g., 'performance', 'security')
+            min_success: Minimum success count threshold
+            limit: Maximum patterns to return
+            decay_halflife_days: Half-life for time-decay ranking
+
+        Returns:
+            List of (Pattern, embedding_bytes) tuples. embedding_bytes is None
+            if no embedding exists for that pattern.
+        """
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Use LEFT JOIN to fetch patterns with embeddings in one query
+            # This avoids the N+1 pattern of:
+            #   1. SELECT * FROM patterns WHERE ...
+            #   2. for each pattern: SELECT * FROM pattern_embeddings WHERE pattern_id = ?
+            base_sql = """
+                SELECT p.id, p.issue_type, p.issue_text, p.suggestion_text, p.success_count,
+                       p.failure_count, p.avg_severity, p.example_task, p.created_at, p.updated_at,
+                       e.embedding,
+                       (p.success_count * (1 + COALESCE(p.surprise_score, 0))) /
+                       (1 + (julianday('now') - julianday(p.updated_at)) / ?) as decay_score
+                FROM patterns p
+                LEFT JOIN pattern_embeddings e ON p.id = e.pattern_id
+                WHERE p.success_count >= ?
+            """
+            params: list[float | int | str] = [decay_halflife_days, min_success]
+
+            if issue_type:
+                base_sql += " AND p.issue_type = ?"
+                params.append(issue_type)
+
+            base_sql += " ORDER BY decay_score DESC LIMIT ?"
+            params.append(limit)
+
+            cursor.execute(base_sql, params)
+
+            results: list[tuple[Pattern, bytes | None]] = []
+            for row in cursor.fetchall():
+                pattern = Pattern(
+                    id=row[0],
+                    issue_type=row[1],
+                    issue_text=row[2],
+                    suggestion_text=row[3],
+                    success_count=row[4],
+                    failure_count=row[5],
+                    avg_severity=row[6],
+                    example_task=row[7],
+                    created_at=row[8],
+                    updated_at=row[9],
+                )
+                embedding = row[10]  # May be None if no embedding exists
+                results.append((pattern, embedding))
+
+            return results
+
+    def get_patterns_batch(
+        self,
+        pattern_ids: list[str],
+    ) -> dict[str, tuple[Pattern, bytes | None]]:
+        """
+        Batch-fetch patterns with embeddings by IDs.
+
+        This method fetches multiple patterns in a single query using an IN clause
+        with LEFT JOIN, avoiding N+1 queries when you need to look up many patterns.
+
+        Args:
+            pattern_ids: List of pattern IDs to fetch
+
+        Returns:
+            Dict mapping pattern_id -> (Pattern, embedding_bytes) tuple.
+            Only includes patterns that exist.
+        """
+        if not pattern_ids:
+            return {}
+
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Use parameterized IN clause with LEFT JOIN
+            placeholders = ",".join("?" * len(pattern_ids))
+            cursor.execute(
+                f"""
+                SELECT p.id, p.issue_type, p.issue_text, p.suggestion_text, p.success_count,
+                       p.failure_count, p.avg_severity, p.example_task, p.created_at, p.updated_at,
+                       e.embedding
+                FROM patterns p
+                LEFT JOIN pattern_embeddings e ON p.id = e.pattern_id
+                WHERE p.id IN ({placeholders})
+                """,
+                pattern_ids,
+            )
+
+            results: dict[str, tuple[Pattern, bytes | None]] = {}
+            for row in cursor.fetchall():
+                pattern = Pattern(
+                    id=row[0],
+                    issue_type=row[1],
+                    issue_text=row[2],
+                    suggestion_text=row[3],
+                    success_count=row[4],
+                    failure_count=row[5],
+                    avg_severity=row[6],
+                    example_task=row[7],
+                    created_at=row[8],
+                    updated_at=row[9],
+                )
+                embedding = row[10]
+                results[pattern.id] = (pattern, embedding)
+
+            return results
 
     @ttl_cache(ttl_seconds=CACHE_TTL_CRITIQUE_STATS, key_prefix="critique_stats", skip_first=False)
     def get_stats(self) -> dict:

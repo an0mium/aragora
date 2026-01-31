@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone
+from typing import Any
 
 from aragora.gateway.external_agents.base import (
     AgentCapability,
@@ -10,6 +11,7 @@ from aragora.gateway.external_agents.base import (
     ExternalAgentResult,
     BaseExternalAgentAdapter,
     ExternalAgentGateway,
+    GatewayConfig,
 )
 
 
@@ -118,39 +120,28 @@ class MockAdapter(BaseExternalAgentAdapter):
     """Mock adapter for testing."""
 
     def __init__(self, name: str = "mock", should_fail: bool = False):
-        self._name = name
+        super().__init__(agent_name=name, agent_version="1.0.0")
         self._should_fail = should_fail
-        self._capabilities = {AgentCapability.WEB_SEARCH, AgentCapability.EXECUTE_CODE}
+        self._supported_capabilities = [AgentCapability.WEB_SEARCH, AgentCapability.EXECUTE_CODE]
 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def version(self) -> str:
-        return "1.0.0"
-
-    @property
-    def capabilities(self) -> set[AgentCapability]:
-        return self._capabilities
-
-    @property
-    def isolation_level(self) -> IsolationLevel:
-        return IsolationLevel.CONTAINER
-
-    async def execute(self, task: ExternalAgentTask) -> ExternalAgentResult:
+    async def execute(
+        self,
+        task: ExternalAgentTask,
+        credentials: dict[str, str],
+        sandbox_config: dict[str, Any],
+    ) -> ExternalAgentResult:
         if self._should_fail:
             return ExternalAgentResult(
                 task_id=task.task_id,
                 success=False,
                 error="Mock failure",
-                agent_name=self._name,
+                agent_name=self._agent_name,
             )
         return ExternalAgentResult(
             task_id=task.task_id,
             success=True,
-            output=f"Executed by {self._name}",
-            agent_name=self._name,
+            output=f"Executed by {self._agent_name}",
+            agent_name=self._agent_name,
             execution_time_ms=100.0,
         )
 
@@ -162,17 +153,16 @@ class TestBaseExternalAgentAdapter:
     async def test_adapter_properties(self):
         """Test adapter properties."""
         adapter = MockAdapter("test-adapter")
-        assert adapter.name == "test-adapter"
-        assert adapter.version == "1.0.0"
-        assert AgentCapability.WEB_SEARCH in adapter.capabilities
-        assert adapter.isolation_level == IsolationLevel.CONTAINER
+        assert adapter.agent_name == "test-adapter"
+        assert adapter.agent_version == "1.0.0"
+        assert AgentCapability.WEB_SEARCH in adapter.supported_capabilities
 
     @pytest.mark.asyncio
     async def test_adapter_execute_success(self):
         """Test successful execution."""
         adapter = MockAdapter("test-adapter")
         task = ExternalAgentTask(prompt="test")
-        result = await adapter.execute(task)
+        result = await adapter.execute(task, credentials={}, sandbox_config={})
         assert result.success is True
         assert "test-adapter" in result.output
 
@@ -181,7 +171,7 @@ class TestBaseExternalAgentAdapter:
         """Test failed execution."""
         adapter = MockAdapter("failing-adapter", should_fail=True)
         task = ExternalAgentTask(prompt="test")
-        result = await adapter.execute(task)
+        result = await adapter.execute(task, credentials={}, sandbox_config={})
         assert result.success is False
         assert result.error == "Mock failure"
 
@@ -198,14 +188,14 @@ class TestExternalAgentGateway:
         assert "test-adapter" in gateway._adapters
 
     @pytest.mark.asyncio
-    async def test_unregister_adapter(self):
-        """Test unregistering an adapter."""
+    async def test_get_adapter(self):
+        """Test getting an adapter by name."""
         gateway = ExternalAgentGateway()
         adapter = MockAdapter("test-adapter")
         gateway.register_adapter(adapter)
-        result = gateway.unregister_adapter("test-adapter")
-        assert result is True
-        assert "test-adapter" not in gateway._adapters
+        retrieved = gateway.get_adapter("test-adapter")
+        assert retrieved is not None
+        assert retrieved.agent_name == "test-adapter"
 
     @pytest.mark.asyncio
     async def test_execute_task(self):
@@ -224,23 +214,24 @@ class TestExternalAgentGateway:
 
     @pytest.mark.asyncio
     async def test_execute_unknown_adapter(self):
-        """Test executing with unknown adapter."""
+        """Test executing with unknown adapter returns error result."""
         gateway = ExternalAgentGateway()
         task = ExternalAgentTask(prompt="test")
 
-        with pytest.raises(KeyError):
-            await gateway.execute("unknown-adapter", task)
+        result = await gateway.execute("unknown-adapter", task)
+        assert result.success is False
+        assert "Unknown adapter" in result.error
 
     @pytest.mark.asyncio
-    async def test_get_adapters(self):
-        """Test getting registered adapters."""
+    async def test_list_adapters(self):
+        """Test listing registered adapters."""
         gateway = ExternalAgentGateway()
         adapter1 = MockAdapter("adapter1")
         adapter2 = MockAdapter("adapter2")
         gateway.register_adapter(adapter1)
         gateway.register_adapter(adapter2)
 
-        adapters = gateway.get_adapters()
+        adapters = gateway.list_adapters()
         assert len(adapters) == 2
         assert "adapter1" in adapters
         assert "adapter2" in adapters

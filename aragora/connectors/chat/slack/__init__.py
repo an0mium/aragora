@@ -40,12 +40,14 @@ from .client import (
     SLACK_WEBHOOK_URL,
     WorkspaceRateLimit,
     WorkspaceRateLimitRegistry,
-    _classify_slack_error,
     _exponential_backoff,
     _is_retryable_error,
     _wait_for_rate_limit,
     get_rate_limit_registry,
 )
+
+# Import shared error classification from exceptions
+from aragora.connectors.exceptions import classify_connector_error
 
 # Re-export thread manager
 from .threads import SlackThreadManager
@@ -369,7 +371,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
 
             except _httpx.TimeoutException:
                 last_error = f"Request timeout after {request_timeout}s"
-                classified = _classify_slack_error(last_error)
+                classified = classify_connector_error(last_error, "slack")
                 if attempt < retries - 1:
                     logger.warning(
                         f"[slack] {operation} timeout (attempt {attempt + 1}/{retries}) "
@@ -382,7 +384,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
 
             except _httpx.ConnectError as e:
                 last_error = f"Connection error: {e}"
-                classified = _classify_slack_error(last_error)
+                classified = classify_connector_error(last_error, "slack")
                 if attempt < retries - 1:
                     logger.warning(
                         f"[slack] {operation} network error (attempt {attempt + 1}/{retries}) "
@@ -396,7 +398,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
             except (_httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
                 # Unexpected error - don't retry, classify for metrics
                 last_error = f"Unexpected error: {e}"
-                classified = _classify_slack_error(last_error)
+                classified = classify_connector_error(last_error, "slack")
                 logger.exception(
                     f"[slack] {operation} unexpected error [{type(classified).__name__}]: {e}"
                 )
@@ -406,7 +408,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
         if self._circuit_breaker:
             self._circuit_breaker.record_failure()
         if last_error:
-            classified = _classify_slack_error(last_error)
+            classified = classify_connector_error(last_error, "slack")
             logger.debug(f"[slack] {operation} final error type: {type(classified).__name__}")
         return False, None, last_error or "Unknown error"
 
@@ -425,7 +427,7 @@ __all__ = [
     "DEFAULT_RETRIES",
     "CIRCUIT_BREAKER_THRESHOLD",
     "CIRCUIT_BREAKER_COOLDOWN",
-    "_classify_slack_error",
+    "classify_connector_error",
     "_is_retryable_error",
     "_exponential_backoff",
     "_wait_for_rate_limit",

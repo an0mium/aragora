@@ -37,7 +37,7 @@ from aragora.connectors.exceptions import (
 )
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.resilience import CircuitBreaker
-from aragora.resilience.http_client import CircuitBreakerMixin, classify_http_error
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -301,12 +301,11 @@ class JournalEntry:
         }
 
 
-class GustoConnector(CircuitBreakerMixin):
+class GustoConnector:
     """
     Gusto payroll integration connector.
 
     Handles OAuth authentication and payroll operations.
-    Uses CircuitBreakerMixin for standardized circuit breaker setup and methods.
     """
 
     BASE_URL = "https://api.gusto.com"
@@ -351,14 +350,17 @@ class GustoConnector(CircuitBreakerMixin):
         self._credentials: GustoCredentials | None = None
         self._account_mappings = dict(self.DEFAULT_ACCOUNTS)
 
-        # Use mixin for circuit breaker initialization
-        self.init_circuit_breaker(
-            name="gusto",
-            circuit_breaker=circuit_breaker,
-            enable=enable_circuit_breaker,
-            failure_threshold=3,  # Strict for financial data
-            cooldown_seconds=60.0,
-        )
+        # Circuit breaker for API resilience
+        if circuit_breaker is not None:
+            self._circuit_breaker = circuit_breaker
+        elif enable_circuit_breaker:
+            self._circuit_breaker = CircuitBreaker(
+                name="gusto",
+                failure_threshold=3,  # Strict for financial data
+                cooldown_seconds=60.0,
+            )
+        else:
+            self._circuit_breaker = None
 
     @property
     def is_configured(self) -> bool:
@@ -389,24 +391,17 @@ class GustoConnector(CircuitBreakerMixin):
         authorization_code: str,
     ) -> GustoCredentials:
         """Exchange authorization code for tokens."""
-        import urllib.parse
-
-        from aragora.server.http_client_pool import get_http_pool
-
         pool = get_http_pool()
         async with pool.get_session("gusto") as client:
             response = await client.post(
                 self.TOKEN_URL,
-                content=urllib.parse.urlencode(
-                    {
-                        "client_id": self.client_id,
-                        "client_secret": self.client_secret,
-                        "code": authorization_code,
-                        "grant_type": "authorization_code",
-                        "redirect_uri": self.redirect_uri,
-                    }
-                ),
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": authorization_code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": self.redirect_uri,
+                },
             )
             if response.status_code != 200:
                 error_text = response.text
@@ -441,23 +436,16 @@ class GustoConnector(CircuitBreakerMixin):
                 connector_name="gusto",
             )
 
-        import urllib.parse
-
-        from aragora.server.http_client_pool import get_http_pool
-
         pool = get_http_pool()
         async with pool.get_session("gusto") as client:
             response = await client.post(
                 self.TOKEN_URL,
-                content=urllib.parse.urlencode(
-                    {
-                        "client_id": self.client_id,
-                        "client_secret": self.client_secret,
-                        "refresh_token": self._credentials.refresh_token,
-                        "grant_type": "refresh_token",
-                    }
-                ),
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "refresh_token": self._credentials.refresh_token,
+                    "grant_type": "refresh_token",
+                },
             )
             if response.status_code != 200:
                 error_text = response.text
@@ -491,20 +479,14 @@ class GustoConnector(CircuitBreakerMixin):
         data: Optional[dict[str, Any]] = None,
         access_token: str | None = None,
     ) -> Any:
-        """Make authenticated API request with circuit breaker protection.
-
-        Uses CircuitBreakerMixin helper methods for consistent circuit breaker
-        handling and classify_http_error for uniform error classification.
-        """
+        """Make authenticated API request with circuit breaker protection."""
         import asyncio
 
         import httpx
 
-        from aragora.server.http_client_pool import get_http_pool
-
-        # Check circuit breaker using mixin method
-        if not self.check_circuit_breaker():
-            cooldown = self.get_circuit_cooldown()
+        # Check circuit breaker before making request
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            cooldown = self._circuit_breaker.cooldown_remaining()
             raise ConnectorAPIError(
                 f"Circuit breaker open - retry in {cooldown:.1f}s",
                 connector_name="gusto",
@@ -535,56 +517,57 @@ class GustoConnector(CircuitBreakerMixin):
                     url,
                     headers=headers,
                     json=data,
-                    timeout=30,
+                    timeout=30.0,
                 )
                 response_data = response.json()
 
-                # Use shared error classification
-                if response.status_code >= 400:
-                    error_info = classify_http_error(
-                        status_code=response.status_code,
-                        headers=dict(response.headers),
-                        body=response_data,
+                # Handle rate limiting
+                if response.status_code == 429:
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_failure()
+                    retry_after = float(response.headers.get("Retry-After", 60))
+                    raise ConnectorRateLimitError(
+                        "Rate limited by Gusto API",
+                        connector_name="gusto",
+                        retry_after=retry_after,
                     )
 
-                    # Handle rate limiting specifically
-                    if error_info.is_rate_limit:
-                        self.record_circuit_failure()
-                        raise ConnectorRateLimitError(
-                            "Rate limited by Gusto API",
-                            connector_name="gusto",
-                            retry_after=error_info.retry_after or 60,
-                        )
-
-                    # Record failure for transient errors only
-                    if error_info.is_transient:
-                        self.record_circuit_failure()
-                        raise ConnectorAPIError(
-                            f"Gusto API server error: {error_info.message}",
-                            connector_name="gusto",
-                            status_code=response.status_code,
-                        )
-
-                    # Client errors (not transient - don't record failure)
+                # Handle server errors (transient - record failure)
+                if response.status_code >= 500:
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_failure()
+                    error = response_data.get("error", "Server error")
                     raise ConnectorAPIError(
-                        f"Gusto API error: {error_info.message}",
+                        f"Gusto API server error: {error}",
                         connector_name="gusto",
                         status_code=response.status_code,
                     )
 
-                # Success - record using mixin method
-                self.record_circuit_success()
+                # Handle client errors (not transient - don't record failure)
+                if response.status_code >= 400:
+                    error = response_data.get("error", "Unknown error")
+                    raise ConnectorAPIError(
+                        f"Gusto API error: {error}",
+                        connector_name="gusto",
+                        status_code=response.status_code,
+                    )
+
+                # Success - record it
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_success()
 
                 return response_data
 
         except asyncio.TimeoutError as e:
-            self.record_circuit_failure()
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
             raise ConnectorTimeoutError(
                 "Request to Gusto API timed out",
                 connector_name="gusto",
             ) from e
         except httpx.RequestError as e:
-            self.record_circuit_failure()
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
             raise ConnectorNetworkError(
                 f"Network error connecting to Gusto API: {e}",
                 connector_name="gusto",

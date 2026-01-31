@@ -806,7 +806,7 @@ class WhatsAppHandler(BaseHandler):
 
         try:
             pool = get_http_pool()
-            async with pool.get_session("whatsapp_handler") as client:
+            async with pool.get_session("whatsapp_gauntlet") as client:
                 resp = await client.post(
                     "http://localhost:8080/api/gauntlet/run",
                     json={
@@ -817,7 +817,7 @@ class WhatsAppHandler(BaseHandler):
                             "from_number": from_number,
                         },
                     },
-                    timeout=120.0,
+                    timeout=120,
                 )
                 data = resp.json()
 
@@ -1036,8 +1036,9 @@ class WhatsAppHandler(BaseHandler):
         text: str,
     ) -> None:
         """Send a text message via WhatsApp Cloud API."""
-        from aragora.server.http_client_pool import get_http_pool
         import time
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
             logger.warning("Cannot send message: WhatsApp not configured")
@@ -1056,7 +1057,7 @@ class WhatsAppHandler(BaseHandler):
             }
 
             pool = get_http_pool()
-            async with pool.get_session("whatsapp_handler") as client:
+            async with pool.get_session("whatsapp") as client:
                 response = await client.post(
                     url,
                     json=payload,
@@ -1064,10 +1065,10 @@ class WhatsAppHandler(BaseHandler):
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=30.0,
+                    timeout=30,
                 )
-                result = response.json()
                 if response.status_code != 200:
+                    result = response.json()
                     logger.warning(f"WhatsApp API error: {result}")
                     status = "error"
         except Exception as e:
@@ -1089,8 +1090,9 @@ class WhatsAppHandler(BaseHandler):
 
         buttons: List of dicts with 'id' and 'title' keys (max 3 buttons)
         """
-        from aragora.server.http_client_pool import get_http_pool
         import time
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
             logger.warning("Cannot send message: WhatsApp not configured")
@@ -1125,7 +1127,7 @@ class WhatsAppHandler(BaseHandler):
             }
 
             pool = get_http_pool()
-            async with pool.get_session("whatsapp_handler") as client:
+            async with pool.get_session("whatsapp") as client:
                 response = await client.post(
                     url,
                     json=payload,
@@ -1133,10 +1135,10 @@ class WhatsAppHandler(BaseHandler):
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=30.0,
+                    timeout=30,
                 )
-                result = response.json()
                 if response.status_code != 200:
+                    result = response.json()
                     logger.warning(f"WhatsApp API error: {result}")
                     status = "error"
                     # Fall back to plain text if interactive fails
@@ -1201,7 +1203,7 @@ class WhatsAppHandler(BaseHandler):
         """Send an audio message via WhatsApp Cloud API.
 
         WhatsApp requires uploading media first, then sending with media ID.
-        Note: Voice upload uses multipart form data which httpx supports.
+        Note: Voice upload uses httpx's file upload capabilities.
         """
         from aragora.server.http_client_pool import get_http_pool
 
@@ -1222,26 +1224,24 @@ class WhatsAppHandler(BaseHandler):
             }
             mime_type = mime_types.get(audio_format, "audio/mpeg")
 
-            # Create multipart form data for upload
-            files = {
-                "file": (f"voice.{audio_format}", audio_bytes, mime_type),
-            }
-            data = {
-                "messaging_product": "whatsapp",
-                "type": mime_type,
-            }
-
             pool = get_http_pool()
-            async with pool.get_session("whatsapp_handler") as client:
-                # Upload the audio file
+            async with pool.get_session("whatsapp_media") as client:
+                # Upload the audio file using httpx multipart
+                files = {
+                    "file": (f"voice.{audio_format}", audio_bytes, mime_type),
+                }
+                data = {
+                    "messaging_product": "whatsapp",
+                    "type": mime_type,
+                }
                 upload_response = await client.post(
                     upload_url,
-                    data=data,
                     files=files,
+                    data=data,
                     headers={
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                     },
-                    timeout=60.0,
+                    timeout=60,
                 )
                 upload_result = upload_response.json()
 
@@ -1271,10 +1271,10 @@ class WhatsAppHandler(BaseHandler):
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=30.0,
+                    timeout=30,
                 )
-                send_result = send_response.json()
                 if send_response.status_code != 200:
+                    send_result = send_response.json()
                     logger.warning(f"WhatsApp audio send failed: {send_result}")
                 else:
                     logger.info(f"WhatsApp voice message sent to {to_number}")

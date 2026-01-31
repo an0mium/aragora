@@ -89,7 +89,8 @@ def teams_origin():
 @pytest.fixture
 def sample_receipt():
     """Create a sample receipt."""
-    receipt = MagicMock()
+    # Use spec to avoid MagicMock attribute issues with comparisons
+    receipt = MagicMock(spec=["verdict", "confidence", "critical_count", "high_count"])
     receipt.verdict = "APPROVED"
     receipt.confidence = 0.92
     receipt.critical_count = 0
@@ -109,7 +110,7 @@ class TestRouteDebateResult:
     async def test_returns_false_when_no_origin(self, sample_result):
         """route_debate_result returns False when origin not found."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=None,
         ):
             result = await route_debate_result("nonexistent", sample_result)
@@ -128,7 +129,7 @@ class TestRouteDebateResult:
         )
 
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=origin,
         ):
             result = await route_debate_result("already-sent", sample_result)
@@ -139,7 +140,7 @@ class TestRouteDebateResult:
     async def test_routes_to_telegram(self, telegram_origin, sample_result):
         """route_debate_result calls telegram sender."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=telegram_origin,
         ):
             with patch(
@@ -152,7 +153,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ) as mock_send:
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         result = await route_debate_result(telegram_origin.debate_id, sample_result)
 
@@ -163,7 +164,7 @@ class TestRouteDebateResult:
     async def test_routes_to_slack(self, slack_origin, sample_result):
         """route_debate_result calls slack sender."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=slack_origin,
         ):
             with patch(
@@ -176,7 +177,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ) as mock_send:
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         result = await route_debate_result(slack_origin.debate_id, sample_result)
 
@@ -187,7 +188,7 @@ class TestRouteDebateResult:
     async def test_routes_to_discord(self, discord_origin, sample_result):
         """route_debate_result calls discord sender."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=discord_origin,
         ):
             with patch(
@@ -200,7 +201,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ) as mock_send:
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         result = await route_debate_result(discord_origin.debate_id, sample_result)
 
@@ -211,7 +212,7 @@ class TestRouteDebateResult:
     async def test_routes_to_teams(self, teams_origin, sample_result):
         """route_debate_result calls teams sender."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=teams_origin,
         ):
             with patch(
@@ -224,7 +225,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ) as mock_send:
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         result = await route_debate_result(teams_origin.debate_id, sample_result)
 
@@ -242,7 +243,7 @@ class TestRouteDebateResult:
         )
 
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=origin,
         ):
             with patch(
@@ -255,7 +256,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ) as mock_send:
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         result = await route_debate_result(origin.debate_id, sample_result)
 
@@ -273,7 +274,7 @@ class TestRouteDebateResult:
         )
 
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=origin,
         ):
             with patch(
@@ -286,7 +287,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ) as mock_send:
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         result = await route_debate_result(origin.debate_id, sample_result)
 
@@ -304,7 +305,7 @@ class TestRouteDebateResult:
         )
 
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=origin,
         ):
             with patch(
@@ -317,7 +318,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ) as mock_send:
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         result = await route_debate_result(origin.debate_id, sample_result)
 
@@ -335,7 +336,7 @@ class TestRouteDebateResult:
         )
 
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=origin,
         ):
             with patch(
@@ -350,7 +351,7 @@ class TestRouteDebateResult:
     async def test_marks_result_sent_on_success(self, telegram_origin, sample_result):
         """route_debate_result marks result as sent on success."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=telegram_origin,
         ):
             with patch(
@@ -363,7 +364,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ):
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ) as mock_mark:
                         await route_debate_result(telegram_origin.debate_id, sample_result)
 
@@ -373,7 +374,7 @@ class TestRouteDebateResult:
     async def test_does_not_mark_sent_on_failure(self, telegram_origin, sample_result):
         """route_debate_result does not mark sent on failure."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=telegram_origin,
         ):
             with patch(
@@ -386,7 +387,7 @@ class TestRouteDebateResult:
                     return_value=False,
                 ):
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ) as mock_mark:
                         await route_debate_result(telegram_origin.debate_id, sample_result)
 
@@ -396,7 +397,7 @@ class TestRouteDebateResult:
     async def test_handles_sender_exception(self, telegram_origin, sample_result):
         """route_debate_result handles sender exceptions."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=telegram_origin,
         ):
             with patch(
@@ -416,7 +417,7 @@ class TestRouteDebateResult:
     async def test_includes_voice_when_requested(self, telegram_origin, sample_result):
         """route_debate_result sends voice when include_voice=True."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=telegram_origin,
         ):
             with patch(
@@ -434,7 +435,7 @@ class TestRouteDebateResult:
                         return_value=True,
                     ) as mock_voice:
                         with patch(
-                            "aragora.server.debate_origin.router.mark_result_sent",
+                            "aragora.server.debate_origin.registry.mark_result_sent",
                         ):
                             await route_debate_result(
                                 telegram_origin.debate_id,
@@ -450,7 +451,7 @@ class TestRouteDebateResult:
     ):
         """route_debate_result posts receipt when provided."""
         with patch(
-            "aragora.server.debate_origin.router.get_debate_origin",
+            "aragora.server.debate_origin.registry.get_debate_origin",
             return_value=telegram_origin,
         ):
             with patch(
@@ -463,7 +464,7 @@ class TestRouteDebateResult:
                     return_value=True,
                 ):
                     with patch(
-                        "aragora.server.debate_origin.router.mark_result_sent",
+                        "aragora.server.debate_origin.registry.mark_result_sent",
                     ):
                         with patch(
                             "aragora.server.debate_origin.router.post_receipt_to_channel",
@@ -763,7 +764,7 @@ class TestRouteResultToAllSessions:
                 return_value=[],
             ):
                 with patch(
-                    "aragora.server.debate_origin.router.get_debate_origin",
+                    "aragora.server.debate_origin.registry.get_debate_origin",
                     return_value=None,
                 ):
                     count = await route_result_to_all_sessions("debate-123", sample_result)
@@ -791,7 +792,7 @@ class TestRouteResultToAllSessions:
                 return_value=[additional_session],
             ):
                 with patch(
-                    "aragora.server.debate_origin.router.get_debate_origin",
+                    "aragora.server.debate_origin.registry.get_debate_origin",
                     return_value=slack_origin,
                 ):
                     with patch(
@@ -828,7 +829,7 @@ class TestRouteResultToAllSessions:
                 return_value=[same_session],
             ):
                 with patch(
-                    "aragora.server.debate_origin.router.get_debate_origin",
+                    "aragora.server.debate_origin.registry.get_debate_origin",
                     return_value=telegram_origin,
                 ):
                     count = await route_result_to_all_sessions(
@@ -858,7 +859,7 @@ class TestRouteResultToAllSessions:
                 return_value=[failing_session],
             ):
                 with patch(
-                    "aragora.server.debate_origin.router.get_debate_origin",
+                    "aragora.server.debate_origin.registry.get_debate_origin",
                     return_value=slack_origin,
                 ):
                     with patch(
@@ -887,7 +888,7 @@ class TestRouteResultToAllSessions:
                 side_effect=RuntimeError("Session manager unavailable"),
             ):
                 with patch(
-                    "aragora.server.debate_origin.router.get_debate_origin",
+                    "aragora.server.debate_origin.registry.get_debate_origin",
                     return_value=None,
                 ):
                     count = await route_result_to_all_sessions("debate-lookup-fail", sample_result)
@@ -921,7 +922,7 @@ class TestRouteResultToAllSessions:
                 return_value=[telegram_session, discord_session],
             ):
                 with patch(
-                    "aragora.server.debate_origin.router.get_debate_origin",
+                    "aragora.server.debate_origin.registry.get_debate_origin",
                     return_value=slack_origin,
                 ):
                     with patch(

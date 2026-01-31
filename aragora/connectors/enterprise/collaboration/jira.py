@@ -193,7 +193,7 @@ class JiraConnector(EnterpriseConnector):
         api_version: str = "3",
     ) -> dict[str, Any]:
         """Make a request to Jira REST API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         headers = await self._get_auth_header()
         headers["Accept"] = "application/json"
@@ -205,7 +205,8 @@ class JiraConnector(EnterpriseConnector):
 
         url = f"{self.base_url}/rest/api/{api_version}{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("jira") as client:
             response = await client.request(
                 method,
                 url,

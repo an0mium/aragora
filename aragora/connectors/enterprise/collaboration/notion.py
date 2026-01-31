@@ -148,14 +148,15 @@ class NotionConnector(EnterpriseConnector):
         json_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make a request to Notion API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         headers = await self._get_auth_header()
         headers["Content-Type"] = "application/json"
 
         url = f"https://api.notion.com/v1{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("notion") as client:
             response = await client.request(
                 method,
                 url,
