@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
 
 from .base import ExternalAgentAdapter
 from .models import (
@@ -163,7 +163,7 @@ class ExternalAgentProxy:
         # Submit with timeout and retry
         try:
             task_id = await self._with_retry(
-                self._adapter.submit_task(request),
+                lambda: self._adapter.submit_task(request),
                 timeout=self._config.submit_timeout,
                 operation="submit_task",
             )
@@ -299,14 +299,14 @@ class ExternalAgentProxy:
 
     async def _with_retry(
         self,
-        coro: Any,
+        coro_factory: Callable[[], Any],
         timeout: float,
         operation: str,
     ) -> Any:
         """Execute coroutine with retry logic.
 
         Args:
-            coro: Coroutine to execute.
+            coro_factory: Callable that returns a coroutine to execute.
             timeout: Timeout in seconds.
             operation: Operation name for logging.
 
@@ -321,6 +321,7 @@ class ExternalAgentProxy:
 
         for attempt in range(self._config.max_retries):
             try:
+                coro = coro_factory()
                 return await asyncio.wait_for(coro, timeout=timeout)
             except asyncio.TimeoutError:
                 last_error = asyncio.TimeoutError(f"{operation} timed out after {timeout}s")

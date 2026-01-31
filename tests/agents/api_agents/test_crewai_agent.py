@@ -615,8 +615,8 @@ class TestCrewAIKickoff:
 
         captured_payload = {}
 
-        def capture_post(url, json_data=None, headers=None):
-            captured_payload["json"] = json_data
+        def capture_post(url, **kwargs):
+            captured_payload["json"] = kwargs.get("json")
             return mock_response
 
         mock_session = MagicMock()
@@ -655,8 +655,8 @@ class TestCrewAIKickoff:
 
         captured_payload = {}
 
-        def capture_post(url, json_data=None, headers=None):
-            captured_payload["json"] = json_data
+        def capture_post(url, **kwargs):
+            captured_payload["json"] = kwargs.get("json")
             return mock_response
 
         mock_session = MagicMock()
@@ -915,8 +915,8 @@ class TestCrewAIProcessModes:
 
         captured_payload = {}
 
-        def capture_post(url, json_data=None, headers=None):
-            captured_payload["json"] = json_data
+        def capture_post(url, **kwargs):
+            captured_payload["json"] = kwargs.get("json")
             return mock_response
 
         mock_session = MagicMock()
@@ -952,8 +952,8 @@ class TestCrewAIProcessModes:
 
         captured_payload = {}
 
-        def capture_post(url, json_data=None, headers=None):
-            captured_payload["json"] = json_data
+        def capture_post(url, **kwargs):
+            captured_payload["json"] = kwargs.get("json")
             return mock_response
 
         mock_session = MagicMock()
