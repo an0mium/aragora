@@ -20,9 +20,7 @@ from __future__ import annotations
 
 import logging
 import os
-import secrets
 import threading
-import time
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -32,6 +30,10 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import auth_rate_limit
+from aragora.server.oauth_state_store import (
+    OAUTH_STATE_TTL_SECONDS,
+    get_oauth_state_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +41,26 @@ logger = logging.getLogger(__name__)
 _sso_providers: dict[str, Any] = {}
 _sso_providers_lock = threading.Lock()
 
-# Session store for state -> session data
-_auth_sessions: dict[str, dict[str, Any]] = {}
-_auth_sessions_lock = threading.Lock()
+# OAuth state store singleton (supports Redis/SQLite/JWT for multi-instance deployments)
+_sso_state_store = None
+_sso_state_store_lock = threading.Lock()
 
-# Session TTL (10 minutes)
-AUTH_SESSION_TTL = 600
+# Session TTL (use OAuth state store TTL for consistency)
+AUTH_SESSION_TTL = OAUTH_STATE_TTL_SECONDS
 
-# Max sessions to prevent unbounded growth
-MAX_AUTH_SESSIONS = 1000
+
+def _get_sso_state_store():
+    """Get or create the SSO state store (thread-safe singleton)."""
+    global _sso_state_store
+    if _sso_state_store is None:
+        with _sso_state_store_lock:
+            if _sso_state_store is None:
+                _sso_state_store = get_oauth_state_store(
+                    sqlite_path="aragora_sso_state.db",
+                    use_sqlite=True,
+                    use_jwt=True,
+                )
+    return _sso_state_store
 
 
 def _get_sso_provider(provider_type: str = "oidc"):
@@ -131,31 +144,6 @@ def _get_sso_provider(provider_type: str = "oidc"):
             return None
 
 
-def _cleanup_expired_sessions():
-    """Remove expired auth sessions and enforce size limits."""
-    now = time.time()
-
-    with _auth_sessions_lock:
-        # Remove expired entries
-        expired = [
-            state
-            for state, session in _auth_sessions.items()
-            if now - session.get("created_at", 0) > AUTH_SESSION_TTL
-        ]
-        for state in expired:
-            del _auth_sessions[state]
-
-        # Enforce size limit by removing oldest entries if over limit
-        if len(_auth_sessions) > MAX_AUTH_SESSIONS:
-            sorted_sessions = sorted(
-                _auth_sessions.items(),
-                key=lambda x: x[1].get("created_at", 0),
-            )
-            excess = len(_auth_sessions) - MAX_AUTH_SESSIONS
-            for state, _ in sorted_sessions[:excess]:
-                del _auth_sessions[state]
-
-
 # =============================================================================
 # SSO Login Flow
 # =============================================================================
@@ -190,20 +178,12 @@ async def handle_sso_login(
                 status=503,
             )
 
-        # Generate state for CSRF protection
-        state = secrets.token_urlsafe(32)
-
-        # Store session data
-        with _auth_sessions_lock:
-            _auth_sessions[state] = {
-                "provider_type": provider_type,
-                "redirect_url": redirect_url,
-                "created_at": time.time(),
-            }
-
-        # Cleanup old sessions periodically
-        if len(_auth_sessions) % 10 == 0:
-            _cleanup_expired_sessions()
+        # Generate state token using OAuth state store (supports Redis/SQLite/JWT)
+        state_store = _get_sso_state_store()
+        state = state_store.generate(
+            redirect_url=redirect_url,
+            metadata={"provider_type": provider_type},
+        )
 
         # Get authorization URL
         auth_url = await provider.get_authorization_url(state=state)
@@ -257,19 +237,16 @@ async def handle_sso_callback(
         if not state:
             return error_response("No state parameter provided", status=400)
 
-        # Validate state and get session
-        with _auth_sessions_lock:
-            session = _auth_sessions.pop(state, None)
+        # Validate state using OAuth state store (atomic get-and-delete)
+        state_store = _get_sso_state_store()
+        oauth_state = state_store.validate_and_consume(state)
 
-        if not session:
+        if not oauth_state:
             return error_response("Invalid or expired state", status=401)
 
-        # Check session expiry
-        if time.time() - session.get("created_at", 0) > AUTH_SESSION_TTL:
-            return error_response("Session expired", status=401)
-
-        provider_type = session.get("provider_type", "oidc")
-        redirect_url = session.get("redirect_url", "/")
+        # Extract session data from state
+        provider_type = (oauth_state.metadata or {}).get("provider_type", "oidc")
+        redirect_url = oauth_state.redirect_url or "/"
 
         provider = _get_sso_provider(provider_type)
         if not provider:
@@ -570,4 +547,10 @@ __all__ = [
     "handle_list_providers",
     "handle_get_sso_config",
     "get_sso_handlers",
+    # Internal but exported for testing
+    "_get_sso_state_store",
+    "_sso_providers",
+    "_sso_providers_lock",
+    "AUTH_SESSION_TTL",
+    "_get_sso_provider",
 ]
