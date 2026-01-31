@@ -30,7 +30,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.utils.rate_limit import RateLimiter
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.url_security import validate_webhook_url
@@ -397,6 +397,12 @@ class WebhookHandler(SecureHandler):
 
     def _handle_list_webhooks(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks - list all webhooks."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _list_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for webhook list: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # RBAC permission check
         rbac_error = self._check_rbac_permission(handler, "webhooks.read")
         if rbac_error:
@@ -440,6 +446,12 @@ class WebhookHandler(SecureHandler):
 
     def _handle_register_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks - register new webhook."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _register_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for webhook registration: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # RBAC permission check
         rbac_error = self._check_rbac_permission(handler, "webhooks.create")
         if rbac_error:
@@ -589,6 +601,12 @@ class WebhookHandler(SecureHandler):
 
     def _handle_test_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/:id/test - send test event."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _test_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for webhook test: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # RBAC permission check
         rbac_error = self._check_rbac_permission(handler, "webhooks.test")
         if rbac_error:
