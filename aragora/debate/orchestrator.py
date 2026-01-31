@@ -34,6 +34,7 @@ from aragora.debate.complexity_governor import (
     classify_task_complexity,
     get_complexity_governor,
 )
+from aragora.debate.config.defaults import DEBATE_DEFAULTS
 from aragora.debate.context import DebateContext
 from aragora.debate.context_delegation import ContextDelegator
 from aragora.debate.convergence import (
@@ -1424,7 +1425,7 @@ class Arena:
         content: str,
         debate_id: str,
         round_num: int,
-        confidence: float = 0.7,
+        confidence: float = DEBATE_DEFAULTS.coordinator_min_confidence_for_mound,
         domain: Optional[str] = None,
     ) -> None:
         """Record position. Delegates to GroundedOperations."""
@@ -2287,7 +2288,7 @@ class Arena:
         cls,
         event: "SecurityEvent",
         agents: Optional[list[Agent]] = None,
-        confidence_threshold: float = 0.7,
+        confidence_threshold: float = DEBATE_DEFAULTS.strong_consensus_confidence,
         timeout_seconds: int = 300,
         org_id: str = "default",
     ) -> DebateResult:

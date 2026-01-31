@@ -167,7 +167,28 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
-    # Phase 2: Wait for in-flight debates
+    # Phase 2: Drain in-flight HTTP requests
+    async def drain_requests():
+        from aragora.server.request_tracker import get_request_tracker
+
+        tracker = get_request_tracker()
+        active = tracker.active_count
+        if active > 0:
+            logger.info(f"Draining {active} in-flight HTTP request(s)")
+        success = await tracker.start_drain(timeout=25.0)
+        if not success:
+            logger.warning("Some HTTP requests still active after drain timeout")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Drain in-flight requests",
+            execute=drain_requests,
+            timeout=26.0,
+            critical=True,
+        )
+    )
+
+    # Phase 3: Wait for in-flight debates
     async def wait_for_debates():
         from aragora.server.debate_utils import get_active_debates
 
