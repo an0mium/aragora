@@ -38,11 +38,10 @@ EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
-# Import mixin for reverse flow functionality
 from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
+from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
-
-# Import mixin for reverse flow functionality
 
 
 @dataclass
