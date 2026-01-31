@@ -516,7 +516,8 @@ class TestTeamsUserIdentityBridgeLinking:
     @pytest.mark.asyncio
     async def test_link_teams_user_failure(self, identity_bridge, mock_external_identity_repo):
         """Test returns False on link failure."""
-        mock_external_identity_repo.link_or_update = MagicMock(side_effect=Exception("DB error"))
+        # Use RuntimeError since link_teams_user catches (ValueError, TypeError, RuntimeError)
+        mock_external_identity_repo.link_or_update = MagicMock(side_effect=RuntimeError("DB error"))
 
         with patch.object(
             identity_bridge,

@@ -90,9 +90,9 @@ try:
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
-    KnowledgeMound: type[KnowledgeMoundType] | None = None
-    MoundConfig: type[MoundConfigType] | None = None
-    MoundBackend: type[MoundBackendType] | None = None
+    KnowledgeMound: type[KnowledgeMoundType] | None = None  # type: ignore[no-redef]
+    MoundConfig: type[MoundConfigType] | None = None  # type: ignore[no-redef]
+    MoundBackend: type[MoundBackendType] | None = None  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ try:
     )
 except ImportError:
     UNSTRUCTURED_AVAILABLE = False
-    UnstructuredParser: type[UnstructuredParserType] | None = None
+    UnstructuredParser: type[UnstructuredParserType] | None = None  # type: ignore[no-redef]
 
 
 @dataclass

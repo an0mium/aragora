@@ -94,8 +94,9 @@ class TestLinearConnectorInit:
     def test_default_configuration(self, credentials):
         """Should use provided credentials."""
         connector = LinearConnector(credentials=credentials)
-        assert connector.credentials.api_key == "lin_api_test_key_12345"
-        assert connector.credentials.base_url == "https://api.linear.app/graphql"
+        # LinearConnector stores credentials in _linear_credentials
+        assert connector._linear_credentials.api_key == "lin_api_test_key_12345"
+        assert connector._linear_credentials.base_url == "https://api.linear.app/graphql"
 
     def test_custom_tenant_id(self, credentials):
         """Should accept custom tenant ID."""

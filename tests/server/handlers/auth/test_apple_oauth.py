@@ -554,10 +554,38 @@ class TestAppleUserInfoExtraction:
         with pytest.raises(ValueError, match="No ID token"):
             apple_provider.get_user_info_from_callback(tokens)
 
-    def test_get_user_info_standard_raises_not_implemented(self, apple_provider):
-        """Test that standard get_user_info raises NotImplementedError."""
-        with pytest.raises(NotImplementedError, match="userinfo endpoint"):
+    def test_get_user_info_with_opaque_access_token_raises_value_error(self, apple_provider):
+        """Test that get_user_info raises ValueError for opaque access tokens.
+
+        Apple doesn't have a userinfo endpoint. The method accepts ID tokens (JWTs)
+        but rejects opaque access tokens with a helpful error message.
+        """
+        # Opaque token (not a JWT - doesn't have 3 dot-separated parts)
+        with pytest.raises(ValueError, match="userinfo endpoint"):
             apple_provider.get_user_info("some_access_token")
+
+    def test_get_user_info_with_id_token_succeeds(self, apple_provider):
+        """Test that get_user_info works when passed an ID token (JWT)."""
+        claims = {
+            "sub": "001234.abcd5678.1234",
+            "email": "user@privaterelay.appleid.com",
+            "email_verified": True,
+            "iss": "https://appleid.apple.com",
+            "aud": "com.example.app.web",
+            "exp": int(time.time()) + 3600,
+            "iat": int(time.time()),
+        }
+
+        with patch.object(apple_provider, "_decode_id_token") as mock_decode:
+            mock_decode.return_value = claims
+
+            # Create a mock JWT-like token (3 dot-separated parts)
+            mock_id_token = "header.payload.signature"
+            user_info = apple_provider.get_user_info(mock_id_token)
+
+            assert user_info.provider == "apple"
+            assert user_info.provider_user_id == "001234.abcd5678.1234"
+            assert user_info.email == "user@privaterelay.appleid.com"
 
 
 # ===========================================================================
@@ -824,3 +852,71 @@ class TestAppleOAuthIntegration:
             assert user_info.provider_user_id == "user.id.123"
             assert user_info.name is None
             assert user_info.email_verified is True
+
+    def test_exchange_and_get_user_convenience_method(self, apple_provider):
+        """Test the exchange_and_get_user convenience method with user JSON."""
+        claims = {
+            "sub": "user.id.456",
+            "email": "bob@example.com",
+            "email_verified": True,
+            "iss": "https://appleid.apple.com",
+            "aud": "com.example.app.web",
+            "exp": int(time.time()) + 3600,
+            "iat": int(time.time()),
+        }
+        user_json = '{"name": {"firstName": "Bob", "lastName": "Builder"}}'
+
+        with patch.object(apple_provider, "_generate_client_secret") as mock_secret:
+            mock_secret.return_value = "mock.secret"
+            with patch.object(apple_provider, "_request_tokens") as mock_request:
+                mock_request.return_value = OAuthTokens(
+                    access_token="access_token_123",
+                    id_token="mock.id.token",
+                    refresh_token="refresh_456",
+                )
+                with patch.object(apple_provider, "_decode_id_token") as mock_decode:
+                    mock_decode.return_value = claims
+
+                    # Use the convenience method
+                    user_info = apple_provider.exchange_and_get_user(
+                        code="auth_code_abc",
+                        user_json=user_json,
+                    )
+
+                    assert user_info.provider == "apple"
+                    assert user_info.provider_user_id == "user.id.456"
+                    assert user_info.email == "bob@example.com"
+                    assert user_info.name == "Bob Builder"
+                    assert user_info.given_name == "Bob"
+                    assert user_info.family_name == "Builder"
+
+    def test_exchange_and_get_user_without_user_json(self, apple_provider):
+        """Test exchange_and_get_user on subsequent auth (no user JSON)."""
+        claims = {
+            "sub": "user.id.789",
+            "email": "charlie@privaterelay.appleid.com",
+            "email_verified": True,
+            "iss": "https://appleid.apple.com",
+            "aud": "com.example.app.web",
+            "exp": int(time.time()) + 3600,
+            "iat": int(time.time()),
+        }
+
+        with patch.object(apple_provider, "_generate_client_secret") as mock_secret:
+            mock_secret.return_value = "mock.secret"
+            with patch.object(apple_provider, "_request_tokens") as mock_request:
+                mock_request.return_value = OAuthTokens(
+                    access_token="access_token_456",
+                    id_token="mock.id.token.two",
+                )
+                with patch.object(apple_provider, "_decode_id_token") as mock_decode:
+                    mock_decode.return_value = claims
+
+                    # Call without user_json (subsequent authorization)
+                    user_info = apple_provider.exchange_and_get_user(
+                        code="auth_code_def",
+                    )
+
+                    assert user_info.provider_user_id == "user.id.789"
+                    assert user_info.email == "charlie@privaterelay.appleid.com"
+                    assert user_info.name is None  # Not available on subsequent auth
