@@ -427,18 +427,10 @@ class TestDetectLMStudio:
             ]
         }
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value=lm_studio_response)
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_response = create_mock_response(200, lm_studio_response)
+        mock_pool = create_mock_pool({"/models": mock_response})
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_lm_studio()
 
             assert server.name == "lm-studio"
@@ -451,16 +443,9 @@ class TestDetectLMStudio:
         """Test detecting unavailable LM Studio server."""
         detector = LocalLLMDetector()
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            side_effect=aiohttp.ClientConnectorError(
-                connection_key=MagicMock(), os_error=OSError("Connection refused")
-            )
-        )
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool(error=ConnectionError("Connection refused"))
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_lm_studio()
 
             assert server.name == "lm-studio"
@@ -474,9 +459,8 @@ class TestDetectLMStudio:
 
         lm_studio_response = {"data": [{"id": "test-model"}]}
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value=lm_studio_response)
+        mock_response = create_mock_response(200, lm_studio_response)
+        mock_pool = create_mock_pool({"/models": mock_response})
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 

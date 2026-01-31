@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    pass  # Avoid shadowing by list() method
-
 from ..models import (
     AgentCalibration,
     AgentConsistency,

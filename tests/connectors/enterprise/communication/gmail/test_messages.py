@@ -2499,6 +2499,7 @@ class TestEmailThread:
         msg1 = messages_mixin._parse_message(older_msg)
         msg2 = messages_mixin._parse_message(newer_msg)
 
+        # EmailThread uses explicit message_count and last_message_date fields
         thread = EmailThread(
             id="thread_123",
             messages=[msg1, msg2],
@@ -2506,8 +2507,11 @@ class TestEmailThread:
             snippet="Thread snippet",
             participants=["sender@example.com", "recipient@example.com"],
             labels=["INBOX"],
+            message_count=2,
+            last_message_date=msg2.date,  # Latest message date
         )
 
         assert thread.message_count == 2
+        assert len(thread.messages) == 2
         assert thread.last_message_date.month == 1
         assert thread.last_message_date.day == 31

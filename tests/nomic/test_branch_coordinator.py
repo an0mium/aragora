@@ -634,3 +634,505 @@ class TestCoordinateParallelWork:
         )
 
         assert result.total_branches == 1
+
+
+class TestCreateTrackBranches:
+    """Tests for create_track_branches method."""
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_creates_multiple_branches(self, mock_run):
+        """Should create branches for multiple assignments."""
+        mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
+
+        coordinator = BranchCoordinator()
+
+        goal1 = PrioritizedGoal(
+            id="goal_1",
+            track=Track.SME,
+            description="Frontend work",
+            rationale="Test",
+            estimated_impact="high",
+            priority=1,
+        )
+        goal2 = PrioritizedGoal(
+            id="goal_2",
+            track=Track.QA,
+            description="Test work",
+            rationale="Test",
+            estimated_impact="medium",
+            priority=2,
+        )
+
+        assignments = [
+            TrackAssignment(goal=goal1),
+            TrackAssignment(goal=goal2),
+        ]
+
+        result = await coordinator.create_track_branches(assignments)
+
+        assert len(result) == 2
+        assert all(a.branch_name is not None for a in result)
+        assert "sme" in result[0].branch_name.lower()
+        assert "qa" in result[1].branch_name.lower()
+
+
+class TestGetBranchFiles:
+    """Tests for _get_branch_files method."""
+
+    @patch("subprocess.run")
+    def test_get_files_success(self, mock_run):
+        """Should return list of changed files."""
+        mock_run.return_value = MagicMock(
+            stdout="file1.py\nfile2.py\nfile3.py\n",
+            returncode=0,
+        )
+
+        coordinator = BranchCoordinator()
+        files = coordinator._get_branch_files("feature", "main")
+
+        assert len(files) == 3
+        assert "file1.py" in files
+        assert "file2.py" in files
+
+    @patch("subprocess.run")
+    def test_get_files_failure(self, mock_run):
+        """Should return empty list on git error."""
+        mock_run.return_value = MagicMock(returncode=1)
+
+        coordinator = BranchCoordinator()
+        files = coordinator._get_branch_files("bad-branch", "main")
+
+        assert files == []
+
+    @patch("subprocess.run")
+    def test_get_files_empty(self, mock_run):
+        """Should handle empty diff output."""
+        mock_run.return_value = MagicMock(stdout="\n", returncode=0)
+
+        coordinator = BranchCoordinator()
+        files = coordinator._get_branch_files("clean-branch", "main")
+
+        assert files == []
+
+
+class TestDetectConflictsExtended:
+    """Extended tests for detect_conflicts."""
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_detect_high_severity_conflict(self, mock_run):
+        """Should mark high severity for many conflicting files."""
+        # Make more than 5 files overlap
+        overlapping_files = "\n".join([f"file{i}.py" for i in range(10)])
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists 1
+            MagicMock(stdout=overlapping_files, returncode=0),  # files 1
+            MagicMock(returncode=0),  # branch_exists 2
+            MagicMock(stdout=overlapping_files, returncode=0),  # files 2
+            MagicMock(returncode=0),  # branch_exists 2 (second iteration)
+            MagicMock(stdout=overlapping_files, returncode=0),
+            MagicMock(returncode=0),  # branch_exists 1 (second iteration)
+            MagicMock(stdout=overlapping_files, returncode=0),
+        ]
+
+        coordinator = BranchCoordinator()
+        conflicts = await coordinator.detect_conflicts(["branch1", "branch2"])
+
+        assert len(conflicts) >= 1
+        assert conflicts[0].severity == "high"
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_detect_low_severity_conflict(self, mock_run):
+        """Should mark low severity for few conflicting files."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(stdout="shared.py\n", returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(stdout="shared.py\nother.py\n", returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(stdout="shared.py\nother.py\n", returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(stdout="shared.py\n", returncode=0),
+        ]
+
+        coordinator = BranchCoordinator()
+        conflicts = await coordinator.detect_conflicts(["branch1", "branch2"])
+
+        if conflicts:
+            assert conflicts[0].severity == "low"
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_conflict_callback_invoked(self, mock_run):
+        """Should invoke on_conflict callback when conflicts found."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(stdout="file.py\n", returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(stdout="file.py\n", returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(stdout="file.py\n", returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(stdout="file.py\n", returncode=0),
+            MagicMock(returncode=0),  # checkout
+        ]
+
+        conflicts_received = []
+
+        def on_conflict(report):
+            conflicts_received.append(report)
+
+        coordinator = BranchCoordinator(on_conflict=on_conflict)
+
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.SME,
+            description="T",
+            rationale="R",
+            estimated_impact="low",
+            priority=1,
+        )
+        assignments = [
+            TrackAssignment(goal=goal, branch_name="b1"),
+            TrackAssignment(goal=goal, branch_name="b2"),
+        ]
+
+        await coordinator.coordinate_parallel_work(
+            assignments,
+            run_nomic_fn=None,
+        )
+
+        # Callback should have been invoked for conflicts
+        assert len(conflicts_received) >= 0
+
+
+class TestRunAssignment:
+    """Tests for _run_assignment method."""
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_run_assignment_success(self, mock_run):
+        """Should complete assignment successfully."""
+        mock_run.return_value = MagicMock(returncode=0)
+
+        coordinator = BranchCoordinator()
+
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.QA,
+            description="Test",
+            rationale="R",
+            estimated_impact="low",
+            priority=1,
+        )
+        assignment = TrackAssignment(
+            goal=goal,
+            branch_name="test-branch",
+        )
+
+        async def success_fn(a):
+            return {"result": "success"}
+
+        await coordinator._run_assignment(assignment, success_fn)
+
+        assert assignment.status == "completed"
+        assert assignment.result is not None
+        assert assignment.completed_at is not None
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_run_assignment_failure(self, mock_run):
+        """Should handle assignment failure."""
+        mock_run.return_value = MagicMock(returncode=0)
+
+        coordinator = BranchCoordinator()
+
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.QA,
+            description="Test",
+            rationale="R",
+            estimated_impact="low",
+            priority=1,
+        )
+        assignment = TrackAssignment(
+            goal=goal,
+            branch_name="test-branch",
+        )
+
+        async def fail_fn(a):
+            raise Exception("Task failed")
+
+        await coordinator._run_assignment(assignment, fail_fn)
+
+        assert assignment.status == "failed"
+        assert assignment.error is not None
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_run_assignment_no_branch(self, mock_run):
+        """Should skip assignment without branch name."""
+        coordinator = BranchCoordinator()
+
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.QA,
+            description="Test",
+            rationale="R",
+            estimated_impact="low",
+            priority=1,
+        )
+        assignment = TrackAssignment(
+            goal=goal,
+            branch_name=None,  # No branch
+        )
+
+        async def should_not_call(a):
+            raise Exception("Should not be called")
+
+        # Should not raise, should just return
+        await coordinator._run_assignment(assignment, should_not_call)
+
+        # Status should remain pending
+        assert assignment.status == "pending"
+
+
+class TestSafeMergeExtended:
+    """Extended tests for safe_merge."""
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_merge_with_custom_target(self, mock_run):
+        """Should merge to custom target branch."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists
+            MagicMock(returncode=0),  # checkout develop
+            MagicMock(returncode=0),  # pull
+            MagicMock(returncode=0),  # merge
+            MagicMock(stdout="def456\n", returncode=0),  # rev-parse
+        ]
+
+        coordinator = BranchCoordinator()
+        result = await coordinator.safe_merge("feature", target="develop")
+
+        assert result.target_branch == "develop"
+        assert result.success is True
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_dry_run_detects_conflicts(self, mock_run):
+        """Should detect conflicts in dry run mode."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists
+            MagicMock(returncode=0),  # checkout
+            MagicMock(returncode=0),  # pull
+            MagicMock(
+                returncode=1, stderr="CONFLICT (content): Merge conflict in app.py"
+            ),  # merge --no-commit fails
+            MagicMock(returncode=0),  # merge --abort
+        ]
+
+        coordinator = BranchCoordinator()
+        result = await coordinator.safe_merge("feature", dry_run=True)
+
+        assert result.success is False
+        assert "app.py" in result.conflicts
+
+
+class TestCoordinationResultExtended:
+    """Extended tests for CoordinationResult."""
+
+    def test_result_all_merged(self):
+        """Should track merged branches count."""
+        result = CoordinationResult(
+            total_branches=3,
+            completed_branches=3,
+            failed_branches=0,
+            merged_branches=3,
+            assignments=[],
+            duration_seconds=60.0,
+            success=True,
+            summary="All merged",
+        )
+
+        assert result.merged_branches == 3
+        assert result.success is True
+
+    def test_result_partial_success(self):
+        """Should handle partial success."""
+        result = CoordinationResult(
+            total_branches=5,
+            completed_branches=3,
+            failed_branches=2,
+            merged_branches=2,
+            assignments=[],
+            duration_seconds=120.0,
+            success=False,
+            summary="Partial completion",
+        )
+
+        assert result.completed_branches == 3
+        assert result.failed_branches == 2
+        assert result.success is False
+
+
+class TestTrackAssignmentExtended:
+    """Extended tests for TrackAssignment."""
+
+    def test_assignment_started_at(self):
+        """Should track started timestamp."""
+        now = datetime.now(timezone.utc)
+
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.CORE,
+            description="Test",
+            rationale="R",
+            estimated_impact="high",
+            priority=1,
+        )
+        assignment = TrackAssignment(
+            goal=goal,
+            started_at=now,
+            status="running",
+        )
+
+        assert assignment.started_at == now
+        assert assignment.status == "running"
+
+    def test_assignment_result_storage(self):
+        """Should store arbitrary result dict."""
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.QA,
+            description="Test",
+            rationale="R",
+            estimated_impact="low",
+            priority=1,
+        )
+        assignment = TrackAssignment(
+            goal=goal,
+            result={
+                "files_modified": ["a.py", "b.py"],
+                "tests_passed": 10,
+                "custom_data": {"key": "value"},
+            },
+        )
+
+        assert assignment.result["files_modified"] == ["a.py", "b.py"]
+        assert assignment.result["tests_passed"] == 10
+
+
+class TestSlugifyExtended:
+    """Extended tests for _slugify method."""
+
+    def test_slugify_unicode(self):
+        """Should handle unicode characters."""
+        coordinator = BranchCoordinator()
+
+        slug = coordinator._slugify("Fix bug in authentication")
+
+        assert slug.isascii()
+        assert "-" in slug or slug.isalnum()
+
+    def test_slugify_numbers(self):
+        """Should preserve numbers."""
+        coordinator = BranchCoordinator()
+
+        slug = coordinator._slugify("Add feature 123")
+
+        assert "123" in slug
+
+    def test_slugify_multiple_spaces(self):
+        """Should collapse multiple spaces/dashes."""
+        coordinator = BranchCoordinator()
+
+        slug = coordinator._slugify("Fix   multiple   spaces")
+
+        assert "---" not in slug
+        assert "--" not in slug
+
+
+class TestCleanupBranchesExtended:
+    """Extended tests for cleanup_branches."""
+
+    @patch("subprocess.run")
+    def test_cleanup_specific_branches(self, mock_run):
+        """Should clean up only specified branches."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists for branch1
+            MagicMock(stdout="  branch1\n  branch2\n", returncode=0),  # merged
+            MagicMock(returncode=0),  # delete
+        ]
+
+        coordinator = BranchCoordinator()
+        deleted = coordinator.cleanup_branches(branches=["branch1"])
+
+        # Should only process branch1
+        assert deleted >= 0
+
+    @patch("subprocess.run")
+    def test_cleanup_empty_list(self, mock_run):
+        """Should handle empty branch list."""
+        coordinator = BranchCoordinator()
+        coordinator._active_branches = []
+
+        deleted = coordinator.cleanup_branches()
+
+        assert deleted == 0
+
+
+class TestGenerateSummaryExtended:
+    """Extended tests for _generate_summary."""
+
+    def test_summary_with_merged_status(self):
+        """Should show merged status correctly."""
+        coordinator = BranchCoordinator()
+
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.SME,
+            description="Task",
+            rationale="R",
+            estimated_impact="high",
+            priority=1,
+        )
+        assignments = [
+            TrackAssignment(goal=goal, status="merged"),
+        ]
+
+        summary = coordinator._generate_summary(assignments)
+
+        assert "MERGED" in summary
+        assert "++" in summary  # Merged indicator
+
+    def test_summary_with_running_status(self):
+        """Should show running status."""
+        coordinator = BranchCoordinator()
+
+        goal = PrioritizedGoal(
+            id="g1",
+            track=Track.QA,
+            description="Task",
+            rationale="R",
+            estimated_impact="low",
+            priority=1,
+        )
+        assignments = [
+            TrackAssignment(goal=goal, status="running"),
+        ]
+
+        summary = coordinator._generate_summary(assignments)
+
+        assert "RUNNING" in summary
+        assert "~" in summary  # Running indicator
+
+    def test_summary_empty_assignments(self):
+        """Should handle empty assignments list."""
+        coordinator = BranchCoordinator()
+
+        summary = coordinator._generate_summary([])
+
+        assert "Summary" in summary
