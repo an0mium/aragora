@@ -160,6 +160,7 @@ class RLMContextHandler(BaseHandler):
         return None
 
     @rate_limit(requests_per_minute=30)
+    @require_permission("rlm:delete")
     def handle_delete(
         self,
         path: str,

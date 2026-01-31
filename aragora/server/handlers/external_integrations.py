@@ -250,6 +250,11 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for external integrations endpoints."""
+        # RBAC permission check at entry point
+        _, perm_error = self.require_permission_or_error(handler, "integrations.read")
+        if perm_error:
+            return perm_error
+
         # Rate limit check for list operations
         client_ip = get_client_ip(handler)
         if not _list_limiter.is_allowed(client_ip):
@@ -284,6 +289,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle POST requests for external integrations endpoints."""
+        # RBAC permission check at entry point
+        _, perm_error = self.require_permission_or_error(handler, "integrations.write")
+        if perm_error:
+            return perm_error
+
         # Rate limit check - use test limiter for /test endpoints, create limiter otherwise
         client_ip = get_client_ip(handler)
         if path.endswith("/test"):
@@ -353,6 +363,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle DELETE requests for external integrations endpoints."""
+        # RBAC permission check at entry point
+        _, perm_error = self.require_permission_or_error(handler, "integrations.delete")
+        if perm_error:
+            return perm_error
+
         # Rate limit check for delete operations
         client_ip = get_client_ip(handler)
         if not _delete_limiter.is_allowed(client_ip):

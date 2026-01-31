@@ -199,6 +199,7 @@ class TranscriptionHandler(BaseHandler):
         return None
 
     @rate_limit(requests_per_minute=10)
+    @require_permission("transcription:create")
     async def handle_post(
         self, path: str, query_params: dict, handler=None
     ) -> HandlerResult | None:
