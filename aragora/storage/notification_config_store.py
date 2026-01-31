@@ -26,7 +26,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, NoReturn
+from typing import Any
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -37,56 +37,41 @@ from aragora.storage.backends import (
 
 logger = logging.getLogger(__name__)
 
-
-# Fallback exception class for when security module is unavailable
-class _FallbackEncryptionError(Exception):
-    """Fallback exception when security module unavailable."""
-
-    def __init__(self, operation: str, reason: str, store: str = ""):
-        self.operation = operation
-        self.reason = reason
-        self.store = store
-        super().__init__(f"Encryption {operation} failed: {reason}")
-
-
-def _fallback_get_encryption_service() -> NoReturn:
-    """Fallback that raises when encryption is not available."""
-    raise RuntimeError("Encryption not available")
-
-
-def _fallback_is_encryption_required() -> bool:
-    """Fallback when security module unavailable."""
-    if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
-        return True
-    if os.environ.get("ARAGORA_ENV") == "production":
-        return True
-    return False
-
-
 # Import encryption (optional - graceful degradation if not available)
-# Define module-level variables with proper types
-CRYPTO_AVAILABLE: bool
-EncryptionError: type[Exception]
-get_encryption_service: Callable[[], Any]
-is_encryption_required: Callable[[], bool]
-
 try:
     from aragora.security.encryption import (
-        CRYPTO_AVAILABLE as _CRYPTO_AVAILABLE,
-        EncryptionError as _EncryptionError,
-        get_encryption_service as _get_encryption_service,
-        is_encryption_required as _is_encryption_required,
+        get_encryption_service as _get_encryption_service_impl,
+        is_encryption_required as _is_encryption_required_impl,
+        EncryptionError as _EncryptionErrorImpl,
+        CRYPTO_AVAILABLE as _CRYPTO_AVAILABLE_IMPL,
     )
 
-    CRYPTO_AVAILABLE = _CRYPTO_AVAILABLE
-    EncryptionError = _EncryptionError
-    get_encryption_service = _get_encryption_service
-    is_encryption_required = _is_encryption_required
+    CRYPTO_AVAILABLE: bool = _CRYPTO_AVAILABLE_IMPL
+    EncryptionError = _EncryptionErrorImpl
+    get_encryption_service = _get_encryption_service_impl
+    is_encryption_required = _is_encryption_required_impl
 except ImportError:
-    CRYPTO_AVAILABLE = False
-    EncryptionError = _FallbackEncryptionError
-    get_encryption_service = _fallback_get_encryption_service
-    is_encryption_required = _fallback_is_encryption_required
+    CRYPTO_AVAILABLE: bool = False
+
+    class EncryptionError(Exception):
+        """Fallback exception when security module unavailable."""
+
+        def __init__(self, operation: str, reason: str, store: str = ""):
+            self.operation = operation
+            self.reason = reason
+            self.store = store
+            super().__init__(f"Encryption {operation} failed: {reason}")
+
+    def get_encryption_service() -> Any:
+        raise RuntimeError("Encryption not available")
+
+    def is_encryption_required() -> bool:
+        """Fallback when security module unavailable."""
+        if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
+            return True
+        if os.environ.get("ARAGORA_ENV") == "production":
+            return True
+        return False
 
 
 # Sensitive keys that should be encrypted

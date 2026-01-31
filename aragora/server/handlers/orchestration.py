@@ -25,7 +25,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING, cast
 
 from aragora.config import MAX_ROUNDS
 
@@ -444,6 +444,7 @@ class OrchestrationHandler(SecureHandler):
     async def handle_post(
         self,
         path: str,
+        data: dict[str, Any],
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
@@ -462,11 +463,6 @@ class OrchestrationHandler(SecureHandler):
         except ForbiddenError:
             logger.warning(f"Orchestration execute denied for user {auth_context.user_id}")
             return error_response("Permission denied: orchestration:execute", 403)
-
-        # Read JSON body from the request
-        data = self.read_json_body(handler)
-        if data is None:
-            return error_response("Invalid JSON body", 400)
 
         if path == "/api/v1/orchestration/deliberate":
             return self._handle_deliberate(data, handler, sync=False)
@@ -552,13 +548,7 @@ class OrchestrationHandler(SecureHandler):
                 if not request.knowledge_sources:
                     for src in template.default_knowledge_sources:
                         request.knowledge_sources.append(KnowledgeContextSource.from_string(src))
-                # Convert template's OutputFormat to local OutputFormat via string value
-                try:
-                    template_format_value = template.output_format.value
-                    request.output_format = OutputFormat(template_format_value)
-                except ValueError:
-                    # Template uses format not in local enum, keep default
-                    pass
+                request.output_format = cast(OutputFormat, template.output_format)
                 request.max_rounds = template.max_rounds
 
             # Store request
@@ -1078,17 +1068,16 @@ class OrchestrationHandler(SecureHandler):
     async def _send_to_webhook(self, channel: OutputChannel, result: OrchestrationResult) -> None:
         """Send result to webhook."""
         try:
-            from aragora.server.http_client_pool import get_http_pool
+            import aiohttp
 
-            pool = get_http_pool()
-            async with pool.get_session("orchestration_handler") as client:
-                response = await client.post(
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
                     channel.channel_id,
                     json=result.to_dict(),
-                    timeout=10.0,
-                )
-                if response.status_code >= 400:
-                    logger.warning(f"Webhook returned {response.status_code}")
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status >= 400:
+                        logger.warning(f"Webhook returned {response.status}")
         except Exception as e:
             logger.warning(f"Failed to send to webhook: {e}")
 

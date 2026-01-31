@@ -24,7 +24,10 @@ from aragora.server.http_utils import run_async as _run_async
 
 from aragora.workflow.types import (
     WorkflowDefinition,
+    WorkflowCategory,
+    StepDefinition,
     StepResult,
+    TransitionRule,
 )
 from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.persistent_store import get_workflow_store, PersistentWorkflowStore
@@ -62,8 +65,6 @@ except ImportError:
         pass
 
     def track_handler(*args, **kwargs):
-        """Fallback decorator when metrics not available."""
-
         def decorator(fn):
             return fn
 
@@ -541,38 +542,13 @@ def register_template(workflow: WorkflowDefinition) -> None:
 # =============================================================================
 
 
-def get_pending_approvals(workflow_id: str | None = None) -> list[Any]:
-    """Fetch pending approvals from the human checkpoint node."""
-    from aragora.workflow.nodes.human_checkpoint import get_pending_approvals as _get_pending
-
-    return _get_pending(workflow_id)
-
-
-def get_approval_request(request_id: str) -> Any:
-    """Fetch a single approval request by ID."""
-    from aragora.workflow.nodes.human_checkpoint import get_approval_request as _get_request
-
-    return _get_request(request_id)
-
-
-def _resolve(
-    request_id: str,
-    status: Any,
-    responder_id: str,
-    notes: str = "",
-    checklist_updates: Optional[dict[str, bool]] = None,
-) -> bool:
-    """Resolve an approval request via the human checkpoint node."""
-    from aragora.workflow.nodes.human_checkpoint import resolve_approval as _resolve_approval
-
-    return _resolve_approval(request_id, status, responder_id, notes, checklist_updates)
-
-
 async def list_pending_approvals(
     workflow_id: str | None = None,
     tenant_id: str = "default",
 ) -> list[dict[str, Any]]:
     """List pending human approvals."""
+    from aragora.workflow.nodes.human_checkpoint import get_pending_approvals
+
     approvals = get_pending_approvals(workflow_id)
     return [a.to_dict() for a in approvals]
 
@@ -586,6 +562,7 @@ async def resolve_approval(
 ) -> bool:
     """Resolve a human approval request."""
     from aragora.workflow.nodes.human_checkpoint import (
+        resolve_approval as _resolve,
         ApprovalStatus,
     )
 
@@ -599,23 +576,258 @@ async def resolve_approval(
 
 async def get_approval(request_id: str) -> Optional[dict[str, Any]]:
     """Get an approval request by ID."""
+    from aragora.workflow.nodes.human_checkpoint import get_approval_request
+
     approval = get_approval_request(request_id)
     return approval.to_dict() if approval else None
 
 
 # =============================================================================
-# Built-in Templates (delegated to workflow_builtin_templates.py)
+# Built-in Templates
 # =============================================================================
 
-# Template creation and registration is now handled by the sibling module
-# workflow_builtin_templates.py. This reduces file size and improves maintainability.
 
-from aragora.server.handlers.workflow_builtin_templates import (
-    initialize_templates as _initialize_templates,
-)
+def _create_contract_review_template() -> WorkflowDefinition:
+    """Create contract review workflow template."""
+    from aragora.workflow.types import (
+        Position,
+        VisualNodeData,
+        NodeCategory,
+    )
 
-# Register built-in templates (Python-defined) and load YAML templates
-_initialize_templates(_get_store())
+    return WorkflowDefinition(
+        id="template_contract_review",
+        name="Contract Review",
+        description="Multi-agent review of contract documents with legal analysis",
+        category=WorkflowCategory.LEGAL,
+        tags=["legal", "contracts", "review", "compliance"],
+        is_template=True,
+        icon="document-text",
+        steps=[
+            StepDefinition(
+                id="extract",
+                name="Extract Key Terms",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Extract key terms and clauses from: {document}",
+                },
+                description="Extract important terms and clauses from the contract",
+                visual=VisualNodeData(
+                    position=Position(100, 100),
+                    category=NodeCategory.AGENT,
+                    color="#4299e1",
+                ),
+                next_steps=["analyze"],
+            ),
+            StepDefinition(
+                id="analyze",
+                name="Legal Analysis",
+                step_type="debate",
+                config={
+                    "topic": "Analyze legal implications of: {step.extract}",
+                    "agents": ["legal_analyst", "risk_assessor"],
+                    "rounds": 2,
+                },
+                description="Multi-agent debate on legal implications",
+                visual=VisualNodeData(
+                    position=Position(100, 250),
+                    category=NodeCategory.DEBATE,
+                    color="#38b2ac",
+                ),
+                next_steps=["risk_check"],
+            ),
+            StepDefinition(
+                id="risk_check",
+                name="Risk Assessment",
+                step_type="decision",
+                config={
+                    "conditions": [
+                        {
+                            "name": "high_risk",
+                            "expression": "step.analyze.get('consensus', {}).get('risk_level', 0) > 0.7",
+                            "next_step": "human_review",
+                        },
+                    ],
+                    "default_branch": "auto_approve",
+                },
+                description="Route based on risk assessment",
+                visual=VisualNodeData(
+                    position=Position(100, 400),
+                    category=NodeCategory.CONTROL,
+                    color="#ed8936",
+                ),
+            ),
+            StepDefinition(
+                id="human_review",
+                name="Human Review",
+                step_type="human_checkpoint",
+                config={
+                    "title": "Contract Review Required",
+                    "description": "High-risk contract requires human approval",
+                    "checklist": [
+                        {"label": "Reviewed risk assessment", "required": True},
+                        {"label": "Verified compliance terms", "required": True},
+                        {"label": "Approved indemnification clause", "required": True},
+                    ],
+                    "timeout_seconds": 86400,
+                },
+                description="Human approval for high-risk contracts",
+                visual=VisualNodeData(
+                    position=Position(250, 550),
+                    category=NodeCategory.HUMAN,
+                    color="#f56565",
+                ),
+                next_steps=["store_result"],
+            ),
+            StepDefinition(
+                id="auto_approve",
+                name="Auto-Approve",
+                step_type="task",
+                config={
+                    "task_type": "transform",
+                    "transform": "{'approved': True, 'method': 'auto', 'analysis': outputs.get('analyze', {})}",
+                },
+                description="Auto-approve low-risk contracts",
+                visual=VisualNodeData(
+                    position=Position(-50, 550),
+                    category=NodeCategory.TASK,
+                    color="#48bb78",
+                ),
+                next_steps=["store_result"],
+            ),
+            StepDefinition(
+                id="store_result",
+                name="Store Analysis",
+                step_type="memory_write",
+                config={
+                    "content": "Contract analysis: {step.analyze.synthesis}",
+                    "source_type": "CONSENSUS",
+                    "domain": "legal/contracts",
+                },
+                description="Store analysis in Knowledge Mound",
+                visual=VisualNodeData(
+                    position=Position(100, 700),
+                    category=NodeCategory.MEMORY,
+                    color="#9f7aea",
+                ),
+            ),
+        ],
+        transitions=[
+            TransitionRule(
+                id="high_risk_route",
+                from_step="risk_check",
+                to_step="human_review",
+                condition="step_output.get('decision') == 'human_review'",
+            ),
+            TransitionRule(
+                id="low_risk_route",
+                from_step="risk_check",
+                to_step="auto_approve",
+                condition="step_output.get('decision') == 'auto_approve'",
+            ),
+        ],
+    )
+
+
+def _create_code_review_template() -> WorkflowDefinition:
+    """Create code review workflow template."""
+    from aragora.workflow.types import Position, VisualNodeData, NodeCategory
+
+    return WorkflowDefinition(
+        id="template_code_review",
+        name="Code Security Review",
+        description="Multi-agent security review of code changes",
+        category=WorkflowCategory.CODE,
+        tags=["code", "security", "review", "OWASP"],
+        is_template=True,
+        icon="code",
+        steps=[
+            StepDefinition(
+                id="scan",
+                name="Static Analysis",
+                step_type="agent",
+                config={
+                    "agent_type": "codex",
+                    "prompt_template": "Perform static security analysis on: {code_diff}",
+                },
+                description="Run static security analysis",
+                visual=VisualNodeData(
+                    position=Position(100, 100),
+                    category=NodeCategory.AGENT,
+                    color="#4299e1",
+                ),
+                next_steps=["debate"],
+            ),
+            StepDefinition(
+                id="debate",
+                name="Security Debate",
+                step_type="debate",
+                config={
+                    "topic": "Review security implications: {step.scan}",
+                    "agents": ["security_analyst", "penetration_tester"],
+                    "rounds": 2,
+                    "topology": "adversarial",
+                },
+                description="Multi-agent security debate",
+                visual=VisualNodeData(
+                    position=Position(100, 250),
+                    category=NodeCategory.DEBATE,
+                    color="#38b2ac",
+                ),
+                next_steps=["summarize"],
+            ),
+            StepDefinition(
+                id="summarize",
+                name="Generate Report",
+                step_type="agent",
+                config={
+                    "agent_type": "claude",
+                    "prompt_template": "Generate security report from: {step.debate}",
+                },
+                description="Generate security report",
+                visual=VisualNodeData(
+                    position=Position(100, 400),
+                    category=NodeCategory.AGENT,
+                    color="#4299e1",
+                ),
+            ),
+        ],
+    )
+
+
+# Register built-in templates (Python-defined)
+register_template(_create_contract_review_template())
+register_template(_create_code_review_template())
+
+
+# Load YAML templates from disk
+def _load_yaml_templates() -> None:
+    """Load workflow templates from YAML files into persistent store."""
+    try:
+        from aragora.workflow.template_loader import load_templates
+
+        store = _get_store()
+        templates = load_templates()
+        loaded = 0
+        for template_id, template in templates.items():
+            # Check if already in database
+            existing = store.get_template(template_id)
+            if not existing:
+                store.save_template(template)
+                loaded += 1
+        if loaded > 0:
+            logger.info(f"Loaded {loaded} new YAML templates into database")
+    except ImportError as e:
+        logger.debug(f"Template loader not available: {e}")
+    except (OSError, IOError) as e:
+        logger.warning(f"Failed to read YAML templates from disk: {e}")
+    except (ValueError, KeyError, TypeError) as e:
+        logger.warning(f"Failed to parse YAML templates: {e}")
+
+
+# Load templates on module import
+_load_yaml_templates()
 
 # =============================================================================
 # HTTP Route Handlers (for integration with unified_server)
@@ -721,7 +933,6 @@ from aragora.server.handlers.base import (
     get_int_param,
     get_string_param,
 )
-from aragora.server.handlers.openapi_decorator import api_endpoint
 
 
 class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
@@ -1095,24 +1306,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     # Request Handlers
     # =========================================================================
 
-    @api_endpoint(
-        method="GET",
-        path="/api/v1/workflows",
-        summary="List workflows",
-        description="List all workflows with optional filtering by category, tags, or search query.",
-        tags=["Workflows"],
-        parameters=[
-            {"name": "category", "in": "query", "schema": {"type": "string"}},
-            {"name": "search", "in": "query", "schema": {"type": "string"}},
-            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
-            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
-        ],
-        responses={
-            "200": {"description": "List of workflows with pagination"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-        },
-    )
     def _handle_list_workflows(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows."""
         # RBAC check
@@ -1132,29 +1325,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response(result)
-        except (OSError, IOError) as e:
-            logger.error(f"Storage error listing workflows: {e}")
-            return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
             logger.error(f"Data error listing workflows: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="GET",
-        path="/api/v1/workflows/{workflow_id}",
-        summary="Get workflow",
-        description="Get a workflow by ID with full definition and metadata.",
-        tags=["Workflows"],
-        parameters=[
-            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
-        ],
-        responses={
-            "200": {"description": "Workflow details"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-            "404": {"description": "Workflow not found"},
-        },
-    )
     def _handle_get_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1178,19 +1352,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error getting workflow: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="POST",
-        path="/api/v1/workflows",
-        summary="Create workflow",
-        description="Create a new workflow definition with steps and transitions.",
-        tags=["Workflows"],
-        responses={
-            "201": {"description": "Workflow created successfully"},
-            "400": {"description": "Invalid workflow definition"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-        },
-    )
     def _handle_create_workflow(
         self, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1203,10 +1364,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             tenant_id = self._get_tenant_id(handler, query_params)
             # Get user_id from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
-            if auth_context is not None and hasattr(auth_context, "user_id"):
-                created_by = auth_context.user_id
-            else:
-                created_by = get_string_param(query_params, "user_id", "")
+            created_by = (
+                auth_context.user_id
+                if auth_context
+                else get_string_param(query_params, "user_id", "")
+            )
 
             result = _run_async(
                 create_workflow(
@@ -1225,23 +1387,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error creating workflow: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="PATCH",
-        path="/api/v1/workflows/{workflow_id}",
-        summary="Update workflow",
-        description="Update an existing workflow definition. Creates a new version.",
-        tags=["Workflows"],
-        parameters=[
-            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
-        ],
-        responses={
-            "200": {"description": "Workflow updated successfully"},
-            "400": {"description": "Invalid workflow definition"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-            "404": {"description": "Workflow not found"},
-        },
-    )
     def _handle_update_workflow(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1271,22 +1416,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error updating workflow: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="DELETE",
-        path="/api/v1/workflows/{workflow_id}",
-        summary="Delete workflow",
-        description="Delete a workflow and all its version history.",
-        tags=["Workflows"],
-        parameters=[
-            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
-        ],
-        responses={
-            "200": {"description": "Workflow deleted"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-            "404": {"description": "Workflow not found"},
-        },
-    )
     def _handle_delete_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1313,23 +1442,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error deleting workflow: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="POST",
-        path="/api/v1/workflows/{workflow_id}/execute",
-        summary="Execute workflow",
-        description="Execute a workflow with the given input parameters.",
-        tags=["Workflows", "Executions"],
-        parameters=[
-            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
-        ],
-        responses={
-            "200": {"description": "Execution started/completed"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-            "404": {"description": "Workflow not found"},
-            "503": {"description": "Execution service unavailable"},
-        },
-    )
     def _handle_execute(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1360,22 +1472,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error executing workflow: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="POST",
-        path="/api/v1/workflows/{workflow_id}/simulate",
-        summary="Simulate workflow",
-        description="Dry-run a workflow to validate and preview the execution plan.",
-        tags=["Workflows"],
-        parameters=[
-            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
-        ],
-        responses={
-            "200": {"description": "Simulation results with execution plan"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-            "404": {"description": "Workflow not found"},
-        },
-    )
     def _handle_simulate(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1539,19 +1635,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error terminating execution: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="GET",
-        path="/api/v1/workflow-templates",
-        summary="List workflow templates",
-        description="List available workflow templates for quick workflow creation.",
-        tags=["Workflows", "Templates"],
-        parameters=[{"name": "category", "in": "query", "schema": {"type": "string"}}],
-        responses={
-            "200": {"description": "List of workflow templates"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-        },
-    )
     def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
         # RBAC check - templates require read permission
@@ -1572,19 +1655,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing templates: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="GET",
-        path="/api/v1/workflow-approvals",
-        summary="List pending approvals",
-        description="List workflow steps pending human approval.",
-        tags=["Workflows", "Approvals"],
-        parameters=[{"name": "workflow_id", "in": "query", "schema": {"type": "string"}}],
-        responses={
-            "200": {"description": "List of pending approvals"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-        },
-    )
     def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
         # RBAC check - approvals require read permission
@@ -1607,23 +1677,6 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing approvals: {e}")
             return error_response("Internal data error", 500)
 
-    @api_endpoint(
-        method="GET",
-        path="/api/v1/workflow-executions",
-        summary="List workflow executions",
-        description="List all workflow executions for runtime monitoring dashboard.",
-        tags=["Workflows", "Executions"],
-        parameters=[
-            {"name": "workflow_id", "in": "query", "schema": {"type": "string"}},
-            {"name": "status", "in": "query", "schema": {"type": "string"}},
-            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
-        ],
-        responses={
-            "200": {"description": "List of workflow executions"},
-            "401": {"description": "Authentication required"},
-            "403": {"description": "Permission denied"},
-        },
-    )
     def _handle_list_executions(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-executions.
 

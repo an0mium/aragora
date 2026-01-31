@@ -17,17 +17,12 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from functools import partial
-from typing import TYPE_CHECKING, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import httpx
 
 if TYPE_CHECKING:
     import anthropic
-    from anthropic.types import Message
-    from anthropic.types.web_search_tool_20250305_param import WebSearchTool20250305Param
-
-T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -163,23 +158,23 @@ class PreDebateResearcher:
         """
         try:
             # Offload to thread pool to avoid blocking the event loop
-            # Use partial to bind arguments, making it a proper callable for to_thread
-            create_fn: Callable[[], Message] = partial(
-                self.anthropic_client.messages.create,
-                model=RESEARCH_MODEL,
-                max_tokens=100,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"""Does this debate question require current/recent information to answer well?
+            def _call_classify() -> Any:
+                return self.anthropic_client.messages.create(
+                    model=RESEARCH_MODEL,
+                    max_tokens=100,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": f"""Does this debate question require current/recent information to answer well?
 
 Question: {question}
 
 Respond with just "yes" or "no".""",
-                    }
-                ],
-            )
-            response = await asyncio.to_thread(create_fn)
+                        }
+                    ],
+                )
+
+            response = await asyncio.to_thread(_call_classify)
             content_block = response.content[0]
             content = str(getattr(content_block, "text", "")).strip().lower()
             return content.startswith("yes")
@@ -273,16 +268,12 @@ Respond with just "yes" or "no".""",
             )
 
             # Define the sync API call to run in thread pool
-            def _call_claude() -> Message:
-                # Type the web_search tool parameter properly
-                web_search_tool: WebSearchTool20250305Param = {
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                }
+            def _call_claude() -> Any:
+                tools: list[Any] = [{"type": "web_search_20250305", "name": "web_search"}]
                 return self.anthropic_client.messages.create(
                     model=RESEARCH_MODEL,
                     max_tokens=2000,
-                    tools=[web_search_tool],
+                    tools=cast(Any, tools),
                     messages=[
                         {
                             "role": "user",

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.api.crud import CRUDProtocol
+    from aragora.knowledge.mound import IngestionResult
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class MemoryReadStep(BaseStep):
 
         # Get Knowledge Mound instance
         try:
-            from aragora.knowledge.mound import get_knowledge_mound
+            from aragora.knowledge.mound import KnowledgeMound
             from aragora.knowledge.mound.types import UnifiedQueryRequest
 
             # Build query request
@@ -78,8 +78,10 @@ class MemoryReadStep(BaseStep):
                 limit=config.get("limit", 10),
             )
 
-            # Execute query using the singleton factory which handles initialization
-            mound = get_knowledge_mound(workspace_id=request.tenant_id)
+            # Execute query
+            mound: KnowledgeMound = cast(
+                KnowledgeMound, KnowledgeMound(workspace_id=request.tenant_id)
+            )
             await mound.initialize()
 
             result = await mound.query(
@@ -180,7 +182,7 @@ class MemoryWriteStep(BaseStep):
 
         try:
             from aragora.knowledge.mound import (
-                get_knowledge_mound,
+                KnowledgeMound,
                 IngestionRequest,
                 KnowledgeSource,
             )
@@ -195,7 +197,7 @@ class MemoryWriteStep(BaseStep):
                 source_type = KnowledgeSource.FACT
 
             # Build ingestion request
-            ingestion_request = IngestionRequest(
+            request = IngestionRequest(
                 content=content,
                 workspace_id=tenant_id,
                 source_type=source_type,
@@ -215,18 +217,17 @@ class MemoryWriteStep(BaseStep):
                 target = self._interpolate_content(rel.get("target", ""), context)
                 if target:
                     if rel_type == "supports":
-                        ingestion_request.supports.append(target)
+                        request.supports.append(target)
                     elif rel_type == "contradicts":
-                        ingestion_request.contradicts.append(target)
+                        request.contradicts.append(target)
                     elif rel_type == "derived_from":
-                        ingestion_request.derived_from.append(target)
+                        request.derived_from.append(target)
 
-            # Execute write using the singleton factory which handles initialization
-            mound = get_knowledge_mound(workspace_id=tenant_id)
+            # Execute write
+            mound: KnowledgeMound = cast(KnowledgeMound, KnowledgeMound(workspace_id=tenant_id))
             await mound.initialize()
 
-            # Cast to CRUDProtocol for proper typing of the store method
-            result = await cast("CRUDProtocol", mound).store(ingestion_request)
+            result: IngestionResult = await mound.store(request)
 
             logger.info(f"Memory write '{self.name}': stored as {result.node_id}")
 

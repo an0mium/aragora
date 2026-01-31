@@ -14,7 +14,7 @@ These endpoints power the Knowledge Mound dashboard panel.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from ...base import HandlerResult, error_response, success_response
 from aragora.rbac.checker import get_permission_checker
@@ -22,32 +22,15 @@ from aragora.rbac.models import AuthorizationContext
 
 if TYPE_CHECKING:
     from aiohttp.web import Request
-    from aragora.knowledge.mound import KnowledgeMound
 
 logger = logging.getLogger(__name__)
 
 
-class DashboardHandlerProtocol(Protocol):
-    """Protocol for handlers that use DashboardOperationsMixin."""
-
-    @property
-    def server_context(self) -> dict[str, Any]:
-        """Server context dictionary."""
-        ...
-
-    def _get_mound(self) -> "KnowledgeMound | None":
-        """Get the Knowledge Mound instance."""
-        ...
-
-    async def _check_knowledge_permission(
-        self, request: "Request", action: str = "read"
-    ) -> HandlerResult | None:
-        """Check RBAC permission for knowledge operations."""
-        ...
-
-
 class DashboardOperationsMixin:
     """Mixin providing dashboard and metrics endpoints for Knowledge Mound."""
+
+    ctx: Any  # ServerContext from BaseHandler
+    _get_mound: Any  # Method from parent class
 
     async def _check_knowledge_permission(
         self, request: "Request", action: str = "read"
@@ -143,9 +126,7 @@ class DashboardOperationsMixin:
             logger.exception(f"Failed to get metrics: {e}")
             return error_response(str(e))
 
-    async def handle_dashboard_adapters(
-        self: DashboardHandlerProtocol, request: "Request"
-    ) -> HandlerResult:
+    async def handle_dashboard_adapters(self, request: "Request") -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/adapters - Get adapter status.
 
@@ -184,7 +165,7 @@ class DashboardOperationsMixin:
             coordinator = getattr(mound, "_coordinator", None)
             if coordinator is None:
                 # Try from server context
-                coordinator = self.server_context.get("km_coordinator")
+                coordinator = self.ctx.get("km_coordinator")
 
             if coordinator is None:
                 return success_response(
@@ -226,9 +207,7 @@ class DashboardOperationsMixin:
             logger.exception(f"Failed to get adapter status: {e}")
             return error_response(str(e))
 
-    async def handle_dashboard_queries(
-        self: DashboardHandlerProtocol, request: "Request"
-    ) -> HandlerResult:
+    async def handle_dashboard_queries(self, request: "Request") -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/queries - Get federated query stats.
 
@@ -243,7 +222,7 @@ class DashboardOperationsMixin:
             from aragora.knowledge.mound.federated_query import FederatedQueryAggregator
 
             # Try to get aggregator from server context
-            aggregator = self.server_context.get("km_aggregator")
+            aggregator = self.ctx.get("km_aggregator")
             if aggregator is None:
                 # Create a temporary one to get empty stats
                 aggregator = FederatedQueryAggregator()

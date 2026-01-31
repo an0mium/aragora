@@ -271,7 +271,7 @@ class MultiInboxManager:
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
         async with self._accounts_lock:
-            # Create connector with explicit type annotation
+            # Create connector
             connector: GmailConnector = GmailConnector()
 
             # Authenticate

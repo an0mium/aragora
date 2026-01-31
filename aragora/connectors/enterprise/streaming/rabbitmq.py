@@ -685,7 +685,7 @@ class RabbitMQConnector(EnterpriseConnector):
 
             # Get exchange - channel is guaranteed to be set after connect
             if self._channel is None:
-                raise RuntimeError("Channel not initialized - call connect() first")
+                raise RuntimeError("RabbitMQ channel not initialized - call start() first")
             if self.config.exchange:
                 exchange = await self._channel.get_exchange(self.config.exchange)
             else:

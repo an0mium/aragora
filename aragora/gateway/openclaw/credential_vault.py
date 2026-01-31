@@ -738,9 +738,11 @@ class CredentialVault:
     def _encrypt(self, value: str, key: bytes) -> bytes:
         """Encrypt a credential value using AES-256-GCM."""
         if not CRYPTO_AVAILABLE:
-            # Fallback: base64 encode only (NOT SECURE - development only)
-            logger.warning("cryptography not installed - using base64 encoding only (INSECURE)")
-            return base64.b64encode(value.encode("utf-8"))
+            # SECURITY: Never store credentials without proper encryption
+            raise EncryptionError(
+                "cryptography library is required for credential vault. "
+                "Install with: pip install cryptography"
+            )
 
         nonce = secrets.token_bytes(12)
         aesgcm = AESGCM(key)
@@ -750,7 +752,11 @@ class CredentialVault:
     def _decrypt(self, encrypted: bytes, key: bytes) -> str:
         """Decrypt a credential value."""
         if not CRYPTO_AVAILABLE:
-            return base64.b64decode(encrypted).decode("utf-8")
+            # SECURITY: Never allow decryption without proper crypto library
+            raise EncryptionError(
+                "cryptography library is required for credential vault. "
+                "Install with: pip install cryptography"
+            )
 
         nonce = encrypted[:12]
         ciphertext = encrypted[12:]

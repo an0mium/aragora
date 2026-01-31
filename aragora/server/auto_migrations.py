@@ -10,7 +10,6 @@ Safety:
 - Failures are logged but don't prevent server startup (graceful degradation)
 """
 
-import asyncio
 import logging
 import os
 from typing import Any
@@ -64,16 +63,14 @@ async def _run_postgresql_migrations() -> dict[str, Any]:
         from aragora.migrations.runner import get_migration_runner
 
         runner = get_migration_runner()
-        # Run blocking database operation in thread pool to avoid blocking event loop
-        pending = await asyncio.to_thread(runner.get_pending_migrations)
+        pending = runner.get_pending_migrations()
 
         if not pending:
             logger.debug("No pending PostgreSQL migrations")
             return {"applied": 0, "message": "No pending migrations"}
 
         logger.info(f"Running {len(pending)} pending PostgreSQL migrations...")
-        # Run blocking migration (includes lock acquisition with sleep) in thread pool
-        applied = await asyncio.to_thread(runner.upgrade)
+        applied = runner.upgrade()
 
         logger.info(f"Successfully applied {len(applied)} PostgreSQL migrations")
         return {
@@ -96,8 +93,8 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
 
         runner = MigrationRunner()
 
-        # Get status for all databases - run in thread pool to avoid blocking
-        statuses = await asyncio.to_thread(runner.get_all_status)
+        # Get status for all databases
+        statuses = runner.get_all_status()
 
         total_pending = 0
         for status in statuses.values():
@@ -110,8 +107,8 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
 
         logger.info(f"Running {total_pending} pending SQLite migrations...")
 
-        # Run migrations (creates backup automatically) in thread pool
-        result = await asyncio.to_thread(runner.migrate_all, dry_run=False)
+        # Run migrations (creates backup automatically)
+        result = runner.migrate_all(dry_run=False)
 
         applied_count = sum(len(db_result.get("applied", [])) for db_result in result.values())
 

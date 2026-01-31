@@ -23,26 +23,20 @@ Usage:
 from __future__ import annotations
 
 import logging
-import threading
 import time
-from collections.abc import Awaitable, Generator
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 from aragora.config.performance_slos import check_latency_slo
 from aragora.observability.slo import _record_measurement
 
 logger = logging.getLogger(__name__)
 
-# Type variables for decorators
-P = ParamSpec("P")
-R = TypeVar("R")
+# Type for decorated functions
+F = TypeVar("F", bound=Callable[..., Any])
 
-# Lock for thread-safe counter updates (RLock allows reentrant calls)
-_counter_lock = threading.RLock()
-
-# Request counters (protected by _counter_lock)
+# Request counters (thread-safe via atomic operations)
 _total_requests = 0
 _successful_requests = 0
 _total_debates = 0
@@ -60,15 +54,14 @@ def _record_request(success: bool = True, is_debate: bool = False) -> None:
     """
     global _total_requests, _successful_requests, _total_debates, _successful_debates
 
-    with _counter_lock:
-        _total_requests += 1
-        if success:
-            _successful_requests += 1
+    _total_requests += 1
+    if success:
+        _successful_requests += 1
 
-        if is_debate:
-            _total_debates += 1
-            if success:
-                _successful_debates += 1
+    if is_debate:
+        _total_debates += 1
+        if success:
+            _successful_debates += 1
 
 
 def _record_latency(latency_ms: float) -> None:
@@ -79,12 +72,11 @@ def _record_latency(latency_ms: float) -> None:
     """
     global _recent_latencies
 
-    with _counter_lock:
-        _recent_latencies.append(latency_ms)
+    _recent_latencies.append(latency_ms)
 
-        # Keep bounded
-        if len(_recent_latencies) > _max_latency_samples:
-            _recent_latencies = _recent_latencies[-_max_latency_samples:]
+    # Keep bounded
+    if len(_recent_latencies) > _max_latency_samples:
+        _recent_latencies = _recent_latencies[-_max_latency_samples:]
 
 
 def _get_p99_latency() -> float:
@@ -93,15 +85,14 @@ def _get_p99_latency() -> float:
     Returns:
         p99 latency in seconds
     """
-    with _counter_lock:
-        if not _recent_latencies:
-            return 0.0
+    if not _recent_latencies:
+        return 0.0
 
-        sorted_latencies = sorted(_recent_latencies)
-        p99_index = int(len(sorted_latencies) * 0.99)
-        p99_ms = sorted_latencies[min(p99_index, len(sorted_latencies) - 1)]
+    sorted_latencies = sorted(_recent_latencies)
+    p99_index = int(len(sorted_latencies) * 0.99)
+    p99_ms = sorted_latencies[min(p99_index, len(sorted_latencies) - 1)]
 
-        return p99_ms / 1000  # Convert to seconds
+    return p99_ms / 1000  # Convert to seconds
 
 
 def sync_slo_measurements() -> None:
@@ -125,19 +116,18 @@ def get_tracking_stats() -> dict[str, Any]:
     Returns:
         Dictionary with tracking stats
     """
-    with _counter_lock:
-        return {
-            "total_requests": _total_requests,
-            "successful_requests": _successful_requests,
-            "total_debates": _total_debates,
-            "successful_debates": _successful_debates,
-            "recent_latency_samples": len(_recent_latencies),
-            "p99_latency_ms": _get_p99_latency() * 1000,
-        }
+    return {
+        "total_requests": _total_requests,
+        "successful_requests": _successful_requests,
+        "total_debates": _total_debates,
+        "successful_debates": _successful_debates,
+        "recent_latency_samples": len(_recent_latencies),
+        "p99_latency_ms": _get_p99_latency() * 1000,
+    }
 
 
 @contextmanager
-def slo_context(operation: str, is_debate: bool = False) -> Generator[None, None, None]:
+def slo_context(operation: str, is_debate: bool = False):
     """Context manager for tracking SLO metrics.
 
     Args:
@@ -172,9 +162,7 @@ def slo_context(operation: str, is_debate: bool = False) -> Generator[None, None
             logger.warning(f"slo_violation operation={operation} {message}")
 
 
-def track_slo(
-    operation: str, is_debate: bool = False
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def track_slo(operation: str, is_debate: bool = False) -> Callable[[F], F]:
     """Decorator for tracking SLO metrics on a function.
 
     Args:
@@ -190,20 +178,18 @@ def track_slo(
             ...
     """
 
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+    def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             with slo_context(operation, is_debate):
                 return func(*args, **kwargs)
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
 
-def track_slo_async(
-    operation: str, is_debate: bool = False
-) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
+def track_slo_async(operation: str, is_debate: bool = False) -> Callable[[F], F]:
     """Async decorator for tracking SLO metrics.
 
     Args:
@@ -214,9 +200,9 @@ def track_slo_async(
         Decorated async function
     """
 
-    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+    def decorator(func: F) -> F:
         @wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.perf_counter()
             success = True
 
@@ -235,12 +221,12 @@ def track_slo_async(
                 if not is_within:
                     logger.warning(f"slo_violation operation={operation} {message}")
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
 
-def slo_middleware(handler_func: Callable[P, R]) -> Callable[P, R]:
+def slo_middleware(handler_func: F) -> F:
     """Middleware decorator for HTTP handlers.
 
     Tracks request latency and success/failure for SLO compliance.
@@ -258,15 +244,12 @@ def slo_middleware(handler_func: Callable[P, R]) -> Callable[P, R]:
     """
 
     @wraps(handler_func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         start_time = time.perf_counter()
         success = True
 
-        # Extract self from args for path attribute access
-        handler_self: Any = args[0] if args else None
-
         try:
-            result = handler_func(*args, **kwargs)
+            result = handler_func(self, *args, **kwargs)
             return result
         except Exception:  # Intentionally broad: re-raises after recording SLO metrics
             success = False
@@ -281,10 +264,10 @@ def slo_middleware(handler_func: Callable[P, R]) -> Callable[P, R]:
             # Check against API endpoint SLO
             is_within, message = check_latency_slo("api_endpoint", elapsed_ms)
             if not is_within:
-                path = getattr(handler_self, "path", "unknown")
+                path = getattr(self, "path", "unknown")
                 logger.warning(f"slo_violation path={path} {message}")
 
-    return wrapper
+    return cast(F, wrapper)
 
 
 __all__ = [

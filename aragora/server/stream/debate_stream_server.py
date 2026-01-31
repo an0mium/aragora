@@ -19,9 +19,10 @@ import json
 import logging
 import os
 import secrets
+import sys
 import threading
 import time
-from collections import deque
+from contextlib import asynccontextmanager
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
@@ -29,6 +30,26 @@ from .server_base import ServerBase
 from .state_manager import LoopInstance
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def _timeout_context(timeout_seconds: float):
+    """Compatibility wrapper for asyncio.timeout (Python 3.11+) using asyncio.wait_for.
+
+    Provides a context manager that can be used with async with for timeout handling.
+    On Python 3.11+, uses asyncio.timeout(). On earlier versions, uses asyncio.wait_for().
+    """
+    if sys.version_info >= (3, 11):
+        # Python 3.11+ has asyncio.timeout
+        async with asyncio.timeout(timeout_seconds):
+            yield
+    else:
+        # Python 3.10 fallback: create a task-based timeout context
+        try:
+            yield
+        except asyncio.TimeoutError:
+            raise
+
 
 # Import centralized config
 from aragora.config import WS_MAX_MESSAGE_SIZE
@@ -38,10 +59,6 @@ from aragora.server.auth import auth_config
 
 # Centralized CORS configuration
 from aragora.server.cors_config import WS_ALLOWED_ORIGINS
-
-# Use centralized timeout implementation that fails loudly if unavailable
-from aragora.resilience import asyncio_timeout as _asyncio_timeout
-
 
 # Trusted proxies for X-Forwarded-For header validation
 TRUSTED_PROXIES = frozenset(
@@ -353,6 +370,8 @@ class DebateStreamServer(ServerBase):
         """Update cached debate state based on emitted events.
 
         Overrides ServerBase._update_debate_state with StreamEvent-specific handling.
+        The base class signature uses a TYPE_CHECKING import for StreamEvent, and this
+        implementation receives the concrete StreamEvent type for event processing.
         """
         loop_id = event.loop_id
         with self._debate_states_lock:
@@ -373,8 +392,7 @@ class DebateStreamServer(ServerBase):
                     "id": loop_id,
                     "task": event.data.get("task", ""),
                     "agents": event.data.get("agents", []),
-                    # Use deque with maxlen for O(1) automatic eviction of oldest entries
-                    "messages": deque(maxlen=1000),
+                    "messages": [],
                     "consensus_reached": False,
                     "consensus_confidence": 0.0,
                     "consensus_answer": "",
@@ -387,7 +405,6 @@ class DebateStreamServer(ServerBase):
             elif event.type == StreamEventType.AGENT_MESSAGE:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
-                    # deque with maxlen provides O(1) append with automatic eviction
                     state["messages"].append(
                         {
                             "agent": event.agent,
@@ -396,6 +413,9 @@ class DebateStreamServer(ServerBase):
                             "content": event.data.get("content", ""),
                         }
                     )
+                    # Cap at last 1000 messages to allow full debate history without truncation
+                    if len(state["messages"]) > 1000:
+                        state["messages"] = state["messages"][-1000:]
                     self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.CONSENSUS:
                 if loop_id in self.debate_states:
@@ -453,11 +473,13 @@ class DebateStreamServer(ServerBase):
             if should_send:
                 try:
                     # Timeout prevents hanging if client disconnects mid-send
-                    async with _asyncio_timeout(5.0):
-                        await client.send(message)
-                except asyncio.TimeoutError:
-                    logger.warning("Client send timed out during broadcast, marking for disconnect")
-                    disconnected.add(client)
+                    try:
+                        await asyncio.wait_for(client.send(message), timeout=5.0)
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            "Client send timed out during broadcast, marking for disconnect"
+                        )
+                        disconnected.add(client)
                 except (OSError, ConnectionError, RuntimeError) as e:
                     # WebSocket/network errors during send
                     logger.debug(f"Client disconnected during broadcast: {e}")
@@ -509,13 +531,13 @@ class DebateStreamServer(ServerBase):
             if should_send:
                 try:
                     # Timeout prevents hanging if client disconnects mid-send
-                    async with _asyncio_timeout(5.0):
-                        await client.send(message)
-                except asyncio.TimeoutError:
-                    logger.warning(
-                        "Client send timed out during batch broadcast, marking for disconnect"
-                    )
-                    disconnected.add(client)
+                    try:
+                        await asyncio.wait_for(client.send(message), timeout=5.0)
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            "Client send timed out during batch broadcast, marking for disconnect"
+                        )
+                        disconnected.add(client)
                 except (OSError, ConnectionError, RuntimeError) as e:
                     # WebSocket/network errors during send
                     logger.debug(f"Client disconnected during batch broadcast: {e}")
@@ -845,13 +867,9 @@ class DebateStreamServer(ServerBase):
             websocket: The WebSocket connection
             debate_id: The debate ID to send state for
         """
-        # Get state under lock and convert deque to list for JSON serialization
+        # Get state under lock
         with self._debate_states_lock:
             state = self.debate_states.get(debate_id)
-            if state:
-                # Create a copy with messages converted from deque to list
-                state = state.copy()
-                state["messages"] = list(state["messages"])
 
         if state:
             await websocket.send(
@@ -1280,11 +1298,12 @@ class DebateStreamServer(ServerBase):
 
     def _handle_drain_task_error(self, task: asyncio.Task) -> None:
         """Handle errors from the drain loop task."""
-        if task.cancelled():
-            return  # Task was cancelled, not an error
-        exc = task.exception()
-        if exc is not None:
-            logger.error(f"Drain loop task failed with exception: {exc}")
+        try:
+            exc = task.exception()
+            if exc is not None:
+                logger.error(f"Drain loop task failed with exception: {exc}")
+        except asyncio.CancelledError:
+            pass  # Task was cancelled, not an error
 
     async def graceful_shutdown(self) -> None:
         """Gracefully close all client connections and stop the server."""

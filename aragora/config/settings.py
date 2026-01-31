@@ -1273,5 +1273,9 @@ ALLOWED_AGENT_TYPES: frozenset[str] = frozenset(
         # External framework proxy
         "external-framework",
         "openclaw",
+        # Multi-framework integrations
+        "crewai",
+        "autogen",
+        "langgraph",
     }
 )

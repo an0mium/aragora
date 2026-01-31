@@ -53,9 +53,9 @@ if TYPE_CHECKING:
     )
 
 # Optional imports for broadcast functionality
-_podcast_config_type: type[PodcastConfigType] | None = None
-_podcast_episode_type: type[PodcastEpisodeType] | None = None
-_podcast_feed_generator_type: type[PodcastFeedGeneratorType] | None = None
+PodcastConfig: type[PodcastConfigType] | None = None
+PodcastEpisode: type[PodcastEpisodeType] | None = None
+PodcastFeedGenerator: type[PodcastFeedGeneratorType] | None = None
 PODCAST_AVAILABLE: bool = False
 
 try:
@@ -65,17 +65,12 @@ try:
         PodcastFeedGenerator as _PodcastFeedGenerator,
     )
 
-    _podcast_config_type = _PodcastConfig
-    _podcast_episode_type = _PodcastEpisode
-    _podcast_feed_generator_type = _PodcastFeedGenerator
+    PodcastConfig = _PodcastConfig
+    PodcastEpisode = _PodcastEpisode
+    PodcastFeedGenerator = _PodcastFeedGenerator
     PODCAST_AVAILABLE = True
 except ImportError:
     pass
-
-# Re-export with type-safe names for backward compatibility
-PodcastConfig = _podcast_config_type
-PodcastEpisode = _podcast_episode_type
-PodcastFeedGenerator = _podcast_feed_generator_type
 
 
 class AudioHandler(BaseHandler):
@@ -274,12 +269,9 @@ class AudioHandler(BaseHandler):
 
             # Generate RSS feed
             # Assertions for type narrowing - we already checked PODCAST_AVAILABLE above
-            if PodcastConfig is None:
-                raise RuntimeError("PodcastConfig not available - podcast module not loaded")
-            if PodcastFeedGenerator is None:
-                raise RuntimeError("PodcastFeedGenerator not available - podcast module not loaded")
-            if PodcastEpisode is None:
-                raise RuntimeError("PodcastEpisode not available - podcast module not loaded")
+            assert PodcastConfig is not None
+            assert PodcastFeedGenerator is not None
+            assert PodcastEpisode is not None
             config = PodcastConfig()
             generator = PodcastFeedGenerator(config)
 

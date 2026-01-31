@@ -332,6 +332,11 @@ ALLOWED_AGENT_TYPES = frozenset(
         "openrouter",
         # External framework proxy
         "external-framework",
+        "openclaw",
+        # Multi-framework integrations
+        "crewai",
+        "autogen",
+        "langgraph",
     }
 )
 

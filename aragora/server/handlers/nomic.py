@@ -30,7 +30,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
@@ -40,7 +40,6 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     HandlerResult,
-    MaybeAsyncHandlerResult,
     ServerContext,
     error_response,
     get_int_param,
@@ -113,10 +112,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
     def _emit_event(
         self,
         emit_method: str,
-        *args: Any,
+        *args,
         max_retries: int = 3,
         base_delay: float = 0.1,
-        **kwargs: Any,
+        **kwargs,
     ) -> None:
         """Emit an event to the Nomic Loop stream with retry logic.
 
@@ -183,8 +182,8 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
     @rate_limit(requests_per_minute=30)
     @require_permission("nomic:read", handler_arg=2)
     async def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> MaybeAsyncHandlerResult:
+        self, path: str, query_params: dict, handler: Any
+    ) -> Awaitable[HandlerResult | None]:
         """Route nomic endpoint requests.
 
         Requires nomic:read permission (enforced by @require_permission decorator).
@@ -631,8 +630,8 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
     @rate_limit(requests_per_minute=30)
     @require_permission("nomic:admin", handler_arg=2)
     async def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> MaybeAsyncHandlerResult:
+        self, path: str, query_params: dict, handler: Any
+    ) -> Awaitable[HandlerResult | None]:
         """Handle POST requests for control operations.
 
         Requires nomic:admin permission (enforced by @require_permission decorator).

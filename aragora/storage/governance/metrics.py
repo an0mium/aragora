@@ -8,8 +8,14 @@ All functions gracefully degrade if the observability module is not available.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from typing import Callable
+
+    _RecordFunc: type[Callable[[str, str], None]] = Callable[[str, str], None]
 
 
 def record_governance_verification(verification_type: str, result: str) -> None:

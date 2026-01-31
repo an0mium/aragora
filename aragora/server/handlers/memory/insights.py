@@ -13,6 +13,7 @@ import re
 from typing import Any
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.protocols import HTTPRequestHandler
 
 from ..base import (
     HandlerResult,
@@ -23,7 +24,7 @@ from ..base import (
     json_response,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
-from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
+from ..utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.security import (
     execute_regex_with_timeout,
     execute_regex_finditer_with_timeout,
@@ -65,13 +66,13 @@ class InsightsHandler(SecureHandler):
         )
 
     async def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle GET requests with RBAC - routes to handle_get with context."""
         return await self.handle_get(path, query_params, handler, self.ctx)
 
     async def handle_get(
-        self, path: str, query: dict[str, Any], handler: Any, ctx: ServerContext
+        self, path: str, query: dict[str, Any], handler: HTTPRequestHandler, ctx: ServerContext
     ) -> HandlerResult | None:
         """Handle GET requests for insights endpoints with RBAC."""
         # Normalize path to handle both /api/... and /api/v1/... paths
@@ -105,7 +106,7 @@ class InsightsHandler(SecureHandler):
         return None
 
     async def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle POST requests for insights endpoints with RBAC."""
         # Normalize path to handle both /api/... and /api/v1/... paths
@@ -136,7 +137,6 @@ class InsightsHandler(SecureHandler):
 
         return None
 
-    @rate_limit(requests_per_minute=60, limiter_name="insights_read")
     @handle_errors("recent insights retrieval")
     def _get_recent_insights(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent insights from InsightStore.
@@ -173,7 +173,6 @@ class InsightsHandler(SecureHandler):
             }
         )
 
-    @rate_limit(requests_per_minute=60, limiter_name="insights_read")
     @handle_errors("recent flips retrieval")
     def _get_recent_flips(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent position flips/reversals.
@@ -225,7 +224,6 @@ class InsightsHandler(SecureHandler):
             }
         )
 
-    @rate_limit(requests_per_minute=60, limiter_name="insights_read")
     @handle_errors("flips summary retrieval")
     def _get_flips_summary(self, query: dict, ctx: dict) -> HandlerResult:
         """Get summary statistics for position flips.
@@ -262,7 +260,6 @@ class InsightsHandler(SecureHandler):
             response["period"] = period
         return json_response(response)
 
-    @rate_limit(requests_per_minute=5, limiter_name="insights_expensive")
     @handle_errors("insight extraction")
     def _extract_detailed_insights(self, data: dict, ctx: dict) -> HandlerResult:
         """Extract detailed insights from debate content.

@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -30,73 +31,38 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
 
-
-from aragora.utils.async_utils import run_async
-
 logger = logging.getLogger(__name__)
 
-
-class EncryptionServiceProtocol(Protocol):
-    """Protocol for encryption service interface."""
-
-    def encrypt(self, plaintext: str) -> Any: ...
-    def decrypt_string(self, ciphertext: str) -> str: ...
-
-
-class EncryptionError(Exception):
-    """Raised when encryption/decryption fails and ENCRYPTION_REQUIRED is True."""
-
-    operation: str
-    reason: str
-    store: str
-
-    def __init__(self, operation: str, reason: str, store: str = ""):
-        self.operation = operation
-        self.reason = reason
-        self.store = store
-        super().__init__(
-            f"Encryption {operation} failed in {store}: {reason}. "
-            f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
-        )
-
-
 # Try to import encryption service
-_encryption_module_available = False
-_get_encryption_service_impl: Callable[[], EncryptionServiceProtocol | None]
-_is_encryption_required_impl: Callable[[], bool]
-CRYPTO_AVAILABLE: bool
-
 try:
     from aragora.security.encryption import (
-        get_encryption_service as _imported_get_encryption_service,
-        CRYPTO_AVAILABLE as _CRYPTO_AVAILABLE,
-        is_encryption_required as _imported_is_encryption_required,
+        get_encryption_service as _get_encryption_service,
+        CRYPTO_AVAILABLE,
+        is_encryption_required as _is_encryption_required,
+        EncryptionError as _EncryptionError,
     )
 
-    _encryption_module_available = True
-    CRYPTO_AVAILABLE = _CRYPTO_AVAILABLE
+    def get_encryption_service() -> Any | None:
+        return _get_encryption_service()
 
-    def _real_get_encryption_service() -> EncryptionServiceProtocol | None:
-        return _imported_get_encryption_service()
+    def is_encryption_required() -> bool:
+        return _is_encryption_required()
 
-    def _real_is_encryption_required() -> bool:
-        return _imported_is_encryption_required()
-
-    _get_encryption_service_impl = _real_get_encryption_service
-    _is_encryption_required_impl = _real_is_encryption_required
+    EncryptionError = _EncryptionError
 
 except ImportError:
     CRYPTO_AVAILABLE = False
 
-    def _fallback_get_encryption_service() -> None:
+    def get_encryption_service() -> Any | None:
+        """Fallback when security module unavailable."""
         return None
 
-    def _fallback_is_encryption_required() -> bool:
+    def is_encryption_required() -> bool:
         """Fallback when security module unavailable - still check env vars."""
         if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
             return True
@@ -104,18 +70,17 @@ except ImportError:
             return True
         return False
 
-    _get_encryption_service_impl = _fallback_get_encryption_service
-    _is_encryption_required_impl = _fallback_is_encryption_required
+    class EncryptionError(Exception):
+        """Fallback exception when security module unavailable."""
 
-
-def get_encryption_service() -> EncryptionServiceProtocol | None:
-    """Get the encryption service (or None if unavailable)."""
-    return _get_encryption_service_impl()
-
-
-def is_encryption_required() -> bool:
-    """Check if encryption is required."""
-    return _is_encryption_required_impl()
+        def __init__(self, operation: str, reason: str, store: str = ""):
+            self.operation = operation
+            self.reason = reason
+            self.store = store
+            super().__init__(
+                f"Encryption {operation} failed in {store}: {reason}. "
+                f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
+            )
 
 
 def _encrypt_secret(secret: str) -> str:
@@ -137,18 +102,8 @@ def _encrypt_secret(secret: str) -> str:
 
     try:
         service = get_encryption_service()
-        if service is None:
-            if is_encryption_required():
-                raise EncryptionError(
-                    "encrypt",
-                    "encryption service not available",
-                    "webhook_config_store",
-                )
-            return secret
         encrypted = service.encrypt(secret)
         return encrypted.to_base64()
-    except EncryptionError:
-        raise
     except Exception as e:
         if is_encryption_required():
             raise EncryptionError(
@@ -173,8 +128,6 @@ def _decrypt_secret(encrypted_secret: str) -> str:
 
     try:
         service = get_encryption_service()
-        if service is None:
-            return encrypted_secret
         return service.decrypt_string(encrypted_secret)
     except Exception as e:
         logger.debug(f"Secret decryption failed (may be legacy unencrypted): {e}")
@@ -988,7 +941,9 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         workspace_id: str | None = None,
     ) -> WebhookConfig:
         """Register a new webhook (sync wrapper for async)."""
-        return run_async(self.register_async(url, events, name, description, user_id, workspace_id))
+        return asyncio.get_event_loop().run_until_complete(
+            self.register_async(url, events, name, description, user_id, workspace_id)
+        )
 
     async def register_async(
         self,
@@ -1047,7 +1002,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def get(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID (sync wrapper for async)."""
-        return run_async(self.get_async(webhook_id))
+        return asyncio.get_event_loop().run_until_complete(self.get_async(webhook_id))
 
     async def get_async(self, webhook_id: str) -> WebhookConfig | None:
         """Get webhook by ID asynchronously."""
@@ -1094,7 +1049,9 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         active_only: bool = False,
     ) -> list[WebhookConfig]:
         """List webhooks (sync wrapper for async)."""
-        return run_async(self.list_async(user_id, workspace_id, active_only))
+        return asyncio.get_event_loop().run_until_complete(
+            self.list_async(user_id, workspace_id, active_only)
+        )
 
     async def list_async(
         self,
@@ -1133,7 +1090,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def delete(self, webhook_id: str) -> bool:
         """Delete webhook (sync wrapper for async)."""
-        return run_async(self.delete_async(webhook_id))
+        return asyncio.get_event_loop().run_until_complete(self.delete_async(webhook_id))
 
     async def delete_async(self, webhook_id: str) -> bool:
         """Delete webhook asynchronously."""
@@ -1154,7 +1111,9 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         description: str | None = None,
     ) -> WebhookConfig | None:
         """Update webhook (sync wrapper for async)."""
-        return run_async(self.update_async(webhook_id, url, events, active, name, description))
+        return asyncio.get_event_loop().run_until_complete(
+            self.update_async(webhook_id, url, events, active, name, description)
+        )
 
     async def update_async(
         self,
@@ -1222,7 +1181,9 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         success: bool = True,
     ) -> None:
         """Record delivery (sync wrapper for async)."""
-        run_async(self.record_delivery_async(webhook_id, status_code, success))
+        asyncio.get_event_loop().run_until_complete(
+            self.record_delivery_async(webhook_id, status_code, success)
+        )
 
     async def record_delivery_async(
         self,
@@ -1253,7 +1214,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def get_for_event(self, event_type: str) -> list[WebhookConfig]:
         """Get webhooks for event (sync wrapper for async)."""
-        return run_async(self.get_for_event_async(event_type))
+        return asyncio.get_event_loop().run_until_complete(self.get_for_event_async(event_type))
 
     async def get_for_event_async(self, event_type: str) -> list[WebhookConfig]:
         """Get webhooks for event asynchronously."""
