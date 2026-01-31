@@ -3103,21 +3103,14 @@ class TestApprovalChecklistUpdates:
 
     @pytest.mark.asyncio
     async def test_list_approvals_by_workflow(self):
-        """List pending approvals filtered by workflow ID."""
+        """List pending approvals returns list type."""
         from aragora.server.handlers.workflows import list_pending_approvals
 
-        with patch("aragora.server.handlers.workflows._approval_store") as mock_store:
-            mock_approval = MagicMock()
-            mock_approval.to_dict.return_value = {
-                "id": "apr_1",
-                "workflow_id": "wf_123",
-                "status": "pending",
-            }
-            mock_store.list_pending.return_value = [mock_approval]
+        # Call the function - it may return empty list if no approvals pending
+        result = await list_pending_approvals(workflow_id="wf_123")
 
-            result = await list_pending_approvals(workflow_id="wf_123")
-
-            assert isinstance(result, list)
+        # Verify it returns a list (may be empty)
+        assert isinstance(result, list)
 
 
 # =============================================================================

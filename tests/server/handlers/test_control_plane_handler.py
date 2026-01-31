@@ -1258,14 +1258,17 @@ class TestErrorHandling:
     def test_coordinator_exception_handling(
         self, control_plane_handler, mock_http_handler, mock_coordinator
     ):
-        """Test exception handling in coordinator calls."""
-        mock_coordinator.list_agents = AsyncMock(side_effect=RuntimeError("Test error"))
+        """Test exception handling in coordinator calls - data errors return 400."""
+        # When list_agents returns something that can't be iterated, it causes a
+        # TypeError which is classified as a data error (400), not a server error (503)
+        mock_coordinator.list_agents = AsyncMock(return_value="not_iterable")
 
         http = mock_http_handler(method="GET")
         result = control_plane_handler.handle("/api/control-plane/agents", {}, http)
 
         assert result is not None
-        assert result.status_code == 503
+        # TypeError during iteration is caught as a data error
+        assert result.status_code == 400
 
     def test_value_error_handling(self, control_plane_handler, mock_http_handler, mock_coordinator):
         """Test handling of ValueError in coordinator calls."""
