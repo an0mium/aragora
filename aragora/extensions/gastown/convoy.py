@@ -7,6 +7,7 @@ Manages convoys (work tracking units) with artifacts and handoffs.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import asdict
 import logging
 import uuid
 from datetime import datetime
@@ -65,7 +66,6 @@ class ConvoyTracker:
             storage_path: Path for convoy metadata storage
         """
         self._storage_path = Path(storage_path) if storage_path else None
-        self._artifacts: dict[str, ConvoyArtifact] = {}
         self._lock = asyncio.Lock()
         default_use = should_use_canonical_store(default=True) or bool(storage_path)
         self._use_nomic_store = use_nomic_store if use_nomic_store is not None else default_use
@@ -550,21 +550,32 @@ class ConvoyTracker:
                 metadata=metadata or {},
             )
 
-            self._artifacts[artifact_id] = artifact
             artifacts = list(convoy.artifacts)
             artifacts.append(artifact_id)
+            artifacts_metadata = list(convoy.metadata.get("artifacts_meta", []))
+            payload = asdict(artifact)
+            payload["created_at"] = artifact.created_at.isoformat()
+            artifacts_metadata.append(payload)
 
             logger.debug(f"Added artifact {artifact_type} to convoy {convoy_id}")
             await self._workspace_tracker.update_metadata(
                 convoy_id,
-                metadata_updates={"artifacts": artifacts},
+                metadata_updates={
+                    "artifacts": artifacts,
+                    "artifacts_meta": artifacts_metadata,
+                },
                 assigned_agents=convoy.assigned_agents,
             )
             return artifact
 
     async def get_artifact(self, artifact_id: str) -> ConvoyArtifact | None:
         """Get an artifact by ID."""
-        return self._artifacts.get(artifact_id)
+        convoys = await self.list_convoys()
+        for convoy in convoys:
+            for item in convoy.metadata.get("artifacts_meta", []):
+                if isinstance(item, dict) and item.get("id") == artifact_id:
+                    return ConvoyArtifact(**item)
+        return None
 
     async def list_artifacts(self, convoy_id: str) -> list[ConvoyArtifact]:
         """List artifacts for a convoy."""
@@ -572,7 +583,18 @@ class ConvoyTracker:
         if not convoy:
             return []
 
-        return [self._artifacts[aid] for aid in convoy.artifacts if aid in self._artifacts]
+        artifacts: list[ConvoyArtifact] = []
+        for item in convoy.metadata.get("artifacts_meta", []):
+            if isinstance(item, dict):
+                item = dict(item)
+                created_at = item.get("created_at")
+                if isinstance(created_at, str):
+                    try:
+                        item["created_at"] = datetime.fromisoformat(created_at)
+                    except ValueError:
+                        pass
+                artifacts.append(ConvoyArtifact(**item))
+        return artifacts
 
     async def get_stats(self) -> dict[str, Any]:
         """Get convoy tracker statistics."""
@@ -584,10 +606,13 @@ class ConvoyTracker:
                 by_status[status] = by_status.get(status, 0) + 1
 
             total_handoffs = sum(c.handoff_count for c in convoys)
+            artifacts_total = sum(
+                len(c.metadata.get("artifacts_meta", [])) for c in convoys if c.metadata
+            )
 
             return {
                 "convoys_total": len(convoys),
                 "convoys_by_status": by_status,
-                "artifacts_total": len(self._artifacts),
+                "artifacts_total": artifacts_total,
                 "total_handoffs": total_handoffs,
             }
