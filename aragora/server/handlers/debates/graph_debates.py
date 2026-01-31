@@ -442,7 +442,7 @@ class GraphDebatesHandler(SecureHandler):
             "503": {"description": "Storage not configured"},
         },
     )
-    async def _get_nodes(self, handler, debate_id: str) -> HandlerResult:
+    async def _get_nodes(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get all nodes in a graph debate."""
         storage = getattr(handler, "storage", None)
         if not storage:

@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import importlib
 import logging
+from collections.abc import AsyncIterator
+from typing import Any
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.exceptions import (
@@ -158,7 +160,7 @@ class DebatesHandler(
         ("/trickster", "_get_trickster_status", True, None),
     ]
 
-    def _check_auth(self, handler) -> HandlerResult | None:
+    def _check_auth(self, handler: Any) -> HandlerResult | None:
         """Check authentication for sensitive endpoints.
 
         Supports both:
@@ -234,7 +236,9 @@ class DebatesHandler(
                 return True
         return False
 
-    def _check_artifact_access(self, debate_id: str, suffix: str, handler) -> HandlerResult | None:
+    def _check_artifact_access(
+        self, debate_id: str, suffix: str, handler: Any
+    ) -> HandlerResult | None:
         """Check access to artifact endpoints.
 
         Returns None if access allowed, 401 error if auth required but missing.
@@ -258,7 +262,7 @@ class DebatesHandler(
         return None  # Auth passed
 
     def _dispatch_suffix_route(
-        self, path: str, query_params: dict, handler
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Dispatch routes based on path suffix using SUFFIX_ROUTES table.
 
@@ -332,7 +336,7 @@ class DebatesHandler(
         return False
 
     @require_permission("debates:read")
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route debate requests to appropriate handler methods.
 
         Note: Paths may be normalized (version stripped) by handler_registry,
@@ -455,7 +459,9 @@ class DebatesHandler(
         return debate_id, None
 
     @handle_errors("batch export")
-    def _handle_batch_export(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def _handle_batch_export(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route batch export requests to appropriate methods."""
         from aragora.server.http_utils import run_async
 
@@ -494,7 +500,7 @@ class DebatesHandler(
         # GET /api/debates/export/batch/{job_id}/stream - SSE stream
         if path.endswith("/stream"):
 
-            async def stream():
+            async def stream() -> AsyncIterator[Any]:
                 async for chunk in self._stream_batch_export_progress(job_id):
                     yield chunk
 
@@ -559,7 +565,7 @@ class DebatesHandler(
     )
     @require_storage
     @handle_errors("get debate by slug")
-    def _get_debate_by_slug(self, handler, slug: str) -> HandlerResult:
+    def _get_debate_by_slug(self, handler: Any, slug: str) -> HandlerResult:
         """Get a debate by slug.
 
         Checks both persistent storage and in-progress debates (_active_debates).
@@ -609,7 +615,7 @@ class DebatesHandler(
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_IMPASSE, key_prefix="debates_impasse", skip_first=True)
     @handle_errors("impasse detection")
-    def _get_impasse(self, handler, debate_id: str) -> HandlerResult:
+    def _get_impasse(self, handler: Any, debate_id: str) -> HandlerResult:
         """Detect impasse in a debate."""
         storage = self.get_storage()
         debate = storage.get_debate(debate_id)
@@ -651,7 +657,7 @@ class DebatesHandler(
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_convergence", skip_first=True)
     @handle_errors("convergence check")
-    def _get_convergence(self, handler, debate_id: str) -> HandlerResult:
+    def _get_convergence(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get convergence status for a debate."""
         storage = self.get_storage()
         debate = storage.get_debate(debate_id)
@@ -685,7 +691,7 @@ class DebatesHandler(
         ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_verification", skip_first=True
     )
     @handle_errors("verification report")
-    def _get_verification_report(self, handler, debate_id: str) -> HandlerResult:
+    def _get_verification_report(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get verification report for a debate.
 
         Returns verification results and bonuses applied during consensus,
@@ -735,7 +741,7 @@ class DebatesHandler(
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_summary", skip_first=True)
     @handle_errors("get summary")
-    def _get_summary(self, handler, debate_id: str) -> HandlerResult:
+    def _get_summary(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get human-readable summary for a debate.
 
         Returns a structured summary with:
@@ -779,7 +785,7 @@ class DebatesHandler(
         },
     )
     @require_storage
-    def _get_citations(self, handler, debate_id: str) -> HandlerResult:
+    def _get_citations(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get evidence citations for a debate.
 
         Returns the grounded verdict including:
@@ -860,7 +866,7 @@ class DebatesHandler(
         },
     )
     @require_storage
-    def _get_evidence(self, handler, debate_id: str) -> HandlerResult:
+    def _get_evidence(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get comprehensive evidence trail for a debate.
 
         Combines grounded verdict with related evidence from ContinuumMemory.
@@ -912,7 +918,7 @@ class DebatesHandler(
                 logger.debug(f"Could not fetch ContinuumMemory evidence: {e}")
 
             # Build response
-            response = {
+            response: dict[str, Any] = {
                 "debate_id": debate_id,
                 "task": task,
                 "has_evidence": bool(grounded_verdict or related_evidence),
@@ -1040,7 +1046,9 @@ class DebatesHandler(
             return error_response("Database error retrieving messages", 500)
 
     @require_permission("debates:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         # Create debate endpoint - both legacy and RESTful
         # POST /api/debates (canonical) or POST /api/debate (legacy, deprecated)
@@ -1116,7 +1124,7 @@ class DebatesHandler(
     @user_rate_limit(action="debate_create")
     @rate_limit(requests_per_minute=5, limiter_name="debates_create")
     @require_quota("debate")
-    def _create_debate(self, handler) -> HandlerResult:
+    def _create_debate(self, handler: Any) -> HandlerResult:
         """Start an ad-hoc debate with specified question.
 
         Accepts JSON body with:
@@ -1197,7 +1205,7 @@ class DebatesHandler(
         return self._create_debate_direct(handler, body)
 
     async def _route_through_decision_router(
-        self, handler, body: dict, headers: dict
+        self, handler: Any, body: dict[str, Any], headers: dict[str, Any]
     ) -> HandlerResult:
         """Route debate creation through DecisionRouter.
 
@@ -1256,7 +1264,7 @@ class DebatesHandler(
 
         return json_response(response_data, status=status_code)
 
-    def _create_debate_direct(self, handler, body: dict) -> HandlerResult:
+    def _create_debate_direct(self, handler: Any, body: dict[str, Any]) -> HandlerResult:
         """Direct debate creation via controller (fallback path)."""
         # Parse and validate request using DebateRequest
         try:
@@ -1290,7 +1298,7 @@ class DebatesHandler(
             "404": {"description": "Debate not found"},
         },
     )
-    def _cancel_debate(self, handler, debate_id: str) -> HandlerResult:
+    def _cancel_debate(self, handler: Any, debate_id: str) -> HandlerResult:
         """Cancel a running debate.
 
         Marks the debate as cancelled and attempts to cancel any running tasks.
@@ -1368,7 +1376,9 @@ class DebatesHandler(
         )
 
     @require_permission("debates:update")
-    def handle_patch(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_patch(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route PATCH requests to appropriate methods."""
         # Handle /api/debates/{id} pattern for updates
         if path.startswith("/api/v1/debates/") and path.count("/") == 4:
@@ -1379,7 +1389,9 @@ class DebatesHandler(
                 return self._patch_debate(handler, debate_id)
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
         # Handle DELETE /api/debates/{id}
         if path.startswith("/api/v1/debates/") and path.count("/") == 4:
@@ -1406,7 +1418,7 @@ class DebatesHandler(
         },
     )
     @require_storage
-    def _patch_debate(self, handler, debate_id: str) -> HandlerResult:
+    def _patch_debate(self, handler: Any, debate_id: str) -> HandlerResult:
         """Update debate metadata.
 
         Request body can include:
@@ -1546,7 +1558,7 @@ class DebatesHandler(
     )
     @require_permission("debates:delete")
     @require_storage
-    def _delete_debate(self, handler, debate_id: str) -> HandlerResult:
+    def _delete_debate(self, handler: Any, debate_id: str) -> HandlerResult:
         """Delete a debate and its associated data.
 
         Performs a permanent deletion of the debate record and cascades
@@ -1614,7 +1626,7 @@ class DebatesHandler(
             )
             return error_response("Database error deleting debate", 500)
 
-    def _check_spam_content(self, body: dict) -> HandlerResult | None:
+    def _check_spam_content(self, body: dict[str, Any]) -> HandlerResult | None:
         """
         Check debate input content for spam.
 

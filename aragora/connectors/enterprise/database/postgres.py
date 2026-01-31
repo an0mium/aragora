@@ -519,7 +519,7 @@ class PostgreSQLConnector(EnterpriseConnector):
         # Reset stop event for potential restart
         self._stop_event.clear()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close connection pool."""
         await self.stop_listener()
         if self._pool:

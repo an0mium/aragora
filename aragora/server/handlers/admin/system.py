@@ -98,7 +98,7 @@ class SystemHandler(BaseHandler):
         path = strip_version_prefix(path)
         return path in self.ROUTES
 
-    def _check_history_auth(self, handler) -> HandlerResult | None:
+    def _check_history_auth(self, handler: Any) -> HandlerResult | None:
         """Check authentication for history endpoints.
 
         History endpoints can expose sensitive debate data and require
@@ -133,7 +133,7 @@ class SystemHandler(BaseHandler):
 
         return error_response("Authentication required for history endpoints", 401)
 
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route system requests to appropriate methods.
 
         Uses dispatch tables to reduce cyclomatic complexity.
@@ -163,7 +163,7 @@ class SystemHandler(BaseHandler):
         return None
 
     @require_permission("admin:debug")
-    def _handle_debug_test(self, handler=None, user=None) -> HandlerResult:
+    def _handle_debug_test(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """Handle debug test endpoint.
 
         Requires admin:debug permission.
@@ -172,7 +172,9 @@ class SystemHandler(BaseHandler):
         return json_response({"status": "ok", "method": method, "message": "Modular handler works"})
 
     @require_permission("admin:system")
-    def _handle_maintenance(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _handle_maintenance(
+        self, query_params: dict[str, Any], handler: Any = None, user: Any = None
+    ) -> HandlerResult:
         """Handle system maintenance endpoint.
 
         Requires admin:system permission.
@@ -185,7 +187,7 @@ class SystemHandler(BaseHandler):
 
     @require_permission(HISTORY_PERMISSION)
     def _handle_history_endpoint(
-        self, path: str, query_params: dict, handler, user=None
+        self, path: str, query_params: dict[str, Any], handler: Any, user: Any = None
     ) -> HandlerResult:
         """Handle history endpoints with common auth and validation pattern.
 
@@ -214,7 +216,9 @@ class SystemHandler(BaseHandler):
         limit = get_clamped_int_param(query_params, "limit", default_limit, 1, max_limit)
         return method(handler, loop_id, limit)
 
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests for auth endpoints."""
         path = strip_version_prefix(path)
         if path == "/api/auth/revoke":
@@ -262,7 +266,7 @@ class SystemHandler(BaseHandler):
     @rate_limit(requests_per_minute=30, limiter_name="history_cycles")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_cycles", skip_first=True)
     @handle_errors("get cycles")
-    def _get_history_cycles(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
+    def _get_history_cycles(self, handler: Any, loop_id: str | None, limit: int) -> HandlerResult:
         """Get cycle history from Supabase or local storage."""
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
@@ -275,7 +279,7 @@ class SystemHandler(BaseHandler):
     @rate_limit(requests_per_minute=30, limiter_name="history_events")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_events", skip_first=True)
     @handle_errors("get events")
-    def _get_history_events(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
+    def _get_history_events(self, handler: Any, loop_id: str | None, limit: int) -> HandlerResult:
         """Get event history."""
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
@@ -288,7 +292,7 @@ class SystemHandler(BaseHandler):
     @rate_limit(requests_per_minute=20, limiter_name="history_debates")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_debates", skip_first=True)
     @handle_errors("get debates")
-    def _get_history_debates(self, handler, loop_id: str | None, limit: int) -> HandlerResult:
+    def _get_history_debates(self, handler: Any, loop_id: str | None, limit: int) -> HandlerResult:
         """Get debate history."""
         storage = self.get_storage()
         if not storage:
@@ -314,7 +318,7 @@ class SystemHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=30, limiter_name="history_summary")
     @ttl_cache(ttl_seconds=CACHE_TTL_HISTORY, key_prefix="history_summary", skip_first=True)
-    def _get_history_summary(self, handler, loop_id: str | None) -> HandlerResult:
+    def _get_history_summary(self, handler: Any, loop_id: str | None) -> HandlerResult:
         """Get history summary statistics."""
         storage = self.get_storage()
         elo = self.get_elo_system()
@@ -400,7 +404,7 @@ class SystemHandler(BaseHandler):
             return error_response(safe_error_message(e, "maintenance"), 500)
 
     @require_permission("admin:security")
-    def _get_auth_stats(self, handler=None, user=None) -> HandlerResult:
+    def _get_auth_stats(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """Get authentication and rate limiting statistics.
 
         Requires admin:security permission.
@@ -425,7 +429,7 @@ class SystemHandler(BaseHandler):
         )
 
     @require_permission("admin:security")
-    def _revoke_token(self, handler, _handler=None, user=None) -> HandlerResult:
+    def _revoke_token(self, handler: Any, _handler: Any = None, user: Any = None) -> HandlerResult:
         """Revoke a token to invalidate it immediately.
 
         Requires admin:security permission.
@@ -475,7 +479,7 @@ class SystemHandler(BaseHandler):
         )
 
     @require_permission("monitoring:metrics")
-    def _get_prometheus_metrics(self, handler=None, user=None) -> HandlerResult:
+    def _get_prometheus_metrics(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """Get Prometheus-format metrics.
 
         Requires monitoring:metrics permission.
@@ -505,7 +509,7 @@ class SystemHandler(BaseHandler):
             return error_response(safe_error_message(e, "metrics"), 500)
 
     @require_permission("monitoring:resilience")
-    def _get_circuit_breaker_metrics(self, handler=None, user=None) -> HandlerResult:
+    def _get_circuit_breaker_metrics(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """Get circuit breaker metrics for monitoring.
 
         Requires monitoring:resilience permission.
