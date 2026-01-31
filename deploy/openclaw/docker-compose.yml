@@ -1,0 +1,172 @@
+# Aragora + OpenClaw Enterprise Deployment
+#
+# This Docker Compose file deploys Aragora as an enterprise security
+# gateway for OpenClaw instances.
+#
+# Usage:
+#   docker-compose up -d
+#
+# Components:
+#   - aragora-gateway: Security proxy with policy enforcement
+#   - openclaw: OpenClaw instance (sandboxed)
+#   - postgres: Database for audit trails
+#   - redis: Caching and rate limiting
+#
+# Security features enabled:
+#   - Policy-based action control
+#   - RBAC integration
+#   - Audit logging
+#   - Rate limiting
+#   - Workspace isolation
+
+version: '3.8'
+
+services:
+  # Aragora Enterprise Gateway
+  aragora-gateway:
+    image: aragora/gateway:latest
+    build:
+      context: ../..
+      dockerfile: deploy/openclaw/Dockerfile.gateway
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    environment:
+      # Gateway configuration
+      ARAGORA_ENV: production
+      ARAGORA_LOG_LEVEL: info
+      ARAGORA_PORT: 8080
+
+      # OpenClaw backend
+      OPENCLAW_URL: http://openclaw:3000
+      OPENCLAW_TIMEOUT: 30
+
+      # Policy configuration
+      POLICY_FILE: /etc/aragora/policies/enterprise.yaml
+      DEFAULT_POLICY: deny
+
+      # Database
+      DATABASE_URL: postgresql://aragora:${DB_PASSWORD}@postgres:5432/aragora
+
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+
+      # Security
+      SIGNING_KEY: ${SIGNING_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
+      # Audit
+      AUDIT_ENABLED: "true"
+      AUDIT_RETENTION_DAYS: 90
+    volumes:
+      - ./policies:/etc/aragora/policies:ro
+      - aragora-data:/var/lib/aragora
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - aragora-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # OpenClaw Instance (sandboxed)
+  openclaw:
+    image: openclawai/openclaw:latest
+    environment:
+      # Run in headless mode
+      DISPLAY: ":99"
+
+      # Disable direct external access
+      OPENCLAW_BIND: "0.0.0.0"
+      OPENCLAW_PORT: 3000
+
+      # Workspace configuration
+      WORKSPACE_ROOT: /workspace
+
+      # Security restrictions
+      OPENCLAW_SANDBOX: "true"
+      OPENCLAW_ALLOW_SHELL: "false"  # Proxy handles this
+      OPENCLAW_ALLOW_BROWSER: "true"
+    volumes:
+      - openclaw-workspace:/workspace
+    networks:
+      - aragora-net
+    # Restrict capabilities
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN  # Required for browser
+    security_opt:
+      - seccomp:unconfined
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  # PostgreSQL for audit trails and state
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: aragora
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: aragora
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - aragora-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aragora -d aragora"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Redis for caching and rate limiting
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - aragora-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  aragora-data:
+  openclaw-workspace:
+  postgres-data:
+  redis-data:
+
+networks:
+  aragora-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

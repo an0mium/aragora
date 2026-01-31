@@ -1,0 +1,242 @@
+# Enterprise Policy for OpenClaw Gateway
+#
+# This policy provides secure defaults for enterprise deployments:
+# - Blocks access to system directories
+# - Requires approval for elevated commands
+# - Rate limits actions
+# - Allows workspace operations
+#
+# Customize this policy for your organization's needs.
+
+version: 1
+default_decision: deny
+
+rules:
+  # ==========================================================================
+  # HIGH PRIORITY: Security Blocks
+  # ==========================================================================
+
+  - name: block_system_directories
+    description: Block access to system directories
+    action_types:
+      - file_read
+      - file_write
+      - file_delete
+    decision: deny
+    priority: 100
+    path_patterns:
+      - "/etc/**"
+      - "/sys/**"
+      - "/proc/**"
+      - "/root/**"
+      - "/boot/**"
+      - "/dev/**"
+      - "/var/log/**"
+      - "/home/*/.ssh/**"
+      - "/home/*/.gnupg/**"
+
+  - name: block_dangerous_shell_commands
+    description: Block commands that can damage the system
+    action_types:
+      - shell
+    decision: deny
+    priority: 100
+    command_deny_patterns:
+      - "rm\\s+-rf\\s+/"
+      - "mkfs\\."
+      - "dd\\s+if=.*of=/dev/"
+      - ">\\s*/dev/sd[a-z]"
+      - "chmod\\s+777\\s+/"
+      - "\\|\\s*sh\\s*$"
+      - "curl.*\\|.*sh"
+      - "wget.*\\|.*sh"
+      - ":(){ :|:& };:"  # Fork bomb
+
+  - name: block_credential_files
+    description: Block access to credential files
+    action_types:
+      - file_read
+      - file_write
+    decision: deny
+    priority: 99
+    path_patterns:
+      - "**/.env"
+      - "**/.env.*"
+      - "**/credentials.json"
+      - "**/secrets.yaml"
+      - "**/private.key"
+      - "**/*.pem"
+      - "**/id_rsa*"
+
+  # ==========================================================================
+  # MEDIUM PRIORITY: Approval Required
+  # ==========================================================================
+
+  - name: approve_elevated_commands
+    description: Require approval for commands with elevated privileges
+    action_types:
+      - shell
+    decision: require_approval
+    priority: 50
+    command_patterns:
+      - "^sudo\\s+"
+      - "^su\\s+"
+      - "^doas\\s+"
+      - "^pkexec\\s+"
+
+  - name: approve_package_installation
+    description: Require approval for package installation
+    action_types:
+      - shell
+    decision: require_approval
+    priority: 50
+    command_patterns:
+      - "apt(-get)?\\s+install"
+      - "yum\\s+install"
+      - "dnf\\s+install"
+      - "pip\\s+install"
+      - "npm\\s+install\\s+-g"
+      - "gem\\s+install"
+
+  - name: approve_network_commands
+    description: Require approval for network configuration commands
+    action_types:
+      - shell
+    decision: require_approval
+    priority: 50
+    command_patterns:
+      - "^iptables"
+      - "^ufw"
+      - "^firewall-cmd"
+      - "^netstat"
+      - "^ss\\s+"
+
+  # ==========================================================================
+  # LOW PRIORITY: Allowed Operations
+  # ==========================================================================
+
+  - name: allow_workspace_files
+    description: Allow file operations within workspace
+    action_types:
+      - file_read
+      - file_write
+      - file_delete
+    decision: allow
+    priority: 10
+    workspace_only: true
+    path_patterns:
+      - "/workspace/**"
+
+  - name: allow_safe_shell_commands
+    description: Allow common development commands
+    action_types:
+      - shell
+    decision: allow
+    priority: 10
+    command_patterns:
+      - "^(ls|dir|cat|head|tail|less|more)\\s+"
+      - "^(grep|find|wc|sort|uniq)\\s+"
+      - "^(echo|pwd|cd|mkdir|touch)\\s?"
+      - "^(cp|mv|rm)\\s+(?!.*-rf\\s+/)"
+      - "^(python|python3|node|ruby)\\s+"
+      - "^(pip|npm|yarn|gem)\\s+(?!install\\s+-g)"
+      - "^git\\s+"
+      - "^curl\\s+(?!.*\\|.*sh)"
+      - "^wget\\s+(?!.*\\|.*sh)"
+
+  - name: allow_build_commands
+    description: Allow build and test commands
+    action_types:
+      - shell
+    decision: allow
+    priority: 10
+    command_patterns:
+      - "^make\\s+"
+      - "^cmake\\s+"
+      - "^cargo\\s+"
+      - "^go\\s+(build|test|run)"
+      - "^pytest\\s+"
+      - "^jest\\s+"
+      - "^npm\\s+(run|test|build)"
+
+  # ==========================================================================
+  # RATE LIMITING
+  # ==========================================================================
+
+  - name: rate_limit_browser
+    description: Rate limit browser actions
+    action_types:
+      - browser
+    decision: allow
+    priority: 5
+    rate_limit: 60
+    rate_limit_window: 60
+
+  - name: rate_limit_screenshots
+    description: Rate limit screenshot capture
+    action_types:
+      - screenshot
+    decision: allow
+    priority: 5
+    rate_limit: 20
+    rate_limit_window: 60
+
+  - name: rate_limit_api_calls
+    description: Rate limit external API calls
+    action_types:
+      - api
+    decision: allow
+    priority: 5
+    rate_limit: 100
+    rate_limit_window: 60
+
+  # ==========================================================================
+  # BROWSER RESTRICTIONS
+  # ==========================================================================
+
+  - name: block_local_urls
+    description: Block access to localhost and internal IPs
+    action_types:
+      - browser
+      - api
+    decision: deny
+    priority: 80
+    url_deny_patterns:
+      - "^file://"
+      - "localhost"
+      - "127\\.0\\.0\\.1"
+      - "0\\.0\\.0\\.0"
+      - "169\\.254\\."
+      - "10\\."
+      - "172\\.(1[6-9]|2[0-9]|3[0-1])\\."
+      - "192\\.168\\."
+
+  - name: allow_https_urls
+    description: Allow HTTPS URLs
+    action_types:
+      - browser
+    decision: allow
+    priority: 3
+    url_patterns:
+      - "^https://"
+
+  # ==========================================================================
+  # ROLE-BASED OVERRIDES
+  # ==========================================================================
+
+  - name: admin_full_access
+    description: Administrators can bypass most restrictions
+    action_types:
+      - shell
+      - file_read
+      - file_write
+      - file_delete
+      - browser
+      - api
+    decision: allow
+    priority: 200
+    allowed_roles:
+      - admin
+      - superuser
+    tags:
+      - privileged
