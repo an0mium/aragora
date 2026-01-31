@@ -664,7 +664,7 @@ def require_user_auth(func: Callable) -> Callable:
     """
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         from aragora.billing.jwt_auth import extract_user_from_request
 
         handler = kwargs.get("handler")

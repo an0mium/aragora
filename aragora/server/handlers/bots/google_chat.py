@@ -18,8 +18,7 @@ Security (Phase 3.1):
   3. Last resort: HTTP tokeninfo endpoint check
 - Token verification results are cached (5-minute TTL) to avoid
   hammering Google's endpoints on every webhook call.
-- Fails closed by default; an explicit dev bypass is available via
-  ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS for local testing.
+- Fails closed: rejects requests when verification cannot be performed.
 """
 
 from __future__ import annotations
@@ -31,8 +30,6 @@ import logging
 import os
 import threading
 import time
-from urllib.parse import urlencode
-from urllib.request import urlopen
 from typing import TYPE_CHECKING, Any, Coroutine, Optional, Protocol, cast
 
 from aragora.audit.unified import audit_data
@@ -79,117 +76,309 @@ GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID")
 if not GOOGLE_CHAT_CREDENTIALS:
     logger.warning("GOOGLE_CHAT_CREDENTIALS not configured - Google Chat bot disabled")
 
-# Token verification cache (hash -> (expires_at, valid))
-_token_cache: dict[str, tuple[float, bool]] = {}
+
+# =============================================================================
+# Bearer Token Verification (Phase 3.1)
+# =============================================================================
+
+# Cache for token verification results.
+# Maps token_hash -> (is_valid, expiry_time)
+# Uses SHA-256 hashes of tokens as keys to avoid storing raw tokens in memory.
+_token_cache: dict[str, tuple[bool, float]] = {}
 _token_cache_lock = threading.Lock()
-_TOKEN_CACHE_TTL = 300  # 5 minutes
+
+# Cache TTL: 5 minutes for valid tokens, 60 seconds for invalid tokens.
+# Valid tokens are safe to cache longer since they have their own expiry.
+# Invalid tokens use a shorter TTL so retries with corrected tokens succeed quickly.
+_TOKEN_CACHE_VALID_TTL = 300  # 5 minutes
+_TOKEN_CACHE_INVALID_TTL = 60  # 1 minute
+
+# Maximum cache size to prevent unbounded memory growth
+_TOKEN_CACHE_MAX_SIZE = 1000
 
 
-def _verify_google_chat_token(auth_header: str) -> bool:
-    """Verify Google Chat bearer token using Google's public keys.
+def _token_cache_key(token: str) -> str:
+    """Generate a cache key from a token without storing the raw token.
+
+    Uses SHA-256 to create a fixed-size key that cannot be reversed
+    to recover the original token.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _get_cached_result(token: str) -> bool | None:
+    """Check if a token verification result is cached and still valid.
 
     Args:
-        auth_header: The Authorization header value (e.g., "Bearer <token>")
+        token: The raw Bearer token.
 
     Returns:
-        True if token is valid, False otherwise.
+        True/False if cached and not expired, None if not cached or expired.
     """
-    if not auth_header.startswith("Bearer "):
-        return False
-
-    token = auth_header[7:]  # Remove "Bearer " prefix
-    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-    # Cache lookup
-    now = time.time()
+    key = _token_cache_key(token)
     with _token_cache_lock:
-        cached = _token_cache.get(token_hash)
-        if cached and cached[0] > now:
-            return cached[1]
+        entry = _token_cache.get(key)
+        if entry is None:
+            return None
+        is_valid, expiry = entry
+        if time.monotonic() > expiry:
+            # Expired entry -- remove it
+            _token_cache.pop(key, None)
+            return None
+        return is_valid
 
+
+def _set_cached_result(token: str, is_valid: bool) -> None:
+    """Cache a token verification result with appropriate TTL.
+
+    Args:
+        token: The raw Bearer token.
+        is_valid: Whether the token was verified successfully.
+    """
+    key = _token_cache_key(token)
+    ttl = _TOKEN_CACHE_VALID_TTL if is_valid else _TOKEN_CACHE_INVALID_TTL
+    expiry = time.monotonic() + ttl
+
+    with _token_cache_lock:
+        # Evict expired entries if cache is getting large
+        if len(_token_cache) >= _TOKEN_CACHE_MAX_SIZE:
+            now = time.monotonic()
+            expired_keys = [k for k, (_, exp) in _token_cache.items() if now > exp]
+            for k in expired_keys:
+                del _token_cache[k]
+            # If still too large after eviction, clear oldest half
+            if len(_token_cache) >= _TOKEN_CACHE_MAX_SIZE:
+                sorted_entries = sorted(_token_cache.items(), key=lambda item: item[1][1])
+                for k, _ in sorted_entries[: len(sorted_entries) // 2]:
+                    del _token_cache[k]
+
+        _token_cache[key] = (is_valid, expiry)
+
+
+def clear_token_cache() -> None:
+    """Clear the token verification cache.
+
+    Useful for testing and when credentials are rotated.
+    """
+    with _token_cache_lock:
+        _token_cache.clear()
+
+
+def _verify_token_via_jwt_verifier(token: str) -> bool | None:
+    """Verify token using the JWTVerifier from connectors.chat.jwt_verify.
+
+    This is the preferred verification method. It uses PyJWT with Google's
+    JWKS endpoint to cryptographically verify the token signature, expiry,
+    issuer, and audience claims.
+
+    Args:
+        token: The raw JWT token (without 'Bearer ' prefix).
+
+    Returns:
+        True if valid, False if invalid, None if verifier is unavailable.
+    """
     try:
-        from aragora.connectors.chat.jwt_verify import HAS_JWT, verify_google_chat_webhook
+        from aragora.connectors.chat.jwt_verify import verify_google_chat_webhook
 
-        if HAS_JWT:
-            valid = verify_google_chat_webhook(auth_header, GOOGLE_CHAT_PROJECT_ID)
-            with _token_cache_lock:
-                _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, valid)
-            return valid
-    except Exception as e:
-        logger.warning(f"JWT verifier error for Google Chat token: {e}")
+        # verify_google_chat_webhook expects the full "Bearer <token>" header
+        result = verify_google_chat_webhook(
+            f"Bearer {token}",
+            project_id=GOOGLE_CHAT_PROJECT_ID,
+        )
+        return result
+    except ImportError:
+        logger.debug("jwt_verify module not available, trying next verification method")
+        return None
+    except (RuntimeError, OSError) as e:
+        logger.warning(f"JWTVerifier error: {e}, trying next verification method")
+        return None
 
-    # Fallback: google-auth verification if PyJWT unavailable
+
+def _verify_token_via_google_auth(token: str) -> bool | None:
+    """Verify token using google-auth library's id_token verifier.
+
+    Falls back to this when PyJWT-based verification is unavailable.
+    Uses Google's public keys to verify token signature and claims.
+
+    Args:
+        token: The raw JWT token (without 'Bearer ' prefix).
+
+    Returns:
+        True if valid, False if invalid, None if google-auth is unavailable.
+    """
     try:
         from google.oauth2 import id_token
         from google.auth.transport import requests as google_requests
 
-        expected_audience = GOOGLE_CHAT_PROJECT_ID or "unknown"
+        expected_audience = GOOGLE_CHAT_PROJECT_ID
+        if not expected_audience:
+            logger.warning(
+                "GOOGLE_CHAT_PROJECT_ID not configured -- cannot validate audience claim"
+            )
+            # In production, audience validation is mandatory
+            is_production = os.environ.get("ARAGORA_ENV", "development").lower() in (
+                "production",
+                "prod",
+            )
+            if is_production:
+                logger.error(
+                    "SECURITY: Rejecting token -- audience validation required "
+                    "in production. Set GOOGLE_CHAT_PROJECT_ID."
+                )
+                return False
+            # In development, proceed without audience validation (with warning)
+
         id_info = id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
             audience=expected_audience,
         )
 
+        # Verify the token is from Google Chat's service account
         email = id_info.get("email", "")
-        if not email.endswith("@system.gserviceaccount.com"):
-            logger.warning(f"Google Chat token from unexpected email: {email}")
-            valid = False
-        else:
-            valid = True
+        if email and not email.endswith("@system.gserviceaccount.com"):
+            logger.warning(f"Google Chat token from unexpected issuer email: {email}")
+            return False
 
-        with _token_cache_lock:
-            _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, valid)
-        return valid
+        return True
+
     except ImportError:
-        logger.debug("google-auth not installed; attempting tokeninfo fallback")
+        logger.debug("google-auth library not installed, trying next verification method")
+        return None
     except ValueError as e:
-        logger.warning(f"Google Chat token verification failed (google-auth): {e}")
-    except Exception as e:
-        logger.warning(f"Unexpected google-auth error verifying Google Chat token: {e}")
+        logger.warning(f"google-auth token verification failed: {e}")
+        return False
+    except (RuntimeError, OSError) as e:
+        logger.warning(f"google-auth verification error: {e}")
+        return None
 
-    # Last resort: tokeninfo endpoint
+
+def _verify_token_via_tokeninfo(token: str) -> bool | None:
+    """Verify token via Google's OAuth2 tokeninfo HTTP endpoint.
+
+    This is the last-resort verification method when neither PyJWT nor
+    google-auth are available. It makes an HTTP call to Google's tokeninfo
+    endpoint to validate the token.
+
+    Args:
+        token: The raw JWT token (without 'Bearer ' prefix).
+
+    Returns:
+        True if valid, False if invalid, None if HTTP request fails.
+    """
     try:
-        query = urlencode({"id_token": token})
-        tokeninfo_url = f"https://oauth2.googleapis.com/tokeninfo?{query}"
-        with urlopen(tokeninfo_url, timeout=5) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+        import urllib.error
+        import urllib.request
 
-        if payload.get("error"):
-            logger.warning(f"Google tokeninfo error: {payload.get('error_description')}")
-            valid = False
-        else:
-            if GOOGLE_CHAT_PROJECT_ID and payload.get("aud") != GOOGLE_CHAT_PROJECT_ID:
-                logger.warning(
-                    "Google Chat token audience mismatch: "
-                    f"{payload.get('aud')} != {GOOGLE_CHAT_PROJECT_ID}"
-                )
-                valid = False
-            else:
-                email = payload.get("email", "")
-                valid = email.endswith("@system.gserviceaccount.com")
-                if not valid:
-                    logger.warning(f"Google tokeninfo email mismatch: {email}")
+        url = f"https://oauth2.googleapis.com/tokeninfo?id_token={token}"
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("User-Agent", "Aragora/1.0")
 
-        with _token_cache_lock:
-            _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, valid)
-        return valid
-    except Exception as e:
-        logger.warning(f"Tokeninfo verification failed: {e}")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if resp.status != 200:
+                logger.warning(f"Google tokeninfo returned status {resp.status}")
+                return False
 
-    # Optional dev bypass
-    try:
-        from aragora.connectors.chat.webhook_security import should_allow_unverified
+            data = json.loads(resp.read().decode("utf-8"))
 
-        if should_allow_unverified("google_chat"):
-            logger.warning("Google Chat token verification bypassed in dev mode")
-            with _token_cache_lock:
-                _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, True)
+            # Validate audience if project ID is configured
+            if GOOGLE_CHAT_PROJECT_ID:
+                aud = data.get("aud", "")
+                if aud != GOOGLE_CHAT_PROJECT_ID:
+                    logger.warning(
+                        f"Token audience mismatch: expected {GOOGLE_CHAT_PROJECT_ID}, got {aud}"
+                    )
+                    return False
+
+            # Validate issuer email
+            email = data.get("email", "")
+            if email and not email.endswith("@system.gserviceaccount.com"):
+                logger.warning(f"Token from unexpected email: {email}")
+                return False
+
+            # Check token is not expired (tokeninfo may still return
+            # data for recently expired tokens)
+            exp = data.get("exp")
+            if exp:
+                try:
+                    if int(exp) < int(time.time()):
+                        logger.warning("Token is expired per tokeninfo response")
+                        return False
+                except (ValueError, TypeError):
+                    pass
+
             return True
-    except ImportError:
-        pass
 
-    with _token_cache_lock:
-        _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, False)
+    except urllib.error.HTTPError as e:
+        logger.warning(f"Google tokeninfo HTTP error: {e.code}")
+        return False
+    except (urllib.error.URLError, OSError, TimeoutError) as e:
+        logger.warning(f"Google tokeninfo request failed: {e}")
+        return None
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        logger.warning(f"Google tokeninfo response parse error: {e}")
+        return False
+
+
+def _verify_google_chat_token(auth_header: str) -> bool:
+    """Verify Google Chat Bearer token from the Authorization header.
+
+    Uses a layered verification strategy with caching:
+    1. Check token cache (avoids repeated verification of the same token)
+    2. Try PyJWT-based JWKS verification (cryptographic, preferred)
+    3. Try google-auth id_token verification (cryptographic, fallback)
+    4. Try HTTP tokeninfo endpoint (network-based, last resort)
+
+    Security policy: Fails closed. If no verification method is available
+    or all methods return inconclusive results, the token is rejected.
+
+    Args:
+        auth_header: The full Authorization header value
+                     (e.g., "Bearer <token>").
+
+    Returns:
+        True if the token is verified as valid, False otherwise.
+    """
+    if not auth_header or not auth_header.startswith("Bearer "):
+        logger.warning("Missing or malformed Authorization header")
+        return False
+
+    token = auth_header[7:].strip()  # Remove "Bearer " prefix
+    if not token:
+        logger.warning("Empty Bearer token")
+        return False
+
+    # 1. Check cache first
+    cached = _get_cached_result(token)
+    if cached is not None:
+        logger.debug(f"Token verification cache {'hit (valid)' if cached else 'hit (invalid)'}")
+        return cached
+
+    # 2. Try PyJWT-based JWKS verification (preferred)
+    result = _verify_token_via_jwt_verifier(token)
+    if result is not None:
+        _set_cached_result(token, result)
+        return result
+
+    # 3. Try google-auth library verification
+    result = _verify_token_via_google_auth(token)
+    if result is not None:
+        _set_cached_result(token, result)
+        return result
+
+    # 4. Try HTTP tokeninfo endpoint (last resort)
+    result = _verify_token_via_tokeninfo(token)
+    if result is not None:
+        _set_cached_result(token, result)
+        return result
+
+    # All verification methods failed or were unavailable -- fail closed
+    logger.error(
+        "SECURITY: All token verification methods unavailable. "
+        "Install PyJWT (pip install pyjwt[crypto]) or "
+        "google-auth (pip install google-auth) for token verification. "
+        "Rejecting request."
+    )
     return False
 
 
@@ -315,7 +504,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         - Bot added/removed from space
 
         Authentication: Google Chat sends a bearer token in the Authorization header.
-        We verify the project ID matches our configuration.
+        We verify the token is a valid Google-issued JWT with the correct audience.
         """
         # Require credentials to be configured
         if not GOOGLE_CHAT_CREDENTIALS:
@@ -325,7 +514,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 status=503,
             )
 
-        # Verify bearer token (Google Chat authentication)
+        # Verify bearer token (Google Chat authentication - Phase 3.1)
         auth_header = handler.headers.get("Authorization", "")
         if not _verify_google_chat_token(auth_header):
             logger.warning("Google Chat webhook authentication failed")
@@ -482,7 +671,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 platform="google_chat",
             )
 
-            emoji = "✅" if vote_option == "agree" else "❌"
+            emoji = "\u2705" if vote_option == "agree" else "\u274c"
             return self._card_response(
                 body=f"{emoji} Your vote for '{vote_option}' has been recorded!"
             )
@@ -609,7 +798,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             for i, agent in enumerate(agents[:10]):
                 name = getattr(agent, "name", "Unknown")
                 elo = getattr(agent, "elo", 1500)
-                medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i + 1}."
+                medal = ["\U0001f947", "\U0001f948", "\U0001f949"][i] if i < 3 else f"{i + 1}."
                 lines.append(f"{medal} *{name}* - ELO: {elo:.0f}")
 
             return self._card_response(
@@ -823,8 +1012,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             result = await arena.run()
 
             # Build result card
-            consensus_emoji = "✅" if result.consensus_reached else "❌"
-            confidence_bar = "█" * int(result.confidence * 5) + "░" * (
+            consensus_emoji = "\u2705" if result.consensus_reached else "\u274c"
+            confidence_bar = "\u2588" * int(result.confidence * 5) + "\u2591" * (
                 5 - int(result.confidence * 5)
             )
 
@@ -841,12 +1030,12 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                     ],
                     actions=[
                         connector.connectors.chat.models.MessageButton(
-                            text="👍 Agree",
+                            text="\U0001f44d Agree",
                             action_id="vote_agree",
                             value=result.id,
                         ),
                         connector.connectors.chat.models.MessageButton(
-                            text="👎 Disagree",
+                            text="\U0001f44e Disagree",
                             action_id="vote_disagree",
                             value=result.id,
                         ),
@@ -913,8 +1102,8 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 passed = data.get("passed", False)
                 vulnerabilities = data.get("vulnerabilities", [])
 
-                status_emoji = "✅" if passed else "❌"
-                score_bar = "█" * int(score * 5) + "░" * (5 - int(score * 5))
+                status_emoji = "\u2705" if passed else "\u274c"
+                score_bar = "\u2588" * int(score * 5) + "\u2591" * (5 - int(score * 5))
 
                 body = f"*Statement:* {statement[:200]}{'...' if len(statement) > 200 else ''}\n\n"
                 body += f"*Score:* {score_bar} {score:.0%}\n"
@@ -924,7 +1113,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 if vulnerabilities:
                     body += "\n*Issues:*\n"
                     for v in vulnerabilities[:3]:
-                        body += f"• {v.get('description', 'Unknown')[:80]}\n"
+                        body += f"\u2022 {v.get('description', 'Unknown')[:80]}\n"
                     if len(vulnerabilities) > 3:
                         body += f"_...and {len(vulnerabilities) - 3} more_"
 
@@ -1024,4 +1213,9 @@ def get_google_chat_handler(server_context: dict[str, Any] | None = None) -> "Go
     return _google_chat_handler
 
 
-__all__ = ["GoogleChatHandler", "get_google_chat_handler", "get_google_chat_connector"]
+__all__ = [
+    "GoogleChatHandler",
+    "get_google_chat_handler",
+    "get_google_chat_connector",
+    "clear_token_cache",
+]
