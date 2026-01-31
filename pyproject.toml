@@ -76,7 +76,7 @@ dev = [
     "mutmut>=3.0,<4.0",
     "pre-commit>=3.6,<5.0",  # Git hooks for code quality
     "datamodel-code-generator>=0.25,<1.0",  # Python SDK type generation from OpenAPI
-    "async-timeout>=4.0,<5.0",  # Async timeouts for Python <3.11 in CI/dev
+    "async-timeout>=4.0,<6.0",  # Async timeouts for Python <3.11 in CI/dev
     "python3-saml>=1.15,<2.0",  # SAML authentication for enterprise SSO testing
     "tiktoken>=0.5,<1.0",  # Token counting for LLM context management
 ]
@@ -98,7 +98,7 @@ test = [
     "mutmut>=3.0,<4.0",
     "pre-commit>=3.6,<5.0",  # Git hooks for code quality
     "datamodel-code-generator>=0.25,<1.0",  # Python SDK type generation from OpenAPI
-    "async-timeout>=4.0,<5.0",  # Async timeouts for Python <3.11 in CI/dev
+    "async-timeout>=4.0,<6.0",  # Async timeouts for Python <3.11 in CI/dev
     # Database and persistence
     "aiosqlite>=0.19,<1.0",  # Async SQLite for persistence tests
     "supabase>=2.0,<3.0",  # Supabase client tests
@@ -254,7 +254,7 @@ all = [
     "mutmut>=3.0,<4.0",
     "pre-commit>=3.6,<5.0",
     "datamodel-code-generator>=0.25,<1.0",
-    "async-timeout>=4.0,<5.0",
+    "async-timeout>=4.0,<6.0",
     "aiosqlite>=0.19,<1.0",
     "supabase>=2.0,<3.0",
     "redis>=5.0.0,<8.0",
