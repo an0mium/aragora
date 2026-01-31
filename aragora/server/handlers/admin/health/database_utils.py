@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Database store health check utilities.
 
@@ -15,11 +14,21 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import Any, Callable, TypeVar
+from pathlib import Path
+from typing import Any, Callable, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
+
+@runtime_checkable
+class _HealthHandlerProtocol(Protocol):
+    """Protocol for handlers used by database health checks."""
+
+    ctx: dict[str, Any]
+
+    def get_storage(self) -> Any: ...
+    def get_elo_system(self) -> Any: ...
+    def get_nomic_dir(self) -> Path | None: ...
 
 
 def handle_store_check_errors(
@@ -69,7 +78,7 @@ def handle_store_check_errors(
         }, False
 
 
-def check_debate_storage(handler) -> dict[str, Any]:
+def check_debate_storage(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check debate storage backend health.
 
     Args:
@@ -95,7 +104,7 @@ def check_debate_storage(handler) -> dict[str, Any]:
         }
 
 
-def check_elo_system(handler) -> dict[str, Any]:
+def check_elo_system(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check ELO ranking system health.
 
     Args:
@@ -120,7 +129,7 @@ def check_elo_system(handler) -> dict[str, Any]:
         }
 
 
-def check_insight_store(handler) -> dict[str, Any]:
+def check_insight_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check insight store health.
 
     Args:
@@ -144,7 +153,7 @@ def check_insight_store(handler) -> dict[str, Any]:
         }
 
 
-def check_flip_detector(handler) -> dict[str, Any]:
+def check_flip_detector(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check flip detector health.
 
     Args:
@@ -167,7 +176,7 @@ def check_flip_detector(handler) -> dict[str, Any]:
         }
 
 
-def check_user_store(handler) -> dict[str, Any]:
+def check_user_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check user/organization store health.
 
     Args:
@@ -190,7 +199,7 @@ def check_user_store(handler) -> dict[str, Any]:
         }
 
 
-def check_consensus_memory(handler) -> dict[str, Any]:
+def check_consensus_memory(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check consensus memory database health.
 
     Args:
@@ -223,7 +232,7 @@ def check_consensus_memory(handler) -> dict[str, Any]:
         }
 
 
-def check_agent_metadata(handler) -> dict[str, Any]:
+def check_agent_metadata(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check agent metadata table health.
 
     Args:
@@ -270,7 +279,7 @@ def check_agent_metadata(handler) -> dict[str, Any]:
         }
 
 
-def check_integration_store(handler) -> dict[str, Any]:
+def check_integration_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check third-party integration store health.
 
     Args:
@@ -279,7 +288,7 @@ def check_integration_store(handler) -> dict[str, Any]:
     Returns:
         Dict with healthy status and store type
     """
-    from aragora.storage.integration_store import IntegrationStore  # noqa: F401
+    from aragora.storage.integration_store import IntegrationStore  # type: ignore[attr-defined]  # noqa: F401
 
     integration_store = handler.ctx.get("integration_store")
     if integration_store is not None:
@@ -296,7 +305,7 @@ def check_integration_store(handler) -> dict[str, Any]:
         }
 
 
-def check_gmail_token_store(handler) -> dict[str, Any]:
+def check_gmail_token_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check Gmail OAuth token store health.
 
     Args:
@@ -305,7 +314,7 @@ def check_gmail_token_store(handler) -> dict[str, Any]:
     Returns:
         Dict with healthy status and store type
     """
-    from aragora.storage.gmail_token_store import GmailTokenStore  # noqa: F401
+    from aragora.storage.gmail_token_store import GmailTokenStore  # type: ignore[attr-defined]  # noqa: F401
 
     gmail_token_store = handler.ctx.get("gmail_token_store")
     if gmail_token_store is not None:
@@ -322,7 +331,7 @@ def check_gmail_token_store(handler) -> dict[str, Any]:
         }
 
 
-def check_sync_store(handler) -> dict[str, Any]:
+def check_sync_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check enterprise sync store health.
 
     Args:
@@ -348,7 +357,7 @@ def check_sync_store(handler) -> dict[str, Any]:
         }
 
 
-def check_decision_result_store(handler) -> dict[str, Any]:
+def check_decision_result_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     """Check decision result persistence store health.
 
     Args:

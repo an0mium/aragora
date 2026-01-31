@@ -988,18 +988,27 @@ class TestCleanupMechanism:
 
         # Expired
         approval_module._pending_approvals["exp-1"] = OperationApprovalRequest(
-            id="exp-1", operation="a", risk_level=OperationRiskLevel.LOW,
-            requester_id="u1", expires_at=now - timedelta(hours=1),
+            id="exp-1",
+            operation="a",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            expires_at=now - timedelta(hours=1),
         )
         # Approved (resolved)
         approval_module._pending_approvals["app-1"] = OperationApprovalRequest(
-            id="app-1", operation="b", risk_level=OperationRiskLevel.LOW,
-            requester_id="u1", state=ApprovalState.APPROVED,
+            id="app-1",
+            operation="b",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            state=ApprovalState.APPROVED,
         )
         # Valid pending
         approval_module._pending_approvals["val-1"] = OperationApprovalRequest(
-            id="val-1", operation="c", risk_level=OperationRiskLevel.LOW,
-            requester_id="u1", expires_at=now + timedelta(hours=1),
+            id="val-1",
+            operation="c",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            expires_at=now + timedelta(hours=1),
         )
 
         removed = approval_module._cleanup_expired_approvals()
@@ -1375,7 +1384,9 @@ class TestRequireApprovalDecorator:
             await delete_user(auth_context)
 
     @pytest.mark.asyncio
-    async def test_auto_approve_non_matching_role_requires_approval(self, approval_module, auth_context):
+    async def test_auto_approve_non_matching_role_requires_approval(
+        self, approval_module, auth_context
+    ):
         """Should require approval when user doesn't have auto-approve role."""
         ApprovalPendingError = approval_module.ApprovalPendingError
 

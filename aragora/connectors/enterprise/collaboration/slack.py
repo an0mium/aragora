@@ -704,10 +704,10 @@ class SlackConnector(EnterpriseConnector):
             # Slack returns error if user not found
             if "users_not_found" in str(e):
                 return None
-            logger.debug(f"[{self.name}] Failed to lookup user by email {email}: {e}")
+            logger.debug(f"[{self.name}] Failed to lookup user by email: {e}")
             return None
         except (ValueError, KeyError) as e:
-            logger.debug(f"[{self.name}] Failed to lookup user by email {email}: {e}")
+            logger.debug(f"[{self.name}] Failed to lookup user by email: {e}")
             return None
 
     async def search_messages(

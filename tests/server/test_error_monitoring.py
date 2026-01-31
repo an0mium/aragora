@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -288,6 +289,15 @@ class TestInitMonitoring:
                 assert os.environ.get("SENTRY_DSN") == "https://test@sentry.io/123"
 
 
+def _create_mock_sentry():
+    """Create a mock sentry_sdk module."""
+    mock_sentry = MagicMock()
+    mock_scope = MagicMock()
+    mock_sentry.push_scope.return_value.__enter__ = MagicMock(return_value=mock_scope)
+    mock_sentry.push_scope.return_value.__exit__ = MagicMock(return_value=False)
+    return mock_sentry, mock_scope
+
+
 class TestCaptureException:
     """Test exception capturing."""
 
@@ -307,32 +317,29 @@ class TestCaptureException:
 
     def test_capture_with_context(self):
         """Test capture with additional context."""
-        mock_sentry = MagicMock()
-        mock_scope = MagicMock()
-        mock_sentry.push_scope.return_value.__enter__ = MagicMock(return_value=mock_scope)
-        mock_sentry.push_scope.return_value.__exit__ = MagicMock(return_value=False)
+        mock_sentry, mock_scope = _create_mock_sentry()
         mock_sentry.capture_exception.return_value = "event-123"
 
         error_monitoring._sentry_available = True
 
-        with patch.dict("sys.modules", {"sentry_sdk": mock_sentry}):
-            with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
-                result = capture_exception(
-                    ValueError("test"),
-                    context={"debate_id": "d-123"},
-                    level="warning",
-                )
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
+            result = capture_exception(
+                ValueError("test"),
+                context={"debate_id": "d-123"},
+                level="warning",
+            )
 
-                assert result == "event-123"
-                mock_scope.set_extra.assert_called_with("debate_id", "d-123")
+            assert result == "event-123"
+            mock_scope.set_extra.assert_called_with("debate_id", "d-123")
 
     def test_capture_handles_internal_error(self):
         """Test capture handles internal errors gracefully."""
+        mock_sentry = MagicMock()
+        mock_sentry.push_scope.side_effect = RuntimeError("Sentry error")
+
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk") as mock_sentry:
-            mock_sentry.push_scope.side_effect = RuntimeError("Sentry error")
-
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             with patch("aragora.server.error_monitoring.logger") as mock_logger:
                 result = capture_exception(ValueError("test"))
 
@@ -369,15 +376,12 @@ class TestCaptureMessage:
 
     def test_capture_message_with_context(self):
         """Test capture message with context."""
-        mock_sentry = MagicMock()
-        mock_scope = MagicMock()
-        mock_sentry.push_scope.return_value.__enter__ = MagicMock(return_value=mock_scope)
-        mock_sentry.push_scope.return_value.__exit__ = MagicMock(return_value=False)
+        mock_sentry, mock_scope = _create_mock_sentry()
         mock_sentry.capture_message.return_value = "msg-123"
 
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             result = capture_message(
                 "Test message",
                 level="warning",
@@ -407,7 +411,7 @@ class TestSetUser:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             set_user("user-123", ip_address="1.2.3.4")
 
             mock_sentry.set_user.assert_called_once()
@@ -420,7 +424,7 @@ class TestSetUser:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             set_user("user-123", email="test@example.com")
 
             call_args = mock_sentry.set_user.call_args[0][0]
@@ -433,7 +437,7 @@ class TestSetUser:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             set_user("user-123", org_id="org-456", tier="enterprise")
 
             # Should set tags
@@ -466,7 +470,7 @@ class TestSetTag:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             set_tag("environment", "production")
 
             mock_sentry.set_tag.assert_called_with("environment", "production")
@@ -491,17 +495,17 @@ class TestSetDebateContext:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             set_debate_context("debate-123")
 
-            mock_sentry.set_tag.assert_called_with("debate_id", "debate-123")
+            mock_sentry.set_tag.assert_any_call("debate_id", "debate-123")
 
     def test_set_debate_context_full(self):
         """Test setting full debate context."""
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             set_debate_context(
                 "debate-123",
                 domain="security",
@@ -519,7 +523,7 @@ class TestSetDebateContext:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             agents = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"]
             set_debate_context("debate-123", agent_names=agents)
 
@@ -623,7 +627,7 @@ class TestTrackErrorRecovery:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             track_error_recovery(
                 error_type="rate_limit",
                 recovery_strategy="fallback",
@@ -641,7 +645,7 @@ class TestTrackErrorRecovery:
         mock_sentry = MagicMock()
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             with patch("aragora.server.error_monitoring.capture_message") as mock_capture:
                 track_error_recovery(
                     error_type="agent_failure",
@@ -679,7 +683,7 @@ class TestStartTransaction:
         mock_sentry.start_transaction.return_value = mock_transaction
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk", mock_sentry):
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             result = start_transaction("debate_run", op="task")
 
             assert result == mock_transaction
@@ -744,12 +748,10 @@ class TestEdgeCases:
 
     def test_capture_exception_with_none_exception(self):
         """Test capture_exception handles None gracefully."""
-        # This shouldn't happen in practice but test defensiveness
-        with patch("aragora.server.error_monitoring.sentry_sdk") as mock_sentry:
-            mock_sentry.push_scope.return_value.__enter__ = MagicMock()
-            mock_sentry.push_scope.return_value.__exit__ = MagicMock(return_value=False)
-            mock_sentry.capture_exception.return_value = None
+        mock_sentry, mock_scope = _create_mock_sentry()
+        mock_sentry.capture_exception.return_value = None
 
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             result = capture_exception(None)  # type: ignore
 
             # Should handle gracefully
@@ -757,11 +759,11 @@ class TestEdgeCases:
 
     def test_set_tag_handles_error(self):
         """Test set_tag handles internal errors gracefully."""
+        mock_sentry = MagicMock()
+        mock_sentry.set_tag.side_effect = RuntimeError("Internal error")
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk") as mock_sentry:
-            mock_sentry.set_tag.side_effect = RuntimeError("Internal error")
-
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             with patch("aragora.server.error_monitoring.logger") as mock_logger:
                 # Should not raise
                 set_tag("key", "value")
@@ -770,11 +772,11 @@ class TestEdgeCases:
 
     def test_set_user_handles_error(self):
         """Test set_user handles internal errors gracefully."""
+        mock_sentry = MagicMock()
+        mock_sentry.set_user.side_effect = RuntimeError("Internal error")
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk") as mock_sentry:
-            mock_sentry.set_user.side_effect = RuntimeError("Internal error")
-
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             with patch("aragora.server.error_monitoring.logger") as mock_logger:
                 # Should not raise
                 set_user("user-123")
@@ -783,11 +785,11 @@ class TestEdgeCases:
 
     def test_set_debate_context_handles_error(self):
         """Test set_debate_context handles internal errors gracefully."""
+        mock_sentry = MagicMock()
+        mock_sentry.set_tag.side_effect = RuntimeError("Internal error")
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk") as mock_sentry:
-            mock_sentry.set_tag.side_effect = RuntimeError("Internal error")
-
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             with patch("aragora.server.error_monitoring.logger") as mock_logger:
                 # Should not raise
                 set_debate_context("debate-123")
@@ -796,11 +798,11 @@ class TestEdgeCases:
 
     def test_track_error_recovery_handles_error(self):
         """Test track_error_recovery handles internal errors gracefully."""
+        mock_sentry = MagicMock()
+        mock_sentry.add_breadcrumb.side_effect = RuntimeError("Internal error")
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk") as mock_sentry:
-            mock_sentry.add_breadcrumb.side_effect = RuntimeError("Internal error")
-
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             with patch("aragora.server.error_monitoring.logger") as mock_logger:
                 # Should not raise
                 track_error_recovery("error", "retry", True)
@@ -809,11 +811,11 @@ class TestEdgeCases:
 
     def test_start_transaction_handles_error(self):
         """Test start_transaction handles internal errors gracefully."""
+        mock_sentry = MagicMock()
+        mock_sentry.start_transaction.side_effect = RuntimeError("Internal error")
         error_monitoring._sentry_available = True
 
-        with patch("aragora.server.error_monitoring.sentry_sdk") as mock_sentry:
-            mock_sentry.start_transaction.side_effect = RuntimeError("Internal error")
-
+        with patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             with patch("aragora.server.error_monitoring.logger") as mock_logger:
                 result = start_transaction("test")
 

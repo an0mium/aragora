@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -34,6 +35,53 @@ from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+# Allowed base directories for folder uploads (security: prevent access to arbitrary paths)
+# Configure via comma-separated list of allowed directories
+_ALLOWED_UPLOAD_DIRS_RAW = os.environ.get("ARAGORA_ALLOWED_UPLOAD_DIRS", "")
+ALLOWED_UPLOAD_DIRS: list[Path] = []
+if _ALLOWED_UPLOAD_DIRS_RAW:
+    ALLOWED_UPLOAD_DIRS = [
+        Path(d.strip()).resolve() for d in _ALLOWED_UPLOAD_DIRS_RAW.split(",") if d.strip()
+    ]
+
+
+def _validate_upload_path(folder_path: str) -> tuple[bool, str, Path | None]:
+    """Validate that a folder path is allowed for upload.
+
+    Args:
+        folder_path: The user-provided folder path
+
+    Returns:
+        Tuple of (is_valid, error_message, resolved_path)
+    """
+    try:
+        path = Path(folder_path).resolve()
+    except (ValueError, OSError) as e:
+        return False, f"Invalid path: {e}", None
+
+    if not path.exists():
+        return False, f"Path does not exist: {folder_path}", None
+
+    if not path.is_dir():
+        return False, f"Path is not a directory: {folder_path}", None
+
+    # If allowed directories are configured, validate path is within one of them
+    if ALLOWED_UPLOAD_DIRS:
+        path_allowed = False
+        for allowed_dir in ALLOWED_UPLOAD_DIRS:
+            try:
+                path.relative_to(allowed_dir)
+                path_allowed = True
+                break
+            except ValueError:
+                continue
+
+        if not path_allowed:
+            logger.warning(f"Path traversal blocked: {folder_path} not in allowed dirs")
+            return False, "Access denied: path not in allowed directories", None
+
+    return True, "", path
 
 
 class FolderUploadStatus(Enum):
@@ -201,12 +249,11 @@ class FolderUploadHandler(BaseHandler):
         if not folder_path:
             return error_response("Missing required field: path", 400)
 
-        # Validate path exists and is a directory
-        path = Path(folder_path)
-        if not path.exists():
-            return error_response(f"Path does not exist: {folder_path}", 404)
-        if not path.is_dir():
-            return error_response(f"Path is not a directory: {folder_path}", 400)
+        # Validate path exists, is a directory, and is in allowed directories
+        is_valid, error_msg, path = _validate_upload_path(folder_path)
+        if not is_valid:
+            status_code = 403 if "denied" in error_msg.lower() else 400
+            return error_response(error_msg, status_code)
 
         # Build config from request
         config_data = body.get("config", {})
@@ -273,12 +320,11 @@ class FolderUploadHandler(BaseHandler):
         if not folder_path:
             return error_response("Missing required field: path", 400)
 
-        # Validate path
-        path = Path(folder_path)
-        if not path.exists():
-            return error_response(f"Path does not exist: {folder_path}", 404)
-        if not path.is_dir():
-            return error_response(f"Path is not a directory: {folder_path}", 400)
+        # Validate path exists, is a directory, and is in allowed directories
+        is_valid, error_msg, path = _validate_upload_path(folder_path)
+        if not is_valid:
+            status_code = 403 if "denied" in error_msg.lower() else 400
+            return error_response(error_msg, status_code)
 
         # Create job
         folder_id = str(uuid.uuid4())

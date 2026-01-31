@@ -60,6 +60,7 @@ from aragora.server.middleware.abac import (
 # Helpers
 # ===========================================================================
 
+
 def _make_subject(**overrides: Any) -> Subject:
     defaults = dict(user_id="user-1", role="user", plan="free")
     defaults.update(overrides)
@@ -84,6 +85,7 @@ def _reset_registry():
 def _reset_evaluator():
     """Reset the global evaluator before each test."""
     import aragora.server.middleware.abac as abac_mod
+
     abac_mod._evaluator = None
     yield
     abac_mod._evaluator = None
@@ -99,8 +101,13 @@ class TestActionEnum:
 
     def test_all_actions_defined(self):
         assert set(Action) == {
-            Action.READ, Action.WRITE, Action.DELETE,
-            Action.SHARE, Action.ADMIN, Action.EXECUTE, Action.EXPORT,
+            Action.READ,
+            Action.WRITE,
+            Action.DELETE,
+            Action.SHARE,
+            Action.ADMIN,
+            Action.EXECUTE,
+            Action.EXPORT,
         }
 
     def test_action_values_are_lowercase_strings(self):
@@ -118,9 +125,16 @@ class TestResourceTypeEnum:
 
     def test_all_resource_types_defined(self):
         expected = {
-            "debate", "workspace", "document", "knowledge",
-            "workflow", "agent", "template", "evidence",
-            "insight", "tournament",
+            "debate",
+            "workspace",
+            "document",
+            "knowledge",
+            "workflow",
+            "agent",
+            "template",
+            "evidence",
+            "insight",
+            "tournament",
         }
         assert {rt.value for rt in ResourceType} == expected
 
@@ -134,7 +148,11 @@ class TestAccessLevelEnum:
 
     def test_access_levels_defined(self):
         assert set(al.value for al in AccessLevel) == {
-            "none", "read", "write", "admin", "owner",
+            "none",
+            "read",
+            "write",
+            "admin",
+            "owner",
         }
 
 
@@ -245,7 +263,14 @@ class TestResourcePolicy:
 
     def test_default_owner_actions(self):
         p = ResourcePolicy(resource_type=ResourceType.DEBATE)
-        expected = {Action.READ, Action.WRITE, Action.DELETE, Action.SHARE, Action.ADMIN, Action.EXPORT}
+        expected = {
+            Action.READ,
+            Action.WRITE,
+            Action.DELETE,
+            Action.SHARE,
+            Action.ADMIN,
+            Action.EXPORT,
+        }
         assert p.owner_actions == expected
 
     def test_default_sensitivity_restrictions(self):
@@ -399,7 +424,8 @@ class TestAccessEvaluator:
 
     def test_workspace_admin_allowed(self):
         subject = _make_subject(
-            workspace_id="ws-1", workspace_role="admin",
+            workspace_id="ws-1",
+            workspace_role="admin",
         )
         resource = _make_resource(workspace_id="ws-1")
         decision = self._eval(subject, resource, Action.READ)
@@ -408,7 +434,8 @@ class TestAccessEvaluator:
 
     def test_workspace_admin_different_workspace_denied(self):
         subject = _make_subject(
-            workspace_id="ws-2", workspace_role="admin",
+            workspace_id="ws-2",
+            workspace_role="admin",
         )
         resource = _make_resource(workspace_id="ws-1")
         decision = self._eval(subject, resource, Action.READ)
@@ -792,6 +819,7 @@ class TestRequireResourceOwnerDecorator:
     @pytest.mark.asyncio
     async def test_allows_when_no_resource_owner(self):
         """When resource_owner_id is not in kwargs, should proceed."""
+
         @require_resource_owner("debate")
         async def delete_debate(**kwargs):
             return {"deleted": True}

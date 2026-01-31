@@ -116,7 +116,9 @@ class ComplianceHandler(BaseHandler):
         """Route request to appropriate handler method."""
         method: str = getattr(handler, "command", "GET") if handler else "GET"
         body: dict[str, Any] = (self.read_json_body(handler) or {}) if handler else {}
-        headers: Optional[dict[str, str]] = dict(handler.headers) if handler and hasattr(handler, "headers") else None
+        headers: Optional[dict[str, str]] = (
+            dict(handler.headers) if handler and hasattr(handler, "headers") else None
+        )
         query_params = query_params or {}
 
         try:

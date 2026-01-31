@@ -551,15 +551,11 @@ class TestEmitTextPlain:
         assert len(line) > 0
 
     def test_plain_contains_details(self):
-        line = self._emit_plain(
-            event_type=SpectatorEvents.PROPOSAL, details="my proposal text"
-        )
+        line = self._emit_plain(event_type=SpectatorEvents.PROPOSAL, details="my proposal text")
         assert "my proposal text" in line
 
     def test_plain_round_number(self):
-        line = self._emit_plain(
-            event_type=SpectatorEvents.ROUND_START, round_number=3
-        )
+        line = self._emit_plain(event_type=SpectatorEvents.ROUND_START, round_number=3)
         assert "R3" in line
 
     def test_plain_no_round_number(self):
@@ -568,21 +564,15 @@ class TestEmitTextPlain:
         assert "R0" not in line  # No default round
 
     def test_plain_metric_float(self):
-        line = self._emit_plain(
-            event_type=SpectatorEvents.CONSENSUS, metric=0.85
-        )
+        line = self._emit_plain(event_type=SpectatorEvents.CONSENSUS, metric=0.85)
         assert "(0.85)" in line
 
     def test_plain_metric_int(self):
-        line = self._emit_plain(
-            event_type=SpectatorEvents.CONSENSUS, metric=3
-        )
+        line = self._emit_plain(event_type=SpectatorEvents.CONSENSUS, metric=3)
         assert "(3)" in line
 
     def test_plain_no_ansi_codes(self):
-        line = self._emit_plain(
-            event_type=SpectatorEvents.PROPOSAL, agent="test", details="data"
-        )
+        line = self._emit_plain(event_type=SpectatorEvents.PROPOSAL, agent="test", details="data")
         assert "\033[" not in line
 
     def test_plain_unknown_event_uses_uppercase_fallback(self):
@@ -634,9 +624,7 @@ class TestEmitTextAnsi:
         assert "[PROPOSE]" not in line
 
     def test_ansi_metric_has_dim(self):
-        line = self._emit_ansi(
-            event_type=SpectatorEvents.CONSENSUS, metric=0.9
-        )
+        line = self._emit_ansi(event_type=SpectatorEvents.CONSENSUS, metric=0.9)
         assert "\033[2m" in line  # DIM for metric
         assert "0.90" in line
 
@@ -759,8 +747,11 @@ class TestShowPreview:
     def test_preview_enabled_truncates_long_details(self):
         output = io.StringIO()
         stream = SpectatorStream(
-            enabled=True, output=output, format="plain",
-            show_preview=True, preview_length=20,
+            enabled=True,
+            output=output,
+            format="plain",
+            show_preview=True,
+            preview_length=20,
         )
         long_text = "a" * 100
         stream.emit(SpectatorEvents.PROPOSAL, details=long_text)
@@ -771,8 +762,11 @@ class TestShowPreview:
     def test_preview_disabled_shows_full_details(self):
         output = io.StringIO()
         stream = SpectatorStream(
-            enabled=True, output=output, format="plain",
-            show_preview=False, preview_length=20,
+            enabled=True,
+            output=output,
+            format="plain",
+            show_preview=False,
+            preview_length=20,
         )
         long_text = "a" * 100
         stream.emit(SpectatorEvents.PROPOSAL, details=long_text)
@@ -782,8 +776,11 @@ class TestShowPreview:
     def test_preview_enabled_short_text_not_truncated(self):
         output = io.StringIO()
         stream = SpectatorStream(
-            enabled=True, output=output, format="plain",
-            show_preview=True, preview_length=200,
+            enabled=True,
+            output=output,
+            format="plain",
+            show_preview=True,
+            preview_length=200,
         )
         short_text = "short"
         stream.emit(SpectatorEvents.PROPOSAL, details=short_text)
@@ -909,16 +906,20 @@ class TestModuleImports:
 
     def test_import_spectator_stream(self):
         from aragora.spectate.stream import SpectatorStream as SS
+
         assert SS is SpectatorStream
 
     def test_import_valid_event_types(self):
         from aragora.spectate.stream import VALID_EVENT_TYPES as VET
+
         assert VET is VALID_EVENT_TYPES
 
     def test_import_from_package(self):
         from aragora.spectate import SpectatorStream as SS
+
         assert SS is SpectatorStream
 
     def test_import_events_from_package(self):
         from aragora.spectate import SpectatorEvents as SE
+
         assert SE is SpectatorEvents

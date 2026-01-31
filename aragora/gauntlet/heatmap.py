@@ -63,10 +63,10 @@ class RiskHeatmap:
     def from_result(cls, result: GauntletResult) -> "RiskHeatmap":
         """Create heatmap from GauntletResult."""
         # Collect all categories
-        categories = set()
+        category_set: set[str] = set()
         for vuln in result.vulnerabilities:
-            categories.add(vuln.category)
-        categories = sorted(categories)
+            category_set.add(vuln.category)
+        categories = sorted(category_set)
 
         severities = ["critical", "high", "medium", "low"]
 

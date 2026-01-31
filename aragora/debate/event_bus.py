@@ -170,6 +170,70 @@ class EventBus:
                 pass
         return False
 
+    def unsubscribe_sync(self, event_type: str, handler: SyncEventHandler) -> bool:
+        """
+        Unsubscribe a sync handler from an event type.
+
+        Args:
+            event_type: Type of event to unsubscribe from
+            handler: Handler function to remove
+
+        Returns:
+            True if handler was found and removed
+        """
+        if event_type in self._sync_handlers:
+            try:
+                self._sync_handlers[event_type].remove(handler)
+                return True
+            except ValueError:
+                pass
+        return False
+
+    def clear_handlers(self, event_type: str | None = None) -> int:
+        """
+        Clear all handlers, optionally for a specific event type.
+
+        Args:
+            event_type: If provided, only clear handlers for this event type.
+                       If None, clear all handlers.
+
+        Returns:
+            Number of handlers removed
+        """
+        removed = 0
+        if event_type is not None:
+            if event_type in self._async_handlers:
+                removed += len(self._async_handlers[event_type])
+                del self._async_handlers[event_type]
+            if event_type in self._sync_handlers:
+                removed += len(self._sync_handlers[event_type])
+                del self._sync_handlers[event_type]
+        else:
+            for handlers in self._async_handlers.values():
+                removed += len(handlers)
+            for handlers in self._sync_handlers.values():
+                removed += len(handlers)
+            self._async_handlers.clear()
+            self._sync_handlers.clear()
+        return removed
+
+    def cleanup(self) -> None:
+        """Clean up all event bus resources.
+
+        Should be called when the event bus is no longer needed to prevent
+        memory leaks from accumulated handlers.
+        """
+        self.clear_handlers()
+        self._events_emitted = 0
+        self._events_by_type.clear()
+        # Clear user event queue
+        while not self._user_event_queue.empty():
+            try:
+                self._user_event_queue.get_nowait()
+            except queue.Empty:
+                break
+        logger.debug("EventBus resources cleaned up")
+
     # =========================================================================
     # Event Emission
     # =========================================================================
@@ -483,6 +547,15 @@ class EventBus:
         """Reset event metrics."""
         self._events_emitted = 0
         self._events_by_type.clear()
+
+    # Context manager support for proper cleanup
+    def __enter__(self) -> "EventBus":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager - cleanup all resources."""
+        self.cleanup()
 
 
 # Singleton instance for global access (optional pattern)

@@ -473,7 +473,9 @@ class TestSemanticSearch:
             patch(
                 "aragora.knowledge.mound.adapters._semantic_mixin.SemanticStore",
                 side_effect=ImportError("forced"),
-            ) if False else patch.dict(
+            )
+            if False
+            else patch.dict(
                 "sys.modules",
                 {
                     "aragora.knowledge.mound.semantic_store": None,

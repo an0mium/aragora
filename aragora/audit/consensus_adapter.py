@@ -353,6 +353,7 @@ class FindingVerifier:
 
         try:
             from aragora import agents as _agents_mod
+
             get_agent: Any = getattr(_agents_mod, "get_agent")
         except (ImportError, AttributeError):
             logger.warning("Could not import agents, using mock verification")

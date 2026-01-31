@@ -1377,3 +1377,500 @@ class TestModuleExports:
         assert CustomerProfile is not None
         assert Subscription is not None
         assert create_authorize_net_connector is not None
+
+
+# =============================================================================
+# Error Handling Tests (Async)
+# =============================================================================
+
+
+class TestErrorHandlingAsync:
+    """Async tests for comprehensive error handling."""
+
+    @pytest.mark.asyncio
+    async def test_declined_card_transaction(self, mock_connector):
+        """Test handling declined card response."""
+        from aragora.connectors.payments.authorize_net import (
+            CreditCard,
+            TransactionStatus,
+        )
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "2",
+                    "transId": "DECLINED123",
+                    "errors": [
+                        {"errorCode": "2", "errorText": "This transaction has been declined."}
+                    ],
+                },
+                "messages": {
+                    "resultCode": "Error",
+                    "message": [{"code": "E00027", "text": "Card declined."}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        card = CreditCard(card_number="4000000000000002", expiration_date="1225")
+        result = await mock_connector.charge(
+            amount=Decimal("99.99"),
+            payment_method=card,
+        )
+
+        assert result.status == TransactionStatus.DECLINED
+        assert len(result.errors) > 0
+        assert "declined" in result.errors[0].lower()
+
+    @pytest.mark.asyncio
+    async def test_invalid_card_number(self, mock_connector):
+        """Test handling invalid card number."""
+        from aragora.connectors.payments.authorize_net import (
+            CreditCard,
+            TransactionStatus,
+        )
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "3",
+                    "transId": "",
+                    "errors": [{"errorCode": "6", "errorText": "Invalid card number."}],
+                },
+                "messages": {
+                    "resultCode": "Error",
+                    "message": [{"code": "E00027", "text": "An error occurred."}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        card = CreditCard(card_number="1234567890123456", expiration_date="1225")
+        result = await mock_connector.charge(
+            amount=Decimal("50.00"),
+            payment_method=card,
+        )
+
+        assert result.status == TransactionStatus.ERROR
+        assert len(result.errors) > 0
+
+    @pytest.mark.asyncio
+    async def test_expired_card(self, mock_connector):
+        """Test handling expired card error."""
+        from aragora.connectors.payments.authorize_net import (
+            CreditCard,
+            TransactionStatus,
+        )
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "2",
+                    "transId": "EXPIRED123",
+                    "errors": [{"errorCode": "8", "errorText": "The credit card has expired."}],
+                },
+                "messages": {
+                    "resultCode": "Error",
+                    "message": [{}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        card = CreditCard(card_number="4111111111111111", expiration_date="0120")
+        result = await mock_connector.charge(
+            amount=Decimal("25.00"),
+            payment_method=card,
+        )
+
+        assert result.status == TransactionStatus.DECLINED
+
+    @pytest.mark.asyncio
+    async def test_network_error(self, mock_connector):
+        """Test handling network errors."""
+        import httpx
+
+        mock_connector._client.post = AsyncMock(side_effect=httpx.HTTPError("Connection refused"))
+
+        from aragora.connectors.payments.authorize_net import CreditCard
+
+        card = CreditCard(card_number="4111111111111111", expiration_date="1225")
+
+        with pytest.raises(httpx.HTTPError) as exc_info:
+            await mock_connector.charge(
+                amount=Decimal("100.00"),
+                payment_method=card,
+            )
+
+        assert "Connection refused" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_held_for_review(self, mock_connector):
+        """Test handling transaction held for review."""
+        from aragora.connectors.payments.authorize_net import (
+            CreditCard,
+            TransactionStatus,
+        )
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "4",
+                    "transId": "HELD123",
+                },
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{"code": "I00004", "text": "Held for review."}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        card = CreditCard(card_number="4111111111111111", expiration_date="1225")
+        result = await mock_connector.charge(
+            amount=Decimal("500.00"),
+            payment_method=card,
+        )
+
+        assert result.status == TransactionStatus.HELD_FOR_REVIEW
+
+
+# =============================================================================
+# Idempotency Tests
+# =============================================================================
+
+
+class TestIdempotencyHandling:
+    """Tests for idempotency handling."""
+
+    @pytest.mark.asyncio
+    async def test_duplicate_charge_handling(self, mock_connector):
+        """Test handling of duplicate charge attempts."""
+        from aragora.connectors.payments.authorize_net import CreditCard
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "1",
+                    "transId": "TRANS123",
+                    "authCode": "AUTH",
+                },
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{"code": "I00001", "text": "Successful."}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        card = CreditCard(card_number="4111111111111111", expiration_date="1225")
+
+        # First charge
+        result1 = await mock_connector.charge(
+            amount=Decimal("99.99"),
+            payment_method=card,
+            order_id="ORD-UNIQUE-001",
+        )
+
+        # Second charge with same order_id
+        result2 = await mock_connector.charge(
+            amount=Decimal("99.99"),
+            payment_method=card,
+            order_id="ORD-UNIQUE-001",
+        )
+
+        # Both should succeed (idempotency handling is server-side)
+        assert result1.transaction_id == result2.transaction_id
+
+
+# =============================================================================
+# Bank Account Tests
+# =============================================================================
+
+
+class TestBankAccountTransactions:
+    """Tests for ACH/bank account transactions."""
+
+    @pytest.mark.asyncio
+    async def test_charge_bank_account(self, mock_connector):
+        """Test charging a bank account."""
+        from aragora.connectors.payments.authorize_net import (
+            BankAccount,
+            TransactionStatus,
+        )
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "1",
+                    "transId": "ACH123",
+                    "authCode": "AUTHACH",
+                },
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{"code": "I00001", "text": "Successful."}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        bank_account = BankAccount(
+            account_type="checking",
+            routing_number="121000248",
+            account_number="12345678",
+            name_on_account="John Doe",
+        )
+
+        result = await mock_connector.charge(
+            amount=Decimal("150.00"),
+            payment_method=bank_account,
+        )
+
+        assert result.transaction_id == "ACH123"
+        assert result.status == TransactionStatus.APPROVED
+
+    @pytest.mark.asyncio
+    async def test_bank_account_routing_validation(self):
+        """Test bank account routing number validation."""
+        from aragora.connectors.payments.authorize_net import BankAccount
+
+        account = BankAccount(
+            account_type="savings",
+            routing_number="121000248",
+            account_number="87654321",
+            name_on_account="Jane Doe",
+            echeck_type="CCD",
+        )
+
+        api_data = account.to_api()
+        assert api_data["routingNumber"] == "121000248"
+        assert api_data["echeckType"] == "CCD"
+
+
+# =============================================================================
+# Reporting Tests
+# =============================================================================
+
+
+class TestReportingMethods:
+    """Tests for transaction reporting methods."""
+
+    @pytest.mark.asyncio
+    async def test_get_transaction_details(self, mock_connector):
+        """Test getting transaction details."""
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transaction": {
+                    "transId": "TRANS123",
+                    "transactionStatus": "settledSuccessfully",
+                    "submitTimeUTC": "2024-01-15T12:00:00Z",
+                    "authAmount": "99.99",
+                },
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        result = await mock_connector.get_transaction("TRANS123")
+
+        assert result["transaction"]["transId"] == "TRANS123"
+
+    @pytest.mark.asyncio
+    async def test_get_settled_batch_list(self, mock_connector):
+        """Test getting settled batch list."""
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "batchList": [
+                    {"batchId": "BATCH1", "settlementTimeUTC": "2024-01-15T12:00:00Z"},
+                    {"batchId": "BATCH2", "settlementTimeUTC": "2024-01-16T12:00:00Z"},
+                ],
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        from datetime import datetime, timezone
+
+        result = await mock_connector.get_settled_batch_list(
+            first_settlement_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            last_settlement_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+        )
+
+        assert len(result) == 2
+        assert result[0]["batchId"] == "BATCH1"
+
+    @pytest.mark.asyncio
+    async def test_get_transaction_list(self, mock_connector):
+        """Test getting transaction list for a batch."""
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactions": [
+                    {"transId": "T1", "amount": "50.00"},
+                    {"transId": "T2", "amount": "75.00"},
+                ],
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        result = await mock_connector.get_transaction_list("BATCH1")
+
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_subscription_details(self, mock_connector):
+        """Test getting subscription details."""
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "subscription": {
+                    "subscriptionId": "SUB123",
+                    "name": "Monthly Plan",
+                    "status": "active",
+                },
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        result = await mock_connector.get_subscription("SUB123")
+
+        assert result["subscription"]["subscriptionId"] == "SUB123"
+
+
+# =============================================================================
+# Customer Profile Charge Tests
+# =============================================================================
+
+
+class TestChargeCustomerProfile:
+    """Tests for charging customer profiles."""
+
+    @pytest.mark.asyncio
+    async def test_charge_customer_profile(self, mock_connector):
+        """Test charging a stored payment method."""
+        from aragora.connectors.payments.authorize_net import TransactionStatus
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "transactionResponse": {
+                    "responseCode": "1",
+                    "transId": "PROFILE_TRANS",
+                    "authCode": "AUTH",
+                },
+                "messages": {
+                    "resultCode": "Ok",
+                    "message": [{}],
+                },
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        result = await mock_connector.charge_customer_profile(
+            profile_id="PROF123",
+            payment_profile_id="PP123",
+            amount=Decimal("75.00"),
+            order_id="ORDER_001",
+        )
+
+        assert result.transaction_id == "PROFILE_TRANS"
+        assert result.status == TransactionStatus.APPROVED
+
+
+# =============================================================================
+# BOM Handling Tests
+# =============================================================================
+
+
+class TestBOMHandling:
+    """Tests for handling BOM in API responses."""
+
+    @pytest.mark.asyncio
+    async def test_response_with_bom(self, mock_connector):
+        """Test handling JSON response with BOM character."""
+        from aragora.connectors.payments.authorize_net import CreditCard
+
+        # JSON with UTF-8 BOM
+        json_with_bom = '\ufeff{"transactionResponse":{"responseCode":"1","transId":"BOM123"},"messages":{"resultCode":"Ok","message":[{}]}}'
+
+        mock_response = MagicMock()
+        mock_response.text = json_with_bom
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        card = CreditCard(card_number="4111111111111111", expiration_date="1225")
+        result = await mock_connector.charge(
+            amount=Decimal("25.00"),
+            payment_method=card,
+        )
+
+        assert result.transaction_id == "BOM123"
+
+
+# =============================================================================
+# Add Payment Profile Tests
+# =============================================================================
+
+
+class TestAddPaymentProfile:
+    """Tests for adding payment profiles to existing customers."""
+
+    @pytest.mark.asyncio
+    async def test_add_payment_profile_with_card(self, mock_connector):
+        """Test adding a credit card to existing customer profile."""
+        from aragora.connectors.payments.authorize_net import CreditCard, BillingAddress
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps(
+            {
+                "customerProfileId": "PROF123",
+                "customerPaymentProfileId": "PP_NEW",
+                "messages": {"resultCode": "Ok", "message": [{}]},
+            }
+        )
+        mock_response.raise_for_status = MagicMock()
+        mock_connector._client.post = AsyncMock(return_value=mock_response)
+
+        card = CreditCard(card_number="4111111111111111", expiration_date="1225")
+        billing = BillingAddress(first_name="John", last_name="Doe")
+
+        profile = await mock_connector.create_customer_profile(
+            merchant_customer_id="CUST_NEW",
+            payment_method=card,
+            billing=billing,
+        )
+
+        assert profile.profile_id == "PROF123"

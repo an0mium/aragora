@@ -381,9 +381,7 @@ class MockAgent:
     async def generate(self, prompt: str, context: list | None = None) -> str:
         return f"Response to: {prompt}"
 
-    async def critique(
-        self, proposal: str, task: str, context: list | None = None
-    ) -> Any:
+    async def critique(self, proposal: str, task: str, context: list | None = None) -> Any:
         from aragora.core_types import Critique
 
         return Critique(
@@ -812,7 +810,7 @@ class TestResponseSanitization:
         from aragora.agents.airlock import AirlockProxy
 
         agent = MockAgent()
-        agent.generate = AsyncMock(return_value="```json\n{\"key\": \"value\"}\n```")
+        agent.generate = AsyncMock(return_value='```json\n{"key": "value"}\n```')
 
         proxy = AirlockProxy(agent)
         result = await proxy.generate("Test prompt")
@@ -915,9 +913,7 @@ class TestJsonExtraction:
         from aragora.agents.airlock import AirlockProxy
 
         agent = MockAgent()
-        agent.generate = AsyncMock(
-            return_value='The list is: [1, 2, 3] as requested.'
-        )
+        agent.generate = AsyncMock(return_value="The list is: [1, 2, 3] as requested.")
 
         proxy = AirlockProxy(agent)
         result = await proxy.generate("Test prompt")
@@ -943,9 +939,7 @@ class TestJsonExtraction:
         from aragora.agents.airlock import AirlockConfig, AirlockProxy
 
         agent = MockAgent()
-        agent.generate = AsyncMock(
-            return_value='Here is the result: {"name": "test"}'
-        )
+        agent.generate = AsyncMock(return_value='Here is the result: {"name": "test"}')
 
         config = AirlockConfig(extract_json=False)
         proxy = AirlockProxy(agent, config)
@@ -1251,9 +1245,7 @@ class TestEdgeCases:
         from aragora.agents.airlock import AirlockProxy
 
         agent = MockAgent()
-        agent.generate = AsyncMock(
-            return_value='Result: {"outer": {"inner": [1, 2, 3]}}'
-        )
+        agent.generate = AsyncMock(return_value='Result: {"outer": {"inner": [1, 2, 3]}}')
 
         proxy = AirlockProxy(agent)
         result = await proxy.generate("Test prompt")
@@ -1266,9 +1258,7 @@ class TestEdgeCases:
         from aragora.agents.airlock import AirlockProxy
 
         agent = MockAgent()
-        agent.generate = AsyncMock(
-            return_value='Result: {invalid json here}'
-        )
+        agent.generate = AsyncMock(return_value="Result: {invalid json here}")
 
         proxy = AirlockProxy(agent)
         result = await proxy.generate("Test prompt")
@@ -1317,11 +1307,7 @@ class TestEdgeCases:
         config = AirlockConfig(critique_timeout=0.01, max_retries=0)
         proxy = AirlockProxy(agent, config)
 
-        result = await proxy.critique(
-            "Proposal",
-            "Task",
-            target_agent="specific_target"
-        )
+        result = await proxy.critique("Proposal", "Task", target_agent="specific_target")
 
         assert isinstance(result, Critique)
         assert result.target_agent == "specific_target"

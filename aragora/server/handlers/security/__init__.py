@@ -43,9 +43,7 @@ class CSPViolation:
 
         return cls(
             document_uri=data.get("document-uri", data.get("documentURI", "")),
-            violated_directive=data.get(
-                "violated-directive", data.get("violatedDirective", "")
-            ),
+            violated_directive=data.get("violated-directive", data.get("violatedDirective", "")),
             blocked_uri=data.get("blocked-uri", data.get("blockedURL", "")),
             source_file=data.get("source-file", data.get("sourceFile")),
             line_number=data.get("line-number", data.get("lineNumber")),

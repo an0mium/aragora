@@ -13,12 +13,13 @@ Requires Azure AD OAuth2 credentials.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Optional
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -68,6 +69,94 @@ SUPPORTED_EXTENSIONS: set[str] = {
     ".cpp",
     ".h",
 }
+
+# Allowed domains for redirect targets (Microsoft services)
+ALLOWED_REDIRECT_DOMAINS: frozenset[str] = frozenset(
+    {
+        "graph.microsoft.com",
+        "login.microsoftonline.com",
+        "login.live.com",
+        "blob.core.windows.net",
+        "sharepoint.com",
+        "onedrive.com",
+        "office.com",
+        "office365.com",
+        "microsoftonline.com",
+    }
+)
+
+# Maximum number of redirects to follow
+MAX_REDIRECTS = 5
+
+
+def _is_private_ip(host: str) -> bool:
+    """
+    Check if a hostname resolves to a private/internal IP address.
+
+    Args:
+        host: Hostname or IP address to check
+
+    Returns:
+        True if the host is a private/internal IP, False otherwise
+    """
+    try:
+        # Check if it's directly an IP address
+        ip = ipaddress.ip_address(host)
+        return (
+            ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
+        )
+    except ValueError:
+        # Not a direct IP, it's a hostname - check for localhost variants
+        lower_host = host.lower()
+        if lower_host in ("localhost", "localhost.localdomain"):
+            return True
+        # Allow hostname resolution to proceed - we validate the domain
+        return False
+
+
+def _is_safe_redirect_url(url: str) -> tuple[bool, str]:
+    """
+    Validate that a redirect URL is safe to follow.
+
+    Checks:
+    - URL scheme is HTTPS (reject HTTP, file://, etc.)
+    - Domain is in the allowed Microsoft domains list
+    - Host is not a private/internal IP address
+
+    Args:
+        url: The redirect URL to validate
+
+    Returns:
+        Tuple of (is_safe, reason) where reason explains why it's unsafe
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        return False, f"Failed to parse URL: {e}"
+
+    # Only allow HTTPS
+    if parsed.scheme != "https":
+        return False, f"Unsafe scheme: {parsed.scheme}"
+
+    host = parsed.hostname
+    if not host:
+        return False, "No hostname in URL"
+
+    # Check for private/internal IPs
+    if _is_private_ip(host):
+        return False, f"Private/internal IP not allowed: {host}"
+
+    # Check if domain is in allowlist (including subdomains)
+    host_lower = host.lower()
+    is_allowed = any(
+        host_lower == allowed or host_lower.endswith("." + allowed)
+        for allowed in ALLOWED_REDIRECT_DOMAINS
+    )
+
+    if not is_allowed:
+        return False, f"Domain not in allowlist: {host}"
+
+    return True, ""
 
 
 @dataclass
@@ -478,6 +567,12 @@ class OneDriveConnector(EnterpriseConnector):
 
         Returns:
             File content as bytes
+
+        Raises:
+            ConnectorAuthError: If authentication fails
+            ConnectorRateLimitError: If rate limited
+            ConnectorNotFoundError: If file not found
+            ConnectorAPIError: For other errors including SSRF protection blocks
         """
         await self._ensure_valid_token()
         session = await self._get_session()
@@ -489,32 +584,78 @@ class OneDriveConnector(EnterpriseConnector):
 
         headers = {"Authorization": f"Bearer {self._access_token}"}
 
-        async with session.get(url, headers=headers, allow_redirects=True) as resp:
-            if resp.status >= 400:
-                # Map HTTP status to appropriate exception type
-                if resp.status in (401, 403):
-                    raise ConnectorAuthError(
-                        f"OneDrive download auth failed: {resp.status}",
-                        connector_name="onedrive",
-                    )
-                elif resp.status == 429:
-                    raise ConnectorRateLimitError(
-                        "OneDrive download rate limited",
-                        connector_name="onedrive",
-                    )
-                elif resp.status == 404:
-                    raise ConnectorNotFoundError(
-                        f"OneDrive file not found: {file_id}",
-                        connector_name="onedrive",
-                        resource_id=file_id,
-                    )
-                else:
-                    raise ConnectorAPIError(
-                        f"OneDrive download failed: {resp.status}",
-                        connector_name="onedrive",
-                        status_code=resp.status,
-                    )
-            return await resp.read()
+        # Manually handle redirects with SSRF protection
+        redirect_count = 0
+        current_url = url
+
+        while True:
+            async with session.get(current_url, headers=headers, allow_redirects=False) as resp:
+                # Handle redirects manually with validation
+                if resp.status in (301, 302, 303, 307, 308):
+                    redirect_count += 1
+                    if redirect_count > MAX_REDIRECTS:
+                        logger.warning(
+                            f"SSRF protection: Too many redirects ({redirect_count}) "
+                            f"for file {file_id}"
+                        )
+                        raise ConnectorAPIError(
+                            "Too many redirects during download",
+                            connector_name="onedrive",
+                            status_code=resp.status,
+                        )
+
+                    redirect_url = resp.headers.get("Location")
+                    if not redirect_url:
+                        raise ConnectorAPIError(
+                            "Redirect response missing Location header",
+                            connector_name="onedrive",
+                            status_code=resp.status,
+                        )
+
+                    # Validate the redirect URL for SSRF protection
+                    is_safe, reason = _is_safe_redirect_url(redirect_url)
+                    if not is_safe:
+                        logger.warning(
+                            f"SSRF protection: Blocked redirect to {redirect_url} "
+                            f"for file {file_id}: {reason}"
+                        )
+                        raise ConnectorAPIError(
+                            f"Blocked unsafe redirect: {reason}",
+                            connector_name="onedrive",
+                            status_code=resp.status,
+                        )
+
+                    current_url = redirect_url
+                    # Don't send auth header to external blob storage
+                    if "graph.microsoft.com" not in redirect_url:
+                        headers = {}
+                    continue
+
+                if resp.status >= 400:
+                    # Map HTTP status to appropriate exception type
+                    if resp.status in (401, 403):
+                        raise ConnectorAuthError(
+                            f"OneDrive download auth failed: {resp.status}",
+                            connector_name="onedrive",
+                        )
+                    elif resp.status == 429:
+                        raise ConnectorRateLimitError(
+                            "OneDrive download rate limited",
+                            connector_name="onedrive",
+                        )
+                    elif resp.status == 404:
+                        raise ConnectorNotFoundError(
+                            f"OneDrive file not found: {file_id}",
+                            connector_name="onedrive",
+                            resource_id=file_id,
+                        )
+                    else:
+                        raise ConnectorAPIError(
+                            f"OneDrive download failed: {resp.status}",
+                            connector_name="onedrive",
+                            status_code=resp.status,
+                        )
+                return await resp.read()
 
     async def get_file_metadata(self, file_id: str) -> OneDriveFile:
         """Get metadata for a specific file."""

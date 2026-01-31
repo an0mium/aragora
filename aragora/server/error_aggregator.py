@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 import re
 import threading
 import time
@@ -48,12 +47,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from aragora.config.env_helpers import env_int
+
 logger = logging.getLogger(__name__)
 
-# Configuration
-DEFAULT_WINDOW_MINUTES = int(os.environ.get("ARAGORA_ERROR_WINDOW_MINUTES", "60"))
-DEFAULT_MAX_UNIQUE_ERRORS = int(os.environ.get("ARAGORA_ERROR_MAX_UNIQUE", "1000"))
-DEFAULT_DEDUP_WINDOW_SECONDS = int(os.environ.get("ARAGORA_ERROR_DEDUP_SECONDS", "60"))
+# Configuration (using safe int parsing)
+DEFAULT_WINDOW_MINUTES = env_int("ARAGORA_ERROR_WINDOW_MINUTES", 60)
+DEFAULT_MAX_UNIQUE_ERRORS = env_int("ARAGORA_ERROR_MAX_UNIQUE", 1000)
+DEFAULT_DEDUP_WINDOW_SECONDS = env_int("ARAGORA_ERROR_DEDUP_SECONDS", 60)
 
 
 def _normalize_message(message: str) -> str:

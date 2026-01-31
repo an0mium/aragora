@@ -912,4 +912,4 @@ class TestPostgresDecimalPrecision:
 
         # This proves the precision loss with float
         assert float_back != original  # BROKEN with float
-        assert str_back == original    # CORRECT with str
+        assert str_back == original  # CORRECT with str

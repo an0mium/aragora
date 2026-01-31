@@ -117,16 +117,19 @@ class DebateRequest:
         "supermajority",
         "any",
         "byzantine",
-    ] = cast(Literal[
-        "majority",
-        "unanimous",
-        "judge",
-        "none",
-        "weighted",
-        "supermajority",
-        "any",
-        "byzantine",
-    ], DEFAULT_CONSENSUS)
+    ] = cast(
+        Literal[
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+            "byzantine",
+        ],
+        DEFAULT_CONSENSUS,
+    )
     timeout: float = 600.0  # 10 minutes for background debates
     priority: int = 0  # Higher = more urgent
     metadata: dict[str, Any] = field(default_factory=dict)

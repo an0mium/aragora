@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack integration configuration and lazy singletons.
 
@@ -11,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Callable, Pattern
 
 logger = logging.getLogger(__name__)
 
@@ -164,10 +163,10 @@ if not SLACK_BOT_TOKEN:
 
 # --- Multi-workspace support ---
 
-_workspace_store = None
+_workspace_store: Any = None
 
 
-def get_workspace_store():
+def get_workspace_store() -> Any:
     """Get the Slack workspace store for multi-workspace support."""
     global _workspace_store
     if _workspace_store is None:
@@ -180,7 +179,7 @@ def get_workspace_store():
     return _workspace_store
 
 
-def resolve_workspace(team_id: str):
+def resolve_workspace(team_id: str) -> Any:
     """Resolve a workspace by team_id.
 
     Returns workspace object if found, None otherwise.
@@ -201,8 +200,8 @@ def resolve_workspace(team_id: str):
 
 # --- Command parsing patterns ---
 
-COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
-TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
+COMMAND_PATTERN: Pattern[str] = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
+TOPIC_PATTERN: Pattern[str] = re.compile(r'^["\']?(.+?)["\']?$')
 
 # --- Slack integration singleton ---
 
@@ -236,21 +235,46 @@ def get_slack_integration() -> Any | None:
 
 # --- Re-export common handler utilities for backward compatibility ---
 # Other modules import these from config.py
+
+# These are typed as Any since we have fallback stubs
+HandlerResult: Any
+SecureHandler: Any
+ForbiddenError: type[Exception]
+UnauthorizedError: type[Exception]
+error_response: Callable[..., Any]
+json_response: Callable[..., Any]
+auto_error_response: Callable[[str], Callable[[Any], Any]]
+rate_limit: Callable[..., Callable[[Any], Any]]
+
 try:
     from aragora.server.handlers.base import (
-        HandlerResult,
-        error_response,
-        json_response,
+        HandlerResult as _HandlerResult,
+        error_response as _error_response,
+        json_response as _json_response,
     )
-    from aragora.server.handlers.secure import SecureHandler
-    from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
-    from aragora.server.handlers.utils.decorators import auto_error_response
-    from aragora.server.handlers.utils.rate_limit import rate_limit
+    from aragora.server.handlers.secure import SecureHandler as _SecureHandler
+    from aragora.server.handlers.utils.auth import (
+        ForbiddenError as _ForbiddenError,
+        UnauthorizedError as _UnauthorizedError,
+    )
+    from aragora.server.handlers.utils.decorators import (
+        auto_error_response as _auto_error_response,
+    )
+    from aragora.server.handlers.utils.rate_limit import rate_limit as _rate_limit
+
+    HandlerResult = _HandlerResult
+    SecureHandler = _SecureHandler
+    ForbiddenError = _ForbiddenError
+    UnauthorizedError = _UnauthorizedError
+    error_response = _error_response
+    json_response = _json_response
+    auto_error_response = _auto_error_response
+    rate_limit = _rate_limit
 except ImportError as e:
     logger.warning(f"Failed to import handler utilities: {e}")
     # Define stubs to prevent import errors
-    HandlerResult: Any = None
-    SecureHandler: Any = None
+    HandlerResult = None  # type: ignore[assignment]
+    SecureHandler = None  # type: ignore[assignment]
     ForbiddenError = Exception
     UnauthorizedError = Exception
 
@@ -260,13 +284,13 @@ except ImportError as e:
     def json_response(*args: Any, **kwargs: Any) -> Any:
         return None
 
-    def auto_error_response(operation: str) -> Any:
+    def auto_error_response(operation: str) -> Callable[[Any], Any]:
         def decorator(func: Any) -> Any:
             return func
 
         return decorator
 
-    def rate_limit(**kwargs: Any) -> Any:
+    def rate_limit(**kwargs: Any) -> Callable[[Any], Any]:
         def decorator(func: Any) -> Any:
             return func
 

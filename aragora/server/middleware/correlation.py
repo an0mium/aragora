@@ -91,9 +91,7 @@ class CorrelationContext:
             TRACE_ID_HEADER: self.trace_id,
             SPAN_ID_HEADER: self.span_id,
             # W3C traceparent
-            TRACEPARENT_HEADER: (
-                f"00-{self.trace_id:0>32}-{self.span_id:0>16}-01"
-            ),
+            TRACEPARENT_HEADER: (f"00-{self.trace_id:0>32}-{self.span_id:0>16}-01"),
         }
         if self.parent_span_id:
             headers[PARENT_SPAN_HEADER] = self.parent_span_id
@@ -147,9 +145,12 @@ def init_correlation(
     hdrs = headers or {}
 
     # --- Request ID ---
-    rid = request_id or hdrs.get(REQUEST_ID_HEADER) or hdrs.get(
-        REQUEST_ID_HEADER.lower()
-    ) or generate_request_id()
+    rid = (
+        request_id
+        or hdrs.get(REQUEST_ID_HEADER)
+        or hdrs.get(REQUEST_ID_HEADER.lower())
+        or generate_request_id()
+    )
 
     # --- Trace ID ---
     tid = trace_id
@@ -159,9 +160,7 @@ def init_correlation(
         tid = hdrs.get(TRACE_ID_HEADER) or hdrs.get(TRACE_ID_HEADER.lower())
 
     if not tid:
-        traceparent = hdrs.get(TRACEPARENT_HEADER) or hdrs.get(
-            TRACEPARENT_HEADER.lower()
-        )
+        traceparent = hdrs.get(TRACEPARENT_HEADER) or hdrs.get(TRACEPARENT_HEADER.lower())
         if traceparent:
             parts = traceparent.split("-")
             if len(parts) >= 2:
@@ -176,9 +175,7 @@ def init_correlation(
     sid = span_id or generate_span_id()
 
     if not psid:
-        psid = hdrs.get(PARENT_SPAN_HEADER) or hdrs.get(
-            PARENT_SPAN_HEADER.lower()
-        )
+        psid = hdrs.get(PARENT_SPAN_HEADER) or hdrs.get(PARENT_SPAN_HEADER.lower())
 
     ctx = CorrelationContext(
         request_id=rid,

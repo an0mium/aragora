@@ -263,9 +263,7 @@ class LeakDetector:
 
         with self._lock:
             suspects = [
-                rec
-                for rec in self._active.values()
-                if (now - rec.acquired_at) >= threshold
+                rec for rec in self._active.values() if (now - rec.acquired_at) >= threshold
             ]
         return sorted(suspects, key=lambda r: r.held_seconds, reverse=True)
 

@@ -1252,10 +1252,11 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         """List all integrations (async)."""
         return await self.list_all_async(limit)
 
-    async def list_all_async(self) -> list[IntegrationConfig]:
+    async def list_all_async(self, limit: int = 1000) -> list[IntegrationConfig]:
         """List all integrations asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch("""SELECT integration_type, enabled,
+            rows = await conn.fetch(
+                """SELECT integration_type, enabled,
                           EXTRACT(EPOCH FROM created_at) as created_at,
                           EXTRACT(EPOCH FROM updated_at) as updated_at,
                           notify_on_consensus, notify_on_debate_end, notify_on_error,
@@ -1263,7 +1264,10 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                           errors_24h,
                           EXTRACT(EPOCH FROM last_activity) as last_activity,
                           last_error, user_id, workspace_id
-                   FROM integrations""")
+                   FROM integrations
+                   LIMIT $1""",
+                limit,
+            )
             configs = []
             for row in rows:
                 config = self._row_to_config(row)
@@ -1273,9 +1277,9 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 configs.append(config)
             return configs
 
-    def list_all_sync(self) -> list[IntegrationConfig]:
+    def list_all_sync(self, limit: int = 1000) -> list[IntegrationConfig]:
         """List all integrations (sync wrapper for async)."""
-        return run_async(self.list_all_async())
+        return run_async(self.list_all_async(limit))
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"

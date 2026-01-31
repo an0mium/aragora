@@ -1090,9 +1090,7 @@ Your responsibilities include:
         loader = AgentConfigLoader()  # No registry
         config = AgentConfig(name="test", model_type="demo")
 
-        with patch(
-            "aragora.agents.config_loader.AgentConfigLoader.create_agent"
-        ) as mock_create:
+        with patch("aragora.agents.config_loader.AgentConfigLoader.create_agent") as mock_create:
             mock_agent = MagicMock()
             mock_create.return_value = mock_agent
 

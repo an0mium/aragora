@@ -130,6 +130,9 @@ class OIDCConfig(SSOConfig):
     # Token validation
     validate_tokens: bool = True
     allowed_audiences: list[str] = field(default_factory=list)
+    # JWT algorithms allowed for ID token validation - defaults to RS256 only
+    # Allowing multiple algorithms can enable algorithm confusion attacks
+    allowed_algorithms: list[str] = field(default_factory=lambda: ["RS256"])
 
     # Claim mapping (OIDC claim -> user field)
     claim_mapping: dict[str, str] = field(
@@ -239,6 +242,17 @@ class OIDCConfig(SSOConfig):
         if not self.issuer_url:
             if not self.authorization_endpoint or not self.token_endpoint:
                 errors.append("issuer_url or explicit endpoints are required")
+
+        # Validate allowed algorithms - reject insecure symmetric algorithms
+        # HMAC algorithms (HS*) are insecure for OIDC because the secret is shared
+        # The "none" algorithm means no signature at all
+        insecure_algorithms = {"HS256", "HS384", "HS512", "none"}
+        for alg in self.allowed_algorithms:
+            if alg in insecure_algorithms:
+                errors.append(
+                    f"Algorithm '{alg}' is insecure for OIDC ID token validation. "
+                    "Use asymmetric algorithms like RS256 or ES256."
+                )
 
         return errors
 
@@ -609,7 +623,7 @@ class OIDCProvider(SSOProvider):
         return jwt.decode(
             id_token,
             signing_key.key,
-            algorithms=["RS256", "ES256"],
+            algorithms=self.config.allowed_algorithms,
             audience=audiences,
             issuer=self.config.issuer_url,
         )

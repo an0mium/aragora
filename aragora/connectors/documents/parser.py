@@ -1069,7 +1069,8 @@ class DocumentParser:
                 )
                 try:
                     with tarfile.open(
-                        name="", fileobj=cast(IO[bytes], io.BytesIO(content)), mode=mode
+                        fileobj=cast(IO[bytes], io.BytesIO(content)),
+                        mode=mode,  # type: ignore[call-overload]
                     ) as tf:
                         for member in tf.getmembers():
                             if member.isfile():

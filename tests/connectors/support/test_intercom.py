@@ -666,9 +666,7 @@ class TestConversationOperations:
 
     @pytest.mark.asyncio
     async def test_get_conversations_with_state_filter(self, intercom_connector, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"conversations": [], "pages": {}}
-        )
+        mock_httpx_client.request.return_value = _make_response({"conversations": [], "pages": {}})
         await intercom_connector.get_conversations(state=ConversationState.OPEN)
         call_args = mock_httpx_client.request.call_args
         assert call_args.kwargs["params"]["state"] == "open"
@@ -677,9 +675,7 @@ class TestConversationOperations:
     async def test_get_conversations_with_assignee_filter(
         self, intercom_connector, mock_httpx_client
     ):
-        mock_httpx_client.request.return_value = _make_response(
-            {"conversations": [], "pages": {}}
-        )
+        mock_httpx_client.request.return_value = _make_response({"conversations": [], "pages": {}})
         await intercom_connector.get_conversations(assignee_id="admin_123")
         call_args = mock_httpx_client.request.call_args
         assert call_args.kwargs["params"]["assignee_id"] == "admin_123"
@@ -801,8 +797,18 @@ class TestContactOperations:
         mock_httpx_client.request.return_value = _make_response(
             {
                 "data": [
-                    {"id": "contact_1", "name": "User 1", "email": "user1@test.com", "role": "user"},
-                    {"id": "contact_2", "name": "User 2", "email": "user2@test.com", "role": "lead"},
+                    {
+                        "id": "contact_1",
+                        "name": "User 1",
+                        "email": "user1@test.com",
+                        "role": "user",
+                    },
+                    {
+                        "id": "contact_2",
+                        "name": "User 2",
+                        "email": "user2@test.com",
+                        "role": "lead",
+                    },
                 ],
                 "pages": {"next": {"starting_after": "contact_2"}},
             }
@@ -879,7 +885,12 @@ class TestContactOperations:
     @pytest.mark.asyncio
     async def test_update_contact(self, intercom_connector, mock_httpx_client):
         mock_httpx_client.request.return_value = _make_response(
-            {"id": "contact_123", "name": "Updated Name", "email": "updated@test.com", "role": "user"}
+            {
+                "id": "contact_123",
+                "name": "Updated Name",
+                "email": "updated@test.com",
+                "role": "user",
+            }
         )
         contact = await intercom_connector.update_contact(
             "contact_123",
@@ -1203,9 +1214,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_get_conversations_empty_response(self, intercom_connector, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"conversations": [], "pages": {}}
-        )
+        mock_httpx_client.request.return_value = _make_response({"conversations": [], "pages": {}})
         conversations, next_cursor = await intercom_connector.get_conversations()
         assert conversations == []
         assert next_cursor is None

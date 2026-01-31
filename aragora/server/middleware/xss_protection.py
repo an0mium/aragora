@@ -39,9 +39,7 @@ class XSSProtectionConfig:
 
     # Cookie security
     enforce_cookie_security: bool = field(
-        default_factory=lambda: os.getenv(
-            "ARAGORA_ENFORCE_COOKIE_SECURITY", "true"
-        ).lower()
+        default_factory=lambda: os.getenv("ARAGORA_ENFORCE_COOKIE_SECURITY", "true").lower()
         in ("true", "1", "yes")
     )
     cookie_samesite: str = field(

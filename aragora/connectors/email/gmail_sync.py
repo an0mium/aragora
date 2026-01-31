@@ -491,7 +491,13 @@ class GmailSyncService:
                 if not self._connector or not self._state:
                     return []
 
-                logger.info(f"[GmailSync] Starting initial sync for {self._state.email_address}")
+                # Log without exposing full email address
+                email_masked = (
+                    self._state.email_address[:2] + "***"
+                    if self._state.email_address
+                    else "unknown"
+                )
+                logger.info(f"[GmailSync] Starting initial sync for {email_masked}")
 
                 # Get current history ID
                 profile = await self._connector.get_user_info()

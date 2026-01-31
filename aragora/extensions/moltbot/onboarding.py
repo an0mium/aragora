@@ -166,7 +166,9 @@ class OnboardingOrchestrator:
             step = OnboardingStep(
                 id=step_id,
                 name=name,
-                type=cast(Literal["info", "input", "verification", "action", "decision"], step_type),
+                type=cast(
+                    Literal["info", "input", "verification", "action", "decision"], step_type
+                ),
                 content=content or {},
                 required=required,
                 order=order,

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Health and readiness endpoint handlers.
 

@@ -489,12 +489,15 @@ async def trigger_security_debate(
         # Create environment
         env = Environment(
             task=question,
-            context=cast(str, {
-                "security_event_id": event.id,
-                "repository": event.repository,
-                "scan_id": event.scan_id,
-                "findings": [f.to_dict() for f in event.findings],
-            }),
+            context=cast(
+                str,
+                {
+                    "security_event_id": event.id,
+                    "repository": event.repository,
+                    "scan_id": event.scan_id,
+                    "findings": [f.to_dict() for f in event.findings],
+                },
+            ),
         )
 
         # Create protocol for security debates

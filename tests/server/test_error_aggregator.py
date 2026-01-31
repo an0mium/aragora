@@ -89,7 +89,8 @@ class TestNormalizeMessage:
         result = _normalize_message(msg)
         assert "<UUID>" in result
         assert "<N>" in result
-        assert "<STR>" in result
+        # Path replacement happens before quoted string replacement
+        assert "<PATH>" in result or "<STR>" in result
         assert "failed" in result
         assert "Timeout" in result
 

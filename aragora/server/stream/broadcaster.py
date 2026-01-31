@@ -551,7 +551,9 @@ class WebSocketBroadcaster:
         self._running = False
 
         # Subscribe to emitter for state updates
-        self._emitter.subscribe(self.debate_state_cache.update_from_event)
+        # Store reference for cleanup
+        self._state_update_handler = self.debate_state_cache.update_from_event
+        self._emitter.subscribe(self._state_update_handler)
 
     @property
     def emitter(self) -> SyncEventEmitter:
@@ -716,6 +718,9 @@ class WebSocketBroadcaster:
     def cleanup(self) -> None:
         """Clean up all resources across all components."""
         self._running = False
+        # Unsubscribe from emitter to prevent memory leaks
+        if hasattr(self, "_state_update_handler"):
+            self._emitter.unsubscribe(self._state_update_handler)
         self.client_manager.cleanup()
         self.debate_state_cache.cleanup()
         self.loop_registry.cleanup()

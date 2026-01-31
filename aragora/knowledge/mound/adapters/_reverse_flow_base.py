@@ -245,17 +245,12 @@ class ReverseFlowMixin:
             try:
                 # Wrap per-item processing with timeout
                 await asyncio.wait_for(
-                    self._process_single_item(
-                        item, source_id, min_confidence, result
-                    ),
+                    self._process_single_item(item, source_id, min_confidence, result),
                     timeout=tc.per_item_timeout_seconds,
                 )
 
             except asyncio.TimeoutError:
-                error_msg = (
-                    f"Per-item timeout ({tc.per_item_timeout_seconds}s) "
-                    f"for {source_id}"
-                )
+                error_msg = f"Per-item timeout ({tc.per_item_timeout_seconds}s) for {source_id}"
                 result["errors"].append(error_msg)
                 logger.warning(f"[{self.adapter_name}] {error_msg}")
 
@@ -266,9 +261,7 @@ class ReverseFlowMixin:
             except Exception as e:
                 error_msg = f"Failed to update {source_id}: {str(e)}"
                 result["errors"].append(error_msg)
-                logger.warning(
-                    f"[{self.adapter_name}] Reverse sync failed for {source_id}: {e}"
-                )
+                logger.warning(f"[{self.adapter_name}] Reverse sync failed for {source_id}: {e}")
 
         result["duration_ms"] = (time.time() - start_time) * 1000
 
@@ -323,9 +316,7 @@ class ReverseFlowMixin:
             validation_meta.update(extra_meta)
 
         # Apply the validation
-        if self._apply_km_validation(
-            record, km_confidence, cross_refs, validation_meta
-        ):
+        if self._apply_km_validation(record, km_confidence, cross_refs, validation_meta):
             result["records_updated"] += 1
 
             # Emit event for reverse sync

@@ -320,7 +320,9 @@ class TestCmdBeadList:
         args = argparse.Namespace(status=None, convoy=None, limit=20)
 
         with patch("aragora.cli.gt._init_bead_store", return_value=MagicMock()):
-            with patch("aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())):
+            with patch(
+                "aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())
+            ):
                 with patch("aragora.cli.gt._run_async", side_effect=[[], []]):
                     result = cmd_bead_list(args)
 
@@ -335,7 +337,9 @@ class TestCmdBeadList:
         mock_bead = MockBead()
 
         with patch("aragora.cli.gt._init_bead_store", return_value=MagicMock()):
-            with patch("aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())):
+            with patch(
+                "aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())
+            ):
                 with patch(
                     "aragora.cli.gt._run_async",
                     side_effect=[[mock_bead], []],

@@ -52,12 +52,8 @@ from typing import Any, Callable, Coroutine
 logger = logging.getLogger(__name__)
 
 # Configurable via environment
-DEFAULT_DRAIN_SECONDS = float(
-    os.environ.get("ARAGORA_DRAIN_SECONDS", "10")
-)
-DEFAULT_SHUTDOWN_TIMEOUT = float(
-    os.environ.get("ARAGORA_SHUTDOWN_TIMEOUT", "30")
-)
+DEFAULT_DRAIN_SECONDS = float(os.environ.get("ARAGORA_DRAIN_SECONDS", "10"))
+DEFAULT_SHUTDOWN_TIMEOUT = float(os.environ.get("ARAGORA_SHUTDOWN_TIMEOUT", "30"))
 
 
 class ServerState(Enum):
@@ -83,9 +79,7 @@ class DrainStats:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "state_transitions": [
-                {"state": s, "timestamp": t} for s, t in self.state_transitions
-            ],
+            "state_transitions": [{"state": s, "timestamp": t} for s, t in self.state_transitions],
             "drain_started_at": self.drain_started_at,
             "shutdown_started_at": self.shutdown_started_at,
             "stopped_at": self.stopped_at,
@@ -219,9 +213,7 @@ class DrainCoordinator:
             Summary dict with timing and in-flight counts.
         """
         if self._state not in (ServerState.SERVING, ServerState.STARTING):
-            logger.warning(
-                "begin_drain called in state %s; ignoring", self._state.value
-            )
+            logger.warning("begin_drain called in state %s; ignoring", self._state.value)
             return self._stats.to_dict()
 
         # --- DRAINING ---
@@ -241,9 +233,7 @@ class DrainCoordinator:
         self._set_state(ServerState.SHUTTING_DOWN)
         self._stats.shutdown_started_at = time.time()
         self._stats.in_flight_at_shutdown = self._in_flight
-        logger.info(
-            "Entering SHUTTING_DOWN state (in_flight=%d)", self._in_flight
-        )
+        logger.info("Entering SHUTTING_DOWN state (in_flight=%d)", self._in_flight)
 
         # Run shutdown callback if registered
         if self._shutdown_fn is not None:
@@ -267,9 +257,7 @@ class DrainCoordinator:
 
         return self._stats.to_dict()
 
-    def set_shutdown_callback(
-        self, fn: Callable[[], Coroutine[Any, Any, Any]]
-    ) -> None:
+    def set_shutdown_callback(self, fn: Callable[[], Coroutine[Any, Any, Any]]) -> None:
         """Register the async function to call during SHUTTING_DOWN.
 
         Typically this wraps ``ShutdownSequence.execute_all()``.

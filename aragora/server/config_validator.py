@@ -64,7 +64,18 @@ class ConfigValidator:
             "Allows SHA-256 password hashing instead of bcrypt. "
             "SHA-256 is computationally fast, making password cracking easier."
         ),
+        "ARAGORA_ALLOW_UNSAFE_SAML": (
+            "Allows SAML authentication without signature validation. "
+            "This allows attackers to forge SAML responses and bypass authentication."
+        ),
+        "ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED": (
+            "Confirmation for unsafe SAML mode. "
+            "Only relevant when ARAGORA_ALLOW_UNSAFE_SAML is also set."
+        ),
     }
+
+    # SAML configuration variables - presence indicates SAML is configured
+    SAML_CONFIG_VARS = ["SAML_IDP_ENTITY_ID", "SAML_IDP_SSO_URL", "SAML_ENTITY_ID"]
 
     # At least one of these LLM API keys should be present
     LLM_API_KEYS = [
@@ -239,11 +250,57 @@ class ConfigValidator:
                     "for persistent state (set REDIS_URL=redis://host:port/db)"
                 )
 
+        # Check SAML library availability if SAML is configured
+        saml_ok, saml_error = cls.check_saml_library_availability()
+        if not saml_ok and saml_error:
+            errors.append(saml_error)
+
         return ValidationResult(
             is_valid=len(errors) == 0,
             errors=errors,
             warnings=warnings,
         )
+
+    @classmethod
+    def check_saml_library_availability(cls) -> tuple[bool, str | None]:
+        """
+        Check if python3-saml library is available when SAML is configured.
+
+        SAML authentication requires the python3-saml library for proper
+        signature validation. Without it, SAML responses cannot be securely
+        validated and attackers could forge user identities.
+
+        Returns:
+            (success, error_message) tuple. If success is False, error_message
+            contains the error description.
+        """
+        # Check if SAML appears to be configured
+        saml_configured = any(os.getenv(var) for var in cls.SAML_CONFIG_VARS)
+
+        if not saml_configured:
+            return True, None  # SAML not configured, not an error
+
+        # SAML is configured - check for library in production
+        is_production = os.getenv("ARAGORA_ENV", "").lower() in (
+            "production",
+            "prod",
+            "staging",
+            "stage",
+        )
+
+        if is_production:
+            try:
+                from onelogin.saml2.auth import OneLogin_Saml2_Auth  # noqa: F401
+
+                return True, None
+            except ImportError:
+                return False, (
+                    "SAML is configured but python3-saml library is not installed. "
+                    "Install with: pip install python3-saml"
+                )
+
+        # In development, allow without the library (will fail at runtime with clear error)
+        return True, None
 
     @classmethod
     def validate_and_log(cls, strict: bool = False) -> bool:

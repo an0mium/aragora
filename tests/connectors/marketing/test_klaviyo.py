@@ -245,9 +245,7 @@ class TestProfileDataclass:
                 "properties": {"lifetime_value": 5000},
                 "created": "2024-01-01T00:00:00Z",
                 "updated": "2024-01-20T15:30:00Z",
-                "subscriptions": {
-                    "email": {"marketing": {"consent": "SUBSCRIBED"}}
-                },
+                "subscriptions": {"email": {"marketing": {"consent": "SUBSCRIBED"}}},
             },
         }
 
@@ -787,7 +785,7 @@ class TestKlaviyoConnectorLists:
 
         mock_response = MagicMock()
         mock_response.status_code = 204
-        mock_response.content = b''
+        mock_response.content = b""
         mock_response.json.return_value = {}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -1074,7 +1072,7 @@ class TestKlaviyoConnectorCampaigns:
 
         mock_response = MagicMock()
         mock_response.status_code = 202
-        mock_response.content = b''
+        mock_response.content = b""
         mock_response.json.return_value = {}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -1165,7 +1163,7 @@ class TestKlaviyoConnectorEvents:
 
         mock_response = MagicMock()
         mock_response.status_code = 202
-        mock_response.content = b''
+        mock_response.content = b""
         mock_response.json.return_value = {}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -1299,9 +1297,7 @@ class TestKlaviyoConnectorErrorHandling:
         mock_response = MagicMock()
         mock_response.status_code = 400
         mock_response.content = b'{"errors": []}'
-        mock_response.json.return_value = {
-            "errors": [{"id": "err_1", "detail": "Invalid request"}]
-        }
+        mock_response.json.return_value = {"errors": [{"id": "err_1", "detail": "Invalid request"}]}
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
@@ -1329,9 +1325,7 @@ class TestKlaviyoConnectorErrorHandling:
         mock_response = MagicMock()
         mock_response.status_code = 401
         mock_response.content = b'{"errors": []}'
-        mock_response.json.return_value = {
-            "errors": [{"detail": "Invalid API key"}]
-        }
+        mock_response.json.return_value = {"errors": [{"detail": "Invalid API key"}]}
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
@@ -1358,9 +1352,7 @@ class TestKlaviyoConnectorErrorHandling:
         mock_response = MagicMock()
         mock_response.status_code = 429
         mock_response.content = b'{"errors": []}'
-        mock_response.json.return_value = {
-            "errors": [{"detail": "Rate limit exceeded"}]
-        }
+        mock_response.json.return_value = {"errors": [{"detail": "Rate limit exceeded"}]}
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value

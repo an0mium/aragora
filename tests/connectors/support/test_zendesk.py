@@ -618,9 +618,7 @@ class TestTicketOperations:
 
     @pytest.mark.asyncio
     async def test_get_tickets_with_assignee_filter(self, zendesk_connector, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"results": [], "next_page": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"results": [], "next_page": None})
         await zendesk_connector.get_tickets(assignee_id=123)
         call_args = mock_httpx_client.request.call_args
         assert "assignee_id:123" in call_args.kwargs["params"]["query"]
@@ -745,9 +743,7 @@ class TestUserOperations:
 
     @pytest.mark.asyncio
     async def test_get_users_with_role_filter(self, zendesk_connector, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"users": [], "next_page": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"users": [], "next_page": None})
         await zendesk_connector.get_users(role=UserRole.AGENT)
         call_args = mock_httpx_client.request.call_args
         assert call_args.kwargs["params"]["role"] == "agent"
@@ -755,7 +751,14 @@ class TestUserOperations:
     @pytest.mark.asyncio
     async def test_get_user(self, zendesk_connector, mock_httpx_client):
         mock_httpx_client.request.return_value = _make_response(
-            {"user": {"id": 12345, "name": "John Doe", "email": "john@test.com", "role": "end-user"}}
+            {
+                "user": {
+                    "id": 12345,
+                    "name": "John Doe",
+                    "email": "john@test.com",
+                    "role": "end-user",
+                }
+            }
         )
         user = await zendesk_connector.get_user(12345)
         assert user.id == 12345
@@ -1008,9 +1011,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_get_tickets_empty_response(self, zendesk_connector, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"tickets": [], "next_page": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"tickets": [], "next_page": None})
         tickets, has_more = await zendesk_connector.get_tickets()
         assert tickets == []
         assert not has_more

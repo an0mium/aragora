@@ -1127,3 +1127,260 @@ class TestOneDriveConstants:
         """Test API endpoint constants."""
         assert OneDriveConnector.GRAPH_BASE == "https://graph.microsoft.com/v1.0"
         assert OneDriveConnector.AUTH_URL == "https://login.microsoftonline.com"
+
+
+# =============================================================================
+# SSRF Protection Tests
+# =============================================================================
+
+
+class TestSSRFProtection:
+    """Test SSRF protection for redirect handling."""
+
+    def test_is_safe_redirect_url_allowed_domains(self):
+        """Test that allowed Microsoft domains are accepted."""
+        from aragora.connectors.enterprise.documents.onedrive import _is_safe_redirect_url
+
+        # Test various allowed Microsoft domains
+        safe_urls = [
+            "https://graph.microsoft.com/v1.0/me/drive",
+            "https://login.microsoftonline.com/oauth",
+            "https://login.live.com/oauth20",
+            "https://myaccount.blob.core.windows.net/container/file",
+            "https://contoso.sharepoint.com/sites/team",
+            "https://onedrive.com/download",
+            "https://office.com/files",
+            "https://office365.com/download",
+            "https://subdomain.sharepoint.com/file",
+            "https://tenant.onedrive.com/file",
+        ]
+
+        for url in safe_urls:
+            is_safe, reason = _is_safe_redirect_url(url)
+            assert is_safe, f"URL {url} should be safe but got: {reason}"
+
+    def test_is_safe_redirect_url_blocked_domains(self):
+        """Test that non-Microsoft domains are blocked."""
+        from aragora.connectors.enterprise.documents.onedrive import _is_safe_redirect_url
+
+        blocked_urls = [
+            "https://evil.com/steal-data",
+            "https://attacker.io/exfiltrate",
+            "https://notmicrosoft.com/fake",
+            "https://sharepoint.com.evil.com/phish",
+            "https://microsoftfake.com/steal",
+        ]
+
+        for url in blocked_urls:
+            is_safe, reason = _is_safe_redirect_url(url)
+            assert not is_safe, f"URL {url} should be blocked"
+            assert "not in allowlist" in reason
+
+    def test_is_safe_redirect_url_private_ips(self):
+        """Test that private/internal IPs are blocked."""
+        from aragora.connectors.enterprise.documents.onedrive import _is_safe_redirect_url
+
+        private_ip_urls = [
+            "https://10.0.0.1/internal",
+            "https://192.168.1.1/local",
+            "https://172.16.0.1/private",
+            "https://127.0.0.1/localhost",
+            "https://169.254.169.254/metadata",  # AWS metadata endpoint
+            "https://[::1]/ipv6-localhost",
+        ]
+
+        for url in private_ip_urls:
+            is_safe, reason = _is_safe_redirect_url(url)
+            assert not is_safe, f"URL {url} should be blocked"
+            assert "Private/internal IP" in reason or "not in allowlist" in reason
+
+    def test_is_safe_redirect_url_localhost(self):
+        """Test that localhost variants are blocked."""
+        from aragora.connectors.enterprise.documents.onedrive import _is_safe_redirect_url
+
+        localhost_urls = [
+            "https://localhost/internal",
+            "https://localhost.localdomain/internal",
+        ]
+
+        for url in localhost_urls:
+            is_safe, reason = _is_safe_redirect_url(url)
+            assert not is_safe, f"URL {url} should be blocked"
+
+    def test_is_safe_redirect_url_non_https(self):
+        """Test that non-HTTPS schemes are blocked."""
+        from aragora.connectors.enterprise.documents.onedrive import _is_safe_redirect_url
+
+        non_https_urls = [
+            "http://graph.microsoft.com/file",
+            "file:///etc/passwd",
+            "ftp://files.sharepoint.com/file",
+            "gopher://evil.com/",
+        ]
+
+        for url in non_https_urls:
+            is_safe, reason = _is_safe_redirect_url(url)
+            assert not is_safe, f"URL {url} should be blocked"
+            assert "Unsafe scheme" in reason
+
+    def test_is_private_ip_function(self):
+        """Test the _is_private_ip helper function."""
+        from aragora.connectors.enterprise.documents.onedrive import _is_private_ip
+
+        # Private IPs should return True
+        assert _is_private_ip("10.0.0.1") is True
+        assert _is_private_ip("192.168.1.1") is True
+        assert _is_private_ip("172.16.0.1") is True
+        assert _is_private_ip("127.0.0.1") is True
+        assert _is_private_ip("169.254.1.1") is True  # Link-local
+        assert _is_private_ip("localhost") is True
+
+        # Public IPs should return False
+        assert _is_private_ip("8.8.8.8") is False
+        assert _is_private_ip("1.1.1.1") is False
+
+        # Hostnames (non-localhost) should return False (domain check happens elsewhere)
+        assert _is_private_ip("graph.microsoft.com") is False
+
+    @pytest.mark.asyncio
+    async def test_download_file_ssrf_blocked_redirect(self, onedrive_connector):
+        """Test that SSRF attempts via redirect are blocked."""
+        # Create mock responses: first a redirect to evil domain, then we should never reach second
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {"Location": "https://evil.com/steal-data"}
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=redirect_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
+            with pytest.raises(ConnectorAPIError) as exc_info:
+                await onedrive_connector.download_file("file-001")
+
+            assert "Blocked unsafe redirect" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_download_file_ssrf_blocked_private_ip(self, onedrive_connector):
+        """Test that redirects to private IPs are blocked."""
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {"Location": "https://192.168.1.1/internal"}
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=redirect_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
+            with pytest.raises(ConnectorAPIError) as exc_info:
+                await onedrive_connector.download_file("file-001")
+
+            assert "Blocked unsafe redirect" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_download_file_ssrf_blocked_http(self, onedrive_connector):
+        """Test that redirects to HTTP are blocked."""
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {"Location": "http://graph.microsoft.com/file"}
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=redirect_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
+            with pytest.raises(ConnectorAPIError) as exc_info:
+                await onedrive_connector.download_file("file-001")
+
+            assert "Blocked unsafe redirect" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_download_file_allowed_redirect(self, onedrive_connector):
+        """Test that redirects to allowed domains succeed."""
+        # First response: redirect to Azure blob storage
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {
+            "Location": "https://myaccount.blob.core.windows.net/container/file.txt"
+        }
+
+        # Second response: successful download
+        success_response = MagicMock()
+        success_response.status = 200
+        success_response.read = AsyncMock(return_value=b"file content")
+
+        call_count = 0
+
+        def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock_cm = MagicMock()
+            if call_count == 1:
+                mock_cm.__aenter__ = AsyncMock(return_value=redirect_response)
+            else:
+                mock_cm.__aenter__ = AsyncMock(return_value=success_response)
+            mock_cm.__aexit__ = AsyncMock(return_value=None)
+            return mock_cm
+
+        mock_session = MagicMock()
+        mock_session.get = mock_get
+
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
+            content = await onedrive_connector.download_file("file-001")
+
+            assert content == b"file content"
+            assert call_count == 2  # Initial request + redirect
+
+    @pytest.mark.asyncio
+    async def test_download_file_max_redirects(self, onedrive_connector):
+        """Test that too many redirects are blocked."""
+        from aragora.connectors.enterprise.documents.onedrive import MAX_REDIRECTS
+
+        # Create a redirect response that always redirects
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {
+            "Location": "https://graph.microsoft.com/v1.0/another/redirect"
+        }
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=redirect_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
+            with pytest.raises(ConnectorAPIError) as exc_info:
+                await onedrive_connector.download_file("file-001")
+
+            assert "Too many redirects" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_download_file_missing_location_header(self, onedrive_connector):
+        """Test that redirect without Location header is handled."""
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {}  # No Location header
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=redirect_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
+            with pytest.raises(ConnectorAPIError) as exc_info:
+                await onedrive_connector.download_file("file-001")
+
+            assert "missing Location header" in str(exc_info.value)

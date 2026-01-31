@@ -730,6 +730,7 @@ class SyncOperationsMixin:
         workspace_id: str | None = None,
         since: str | None = None,
         limit: int = 1000,
+        batch_size: int = 50,
     ) -> "SyncResult":
         """
         Handler-compatible incremental sync from ContinuumMemory.
@@ -741,6 +742,7 @@ class SyncOperationsMixin:
             workspace_id: Override workspace ID for this sync
             since: ISO timestamp or entry ID to sync from (incremental)
             limit: Maximum entries to sync in this batch
+            batch_size: Number of concurrent store operations per batch
 
         Returns:
             SyncResult with counts of synced/updated/skipped nodes
@@ -798,6 +800,8 @@ class SyncOperationsMixin:
                     if hasattr(e, "updated_at") and e.updated_at >= since_dt.isoformat()
                 ]
 
+            # Collect all requests for batch processing (avoids N+1 pattern)
+            requests: list[IngestionRequest] = []
             for entry in entries:
                 try:
                     request = IngestionRequest(
@@ -816,17 +820,21 @@ class SyncOperationsMixin:
                             "original_metadata": entry.metadata,
                         },
                     )
-
-                    result = await self.store(request)
-
-                    if result.deduplicated:
-                        nodes_updated += 1
-                    else:
-                        nodes_synced += 1
+                    requests.append(request)
 
                 except Exception as e:
                     nodes_skipped += 1
                     errors.append(f"continuum:{entry.id}: {str(e)}")
+
+            # Batch store all requests using concurrent processing
+            if requests:
+                synced, updated, skipped, _, batch_errors = await self._batch_store(
+                    requests, batch_size=batch_size
+                )
+                nodes_synced += synced
+                nodes_updated += updated
+                nodes_skipped += skipped
+                errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"continuum:retrieve: {str(e)}")
@@ -846,6 +854,7 @@ class SyncOperationsMixin:
         workspace_id: str | None = None,
         since: str | None = None,
         limit: int = 1000,
+        batch_size: int = 50,
     ) -> "SyncResult":
         """
         Handler-compatible incremental sync from ConsensusMemory.
@@ -857,6 +866,7 @@ class SyncOperationsMixin:
             workspace_id: Override workspace ID for this sync
             since: ISO timestamp to sync from (incremental)
             limit: Maximum entries to sync in this batch
+            batch_size: Number of concurrent store operations per batch
 
         Returns:
             SyncResult with counts of synced/updated/skipped nodes
@@ -912,6 +922,8 @@ class SyncOperationsMixin:
 
                 from aragora.utils.json_helpers import safe_json_loads
 
+                # Collect all requests for batch processing (avoids N+1 pattern)
+                requests: list[IngestionRequest] = []
                 for row in rows:
                     try:
                         record_id = row[0]
@@ -947,18 +959,22 @@ class SyncOperationsMixin:
                         if supersedes:
                             request.derived_from = [f"cs_{supersedes}"]
 
-                        result = await self.store(request)
-
-                        if result.deduplicated:
-                            nodes_updated += 1
-                        else:
-                            nodes_synced += 1
-
-                        relationships_created += result.relationships_created
+                        requests.append(request)
 
                     except Exception as e:
                         nodes_skipped += 1
                         errors.append(f"consensus:{row[0]}: {str(e)}")
+
+                # Batch store all requests using concurrent processing
+                if requests:
+                    synced, updated, skipped, rels, batch_errors = await self._batch_store(
+                        requests, batch_size=batch_size
+                    )
+                    nodes_synced += synced
+                    nodes_updated += updated
+                    nodes_skipped += skipped
+                    relationships_created += rels
+                    errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"consensus:query: {str(e)}")

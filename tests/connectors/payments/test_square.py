@@ -4,16 +4,155 @@ Tests for Square Payment Connector.
 Tests cover:
 - Client initialization
 - API authentication
-- Payments API
+- Payments API (creation and capture)
 - Customers API
 - Subscriptions API
 - Invoices API
 - Catalog API
-- Error handling
+- Refund processing
+- Webhook signature verification
+- Error handling (declined cards, network errors, invalid amounts)
+- Idempotency key handling
+- Currency handling
 - Mock data generators
 """
 
+import hashlib
+import hmac
+import json
+import time
+from datetime import datetime, timezone
+from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
+
+
+# =============================================================================
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def square_credentials():
+    """Create test credentials."""
+    from aragora.connectors.payments.square import SquareCredentials, SquareEnvironment
+
+    return SquareCredentials(
+        access_token="sq0atp-test_access_token_12345",
+        environment=SquareEnvironment.SANDBOX,
+        location_id="LOC_TEST_12345",
+        webhook_signature_key="webhook_sig_key_test",
+    )
+
+
+@pytest.fixture
+def square_client(square_credentials):
+    """Create client instance."""
+    from aragora.connectors.payments.square import SquareClient
+
+    return SquareClient(square_credentials)
+
+
+@pytest.fixture
+def mock_payment_api_response():
+    """Mock payment API response."""
+    return {
+        "payment": {
+            "id": "PAYMENT_TEST_12345",
+            "status": "COMPLETED",
+            "amount_money": {"amount": 9999, "currency": "USD"},
+            "total_money": {"amount": 9999, "currency": "USD"},
+            "source_type": "CARD",
+            "card_details": {
+                "card": {"card_brand": "VISA", "last_4": "1234"},
+                "status": "CAPTURED",
+            },
+            "location_id": "LOC_TEST_12345",
+            "order_id": "ORDER_12345",
+            "receipt_url": "https://squareup.com/receipt/PAYMENT_TEST_12345",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    }
+
+
+@pytest.fixture
+def mock_refund_api_response():
+    """Mock refund API response."""
+    return {
+        "refund": {
+            "id": "REFUND_TEST_12345",
+            "payment_id": "PAYMENT_TEST_12345",
+            "status": "COMPLETED",
+            "amount_money": {"amount": 5000, "currency": "USD"},
+            "reason": "Customer request",
+            "location_id": "LOC_TEST_12345",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    }
+
+
+@pytest.fixture
+def mock_customer_api_response():
+    """Mock customer API response."""
+    return {
+        "customer": {
+            "id": "CUSTOMER_TEST_12345",
+            "given_name": "John",
+            "family_name": "Doe",
+            "email_address": "john.doe@example.com",
+            "phone_number": "+15551234567",
+            "address": {
+                "address_line_1": "123 Main St",
+                "locality": "San Francisco",
+                "administrative_district_level_1": "CA",
+                "postal_code": "94102",
+                "country": "US",
+            },
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    }
+
+
+@pytest.fixture
+def mock_subscription_api_response():
+    """Mock subscription API response."""
+    return {
+        "subscription": {
+            "id": "SUBSCRIPTION_TEST_12345",
+            "status": "ACTIVE",
+            "plan_id": "PLAN_TEST_12345",
+            "customer_id": "CUSTOMER_TEST_12345",
+            "location_id": "LOC_TEST_12345",
+            "start_date": "2024-01-15",
+            "charged_through_date": "2024-02-15",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    }
+
+
+@pytest.fixture
+def mock_invoice_api_response():
+    """Mock invoice API response."""
+    return {
+        "invoice": {
+            "id": "INVOICE_TEST_12345",
+            "version": 1,
+            "status": "DRAFT",
+            "location_id": "LOC_TEST_12345",
+            "order_id": "ORDER_12345",
+            "invoice_number": "INV-001",
+            "payment_requests": [
+                {
+                    "request_type": "BALANCE",
+                    "due_date": "2024-02-01",
+                }
+            ],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    }
 
 
 # =============================================================================
@@ -515,3 +654,595 @@ class TestModuleImports:
         assert SquareError is not None
         assert SquarePaymentStatus is not None
         assert SquareMoney is not None
+
+
+# =============================================================================
+# Payment Creation and Capture Tests
+# =============================================================================
+
+
+class TestPaymentCreation:
+    """Tests for payment creation and capture."""
+
+    @pytest.mark.asyncio
+    async def test_create_payment_basic(self, square_client, mock_payment_api_response):
+        """Test basic payment creation."""
+        from aragora.connectors.payments.square import PaymentStatus
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.create_payment(
+                    source_id="cnon:card-nonce-ok",
+                    amount_money={"amount": 9999, "currency": "USD"},
+                    location_id="LOC_TEST_12345",
+                )
+
+            assert result.id == "PAYMENT_TEST_12345"
+            assert result.status == PaymentStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_create_payment_with_idempotency_key(
+        self, square_client, mock_payment_api_response
+    ):
+        """Test payment creation with idempotency key."""
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.create_payment(
+                    source_id="cnon:card-nonce-ok",
+                    amount_money={"amount": 9999, "currency": "USD"},
+                    location_id="LOC_TEST_12345",
+                    idempotency_key="unique_key_12345",
+                )
+
+            assert result.id == "PAYMENT_TEST_12345"
+
+    @pytest.mark.asyncio
+    async def test_get_payment(self, square_client, mock_payment_api_response):
+        """Test getting payment details."""
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.get_payment("PAYMENT_TEST_12345")
+
+            assert result.id == "PAYMENT_TEST_12345"
+
+    @pytest.mark.asyncio
+    async def test_complete_payment(self, square_client, mock_payment_api_response):
+        """Test completing (capturing) a payment."""
+        from aragora.connectors.payments.square import PaymentStatus
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.complete_payment("PAYMENT_TEST_12345")
+
+            assert result.status == PaymentStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_cancel_payment(self, square_client, mock_payment_api_response):
+        """Test canceling a payment."""
+        from aragora.connectors.payments.square import PaymentStatus
+
+        mock_payment_api_response["payment"]["status"] = "CANCELED"
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.cancel_payment("PAYMENT_TEST_12345")
+
+            assert result.status == PaymentStatus.CANCELED
+
+
+# =============================================================================
+# Refund Processing Tests
+# =============================================================================
+
+
+class TestRefundProcessing:
+    """Tests for refund processing."""
+
+    @pytest.mark.asyncio
+    async def test_refund_payment_full(self, square_client, mock_refund_api_response):
+        """Test full refund of a payment."""
+        mock_refund_api_response["refund"]["amount_money"]["amount"] = 9999
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_refund_api_response
+
+            async with square_client:
+                result = await square_client.refund_payment(
+                    payment_id="PAYMENT_TEST_12345",
+                    amount_money={"amount": 9999, "currency": "USD"},
+                    idempotency_key="refund_key_12345",
+                )
+
+            assert result.id == "REFUND_TEST_12345"
+            assert result.status == "COMPLETED"
+
+    @pytest.mark.asyncio
+    async def test_refund_payment_partial(self, square_client, mock_refund_api_response):
+        """Test partial refund of a payment."""
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_refund_api_response
+
+            async with square_client:
+                result = await square_client.refund_payment(
+                    payment_id="PAYMENT_TEST_12345",
+                    amount_money={"amount": 5000, "currency": "USD"},
+                    idempotency_key="partial_refund_key",
+                )
+
+            assert result.amount_money.amount == 5000
+
+    @pytest.mark.asyncio
+    async def test_refund_with_reason(self, square_client, mock_refund_api_response):
+        """Test refund with reason."""
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_refund_api_response
+
+            async with square_client:
+                result = await square_client.refund_payment(
+                    payment_id="PAYMENT_TEST_12345",
+                    amount_money={"amount": 5000, "currency": "USD"},
+                    idempotency_key="refund_with_reason",
+                    reason="Customer request",
+                )
+
+            assert result.reason == "Customer request"
+
+
+# =============================================================================
+# Webhook Signature Verification Tests
+# =============================================================================
+
+
+class TestWebhookSignatureVerification:
+    """Tests for webhook signature verification."""
+
+    def test_verify_webhook_signature_valid(self, square_client):
+        """Test verification of valid webhook signature."""
+        import base64
+
+        notification_url = "https://webhook.example.com/square"
+        payload = b'{"type":"payment.created","event_id":"evt_12345"}'
+
+        string_to_sign = notification_url + payload.decode()
+        signature = hmac.new(
+            square_client.credentials.webhook_signature_key.encode("utf-8"),
+            string_to_sign.encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+        expected_sig = base64.b64encode(signature).decode()
+
+        result = square_client.verify_webhook_signature(
+            payload=payload,
+            signature=expected_sig,
+            notification_url=notification_url,
+        )
+
+        assert result is True
+
+    def test_verify_webhook_signature_invalid(self, square_client):
+        """Test rejection of invalid webhook signature."""
+        payload = b'{"type":"payment.created"}'
+        invalid_signature = "invalid_signature_base64"
+        notification_url = "https://webhook.example.com/square"
+
+        result = square_client.verify_webhook_signature(
+            payload=payload,
+            signature=invalid_signature,
+            notification_url=notification_url,
+        )
+
+        assert result is False
+
+    def test_parse_webhook_event(self, square_client):
+        """Test parsing webhook event payload."""
+        webhook_data = {
+            "merchant_id": "MERCHANT_12345",
+            "type": "payment.created",
+            "event_id": "EVT_12345",
+            "created_at": "2024-01-15T12:00:00Z",
+            "data": {
+                "type": "payment",
+                "id": "PAYMENT_12345",
+            },
+        }
+
+        event = square_client.parse_webhook_event(webhook_data)
+
+        assert event["type"] == "payment.created"
+        assert event["data"]["id"] == "PAYMENT_12345"
+
+
+# =============================================================================
+# Error Handling Tests (Async)
+# =============================================================================
+
+
+class TestErrorHandlingAsync:
+    """Async tests for error handling scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_declined_card_error(self, square_client):
+        """Test handling of declined card error."""
+        from aragora.connectors.payments.square import SquareError
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = SquareError(
+                message="Card declined",
+                status_code=400,
+                code="CARD_DECLINED",
+                category="PAYMENT_METHOD_ERROR",
+            )
+
+            async with square_client:
+                with pytest.raises(SquareError) as exc_info:
+                    await square_client.create_payment(
+                        source_id="cnon:card-nonce-declined",
+                        amount_money={"amount": 9999, "currency": "USD"},
+                        location_id="LOC_TEST_12345",
+                    )
+
+            assert exc_info.value.code == "CARD_DECLINED"
+
+    @pytest.mark.asyncio
+    async def test_network_error(self, square_client):
+        """Test handling of network error."""
+        from aragora.connectors.payments.square import SquareError
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = SquareError("HTTP error: Connection refused")
+
+            async with square_client:
+                with pytest.raises(SquareError) as exc_info:
+                    await square_client.get_payment("PAYMENT_12345")
+
+            assert "Connection refused" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_invalid_amount_error(self, square_client):
+        """Test handling of invalid amount error."""
+        from aragora.connectors.payments.square import SquareError
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = SquareError(
+                message="Amount is invalid",
+                status_code=400,
+                code="INVALID_VALUE",
+                category="INVALID_REQUEST_ERROR",
+            )
+
+            async with square_client:
+                with pytest.raises(SquareError) as exc_info:
+                    await square_client.create_payment(
+                        source_id="cnon:card-nonce-ok",
+                        amount_money={"amount": -100, "currency": "USD"},
+                        location_id="LOC_TEST_12345",
+                    )
+
+            assert exc_info.value.code == "INVALID_VALUE"
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error(self, square_client):
+        """Test handling of rate limit error."""
+        from aragora.connectors.payments.square import SquareError
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = SquareError(
+                message="Rate limit exceeded",
+                status_code=429,
+                code="RATE_LIMITED",
+                category="RATE_LIMIT_ERROR",
+            )
+
+            async with square_client:
+                with pytest.raises(SquareError) as exc_info:
+                    await square_client.create_payment(
+                        source_id="cnon:card-nonce-ok",
+                        amount_money={"amount": 9999, "currency": "USD"},
+                        location_id="LOC_TEST_12345",
+                    )
+
+            assert exc_info.value.status_code == 429
+
+    @pytest.mark.asyncio
+    async def test_authentication_error(self, square_client):
+        """Test handling of authentication error."""
+        from aragora.connectors.payments.square import SquareError
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = SquareError(
+                message="Invalid access token",
+                status_code=401,
+                code="UNAUTHORIZED",
+                category="AUTHENTICATION_ERROR",
+            )
+
+            async with square_client:
+                with pytest.raises(SquareError) as exc_info:
+                    await square_client.get_payment("PAYMENT_12345")
+
+            assert exc_info.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_resource_not_found_error(self, square_client):
+        """Test handling of resource not found error."""
+        from aragora.connectors.payments.square import SquareError
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = SquareError(
+                message="Payment not found",
+                status_code=404,
+                code="NOT_FOUND",
+                category="INVALID_REQUEST_ERROR",
+            )
+
+            async with square_client:
+                with pytest.raises(SquareError) as exc_info:
+                    await square_client.get_payment("INVALID_PAYMENT_ID")
+
+            assert exc_info.value.status_code == 404
+
+
+# =============================================================================
+# Currency Handling Tests
+# =============================================================================
+
+
+class TestCurrencyHandling:
+    """Tests for currency handling."""
+
+    @pytest.mark.asyncio
+    async def test_payment_in_gbp(self, square_client, mock_payment_api_response):
+        """Test payment in GBP."""
+        mock_payment_api_response["payment"]["amount_money"]["currency"] = "GBP"
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.create_payment(
+                    source_id="cnon:card-nonce-ok",
+                    amount_money={"amount": 7500, "currency": "GBP"},
+                    location_id="LOC_TEST_12345",
+                )
+
+            assert result.amount_money.currency == "GBP"
+
+    @pytest.mark.asyncio
+    async def test_payment_in_cad(self, square_client, mock_payment_api_response):
+        """Test payment in CAD."""
+        mock_payment_api_response["payment"]["amount_money"]["currency"] = "CAD"
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.create_payment(
+                    source_id="cnon:card-nonce-ok",
+                    amount_money={"amount": 12500, "currency": "CAD"},
+                    location_id="LOC_TEST_12345",
+                )
+
+            assert result.amount_money.currency == "CAD"
+
+    @pytest.mark.asyncio
+    async def test_zero_decimal_currency_jpy(self, square_client, mock_payment_api_response):
+        """Test zero-decimal currency (JPY)."""
+        mock_payment_api_response["payment"]["amount_money"] = {
+            "amount": 5000,
+            "currency": "JPY",
+        }
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_payment_api_response
+
+            async with square_client:
+                result = await square_client.create_payment(
+                    source_id="cnon:card-nonce-ok",
+                    amount_money={"amount": 5000, "currency": "JPY"},
+                    location_id="LOC_TEST_12345",
+                )
+
+            assert result.amount_money.currency == "JPY"
+            assert result.amount_money.amount == 5000
+
+
+# =============================================================================
+# Customer Operations Tests (Async)
+# =============================================================================
+
+
+class TestCustomerOperationsAsync:
+    """Async tests for customer operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_customer(self, square_client, mock_customer_api_response):
+        """Test customer creation."""
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_customer_api_response
+
+            async with square_client:
+                result = await square_client.create_customer(
+                    given_name="John",
+                    family_name="Doe",
+                    email_address="john.doe@example.com",
+                )
+
+            assert result.id == "CUSTOMER_TEST_12345"
+            assert result.given_name == "John"
+
+    @pytest.mark.asyncio
+    async def test_get_customer(self, square_client, mock_customer_api_response):
+        """Test getting customer details."""
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_customer_api_response
+
+            async with square_client:
+                result = await square_client.get_customer("CUSTOMER_TEST_12345")
+
+            assert result.id == "CUSTOMER_TEST_12345"
+
+    @pytest.mark.asyncio
+    async def test_update_customer(self, square_client, mock_customer_api_response):
+        """Test updating customer."""
+        mock_customer_api_response["customer"]["phone_number"] = "+15559876543"
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_customer_api_response
+
+            async with square_client:
+                result = await square_client.update_customer(
+                    customer_id="CUSTOMER_TEST_12345",
+                    phone_number="+15559876543",
+                )
+
+            assert result.phone_number == "+15559876543"
+
+    @pytest.mark.asyncio
+    async def test_delete_customer(self, square_client):
+        """Test deleting customer."""
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {}
+
+            async with square_client:
+                await square_client.delete_customer("CUSTOMER_TEST_12345")
+
+            mock_request.assert_called_once()
+
+
+# =============================================================================
+# Subscription Operations Tests (Async)
+# =============================================================================
+
+
+class TestSubscriptionOperationsAsync:
+    """Async tests for subscription operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_subscription(self, square_client, mock_subscription_api_response):
+        """Test subscription creation."""
+        from aragora.connectors.payments.square import SubscriptionStatus
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_subscription_api_response
+
+            async with square_client:
+                result = await square_client.create_subscription(
+                    location_id="LOC_TEST_12345",
+                    plan_id="PLAN_TEST_12345",
+                    customer_id="CUSTOMER_TEST_12345",
+                )
+
+            assert result.id == "SUBSCRIPTION_TEST_12345"
+            assert result.status == SubscriptionStatus.ACTIVE
+
+    @pytest.mark.asyncio
+    async def test_cancel_subscription(self, square_client, mock_subscription_api_response):
+        """Test canceling subscription."""
+        from aragora.connectors.payments.square import SubscriptionStatus
+
+        mock_subscription_api_response["subscription"]["status"] = "CANCELED"
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_subscription_api_response
+
+            async with square_client:
+                result = await square_client.cancel_subscription("SUBSCRIPTION_TEST_12345")
+
+            assert result.status == SubscriptionStatus.CANCELED
+
+
+# =============================================================================
+# Invoice Operations Tests (Async)
+# =============================================================================
+
+
+class TestInvoiceOperationsAsync:
+    """Async tests for invoice operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_invoice(self, square_client, mock_invoice_api_response):
+        """Test invoice creation."""
+        from aragora.connectors.payments.square import InvoiceStatus
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_invoice_api_response
+
+            async with square_client:
+                result = await square_client.create_invoice(
+                    location_id="LOC_TEST_12345",
+                    order_id="ORDER_12345",
+                    idempotency_key="invoice_key_12345",
+                )
+
+            assert result.id == "INVOICE_TEST_12345"
+            assert result.status == InvoiceStatus.DRAFT
+
+    @pytest.mark.asyncio
+    async def test_publish_invoice(self, square_client, mock_invoice_api_response):
+        """Test publishing invoice."""
+        from aragora.connectors.payments.square import InvoiceStatus
+
+        mock_invoice_api_response["invoice"]["status"] = "PUBLISHED"
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_invoice_api_response
+
+            async with square_client:
+                result = await square_client.publish_invoice(
+                    invoice_id="INVOICE_TEST_12345",
+                    version=1,
+                    idempotency_key="publish_key_12345",
+                )
+
+            assert result.status == InvoiceStatus.PUBLISHED
+
+    @pytest.mark.asyncio
+    async def test_cancel_invoice(self, square_client, mock_invoice_api_response):
+        """Test canceling invoice."""
+        from aragora.connectors.payments.square import InvoiceStatus
+
+        mock_invoice_api_response["invoice"]["status"] = "CANCELED"
+
+        with patch.object(square_client, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_invoice_api_response
+
+            async with square_client:
+                result = await square_client.cancel_invoice(
+                    invoice_id="INVOICE_TEST_12345",
+                    version=1,
+                )
+
+            assert result.status == InvoiceStatus.CANCELED
+
+
+# =============================================================================
+# Context Manager Tests
+# =============================================================================
+
+
+class TestContextManager:
+    """Tests for async context manager behavior."""
+
+    @pytest.mark.asyncio
+    async def test_context_manager_initializes_client(self, square_client):
+        """Test context manager properly initializes HTTP client."""
+        async with square_client:
+            assert square_client._client is not None
+
+    @pytest.mark.asyncio
+    async def test_context_manager_closes_client(self, square_client):
+        """Test context manager properly closes HTTP client."""
+        async with square_client:
+            pass
+
+        assert square_client._client is None

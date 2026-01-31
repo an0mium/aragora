@@ -158,8 +158,12 @@ class SAMLProvider(SSOProvider):
         # SECURITY: Require python3-saml library for all SAML authentication
         # The simplified parser does NOT validate signatures, which is a critical security flaw
         if not HAS_SAML_LIB:
-            # Check if explicitly allowed for testing only
-            allow_unsafe = os.getenv("ARAGORA_ALLOW_UNSAFE_SAML", "").lower() == "true"
+            # Check if explicitly allowed for testing only - requires BOTH env vars
+            # This double-confirmation prevents accidental enabling via copy-paste
+            allow_unsafe = (
+                os.getenv("ARAGORA_ALLOW_UNSAFE_SAML", "").lower() == "true"
+                and os.getenv("ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED", "").lower() == "true"
+            )
             env = os.getenv("ARAGORA_ENV", "").lower()
 
             if env in ("production", "prod", "staging", "stage"):
@@ -172,7 +176,8 @@ class SAMLProvider(SSOProvider):
                 raise SSOConfigurationError(
                     "python3-saml required for SAML authentication. "
                     "Install with: pip install python3-saml. "
-                    "For testing only, set ARAGORA_ALLOW_UNSAFE_SAML=true to use "
+                    "For testing only, set BOTH ARAGORA_ALLOW_UNSAFE_SAML=true AND "
+                    "ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED=true to use "
                     "the simplified parser (WARNING: no signature validation!).",
                     {"code": "MISSING_SAML_LIBRARY"},
                 )

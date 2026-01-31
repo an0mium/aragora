@@ -167,8 +167,7 @@ def _cleanup_expired_approvals() -> int:
     expired_ids = [
         rid
         for rid, req in _pending_approvals.items()
-        if (req.expires_at and now > req.expires_at)
-        or req.state != ApprovalState.PENDING
+        if (req.expires_at and now > req.expires_at) or req.state != ApprovalState.PENDING
     ]
     for rid in expired_ids:
         del _pending_approvals[rid]

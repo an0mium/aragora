@@ -329,9 +329,7 @@ class TestPersonaSynthesizer:
         assert persona.positions_incorrect == 10
         assert persona.reversals == 5
 
-    def test_get_grounded_persona_with_relationship_tracker(
-        self, mock_relationship_tracker
-    ):
+    def test_get_grounded_persona_with_relationship_tracker(self, mock_relationship_tracker):
         """Test getting grounded persona with RelationshipTracker."""
         synthesizer = PersonaSynthesizer(relationship_tracker=mock_relationship_tracker)
         persona = synthesizer.get_grounded_persona("claude")
@@ -396,23 +394,17 @@ class TestPersonaSynthesizer:
         assert "### Your Position History" in prompt
         assert "Positions taken" in prompt
 
-    def test_synthesize_identity_prompt_with_relationships(
-        self, mock_relationship_tracker
-    ):
+    def test_synthesize_identity_prompt_with_relationships(self, mock_relationship_tracker):
         """Test identity prompt includes relationships section."""
         synthesizer = PersonaSynthesizer(relationship_tracker=mock_relationship_tracker)
-        prompt = synthesizer.synthesize_identity_prompt(
-            "claude", opponent_names=["gemini"]
-        )
+        prompt = synthesizer.synthesize_identity_prompt("claude", opponent_names=["gemini"])
 
         assert "### Your Relationships" in prompt
 
     def test_synthesize_identity_prompt_custom_sections(self, mock_elo_system):
         """Test identity prompt with custom section selection."""
         synthesizer = PersonaSynthesizer(elo_system=mock_elo_system)
-        prompt = synthesizer.synthesize_identity_prompt(
-            "claude", include_sections=["performance"]
-        )
+        prompt = synthesizer.synthesize_identity_prompt("claude", include_sections=["performance"])
 
         assert "### Your Track Record" in prompt
         assert "### Your Calibration" not in prompt
@@ -563,6 +555,7 @@ class TestMomentDetector:
 
     def test_detect_upset_victory_no_upset(self, mock_elo_system):
         """Test no upset detected when winner has higher ELO."""
+
         # Winner has higher ELO than loser - not an upset
         @dataclass
         class MockRatingWinner:
@@ -634,9 +627,7 @@ class TestMomentDetector:
         position.reversed = False
 
         detector = MomentDetector()
-        result = detector.detect_position_reversal(
-            "claude", position, position, "debate2"
-        )
+        result = detector.detect_position_reversal("claude", position, position, "debate2")
 
         assert result is None
 
@@ -1039,9 +1030,7 @@ class TestIntegration:
         persona = synthesizer.get_grounded_persona("claude")
 
         # Generate full identity prompt
-        prompt = synthesizer.synthesize_identity_prompt(
-            "claude", opponent_names=["gemini"]
-        )
+        prompt = synthesizer.synthesize_identity_prompt("claude", opponent_names=["gemini"])
 
         # All sections should be present
         assert "## Your Identity: claude" in prompt

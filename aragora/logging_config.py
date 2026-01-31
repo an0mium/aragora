@@ -57,14 +57,17 @@ def _get_trace_context() -> dict[str, str | None]:
         return {"trace_id": None, "span_id": None}
 
 
+# Import safe env helpers (no circular imports - env_helpers only uses 'os')
+from aragora.config.env_helpers import env_int
+
 # Environment configuration
 LOG_LEVEL = os.environ.get("ARAGORA_LOG_LEVEL", "INFO").upper()
 LOG_FORMAT = os.environ.get("ARAGORA_LOG_FORMAT", "json")  # "json" or "text"
 LOG_FILE = os.environ.get("ARAGORA_LOG_FILE", "")
 
-# Log rotation configuration (for file logging)
-LOG_MAX_BYTES = int(os.environ.get("ARAGORA_LOG_MAX_BYTES", 10 * 1024 * 1024))  # 10MB default
-LOG_BACKUP_COUNT = int(os.environ.get("ARAGORA_LOG_BACKUP_COUNT", 5))  # Keep 5 backups
+# Log rotation configuration (for file logging) - using safe int parsing
+LOG_MAX_BYTES = env_int("ARAGORA_LOG_MAX_BYTES", 10 * 1024 * 1024)  # 10MB default
+LOG_BACKUP_COUNT = env_int("ARAGORA_LOG_BACKUP_COUNT", 5)  # Keep 5 backups
 
 
 @dataclass

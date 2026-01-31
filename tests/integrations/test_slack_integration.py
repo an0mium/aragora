@@ -137,7 +137,9 @@ class TestSlackIntegration:
 
     @pytest.mark.asyncio
     async def test_post_debate_summary(self, integration):
-        with patch.object(integration, "_send_message", new_callable=AsyncMock, return_value=True) as mock_send:
+        with patch.object(
+            integration, "_send_message", new_callable=AsyncMock, return_value=True
+        ) as mock_send:
             result = _make_debate_result()
             success = await integration.post_debate_summary(result)
             assert success is True
@@ -172,7 +174,9 @@ class TestSlackIntegration:
 
     @pytest.mark.asyncio
     async def test_send_consensus_alert(self, integration):
-        with patch.object(integration, "_send_message", new_callable=AsyncMock, return_value=True) as mock_send:
+        with patch.object(
+            integration, "_send_message", new_callable=AsyncMock, return_value=True
+        ) as mock_send:
             result = await integration.send_consensus_alert(
                 debate_id="d-1", confidence=0.9, winner="claude", task="Test task"
             )

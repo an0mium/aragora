@@ -1013,18 +1013,26 @@ class TestJwtSignatureVerification:
         handler = _make_oauth_handler()
 
         # Create a forged token with valid structure but fake signature
-        header = base64.urlsafe_b64encode(
-            json.dumps({"alg": "RS256", "kid": "fake_key"}).encode()
-        ).rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(
-            json.dumps({
-                "sub": "user123",
-                "email": "attacker@evil.com",
-                "email_verified": True,
-                "aud": "com.example.app",
-                "iss": "https://appleid.apple.com",
-            }).encode()
-        ).rstrip(b"=").decode()
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "RS256", "kid": "fake_key"}).encode())
+            .rstrip(b"=")
+            .decode()
+        )
+        payload = (
+            base64.urlsafe_b64encode(
+                json.dumps(
+                    {
+                        "sub": "user123",
+                        "email": "attacker@evil.com",
+                        "email_verified": True,
+                        "aud": "com.example.app",
+                        "iss": "https://appleid.apple.com",
+                    }
+                ).encode()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
         signature = base64.urlsafe_b64encode(b"fake_signature_here").rstrip(b"=").decode()
 
         forged_token = f"{header}.{payload}.{signature}"
@@ -1047,18 +1055,24 @@ class TestJwtSignatureVerification:
         handler = _make_oauth_handler()
 
         # Token with audience for a different app
-        header = base64.urlsafe_b64encode(
-            json.dumps({"alg": "RS256"}).encode()
-        ).rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(
-            json.dumps({
-                "sub": "user123",
-                "email": "user@example.com",
-                "email_verified": True,
-                "aud": "com.different.app",  # Wrong audience
-                "iss": "https://appleid.apple.com",
-            }).encode()
-        ).rstrip(b"=").decode()
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=").decode()
+        )
+        payload = (
+            base64.urlsafe_b64encode(
+                json.dumps(
+                    {
+                        "sub": "user123",
+                        "email": "user@example.com",
+                        "email_verified": True,
+                        "aud": "com.different.app",  # Wrong audience
+                        "iss": "https://appleid.apple.com",
+                    }
+                ).encode()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
         fake_sig = base64.urlsafe_b64encode(b"sig").rstrip(b"=").decode()
 
         wrong_aud_token = f"{header}.{payload}.{fake_sig}"
@@ -1079,20 +1093,26 @@ class TestJwtSignatureVerification:
         import time
 
         # Token that expired an hour ago
-        header = base64.urlsafe_b64encode(
-            json.dumps({"alg": "RS256"}).encode()
-        ).rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(
-            json.dumps({
-                "sub": "user123",
-                "email": "user@example.com",
-                "email_verified": True,
-                "aud": "com.example.app",
-                "iss": "https://appleid.apple.com",
-                "exp": int(time.time()) - 3600,  # Expired 1 hour ago
-                "iat": int(time.time()) - 7200,  # Issued 2 hours ago
-            }).encode()
-        ).rstrip(b"=").decode()
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=").decode()
+        )
+        payload = (
+            base64.urlsafe_b64encode(
+                json.dumps(
+                    {
+                        "sub": "user123",
+                        "email": "user@example.com",
+                        "email_verified": True,
+                        "aud": "com.example.app",
+                        "iss": "https://appleid.apple.com",
+                        "exp": int(time.time()) - 3600,  # Expired 1 hour ago
+                        "iat": int(time.time()) - 7200,  # Issued 2 hours ago
+                    }
+                ).encode()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
         fake_sig = base64.urlsafe_b64encode(b"sig").rstrip(b"=").decode()
 
         expired_token = f"{header}.{payload}.{fake_sig}"
@@ -1143,11 +1163,13 @@ class TestAccountLinkingConcurrency:
                     if attempt["provider_id"] == provider_id and attempt["user_id"] != user_id:
                         raise ValueError("OAuth account already linked to another user")
 
-                link_attempts.append({
-                    "user_id": user_id,
-                    "provider": provider,
-                    "provider_id": provider_id,
-                })
+                link_attempts.append(
+                    {
+                        "user_id": user_id,
+                        "provider": provider,
+                        "provider_id": provider_id,
+                    }
+                )
 
         # Two users try to link the same OAuth account
         results = await asyncio.gather(

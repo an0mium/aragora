@@ -197,7 +197,7 @@ class DeliveryPersistence:
     """SQLite persistence for webhook delivery queues.
 
     Ensures retry and dead-letter queues survive server restarts.
-    Uses thread-local connections for thread safety.
+    Uses thread-local connections for thread safety with proper cleanup tracking.
     """
 
     def __init__(self, db_path: str = _DEFAULT_DB_PATH):
@@ -205,20 +205,27 @@ class DeliveryPersistence:
         self._local = threading.local()
         self._initialized = False
         self._init_lock = threading.Lock()
+        # Track all connections for proper cleanup across threads
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get thread-local database connection."""
         if not hasattr(self._local, "conn") or self._local.conn is None:
             # Ensure directory exists
             Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
-            self._local.conn = sqlite3.connect(
+            conn = sqlite3.connect(
                 self._db_path,
                 check_same_thread=False,
                 timeout=30.0,
             )
-            self._local.conn.row_factory = sqlite3.Row
-            self._local.conn.execute("PRAGMA journal_mode=WAL")
-            self._local.conn.execute("PRAGMA busy_timeout=30000")
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=30000")
+            self._local.conn = conn
+            # Track connection for cleanup
+            with self._connections_lock:
+                self._connections.add(conn)
         return self._local.conn
 
     def initialize(self) -> None:
@@ -385,9 +392,17 @@ class DeliveryPersistence:
         return cursor.rowcount
 
     def close(self) -> None:
-        """Close database connection."""
-        if hasattr(self._local, "conn") and self._local.conn:
-            self._local.conn.close()
+        """Close all database connections across all threads."""
+        # Close all tracked connections
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except (sqlite3.Error, OSError):
+                    pass  # Connection may already be closed
+            self._connections.clear()
+        # Clear thread-local reference
+        if hasattr(self._local, "conn"):
             self._local.conn = None
 
 

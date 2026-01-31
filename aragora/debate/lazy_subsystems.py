@@ -60,7 +60,9 @@ class LazySubsystem(Generic[T]):
     @overload
     def __get__(self, obj: "Arena", objtype: type = ...) -> T | None: ...
 
-    def __get__(self, obj: Optional["Arena"], objtype: type = None) -> "LazySubsystem[T] | T | None":
+    def __get__(
+        self, obj: Optional["Arena"], objtype: type = None
+    ) -> "LazySubsystem[T] | T | None":
         if obj is None:
             return self
 

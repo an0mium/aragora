@@ -36,6 +36,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from aragora.config.env_helpers import env_int, env_bool
 from aragora.control_plane.leader import (
     DistributedStateError,
     is_distributed_state_required,
@@ -89,18 +90,18 @@ class RBACCacheConfig:
 
     @classmethod
     def from_env(cls) -> "RBACCacheConfig":
-        """Create config from environment variables."""
+        """Create config from environment variables (using safe type conversion)."""
         return cls(
             redis_url=os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL"),
             redis_prefix=os.environ.get("RBAC_CACHE_PREFIX", "aragora:rbac"),
-            decision_ttl_seconds=int(os.environ.get("RBAC_CACHE_DECISION_TTL", "300")),
-            role_ttl_seconds=int(os.environ.get("RBAC_CACHE_ROLE_TTL", "600")),
-            permission_ttl_seconds=int(os.environ.get("RBAC_CACHE_PERMISSION_TTL", "900")),
-            l1_enabled=os.environ.get("RBAC_CACHE_L1_ENABLED", "true").lower() == "true",
-            l1_max_size=int(os.environ.get("RBAC_CACHE_L1_MAX_SIZE", "10000")),
-            l1_ttl_seconds=int(os.environ.get("RBAC_CACHE_L1_TTL", "60")),
-            enable_pubsub=os.environ.get("RBAC_CACHE_PUBSUB", "true").lower() == "true",
-            enable_metrics=os.environ.get("RBAC_CACHE_METRICS", "true").lower() == "true",
+            decision_ttl_seconds=env_int("RBAC_CACHE_DECISION_TTL", 300),
+            role_ttl_seconds=env_int("RBAC_CACHE_ROLE_TTL", 600),
+            permission_ttl_seconds=env_int("RBAC_CACHE_PERMISSION_TTL", 900),
+            l1_enabled=env_bool("RBAC_CACHE_L1_ENABLED", True),
+            l1_max_size=env_int("RBAC_CACHE_L1_MAX_SIZE", 10000),
+            l1_ttl_seconds=env_int("RBAC_CACHE_L1_TTL", 60),
+            enable_pubsub=env_bool("RBAC_CACHE_PUBSUB", True),
+            enable_metrics=env_bool("RBAC_CACHE_METRICS", True),
         )
 
 

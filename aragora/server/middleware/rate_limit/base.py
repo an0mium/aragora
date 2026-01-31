@@ -14,15 +14,17 @@ import posixpath
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
+from aragora.config.env_helpers import env_int, env_float
+
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
 
-# Configuration from environment
-DEFAULT_RATE_LIMIT = int(os.environ.get("ARAGORA_RATE_LIMIT", "60"))
-IP_RATE_LIMIT = int(os.environ.get("ARAGORA_IP_RATE_LIMIT", "120"))
-BURST_MULTIPLIER = float(os.environ.get("ARAGORA_BURST_MULTIPLIER", "2.0"))
+# Configuration from environment (using safe parsing helpers)
+DEFAULT_RATE_LIMIT = env_int("ARAGORA_RATE_LIMIT", 60)
+IP_RATE_LIMIT = env_int("ARAGORA_IP_RATE_LIMIT", 120)
+BURST_MULTIPLIER = env_float("ARAGORA_BURST_MULTIPLIER", 2.0)
 
 # Trusted proxies for X-Forwarded-For header (comma-separated IPs/CIDRs)
 TRUSTED_PROXIES_RAW = os.environ.get(

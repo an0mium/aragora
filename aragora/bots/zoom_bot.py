@@ -248,7 +248,9 @@ class AragoraZoomBot:
         meeting_id = payload.get("object", {}).get("id", "")
         host_email = payload.get("object", {}).get("host_email", "")
 
-        logger.info(f"Meeting ended: {meeting_id} (host: {host_email})")
+        # Log without exposing full email address
+        host_masked = host_email[:2] + "***" if host_email else "unknown"
+        logger.info(f"Meeting ended: {meeting_id} (host: {host_masked})")
 
         # Trigger post-meeting summary generation if configured
         if getattr(self.config, "enable_post_meeting_summary", False):

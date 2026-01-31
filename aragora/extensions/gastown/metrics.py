@@ -39,15 +39,11 @@ def _load_metric(name: str, stub: Callable[..., Any]) -> Callable[..., Any]:
         return stub
 
 
-get_beads_completed_count = _load_metric(
-    "get_beads_completed_count", _stub_beads_completed_count
-)
+get_beads_completed_count = _load_metric("get_beads_completed_count", _stub_beads_completed_count)
 get_convoy_completion_rate = _load_metric(
     "get_convoy_completion_rate", _stub_convoy_completion_rate
 )
-get_gupp_recovery_count = _load_metric(
-    "get_gupp_recovery_count", _stub_gupp_recovery_count
-)
+get_gupp_recovery_count = _load_metric("get_gupp_recovery_count", _stub_gupp_recovery_count)
 
 
 __all__ = [

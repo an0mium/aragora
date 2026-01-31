@@ -173,7 +173,9 @@ class TestTelegramIntegration:
 
     @pytest.mark.asyncio
     async def test_post_debate_summary(self, integration):
-        with patch.object(integration, "_send_message", new_callable=AsyncMock, return_value=True) as mock_send:
+        with patch.object(
+            integration, "_send_message", new_callable=AsyncMock, return_value=True
+        ) as mock_send:
             result = _make_debate_result()
             success = await integration.post_debate_summary(result)
             assert success is True
