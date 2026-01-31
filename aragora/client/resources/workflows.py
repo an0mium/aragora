@@ -157,9 +157,9 @@ class WorkflowsAPI:
     def create(
         self,
         name: str,
-        steps: list[dict[str, Any]],
+        steps: builtins.list[dict[str, Any]],
         description: str | None = None,
-        triggers: Optional[list[dict[str, Any]]] = None,
+        triggers: Optional[builtins.list[dict[str, Any]]] = None,
         workspace_id: str | None = None,
     ) -> Workflow:
         """
@@ -192,9 +192,9 @@ class WorkflowsAPI:
     async def create_async(
         self,
         name: str,
-        steps: list[dict[str, Any]],
+        steps: builtins.list[dict[str, Any]],
         description: str | None = None,
-        triggers: Optional[list[dict[str, Any]]] = None,
+        triggers: Optional[builtins.list[dict[str, Any]]] = None,
         workspace_id: str | None = None,
     ) -> Workflow:
         """Async version of create()."""
@@ -216,7 +216,7 @@ class WorkflowsAPI:
         self,
         workflow_id: str,
         name: str | None = None,
-        steps: Optional[list[dict[str, Any]]] = None,
+        steps: Optional[builtins.list[dict[str, Any]]] = None,
         description: str | None = None,
         is_active: bool | None = None,
     ) -> Workflow:
@@ -238,7 +238,7 @@ class WorkflowsAPI:
         self,
         workflow_id: str,
         name: str | None = None,
-        steps: Optional[list[dict[str, Any]]] = None,
+        steps: Optional[builtins.list[dict[str, Any]]] = None,
         description: str | None = None,
         is_active: bool | None = None,
     ) -> Workflow:
