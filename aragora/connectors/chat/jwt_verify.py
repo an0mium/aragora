@@ -6,27 +6,46 @@ Provides JWT token verification for platforms that use OAuth bearer tokens:
 - Google Chat
 
 Uses PyJWK to fetch signing keys from platform endpoints and validate tokens.
+
+Security model:
+- Fail-closed: if PyJWT is unavailable, all tokens are rejected
+- JWKS keys are cached with a configurable TTL (default 1 hour)
+- OpenID metadata is fetched to discover JWKS URIs dynamically
+- Issuer and audience claims are always validated
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
 # Environment check for security-sensitive operations
 _IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "development").lower() in ("production", "prod")
 
-# PyJWT for token validation (always available)
-import jwt
-from jwt import PyJWKClient
-from jwt.exceptions import PyJWTError
+# PyJWT for token validation - handle gracefully if not installed
+try:
+    import jwt
+    from jwt import PyJWKClient
+    from jwt.exceptions import PyJWTError
 
-HAS_JWT = True
+    HAS_JWT = True
+except ImportError:
+    jwt = None  # type: ignore[assignment]
+    PyJWKClient = None  # type: ignore[assignment,misc]
+    PyJWTError = Exception  # type: ignore[assignment,misc]
+    HAS_JWT = False
+    logger.warning(
+        "PyJWT library not installed - JWT verification unavailable. "
+        "Install with: pip install pyjwt[crypto]"
+    )
 
 # Microsoft Bot Framework OpenID configuration
 MICROSOFT_OPENID_METADATA_URL = "https://login.botframework.com/v1/.well-known/openidconfiguration"
@@ -44,6 +63,9 @@ GOOGLE_VALID_ISSUERS = [
     "https://accounts.google.com",
 ]
 
+# OpenID metadata cache TTL (seconds)
+_OPENID_METADATA_CACHE_TTL = 3600  # 1 hour
+
 
 @dataclass
 class JWTVerificationResult:
@@ -54,30 +76,127 @@ class JWTVerificationResult:
     error: str | None = None
 
 
+@dataclass
+class _OpenIDMetadataCache:
+    """Cached OpenID metadata with TTL."""
+
+    jwks_uri: str
+    issuer: str | None = None
+    fetched_at: float = field(default_factory=time.time)
+
+
+def _fetch_openid_metadata(
+    metadata_url: str,
+    timeout: float = 10.0,
+) -> dict[str, Any] | None:
+    """Fetch OpenID Connect metadata from a discovery endpoint.
+
+    Retrieves the OpenID configuration document which contains the JWKS URI
+    needed for JWT signature verification. This implements the standard
+    OpenID Connect Discovery 1.0 protocol.
+
+    Args:
+        metadata_url: The OpenID configuration URL
+            (e.g., https://login.botframework.com/v1/.well-known/openidconfiguration)
+        timeout: HTTP request timeout in seconds
+
+    Returns:
+        Parsed metadata dict containing at minimum 'jwks_uri', or None on failure
+    """
+    try:
+        req = Request(metadata_url, headers={"Accept": "application/json"})
+        with urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if isinstance(data, dict) and "jwks_uri" in data:
+                return data
+            logger.warning(f"OpenID metadata from {metadata_url} missing 'jwks_uri' field")
+            return None
+    except (URLError, OSError, json.JSONDecodeError, ValueError) as e:
+        logger.warning(f"Failed to fetch OpenID metadata from {metadata_url}: {e}")
+        return None
+
+
 class JWTVerifier:
     """
     Verifies JWT tokens from chat platform webhooks.
 
-    Caches JWKS clients to avoid repeated key fetches.
+    Caches JWKS clients and OpenID metadata to avoid repeated network fetches.
+    Uses OpenID discovery to resolve JWKS endpoints dynamically, with
+    hardcoded fallback URIs for reliability.
+
+    The verifier follows a fail-closed security model: if PyJWT is not
+    installed or JWKS keys cannot be fetched, all tokens are rejected.
     """
 
-    def __init__(self):
-        """Initialize the verifier."""
+    def __init__(self, cache_ttl: float = 3600):
+        """Initialize the verifier.
+
+        Args:
+            cache_ttl: Time-to-live for cached JWKS clients and OpenID metadata,
+                       in seconds. Defaults to 3600 (1 hour).
+        """
         self._microsoft_jwks_client: Any | None = None
         self._google_jwks_client: Any | None = None
-        self._cache_time: float = 0
-        self._cache_ttl: float = 3600  # Refresh keys every hour
+        self._microsoft_cache_time: float = 0
+        self._google_cache_time: float = 0
+        self._cache_ttl: float = cache_ttl
+        # OpenID metadata cache
+        self._microsoft_metadata: _OpenIDMetadataCache | None = None
+
+    def _resolve_microsoft_jwks_uri(self) -> str:
+        """Resolve Microsoft JWKS URI via OpenID discovery, with fallback.
+
+        Fetches the OpenID configuration from Microsoft's Bot Framework
+        endpoint to discover the current JWKS URI. Falls back to the
+        hardcoded URI if discovery fails.
+
+        Returns:
+            The JWKS URI to use for key fetching
+        """
+        now = time.time()
+
+        # Return cached metadata if still valid
+        if (
+            self._microsoft_metadata is not None
+            and now - self._microsoft_metadata.fetched_at < self._cache_ttl
+        ):
+            return self._microsoft_metadata.jwks_uri
+
+        # Fetch fresh metadata from OpenID discovery endpoint
+        metadata = _fetch_openid_metadata(MICROSOFT_OPENID_METADATA_URL)
+        if metadata and "jwks_uri" in metadata:
+            jwks_uri = metadata["jwks_uri"]
+            issuer = metadata.get("issuer")
+            self._microsoft_metadata = _OpenIDMetadataCache(
+                jwks_uri=jwks_uri,
+                issuer=issuer,
+                fetched_at=now,
+            )
+            logger.debug(f"Resolved Microsoft JWKS URI via OpenID discovery: {jwks_uri}")
+            return jwks_uri
+
+        # Fallback to hardcoded URI
+        logger.debug("Using hardcoded Microsoft JWKS URI (OpenID discovery unavailable)")
+        return MICROSOFT_JWKS_URI
 
     def _get_microsoft_jwks_client(self) -> Any | None:
-        """Get or create Microsoft JWKS client."""
+        """Get or create Microsoft JWKS client with OpenID discovery.
+
+        Uses OpenID metadata to resolve the JWKS endpoint dynamically.
+        The client and its resolved URI are cached for ``cache_ttl`` seconds.
+        """
         if not HAS_JWT or PyJWKClient is None:
             return None
 
         now = time.time()
-        if self._microsoft_jwks_client is None or now - self._cache_time > self._cache_ttl:
+        if (
+            self._microsoft_jwks_client is None
+            or now - self._microsoft_cache_time > self._cache_ttl
+        ):
             try:
-                self._microsoft_jwks_client = PyJWKClient(MICROSOFT_JWKS_URI)
-                self._cache_time = now
+                jwks_uri = self._resolve_microsoft_jwks_uri()
+                self._microsoft_jwks_client = PyJWKClient(jwks_uri)
+                self._microsoft_cache_time = now
             except (PyJWTError, ValueError, OSError) as e:
                 logger.warning(f"Failed to create Microsoft JWKS client: {e}")
                 return None
@@ -90,10 +209,10 @@ class JWTVerifier:
             return None
 
         now = time.time()
-        if self._google_jwks_client is None or now - self._cache_time > self._cache_ttl:
+        if self._google_jwks_client is None or now - self._google_cache_time > self._cache_ttl:
             try:
                 self._google_jwks_client = PyJWKClient(GOOGLE_JWKS_URI)
-                self._cache_time = now
+                self._google_cache_time = now
             except (PyJWTError, ValueError, OSError) as e:
                 logger.warning(f"Failed to create Google JWKS client: {e}")
                 return None
@@ -108,9 +227,13 @@ class JWTVerifier:
         """
         Verify a Microsoft Bot Framework JWT token.
 
+        Validates the token signature against Microsoft's JWKS endpoint,
+        checks the issuer claim against known Bot Framework issuers,
+        and verifies the audience claim matches the configured app ID.
+
         Args:
             token: JWT token from Authorization header (without 'Bearer ' prefix)
-            app_id: Expected audience (Bot application ID)
+            app_id: Expected audience (Bot application ID from TEAMS_APP_ID / MS_APP_ID)
 
         Returns:
             JWTVerificationResult with validation status and claims
@@ -120,7 +243,7 @@ class JWTVerifier:
             return JWTVerificationResult(
                 valid=False,
                 claims={},
-                error="PyJWT library not available - install pyjwt for token verification",
+                error="PyJWT library not available - install pyjwt[crypto] for token verification",
             )
 
         jwks_client = self._get_microsoft_jwks_client()
@@ -283,15 +406,22 @@ def verify_teams_webhook(
     """
     Verify a Microsoft Teams webhook Authorization header.
 
+    Extracts the Bearer token from the Authorization header and validates it
+    against Microsoft's JWKS endpoint. Checks:
+    - JWT signature (RS256) against Microsoft Bot Framework signing keys
+    - Issuer claim (iss) against known Bot Framework issuers
+    - Audience claim (aud) against the bot's Microsoft App ID
+    - Token expiry (exp) and issued-at (iat) timestamps
+
     Args:
         auth_header: Full Authorization header value (e.g., "Bearer eyJ...")
-        app_id: Bot application ID
+        app_id: Bot application ID (from TEAMS_APP_ID or MS_APP_ID env var)
 
     Returns:
         True if token is valid, False otherwise
     """
     if not auth_header.startswith("Bearer "):
-        logger.warning("Invalid Authorization header format")
+        logger.warning("Invalid Authorization header format - expected 'Bearer <token>'")
         return False
 
     token = auth_header[7:]  # Remove "Bearer " prefix
@@ -340,4 +470,6 @@ __all__ = [
     "verify_teams_webhook",
     "verify_google_chat_webhook",
     "HAS_JWT",
+    "_fetch_openid_metadata",
+    "_OpenIDMetadataCache",
 ]

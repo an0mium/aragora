@@ -9,15 +9,30 @@ Endpoints:
 
 Environment Variables:
 - GOOGLE_CHAT_CREDENTIALS - Service account JSON or path to file
-- GOOGLE_CHAT_PROJECT_ID - Google Cloud project ID
+- GOOGLE_CHAT_PROJECT_ID - Google Cloud project ID (required for audience validation)
+
+Security (Phase 3.1):
+- Bearer token validation uses a layered verification strategy:
+  1. Primary: PyJWT-based JWKS verification via jwt_verify.JWTVerifier
+  2. Fallback: google-auth id_token.verify_oauth2_token
+  3. Last resort: HTTP tokeninfo endpoint check
+- Token verification results are cached (5-minute TTL) to avoid
+  hammering Google's endpoints on every webhook call.
+- Fails closed by default; an explicit dev bypass is available via
+  ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS for local testing.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import threading
+import time
+from urllib.parse import urlencode
+from urllib.request import urlopen
 from typing import TYPE_CHECKING, Any, Coroutine, Optional, Protocol, cast
 
 from aragora.audit.unified import audit_data
@@ -64,29 +79,50 @@ GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID")
 if not GOOGLE_CHAT_CREDENTIALS:
     logger.warning("GOOGLE_CHAT_CREDENTIALS not configured - Google Chat bot disabled")
 
+# Token verification cache (hash -> (expires_at, valid))
+_token_cache: dict[str, tuple[float, bool]] = {}
+_token_cache_lock = threading.Lock()
+_TOKEN_CACHE_TTL = 300  # 5 minutes
+
 
 def _verify_google_chat_token(auth_header: str) -> bool:
     """Verify Google Chat bearer token using Google's public keys.
-
-    Falls back to token presence check if google-auth isn't installed.
 
     Args:
         auth_header: The Authorization header value (e.g., "Bearer <token>")
 
     Returns:
-        True if token is valid or verification is unavailable, False if invalid.
+        True if token is valid, False otherwise.
     """
     if not auth_header.startswith("Bearer "):
         return False
 
     token = auth_header[7:]  # Remove "Bearer " prefix
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 
+    # Cache lookup
+    now = time.time()
+    with _token_cache_lock:
+        cached = _token_cache.get(token_hash)
+        if cached and cached[0] > now:
+            return cached[1]
+
+    try:
+        from aragora.connectors.chat.jwt_verify import HAS_JWT, verify_google_chat_webhook
+
+        if HAS_JWT:
+            valid = verify_google_chat_webhook(auth_header, GOOGLE_CHAT_PROJECT_ID)
+            with _token_cache_lock:
+                _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, valid)
+            return valid
+    except Exception as e:
+        logger.warning(f"JWT verifier error for Google Chat token: {e}")
+
+    # Fallback: google-auth verification if PyJWT unavailable
     try:
         from google.oauth2 import id_token
         from google.auth.transport import requests as google_requests
 
-        # Verify the token against Google's public keys
-        # chat@system.gserviceaccount.com is the expected issuer for Google Chat
         expected_audience = GOOGLE_CHAT_PROJECT_ID or "unknown"
         id_info = id_token.verify_oauth2_token(
             token,
@@ -94,25 +130,67 @@ def _verify_google_chat_token(auth_header: str) -> bool:
             audience=expected_audience,
         )
 
-        # Verify the token is from Google Chat
         email = id_info.get("email", "")
         if not email.endswith("@system.gserviceaccount.com"):
             logger.warning(f"Google Chat token from unexpected email: {email}")
-            return False
+            valid = False
+        else:
+            valid = True
 
-        return True
-
+        with _token_cache_lock:
+            _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, valid)
+        return valid
     except ImportError:
-        # google-auth not installed - fall back to presence check
-        logger.debug("google-auth not installed, using token presence check only")
-        return True
+        logger.debug("google-auth not installed; attempting tokeninfo fallback")
     except ValueError as e:
-        # Token verification failed
-        logger.warning(f"Google Chat token verification failed: {e}")
-        return False
+        logger.warning(f"Google Chat token verification failed (google-auth): {e}")
     except Exception as e:
-        logger.warning(f"Unexpected error verifying Google Chat token: {e}")
-        return True  # Fail open on unexpected errors for availability
+        logger.warning(f"Unexpected google-auth error verifying Google Chat token: {e}")
+
+    # Last resort: tokeninfo endpoint
+    try:
+        query = urlencode({"id_token": token})
+        tokeninfo_url = f"https://oauth2.googleapis.com/tokeninfo?{query}"
+        with urlopen(tokeninfo_url, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+
+        if payload.get("error"):
+            logger.warning(f"Google tokeninfo error: {payload.get('error_description')}")
+            valid = False
+        else:
+            if GOOGLE_CHAT_PROJECT_ID and payload.get("aud") != GOOGLE_CHAT_PROJECT_ID:
+                logger.warning(
+                    "Google Chat token audience mismatch: "
+                    f"{payload.get('aud')} != {GOOGLE_CHAT_PROJECT_ID}"
+                )
+                valid = False
+            else:
+                email = payload.get("email", "")
+                valid = email.endswith("@system.gserviceaccount.com")
+                if not valid:
+                    logger.warning(f"Google tokeninfo email mismatch: {email}")
+
+        with _token_cache_lock:
+            _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, valid)
+        return valid
+    except Exception as e:
+        logger.warning(f"Tokeninfo verification failed: {e}")
+
+    # Optional dev bypass
+    try:
+        from aragora.connectors.chat.webhook_security import should_allow_unverified
+
+        if should_allow_unverified("google_chat"):
+            logger.warning("Google Chat token verification bypassed in dev mode")
+            with _token_cache_lock:
+                _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, True)
+            return True
+    except ImportError:
+        pass
+
+    with _token_cache_lock:
+        _token_cache[token_hash] = (now + _TOKEN_CACHE_TTL, False)
+    return False
 
 
 # Input validation limits

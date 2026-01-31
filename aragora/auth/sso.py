@@ -549,7 +549,7 @@ class SSOSessionManager:
             expires_at=time.time() + self.session_duration,
         )
         self._sessions[session_id] = session
-        logger.info(f"Created SSO session for user {user.email}")
+        logger.info(f"Created SSO session for user_id={user.id}")
         return session
 
     async def get_session(self, session_id: str) -> SSOSession:

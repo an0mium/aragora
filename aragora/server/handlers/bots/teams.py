@@ -9,9 +9,17 @@ Endpoints:
 - GET /api/v1/bots/teams/status - Bot status
 
 Environment Variables:
-- TEAMS_APP_ID - Required for bot authentication
+- TEAMS_APP_ID or MS_APP_ID - Required: Microsoft Bot Application ID for JWT validation
 - TEAMS_APP_PASSWORD - Required for bot authentication
 - TEAMS_TENANT_ID - Optional for single-tenant apps
+
+JWT Validation (Phase 3.1):
+  Incoming Bot Framework activities carry an Authorization: Bearer <JWT> header
+  signed by Microsoft. The handler validates:
+  - Signature via JWKS keys from Microsoft's OpenID configuration endpoint
+  - Issuer (iss) against known Bot Framework issuers
+  - Audience (aud) against the configured App ID
+  - Token expiry (exp) and issued-at (iat) timestamps
 
 Activity Types Handled:
 - message: Regular messages and @mentions (commands)
@@ -47,11 +55,17 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 # Environment variables - None defaults make misconfiguration explicit
-TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID")
+# MS_APP_ID serves as a fallback for TEAMS_APP_ID (common Microsoft convention)
+TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID") or os.environ.get("MS_APP_ID")
 TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD")
 TEAMS_TENANT_ID = os.environ.get("TEAMS_TENANT_ID")
 
 # Log warnings at module load time for missing secrets
+if not TEAMS_APP_ID:
+    logger.warning(
+        "TEAMS_APP_ID (or MS_APP_ID) not configured - "
+        "Bot Framework JWT validation will reject all requests"
+    )
 if not TEAMS_APP_PASSWORD:
     logger.warning("TEAMS_APP_PASSWORD not configured - Teams bot authentication disabled")
 
@@ -99,35 +113,67 @@ def _check_connector_available() -> tuple[bool, str | None]:
 
 
 async def _verify_teams_token(auth_header: str, app_id: str) -> bool:
-    """Verify Bot Framework JWT token.
+    """Verify Bot Framework JWT token from the Authorization header.
 
-    Uses the centralized JWT verification if available.
+    Validates the incoming JWT against Microsoft's JWKS signing keys,
+    checking signature, issuer, audience, and expiry claims.
+
+    The function delegates to the centralized JWT verifier in
+    ``aragora.connectors.chat.jwt_verify`` which handles:
+    - OpenID metadata discovery to resolve the JWKS endpoint
+    - JWKS key caching with TTL to avoid per-request network calls
+    - RS256 signature verification
+    - Issuer validation against known Bot Framework issuers
+    - Audience validation against the configured app ID
+
+    Security: This function follows a fail-closed model. If PyJWT is not
+    installed or the verification module is unavailable, tokens are rejected
+    in production environments. In development, unverified tokens may be
+    allowed if ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is explicitly set.
+
+    Args:
+        auth_header: The full Authorization header value (e.g., "Bearer eyJ...")
+        app_id: The Microsoft Bot Application ID to validate the audience claim against.
+                Sourced from TEAMS_APP_ID or MS_APP_ID environment variable.
+
+    Returns:
+        True if the token is valid, False otherwise (fail-closed)
     """
-    if not auth_header.startswith("Bearer "):
+    if not auth_header or not auth_header.startswith("Bearer "):
+        logger.warning("Teams auth rejected: missing or malformed Authorization header")
         return False
 
     try:
-        from aragora.connectors.chat.jwt_verify import verify_teams_webhook, HAS_JWT
+        from aragora.connectors.chat.jwt_verify import HAS_JWT, verify_teams_webhook
 
         if HAS_JWT:
             return verify_teams_webhook(auth_header, app_id)
         else:
-            # Check environment for security bypass
+            # PyJWT not installed - check if dev bypass is allowed
             from aragora.connectors.chat.webhook_security import should_allow_unverified
 
             if should_allow_unverified("teams"):
-                logger.warning("Teams token verification skipped - PyJWT not available (dev mode)")
+                logger.warning(
+                    "Teams token verification skipped - PyJWT not available (dev mode). "
+                    "Install pyjwt[crypto] for production use."
+                )
                 return True
-            logger.error("Teams token rejected - PyJWT not available in production")
+            logger.error(
+                "Teams token rejected - PyJWT library not available. "
+                "Install with: pip install pyjwt[crypto]"
+            )
             return False
     except ImportError:
-        # Fallback: check environment
+        # jwt_verify module itself not available - check environment
         env = os.environ.get("ARAGORA_ENV", "development").lower()
         is_production = env not in ("development", "dev", "local", "test")
         if is_production:
-            logger.error("Teams JWT verification module not available in production")
+            logger.error(
+                "SECURITY: Teams JWT verification module not available in production. "
+                "Ensure aragora.connectors.chat.jwt_verify is importable."
+            )
             return False
-        logger.warning("Teams token verification skipped (dev mode)")
+        logger.warning("Teams token verification skipped (dev mode - jwt_verify not importable)")
         return True
 
 

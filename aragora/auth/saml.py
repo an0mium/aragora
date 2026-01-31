@@ -407,7 +407,7 @@ class SAMLProvider(SSOProvider):
                     {"code": "DOMAIN_NOT_ALLOWED"},
                 )
 
-            logger.info(f"SAML authentication successful for {user.email}")
+            logger.info(f"SAML authentication successful for user_id={user.id}")
             return user
 
         except ET.ParseError as e:
