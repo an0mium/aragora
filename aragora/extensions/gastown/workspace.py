@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from aragora.nomic.stores.paths import resolve_runtime_store_dir
+from aragora.nomic.stores.paths import resolve_store_dir
 from aragora.workspace.manager import WorkspaceManager as CoreWorkspaceManager
 from aragora.workspace.rig import Rig as CoreRig
 from aragora.workspace.rig import RigConfig as CoreRigConfig
@@ -46,7 +46,7 @@ class WorkspaceManager:
         Args:
             storage_path: Path for workspace metadata storage
         """
-        base_path = Path(storage_path) if storage_path else resolve_runtime_store_dir()
+        base_path = Path(storage_path) if storage_path else resolve_store_dir()
         self._storage_path = base_path
         self._state_path = self._storage_path / "state.json"
         self._workspaces: dict[str, Workspace] = {}

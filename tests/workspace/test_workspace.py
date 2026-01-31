@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from aragora.workspace.rig import Rig, RigConfig, RigStatus
+from aragora.nomic.stores import BeadStore as NomicBeadStore
 from aragora.workspace.bead import Bead, BeadManager, BeadStatus, generate_bead_id
 from aragora.workspace.convoy import Convoy, ConvoyStatus, ConvoyTracker
 from aragora.workspace.manager import WorkspaceManager
@@ -136,8 +137,8 @@ class TestBeadManager:
     """Test BeadManager."""
 
     @pytest.fixture
-    def mgr(self):
-        return BeadManager()
+    def mgr(self, tmp_path):
+        return BeadManager(storage_dir=tmp_path / "beads")
 
     @pytest.mark.asyncio
     async def test_create_bead(self, mgr):
@@ -251,8 +252,9 @@ class TestConvoyTracker:
     """Test ConvoyTracker."""
 
     @pytest.fixture
-    def tracker(self):
-        return ConvoyTracker()
+    def tracker(self, tmp_path):
+        bead_store = NomicBeadStore(tmp_path / "beads", git_enabled=False, auto_commit=False)
+        return ConvoyTracker(bead_store=bead_store, use_nomic_store=True)
 
     @pytest.mark.asyncio
     async def test_create_convoy(self, tracker):

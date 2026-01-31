@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from aragora.nomic.stores.paths import resolve_runtime_store_dir
+from aragora.nomic.stores.paths import resolve_store_dir
 
 # Type aliases matching LedgerEntry fields
 LedgerEntryType = Literal["issue", "task", "decision", "note"]
@@ -56,7 +56,7 @@ class Coordinator:
             storage_path: Path for all state storage
             auto_persist: Auto-persist state changes
         """
-        base_path = Path(storage_path) if storage_path else resolve_runtime_store_dir()
+        base_path = Path(storage_path) if storage_path else resolve_store_dir()
         self._storage_path = base_path
         self._auto_persist = auto_persist
 

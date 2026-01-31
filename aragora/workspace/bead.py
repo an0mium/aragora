@@ -1,9 +1,9 @@
 """
-Bead Manager - Atomic work units with JSONL-backed tracking.
+Bead Manager - Atomic work units backed by the canonical store.
 
 Beads are the Gastown equivalent of atomic tasks: each bead represents
 a single unit of work with a prefix + 5-character ID. Beads are tracked
-via JSONL files for crash-resilient state management.
+via the canonical bead store for crash-resilient state management.
 """
 
 from __future__ import annotations
@@ -21,10 +21,7 @@ from aragora.nomic.stores import (
     BeadStatus as NomicBeadStatus,
     BeadStore as NomicBeadStore,
 )
-from aragora.nomic.stores.paths import (
-    resolve_runtime_store_dir,
-    should_use_canonical_store,
-)
+from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
 from aragora.nomic.stores.adapters.workspace import (
     nomic_bead_to_workspace,
     workspace_bead_metadata,
@@ -127,12 +124,12 @@ def generate_bead_id(prefix: str = "bd") -> str:
 
 class BeadManager:
     """
-    Manages beads (atomic work units) with JSONL-backed persistence.
+    Manages beads (atomic work units) with canonical persistence.
 
     Features:
     - Create beads with auto-generated IDs
     - Track bead lifecycle (pending → assigned → running → done/failed)
-    - Persist bead state as JSONL for crash recovery
+    - Persist bead state via the canonical bead store for crash recovery
     - List and filter beads by status, convoy, agent
     - Dependency tracking between beads
     """
@@ -157,7 +154,7 @@ class BeadManager:
             self._storage_dir.mkdir(parents=True, exist_ok=True)
         if self._use_nomic_store and self._nomic_store is None:
             if not self._storage_dir:
-                self._storage_dir = resolve_runtime_store_dir()
+                self._storage_dir = resolve_store_dir()
             self._nomic_store = NomicBeadStore(
                 self._storage_dir, git_enabled=False, auto_commit=False
             )

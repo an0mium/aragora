@@ -6,7 +6,7 @@ dashboard handlers import from the extension rather than reaching
 into nomic internals directly.
 
 Two BeadManager variants are available:
-- ``BeadManager`` — workspace-level adapter (JSONL-backed, status mapping)
+- ``BeadManager`` — workspace-level adapter (canonical store, status mapping)
 - ``NomicBeadManager`` — nomic-level manager (used by dashboard for
   status iteration and priority filtering)
 """

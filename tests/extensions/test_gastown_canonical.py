@@ -79,11 +79,11 @@ class TestSharedNomicBackend:
         assert gas_mod.NomicBeadStore is ws_mod.NomicBeadStore
 
     @pytest.mark.asyncio
-    async def test_gastown_tracker_creates_without_nomic(self):
-        """Gastown tracker works in in-memory mode."""
+    async def test_gastown_tracker_creates_with_canonical_store(self, tmp_path):
+        """Gastown tracker works with canonical store by default."""
         from aragora.extensions.gastown.convoy import ConvoyTracker
 
-        tracker = ConvoyTracker()
+        tracker = ConvoyTracker(storage_path=tmp_path / "convoys")
         convoy = await tracker.create_convoy(
             rig_id="rig-1",
             title="Test convoy",
@@ -92,11 +92,13 @@ class TestSharedNomicBackend:
         assert convoy.status == GasConvoyStatus.PENDING
 
     @pytest.mark.asyncio
-    async def test_workspace_tracker_creates_without_nomic(self):
-        """Workspace tracker works in in-memory mode."""
+    async def test_workspace_tracker_creates_with_canonical_store(self, tmp_path):
+        """Workspace tracker works with canonical store by default."""
         from aragora.workspace.convoy import ConvoyTracker
+        from aragora.nomic.stores import BeadStore as NomicBeadStore
 
-        tracker = ConvoyTracker()
+        bead_store = NomicBeadStore(tmp_path / "beads", git_enabled=False, auto_commit=False)
+        tracker = ConvoyTracker(bead_store=bead_store, use_nomic_store=True)
         convoy = await tracker.create_convoy(
             workspace_id="ws-1",
             rig_id="rig-1",

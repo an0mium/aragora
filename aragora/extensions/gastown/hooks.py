@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from aragora.nomic.stores.paths import resolve_runtime_store_dir
+from aragora.nomic.stores.paths import resolve_store_dir
 from .models import Hook, HookType
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class HookRunner:
             storage_path: Path for hook metadata storage
             auto_commit: Auto-commit state changes
         """
-        base_path = Path(storage_path) if storage_path else resolve_runtime_store_dir()
+        base_path = Path(storage_path) if storage_path else resolve_store_dir()
         self._storage_path = base_path
         self._state_path = self._storage_path / "hooks.json"
         self._auto_commit = auto_commit
