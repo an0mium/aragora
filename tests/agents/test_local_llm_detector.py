@@ -614,17 +614,9 @@ class TestErrorHandling:
         """Test non-200 status returns server as unavailable."""
         detector = LocalLLMDetector()
 
-        mock_response = AsyncMock()
-        mock_response.status = 500
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool({"/api/tags": create_mock_response(500)})
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             assert server.available is False
@@ -634,18 +626,13 @@ class TestErrorHandling:
         """Test invalid JSON response returns server as unavailable."""
         detector = LocalLLMDetector()
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json = MagicMock(side_effect=ValueError("Invalid JSON"))
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool({"/api/tags": mock_response})
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             assert server.available is False
@@ -655,18 +642,11 @@ class TestErrorHandling:
         """Test missing models key in response."""
         detector = LocalLLMDetector()
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"other_key": "value"})
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool(
+            {"/api/tags": create_mock_response(200, {"other_key": "value"})}
+        )
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             # Server is available but has no models
@@ -678,12 +658,9 @@ class TestErrorHandling:
         """Test unexpected exception returns server as unavailable."""
         detector = LocalLLMDetector()
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(side_effect=Exception("Unexpected error"))
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool(error=Exception("Unexpected error"))
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             assert server.available is False
@@ -694,20 +671,10 @@ class TestErrorHandling:
         detector = LocalLLMDetector()
 
         # Models without expected 'name' key
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"models": [{"different_key": "value"}, {"name": "valid-model"}]}
-        )
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        response_data = {"models": [{"different_key": "value"}, {"name": "valid-model"}]}
+        mock_pool = create_mock_pool({"/api/tags": create_mock_response(200, response_data)})
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             # Should still work, extracting valid models
@@ -720,20 +687,10 @@ class TestErrorHandling:
         detector = LocalLLMDetector()
 
         # Models with non-dict entries
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={"models": ["string-model", {"name": "valid-model"}, 123]}
-        )
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        response_data = {"models": ["string-model", {"name": "valid-model"}, 123]}
+        mock_pool = create_mock_pool({"/api/tags": create_mock_response(200, response_data)})
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             assert server.available is True

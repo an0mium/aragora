@@ -159,6 +159,20 @@ class ConfigValidator:
             else:
                 warnings.append(msg)
 
+        # SECURITY: Warn if production env vars are set but ARAGORA_ENV is not production
+        # This catches accidental deployments with development settings
+        aragora_env = os.getenv("ARAGORA_ENV", "development").lower()
+        if aragora_env not in ("production", "prod", "staging", "stage"):
+            has_production_vars = any(
+                os.getenv(var) for var in ["ARAGORA_API_TOKEN", "DATABASE_URL", "REDIS_URL"]
+            )
+            if has_production_vars:
+                warnings.append(
+                    f"Production environment variables detected but ARAGORA_ENV='{aragora_env}'. "
+                    "Set ARAGORA_ENV=production to enable production security checks, or "
+                    "remove production variables if this is a development environment."
+                )
+
         # Check secret requirements
         for var, req in cls.SECRET_REQUIREMENTS.items():
             value = os.getenv(var, "")

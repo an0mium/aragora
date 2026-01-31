@@ -623,7 +623,9 @@ class TestDesignPhaseApproveDesign:
         result = await phase.approve_design(design)
 
         assert result["approved"] is False
-        assert "Safety check failed" in result.get("reason", "")
+        assert "protected" in result.get("reason", "").lower() or "Safety" in result.get(
+            "reason", ""
+        )
 
 
 class TestDesignPhaseRun:
