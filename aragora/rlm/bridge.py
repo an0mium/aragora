@@ -608,7 +608,8 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             return True
         try:
             content_bytes = len(context.original_content.encode("utf-8", errors="ignore"))
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to compute content bytes: {type(e).__name__}: {e}")
             content_bytes = 0
         threshold = getattr(self.aragora_config, "externalize_content_bytes", 0) or 0
         return threshold > 0 and content_bytes >= threshold

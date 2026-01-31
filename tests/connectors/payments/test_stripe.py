@@ -1532,3 +1532,983 @@ class TestContextManager:
             _ = stripe_connector.client
 
         assert "not initialized" in str(exc_info.value)
+
+
+# =============================================================================
+# Circuit Breaker Tests
+# =============================================================================
+
+
+class TestCircuitBreakerIntegration:
+    """Tests for circuit breaker integration with Stripe connector."""
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_initialized_by_default(self, stripe_credentials):
+        """Test that circuit breaker is initialized by default."""
+        from aragora.connectors.payments.stripe import StripeConnector
+
+        connector = StripeConnector(stripe_credentials)
+
+        assert connector._circuit_breaker is not None
+        assert connector._enable_circuit_breaker is True
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_can_be_disabled(self, stripe_credentials):
+        """Test that circuit breaker can be disabled."""
+        from aragora.connectors.payments.stripe import StripeConnector
+
+        connector = StripeConnector(stripe_credentials, enable_circuit_breaker=False)
+
+        assert connector._circuit_breaker is None
+        assert connector._enable_circuit_breaker is False
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_custom_instance(self, stripe_credentials):
+        """Test using custom circuit breaker instance."""
+        from aragora.connectors.payments.stripe import StripeConnector
+        from aragora.resilience import get_circuit_breaker
+
+        custom_cb = get_circuit_breaker("custom_stripe", failure_threshold=5, cooldown_seconds=60)
+        connector = StripeConnector(stripe_credentials, circuit_breaker=custom_cb)
+
+        assert connector._circuit_breaker is custom_cb
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_blocks_requests_when_open(self, stripe_credentials):
+        """Test that requests are blocked when circuit breaker is open."""
+        from aragora.connectors.payments.stripe import StripeConnector, StripeError
+
+        connector = StripeConnector(stripe_credentials)
+
+        # Force circuit breaker to open state
+        for _ in range(connector._circuit_breaker._failure_threshold):
+            connector._circuit_breaker.record_failure()
+
+        async with connector:
+            with pytest.raises(StripeError) as exc_info:
+                await connector._request("GET", "/customers")
+
+            assert exc_info.value.code == "circuit_breaker_open"
+            assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_records_success(
+        self, stripe_connector, mock_customer_api_response
+    ):
+        """Test that successful requests are recorded."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_customer_api_response
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                # Reset circuit breaker state for clean test
+                stripe_connector._circuit_breaker._failure_count = 0
+
+                await stripe_connector._request("GET", "/customers/cus_test")
+
+                # Verify circuit breaker is still closed
+                assert stripe_connector._circuit_breaker.can_proceed()
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_records_failure_on_5xx(self, stripe_connector):
+        """Test that 5xx errors are recorded as failures."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.json.return_value = {"error": {"message": "Internal server error"}}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                initial_failures = stripe_connector._circuit_breaker._failure_count
+
+                with pytest.raises(Exception):
+                    await stripe_connector._request("GET", "/customers/cus_test")
+
+                # Verify failure was recorded
+                assert stripe_connector._circuit_breaker._failure_count > initial_failures
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_records_failure_on_rate_limit(self, stripe_connector):
+        """Test that 429 errors are recorded as failures."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.json.return_value = {"error": {"message": "Rate limit exceeded"}}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                initial_failures = stripe_connector._circuit_breaker._failure_count
+
+                with pytest.raises(Exception):
+                    await stripe_connector._request("GET", "/customers/cus_test")
+
+                assert stripe_connector._circuit_breaker._failure_count > initial_failures
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_records_failure_on_network_error(self, stripe_connector):
+        """Test that network errors are recorded as failures."""
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(side_effect=httpx.ConnectError("Connection failed"))
+
+            async with stripe_connector:
+                initial_failures = stripe_connector._circuit_breaker._failure_count
+
+                with pytest.raises(Exception):
+                    await stripe_connector._request("GET", "/customers/cus_test")
+
+                assert stripe_connector._circuit_breaker._failure_count > initial_failures
+
+
+# =============================================================================
+# HTTP Request Method Tests
+# =============================================================================
+
+
+class TestRequestMethod:
+    """Tests for the _request method directly."""
+
+    @pytest.mark.asyncio
+    async def test_request_sends_correct_method(self, stripe_connector):
+        """Test that request sends correct HTTP method."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "cus_123"}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                await stripe_connector._request(
+                    "POST", "/customers", data={"email": "test@example.com"}
+                )
+
+            mock_client.request.assert_called_once()
+            call_args = mock_client.request.call_args
+            assert call_args[0][0] == "POST"
+
+    @pytest.mark.asyncio
+    async def test_request_sends_correct_url(self, stripe_connector):
+        """Test that request sends correct URL."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "cus_123"}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                await stripe_connector._request("GET", "/customers/cus_123")
+
+            call_args = mock_client.request.call_args
+            assert call_args[0][1] == "https://api.stripe.com/v1/customers/cus_123"
+
+    @pytest.mark.asyncio
+    async def test_request_sends_form_encoded_data(self, stripe_connector):
+        """Test that POST data is sent as form-encoded."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "cus_123"}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                await stripe_connector._request(
+                    "POST", "/customers", data={"email": "test@example.com", "name": "Test"}
+                )
+
+            call_args = mock_client.request.call_args
+            assert call_args[1]["data"] == {"email": "test@example.com", "name": "Test"}
+
+    @pytest.mark.asyncio
+    async def test_request_sends_query_params(self, stripe_connector):
+        """Test that GET params are sent correctly."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                await stripe_connector._request(
+                    "GET", "/customers", params={"limit": 10, "email": "test@example.com"}
+                )
+
+            call_args = mock_client.request.call_args
+            assert call_args[1]["params"] == {"limit": 10, "email": "test@example.com"}
+
+    @pytest.mark.asyncio
+    async def test_request_handles_4xx_errors(self, stripe_connector):
+        """Test that 4xx errors raise StripeError with details."""
+        from aragora.connectors.payments.stripe import StripeError
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {
+            "error": {"message": "Invalid email", "code": "invalid_email"}
+        }
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                with pytest.raises(StripeError) as exc_info:
+                    await stripe_connector._request("POST", "/customers", data={"email": "invalid"})
+
+                assert exc_info.value.message == "Invalid email"
+                assert exc_info.value.code == "invalid_email"
+                assert exc_info.value.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_request_handles_http_timeout(self, stripe_connector):
+        """Test that HTTP timeout raises StripeError."""
+        from aragora.connectors.payments.stripe import StripeError
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(side_effect=httpx.TimeoutException("Request timed out"))
+
+            async with stripe_connector:
+                with pytest.raises(StripeError) as exc_info:
+                    await stripe_connector._request("GET", "/customers")
+
+                assert "HTTP error" in str(exc_info.value)
+
+
+# =============================================================================
+# Product API Tests (Async)
+# =============================================================================
+
+
+class TestProductOperationsAsync:
+    """Async tests for product operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_product_async(self, stripe_connector):
+        """Test async product creation."""
+        mock_response = {
+            "id": "prod_test_123",
+            "name": "Premium Plan",
+            "description": "Our premium offering",
+            "active": True,
+            "metadata": {"tier": "premium"},
+            "created": int(time.time()),
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                result = await stripe_connector.create_product(
+                    name="Premium Plan",
+                    description="Our premium offering",
+                    metadata={"tier": "premium"},
+                )
+
+            assert result.id == "prod_test_123"
+            assert result.name == "Premium Plan"
+            assert result.description == "Our premium offering"
+
+    @pytest.mark.asyncio
+    async def test_get_product_async(self, stripe_connector):
+        """Test async product retrieval."""
+        mock_response = {
+            "id": "prod_test_123",
+            "name": "Premium Plan",
+            "active": True,
+            "created": int(time.time()),
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                result = await stripe_connector.get_product("prod_test_123")
+
+            assert result.id == "prod_test_123"
+            mock_request.assert_called_with("GET", "/products/prod_test_123")
+
+    @pytest.mark.asyncio
+    async def test_list_products_async(self, stripe_connector):
+        """Test async product listing."""
+        mock_response = {
+            "data": [
+                {"id": "prod_1", "name": "Basic", "active": True, "created": int(time.time())},
+                {"id": "prod_2", "name": "Premium", "active": True, "created": int(time.time())},
+            ]
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                result = await stripe_connector.list_products(limit=10)
+
+            assert len(result) == 2
+            assert result[0].name == "Basic"
+            assert result[1].name == "Premium"
+
+    @pytest.mark.asyncio
+    async def test_list_products_filter_active(self, stripe_connector):
+        """Test listing only active products."""
+        mock_response = {
+            "data": [
+                {
+                    "id": "prod_1",
+                    "name": "Active Plan",
+                    "active": True,
+                    "created": int(time.time()),
+                },
+            ]
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                await stripe_connector.list_products(active=True, limit=10)
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["active"] == "true"
+
+
+# =============================================================================
+# Price API Tests (Async)
+# =============================================================================
+
+
+class TestPriceOperationsAsync:
+    """Async tests for price operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_price_one_time_async(self, stripe_connector):
+        """Test creating one-time price."""
+        mock_response = {
+            "id": "price_test_123",
+            "product": "prod_123",
+            "unit_amount": 2999,
+            "currency": "usd",
+            "type": "one_time",
+            "active": True,
+            "created": int(time.time()),
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                result = await stripe_connector.create_price(
+                    product_id="prod_123",
+                    unit_amount=2999,
+                    currency="usd",
+                )
+
+            assert result.id == "price_test_123"
+            assert result.unit_amount == 2999
+            assert result.recurring_interval is None
+
+    @pytest.mark.asyncio
+    async def test_create_price_recurring_async(self, stripe_connector):
+        """Test creating recurring price."""
+        mock_response = {
+            "id": "price_recurring_123",
+            "product": "prod_123",
+            "unit_amount": 999,
+            "currency": "usd",
+            "type": "recurring",
+            "recurring": {"interval": "month", "interval_count": 1},
+            "active": True,
+            "created": int(time.time()),
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                result = await stripe_connector.create_price(
+                    product_id="prod_123",
+                    unit_amount=999,
+                    currency="usd",
+                    recurring_interval="month",
+                )
+
+            assert result.recurring_interval == "month"
+            call_args = mock_request.call_args
+            assert call_args[1]["data"]["recurring[interval]"] == "month"
+
+    @pytest.mark.asyncio
+    async def test_get_price_async(self, stripe_connector):
+        """Test async price retrieval."""
+        mock_response = {
+            "id": "price_test_123",
+            "product": "prod_123",
+            "unit_amount": 2999,
+            "currency": "usd",
+            "type": "one_time",
+            "active": True,
+            "created": int(time.time()),
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                result = await stripe_connector.get_price("price_test_123")
+
+            assert result.id == "price_test_123"
+            mock_request.assert_called_with("GET", "/prices/price_test_123")
+
+    @pytest.mark.asyncio
+    async def test_list_prices_by_product_async(self, stripe_connector):
+        """Test listing prices filtered by product."""
+        mock_response = {
+            "data": [
+                {
+                    "id": "price_1",
+                    "product": "prod_123",
+                    "unit_amount": 999,
+                    "currency": "usd",
+                    "type": "recurring",
+                    "recurring": {"interval": "month"},
+                    "created": int(time.time()),
+                },
+                {
+                    "id": "price_2",
+                    "product": "prod_123",
+                    "unit_amount": 9999,
+                    "currency": "usd",
+                    "type": "recurring",
+                    "recurring": {"interval": "year"},
+                    "created": int(time.time()),
+                },
+            ]
+        }
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with stripe_connector:
+                result = await stripe_connector.list_prices(product_id="prod_123")
+
+            assert len(result) == 2
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["product"] == "prod_123"
+
+
+# =============================================================================
+# Subscription Extended Tests
+# =============================================================================
+
+
+class TestSubscriptionExtendedAsync:
+    """Extended async tests for subscription operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_subscription_with_trial(
+        self, stripe_connector, mock_subscription_api_response
+    ):
+        """Test creating subscription with trial period."""
+        mock_subscription_api_response["status"] = "trialing"
+        mock_subscription_api_response["trial_start"] = int(time.time())
+        mock_subscription_api_response["trial_end"] = int(time.time()) + 1209600  # 14 days
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_subscription_api_response
+
+            async with stripe_connector:
+                result = await stripe_connector.create_subscription(
+                    customer_id="cus_test_12345",
+                    price_id="price_test_123",
+                    trial_period_days=14,
+                )
+
+            from aragora.connectors.payments.stripe import SubscriptionStatus
+
+            assert result.status == SubscriptionStatus.TRIALING
+            call_args = mock_request.call_args
+            assert call_args[1]["data"]["trial_period_days"] == 14
+
+    @pytest.mark.asyncio
+    async def test_create_subscription_with_metadata(
+        self, stripe_connector, mock_subscription_api_response
+    ):
+        """Test creating subscription with metadata."""
+        mock_subscription_api_response["metadata"] = {"plan_tier": "enterprise", "team_size": "50"}
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_subscription_api_response
+
+            async with stripe_connector:
+                result = await stripe_connector.create_subscription(
+                    customer_id="cus_test_12345",
+                    price_id="price_test_123",
+                    metadata={"plan_tier": "enterprise", "team_size": "50"},
+                )
+
+            assert result.metadata["plan_tier"] == "enterprise"
+            call_args = mock_request.call_args
+            assert call_args[1]["data"]["metadata[plan_tier]"] == "enterprise"
+
+    @pytest.mark.asyncio
+    async def test_list_subscriptions_by_status(
+        self, stripe_connector, mock_subscription_api_response
+    ):
+        """Test listing subscriptions filtered by status."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": [mock_subscription_api_response]}
+
+            async with stripe_connector:
+                result = await stripe_connector.list_subscriptions(status="active")
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["status"] == "active"
+            assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_subscriptions_by_customer(
+        self, stripe_connector, mock_subscription_api_response
+    ):
+        """Test listing subscriptions filtered by customer."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": [mock_subscription_api_response]}
+
+            async with stripe_connector:
+                result = await stripe_connector.list_subscriptions(customer_id="cus_test_12345")
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["customer"] == "cus_test_12345"
+
+
+# =============================================================================
+# Invoice Extended Tests
+# =============================================================================
+
+
+class TestInvoiceExtendedAsync:
+    """Extended async tests for invoice operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_invoice_with_description(
+        self, stripe_connector, mock_invoice_api_response
+    ):
+        """Test creating invoice with description."""
+        mock_invoice_api_response["status"] = "draft"
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_invoice_api_response
+
+            async with stripe_connector:
+                await stripe_connector.create_invoice(
+                    customer_id="cus_test_12345",
+                    description="Q1 2025 Services",
+                )
+
+            call_args = mock_request.call_args
+            assert call_args[1]["data"]["description"] == "Q1 2025 Services"
+
+    @pytest.mark.asyncio
+    async def test_create_invoice_no_auto_advance(
+        self, stripe_connector, mock_invoice_api_response
+    ):
+        """Test creating invoice without auto-advance."""
+        mock_invoice_api_response["status"] = "draft"
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_invoice_api_response
+
+            async with stripe_connector:
+                await stripe_connector.create_invoice(
+                    customer_id="cus_test_12345",
+                    auto_advance=False,
+                )
+
+            call_args = mock_request.call_args
+            assert call_args[1]["data"]["auto_advance"] == "false"
+
+    @pytest.mark.asyncio
+    async def test_get_invoice_async(self, stripe_connector, mock_invoice_api_response):
+        """Test async invoice retrieval."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_invoice_api_response
+
+            async with stripe_connector:
+                result = await stripe_connector.get_invoice("in_test_12345")
+
+            assert result.id == "in_test_12345"
+            mock_request.assert_called_with("GET", "/invoices/in_test_12345")
+
+    @pytest.mark.asyncio
+    async def test_list_invoices_by_status(self, stripe_connector, mock_invoice_api_response):
+        """Test listing invoices filtered by status."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": [mock_invoice_api_response]}
+
+            async with stripe_connector:
+                result = await stripe_connector.list_invoices(status="paid")
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["status"] == "paid"
+            assert len(result) == 1
+
+
+# =============================================================================
+# Customer Extended Tests
+# =============================================================================
+
+
+class TestCustomerExtendedAsync:
+    """Extended async tests for customer operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_customer_with_metadata(
+        self, stripe_connector, mock_customer_api_response
+    ):
+        """Test creating customer with metadata."""
+        mock_customer_api_response["metadata"] = {"internal_id": "usr_123", "tier": "premium"}
+
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_customer_api_response
+
+            async with stripe_connector:
+                result = await stripe_connector.create_customer(
+                    email="test@example.com",
+                    metadata={"internal_id": "usr_123", "tier": "premium"},
+                )
+
+            assert result.metadata["internal_id"] == "usr_123"
+            call_args = mock_request.call_args
+            assert call_args[1]["data"]["metadata[internal_id]"] == "usr_123"
+
+    @pytest.mark.asyncio
+    async def test_create_customer_with_all_fields(
+        self, stripe_connector, mock_customer_api_response
+    ):
+        """Test creating customer with all optional fields."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_customer_api_response
+
+            async with stripe_connector:
+                await stripe_connector.create_customer(
+                    email="customer@example.com",
+                    name="Test Customer",
+                    phone="+15551234567",
+                    description="VIP customer",
+                )
+
+            call_args = mock_request.call_args
+            assert call_args[1]["data"]["email"] == "customer@example.com"
+            assert call_args[1]["data"]["name"] == "Test Customer"
+            assert call_args[1]["data"]["phone"] == "+15551234567"
+            assert call_args[1]["data"]["description"] == "VIP customer"
+
+    @pytest.mark.asyncio
+    async def test_list_customers_by_email(self, stripe_connector, mock_customer_api_response):
+        """Test listing customers filtered by email."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": [mock_customer_api_response]}
+
+            async with stripe_connector:
+                result = await stripe_connector.list_customers(email="customer@example.com")
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["email"] == "customer@example.com"
+            assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_customers_pagination(self, stripe_connector, mock_customer_api_response):
+        """Test customer listing with pagination."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": [mock_customer_api_response]}
+
+            async with stripe_connector:
+                await stripe_connector.list_customers(limit=25, starting_after="cus_last_123")
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["limit"] == 25
+            assert call_args[1]["params"]["starting_after"] == "cus_last_123"
+
+    @pytest.mark.asyncio
+    async def test_list_customers_limit_capped(self, stripe_connector, mock_customer_api_response):
+        """Test that customer list limit is capped at 100."""
+        with patch.object(stripe_connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": []}
+
+            async with stripe_connector:
+                await stripe_connector.list_customers(limit=500)
+
+            call_args = mock_request.call_args
+            assert call_args[1]["params"]["limit"] == 100
+
+
+# =============================================================================
+# Webhook Event Data Tests
+# =============================================================================
+
+
+class TestWebhookEventData:
+    """Tests for webhook event data objects."""
+
+    @pytest.mark.asyncio
+    async def test_webhook_event_structure(self, stripe_connector):
+        """Test webhook event has correct structure."""
+        payload_dict = {
+            "id": "evt_test_123",
+            "type": "invoice.paid",
+            "data": {
+                "object": {
+                    "id": "in_123",
+                    "customer": "cus_123",
+                    "amount_paid": 5000,
+                }
+            },
+        }
+        payload = json.dumps(payload_dict).encode("utf-8")
+        timestamp = str(int(time.time()))
+
+        signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
+        signature = hmac.new(
+            stripe_connector.credentials.webhook_secret.encode("utf-8"),
+            signed_payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        sig_header = f"t={timestamp},v1={signature}"
+
+        async with stripe_connector:
+            event = await stripe_connector.construct_webhook_event(payload, sig_header)
+
+        assert event.id == "evt_test_123"
+        assert event.type == "invoice.paid"
+        assert event.data.object.id == "in_123"
+        assert event.data.object.get("customer") == "cus_123"
+        assert event.data.object.get("amount_paid") == 5000
+        assert event.data.object.get("nonexistent", "default") == "default"
+
+    @pytest.mark.asyncio
+    async def test_webhook_multiple_event_types(self, stripe_connector):
+        """Test handling different webhook event types."""
+        event_types = [
+            "payment_intent.succeeded",
+            "payment_intent.payment_failed",
+            "customer.subscription.created",
+            "customer.subscription.updated",
+            "customer.subscription.deleted",
+            "invoice.payment_succeeded",
+            "invoice.payment_failed",
+        ]
+
+        for event_type in event_types:
+            payload_dict = {
+                "id": f"evt_{event_type}",
+                "type": event_type,
+                "data": {"object": {"id": "obj_123"}},
+            }
+            payload = json.dumps(payload_dict).encode("utf-8")
+            timestamp = str(int(time.time()))
+
+            signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
+            signature = hmac.new(
+                stripe_connector.credentials.webhook_secret.encode("utf-8"),
+                signed_payload.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+            sig_header = f"t={timestamp},v1={signature}"
+
+            async with stripe_connector:
+                event = await stripe_connector.construct_webhook_event(payload, sig_header)
+
+            assert event.type == event_type
+
+
+# =============================================================================
+# Transient Failure Retry Tests
+# =============================================================================
+
+
+class TestTransientFailureHandling:
+    """Tests for handling transient failures."""
+
+    @pytest.mark.asyncio
+    async def test_single_network_error_raises_immediately(self, stripe_connector):
+        """Test that a single network error raises without retry (current behavior)."""
+        from aragora.connectors.payments.stripe import StripeError
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
+
+            async with stripe_connector:
+                with pytest.raises(StripeError) as exc_info:
+                    await stripe_connector._request("GET", "/customers")
+
+                assert "HTTP error" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_server_error_records_circuit_breaker_failure(self, stripe_connector):
+        """Test that server errors (5xx) record circuit breaker failures."""
+        mock_response = MagicMock()
+        mock_response.status_code = 502
+        mock_response.json.return_value = {"error": {"message": "Bad Gateway"}}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                initial_failures = stripe_connector._circuit_breaker._failure_count
+
+                with pytest.raises(Exception):
+                    await stripe_connector._request("POST", "/payment_intents")
+
+                # Should have recorded a failure
+                assert stripe_connector._circuit_breaker._failure_count == initial_failures + 1
+
+    @pytest.mark.asyncio
+    async def test_4xx_error_does_not_record_circuit_breaker_failure(self, stripe_connector):
+        """Test that client errors (4xx) don't record circuit breaker failures."""
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {"error": {"message": "Invalid parameter"}}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                initial_failures = stripe_connector._circuit_breaker._failure_count
+
+                with pytest.raises(Exception):
+                    await stripe_connector._request("POST", "/payment_intents")
+
+                # Should NOT have recorded a failure (4xx is client error, not transient)
+                assert stripe_connector._circuit_breaker._failure_count == initial_failures
+
+    @pytest.mark.asyncio
+    async def test_successful_request_resets_circuit_breaker(self, stripe_connector):
+        """Test that successful requests reset circuit breaker state."""
+        # First, simulate some failures
+        stripe_connector._circuit_breaker._failure_count = 2
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "cus_123"}
+
+        with patch.object(stripe_connector, "client") as mock_client:
+            mock_client.request = AsyncMock(return_value=mock_response)
+
+            async with stripe_connector:
+                await stripe_connector._request("GET", "/customers/cus_123")
+
+                # Circuit breaker should still be functional
+                assert stripe_connector._circuit_breaker.can_proceed()
+
+
+# =============================================================================
+# API Response Parsing Edge Cases
+# =============================================================================
+
+
+class TestResponseParsingEdgeCases:
+    """Tests for edge cases in API response parsing."""
+
+    def test_customer_with_null_fields(self):
+        """Test parsing customer with null optional fields."""
+        from aragora.connectors.payments.stripe import StripeCustomer
+
+        data = {
+            "id": "cus_null_test",
+            "email": None,
+            "name": None,
+            "phone": None,
+            "description": None,
+            "balance": 0,
+            "currency": "usd",
+            "delinquent": False,
+            "default_source": None,
+            "metadata": {},
+            "created": None,
+        }
+
+        customer = StripeCustomer.from_api(data)
+
+        assert customer.id == "cus_null_test"
+        assert customer.email is None
+        assert customer.name is None
+        assert customer.created is None
+
+    def test_subscription_with_all_timestamps(self):
+        """Test parsing subscription with all timestamp fields."""
+        from aragora.connectors.payments.stripe import StripeSubscription
+
+        now = int(time.time())
+        data = {
+            "id": "sub_timestamps",
+            "customer": "cus_123",
+            "status": "canceled",
+            "current_period_start": now - 86400,
+            "current_period_end": now + 86400,
+            "cancel_at_period_end": True,
+            "canceled_at": now,
+            "ended_at": now + 86400,
+            "trial_start": now - 1209600,
+            "trial_end": now - 86400,
+            "items": {"data": []},
+            "metadata": {},
+            "created": now - 2592000,
+        }
+
+        subscription = StripeSubscription.from_api(data)
+
+        assert subscription.current_period_start is not None
+        assert subscription.current_period_end is not None
+        assert subscription.canceled_at is not None
+        assert subscription.ended_at is not None
+        assert subscription.trial_start is not None
+        assert subscription.trial_end is not None
+        assert subscription.created is not None
+
+    def test_invoice_with_due_date(self):
+        """Test parsing invoice with due date."""
+        from aragora.connectors.payments.stripe import StripeInvoice
+
+        now = int(time.time())
+        data = {
+            "id": "in_due_date",
+            "customer": "cus_123",
+            "status": "open",
+            "due_date": now + 2592000,  # 30 days from now
+            "created": now,
+        }
+
+        invoice = StripeInvoice.from_api(data)
+
+        assert invoice.due_date is not None
+        assert invoice.due_date > datetime.fromtimestamp(now)
+
+    def test_payment_intent_all_statuses(self):
+        """Test parsing payment intent with various statuses."""
+        from aragora.connectors.payments.stripe import PaymentIntent, PaymentStatus
+
+        statuses = [
+            "requires_payment_method",
+            "requires_confirmation",
+            "requires_action",
+            "processing",
+            "requires_capture",
+            "canceled",
+            "succeeded",
+        ]
+
+        for status in statuses:
+            data = {
+                "id": f"pi_{status}",
+                "amount": 1000,
+                "currency": "usd",
+                "status": status,
+                "created": int(time.time()),
+            }
+
+            pi = PaymentIntent.from_api(data)
+
+            assert pi.status == PaymentStatus(status)

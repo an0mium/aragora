@@ -3298,15 +3298,14 @@ class TestStorageErrorHandling:
         return mock
 
     def test_list_workflows_handles_os_error(self, handler, mock_http):
-        """List workflows propagates OSError (not caught by handler)."""
+        """List workflows returns 503 on storage errors."""
         with patch.object(handler, "_check_permission", return_value=None):
             with patch.object(handler, "_get_tenant_id", return_value="test"):
                 with patch("aragora.server.handlers.workflows._run_async") as mock_async:
                     mock_async.side_effect = OSError("Database connection lost")
 
-                    # OSError is not caught by the list handler - it propagates
-                    with pytest.raises(OSError):
-                        handler._handle_list_workflows({}, mock_http)
+                    result = handler._handle_list_workflows({}, mock_http)
+                    assert result.status_code == 503
 
     def test_get_workflow_handles_type_error(self, handler, mock_http):
         """Get workflow returns error response on TypeError."""

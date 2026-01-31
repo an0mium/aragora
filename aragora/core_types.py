@@ -47,7 +47,34 @@ class Message:
 
 @dataclass
 class Critique:
-    """A critique of a proposal or response."""
+    """A critique of a proposal from one agent to another.
+
+    Generated during the critique phase when agents evaluate each other's
+    proposals. Critiques influence consensus by highlighting issues that
+    should be addressed in revisions.
+
+    Attributes:
+        agent: Name of the agent providing the critique.
+        target_agent: Name of the agent whose proposal is being critiqued.
+        target_content: The specific content being critiqued.
+        issues: List of problems identified (actionable items).
+        suggestions: List of recommended improvements.
+        severity: Impact score from 0-10:
+            - 0-2: Minor/cosmetic issues
+            - 3-5: Moderate concerns that should be addressed
+            - 6-8: Significant problems affecting correctness
+            - 9-10: Critical flaws that invalidate the proposal
+        reasoning: Explanation of why these issues matter.
+
+    Properties:
+        target: Alias for target_agent (backward compatibility).
+        content: Formatted text representation via to_prompt().
+
+    Impact on Consensus:
+        - High-severity critiques (7+) can prevent consensus
+        - Proposals with many moderate critiques get lower vote weights
+        - Addressed critiques in revisions improve consensus likelihood
+    """
 
     agent: str
     target_agent: str
@@ -81,7 +108,29 @@ Reasoning: {self.reasoning}"""
 
 @dataclass
 class Vote:
-    """A vote for a proposal."""
+    """An agent's vote for a proposal during the voting phase.
+
+    Votes are collected after proposals and critiques to determine which
+    proposal (or synthesized answer) wins. Votes can be weighted by
+    confidence and agent ELO ratings.
+
+    Attributes:
+        agent: Name of the voting agent.
+        choice: Name of the agent/proposal they're voting for. Can also
+            be special values like "consensus" or "synthesis".
+        reasoning: Explanation for why this choice was made.
+        confidence: Vote weight from 0.0-1.0 (default 1.0). Lower values
+            indicate uncertainty. Used in weighted voting schemes.
+        continue_debate: Whether this agent believes the debate should
+            continue for another round. If most agents vote False,
+            early termination may occur.
+
+    Voting Schemes:
+        - majority: Simple count, most votes wins
+        - weighted: Votes scaled by agent ELO ratings
+        - confidence_weighted: Votes scaled by confidence values
+        - supermajority: Requires threshold (e.g., 66%) to win
+    """
 
     agent: str
     choice: str  # which proposal/agent they vote for
@@ -143,7 +192,74 @@ class DisagreementReport:
 
 @dataclass
 class DebateResult:
-    """The result of a multi-agent debate."""
+    """The result of a multi-agent debate.
+
+    Contains all outputs from Arena.run(), including the final answer,
+    consensus metrics, agent contributions, and diagnostic information.
+
+    Core Fields:
+        id: Unique identifier for this result (defaults to debate_id).
+        debate_id: Unique identifier for the debate session.
+        task: The original task/question that was debated.
+        final_answer: The synthesized conclusion from the debate.
+        confidence: Overall confidence score (0.0-1.0).
+        consensus_reached: Whether agents reached agreement.
+        rounds_used: Number of debate rounds executed.
+        status: Current state ("consensus_reached", "completed", "failed").
+
+    Participant Data:
+        participants: List of agent names that participated.
+        proposals: Mapping of agent name to their final proposal.
+        messages: Full conversation history as Message objects.
+        critiques: List of Critique objects from the critique phase.
+        votes: List of Vote objects from the voting phase.
+        winner: Name of the agent whose proposal was selected (if any).
+
+    Consensus & Convergence:
+        consensus_strength: "strong" (variance < 1), "medium" (< 2), "weak" (>= 2).
+        consensus_variance: Statistical variance in agent positions.
+        convergence_status: "converged", "refining", "diverging", or "".
+        convergence_similarity: Average semantic similarity at debate end.
+        per_agent_similarity: Per-agent similarity scores.
+
+    Disagreement Analysis:
+        dissenting_views: Minority opinions that didn't reach consensus.
+        disagreement_report: Structured disagreement analysis.
+        debate_cruxes: Key claims driving disagreement (from belief network).
+        evidence_suggestions: Claims that would benefit from more evidence.
+
+    Verification & Grounding:
+        grounded_verdict: Evidence grounding analysis result.
+        verification_results: Per-agent claim verification counts.
+        verification_bonuses: Vote bonuses from verification.
+        formal_verification: Results from formal verification (Z3/Lean4).
+
+    Cost & Performance:
+        duration_seconds: Total debate execution time.
+        total_cost_usd: Total API cost if cost tracking enabled.
+        total_tokens: Total tokens consumed.
+        per_agent_cost: Per-agent cost breakdown.
+        budget_limit_usd: Budget cap if set.
+        agent_failures: Per-agent failure records.
+
+    Extensions:
+        synthesis: Long-form synthesis (1200+ words) if enabled.
+        translations: Multi-language translations of final_answer.
+        export_links: Download URLs for exported formats.
+        bead_id: Link to git-backed work unit if GUPP enabled.
+        metadata: Arbitrary key-value metadata.
+
+    Example:
+        result = await arena.run()
+        if result.consensus_reached:
+            print(f"Answer: {result.final_answer}")
+            print(f"Confidence: {result.confidence:.0%}")
+            print(f"Strength: {result.consensus_strength}")
+        else:
+            print(f"No consensus after {result.rounds_used} rounds")
+            for view in result.dissenting_views:
+                print(f"  - {view}")
+    """
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     debate_id: str = ""
@@ -309,7 +425,62 @@ Final Answer:
 
 @dataclass
 class Environment:
-    """Defines a task environment for debate."""
+    """Defines a task environment for multi-agent debate.
+
+    The Environment specifies what problem to solve and constraints on how
+    the debate should proceed. This is one of the three core inputs to Arena
+    (along with agents and protocol).
+
+    Attributes:
+        task: The problem, question, or goal to debate. Required, non-empty,
+            max 10,000 characters. Cannot contain null bytes.
+        context: Additional background information to provide to all agents.
+            Use for domain knowledge, constraints, or prior decisions.
+        roles: List of cognitive roles to assign. Defaults to
+            ["proposer", "critic", "synthesizer"]. Common roles include:
+            - proposer: Generates solution proposals
+            - critic: Identifies issues and weaknesses
+            - synthesizer: Combines proposals into unified answers
+            - judge: Evaluates and scores proposals
+            - analyst: Deep-dives on specific aspects
+        success_fn: Optional scoring function (str -> float 0-1) to evaluate
+            proposals. If provided, used to guide consensus toward
+            higher-scoring answers.
+        max_rounds: Maximum debate rounds before forced termination.
+            Defaults to 3. Higher values allow more refinement but
+            increase cost and latency.
+        require_consensus: If True, debate continues until consensus or
+            max_rounds. If False, may terminate early on strong agreement.
+        consensus_threshold: Fraction of agents that must agree for
+            consensus (0.0-1.0). Default 0.7 means 70% agreement required.
+        documents: List of document IDs to attach to this debate for
+            evidence grounding. Documents are fetched and provided to
+            agents during the debate.
+
+    Validation:
+        - task must be non-empty
+        - task cannot exceed MAX_TASK_LENGTH (10,000 chars)
+        - task cannot contain null bytes (security measure)
+
+    Example:
+        # Simple task
+        env = Environment(task="Design a rate limiter for our API")
+
+        # With context and custom roles
+        env = Environment(
+            task="Review this architecture proposal",
+            context="We need <100ms latency and 10k RPS capacity",
+            roles=["proposer", "critic", "analyst"],
+            max_rounds=5,
+            consensus_threshold=0.8,
+        )
+
+        # With document grounding
+        env = Environment(
+            task="Analyze risks in this contract",
+            documents=["doc-123", "doc-456"],
+        )
+    """
 
     # Maximum task length (prevents DoS via very long strings)
     MAX_TASK_LENGTH: ClassVar[int] = 10000

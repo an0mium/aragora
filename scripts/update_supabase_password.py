@@ -31,8 +31,13 @@ from scripts.rotate_keys import (
     LocalEnvBackend,
 )
 
-# DSN pattern: postgres://postgres.[ref]:[password]@host:port/db
-DSN_PASSWORD_PATTERN = re.compile(r"(postgres://postgres\.[^:]+:)([^@]+)(@)")
+# Project reference for Supabase
+PROJECT_REF = "etwxrexpyvqykqqjaxsz"
+
+# DSN patterns for password replacement
+# Direct connection: postgres://postgres:password@db.ref.supabase.co:5432/postgres
+# Pooler connection: postgres://postgres.ref:password@host:port/postgres
+DSN_PASSWORD_PATTERN = re.compile(r"(postgres://postgres(?:\.[^:]+)?:)([^@]+)(@)")
 
 
 def update_dsn_password(dsn: str, new_password: str) -> str:
@@ -127,17 +132,18 @@ def main():
                     # Direct password value
                     new_value = new_password
                 else:
-                    # DSN - need to get current and update password
+                    # DSN - use direct connection format (not pooler)
+                    # Direct: postgres://postgres:pass@db.REF.supabase.co:5432/postgres
                     if backend_name == "github":
-                        # Can't read GitHub secrets, construct expected DSN
-                        new_value = f"postgres://postgres.wcdikdxvikjxnepjpetx:{new_password}@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
+                        # Can't read GitHub secrets, construct direct connection DSN
+                        new_value = f"postgres://postgres:{new_password}@db.{PROJECT_REF}.supabase.co:5432/postgres"
                     else:
                         current = backend.get_secret(secret_name)
                         if current and "postgres://" in current:
                             new_value = update_dsn_password(current, new_password)
                         else:
-                            # Construct default DSN
-                            new_value = f"postgres://postgres.wcdikdxvikjxnepjpetx:{new_password}@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
+                            # Construct direct connection DSN
+                            new_value = f"postgres://postgres:{new_password}@db.{PROJECT_REF}.supabase.co:5432/postgres"
 
                 # Set the secret
                 success = backend.set_secret(secret_name, new_value)

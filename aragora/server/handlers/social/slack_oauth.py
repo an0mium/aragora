@@ -233,7 +233,10 @@ class SlackOAuthHandler(SecureHandler):
                     try:
                         raw_body = hndlr.rfile.read(content_length)
                         body = json_module.loads(raw_body) if raw_body else {}
-                    except Exception:
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to parse Slack webhook body: {type(e).__name__}: {e}"
+                        )
                         body = {}
 
             # Extract headers from handler if available

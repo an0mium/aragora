@@ -125,7 +125,72 @@ DEFAULT_MIN_ROUNDS_BEFORE_EARLY_STOP = max(DEFAULT_ROUNDS - 1, 1)
 
 @dataclass
 class DebateProtocol:
-    """Configuration for how debates are conducted."""
+    """Configuration for how multi-agent debates are conducted.
+
+    DebateProtocol controls the structure, rules, and behaviors of debates
+    run by Arena. It defines how agents interact, when consensus is reached,
+    and what optimizations are applied.
+
+    Categories:
+        Topology: How agents communicate (all-to-all, ring, star, etc.)
+        Rounds: Number and structure of debate phases
+        Consensus: How agreement is determined (majority, judge, weighted)
+        Role Assignment: Proposers, critics, judges, and cognitive roles
+        Early Termination: When to stop before max rounds
+        Human Participation: User voting and suggestions
+        Quality Enhancements: Verification, evidence weighting, calibration
+        Bias Mitigation: Position shuffling, self-vote detection
+        Timeouts: Per-debate and per-round limits
+
+    Common Configurations:
+        Default (9 rounds, judge consensus):
+            protocol = DebateProtocol()
+
+        Quick (3 rounds, majority):
+            protocol = DebateProtocol(
+                rounds=3,
+                consensus="majority",
+                use_structured_phases=False,
+            )
+
+        High-assurance (supermajority, formal verification):
+            protocol = DebateProtocol(
+                consensus="supermajority",
+                consensus_threshold=0.8,
+                formal_verification_enabled=True,
+                enable_trickster=True,
+            )
+
+        Cost-optimized (early stopping, minimal rounds):
+            protocol = DebateProtocol(
+                early_stopping=True,
+                early_stop_threshold=0.7,
+                min_rounds_before_early_stop=2,
+            )
+
+    Topology Options:
+        - "all-to-all": Every agent critiques every other (default)
+        - "sparse": Random subset of critique connections
+        - "round-robin": Sequential critique passing
+        - "ring": Each agent critiques next agent in ring
+        - "star": Hub agent receives/sends all critiques
+        - "random-graph": Random topology each round
+
+    Consensus Mechanisms:
+        - "majority": Simple vote count, most wins
+        - "supermajority": Requires threshold (e.g., 66%)
+        - "unanimous": All agents must agree
+        - "judge": Designated judge makes final call
+        - "weighted": Votes weighted by ELO ratings
+        - "byzantine": PBFT-style fault-tolerant consensus
+        - "none": No consensus, return all proposals
+        - "any": First valid proposal wins
+
+    See Also:
+        - Arena: Uses protocol to configure debate execution
+        - ARAGORA_AI_PROTOCOL: Production configuration for aragora.ai
+        - ARAGORA_AI_LIGHT_PROTOCOL: Faster 5-round variant
+    """
 
     topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = (
         "all-to-all"

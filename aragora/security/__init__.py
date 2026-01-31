@@ -89,6 +89,25 @@ from .threat_intel_enrichment import (
     MAX_INDICATORS,
 )
 
+from .ssrf_protection import (
+    validate_url,
+    is_url_safe,
+    validate_webhook_url,
+    validate_slack_url,
+    validate_discord_url,
+    validate_github_url,
+    validate_microsoft_url,
+    SSRFValidationResult,
+    SSRFValidationError,
+    SLACK_ALLOWED_DOMAINS,
+    DISCORD_ALLOWED_DOMAINS,
+    GITHUB_ALLOWED_DOMAINS,
+    MICROSOFT_ALLOWED_DOMAINS,
+    get_ssrf_config,
+    ALLOWED_PROTOCOLS,
+    BLOCKED_PROTOCOLS,
+)
+
 __all__ = [
     # Encryption
     "EncryptionService",
@@ -129,4 +148,21 @@ __all__ = [
     "enrich_security_context",
     "ENRICHMENT_ENABLED",
     "MAX_INDICATORS",
+    # SSRF Protection
+    "validate_url",
+    "is_url_safe",
+    "validate_webhook_url",
+    "validate_slack_url",
+    "validate_discord_url",
+    "validate_github_url",
+    "validate_microsoft_url",
+    "SSRFValidationResult",
+    "SSRFValidationError",
+    "SLACK_ALLOWED_DOMAINS",
+    "DISCORD_ALLOWED_DOMAINS",
+    "GITHUB_ALLOWED_DOMAINS",
+    "MICROSOFT_ALLOWED_DOMAINS",
+    "get_ssrf_config",
+    "ALLOWED_PROTOCOLS",
+    "BLOCKED_PROTOCOLS",
 ]

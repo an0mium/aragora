@@ -482,8 +482,8 @@ def get_current_trace_id() -> str | None:
         span = trace.get_current_span()
         if span and span.get_span_context().is_valid:
             return format(span.get_span_context().trace_id, "032x")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to get trace ID: {type(e).__name__}: {e}")
 
     return None
 
@@ -508,8 +508,8 @@ def get_current_span_id() -> str | None:
         span = trace.get_current_span()
         if span and span.get_span_context().is_valid:
             return format(span.get_span_context().span_id, "016x")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to get span ID: {type(e).__name__}: {e}")
 
     return None
 

@@ -26,9 +26,12 @@ Usage in TRUE RLM REPL:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMoundCore as KnowledgeMound
@@ -138,9 +141,11 @@ def load_knowledge_context(
         for item in all_items:
             relationships[item.id] = item.relationships
 
-    except Exception:
+    except (AttributeError, TypeError) as e:
         # Graceful degradation if mound doesn't have expected methods
-        pass
+        logger.debug(
+            f"Knowledge mound access failed (graceful degradation): {type(e).__name__}: {e}"
+        )
 
     # Calculate stats
     total_items = len(all_items)

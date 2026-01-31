@@ -19,6 +19,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.services.email_debate import EmailDebateService, EmailInput
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +81,6 @@ class EmailDebateHandler(BaseHandler):
             return error_response("Missing required field: subject or body", 400)
 
         try:
-            from aragora.services.email_debate import EmailDebateService, EmailInput
-
             service = EmailDebateService(
                 fast_mode=body.get("fast_mode", True),
                 enable_pii_redaction=body.get("enable_pii_redaction", True),
@@ -143,8 +142,6 @@ class EmailDebateHandler(BaseHandler):
             return error_response("Missing required field: emails", 400)
 
         try:
-            from aragora.services.email_debate import EmailDebateService, EmailInput
-
             service = EmailDebateService(
                 fast_mode=body.get("fast_mode", True),
                 enable_pii_redaction=body.get("enable_pii_redaction", True),
@@ -215,8 +212,6 @@ class EmailDebateHandler(BaseHandler):
             return error_response("Missing required field: emails", 400)
 
         try:
-            from aragora.services.email_debate import EmailDebateService, EmailInput
-
             service = EmailDebateService(
                 fast_mode=body.get("fast_mode", True),
                 enable_pii_redaction=body.get("enable_pii_redaction", True),

@@ -541,13 +541,38 @@ def register_template(workflow: WorkflowDefinition) -> None:
 # =============================================================================
 
 
+def get_pending_approvals(workflow_id: str | None = None) -> list[Any]:
+    """Fetch pending approvals from the human checkpoint node."""
+    from aragora.workflow.nodes.human_checkpoint import get_pending_approvals as _get_pending
+
+    return _get_pending(workflow_id)
+
+
+def get_approval_request(request_id: str) -> Any:
+    """Fetch a single approval request by ID."""
+    from aragora.workflow.nodes.human_checkpoint import get_approval_request as _get_request
+
+    return _get_request(request_id)
+
+
+def _resolve(
+    request_id: str,
+    status: Any,
+    responder_id: str,
+    notes: str = "",
+    checklist_updates: Optional[dict[str, bool]] = None,
+) -> bool:
+    """Resolve an approval request via the human checkpoint node."""
+    from aragora.workflow.nodes.human_checkpoint import resolve_approval as _resolve_approval
+
+    return _resolve_approval(request_id, status, responder_id, notes, checklist_updates)
+
+
 async def list_pending_approvals(
     workflow_id: str | None = None,
     tenant_id: str = "default",
 ) -> list[dict[str, Any]]:
     """List pending human approvals."""
-    from aragora.workflow.nodes.human_checkpoint import get_pending_approvals
-
     approvals = get_pending_approvals(workflow_id)
     return [a.to_dict() for a in approvals]
 
@@ -561,7 +586,6 @@ async def resolve_approval(
 ) -> bool:
     """Resolve a human approval request."""
     from aragora.workflow.nodes.human_checkpoint import (
-        resolve_approval as _resolve,
         ApprovalStatus,
     )
 
@@ -575,8 +599,6 @@ async def resolve_approval(
 
 async def get_approval(request_id: str) -> Optional[dict[str, Any]]:
     """Get an approval request by ID."""
-    from aragora.workflow.nodes.human_checkpoint import get_approval_request
-
     approval = get_approval_request(request_id)
     return approval.to_dict() if approval else None
 
@@ -1110,6 +1132,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response(result)
+        except (OSError, IOError) as e:
+            logger.error(f"Storage error listing workflows: {e}")
+            return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
             logger.error(f"Data error listing workflows: {e}")
             return error_response("Internal data error", 500)
@@ -1178,11 +1203,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             tenant_id = self._get_tenant_id(handler, query_params)
             # Get user_id from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
-            created_by = (
-                auth_context.user_id
-                if auth_context
-                else get_string_param(query_params, "user_id", "")
-            )
+            if auth_context is not None and hasattr(auth_context, "user_id"):
+                created_by = auth_context.user_id
+            else:
+                created_by = get_string_param(query_params, "user_id", "")
 
             result = _run_async(
                 create_workflow(

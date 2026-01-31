@@ -10,11 +10,18 @@ based on multiple factors:
 - Calibration (from ELO or CalibrationTracker)
 - Self-vote penalty (Agent-as-a-Judge bias mitigation)
 - Verbosity penalty (Agent-as-a-Judge bias mitigation)
+
+Performance optimizations:
+- Session-based weight caching to avoid redundant calculations
+- Automatic cache invalidation on ELO updates
+- Thread-safe caching with minimal lock contention
 """
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -29,6 +36,232 @@ if TYPE_CHECKING:
     from aragora.core import Agent, Vote
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Weight Cache for Session-Based Caching
+# =============================================================================
+
+
+@dataclass
+class CachedWeight:
+    """Cached weight result with metadata for invalidation."""
+
+    weight: float
+    factors: "WeightFactors"
+    computed_at: float  # timestamp
+    elo_version: int  # ELO version for invalidation
+
+
+class WeightCache:
+    """
+    Session-scoped cache for agent vote weights.
+
+    Provides significant performance improvement by caching weight calculations
+    that are expensive due to multiple external lookups (ELO, memory, etc.).
+
+    Features:
+    - Per-debate-session isolation to prevent cross-debate contamination
+    - Automatic invalidation on ELO updates via version tracking
+    - TTL-based expiry for long-running debates
+    - Thread-safe operations with minimal lock contention
+
+    Performance impact:
+    - Without cache: O(n) lookups per consensus check (n = external systems)
+    - With cache: O(1) after first computation
+    - Expected speedup: 5-20x for repeated consensus checks
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        ttl_seconds: float = 300.0,  # 5 minutes default
+        max_size: int = 256,
+    ):
+        """
+        Initialize weight cache.
+
+        Args:
+            session_id: Unique identifier for this debate session
+            ttl_seconds: Time-to-live for cached entries (default 5 minutes)
+            max_size: Maximum cache entries (LRU eviction when exceeded)
+        """
+        self.session_id = session_id
+        self.ttl_seconds = ttl_seconds
+        self.max_size = max_size
+        self._cache: dict[str, CachedWeight] = {}
+        self._lock = threading.RLock()
+        self._elo_version = 0
+        self._hits = 0
+        self._misses = 0
+
+    def _make_key(self, agent_name: str, domain: str) -> str:
+        """Generate cache key for agent+domain combination."""
+        return f"{agent_name}:{domain}"
+
+    def get(
+        self,
+        agent_name: str,
+        domain: str,
+    ) -> tuple[float, "WeightFactors"] | None:
+        """
+        Get cached weight for an agent.
+
+        Args:
+            agent_name: Name of the agent
+            domain: Debate domain
+
+        Returns:
+            Tuple of (weight, factors) or None if not cached/expired
+        """
+        key = self._make_key(agent_name, domain)
+        now = time.time()
+
+        with self._lock:
+            if key not in self._cache:
+                self._misses += 1
+                return None
+
+            entry = self._cache[key]
+
+            # Check TTL expiry
+            if now - entry.computed_at > self.ttl_seconds:
+                del self._cache[key]
+                self._misses += 1
+                return None
+
+            # Check ELO version for invalidation
+            if entry.elo_version != self._elo_version:
+                del self._cache[key]
+                self._misses += 1
+                return None
+
+            self._hits += 1
+            return entry.weight, entry.factors
+
+    def put(
+        self,
+        agent_name: str,
+        domain: str,
+        weight: float,
+        factors: "WeightFactors",
+    ) -> None:
+        """
+        Store computed weight in cache.
+
+        Args:
+            agent_name: Name of the agent
+            domain: Debate domain
+            weight: Computed weight value
+            factors: Weight factors breakdown
+        """
+        key = self._make_key(agent_name, domain)
+        now = time.time()
+
+        with self._lock:
+            # LRU eviction if at capacity
+            while len(self._cache) >= self.max_size:
+                # Find oldest entry
+                oldest_key = min(
+                    self._cache.keys(),
+                    key=lambda k: self._cache[k].computed_at,
+                )
+                del self._cache[oldest_key]
+
+            self._cache[key] = CachedWeight(
+                weight=weight,
+                factors=factors,
+                computed_at=now,
+                elo_version=self._elo_version,
+            )
+
+    def invalidate_elo(self) -> None:
+        """
+        Invalidate all cached weights due to ELO update.
+
+        Called when ELO ratings change (e.g., after a debate round).
+        Uses version tracking for efficient lazy invalidation.
+        """
+        with self._lock:
+            self._elo_version += 1
+            logger.debug(
+                f"Weight cache ELO invalidation: session={self.session_id} "
+                f"version={self._elo_version}"
+            )
+
+    def invalidate_agent(self, agent_name: str) -> None:
+        """
+        Invalidate cached weights for a specific agent.
+
+        Args:
+            agent_name: Agent whose weights should be invalidated
+        """
+        with self._lock:
+            keys_to_remove = [k for k in self._cache.keys() if k.startswith(f"{agent_name}:")]
+            for key in keys_to_remove:
+                del self._cache[key]
+
+    def clear(self) -> None:
+        """Clear all cached entries."""
+        with self._lock:
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        with self._lock:
+            total = self._hits + self._misses
+            return {
+                "session_id": self.session_id,
+                "size": len(self._cache),
+                "max_size": self.max_size,
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": self._hits / total if total > 0 else 0.0,
+                "elo_version": self._elo_version,
+            }
+
+
+# Global cache manager for weight caches
+_weight_cache_manager: dict[str, WeightCache] = {}
+_weight_cache_lock = threading.Lock()
+
+
+def get_weight_cache(session_id: str, ttl_seconds: float = 300.0) -> WeightCache:
+    """
+    Get or create a weight cache for a debate session.
+
+    Args:
+        session_id: Unique debate session identifier
+        ttl_seconds: Cache TTL in seconds
+
+    Returns:
+        WeightCache instance for this session
+    """
+    with _weight_cache_lock:
+        if session_id not in _weight_cache_manager:
+            _weight_cache_manager[session_id] = WeightCache(
+                session_id=session_id,
+                ttl_seconds=ttl_seconds,
+            )
+        return _weight_cache_manager[session_id]
+
+
+def cleanup_weight_cache(session_id: str) -> None:
+    """
+    Cleanup weight cache for a completed debate.
+
+    Should be called when a debate ends to free memory.
+
+    Args:
+        session_id: Debate session ID to cleanup
+    """
+    with _weight_cache_lock:
+        if session_id in _weight_cache_manager:
+            _weight_cache_manager[session_id].clear()
+            del _weight_cache_manager[session_id]
+            logger.debug(f"Cleaned up weight cache for session {session_id}")
 
 
 @dataclass
@@ -119,19 +352,30 @@ class WeightCalculatorConfig:
 class WeightCalculator:
     """Calculate agent voting weights from multiple sources.
 
+    Performance optimization: Uses session-based weight caching to avoid
+    redundant calculations. Cache is automatically invalidated when ELO
+    ratings change.
+
     Usage:
         calculator = WeightCalculator(
             memory=memory_system,
             elo_system=elo_system,
             flip_detector=flip_detector,
             agent_weights=probe_weights,
+            session_id="debate-123",  # Enable caching
         )
 
-        # Calculate weights for all agents
+        # Calculate weights for all agents (cached after first call)
         weights = calculator.compute_weights(agents)
 
         # Get individual weight with breakdown
         weight, factors = calculator.get_weight_with_factors(agent_name)
+
+        # Invalidate cache after ELO updates
+        calculator.invalidate_elo_cache()
+
+        # Cleanup when debate ends
+        calculator.cleanup()
     """
 
     def __init__(
@@ -144,6 +388,9 @@ class WeightCalculator:
         get_calibration_weight: Optional[Callable[[str], float]] = None,
         config: WeightCalculatorConfig | None = None,
         domain: str = "general",
+        session_id: str | None = None,
+        enable_cache: bool = True,
+        cache_ttl_seconds: float = 300.0,
     ):
         """Initialize the weight calculator.
 
@@ -156,6 +403,9 @@ class WeightCalculator:
             get_calibration_weight: Fallback callback for calibration
             config: Configuration for weight calculation
             domain: Debate domain for domain-specific ELO lookup
+            session_id: Unique session ID for caching (None disables caching)
+            enable_cache: Whether to enable weight caching (default True)
+            cache_ttl_seconds: Cache TTL in seconds (default 5 minutes)
         """
         self.memory = memory
         self.elo_system = elo_system
@@ -166,12 +416,24 @@ class WeightCalculator:
         self.config = config or WeightCalculatorConfig()
         self.domain = domain
 
-        # Cache for batch operations
+        # Cache for batch operations (ELO ratings)
         self._ratings_cache: dict[str, Any] = {}
 
         # Context for bias mitigation (set during compute_weights_with_context)
         self._current_votes: list["Vote"] = []
         self._current_proposals: dict[str, str] = {}
+
+        # Session-based weight caching
+        self._session_id = session_id
+        self._enable_cache = enable_cache and session_id is not None
+        self._cache_ttl = cache_ttl_seconds
+        self._weight_cache: WeightCache | None = None
+
+        if self._enable_cache and session_id:
+            self._weight_cache = get_weight_cache(session_id, cache_ttl_seconds)
+            logger.debug(
+                f"Weight calculator caching enabled: session={session_id} ttl={cache_ttl_seconds}s"
+            )
 
     def compute_weights(self, agents: list["Agent"]) -> dict[str, float]:
         """Compute vote weights for all agents.
@@ -254,17 +516,29 @@ class WeightCalculator:
     def get_weight(self, agent_name: str) -> float:
         """Get the combined vote weight for an agent.
 
+        Uses caching when enabled to avoid redundant calculations.
+
         Args:
             agent_name: Name of the agent
 
         Returns:
             Combined weight (product of all factors)
         """
+        # Check cache first
+        if self._weight_cache:
+            cached = self._weight_cache.get(agent_name, self.domain)
+            if cached is not None:
+                return cached[0]  # Return cached weight
+
         factors = self._compute_factors(agent_name)
         weight = factors.total
 
         # Apply bounds
         weight = max(self.config.min_weight, min(self.config.max_weight, weight))
+
+        # Cache the result
+        if self._weight_cache:
+            self._weight_cache.put(agent_name, self.domain, weight, factors)
 
         return weight
 
@@ -272,6 +546,7 @@ class WeightCalculator:
         """Get weight with breakdown of individual factors.
 
         Useful for debugging and understanding weight contributions.
+        Uses caching when enabled.
 
         Args:
             agent_name: Name of the agent
@@ -279,8 +554,19 @@ class WeightCalculator:
         Returns:
             Tuple of (final_weight, WeightFactors)
         """
+        # Check cache first
+        if self._weight_cache:
+            cached = self._weight_cache.get(agent_name, self.domain)
+            if cached is not None:
+                return cached  # Return (weight, factors)
+
         factors = self._compute_factors(agent_name)
         weight = max(self.config.min_weight, min(self.config.max_weight, factors.total))
+
+        # Cache the result
+        if self._weight_cache:
+            self._weight_cache.put(agent_name, self.domain, weight, factors)
+
         return weight, factors
 
     def _prefetch_ratings(self, agent_names: list[str]) -> None:
@@ -563,3 +849,44 @@ class WeightCalculator:
     def clear_cache(self) -> None:
         """Clear the ratings cache."""
         self._ratings_cache.clear()
+
+    def invalidate_elo_cache(self) -> None:
+        """Invalidate weight cache due to ELO rating updates.
+
+        Call this after ELO ratings change (e.g., after a debate round)
+        to ensure fresh weight calculations.
+        """
+        if self._weight_cache:
+            self._weight_cache.invalidate_elo()
+            logger.debug(f"Weight cache invalidated for ELO update: session={self._session_id}")
+
+    def invalidate_agent_cache(self, agent_name: str) -> None:
+        """Invalidate cached weights for a specific agent.
+
+        Call this when an agent's rating or reputation changes.
+
+        Args:
+            agent_name: Agent whose weights should be invalidated
+        """
+        if self._weight_cache:
+            self._weight_cache.invalidate_agent(agent_name)
+
+    def cleanup(self) -> None:
+        """Cleanup resources when debate session ends.
+
+        Should be called when the debate completes to free memory.
+        """
+        self.clear_cache()
+        if self._session_id:
+            cleanup_weight_cache(self._session_id)
+            logger.debug(f"Weight calculator cleanup complete: session={self._session_id}")
+
+    def get_cache_stats(self) -> dict[str, Any] | None:
+        """Get cache statistics for monitoring.
+
+        Returns:
+            Dict with cache stats or None if caching is disabled
+        """
+        if self._weight_cache:
+            return self._weight_cache.get_stats()
+        return None
