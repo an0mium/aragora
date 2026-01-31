@@ -962,18 +962,9 @@ class TestIntegrationScenarios:
             ]
         }
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value=ollama_response)
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool({"/api/tags": create_mock_response(200, ollama_response)})
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             assert server.available is True
@@ -989,28 +980,14 @@ class TestIntegrationScenarios:
         ollama_response = {"models": [{"name": "llama3.2:latest"}]}
         lm_studio_response = {"data": [{"id": "mistral-7b-instruct"}]}
 
-        responses = {
-            "/api/tags": ollama_response,
-            "/models": lm_studio_response,
-        }
+        mock_pool = create_mock_pool(
+            {
+                "/api/tags": create_mock_response(200, ollama_response),
+                "/models": create_mock_response(200, lm_studio_response),
+            }
+        )
 
-        def mock_get(url, **kwargs):
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            for endpoint, data in responses.items():
-                if endpoint in url:
-                    mock_response.json = AsyncMock(return_value=data)
-                    break
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
-            return mock_response
-
-        mock_session = MagicMock()
-        mock_session.get = mock_get
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             status = await detect_local_llms()
 
             assert status.any_available is True

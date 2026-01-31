@@ -501,6 +501,7 @@ VERDICT: CONCERNS - High risk of runtime errors, missing error handling
     async def test_audit_handles_error(self, mock_aragora_path, mock_codex_agent, mock_log_fn):
         """Should handle audit errors gracefully."""
         from aragora.nomic.phases.verify import VerifyPhase
+        from contextlib import contextmanager
 
         # Use RuntimeError which is in the caught exception types
         mock_codex_agent.generate = AsyncMock(side_effect=RuntimeError("API down"))
@@ -520,10 +521,14 @@ VERDICT: CONCERNS - High risk of runtime errors, missing error handling
                 mock_proc.communicate = AsyncMock(return_value=(b"", b""))
                 mock_exec.return_value = mock_proc
 
-                with patch("aragora.server.stream.arena_hooks.streaming_task_context") as mock_ctx:
-                    mock_ctx.return_value.__enter__ = MagicMock()
-                    mock_ctx.return_value.__exit__ = MagicMock()
+                @contextmanager
+                def mock_streaming_context(task_id):
+                    yield None
 
+                with patch(
+                    "aragora.server.stream.arena_hooks.streaming_task_context",
+                    mock_streaming_context,
+                ):
                     result = await phase._codex_audit()
 
                     # Should pass despite error (don't block on audit failure)
