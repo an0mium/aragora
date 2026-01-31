@@ -28,6 +28,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac
 import json
@@ -1027,25 +1028,106 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
 
 def verify_sendgrid_signature(payload: bytes, timestamp: str, signature: str) -> bool:
     """
-    Verify SendGrid webhook signature.
+    Verify SendGrid Event Webhook signature using HMAC-SHA256.
+
+    SendGrid signs Event Webhook payloads by computing an HMAC-SHA256 of the
+    timestamp concatenated with the raw request body, using the webhook
+    verification key as the HMAC secret. The resulting digest is base64-encoded
+    and sent in the X-Twilio-Email-Event-Webhook-Signature header.
+
+    For Inbound Parse webhooks that do not include a signature header,
+    verification is skipped when the secret is not configured, preserving
+    backward compatibility with unsigned inbound parse callbacks.
+
+    Reference:
+        https://docs.sendgrid.com/for-developers/tracking-events/getting-started-event-webhook-security-features
 
     Args:
-        payload: Raw request body
-        timestamp: X-Twilio-Email-Event-Webhook-Timestamp header
-        signature: X-Twilio-Email-Event-Webhook-Signature header
+        payload: Raw request body bytes
+        timestamp: X-Twilio-Email-Event-Webhook-Timestamp header value
+        signature: X-Twilio-Email-Event-Webhook-Signature header value (base64-encoded)
 
     Returns:
-        True if signature is valid
+        True if signature is valid or verification is not configured
     """
     if not SENDGRID_INBOUND_SECRET:
         logger.warning("SENDGRID_INBOUND_SECRET not configured, skipping verification")
         return True
 
-    # SendGrid signature = SHA256(timestamp + payload + secret)
-    to_sign = timestamp.encode() + payload
-    expected = hmac.new(SENDGRID_INBOUND_SECRET.encode(), to_sign, hashlib.sha256).hexdigest()
+    if not signature:
+        logger.warning("SendGrid webhook missing signature header")
+        return False
 
-    return hmac.compare_digest(signature, expected)
+    if not timestamp:
+        logger.warning("SendGrid webhook missing timestamp header")
+        return False
+
+    # SendGrid: HMAC-SHA256(key, timestamp + payload), then base64-encode
+    signed_payload = timestamp.encode("utf-8") + payload
+    computed = hmac.new(
+        SENDGRID_INBOUND_SECRET.encode("utf-8"),
+        signed_payload,
+        hashlib.sha256,
+    ).digest()
+    expected_b64 = base64.b64encode(computed).decode("ascii")
+
+    # Timing-safe comparison to prevent timing attacks
+    return hmac.compare_digest(signature, expected_b64)
+
+
+# Mailgun configuration from environment
+MAILGUN_WEBHOOK_SIGNING_KEY = os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY", "")
+
+
+def verify_mailgun_signature(
+    timestamp: str,
+    token: str,
+    signature: str,
+    *,
+    signing_key: str | None = None,
+) -> bool:
+    """
+    Verify Mailgun webhook signature using HMAC-SHA256.
+
+    Mailgun signs webhooks by computing HMAC-SHA256 of the concatenation of
+    timestamp and token, using the webhook signing key as the HMAC secret.
+    The resulting hex digest must match the signature provided in the POST body.
+
+    Mailgun webhook POST bodies include three verification fields:
+      - signature.timestamp: Unix epoch seconds when the event was generated
+      - signature.token: A randomly generated string (50 chars)
+      - signature.signature: HMAC-SHA256 hex digest for verification
+
+    Reference:
+        https://documentation.mailgun.com/docs/mailgun/api-reference/openapi-final/tag/Webhooks/#securing-webhooks
+
+    Args:
+        timestamp: Unix timestamp string from the webhook payload
+        token: Random token string from the webhook payload
+        signature: HMAC-SHA256 hex digest from the webhook payload
+        signing_key: Override signing key (defaults to MAILGUN_WEBHOOK_SIGNING_KEY env var)
+
+    Returns:
+        True if signature is valid
+    """
+    key = signing_key or MAILGUN_WEBHOOK_SIGNING_KEY
+    if not key:
+        logger.warning("MAILGUN_WEBHOOK_SIGNING_KEY not configured, skipping verification")
+        return True
+
+    if not timestamp or not token or not signature:
+        logger.warning("Mailgun webhook missing required signature fields")
+        return False
+
+    # Mailgun: HMAC-SHA256(key, timestamp + token) -> hex digest
+    computed = hmac.new(
+        key.encode("utf-8"),
+        (timestamp + token).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    # Timing-safe comparison to prevent timing attacks
+    return hmac.compare_digest(signature, computed)
 
 
 def verify_ses_signature(message: dict[str, Any]) -> bool:
@@ -1354,6 +1436,7 @@ __all__ = [
     "process_inbound_email",
     "verify_sendgrid_signature",
     "verify_ses_signature",
+    "verify_mailgun_signature",
     "register_email_origin",
     "register_reply_handler",
     "handle_email_reply",
