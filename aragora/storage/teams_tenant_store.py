@@ -569,13 +569,13 @@ class SupabaseTeamsTenantStore:
     - Efficient queries with proper indexes
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Supabase client."""
         self._client = None
         self._encryption_key = ENCRYPTION_KEY
         self._init_client()
 
-    def _init_client(self):
+    def _init_client(self) -> None:
         """Initialize the Supabase client."""
         try:
             from aragora.persistence.supabase_client import get_supabase_client

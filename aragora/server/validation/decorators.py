@@ -8,7 +8,7 @@ including body schemas, query parameters, and path segments.
 from __future__ import annotations
 
 from functools import wraps
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from .schema import validate_against_schema
 
@@ -62,9 +62,9 @@ def validate_request(
         {"error": "...", "status": 400}.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             # Extract args - support multiple call patterns
             path = args[0] if args else kwargs.get("path", "")
             query = args[1] if len(args) > 1 else kwargs.get("query", {})
@@ -138,9 +138,9 @@ def validate_post_body(schema: dict) -> Callable:
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             # Body should be first positional arg or in kwargs
             body = args[0] if args else kwargs.get("body", {})
 
@@ -183,11 +183,11 @@ def validate_query_params(
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         """Create a validation wrapper for the given handler function."""
 
         @wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             """Validate query parameters before invoking the handler.
 
             1. Extract query dict from kwargs or positional args

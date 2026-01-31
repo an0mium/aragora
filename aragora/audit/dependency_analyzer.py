@@ -774,9 +774,9 @@ class DependencyAnalyzer:
     ) -> list[Vulnerability]:
         """Check JavaScript packages for vulnerabilities using npm audit."""
         vulnerabilities: list[Vulnerability] = []
-        project_path = Path(project_path)
+        path = Path(project_path)
 
-        if not (project_path / "package.json").exists():
+        if not (path / "package.json").exists():
             return vulnerabilities
 
         try:
@@ -784,7 +784,7 @@ class DependencyAnalyzer:
                 ["npm", "audit", "--json"],
                 capture_output=True,
                 text=True,
-                cwd=project_path,
+                cwd=path,
                 timeout=120,
             )
 
