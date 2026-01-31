@@ -172,7 +172,7 @@ def _record_operation(op: BridgeOperation) -> None:
         if not op.success and op.error_type:
             record_bridge_error(op.bridge_name, op.error_type)
     except ImportError:
-        pass  # Metrics not available
+        logger.debug("Bridge telemetry metrics not available: observability module not installed")
 
 
 def record_bridge_operation(

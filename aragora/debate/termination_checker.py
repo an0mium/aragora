@@ -286,8 +286,8 @@ Where confidence indicates how certain you are in your assessment:
                     confidence = float(data.get("confidence", 0.5))
                     confidence = max(0.0, min(1.0, confidence))  # Clamp to [0, 1]
                     reason = str(data.get("reason", ""))
-                except (json.JSONDecodeError, ValueError):
-                    pass
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.debug(f"Failed to parse judge termination JSON: {e}")
 
             # Fallback to text parsing if JSON failed
             if not reason:

@@ -372,7 +372,7 @@ class DebatePerformanceMonitor:
 
                     record_phase_duration(phase_name, metric.duration_seconds)
                 except ImportError:
-                    pass
+                    logger.debug("Phase duration metrics not available")
 
     def get_active_debate(self, debate_id: str) -> DebateMetric | None:
         """Get metrics for an active debate."""
@@ -555,7 +555,7 @@ class DebatePerformanceMonitor:
             )
 
         except ImportError:
-            pass
+            logger.debug("Debate completion metrics not available")
 
 
 # Global instance for convenience

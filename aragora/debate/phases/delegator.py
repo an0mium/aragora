@@ -446,8 +446,8 @@ CONFIDENCE: <0.0-1.0>"""
                     conf_str = line_stripped.split(":", 1)[-1].strip()
                     confidence = float(conf_str)
                     confidence = max(0.0, min(1.0, confidence))
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug(f"Failed to parse analysis confidence: {e}")
                 current_section = None
             elif current_section == "key_points" and line_stripped.startswith("-"):
                 key_points.append(line_stripped[1:].strip())
@@ -494,8 +494,8 @@ CONFIDENCE: <0.0-1.0>"""
                     conf_str = line_stripped.split(":", 1)[-1].strip()
                     confidence = float(conf_str)
                     confidence = max(0.0, min(1.0, confidence))
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug(f"Failed to parse synthesis confidence: {e}")
 
         return SynthesisResult(
             summary=summary or response[:500],

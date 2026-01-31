@@ -1053,6 +1053,13 @@ class AnalyticsDashboardHandler(BaseHandler):
                 else:
                     date_format = "strftime('%Y-W%W', detected_at)"
 
+                # Limit based on granularity and time period:
+                # - Daily: up to 365 periods * ~20 flip types = 7300 max rows
+                # - Weekly: up to 52 periods * ~20 flip types = 1040 max rows
+                # Use a conservative multiplier for flip types (20) to ensure all data fits
+                max_periods = days if granularity == "day" else (days // 7) + 1
+                row_limit = min(max_periods * 20, 1000)  # Cap at 1000 for memory safety
+
                 rows = conn.execute(
                     f"""
                     SELECT
@@ -1063,9 +1070,9 @@ class AnalyticsDashboardHandler(BaseHandler):
                     WHERE detected_at >= ?
                     GROUP BY {date_format}, flip_type
                     ORDER BY period
-                    LIMIT 5000
+                    LIMIT ?
                     """,
-                    (period_start.isoformat(),),
+                    (period_start.isoformat(), row_limit),
                 ).fetchall()
 
                 # Group by period

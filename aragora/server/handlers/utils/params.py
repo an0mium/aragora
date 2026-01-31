@@ -5,8 +5,14 @@ Provides type-safe parameter extraction from query strings with support
 for defaults, bounds, and list value handling.
 """
 
+import logging
 from typing import Any
 from urllib.parse import parse_qs
+
+logger = logging.getLogger(__name__)
+
+# Threshold above which we warn about large page sizes
+LARGE_PAGE_WARNING_THRESHOLD = 500
 
 
 def parse_query_params(query_string: str) -> dict[str, Any]:
@@ -143,6 +149,8 @@ def get_pagination_params(
     params: dict[str, Any],
     default_limit: int = 100,
     max_limit: int = 1000,
+    warn_threshold: int | None = None,
+    context: str | None = None,
 ) -> tuple[int, int]:
     """Get standard pagination parameters (limit, offset) with bounds.
 
@@ -154,6 +162,9 @@ def get_pagination_params(
         params: Query parameters dict (from request.query or parsed query string)
         default_limit: Default limit if not specified (default: 100)
         max_limit: Maximum allowed limit (default: 1000)
+        warn_threshold: Log warning if requested limit exceeds this value
+                        (defaults to LARGE_PAGE_WARNING_THRESHOLD=500)
+        context: Optional context string for warning messages (e.g., endpoint name)
 
     Returns:
         Tuple of (limit, offset) as bounded integers
@@ -161,6 +172,22 @@ def get_pagination_params(
     Example:
         limit, offset = get_pagination_params(dict(request.query))
     """
+    # Get the raw requested limit before clamping (for warning)
+    raw_limit = get_int_param(params, "limit", default_limit)
+
     limit = get_clamped_int_param(params, "limit", default_limit, 1, max_limit)
     offset = get_clamped_int_param(params, "offset", 0, 0, 1_000_000)
+
+    # Warn about large page sizes that could cause memory pressure
+    threshold = warn_threshold if warn_threshold is not None else LARGE_PAGE_WARNING_THRESHOLD
+    if raw_limit > threshold:
+        ctx = f" ({context})" if context else ""
+        logger.warning(
+            "Large page size requested%s: limit=%d (clamped to %d). "
+            "Consider using pagination for better performance.",
+            ctx,
+            raw_limit,
+            limit,
+        )
+
     return limit, offset

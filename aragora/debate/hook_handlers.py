@@ -1019,7 +1019,7 @@ class HookHandlerRegistry:
 
                     register_provenance_manager(provenance_manager.debate_id, provenance_manager)
                 except ImportError:
-                    pass  # Server not available
+                    logger.debug("Provenance server handlers not available")
 
             except Exception as e:
                 logger.warning(f"Provenance persistence failed: {e}")

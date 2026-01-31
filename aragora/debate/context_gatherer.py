@@ -764,7 +764,7 @@ class ContextGatherer:
                     collector.add_connector("web", WebConnector())
                     enabled_connectors.append("web")
             except ImportError:
-                pass
+                logger.debug("WebConnector not available: duckduckgo_search not installed")
 
             # Add GitHub connector if available
             try:
@@ -776,7 +776,7 @@ class ContextGatherer:
                     collector.add_connector("github", GitHubConnector())
                     enabled_connectors.append("github")
             except ImportError:
-                pass
+                logger.debug("GitHubConnector not available")
 
             # Add local docs connector
             try:
@@ -790,7 +790,7 @@ class ContextGatherer:
                 )
                 enabled_connectors.append("local_docs")
             except ImportError:
-                pass
+                logger.debug("LocalDocsConnector not available")
 
             if not enabled_connectors:
                 return None

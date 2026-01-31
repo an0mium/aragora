@@ -389,7 +389,7 @@ def count_unique_fast(
 
         faiss_available = True
     except ImportError:
-        pass
+        logger.debug("FAISS not available, using NumPy fallback for clustering")
 
     if use_faiss and faiss_available and n >= 50:
         # Use FAISS for larger datasets - O(n log n)

@@ -54,7 +54,7 @@ def _record_routing_metrics(task_type: str, selected_agent: str, latency: float)
         record_performance_routing_decision(task_type or "balanced", selected_agent)
         record_performance_routing_latency(latency)
     except ImportError:
-        pass  # Metrics not available
+        logger.debug("Performance routing metrics not available")
 
 
 @dataclass
@@ -332,7 +332,7 @@ class PerformanceRouterBridge:
             record_bridge_sync("performance_router", result.success)
             record_bridge_sync_latency("performance_router", latency)
         except ImportError:
-            pass  # Metrics not available
+            logger.debug("Bridge sync metrics not available")
 
     def get_best_agent_for_task(
         self,

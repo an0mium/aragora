@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Tests for GasTownDashboardHandler.
 
@@ -21,10 +20,8 @@ Covers:
 from __future__ import annotations
 
 import json
-import time
-from datetime import datetime, timezone
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -32,10 +29,10 @@ from aragora.server.handlers.gastown_dashboard import (
     GasTownDashboardHandler,
     _gt_dashboard_cache,
     _set_cached_data,
-    CACHE_TTL,
+    CACHE_TTL,  # noqa: F401 - used to verify module exports
 )
 from aragora.server.handlers.base import HandlerResult
-from aragora.server.handlers.secure import UnauthorizedError, ForbiddenError
+from aragora.server.handlers.utils.auth import UnauthorizedError, ForbiddenError
 
 
 # ---------------------------------------------------------------------------
@@ -44,15 +41,15 @@ from aragora.server.handlers.secure import UnauthorizedError, ForbiddenError
 
 
 @pytest.fixture
-def handler():
+def handler() -> GasTownDashboardHandler:
     """Create a GasTownDashboardHandler without calling __init__."""
     h = GasTownDashboardHandler.__new__(GasTownDashboardHandler)
-    h.ctx = {}
+    h.ctx = {}  # type: ignore[assignment]
     return h
 
 
 @pytest.fixture(autouse=True)
-def clear_cache():
+def clear_cache() -> None:  # type: ignore[misc]
     """Clear the module-level dashboard cache before each test."""
     _gt_dashboard_cache.clear()
     yield
@@ -139,10 +136,10 @@ class TestAuth:
 # ---------------------------------------------------------------------------
 
 
-def _authenticated(handler):
+def _authenticated(handler: GasTownDashboardHandler) -> None:
     """Patch auth methods to pass silently."""
-    handler.get_auth_context = AsyncMock(return_value=MagicMock())
-    handler.check_permission = MagicMock()
+    handler.get_auth_context = AsyncMock(return_value=MagicMock())  # type: ignore[method-assign]
+    handler.check_permission = MagicMock()  # type: ignore[method-assign]
 
 
 class TestRouting:

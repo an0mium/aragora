@@ -699,7 +699,7 @@ class ArenaExtensions:
                         )
                     )
                 except RuntimeError:
-                    pass  # No running loop
+                    logger.debug("No running event loop for notification emission")
 
             logger.info(
                 "debate_notification_emitted debate_id=%s confidence=%.2f",

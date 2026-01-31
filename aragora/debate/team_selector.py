@@ -222,8 +222,8 @@ class TeamSelector:
                             calibration_scores[name] = self.calibration_tracker.get_brier_score(
                                 name, domain=domain
                             )
-                        except (KeyError, AttributeError, TypeError):
-                            pass
+                        except (KeyError, AttributeError, TypeError) as e:
+                            logger.debug(f"Calibration lookup failed for {name}: {e}")
             except Exception as e:
                 logger.debug(f"Batch calibration lookup failed: {e}")
 
@@ -468,8 +468,8 @@ class TeamSelector:
                 rating = self.elo_system.get_rating(agent.name)
                 # Handle both AgentRating objects and raw float values
                 return rating.elo if hasattr(rating, "elo") else float(rating)
-            except (KeyError, AttributeError, TypeError):
-                pass
+            except (KeyError, AttributeError, TypeError) as e:
+                logger.debug(f"ELO lookup failed for {agent.name}: {e}")
         return 1000.0  # Default ELO
 
     def _get_agent_capabilities(self, agent: "Agent") -> set[str]:

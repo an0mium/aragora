@@ -994,6 +994,7 @@ class SyncOperationsMixin:
         workspace_id: str | None = None,
         since: str | None = None,
         limit: int = 1000,
+        batch_size: int = 50,
     ) -> "SyncResult":
         """
         Handler-compatible incremental sync from FactStore.
@@ -1005,6 +1006,7 @@ class SyncOperationsMixin:
             workspace_id: Override workspace ID for this sync
             since: ISO timestamp to sync from (incremental)
             limit: Maximum entries to sync in this batch
+            batch_size: Number of concurrent store operations per batch
 
         Returns:
             SyncResult with counts of synced/updated/skipped nodes
@@ -1033,6 +1035,7 @@ class SyncOperationsMixin:
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
+        relationships_created = 0
         errors: list[str] = []
 
         try:
@@ -1055,6 +1058,8 @@ class SyncOperationsMixin:
                 )
                 all_facts = self._facts.query_facts(query="", filters=filters)
 
+                # Collect all requests for batch processing (avoids N+1 pattern)
+                requests: list[IngestionRequest] = []
                 for fact in all_facts:
                     try:
                         request = IngestionRequest(
@@ -1077,17 +1082,22 @@ class SyncOperationsMixin:
                                 "source_documents": fact.source_documents,
                             },
                         )
-
-                        result = await self.store(request)
-
-                        if result.deduplicated:
-                            nodes_updated += 1
-                        else:
-                            nodes_synced += 1
+                        requests.append(request)
 
                     except Exception as e:
                         nodes_skipped += 1
                         errors.append(f"facts:{fact.id}: {str(e)}")
+
+                # Batch store all requests using concurrent processing
+                if requests:
+                    synced, updated, skipped, rels, batch_errors = await self._batch_store(
+                        requests, batch_size=batch_size
+                    )
+                    nodes_synced += synced
+                    nodes_updated += updated
+                    nodes_skipped += skipped
+                    relationships_created += rels
+                    errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"facts:query: {str(e)}")
@@ -1097,7 +1107,7 @@ class SyncOperationsMixin:
             nodes_synced=nodes_synced,
             nodes_updated=nodes_updated,
             nodes_skipped=nodes_skipped,
-            relationships_created=0,
+            relationships_created=relationships_created,
             duration_ms=int((time.time() - start_time) * 1000),
             errors=errors,
         )

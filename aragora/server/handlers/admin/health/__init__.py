@@ -218,10 +218,10 @@ class HealthHandler(SecureHandler):
         return deep_health_check(self)
 
     def _database_schema_health(self) -> HandlerResult:
-        return database_schema_health(self)
+        return database_schema_health(self)  # type: ignore[arg-type]
 
     def _database_stores_health(self) -> HandlerResult:
-        return database_stores_health(self)
+        return database_stores_health(self)  # type: ignore[arg-type]
 
     def _knowledge_mound_health(self) -> HandlerResult:
         return knowledge_mound_health(self)

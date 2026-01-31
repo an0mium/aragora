@@ -69,7 +69,7 @@ def _create_verify_claims_callback(arena: "Arena"):
 
             track_verification(status, time_ms)
         except ImportError:
-            pass  # Metrics not available
+            logger.debug("Verification tracking metrics not available")
 
     def _get_formal_manager():
         nonlocal _formal_manager

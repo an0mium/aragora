@@ -54,7 +54,7 @@ def queue_for_supabase_sync(ctx: "DebateContext", result: "DebateResult") -> Non
         logger.debug(f"Queued debate {result.id} for Supabase sync")
 
     except ImportError:
-        pass
+        logger.debug("Supabase sync not available")
     except (ConnectionError, TimeoutError) as e:
         logger.debug(f"Supabase sync queue failed (non-fatal): {e}")
     except Exception as e:

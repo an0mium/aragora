@@ -157,7 +157,7 @@ class KnowledgeMoundOperations:
                         metadata={"operation": "fetch_knowledge_context"},
                     )
                 except ImportError:
-                    pass
+                    logger.debug("KM telemetry not available")
 
     async def ingest_debate_outcome(
         self,
@@ -253,4 +253,4 @@ class KnowledgeMoundOperations:
                         metadata={"operation": "ingest_debate_outcome"},
                     )
                 except ImportError:
-                    pass
+                    logger.debug("KM telemetry not available")

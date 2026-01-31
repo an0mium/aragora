@@ -16,8 +16,11 @@ Example agent output format:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 # RLM Ready Signal Configuration
 # Minimum confidence threshold to consider an agent "ready"
@@ -128,8 +131,8 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
             signal.ready = bool(data.get("ready", False))
             signal.reasoning = str(data.get("reasoning", ""))
             return signal
-        except (json.JSONDecodeError, ValueError, TypeError):
-            pass
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse HTML ready signal: {e}")
 
     # Try JSON code block format
     # ```ready_signal {"confidence": 0.85, "ready": true} ```
@@ -142,8 +145,8 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
             signal.ready = bool(data.get("ready", False))
             signal.reasoning = str(data.get("reasoning", ""))
             return signal
-        except (json.JSONDecodeError, ValueError, TypeError):
-            pass
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse JSON ready signal: {e}")
 
     # Try inline marker format
     # [READY: confidence=0.85, ready=true]
@@ -157,8 +160,8 @@ def parse_ready_signal(agent_name: str, content: str, round_num: int) -> AgentRe
             signal.ready = inline_match.group(2).lower() == "true"
             signal.reasoning = inline_match.group(3) or ""
             return signal
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse inline ready signal: {e}")
 
     # Heuristic: Check for explicit "final position" or "ready" statements
     # This allows natural language signaling without structured metadata

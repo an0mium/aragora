@@ -42,7 +42,7 @@ def _record_calibration_adjustment(agent: str) -> None:
 
         record_calibration_adjustment(agent)
     except ImportError:
-        pass
+        logger.debug("Calibration adjustment metrics not available")
 
 
 class ProposalPhase:

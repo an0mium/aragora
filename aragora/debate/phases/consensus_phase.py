@@ -381,7 +381,7 @@ class ConsensusPhase:
                         )
                     )
                 except RuntimeError:
-                    pass  # No running loop, skip async hook
+                    logger.debug("No running event loop for POST_CONSENSUS hook")
             except Exception as e:
                 logger.debug(f"POST_CONSENSUS hook failed: {e}")
 

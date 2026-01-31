@@ -154,7 +154,7 @@ async def get_security_debate_agents() -> list["Agent"]:
         if agents:
             return agents
     except ImportError:
-        pass
+        logger.debug("Security agent pool not available")
 
     # Fallback: create agents directly
     try:

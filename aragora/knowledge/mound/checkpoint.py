@@ -528,43 +528,63 @@ class KMCheckpointStore:
         self,
         incremental: bool,
         parent_checkpoint_id: str | None,
+        batch_size: int = 1000,
     ) -> list[dict[str, Any]]:
-        """Export nodes from KM."""
+        """Export nodes from KM using batched iteration.
+
+        Args:
+            incremental: Whether this is an incremental export
+            parent_checkpoint_id: Parent checkpoint for incremental exports
+            batch_size: Number of nodes to fetch per batch (default 1000)
+
+        Returns:
+            List of node dictionaries
+        """
         nodes = []
 
-        # Get all nodes from the meta store
+        # Get all nodes from the meta store using batched iteration
         if hasattr(self.mound, "_meta_store") and self.mound._meta_store:
             if hasattr(self.mound._meta_store, "query_nodes"):
-                raw_nodes = self.mound._meta_store.query_nodes(
-                    workspace_id=self.mound.workspace_id,
-                    limit=100000,  # High limit for full export
-                )
-                for node in raw_nodes:
-                    node_dict = {
-                        "id": node.id,
-                        "node_type": node.node_type,
-                        "content": node.content,
-                        "confidence": node.confidence,
-                        "workspace_id": node.workspace_id,
-                        "metadata": node.metadata or {},
-                        "topics": node.topics or [],
-                    }
-                    if hasattr(node, "created_at") and node.created_at:
-                        node_dict["created_at"] = (
-                            node.created_at.isoformat()
-                            if hasattr(node.created_at, "isoformat")
-                            else str(node.created_at)
-                        )
-                    if hasattr(node, "provenance") and node.provenance:
-                        node_dict["provenance"] = {
-                            "source_type": (
-                                node.provenance.source_type.value
-                                if hasattr(node.provenance.source_type, "value")
-                                else str(node.provenance.source_type)
-                            ),
-                            "source_id": node.provenance.source_id,
+                offset = 0
+                while True:
+                    raw_nodes = self.mound._meta_store.query_nodes(
+                        workspace_id=self.mound.workspace_id,
+                        limit=batch_size,
+                        offset=offset,
+                    )
+                    if not raw_nodes:
+                        break  # No more nodes to fetch
+                    for node in raw_nodes:
+                        node_dict = {
+                            "id": node.id,
+                            "node_type": node.node_type,
+                            "content": node.content,
+                            "confidence": node.confidence,
+                            "workspace_id": node.workspace_id,
+                            "metadata": node.metadata or {},
+                            "topics": node.topics or [],
                         }
-                    nodes.append(node_dict)
+                        if hasattr(node, "created_at") and node.created_at:
+                            node_dict["created_at"] = (
+                                node.created_at.isoformat()
+                                if hasattr(node.created_at, "isoformat")
+                                else str(node.created_at)
+                            )
+                        if hasattr(node, "provenance") and node.provenance:
+                            node_dict["provenance"] = {
+                                "source_type": (
+                                    node.provenance.source_type.value
+                                    if hasattr(node.provenance.source_type, "value")
+                                    else str(node.provenance.source_type)
+                                ),
+                                "source_id": node.provenance.source_id,
+                            }
+                        nodes.append(node_dict)
+
+                    # Move to next batch
+                    offset += len(raw_nodes)
+                    if len(raw_nodes) < batch_size:
+                        break  # Last batch was partial, no more data
 
         return nodes
 

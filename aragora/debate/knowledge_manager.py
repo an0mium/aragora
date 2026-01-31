@@ -132,7 +132,7 @@ class ArenaKnowledgeManager:
                 self._km_metrics = KMMetrics()
                 logger.debug("[knowledge_mound] KMMetrics initialized for observability")
             except ImportError:
-                pass
+                logger.debug("[knowledge_mound] KMMetrics not available")
 
         # Create KnowledgeMoundOperations
         self._knowledge_ops = KnowledgeMoundOperations(

@@ -89,7 +89,7 @@ class TelemetryConfig:
             logger.debug("TelemetryConfig registered with ServiceRegistry")
             return instance
         except ImportError:
-            pass
+            logger.debug("ServiceRegistry not available for TelemetryConfig")
 
         # Fallback to class-level singleton
         if cls._instance is None:
@@ -110,7 +110,7 @@ class TelemetryConfig:
             if registry.has(cls):
                 registry.unregister(cls)
         except ImportError:
-            pass
+            logger.debug("ServiceRegistry not available for unregister")
 
         # Clear class-level singleton
         cls._instance = None

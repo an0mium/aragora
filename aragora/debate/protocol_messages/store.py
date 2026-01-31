@@ -500,8 +500,8 @@ class ProtocolMessageStore:
         if row["metadata"]:
             try:
                 metadata = json.loads(row["metadata"])
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug(f"Failed to parse message metadata: {e}")
 
         timestamp = row["timestamp"]
         if isinstance(timestamp, str):

@@ -237,7 +237,7 @@ async def update_debate_bead(
         )
 
     except ImportError:
-        pass
+        logger.debug("Bead tracking unavailable: aragora.nomic.stores not installed")
     except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
         logger.warning(f"Failed to update debate bead: {e}")
 
@@ -345,7 +345,7 @@ async def complete_hook_tracking(
                 logger.warning(f"Failed to complete hook for {agent_id}: {e}")
 
     except ImportError:
-        pass
+        logger.debug("Hook tracking unavailable: aragora.nomic.hook_queue not installed")
     except (OSError, ValueError, TypeError, AttributeError) as e:
         logger.warning(f"Failed to complete hook tracking: {e}")
 

@@ -91,7 +91,7 @@ def _record_adaptive_round(direction: str) -> None:
 
         record_adaptive_round_change(direction)
     except ImportError:
-        pass
+        logger.debug("Adaptive round metrics not available")
 
 
 if TYPE_CHECKING:
@@ -554,14 +554,14 @@ class DebateRoundsPhase:
                 record_slow_round(debate_outcome="in_progress")
                 record_round_latency(_round_duration)
             except ImportError:
-                pass
+                logger.debug("Slow round metrics not available")
         else:
             try:
                 from aragora.observability.metrics import record_round_latency
 
                 record_round_latency(_round_duration)
             except ImportError:
-                pass
+                logger.debug("Round latency metrics not available")
 
         if should_break:
             return False  # Converged - exit round execution early, stop debate loop

@@ -401,7 +401,7 @@ class MemoryManager:
 
                 evidence_bridge = get_evidence_bridge()
             except ImportError:
-                pass  # Bridge not available
+                logger.debug("Evidence bridge not available for provenance tracking")
 
             for snippet in evidence_snippets[:10]:  # Limit to top 10 snippets
                 # Get content from snippet (handle different formats)
