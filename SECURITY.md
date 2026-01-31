@@ -24,9 +24,9 @@ We follow responsible disclosure practices. Please allow up to 90 days for us to
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 1.0.x   | Yes       | Current stable release |
-| 0.8.x   | Security fixes only | Upgrade recommended |
-| < 0.8   | No        | Unsupported |
+| 2.4.x   | Yes       | Current stable release |
+| 2.2.x - 2.3.x | Security fixes only | Upgrade recommended |
+| < 2.2   | No        | Unsupported |
 
 ---
 

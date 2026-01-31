@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [v2.4.1] - 2026-01-31
+
+### Security
+
+- **XXE Prevention:** Replace unsafe `xml.etree.ElementTree` with `defusedxml.ElementTree` in Microsoft Ads connector and document parser
+- **HMAC Strength:** Use full 256-bit HMAC-SHA256 signatures instead of truncated 64-bit signatures in token signing
+- **PII Masking:** Mask email addresses in authentication logs (login, password reset, MFA, API keys) - now logs `user_id` instead of `email`
+- **Input Validation:** Add type validation after JSON deserialization in MCP workflow and control plane tools
+- **Thread Safety:** Add threading.Lock for thread-safe initialization of error monitoring singleton
+
+### Testing
+
+- Fix MockContent classes in streaming tests to support `iter_chunks_with_timeout()` compatibility
+
+---
+
 ## [v2.4.0] - 2026-01-25
 
 ### Features
