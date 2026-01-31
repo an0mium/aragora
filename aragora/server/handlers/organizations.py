@@ -119,7 +119,7 @@ class OrganizationsHandler(SecureHandler):
         )
 
     def handle(
-        self, path: str, query_params: dict, handler: Any, method: str = "GET"
+        self, path: str, query_params: dict[str, Any], handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
         """Route organization requests to appropriate methods."""
         # Rate limit check
@@ -393,7 +393,7 @@ class OrganizationsHandler(SecureHandler):
 
         return True, ""
 
-    def _get_auth_context(self, handler, user=None) -> AuthorizationContext | None:
+    def _get_auth_context(self, handler: Any, user: Any = None) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -411,7 +411,7 @@ class OrganizationsHandler(SecureHandler):
         )
 
     def _check_rbac_permission(
-        self, handler, permission_key: str, user=None
+        self, handler: Any, permission_key: str, user: Any = None
     ) -> HandlerResult | None:
         """
         Check RBAC permission.
@@ -442,7 +442,7 @@ class OrganizationsHandler(SecureHandler):
     @require_permission("org:read")
     @handle_errors("get organization")
     @log_request("get organization")
-    def _get_organization(self, handler, org_id: str) -> HandlerResult:
+    def _get_organization(self, handler: Any, org_id: str) -> HandlerResult:
         """Get organization details."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id)
@@ -476,7 +476,7 @@ class OrganizationsHandler(SecureHandler):
 
     @handle_errors("update organization")
     @log_request("update organization")
-    def _update_organization(self, handler, org_id: str) -> HandlerResult:
+    def _update_organization(self, handler: Any, org_id: str) -> HandlerResult:
         """Update organization settings."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
@@ -545,7 +545,7 @@ class OrganizationsHandler(SecureHandler):
     @require_permission("org:members")
     @handle_errors("list members")
     @log_request("list members")
-    def _list_members(self, handler, org_id: str) -> HandlerResult:
+    def _list_members(self, handler: Any, org_id: str) -> HandlerResult:
         """List organization members."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id)
@@ -575,7 +575,7 @@ class OrganizationsHandler(SecureHandler):
 
     @handle_errors("invite member")
     @log_request("invite member")
-    def _invite_member(self, handler, org_id: str) -> HandlerResult:
+    def _invite_member(self, handler: Any, org_id: str) -> HandlerResult:
         """Invite a user to the organization."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
@@ -704,7 +704,7 @@ class OrganizationsHandler(SecureHandler):
 
     @handle_errors("remove member")
     @log_request("remove member")
-    def _remove_member(self, handler, org_id: str, target_user_id: str) -> HandlerResult:
+    def _remove_member(self, handler: Any, org_id: str, target_user_id: str) -> HandlerResult:
         """Remove a member from the organization."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
@@ -765,7 +765,7 @@ class OrganizationsHandler(SecureHandler):
 
     @handle_errors("update member role")
     @log_request("update member role")
-    def _update_member_role(self, handler, org_id: str, target_user_id: str) -> HandlerResult:
+    def _update_member_role(self, handler: Any, org_id: str, target_user_id: str) -> HandlerResult:
         """Update a member's role in the organization."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id, min_role="owner")
@@ -866,7 +866,7 @@ class OrganizationsHandler(SecureHandler):
     @handle_errors("list invitations")
     @require_permission("org:invite")
     @log_request("list invitations")
-    def _list_invitations(self, handler, org_id: str) -> HandlerResult:
+    def _list_invitations(self, handler: Any, org_id: str) -> HandlerResult:
         """List all invitations for an organization."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
@@ -892,7 +892,7 @@ class OrganizationsHandler(SecureHandler):
 
     @handle_errors("revoke invitation")
     @log_request("revoke invitation")
-    def _revoke_invitation(self, handler, org_id: str, invitation_id: str) -> HandlerResult:
+    def _revoke_invitation(self, handler: Any, org_id: str, invitation_id: str) -> HandlerResult:
         """Revoke a pending invitation."""
         user, auth_ctx = self._get_current_user(handler)
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
@@ -941,7 +941,7 @@ class OrganizationsHandler(SecureHandler):
     @handle_errors("get pending invitations")
     @require_permission("org:read")
     @log_request("get pending invitations")
-    def _get_pending_invitations(self, handler) -> HandlerResult:
+    def _get_pending_invitations(self, handler: Any) -> HandlerResult:
         """Get pending invitations for the authenticated user."""
         user, auth_ctx = self._get_current_user(handler)
         if not user:
@@ -971,7 +971,7 @@ class OrganizationsHandler(SecureHandler):
     @handle_errors("accept invitation")
     @require_permission("org:read")
     @log_request("accept invitation")
-    def _accept_invitation(self, handler, token: str) -> HandlerResult:
+    def _accept_invitation(self, handler: Any, token: str) -> HandlerResult:
         """Accept an organization invitation."""
         user, auth_ctx = self._get_current_user(handler)
         if not user:

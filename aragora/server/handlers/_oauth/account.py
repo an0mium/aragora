@@ -7,6 +7,7 @@ Provides OAuth account linking, unlinking, and provider listing methods.
 from __future__ import annotations
 
 import logging
+from typing import Any
 from urllib.parse import urlencode
 
 from aragora.audit.unified import audit_action
@@ -22,7 +23,7 @@ class AccountManagementMixin:
     """Mixin providing OAuth account management methods."""
 
     @handle_errors("list OAuth providers")
-    def _handle_list_providers(self, handler) -> HandlerResult:
+    def _handle_list_providers(self, handler: Any) -> HandlerResult:
         """List configured OAuth providers."""
         impl = _impl()
         providers = []
@@ -80,7 +81,7 @@ class AccountManagementMixin:
         return json_response({"providers": providers})
 
     @handle_errors("get OAuth authorization URL")
-    def _handle_oauth_url(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_oauth_url(self, handler: Any, query_params: dict) -> HandlerResult:
         """Return OAuth authorization URL for a provider without redirecting."""
         provider = _get_param(query_params, "provider")
         if not provider:
@@ -118,7 +119,7 @@ class AccountManagementMixin:
         return json_response({"auth_url": auth_url, "state": state})
 
     @handle_errors("OAuth callback (API)")
-    def _handle_oauth_callback_api(self, handler) -> HandlerResult:
+    def _handle_oauth_callback_api(self, handler: Any) -> HandlerResult:
         """Complete OAuth flow and return tokens as JSON."""
         body = self.read_json_body(handler)
         if body is None:
@@ -176,7 +177,7 @@ class AccountManagementMixin:
         )
 
     @handle_errors("get user OAuth providers")
-    def _handle_get_user_providers(self, handler) -> HandlerResult:
+    def _handle_get_user_providers(self, handler: Any) -> HandlerResult:
         """Get OAuth providers linked to the current user."""
         # RBAC check: authentication.read permission required
         if error := self._check_permission(handler, "authentication.read"):
@@ -198,7 +199,7 @@ class AccountManagementMixin:
         return json_response({"providers": providers})
 
     @handle_errors("link OAuth account")
-    def _handle_link_account(self, handler) -> HandlerResult:
+    def _handle_link_account(self, handler: Any) -> HandlerResult:
         """Link OAuth account to current user (initiated from settings)."""
         impl = _impl()
 
@@ -259,7 +260,7 @@ class AccountManagementMixin:
         return error_response("Provider not implemented", 501)
 
     @handle_errors("unlink OAuth account")
-    def _handle_unlink_account(self, handler) -> HandlerResult:
+    def _handle_unlink_account(self, handler: Any) -> HandlerResult:
         """Unlink OAuth provider from current user."""
         # RBAC check: authentication.update permission required
         if error := self._check_permission(handler, "authentication.update"):

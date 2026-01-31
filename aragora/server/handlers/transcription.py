@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 _job_store = None
 
 
-def _get_job_store():
+def _get_job_store() -> Any:
     """Get or create the job store for transcription job persistence."""
     global _job_store
     if _job_store is None:
@@ -187,7 +187,7 @@ class TranscriptionHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=60)
     @require_permission("transcription:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Handle GET requests."""
         if path == "/api/v1/transcription/config":
             return self._get_config()
@@ -201,7 +201,7 @@ class TranscriptionHandler(BaseHandler):
     @rate_limit(requests_per_minute=10)
     @require_permission("transcription:create")
     async def handle_post(
-        self, path: str, query_params: dict, handler=None
+        self, path: str, query_params: dict, handler: Any = None
     ) -> HandlerResult | None:
         """Handle POST requests."""
         client_ip = get_client_ip(handler)
@@ -283,7 +283,7 @@ class TranscriptionHandler(BaseHandler):
             }
         )
 
-    async def _handle_audio_transcription(self, handler) -> HandlerResult:
+    async def _handle_audio_transcription(self, handler: Any) -> HandlerResult:
         """Handle audio file transcription."""
         available, error = _check_transcription_available()
         if not available:
@@ -379,7 +379,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
-    async def _handle_video_transcription(self, handler) -> HandlerResult:
+    async def _handle_video_transcription(self, handler: Any) -> HandlerResult:
         """Handle video file transcription (extract audio and transcribe)."""
         available, error = _check_transcription_available()
         if not available:
@@ -463,7 +463,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected video transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
-    async def _handle_youtube_transcription(self, handler) -> HandlerResult:
+    async def _handle_youtube_transcription(self, handler: Any) -> HandlerResult:
         """Handle YouTube video transcription."""
         available, error = _check_transcription_available()
         if not available:
@@ -554,7 +554,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected YouTube transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
-    async def _handle_youtube_info(self, handler) -> HandlerResult:
+    async def _handle_youtube_info(self, handler: Any) -> HandlerResult:
         """Get YouTube video info without transcribing."""
         try:
             body, err = self.read_json_body_validated(handler)
@@ -599,7 +599,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected error getting YouTube info: {e}")
             return error_response(safe_error_message(e, "video info"), 500)
 
-    def _parse_multipart(self, handler, content_type: str) -> tuple[bytes | None, str, dict]:
+    def _parse_multipart(self, handler: Any, content_type: str) -> tuple[bytes | None, str, dict]:
         """Parse multipart form data.
 
         Returns:

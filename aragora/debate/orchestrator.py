@@ -48,7 +48,6 @@ from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
 from aragora.debate.judge_selector import JudgeSelector
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
-from aragora.debate.result_formatter import ResultFormatter
 from aragora.debate.roles_manager import RolesManager
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.state_cache import DebateStateCache
@@ -90,8 +89,18 @@ from aragora.debate.orchestrator_agents import (
     select_debate_team as _agents_select_debate_team,
     should_terminate_early as _agents_should_terminate_early,
 )
+from aragora.debate.orchestrator_checkpoints import (
+    cleanup_checkpoints as _cp_cleanup_checkpoints,
+    list_checkpoints as _cp_list_checkpoints,
+    restore_from_checkpoint as _cp_restore_from_checkpoint,
+    save_checkpoint as _cp_save_checkpoint,
+)
 from aragora.debate.orchestrator_domains import (
     compute_domain_from_task as _compute_domain_from_task,
+)
+from aragora.debate.orchestrator_output import (
+    format_conclusion as _output_format_conclusion,
+    translate_conclusions as _output_translate_conclusions,
 )
 
 # Structured logger for all debate events (JSON-formatted in production)
@@ -1532,59 +1541,12 @@ class Arena:
         )
 
     def _format_conclusion(self, result: "DebateResult") -> str:
-        """Format debate conclusion. Delegates to ResultFormatter."""
-        return ResultFormatter().format_conclusion(result)
+        """Format debate conclusion. Delegates to orchestrator_output."""
+        return _output_format_conclusion(result)
 
     async def _translate_conclusions(self, result: "DebateResult") -> None:
-        """
-        Translate debate conclusions to configured target languages.
-
-        Uses the translation module to provide multi-language support.
-        Translations are stored in result.translations dict.
-        """
-        if not result.final_answer:
-            return
-
-        target_languages = getattr(self.protocol, "target_languages", [])
-        if not target_languages:
-            return
-
-        try:
-            from aragora.debate.translation import (
-                Language,
-                get_translation_service,
-            )
-
-            service = get_translation_service()
-            default_lang = getattr(self.protocol, "default_language", "en")
-
-            # Detect or use configured source language
-            source_lang = Language.from_code(default_lang) or Language.ENGLISH
-
-            for target_code in target_languages:
-                target_lang = Language.from_code(target_code)
-                if not target_lang or target_lang == source_lang:
-                    continue
-
-                try:
-                    translation_result = await service.translate(
-                        result.final_answer,
-                        target_lang,
-                        source_lang,
-                    )
-                    if translation_result.confidence > 0.5:
-                        result.translations[target_code] = translation_result.translated_text
-                        logger.debug(
-                            f"Translated conclusion to {target_lang.name_english} "
-                            f"(confidence: {translation_result.confidence:.2f})"
-                        )
-                except (ConnectionError, OSError, ValueError, TypeError) as e:
-                    logger.warning(f"Translation to {target_code} failed: {e}")
-
-        except ImportError as e:
-            logger.debug(f"Translation module not available: {e}")
-        except (AttributeError, RuntimeError) as e:
-            logger.warning(f"Translation failed (non-critical): {e}")
+        """Translate conclusions. Delegates to orchestrator_output."""
+        await _output_translate_conclusions(result, self.protocol)
 
     def _assign_roles(self) -> None:
         """Assign roles to agents based on protocol. Delegates to RolesManager."""
@@ -1622,246 +1584,73 @@ class Arena:
         current_round: int = 0,
         current_consensus: Optional[str] = None,
     ) -> Optional[str]:
+        """Save a checkpoint for the current debate state.
+
+        Delegates to :func:`orchestrator_checkpoints.save_checkpoint`.
         """
-        Save a checkpoint for the current debate state.
-
-        This allows manual checkpoint creation at any point during or after debate.
-        Checkpoints enable debate resumption and crash recovery.
-
-        Args:
-            debate_id: Unique identifier for the debate
-            phase: Current phase name (e.g., "proposal", "critique", "consensus", "manual")
-            messages: Message history to checkpoint
-            critiques: Critique history to checkpoint
-            votes: Vote history to checkpoint
-            current_round: Current round number
-            current_consensus: Current consensus text if available
-
-        Returns:
-            Checkpoint ID if successful, None otherwise
-
-        Example::
-
-            # Manual checkpoint during debate
-            checkpoint_id = await arena.save_checkpoint(
-                debate_id="debate-123",
-                phase="mid-round",
-                messages=ctx.result.messages,
-                current_round=3,
-            )
-        """
-        if not self.checkpoint_manager:
-            logger.debug("[checkpoint] No checkpoint manager configured")
-            return None
-
-        try:
-            checkpoint = await self.checkpoint_manager.create_checkpoint(
-                debate_id=debate_id,
-                task=self.env.task if self.env else "",
-                current_round=current_round,
-                total_rounds=self.protocol.rounds if self.protocol else 0,
-                phase=phase,
-                messages=messages or [],
-                critiques=critiques or [],
-                votes=votes or [],
-                agents=self.agents or [],
-                current_consensus=current_consensus,
-            )
-            logger.info(
-                f"[checkpoint] Saved checkpoint {checkpoint.checkpoint_id} for debate {debate_id}"
-            )
-            return checkpoint.checkpoint_id
-
-        except (IOError, OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.warning(f"[checkpoint] Failed to save checkpoint: {e}")
-            return None
+        return await _cp_save_checkpoint(
+            checkpoint_manager=self.checkpoint_manager,
+            debate_id=debate_id,
+            env=self.env,
+            protocol=self.protocol,
+            agents=self.agents,
+            phase=phase,
+            messages=messages,
+            critiques=critiques,
+            votes=votes,
+            current_round=current_round,
+            current_consensus=current_consensus,
+        )
 
     async def restore_from_checkpoint(
         self,
         checkpoint_id: str,
         resumed_by: str = "system",
     ) -> Optional["DebateContext"]:
+        """Restore debate state from a checkpoint.
+
+        Delegates to :func:`orchestrator_checkpoints.restore_from_checkpoint`.
         """
-        Restore debate state from a checkpoint.
-
-        Loads a checkpoint and reconstructs the debate context, enabling
-        resumption of interrupted debates.
-
-        Args:
-            checkpoint_id: ID of the checkpoint to restore from
-            resumed_by: Identifier for who/what is resuming (for audit)
-
-        Returns:
-            DebateContext if restoration successful, None otherwise
-
-        Example::
-
-            # Resume an interrupted debate
-            ctx = await arena.restore_from_checkpoint("cp-abc123-003-def4")
-            if ctx:
-                # Continue debate from checkpoint
-                result = await arena.run()
-        """
-        if not self.checkpoint_manager:
-            logger.debug("[checkpoint] No checkpoint manager configured")
-            return None
-
-        try:
-            resumed = await self.checkpoint_manager.resume_from_checkpoint(
-                checkpoint_id=checkpoint_id,
-                resumed_by=resumed_by,
-            )
-
-            if not resumed:
-                logger.warning(f"[checkpoint] Checkpoint {checkpoint_id} not found or corrupted")
-                return None
-
-            # Reconstruct DebateContext from checkpoint
-            ctx = DebateContext(
-                env=self.env,
-                agents=self.agents,
-                start_time=time.time(),
-                debate_id=resumed.original_debate_id,
-                correlation_id=f"resumed-{checkpoint_id[:8]}",
-                domain=self._extract_debate_domain()
-                if hasattr(self, "_extract_debate_domain")
-                else "",
-                hook_manager=self.hook_manager if hasattr(self, "hook_manager") else None,
-                org_id=self.org_id if hasattr(self, "org_id") else "",
-            )
-
-            # Restore result state
-            ctx.result = DebateResult(
-                task=resumed.checkpoint.task,
-                messages=resumed.messages,
-                critiques=[],  # Critiques stored as dicts in checkpoint
-                votes=resumed.votes,
-                rounds_used=resumed.checkpoint.current_round,
-                consensus_reached=False,
-                confidence=resumed.checkpoint.consensus_confidence,
-                final_answer=resumed.checkpoint.current_consensus or "",
-            )
-
-            # Reconstruct critiques from checkpoint data
-            for c_dict in resumed.checkpoint.critiques:
-                ctx.result.critiques.append(
-                    Critique(
-                        agent=c_dict.get("agent", ""),
-                        target_agent=c_dict.get("target_agent", ""),
-                        target_content=c_dict.get("target_content", ""),
-                        issues=c_dict.get("issues", []),
-                        suggestions=c_dict.get("suggestions", []),
-                        severity=c_dict.get("severity", 0.0),
-                        reasoning=c_dict.get("reasoning", ""),
-                    )
-                )
-
-            # Store checkpoint reference for tracking
-            ctx._restored_from_checkpoint = checkpoint_id
-            ctx._checkpoint_resume_round = resumed.checkpoint.current_round
-
-            logger.info(
-                f"[checkpoint] Restored from checkpoint {checkpoint_id} "
-                f"at round {resumed.checkpoint.current_round}"
-            )
-            return ctx
-
-        except (IOError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.warning(f"[checkpoint] Failed to restore checkpoint: {e}")
-            return None
+        return await _cp_restore_from_checkpoint(
+            checkpoint_manager=self.checkpoint_manager,
+            checkpoint_id=checkpoint_id,
+            env=self.env,
+            agents=self.agents,
+            domain=self._extract_debate_domain() if hasattr(self, "_extract_debate_domain") else "",
+            hook_manager=self.hook_manager if hasattr(self, "hook_manager") else None,
+            org_id=self.org_id if hasattr(self, "org_id") else "",
+            resumed_by=resumed_by,
+        )
 
     async def list_checkpoints(
         self,
         debate_id: Optional[str] = None,
         limit: int = 100,
     ) -> list[dict]:
+        """List available checkpoints.
+
+        Delegates to :func:`orchestrator_checkpoints.list_checkpoints`.
         """
-        List available checkpoints.
-
-        Args:
-            debate_id: Filter by debate ID (None for all checkpoints)
-            limit: Maximum number of checkpoints to return
-
-        Returns:
-            List of checkpoint metadata dicts with keys:
-            - checkpoint_id: Unique checkpoint identifier
-            - debate_id: Associated debate ID
-            - task: Debate task (truncated)
-            - current_round: Round number at checkpoint
-            - created_at: Checkpoint creation timestamp
-            - status: Checkpoint status (complete, resuming, etc.)
-
-        Example::
-
-            # List all checkpoints
-            checkpoints = await arena.list_checkpoints()
-
-            # List checkpoints for a specific debate
-            debate_checkpoints = await arena.list_checkpoints(debate_id="debate-123")
-        """
-        if not self.checkpoint_manager:
-            logger.debug("[checkpoint] No checkpoint manager configured")
-            return []
-
-        try:
-            return await self.checkpoint_manager.store.list_checkpoints(
-                debate_id=debate_id,
-                limit=limit,
-            )
-        except (IOError, OSError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"[checkpoint] Failed to list checkpoints: {e}")
-            return []
+        return await _cp_list_checkpoints(
+            checkpoint_manager=self.checkpoint_manager,
+            debate_id=debate_id,
+            limit=limit,
+        )
 
     async def cleanup_checkpoints(
         self,
         debate_id: str,
         keep_latest: int = 1,
     ) -> int:
+        """Clean up old checkpoints for a completed debate.
+
+        Delegates to :func:`orchestrator_checkpoints.cleanup_checkpoints`.
         """
-        Clean up old checkpoints for a completed debate.
-
-        Removes checkpoints beyond the keep_latest count, freeing storage.
-        Should be called after successful debate completion.
-
-        Args:
-            debate_id: Debate ID to clean up checkpoints for
-            keep_latest: Number of most recent checkpoints to keep
-
-        Returns:
-            Number of checkpoints deleted
-
-        Example::
-
-            # After successful debate
-            deleted = await arena.cleanup_checkpoints("debate-123", keep_latest=0)
-            print(f"Cleaned up {deleted} checkpoints")
-        """
-        if not self.checkpoint_manager:
-            return 0
-
-        try:
-            checkpoints = await self.checkpoint_manager.store.list_checkpoints(
-                debate_id=debate_id,
-                limit=1000,  # Get all
-            )
-
-            # Sort by creation time (newest first)
-            checkpoints.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-
-            # Delete extras beyond keep_latest
-            deleted = 0
-            for cp in checkpoints[keep_latest:]:
-                if await self.checkpoint_manager.store.delete(cp["checkpoint_id"]):
-                    deleted += 1
-                    logger.debug(f"[checkpoint] Deleted checkpoint {cp['checkpoint_id']}")
-
-            if deleted > 0:
-                logger.info(f"[checkpoint] Cleaned up {deleted} checkpoints for debate {debate_id}")
-            return deleted
-
-        except (IOError, OSError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"[checkpoint] Cleanup failed: {e}")
-            return 0
+        return await _cp_cleanup_checkpoints(
+            checkpoint_manager=self.checkpoint_manager,
+            debate_id=debate_id,
+            keep_latest=keep_latest,
+        )
 
     # =========================================================================
     # Async Context Manager Protocol

@@ -23,7 +23,24 @@ def _plugin_list_endpoint(deprecated: bool = False, versioned: bool = True) -> d
             "summary": "List plugins",
             "operationId": op_id,
             "description": "Get list of all available plugins." if not deprecated else None,
-            "responses": {"200": _ok_response("Plugin list")},
+            "responses": {
+                "200": _ok_response(
+                    "Plugin list",
+                    {
+                        "plugins": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "version": {"type": "string"},
+                                    "description": {"type": "string"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     }
     if deprecated:
@@ -46,7 +63,17 @@ def _plugin_details_endpoint(deprecated: bool = False, versioned: bool = True) -
             if not deprecated
             else None,
             "parameters": [_PLUGIN_NAME_PARAM],
-            "responses": {"200": _ok_response("Plugin details")},
+            "responses": {
+                "200": _ok_response(
+                    "Plugin details",
+                    {
+                        "name": {"type": "string"},
+                        "version": {"type": "string"},
+                        "description": {"type": "string"},
+                        "installed": {"type": "boolean"},
+                    },
+                )
+            },
         },
     }
     if deprecated:
@@ -70,7 +97,11 @@ def _plugin_run_endpoint(deprecated: bool = False, versioned: bool = True) -> di
             else None,
             "parameters": [_PLUGIN_NAME_PARAM],
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {"200": _ok_response("Plugin result")},
+            "responses": {
+                "200": _ok_response(
+                    "Plugin result", {"status": {"type": "string"}, "output": {"type": "object"}}
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     }
@@ -96,7 +127,12 @@ def _plugin_install_endpoint(deprecated: bool = False, versioned: bool = True) -
             else None,
             "parameters": [_PLUGIN_NAME_PARAM],
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {"200": _ok_response("Installation result")},
+            "responses": {
+                "200": _ok_response(
+                    "Installation result",
+                    {"status": {"type": "string"}, "message": {"type": "string"}},
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
         "delete": {
@@ -107,7 +143,12 @@ def _plugin_install_endpoint(deprecated: bool = False, versioned: bool = True) -
             if not deprecated
             else None,
             "parameters": [_PLUGIN_NAME_PARAM],
-            "responses": {"200": _ok_response("Uninstallation result")},
+            "responses": {
+                "200": _ok_response(
+                    "Uninstallation result",
+                    {"status": {"type": "string"}, "message": {"type": "string"}},
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     }
@@ -134,7 +175,23 @@ def _plugin_installed_endpoint(deprecated: bool = False, versioned: bool = True)
             "description": (
                 "Get list of plugins installed for the current user." if not deprecated else None
             ),
-            "responses": {"200": _ok_response("Installed plugins list")},
+            "responses": {
+                "200": _ok_response(
+                    "Installed plugins list",
+                    {
+                        "plugins": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "version": {"type": "string"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     }
@@ -161,7 +218,15 @@ def _plugin_marketplace_endpoint(
                 if not deprecated
                 else None
             ),
-            "responses": {"200": _ok_response("Marketplace data with categories")},
+            "responses": {
+                "200": _ok_response(
+                    "Marketplace data with categories",
+                    {
+                        "categories": {"type": "array", "items": {"type": "object"}},
+                        "featured": {"type": "array", "items": {"type": "object"}},
+                    },
+                )
+            },
         },
     }
     if deprecated:
@@ -184,7 +249,12 @@ def _plugin_submit_endpoint(deprecated: bool = False, versioned: bool = True) ->
                 "Submit a new plugin for marketplace review." if not deprecated else None
             ),
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {"200": _ok_response("Submission confirmation")},
+            "responses": {
+                "200": _ok_response(
+                    "Submission confirmation",
+                    {"status": {"type": "string"}, "submission_id": {"type": "string"}},
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     }
@@ -211,7 +281,15 @@ def _plugin_submissions_endpoint(
                 if not deprecated
                 else None
             ),
-            "responses": {"200": _ok_response("Submissions list")},
+            "responses": {
+                "200": _ok_response(
+                    "Submissions list",
+                    {
+                        "submissions": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     }
@@ -262,7 +340,23 @@ PLUGIN_ENDPOINTS = {
                     "description": "Maximum number of traits to return",
                 },
             ],
-            "responses": {"200": _ok_response("Emergent traits")},
+            "responses": {
+                "200": _ok_response(
+                    "Emergent traits",
+                    {
+                        "traits": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "confidence": {"type": "number"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/laboratory/cross-pollinations/suggest": {
@@ -271,7 +365,11 @@ PLUGIN_ENDPOINTS = {
             "summary": "Cross-pollination suggestions",
             "operationId": "listLaboratoryCrossPollinationsSuggest",
             "description": "Get suggested cross-pollinations between agents based on complementary capabilities.",
-            "responses": {"200": _ok_response("Suggestions")},
+            "responses": {
+                "200": _ok_response(
+                    "Suggestions", {"suggestions": {"type": "array", "items": {"type": "object"}}}
+                )
+            },
         },
     },
 }

@@ -25,6 +25,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+from aragora.knowledge.mound.resilience import ResilientAdapterMixin
+
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.pulse.ingestor import TrendingTopic, TrendingTopicOutcome
@@ -33,6 +37,7 @@ if TYPE_CHECKING:
 EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
+
 
 # =============================================================================
 # Reverse Flow Dataclasses (KM → Pulse)
@@ -118,7 +123,7 @@ class TopicSearchResult:
     relevance_score: float = 0.0
 
 
-class PulseAdapter:
+class PulseAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
     Adapter that bridges Pulse system to the Knowledge Mound.
 
@@ -145,14 +150,120 @@ class PulseAdapter:
 
     ID_PREFIX = "pl_"
 
+    # Mixin configuration
+    adapter_name = "pulse"
+    source_type = "pulse"
+
     # Thresholds from plan
     MIN_TOPIC_QUALITY = 0.6  # Only store quality topics (volume/relevance weighted)
+
+    # ========================================================================
+    # FusionMixin required method implementations
+    # ========================================================================
+
+    def _get_fusion_sources(self) -> list[str]:
+        """Return list of source adapters this adapter can fuse data from."""
+        return ["consensus", "evidence", "insights", "elo"]
+
+    def _extract_fusible_data(
+        self,
+        km_item: dict[str, Any],
+    ) -> Optional[dict[str, Any]]:
+        """Extract fusible data from a KM item."""
+        metadata = km_item.get("metadata", {})
+        confidence = km_item.get("confidence") or metadata.get("confidence")
+        if confidence is None:
+            return None
+        return {
+            "confidence": float(confidence),
+            "is_valid": float(confidence) >= 0.5,
+            "source_id": km_item.get("id") or metadata.get("source_id"),
+            "quality_score": metadata.get("quality_score", confidence),
+            "sources": metadata.get("sources", []),
+            "reasoning": metadata.get("reasoning"),
+        }
+
+    def _apply_fusion_result(
+        self,
+        record: Any,
+        fusion_result: Any,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Apply a fusion result to a pulse record."""
+        try:
+            fused_confidence = getattr(fusion_result, "fused_confidence", None)
+            if fused_confidence is None:
+                return False
+            if isinstance(record, dict):
+                record["km_fused"] = True
+                record["km_fused_confidence"] = fused_confidence
+                if metadata:
+                    record["fusion_metadata"] = metadata
+                logger.debug(
+                    f"Applied fusion result to pulse record: "
+                    f"fused_confidence={fused_confidence:.3f}"
+                )
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result to pulse: {e}")
+            return False
+
+    # ========================================================================
+    # SemanticSearchMixin required method implementations
+    # ========================================================================
+
+    def _get_record_by_id(self, record_id: str) -> Any | None:
+        """Get a topic, debate, or outcome record by ID.
+
+        Searches topics, debates, and outcomes. Handles the pl_ prefix
+        from the SemanticStore.
+        """
+        raw_id = record_id
+        if record_id.startswith(self.ID_PREFIX):
+            raw_id = record_id[len(self.ID_PREFIX) :]
+
+        for storage in (self._topics, self._debates, self._outcomes):
+            if record_id in storage:
+                return storage[record_id]
+            if raw_id in storage:
+                return storage[raw_id]
+            prefixed = f"{self.ID_PREFIX}{raw_id}"
+            if prefixed in storage:
+                return storage[prefixed]
+
+        return None
+
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
+        """Convert a pulse record to dict."""
+        if isinstance(record, dict):
+            result = dict(record)
+            result["similarity"] = similarity
+            return result
+        return {
+            "id": getattr(record, "id", None),
+            "content": getattr(record, "topic", getattr(record, "title", "")),
+            "confidence": getattr(record, "quality_score", 0.0),
+            "similarity": similarity,
+            "metadata": getattr(record, "metadata", {}),
+        }
+
+    def _extract_record_id(self, source_id: str) -> str:
+        """Extract record ID from prefixed source ID."""
+        if source_id.startswith(self.ID_PREFIX):
+            return source_id[len(self.ID_PREFIX) :]
+        return source_id
+
+    # ========================================================================
+    # Initialization
+    # ========================================================================
 
     def __init__(
         self,
         debate_store: Any | None = None,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -161,6 +272,7 @@ class PulseAdapter:
             debate_store: Optional ScheduledDebateStore instance
             enable_dual_write: If True, writes go to both systems during migration
             event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
         self._debate_store = debate_store
         self._enable_dual_write = enable_dual_write
@@ -175,6 +287,10 @@ class PulseAdapter:
         self._platform_topics: dict[str, list[str]] = {}  # platform -> [topic_ids]
         self._category_topics: dict[str, list[str]] = {}  # category -> [topic_ids]
         self._topic_hash_map: dict[str, str] = {}  # topic_hash -> topic_id
+
+        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
+        if enable_resilience:
+            self._init_resilience(adapter_name=self.adapter_name)
 
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""

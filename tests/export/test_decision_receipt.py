@@ -510,9 +510,9 @@ class TestDecisionReceiptEdgeCases:
         assert "<script>" not in html
         # Escaped versions should be present
         assert "&lt;script&gt;" in html
-        # No event handler injection
-        assert "onerror=" not in html
-        assert "onmouseover=" not in html
+        # No unescaped img tags with event handlers
+        assert "<img src=" not in html
+        assert "<b onmouseover=" not in html
 
     def test_unicode_content(self):
         """Test handling of unicode content."""

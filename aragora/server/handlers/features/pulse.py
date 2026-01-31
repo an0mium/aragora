@@ -65,7 +65,7 @@ _shared_debate_store = None
 MAX_TOPIC_LENGTH = 200
 
 
-def get_pulse_manager():
+def get_pulse_manager() -> Any:
     """Get or create the shared PulseManager singleton.
 
     Thread-safe initialization using double-checked locking.
@@ -96,7 +96,7 @@ def get_pulse_manager():
     return _shared_pulse_manager
 
 
-def get_scheduled_debate_store():
+def get_scheduled_debate_store() -> Any:
     """Get or create the shared ScheduledDebateStore singleton."""
     global _shared_debate_store
     if _shared_debate_store is None:
@@ -114,7 +114,7 @@ def get_scheduled_debate_store():
     return _shared_debate_store
 
 
-def get_pulse_scheduler():
+def get_pulse_scheduler() -> Any:
     """Get or create the shared PulseDebateScheduler singleton.
 
     Note: The scheduler is created but not started automatically.
@@ -194,7 +194,7 @@ class PulseHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("pulse:read")
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route pulse requests to appropriate methods."""
         logger.debug(f"Pulse request: {path} params={query_params}")
         if path == "/api/v1/pulse/trending":
@@ -276,7 +276,7 @@ class PulseHandler(BaseHandler):
             manager.add_ingestor("twitter", TwitterIngestor())
 
             # Fetch trending topics asynchronously from all sources
-            async def fetch():
+            async def fetch() -> list[Any]:
                 return await manager.get_trending_topics(limit_per_platform=limit)
 
             topics = self._run_async_safely(fetch)
@@ -335,7 +335,7 @@ class PulseHandler(BaseHandler):
             manager.add_ingestor("twitter", TwitterIngestor())
 
             # Fetch trending topics
-            async def fetch():
+            async def fetch() -> list[Any]:
                 filters = {"categories": [category]} if category else None
                 return await manager.get_trending_topics(limit_per_platform=10, filters=filters)
 
@@ -391,7 +391,9 @@ class PulseHandler(BaseHandler):
         return json_response(analytics)
 
     @require_permission("pulse:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests for pulse endpoints."""
         if path == "/api/v1/pulse/debate-topic":
             return self._start_debate_on_topic(handler)
@@ -406,7 +408,9 @@ class PulseHandler(BaseHandler):
         return None
 
     @require_permission("pulse:update")
-    def handle_patch(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_patch(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle PATCH requests for pulse endpoints."""
         if path == "/api/v1/pulse/scheduler/config":
             return self._update_scheduler_config(handler)
@@ -414,7 +418,7 @@ class PulseHandler(BaseHandler):
 
     @require_auth
     @rate_limit(requests_per_minute=5, limiter_name="pulse_debate_topic")
-    def _start_debate_on_topic(self, handler) -> HandlerResult:
+    def _start_debate_on_topic(self, handler: Any) -> HandlerResult:
         """Start a debate on a trending topic.
 
         POST /api/pulse/debate-topic
@@ -505,7 +509,7 @@ class PulseHandler(BaseHandler):
             arena = Arena.from_env(env, agents, protocol)
 
             # Run debate asynchronously
-            async def run_debate():
+            async def run_debate() -> Any:
                 return await arena.run()
 
             result = self._run_async_safely(run_debate)
@@ -573,7 +577,7 @@ class PulseHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("start scheduler")
-    def _start_scheduler(self, handler) -> HandlerResult:
+    def _start_scheduler(self, handler: Any) -> HandlerResult:
         """Start the pulse debate scheduler.
 
         POST /api/pulse/scheduler/start
@@ -588,7 +592,9 @@ class PulseHandler(BaseHandler):
         # Set up the debate creator callback if not already set
         if not scheduler._debate_creator:
 
-            async def create_debate(topic_text: str, rounds: int, threshold: float):
+            async def create_debate(
+                topic_text: str, rounds: int, threshold: float
+            ) -> dict[str, Any] | None:
                 try:
                     from aragora import Arena, DebateProtocol, Environment
                     from aragora.agents import get_agents_by_names
@@ -622,7 +628,7 @@ class PulseHandler(BaseHandler):
             scheduler.set_debate_creator(create_debate)
 
         # Start the scheduler
-        async def start():
+        async def start() -> None:
             await scheduler.start()
 
         try:
@@ -640,7 +646,7 @@ class PulseHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("stop scheduler")
-    def _stop_scheduler(self, handler) -> HandlerResult:
+    def _stop_scheduler(self, handler: Any) -> HandlerResult:
         """Stop the pulse debate scheduler.
 
         POST /api/pulse/scheduler/stop
@@ -664,7 +670,7 @@ class PulseHandler(BaseHandler):
             # Failed to parse body, use default graceful=True
             logger.debug(f"Failed to parse stop request body, using graceful=True: {e}")
 
-        async def stop():
+        async def stop() -> None:
             await scheduler.stop(graceful=graceful)
 
         self._run_async_safely(stop)
@@ -680,7 +686,7 @@ class PulseHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("pause scheduler")
-    def _pause_scheduler(self, handler) -> HandlerResult:
+    def _pause_scheduler(self, handler: Any) -> HandlerResult:
         """Pause the pulse debate scheduler.
 
         POST /api/pulse/scheduler/pause
@@ -689,7 +695,7 @@ class PulseHandler(BaseHandler):
         if not scheduler:
             return feature_unavailable_response("pulse scheduler")
 
-        async def pause():
+        async def pause() -> None:
             await scheduler.pause()
 
         self._run_async_safely(pause)
@@ -705,7 +711,7 @@ class PulseHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
     @auto_error_response("resume scheduler")
-    def _resume_scheduler(self, handler) -> HandlerResult:
+    def _resume_scheduler(self, handler: Any) -> HandlerResult:
         """Resume the pulse debate scheduler.
 
         POST /api/pulse/scheduler/resume
@@ -714,7 +720,7 @@ class PulseHandler(BaseHandler):
         if not scheduler:
             return feature_unavailable_response("pulse scheduler")
 
-        async def resume():
+        async def resume() -> None:
             await scheduler.resume()
 
         self._run_async_safely(resume)
@@ -730,7 +736,7 @@ class PulseHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=10, limiter_name="scheduler_config")
     @auto_error_response("update scheduler config")
-    def _update_scheduler_config(self, handler) -> HandlerResult:
+    def _update_scheduler_config(self, handler: Any) -> HandlerResult:
         """Update scheduler configuration.
 
         PATCH /api/pulse/scheduler/config

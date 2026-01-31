@@ -51,7 +51,24 @@ Use `domain` parameter to filter by expertise area (e.g., "coding", "science", "
                     "schema": {"type": "string"},
                 },
             ],
-            "responses": {"200": _ok_response("Agent rankings")},
+            "responses": {
+                "200": _ok_response(
+                    "Agent rankings",
+                    {
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "elo": {"type": "number"},
+                                    "rank": {"type": "integer"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/rankings": {
@@ -70,7 +87,24 @@ Use `domain` parameter to filter by expertise area (e.g., "coding", "science", "
                     "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                 },
             ],
-            "responses": {"200": _ok_response("Agent rankings")},
+            "responses": {
+                "200": _ok_response(
+                    "Agent rankings",
+                    {
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "elo": {"type": "number"},
+                                    "rank": {"type": "integer"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/leaderboard-view": {
@@ -101,7 +135,15 @@ Includes display-ready fields like rank badges, formatted ratings, and trend ind
                     "schema": {"type": "string"},
                 },
             ],
-            "responses": {"200": _ok_response("Leaderboard view")},
+            "responses": {
+                "200": _ok_response(
+                    "Leaderboard view",
+                    {
+                        "agents": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/profile": {
@@ -156,7 +198,15 @@ Includes display-ready fields like rank badges, formatted ratings, and trend ind
                     "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                 },
             ],
-            "responses": {"200": _ok_response("Match history")},
+            "responses": {
+                "200": _ok_response(
+                    "Match history",
+                    {
+                        "matches": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/calibration": {
@@ -196,7 +246,24 @@ Returns confidence buckets (0-10%, 10-20%, etc.) with actual accuracy for each b
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Calibration curve data")},
+            "responses": {
+                "200": _ok_response(
+                    "Calibration curve data",
+                    {
+                        "buckets": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "range": {"type": "string"},
+                                    "predicted": {"type": "number"},
+                                    "actual": {"type": "number"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/calibration-summary": {
@@ -216,7 +283,16 @@ Returns Brier score, calibration error, and overconfidence/underconfidence indic
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Calibration summary")},
+            "responses": {
+                "200": _ok_response(
+                    "Calibration summary",
+                    {
+                        "brier_score": {"type": "number"},
+                        "calibration_error": {"type": "number"},
+                        "overconfidence": {"type": "boolean"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/consistency": {
@@ -237,7 +313,12 @@ Returns Brier score, calibration error, and overconfidence/underconfidence indic
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Consistency metrics")},
+            "responses": {
+                "200": _ok_response(
+                    "Consistency metrics",
+                    {"score": {"type": "number"}, "total_debates": {"type": "integer"}},
+                )
+            },
         },
     },
     "/api/agent/{name}/flips": {
@@ -263,7 +344,15 @@ Useful for understanding agent reasoning and persuadability.""",
                     "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                 },
             ],
-            "responses": {"200": _ok_response("Position flips")},
+            "responses": {
+                "200": _ok_response(
+                    "Position flips",
+                    {
+                        "flips": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/network": {
@@ -283,7 +372,15 @@ Includes agreement rates, collaboration frequency, and influence scores.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Relationship network")},
+            "responses": {
+                "200": _ok_response(
+                    "Relationship network",
+                    {
+                        "nodes": {"type": "array", "items": {"type": "object"}},
+                        "edges": {"type": "array", "items": {"type": "object"}},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/rivals": {
@@ -303,7 +400,23 @@ Rivals are determined by low agreement rates and competitive debate history.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Rival agents")},
+            "responses": {
+                "200": _ok_response(
+                    "Rival agents",
+                    {
+                        "rivals": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "agreement_rate": {"type": "number"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/allies": {
@@ -323,7 +436,23 @@ Allies are determined by high agreement rates and collaborative debate history."
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Allied agents")},
+            "responses": {
+                "200": _ok_response(
+                    "Allied agents",
+                    {
+                        "allies": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "agreement_rate": {"type": "number"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/moments": {
@@ -343,7 +472,15 @@ Allies are determined by high agreement rates and collaborative debate history."
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Agent moments")},
+            "responses": {
+                "200": _ok_response(
+                    "Agent moments",
+                    {
+                        "moments": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/reputation": {
@@ -363,7 +500,16 @@ Includes trustworthiness, expertise recognition, and community standing.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Reputation data")},
+            "responses": {
+                "200": _ok_response(
+                    "Reputation data",
+                    {
+                        "trustworthiness": {"type": "number"},
+                        "expertise": {"type": "number"},
+                        "standing": {"type": "string"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/persona": {
@@ -381,7 +527,16 @@ Includes trustworthiness, expertise recognition, and community standing.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Persona data")},
+            "responses": {
+                "200": _ok_response(
+                    "Persona data",
+                    {
+                        "name": {"type": "string"},
+                        "style": {"type": "string"},
+                        "traits": {"type": "array", "items": {"type": "string"}},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/grounded-persona": {
@@ -401,7 +556,16 @@ The grounded persona reflects observed behavior patterns across debates.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Grounded persona")},
+            "responses": {
+                "200": _ok_response(
+                    "Grounded persona",
+                    {
+                        "name": {"type": "string"},
+                        "observed_traits": {"type": "array", "items": {"type": "string"}},
+                        "debate_count": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/identity-prompt": {
@@ -419,7 +583,11 @@ The grounded persona reflects observed behavior patterns across debates.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Identity prompt")},
+            "responses": {
+                "200": _ok_response(
+                    "Identity prompt", {"prompt": {"type": "string"}, "agent": {"type": "string"}}
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -440,7 +608,16 @@ The grounded persona reflects observed behavior patterns across debates.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Performance metrics")},
+            "responses": {
+                "200": _ok_response(
+                    "Performance metrics",
+                    {
+                        "win_rate": {"type": "number"},
+                        "avg_elo_delta": {"type": "number"},
+                        "debates_participated": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/domains": {
@@ -460,7 +637,23 @@ Expertise is determined by debate performance in specific topic areas.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Domain expertise")},
+            "responses": {
+                "200": _ok_response(
+                    "Domain expertise",
+                    {
+                        "domains": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "domain": {"type": "string"},
+                                    "score": {"type": "number"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/agent/{name}/accuracy": {
@@ -478,7 +671,12 @@ Expertise is determined by debate performance in specific topic areas.""",
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Accuracy metrics")},
+            "responses": {
+                "200": _ok_response(
+                    "Accuracy metrics",
+                    {"accuracy": {"type": "number"}, "total_predictions": {"type": "integer"}},
+                )
+            },
         },
     },
     "/api/v1/agent/{agent_id}/head-to-head/{opponent_id}": {
@@ -510,7 +708,15 @@ Expertise is determined by debate performance in specific topic areas.""",
                 },
             ],
             "responses": {
-                "200": _ok_response("Head-to-head comparison data"),
+                "200": _ok_response(
+                    "Head-to-head comparison data",
+                    {
+                        "wins": {"type": "integer"},
+                        "losses": {"type": "integer"},
+                        "draws": {"type": "integer"},
+                        "elo_delta": {"type": "number"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -545,7 +751,14 @@ Expertise is determined by debate performance in specific topic areas.""",
                 },
             ],
             "responses": {
-                "200": _ok_response("Opponent briefing data"),
+                "200": _ok_response(
+                    "Opponent briefing data",
+                    {
+                        "strengths": {"type": "array", "items": {"type": "string"}},
+                        "weaknesses": {"type": "array", "items": {"type": "string"}},
+                        "strategies": {"type": "array", "items": {"type": "string"}},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -575,7 +788,16 @@ Returns comparative statistics including head-to-head record, relative strengths
                     "schema": {"type": "string"},
                 },
             ],
-            "responses": {"200": _ok_response("Comparison data")},
+            "responses": {
+                "200": _ok_response(
+                    "Comparison data",
+                    {
+                        "agent_a": {"type": "object"},
+                        "agent_b": {"type": "object"},
+                        "comparison": {"type": "object"},
+                    },
+                )
+            },
         },
     },
     "/api/matches/recent": {
@@ -594,7 +816,15 @@ Returns match summaries with participants, outcomes, and ELO changes.""",
                     "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                 }
             ],
-            "responses": {"200": _ok_response("Recent matches")},
+            "responses": {
+                "200": _ok_response(
+                    "Recent matches",
+                    {
+                        "matches": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/calibration/leaderboard": {
@@ -613,7 +843,23 @@ Lower calibration error = better calibrated agent.""",
                     "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                 }
             ],
-            "responses": {"200": _ok_response("Calibration rankings")},
+            "responses": {
+                "200": _ok_response(
+                    "Calibration rankings",
+                    {
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "calibration_error": {"type": "number"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/personas": {
@@ -622,7 +868,23 @@ Lower calibration error = better calibrated agent.""",
             "summary": "List all personas",
             "description": """Get all agent personas including their communication styles and reasoning patterns.""",
             "operationId": "listPersonas",
-            "responses": {"200": _ok_response("All personas")},
+            "responses": {
+                "200": _ok_response(
+                    "All personas",
+                    {
+                        "personas": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "style": {"type": "string"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/v1/agents/health": {

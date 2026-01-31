@@ -478,9 +478,13 @@ class TestCorrelationLogExtra:
 
     def test_returns_empty_dict_when_no_context(self):
         """Returns empty dict when no correlation context exists."""
-        from aragora.server.middleware.correlation import correlation_log_extra
+        from aragora.server.middleware.correlation import (
+            _correlation,
+            correlation_log_extra,
+        )
 
         def _check():
+            _correlation.set(None)
             return correlation_log_extra()
 
         result = copy_context().run(_check)

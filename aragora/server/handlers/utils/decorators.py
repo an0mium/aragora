@@ -18,7 +18,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.utils.params import (
@@ -800,7 +800,7 @@ def safe_fetch(
     key: str,
     fallback: Any,
     log_errors: bool = True,
-):
+) -> Generator[None, None, None]:
     """
     Context manager for safe data fetching with graceful fallback.
 
@@ -810,7 +810,7 @@ def safe_fetch(
     """
 
     @contextmanager
-    def _safe_fetch():
+    def _safe_fetch() -> Generator[None, None, None]:
         try:
             yield
         except Exception as e:
@@ -841,7 +841,7 @@ def with_error_recovery(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
@@ -893,7 +893,7 @@ def deprecated_endpoint(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Log deprecation warning
             endpoint_name = func.__name__
             log_msg = message or f"Deprecated endpoint used: {endpoint_name}"

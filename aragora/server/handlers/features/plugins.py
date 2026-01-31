@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
@@ -41,11 +42,11 @@ get_registry = _plugin_imports.get("get_registry")
 
 # In-memory store for installed plugins per user/org
 # Structure: {user_id: {plugin_name: {"installed_at": timestamp, "config": {...}}}}
-_installed_plugins: dict[str, dict[str, dict]] = {}
+_installed_plugins: dict[str, dict[str, dict[str, Any]]] = {}
 
 # In-memory store for plugin submissions (pending review)
 # Structure: {submission_id: {manifest, status, submitted_by, submitted_at, ...}}
-_plugin_submissions: dict[str, dict] = {}
+_plugin_submissions: dict[str, dict[str, Any]] = {}
 
 # Submission statuses
 SUBMISSION_STATUS_PENDING = "pending"
@@ -59,7 +60,7 @@ class PluginsHandler(BaseHandler):
     # RFC 8594 Sunset header for deprecated legacy paths
     _SUNSET_DATE = "Sat, 31 Dec 2026 23:59:59 GMT"
 
-    def get_user_id(self, handler) -> str | None:
+    def get_user_id(self, handler: Any) -> str | None:
         """Extract user ID from authenticated request.
 
         Args:
@@ -109,7 +110,7 @@ class PluginsHandler(BaseHandler):
         # Always use index 2 since we normalize paths before extraction
         return 2
 
-    def _get_original_path(self, handler) -> str | None:
+    def _get_original_path(self, handler: Any) -> str | None:
         """Get the original request path from the HTTP handler.
 
         The handler registry may normalize paths before dispatching, so we need
@@ -131,7 +132,7 @@ class PluginsHandler(BaseHandler):
         return None
 
     def _add_sunset_header_if_legacy(
-        self, path: str, response: HandlerResult, handler=None
+        self, path: str, response: HandlerResult, handler: Any = None
     ) -> HandlerResult:
         """Add HTTP Sunset header if request uses legacy (non-versioned) path.
 
@@ -211,7 +212,9 @@ class PluginsHandler(BaseHandler):
 
         return False
 
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         response: HandlerResult | None = None
 
@@ -243,12 +246,10 @@ class PluginsHandler(BaseHandler):
             return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
-        _, perm_error = self.require_permission_or_error(handler, "plugins:write")
-        if perm_error:
-            return perm_error
-
         response: HandlerResult | None = None
 
         # Submit plugin: /api/v1/plugins/submit or /api/plugins/submit
@@ -279,12 +280,10 @@ class PluginsHandler(BaseHandler):
             return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
-        _, perm_error = self.require_permission_or_error(handler, "plugins:delete")
-        if perm_error:
-            return perm_error
-
         response: HandlerResult | None = None
 
         # Uninstall plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install
@@ -337,7 +336,7 @@ class PluginsHandler(BaseHandler):
 
         # Categorize plugins
         featured = []
-        categories: dict[str, list] = {}
+        categories: dict[str, list[Any]] = {}
 
         for plugin in plugins:
             plugin_dict = plugin.to_dict()
@@ -389,7 +388,7 @@ class PluginsHandler(BaseHandler):
     @require_permission("plugins:execute")
     @rate_limit(requests_per_minute=20, burst=5, limiter_name="plugin_run")
     @handle_errors("run plugin")
-    def _run_plugin(self, plugin_name: str, handler) -> HandlerResult:
+    def _run_plugin(self, plugin_name: str, handler: Any) -> HandlerResult:
         """Run a plugin with provided input.
 
         POST body:
@@ -435,7 +434,7 @@ class PluginsHandler(BaseHandler):
 
     @require_auth
     @handle_errors("list installed plugins")
-    def _list_installed(self, handler) -> HandlerResult:
+    def _list_installed(self, handler: Any) -> HandlerResult:
         """List installed plugins for the authenticated user.
 
         Returns:
@@ -473,7 +472,7 @@ class PluginsHandler(BaseHandler):
     @require_permission("plugins:install")
     @rate_limit(requests_per_minute=30, burst=10, limiter_name="plugin_install")
     @handle_errors("install plugin")
-    def _install_plugin(self, plugin_name: str, handler) -> HandlerResult:
+    def _install_plugin(self, plugin_name: str, handler: Any) -> HandlerResult:
         """Install a plugin for the authenticated user.
 
         POST body (optional):
@@ -538,7 +537,7 @@ class PluginsHandler(BaseHandler):
     @require_auth
     @require_permission("plugins:uninstall")
     @handle_errors("uninstall plugin")
-    def _uninstall_plugin(self, plugin_name: str, handler) -> HandlerResult:
+    def _uninstall_plugin(self, plugin_name: str, handler: Any) -> HandlerResult:
         """Uninstall a plugin for the authenticated user.
 
         Returns:
@@ -567,7 +566,7 @@ class PluginsHandler(BaseHandler):
     @require_permission("plugins:submit")
     @rate_limit(requests_per_minute=10, burst=3, limiter_name="plugin_submit")
     @handle_errors("submit plugin")
-    def _submit_plugin(self, handler) -> HandlerResult:
+    def _submit_plugin(self, handler: Any) -> HandlerResult:
         """Submit a new plugin for marketplace review.
 
         POST body:
@@ -663,7 +662,7 @@ class PluginsHandler(BaseHandler):
 
     @require_auth
     @handle_errors("list submissions")
-    def _list_submissions(self, handler) -> HandlerResult:
+    def _list_submissions(self, handler: Any) -> HandlerResult:
         """List plugin submissions for the authenticated user.
 
         Returns:

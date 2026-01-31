@@ -379,7 +379,34 @@
         "description": "Get detailed health status with component checks.\n\n**Response includes:**\n- Database connectivity status\n- Redis/cache availability\n- Memory usage statistics\n- Active connection counts\n- Observer metrics\n- Recent error counts",
         "responses": {
           "200": {
-            "description": "Detailed health information"
+            "description": "Detailed health information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "components": {
+                      "type": "object"
+                    },
+                    "uptime_seconds": {
+                      "type": "number"
+                    },
+                    "memory_usage_mb": {
+                      "type": "number"
+                    },
+                    "active_connections": {
+                      "type": "integer"
+                    },
+                    "error_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -400,7 +427,34 @@
         "operationId": "getDetailedHealth",
         "responses": {
           "200": {
-            "description": "Detailed health information"
+            "description": "Detailed health information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "components": {
+                      "type": "object"
+                    },
+                    "uptime_seconds": {
+                      "type": "number"
+                    },
+                    "memory_usage_mb": {
+                      "type": "number"
+                    },
+                    "active_connections": {
+                      "type": "integer"
+                    },
+                    "error_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -419,7 +473,29 @@
         "description": "Get current state of the nomic self-improvement loop.\n\n**Response includes:**\n- Current phase (debate, design, implement, verify)\n- Active cycle ID\n- Last successful cycle timestamp\n- Pending improvements queue",
         "responses": {
           "200": {
-            "description": "Nomic state"
+            "description": "Nomic state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "phase": {
+                      "type": "string"
+                    },
+                    "cycle_id": {
+                      "type": "string"
+                    },
+                    "last_success": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "pending_improvements": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -508,7 +584,28 @@
         "description": "Get nomic loop health with stall detection.\n\n**Stall detection:** Alerts if the nomic loop hasn't progressed within expected timeframes.\n\n**Response includes:**\n- Health status (healthy, stalled, degraded)\n- Time since last activity\n- Phase duration statistics",
         "responses": {
           "200": {
-            "description": "Nomic health status"
+            "description": "Nomic health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "healthy",
+                        "stalled",
+                        "degraded"
+                      ]
+                    },
+                    "last_activity": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -592,7 +689,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Log lines"
+            "description": "Log lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -711,7 +826,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Risk entries"
+            "description": "Risk entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1136,7 +1269,22 @@
         },
         "responses": {
           "200": {
-            "description": "Proposal updated"
+            "description": "Proposal updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Proposal not found"
@@ -1198,7 +1346,22 @@
         },
         "responses": {
           "200": {
-            "description": "Proposal updated"
+            "description": "Proposal updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Proposal not found"
@@ -1220,7 +1383,22 @@
         "description": "Start or resume the nomic self-improvement loop.",
         "responses": {
           "200": {
-            "description": "Loop started"
+            "description": "Loop started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
             "description": "Loop already running"
@@ -1287,7 +1465,22 @@
         "description": "Gracefully stop the nomic self-improvement loop.",
         "responses": {
           "200": {
-            "description": "Loop stopped"
+            "description": "Loop stopped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
             "description": "Loop not running"
@@ -1351,7 +1544,22 @@
         "description": "Pause the nomic loop at the end of the current phase.",
         "responses": {
           "200": {
-            "description": "Loop paused"
+            "description": "Loop paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
             "description": "Loop not running or already paused"
@@ -1409,7 +1617,22 @@
         "description": "Resume a paused nomic loop.",
         "responses": {
           "200": {
-            "description": "Loop resumed"
+            "description": "Loop resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
             "description": "Loop not paused"
@@ -1467,7 +1690,22 @@
         "description": "Skip the current nomic phase and move to the next one.",
         "responses": {
           "200": {
-            "description": "Phase skipped"
+            "description": "Phase skipped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
             "description": "Loop not running"
@@ -1528,7 +1766,30 @@
         "description": "Get available operational modes including builtin and custom modes.\n\n**Builtin modes:** debate, gauntlet, research, code-review, etc.\n\n**Custom modes:** User-defined workflow configurations.",
         "responses": {
           "200": {
-            "description": "Available modes"
+            "description": "Available modes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "modes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -1544,7 +1805,30 @@
         "operationId": "listModes",
         "responses": {
           "200": {
-            "description": "Available modes"
+            "description": "Available modes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "modes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1579,7 +1863,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Cycle history"
+            "description": "Cycle history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cycles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -1616,7 +1918,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Cycle history"
+            "description": "Cycle history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cycles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1651,7 +1971,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Event history"
+            "description": "Event history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -1688,7 +2026,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Event history"
+            "description": "Event history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1723,7 +2079,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Debate history"
+            "description": "Debate history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "debates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -1760,7 +2134,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Debate history"
+            "description": "Debate history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "debates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1784,7 +2176,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Summary statistics"
+            "description": "Summary statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_debates": {
+                      "type": "integer"
+                    },
+                    "consensus_rate": {
+                      "type": "number"
+                    },
+                    "avg_duration_s": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -1810,7 +2220,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Summary statistics"
+            "description": "Summary statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_debates": {
+                      "type": "integer"
+                    },
+                    "consensus_rate": {
+                      "type": "number"
+                    },
+                    "avg_duration_s": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1842,7 +2270,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Maintenance results"
+            "description": "Maintenance results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "task": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1881,7 +2327,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Maintenance results"
+            "description": "Maintenance results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "task": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2160,7 +2624,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent rankings"
+            "description": "Agent rankings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "elo": {
+                            "type": "number"
+                          },
+                          "rank": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2197,7 +2687,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent rankings"
+            "description": "Agent rankings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "elo": {
+                            "type": "number"
+                          },
+                          "rank": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2224,7 +2740,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent rankings"
+            "description": "Agent rankings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "elo": {
+                            "type": "number"
+                          },
+                          "rank": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2253,7 +2795,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent rankings"
+            "description": "Agent rankings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "elo": {
+                            "type": "number"
+                          },
+                          "rank": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2296,7 +2864,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Leaderboard view"
+            "description": "Leaderboard view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2341,7 +2927,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Leaderboard view"
+            "description": "Leaderboard view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2529,7 +3133,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Match history"
+            "description": "Match history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2567,7 +3189,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Match history"
+            "description": "Match history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2658,7 +3298,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Calibration curve data"
+            "description": "Calibration curve data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "buckets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "range": {
+                            "type": "string"
+                          },
+                          "predicted": {
+                            "type": "number"
+                          },
+                          "actual": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2685,7 +3351,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Calibration curve data"
+            "description": "Calibration curve data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "buckets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "range": {
+                            "type": "string"
+                          },
+                          "predicted": {
+                            "type": "number"
+                          },
+                          "actual": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2710,7 +3402,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Calibration summary"
+            "description": "Calibration summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "brier_score": {
+                      "type": "number"
+                    },
+                    "calibration_error": {
+                      "type": "number"
+                    },
+                    "overconfidence": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2737,7 +3447,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Calibration summary"
+            "description": "Calibration summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "brier_score": {
+                      "type": "number"
+                    },
+                    "calibration_error": {
+                      "type": "number"
+                    },
+                    "overconfidence": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2762,7 +3490,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Consistency metrics"
+            "description": "Consistency metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "score": {
+                      "type": "number"
+                    },
+                    "total_debates": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2789,7 +3532,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Consistency metrics"
+            "description": "Consistency metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "score": {
+                      "type": "number"
+                    },
+                    "total_debates": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2825,7 +3583,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Position flips"
+            "description": "Position flips",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flips": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2863,7 +3639,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Position flips"
+            "description": "Position flips",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flips": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2888,7 +3682,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Relationship network"
+            "description": "Relationship network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "edges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2915,7 +3730,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Relationship network"
+            "description": "Relationship network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "edges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2940,7 +3776,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Rival agents"
+            "description": "Rival agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rivals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "agreement_rate": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -2967,7 +3826,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Rival agents"
+            "description": "Rival agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rivals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "agreement_rate": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2992,7 +3874,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Allied agents"
+            "description": "Allied agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "agreement_rate": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3019,7 +3924,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Allied agents"
+            "description": "Allied agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "agreement_rate": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3044,7 +3972,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent moments"
+            "description": "Agent moments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3071,7 +4017,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Agent moments"
+            "description": "Agent moments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3096,7 +4060,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Reputation data"
+            "description": "Reputation data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "trustworthiness": {
+                      "type": "number"
+                    },
+                    "expertise": {
+                      "type": "number"
+                    },
+                    "standing": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3123,7 +4105,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Reputation data"
+            "description": "Reputation data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "trustworthiness": {
+                      "type": "number"
+                    },
+                    "expertise": {
+                      "type": "number"
+                    },
+                    "standing": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3148,7 +4148,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Persona data"
+            "description": "Persona data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "style": {
+                      "type": "string"
+                    },
+                    "traits": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3175,7 +4196,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Persona data"
+            "description": "Persona data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "style": {
+                      "type": "string"
+                    },
+                    "traits": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3200,7 +4242,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Grounded persona"
+            "description": "Grounded persona",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "observed_traits": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "debate_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3227,7 +4290,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Grounded persona"
+            "description": "Grounded persona",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "observed_traits": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "debate_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3252,7 +4336,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Identity prompt"
+            "description": "Identity prompt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "agent": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3284,7 +4383,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Identity prompt"
+            "description": "Identity prompt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "agent": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3314,7 +4428,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Performance metrics"
+            "description": "Performance metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "win_rate": {
+                      "type": "number"
+                    },
+                    "avg_elo_delta": {
+                      "type": "number"
+                    },
+                    "debates_participated": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3341,7 +4473,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Performance metrics"
+            "description": "Performance metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "win_rate": {
+                      "type": "number"
+                    },
+                    "avg_elo_delta": {
+                      "type": "number"
+                    },
+                    "debates_participated": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3366,7 +4516,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Domain expertise"
+            "description": "Domain expertise",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3393,7 +4566,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Domain expertise"
+            "description": "Domain expertise",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3418,7 +4614,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Accuracy metrics"
+            "description": "Accuracy metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accuracy": {
+                      "type": "number"
+                    },
+                    "total_predictions": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3445,7 +4656,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Accuracy metrics"
+            "description": "Accuracy metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accuracy": {
+                      "type": "number"
+                    },
+                    "total_predictions": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3480,7 +4706,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Head-to-head comparison data"
+            "description": "Head-to-head comparison data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wins": {
+                      "type": "integer"
+                    },
+                    "losses": {
+                      "type": "integer"
+                    },
+                    "draws": {
+                      "type": "integer"
+                    },
+                    "elo_delta": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Not found - The requested resource does not exist",
@@ -3558,7 +4805,34 @@
         ],
         "responses": {
           "200": {
-            "description": "Opponent briefing data"
+            "description": "Opponent briefing data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "strengths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "weaknesses": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "strategies": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Not found - The requested resource does not exist",
@@ -3635,7 +4909,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Comparison data"
+            "description": "Comparison data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agent_a": {
+                      "type": "object"
+                    },
+                    "agent_b": {
+                      "type": "object"
+                    },
+                    "comparison": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3671,7 +4963,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Comparison data"
+            "description": "Comparison data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agent_a": {
+                      "type": "object"
+                    },
+                    "agent_b": {
+                      "type": "object"
+                    },
+                    "comparison": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3698,7 +5008,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Recent matches"
+            "description": "Recent matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3727,7 +5055,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Recent matches"
+            "description": "Recent matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3754,7 +5100,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Calibration rankings"
+            "description": "Calibration rankings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "calibration_error": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3783,7 +5152,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Calibration rankings"
+            "description": "Calibration rankings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "calibration_error": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3797,7 +5189,30 @@
         "description": "Get all agent personas including their communication styles and reasoning patterns.",
         "responses": {
           "200": {
-            "description": "All personas"
+            "description": "All personas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "style": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -3813,7 +5228,30 @@
         "operationId": "listPersonas",
         "responses": {
           "200": {
-            "description": "All personas"
+            "description": "All personas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "style": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8023,7 +9461,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Trending topics"
+            "description": "Trending topics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "topics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -8050,7 +9511,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Trending topics"
+            "description": "Trending topics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "topics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "score": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8073,7 +9557,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Suggested topic"
+            "description": "Suggested topic",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "topic": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -8098,7 +9600,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Suggested topic"
+            "description": "Suggested topic",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "topic": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8787,7 +10307,33 @@
         "description": "Get list of all available plugins.",
         "responses": {
           "200": {
-            "description": "Plugin list"
+            "description": "Plugin list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plugins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8802,7 +10348,30 @@
         "description": "Get list of plugins installed for the current user.",
         "responses": {
           "200": {
-            "description": "Installed plugins list"
+            "description": "Installed plugins list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plugins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8822,7 +10391,28 @@
         "description": "Get plugin marketplace with categories and featured plugins.",
         "responses": {
           "200": {
-            "description": "Marketplace data with categories"
+            "description": "Marketplace data with categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "featured": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8846,7 +10436,22 @@
         },
         "responses": {
           "200": {
-            "description": "Submission confirmation"
+            "description": "Submission confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "submission_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8866,7 +10471,25 @@
         "description": "Get list of plugins submitted by the current user for review.",
         "responses": {
           "200": {
-            "description": "Submissions list"
+            "description": "Submissions list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "submissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8897,7 +10520,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Plugin details"
+            "description": "Plugin details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "installed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8932,7 +10576,22 @@
         },
         "responses": {
           "200": {
-            "description": "Plugin result"
+            "description": "Plugin result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "output": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -8972,7 +10631,22 @@
         },
         "responses": {
           "200": {
-            "description": "Installation result"
+            "description": "Installation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9001,7 +10675,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Uninstallation result"
+            "description": "Uninstallation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9020,7 +10709,33 @@
         "description": "Deprecated: Use /api/v1/plugins instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
-            "description": "Plugin list"
+            "description": "Plugin list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plugins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -9035,7 +10750,30 @@
         "description": "Deprecated: Use /api/v1/plugins/installed instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
-            "description": "Installed plugins list"
+            "description": "Installed plugins list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plugins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9055,7 +10793,28 @@
         "description": "Deprecated: Use /api/v1/plugins/marketplace instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
-            "description": "Marketplace data with categories"
+            "description": "Marketplace data with categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "featured": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -9079,7 +10838,22 @@
         },
         "responses": {
           "200": {
-            "description": "Submission confirmation"
+            "description": "Submission confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "submission_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9099,7 +10873,25 @@
         "description": "Deprecated: Use /api/v1/plugins/submissions instead. Sunset: 2026-12-31.",
         "responses": {
           "200": {
-            "description": "Submissions list"
+            "description": "Submissions list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "submissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9130,7 +10922,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Plugin details"
+            "description": "Plugin details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "installed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -9165,7 +10978,22 @@
         },
         "responses": {
           "200": {
-            "description": "Plugin result"
+            "description": "Plugin result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "output": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9205,7 +11033,22 @@
         },
         "responses": {
           "200": {
-            "description": "Installation result"
+            "description": "Installation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9234,7 +11077,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Uninstallation result"
+            "description": "Uninstallation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -9274,7 +11132,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Emergent traits"
+            "description": "Emergent traits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "traits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "confidence": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -9310,7 +11191,30 @@
         ],
         "responses": {
           "200": {
-            "description": "Emergent traits"
+            "description": "Emergent traits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "traits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "confidence": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -9324,7 +11228,22 @@
         "description": "Get suggested cross-pollinations between agents based on complementary capabilities.",
         "responses": {
           "200": {
-            "description": "Suggestions"
+            "description": "Suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suggestions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -9340,7 +11259,22 @@
         "description": "Get suggested cross-pollinations between agents based on complementary capabilities.",
         "responses": {
           "200": {
-            "description": "Suggestions"
+            "description": "Suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suggestions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -60251,7 +62185,7 @@
           "Graph Debates"
         ],
         "description": "Run a new graph-structured debate with automatic branching on disagreement.",
-        "operationId": "handle_post",
+        "operationId": "create_graph_debate",
         "responses": {
           "200": {
             "description": "Graph debate created and executed"
@@ -60537,7 +62471,7 @@
           "Matrix Debates"
         ],
         "description": "Run parallel scenario debates to explore a topic under different conditions.",
-        "operationId": "handle_post",
+        "operationId": "create_matrix_debate",
         "responses": {
           "200": {
             "description": "Matrix debate created and executed"
@@ -60699,7 +62633,7 @@
           "Receipts"
         ],
         "description": "Get the cryptographic decision receipt for a completed gauntlet run.",
-        "operationId": "_get_receipt",
+        "operationId": "get_gauntlet_receipt",
         "parameters": [
           {
             "name": "gauntlet_id",

@@ -166,7 +166,9 @@ class AuditAgentFactory:
     """Create and validate agents for auditing."""
 
     @staticmethod
-    def create_single_agent(model_type: str, agent_name: str, role: str = "proposer"):
+    def create_single_agent(
+        model_type: str, agent_name: str, role: str = "proposer"
+    ) -> tuple[Any, HandlerResult | None]:
         """Create a single agent with validation.
 
         Returns:

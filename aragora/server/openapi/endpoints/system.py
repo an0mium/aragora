@@ -64,7 +64,17 @@ SYSTEM_ENDPOINTS = {
 - Last successful cycle timestamp
 - Pending improvements queue""",
             "operationId": "getNomicState",
-            "responses": {"200": _ok_response("Nomic state")},
+            "responses": {
+                "200": _ok_response(
+                    "Nomic state",
+                    {
+                        "phase": {"type": "string"},
+                        "cycle_id": {"type": "string"},
+                        "last_success": {"type": "string", "format": "date-time"},
+                        "pending_improvements": {"type": "integer"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -81,7 +91,15 @@ SYSTEM_ENDPOINTS = {
 - Time since last activity
 - Phase duration statistics""",
             "operationId": "getNomicHealth",
-            "responses": {"200": _ok_response("Nomic health status")},
+            "responses": {
+                "200": _ok_response(
+                    "Nomic health status",
+                    {
+                        "status": {"type": "string", "enum": ["healthy", "stalled", "degraded"]},
+                        "last_activity": {"type": "string", "format": "date-time"},
+                    },
+                )
+            },
         },
     },
     "/api/nomic/log": {
@@ -102,7 +120,15 @@ SYSTEM_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 100, "minimum": 1, "maximum": 1000},
                 },
             ],
-            "responses": {"200": _ok_response("Log lines")},
+            "responses": {
+                "200": _ok_response(
+                    "Log lines",
+                    {
+                        "lines": {"type": "array", "items": {"type": "string"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -126,7 +152,15 @@ SYSTEM_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 50, "minimum": 1, "maximum": 200},
                 },
             ],
-            "responses": {"200": _ok_response("Risk entries")},
+            "responses": {
+                "200": _ok_response(
+                    "Risk entries",
+                    {
+                        "entries": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -293,7 +327,10 @@ SYSTEM_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Proposal updated"),
+                "200": _ok_response(
+                    "Proposal updated",
+                    {"status": {"type": "string"}, "message": {"type": "string"}},
+                ),
                 "404": {"description": "Proposal not found"},
             },
             "security": [{"bearerAuth": []}],
@@ -306,7 +343,9 @@ SYSTEM_ENDPOINTS = {
             "description": "Start or resume the nomic self-improvement loop.",
             "operationId": "startNomicLoop",
             "responses": {
-                "200": _ok_response("Loop started"),
+                "200": _ok_response(
+                    "Loop started", {"status": {"type": "string"}, "message": {"type": "string"}}
+                ),
                 "409": {"description": "Loop already running"},
             },
             "security": [{"bearerAuth": []}],
@@ -319,7 +358,9 @@ SYSTEM_ENDPOINTS = {
             "description": "Gracefully stop the nomic self-improvement loop.",
             "operationId": "stopNomicLoop",
             "responses": {
-                "200": _ok_response("Loop stopped"),
+                "200": _ok_response(
+                    "Loop stopped", {"status": {"type": "string"}, "message": {"type": "string"}}
+                ),
                 "409": {"description": "Loop not running"},
             },
             "security": [{"bearerAuth": []}],
@@ -332,7 +373,9 @@ SYSTEM_ENDPOINTS = {
             "description": "Pause the nomic loop at the end of the current phase.",
             "operationId": "pauseNomicLoop",
             "responses": {
-                "200": _ok_response("Loop paused"),
+                "200": _ok_response(
+                    "Loop paused", {"status": {"type": "string"}, "message": {"type": "string"}}
+                ),
                 "409": {"description": "Loop not running or already paused"},
             },
             "security": [{"bearerAuth": []}],
@@ -345,7 +388,9 @@ SYSTEM_ENDPOINTS = {
             "description": "Resume a paused nomic loop.",
             "operationId": "resumeNomicLoop",
             "responses": {
-                "200": _ok_response("Loop resumed"),
+                "200": _ok_response(
+                    "Loop resumed", {"status": {"type": "string"}, "message": {"type": "string"}}
+                ),
                 "409": {"description": "Loop not paused"},
             },
             "security": [{"bearerAuth": []}],
@@ -358,7 +403,9 @@ SYSTEM_ENDPOINTS = {
             "description": "Skip the current nomic phase and move to the next one.",
             "operationId": "skipNomicPhase",
             "responses": {
-                "200": _ok_response("Phase skipped"),
+                "200": _ok_response(
+                    "Phase skipped", {"status": {"type": "string"}, "message": {"type": "string"}}
+                ),
                 "409": {"description": "Loop not running"},
             },
             "security": [{"bearerAuth": []}],
@@ -374,7 +421,23 @@ SYSTEM_ENDPOINTS = {
 
 **Custom modes:** User-defined workflow configurations.""",
             "operationId": "listModes",
-            "responses": {"200": _ok_response("Available modes")},
+            "responses": {
+                "200": _ok_response(
+                    "Available modes",
+                    {
+                        "modes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "description": {"type": "string"},
+                                },
+                            },
+                        }
+                    },
+                )
+            },
         },
     },
     "/api/history/cycles": {
@@ -399,7 +462,15 @@ SYSTEM_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 50, "minimum": 1, "maximum": 200},
                 },
             ],
-            "responses": {"200": _ok_response("Cycle history")},
+            "responses": {
+                "200": _ok_response(
+                    "Cycle history",
+                    {
+                        "cycles": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/history/events": {
@@ -424,7 +495,15 @@ SYSTEM_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 100, "minimum": 1, "maximum": 500},
                 },
             ],
-            "responses": {"200": _ok_response("Event history")},
+            "responses": {
+                "200": _ok_response(
+                    "Event history",
+                    {
+                        "events": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/history/debates": {
@@ -449,7 +528,15 @@ SYSTEM_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 50, "minimum": 1, "maximum": 200},
                 },
             ],
-            "responses": {"200": _ok_response("Debate history")},
+            "responses": {
+                "200": _ok_response(
+                    "Debate history",
+                    {
+                        "debates": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/history/summary": {
@@ -468,7 +555,16 @@ SYSTEM_ENDPOINTS = {
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Summary statistics")},
+            "responses": {
+                "200": _ok_response(
+                    "Summary statistics",
+                    {
+                        "total_debates": {"type": "integer"},
+                        "consensus_rate": {"type": "number"},
+                        "avg_duration_s": {"type": "number"},
+                    },
+                )
+            },
         },
     },
     "/api/system/maintenance": {
@@ -498,7 +594,16 @@ SYSTEM_ENDPOINTS = {
                     },
                 },
             ],
-            "responses": {"200": _ok_response("Maintenance results")},
+            "responses": {
+                "200": _ok_response(
+                    "Maintenance results",
+                    {
+                        "task": {"type": "string"},
+                        "status": {"type": "string"},
+                        "details": {"type": "object"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },

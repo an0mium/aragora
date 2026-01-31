@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -26,7 +27,7 @@ class GitHubOAuthMixin:
 
     @handle_errors("GitHub OAuth start")
     @log_request("GitHub OAuth start")
-    def _handle_github_auth_start(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_github_auth_start(self, handler: Any, query_params: dict) -> HandlerResult:
         """Redirect user to GitHub OAuth consent screen."""
         impl = _impl()
         github_client_id = impl._get_github_client_id()
@@ -72,7 +73,7 @@ class GitHubOAuthMixin:
 
     @handle_errors("GitHub OAuth callback")
     @log_request("GitHub OAuth callback")
-    async def _handle_github_callback(self, handler, query_params: dict) -> HandlerResult:
+    async def _handle_github_callback(self, handler: Any, query_params: dict) -> HandlerResult:
         """Handle GitHub OAuth callback with authorization code."""
         impl = _impl()
 

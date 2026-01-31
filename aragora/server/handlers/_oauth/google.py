@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -27,7 +28,7 @@ class GoogleOAuthMixin:
 
     @handle_errors("Google OAuth start")
     @log_request("Google OAuth start")
-    def _handle_google_auth_start(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_google_auth_start(self, handler: Any, query_params: dict) -> HandlerResult:
         """Redirect user to Google OAuth consent screen."""
         impl = _impl()
         google_client_id = impl._get_google_client_id()
@@ -76,7 +77,7 @@ class GoogleOAuthMixin:
 
     @handle_errors("Google OAuth callback")
     @log_request("Google OAuth callback")
-    async def _handle_google_callback(self, handler, query_params: dict) -> HandlerResult:
+    async def _handle_google_callback(self, handler: Any, query_params: dict) -> HandlerResult:
         """Handle Google OAuth callback with authorization code."""
         impl = _impl()
 

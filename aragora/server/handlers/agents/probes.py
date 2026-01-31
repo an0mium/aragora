@@ -225,7 +225,7 @@ class ProbesHandler(BaseHandler):
             )
 
         # Define run_agent_fn callback for prober
-        async def run_agent_fn(target_agent, prompt: str) -> str:
+        async def run_agent_fn(target_agent: Any, prompt: str) -> str:
             """Execute agent with probe prompt."""
             from aragora.server.stream.arena_hooks import streaming_task_context
 
@@ -242,7 +242,7 @@ class ProbesHandler(BaseHandler):
                 return f"[Agent Error: {str(e)}]"
 
         # Run probes asynchronously
-        async def run_probes():
+        async def run_probes() -> Any:
             return await prober.probe_agent(
                 target_agent=agent,
                 run_agent_fn=run_agent_fn,
@@ -308,7 +308,7 @@ class ProbesHandler(BaseHandler):
             }
         )
 
-    def _get_probe_hooks(self, handler) -> dict | None:
+    def _get_probe_hooks(self, handler: Any) -> dict[str, Any] | None:
         """Get stream hooks for real-time probe updates if available."""
         try:
             server = getattr(handler, "server", None)
@@ -323,9 +323,9 @@ class ProbesHandler(BaseHandler):
             logger.warning("Failed to get probe hooks: %s: %s", type(e).__name__, e)
         return None
 
-    def _transform_results(self, report, probe_hooks) -> dict:
+    def _transform_results(self, report: Any, probe_hooks: dict[str, Any] | None) -> dict[str, Any]:
         """Transform probe results for frontend display."""
-        by_type_transformed = {}
+        by_type_transformed: dict[str, Any] = {}
         for probe_type_key, results in report.by_type.items():
             transformed_results = []
             for r in results:
@@ -366,7 +366,9 @@ class ProbesHandler(BaseHandler):
             by_type_transformed[probe_type_key] = transformed_results
         return by_type_transformed
 
-    def _record_elo_result(self, elo_system, agent_name: str, report, report_id: str) -> None:
+    def _record_elo_result(
+        self, elo_system: Any, agent_name: str, report: Any, report_id: str
+    ) -> None:
         """Record probe results in ELO system."""
         if elo_system and report.probes_run > 0:
             robustness_score = 1.0 - report.vulnerability_rate
@@ -389,7 +391,7 @@ class ProbesHandler(BaseHandler):
                     e,
                 )
 
-    def _save_probe_report(self, agent_name: str, report) -> None:
+    def _save_probe_report(self, agent_name: str, report: Any) -> None:
         """Save probe report to nomic directory."""
         nomic_dir = self.get_nomic_dir()
         if nomic_dir:
@@ -408,7 +410,7 @@ class ProbesHandler(BaseHandler):
                 )
 
     @handle_errors("list probe reports")
-    def _list_probe_reports(self, handler, query_params: dict) -> HandlerResult:
+    def _list_probe_reports(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """
         GET /api/probes/reports - List all stored probe reports.
 
@@ -464,7 +466,7 @@ class ProbesHandler(BaseHandler):
         return json_response({"reports": reports, "total": total, "limit": limit, "offset": offset})
 
     @handle_errors("get probe report")
-    def _get_probe_report(self, handler, report_id: str) -> HandlerResult:
+    def _get_probe_report(self, handler: Any, report_id: str) -> HandlerResult:
         """
         GET /api/probes/reports/{id} - Get a specific probe report by ID.
 

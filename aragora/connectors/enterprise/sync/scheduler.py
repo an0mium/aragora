@@ -235,11 +235,11 @@ class SyncJob:
     on_complete: Optional[Callable[["SyncResult"], None]] = None
     on_error: Optional[Callable[[Exception], None]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.next_run is None and self.schedule.enabled:
             self._calculate_next_run()
 
-    def _calculate_next_run(self):
+    def _calculate_next_run(self) -> None:
         """Calculate the next run time based on schedule."""
         now = datetime.now(timezone.utc)
 
@@ -353,7 +353,7 @@ class SyncScheduler:
         logger.info(f"Registered connector: {connector.name} (job_id={job_id})")
         return job
 
-    def unregister_connector(self, connector_id: str, tenant_id: str = "default"):
+    def unregister_connector(self, connector_id: str, tenant_id: str = "default") -> None:
         """Unregister a connector and remove its job."""
         job_id = f"{tenant_id}:{connector_id}"
 
@@ -508,7 +508,7 @@ class SyncScheduler:
 
         return run_id
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the scheduler loop."""
         if self._scheduler_task:
             return
@@ -517,7 +517,7 @@ class SyncScheduler:
         self._scheduler_task = asyncio.create_task(self._scheduler_loop())
         logger.info("Sync scheduler started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the scheduler loop."""
         self._stop_event.set()
 
@@ -540,7 +540,7 @@ class SyncScheduler:
         self._running_syncs.clear()
         logger.info("Sync scheduler stopped")
 
-    async def _scheduler_loop(self):
+    async def _scheduler_loop(self) -> None:
         """Main scheduler loop with exponential backoff on errors."""
         consecutive_errors = 0
         error_backoff = RetryPolicy(
@@ -595,7 +595,7 @@ class SyncScheduler:
 
                 await asyncio.sleep(delay)
 
-    def _cleanup_history(self):
+    def _cleanup_history(self) -> None:
         """Remove old history entries based on retention period.
 
         Note: The deque maxlen already enforces a hard size limit via FIFO eviction.
@@ -656,7 +656,7 @@ class SyncScheduler:
             "average_duration_seconds": avg_duration,
         }
 
-    async def save_state(self):
+    async def save_state(self) -> None:
         """Save scheduler state to disk."""
         # Convert deque to list for slicing (keep last 1000 entries)
         history_list = list(self._history)
@@ -671,7 +671,7 @@ class SyncScheduler:
 
         logger.debug(f"Saved scheduler state to {state_file}")
 
-    async def load_state(self):
+    async def load_state(self) -> None:
         """Load scheduler state from disk."""
         state_file = self.state_dir / "scheduler_state.json"
 
