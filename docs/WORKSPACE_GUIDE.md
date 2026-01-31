@@ -27,6 +27,11 @@ Gastown workspace metadata (workspaces/rigs) is persisted to
 `state.json` under the canonical store directory when using the
 Gastown extension workspace manager.
 
+Gastown extension persistence files:
+- `state.json` (workspaces + rigs)
+- `hooks.json` (hook definitions + trigger stats)
+- `ledger.json` (Mayor/Coordinator issue ledger, when using the coordinator)
+
 ## Quick Start
 
 ```python
