@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from aragora.nomic.stores.paths import resolve_runtime_store_dir
+
 # Type aliases matching LedgerEntry fields
 LedgerEntryType = Literal["issue", "task", "decision", "note"]
 LedgerEntryStatus = Literal["open", "in_progress", "resolved", "closed"]
@@ -54,18 +56,15 @@ class Coordinator:
             storage_path: Path for all state storage
             auto_persist: Auto-persist state changes
         """
-        self._storage_path = Path(storage_path) if storage_path else None
+        base_path = Path(storage_path) if storage_path else resolve_runtime_store_dir()
+        self._storage_path = base_path
         self._auto_persist = auto_persist
 
         # Initialize subsystems
-        self._workspace_manager = WorkspaceManager(
-            storage_path=self._storage_path / "workspaces" if self._storage_path else None
-        )
-        self._convoy_tracker = ConvoyTracker(
-            storage_path=self._storage_path / "convoys" if self._storage_path else None
-        )
+        self._workspace_manager = WorkspaceManager(storage_path=self._storage_path / "workspaces")
+        self._convoy_tracker = ConvoyTracker(storage_path=self._storage_path / "convoys")
         self._hook_runner = HookRunner(
-            storage_path=self._storage_path / "hooks" if self._storage_path else None,
+            storage_path=self._storage_path / "hooks",
             auto_commit=auto_persist,
         )
 
@@ -73,8 +72,7 @@ class Coordinator:
         self._ledger: dict[str, LedgerEntry] = {}
         self._lock = asyncio.Lock()
 
-        if self._storage_path:
-            self._storage_path.mkdir(parents=True, exist_ok=True)
+        self._storage_path.mkdir(parents=True, exist_ok=True)
 
     @property
     def workspaces(self) -> WorkspaceManager:

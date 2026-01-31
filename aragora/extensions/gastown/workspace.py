@@ -7,6 +7,7 @@ Manages workspaces and rigs for multi-agent development workflows.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from dataclasses import asdict
@@ -14,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from aragora.nomic.stores.paths import resolve_runtime_store_dir
 from aragora.workspace.manager import WorkspaceManager as CoreWorkspaceManager
 from aragora.workspace.rig import Rig as CoreRig
 from aragora.workspace.rig import RigConfig as CoreRigConfig
@@ -44,15 +46,83 @@ class WorkspaceManager:
         Args:
             storage_path: Path for workspace metadata storage
         """
-        self._storage_path = Path(storage_path) if storage_path else None
+        base_path = Path(storage_path) if storage_path else resolve_runtime_store_dir()
+        self._storage_path = base_path
+        self._state_path = self._storage_path / "state.json"
         self._workspaces: dict[str, Workspace] = {}
         self._rigs: dict[str, Rig] = {}
         self._workspace_managers: dict[str, CoreWorkspaceManager] = {}
         self._rig_index: dict[str, str] = {}
         self._lock = asyncio.Lock()
 
-        if self._storage_path:
-            self._storage_path.mkdir(parents=True, exist_ok=True)
+        self._storage_path.mkdir(parents=True, exist_ok=True)
+        self._load_state()
+
+    def _workspace_to_dict(self, workspace: Workspace) -> dict[str, Any]:
+        data = asdict(workspace)
+        data["created_at"] = workspace.created_at.isoformat()
+        data["updated_at"] = workspace.updated_at.isoformat()
+        return data
+
+    def _workspace_from_dict(self, data: dict[str, Any]) -> Workspace:
+        payload = dict(data)
+        created_at = payload.get("created_at")
+        updated_at = payload.get("updated_at")
+        if isinstance(created_at, str):
+            payload["created_at"] = datetime.fromisoformat(created_at)
+        if isinstance(updated_at, str):
+            payload["updated_at"] = datetime.fromisoformat(updated_at)
+        config = payload.get("config")
+        if isinstance(config, dict):
+            payload["config"] = WorkspaceConfig(**config)
+        return Workspace(**payload)
+
+    def _rig_to_dict(self, rig: Rig) -> dict[str, Any]:
+        data = asdict(rig)
+        data["created_at"] = rig.created_at.isoformat()
+        data["updated_at"] = rig.updated_at.isoformat()
+        if rig.last_sync:
+            data["last_sync"] = rig.last_sync.isoformat()
+        return data
+
+    def _rig_from_dict(self, data: dict[str, Any]) -> Rig:
+        payload = dict(data)
+        created_at = payload.get("created_at")
+        updated_at = payload.get("updated_at")
+        last_sync = payload.get("last_sync")
+        if isinstance(created_at, str):
+            payload["created_at"] = datetime.fromisoformat(created_at)
+        if isinstance(updated_at, str):
+            payload["updated_at"] = datetime.fromisoformat(updated_at)
+        if isinstance(last_sync, str):
+            payload["last_sync"] = datetime.fromisoformat(last_sync)
+        config = payload.get("config")
+        if isinstance(config, dict):
+            payload["config"] = RigConfig(**config)
+        return Rig(**payload)
+
+    def _load_state(self) -> None:
+        if not self._state_path.exists():
+            return
+        try:
+            payload = json.loads(self._state_path.read_text())
+        except json.JSONDecodeError:
+            logger.warning("Gastown workspace state is corrupted; ignoring %s", self._state_path)
+            return
+        for ws_data in payload.get("workspaces", []):
+            workspace = self._workspace_from_dict(ws_data)
+            self._workspaces[workspace.id] = workspace
+        for rig_data in payload.get("rigs", []):
+            rig = self._rig_from_dict(rig_data)
+            self._rigs[rig.id] = rig
+            self._rig_index[rig.id] = rig.workspace_id
+
+    def _save_state(self) -> None:
+        payload = {
+            "workspaces": [self._workspace_to_dict(w) for w in self._workspaces.values()],
+            "rigs": [self._rig_to_dict(r) for r in self._rigs.values()],
+        }
+        self._state_path.write_text(json.dumps(payload, indent=2))
 
     def _ensure_core_manager(self, workspace: Workspace) -> CoreWorkspaceManager:
         manager = self._workspace_managers.get(workspace.id)
@@ -162,6 +232,7 @@ class WorkspaceManager:
                 workspace_root=config.root_path,
                 workspace_id=workspace_id,
             )
+            self._save_state()
             logger.info(f"Created workspace {config.name} ({workspace_id})")
 
             return workspace
@@ -202,6 +273,7 @@ class WorkspaceManager:
             if status:
                 workspace.status = status
             workspace.updated_at = datetime.utcnow()
+            self._save_state()
 
             return workspace
 
@@ -237,6 +309,7 @@ class WorkspaceManager:
             self._workspace_managers.pop(workspace_id, None)
 
             del self._workspaces[workspace_id]
+            self._save_state()
             logger.info(f"Deleted workspace {workspace_id}")
             return True
 
@@ -292,6 +365,7 @@ class WorkspaceManager:
             self._rig_index[rig_id] = workspace_id
             workspace.rigs.append(rig_id)
             workspace.updated_at = datetime.utcnow()
+            self._save_state()
 
             logger.info(f"Created rig {config.name} ({rig_id}) in workspace {workspace_id}")
             return rig
@@ -375,6 +449,7 @@ class WorkspaceManager:
                             }.get(status, CoreRigStatus.ACTIVE)
                         core_rig.updated_at = datetime.utcnow().timestamp()
 
+            self._save_state()
             return rig
 
     async def delete_rig(
@@ -411,6 +486,7 @@ class WorkspaceManager:
             if workspace:
                 core_manager = self._ensure_core_manager(workspace)
                 await core_manager.delete_rig(rig_id)
+            self._save_state()
             logger.info(f"Deleted rig {rig_id}")
             return True
 
@@ -436,6 +512,7 @@ class WorkspaceManager:
                     await core_manager.assign_agent_to_rig(rig_id, agent_id)
 
             rig = await self.get_rig(rig_id)
+            self._save_state()
             return rig is not None and agent_id in rig.agents
 
     async def unassign_agent(
@@ -457,6 +534,7 @@ class WorkspaceManager:
                     await core_manager.remove_agent_from_rig(rig_id, agent_id)
 
             rig = await self.get_rig(rig_id)
+            self._save_state()
             return rig is not None and agent_id not in rig.agents
 
     async def sync_rig(self, rig_id: str) -> bool:
@@ -491,6 +569,7 @@ class WorkspaceManager:
                         core_rig.metadata["gastown_last_sync"] = now
                         core_rig.updated_at = now.timestamp()
 
+            self._save_state()
             logger.debug(f"Synced rig {rig_id}")
             return True
 
