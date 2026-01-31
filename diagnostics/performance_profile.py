@@ -60,7 +60,7 @@ class PerformanceProfiler:
                     )
 
                 conn.close()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 results["queries"].append(
                     {
                         "db": db_path.name,
@@ -95,7 +95,7 @@ class PerformanceProfiler:
                         "time_ms": round(elapsed, 2),
                     }
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 results["imports"].append(
                     {
                         "module": module,
@@ -135,7 +135,7 @@ class PerformanceProfiler:
             results["arena_init_ms"] = round(elapsed, 2)
             results["arena_attributes"] = len(dir(arena))
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results["error"] = str(e)
 
         return results
@@ -159,7 +159,7 @@ class PerformanceProfiler:
                 # Record 100 matches
                 start = time.perf_counter()
                 for i in range(100):
-                    elo.record_match(f"agent_{i % 5}", f"agent_{(i+1) % 5}", f"agent_{i % 5}")
+                    elo.record_match(f"agent_{i % 5}", f"agent_{(i + 1) % 5}", f"agent_{i % 5}")
                 results["100_matches_ms"] = round((time.perf_counter() - start) * 1000, 2)
 
                 # Get ratings
@@ -173,7 +173,7 @@ class PerformanceProfiler:
                 elo.get_leaderboard(limit=10)
                 results["leaderboard_ms"] = round((time.perf_counter() - start) * 1000, 2)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results["error"] = str(e)
 
         return results
@@ -200,7 +200,7 @@ class PerformanceProfiler:
                 for i in range(50):
                     critique = Critique(
                         agent=f"agent_{i % 3}",
-                        target_agent=f"agent_{(i+1) % 3}",
+                        target_agent=f"agent_{(i + 1) % 3}",
                         target_content=f"Content {i}",
                         issues=[f"Issue {i}"],
                         suggestions=[f"Suggestion {i}"],
@@ -215,7 +215,7 @@ class PerformanceProfiler:
                 store.retrieve_patterns("test query", limit=10)
                 results["retrieve_ms"] = round((time.perf_counter() - start) * 1000, 2)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results["error"] = str(e)
 
         return results

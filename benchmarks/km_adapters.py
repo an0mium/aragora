@@ -33,7 +33,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 import uuid
 
@@ -77,7 +77,7 @@ class BenchmarkResult:
         )
 
 
-def calculate_percentile(data: List[float], percentile: float) -> float:
+def calculate_percentile(data: list[float], percentile: float) -> float:
     """Calculate percentile of a sorted list."""
     if not data:
         return 0.0
@@ -88,7 +88,7 @@ def calculate_percentile(data: List[float], percentile: float) -> float:
     return sorted_data[f] + (k - f) * (sorted_data[c] - sorted_data[f])
 
 
-def create_result(name: str, latencies: List[float]) -> BenchmarkResult:
+def create_result(name: str, latencies: list[float]) -> BenchmarkResult:
     """Create a BenchmarkResult from a list of latencies in seconds."""
     if not latencies:
         return BenchmarkResult(
@@ -130,7 +130,7 @@ class KMAdapterBenchmark:
         self,
         iterations: int = 100,
         concurrent: int = 10,
-        adapters: Optional[List[str]] = None,
+        adapters: Optional[list[str]] = None,
     ):
         self.iterations = iterations
         self.concurrent = concurrent
@@ -142,7 +142,7 @@ class KMAdapterBenchmark:
             "insights",
             "belief",
         ]
-        self.results: List[BenchmarkResult] = []
+        self.results: list[BenchmarkResult] = []
         self._temp_dir: Optional[tempfile.TemporaryDirectory] = None
 
     async def setup(self) -> None:
@@ -380,7 +380,7 @@ class KMAdapterBenchmark:
         )
         return result
 
-    async def run_all(self) -> List[BenchmarkResult]:
+    async def run_all(self) -> list[BenchmarkResult]:
         """Run all benchmarks."""
         await self.setup()
 

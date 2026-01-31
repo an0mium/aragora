@@ -30,7 +30,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -76,7 +76,7 @@ class BenchmarkResult:
         )
 
 
-def calculate_percentile(data: List[float], percentile: float) -> float:
+def calculate_percentile(data: list[float], percentile: float) -> float:
     """Calculate percentile of a sorted list."""
     if not data:
         return 0.0
@@ -86,7 +86,7 @@ def calculate_percentile(data: List[float], percentile: float) -> float:
 
 
 def create_benchmark_result(
-    name: str, latencies: List[float], extra: dict = None
+    name: str, latencies: list[float], extra: dict = None
 ) -> BenchmarkResult:
     """Create a BenchmarkResult from latency measurements."""
     if not latencies:
@@ -201,9 +201,9 @@ class DebateThroughputBenchmark:
         self.rounds_per_debate = rounds_per_debate
         self.agents_per_debate = agents_per_debate
         self.response_delay_ms = response_delay_ms
-        self.results: List[BenchmarkResult] = []
+        self.results: list[BenchmarkResult] = []
 
-    def create_agents(self) -> List[MockAgent]:
+    def create_agents(self) -> list[MockAgent]:
         """Create mock agents for a debate."""
         return [
             MockAgent(
@@ -250,9 +250,9 @@ class DebateThroughputBenchmark:
                 "success": True,
             }
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             total_time = (time.perf_counter() - start_time) * 1000
-            logger.warning(f"Debate {debate_id} failed: {e}")
+            logger.warning("Debate %s failed: %s", debate_id, e)
             return {
                 "debate_id": debate_id,
                 "total_time_ms": total_time,
@@ -288,7 +288,7 @@ class DebateThroughputBenchmark:
     async def benchmark_concurrent_debates(self, concurrency: int = 3) -> BenchmarkResult:
         """Benchmark concurrent debate execution."""
 
-        async def run_debate_batch(batch_id: int, batch_size: int) -> List[dict]:
+        async def run_debate_batch(batch_id: int, batch_size: int) -> list[dict]:
             tasks = [self.run_single_debate(batch_id * batch_size + i) for i in range(batch_size)]
             return await asyncio.gather(*tasks)
 
@@ -344,8 +344,8 @@ class DebateThroughputBenchmark:
                 estimated_per_round = total_time / rounds
                 round_latencies = [estimated_per_round] * rounds
 
-        except Exception as e:
-            logger.warning(f"Round latency benchmark failed: {e}")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Round latency benchmark failed: %s", e)
             round_latencies = []
 
         return create_benchmark_result(
@@ -375,8 +375,8 @@ class DebateThroughputBenchmark:
                         avg_time = stats["avg_response_time_ms"]
                         all_response_times.extend([avg_time] * stats["call_count"])
 
-            except Exception as e:
-                logger.warning(f"Agent response benchmark {i} failed: {e}")
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Agent response benchmark %s failed: %s", i, e)
                 continue
 
         return create_benchmark_result(
@@ -427,7 +427,7 @@ class DebateThroughputBenchmark:
             extra={"agents_per_vote": self.agents_per_debate},
         )
 
-    async def run_all(self) -> List[BenchmarkResult]:
+    async def run_all(self) -> list[BenchmarkResult]:
         """Run all benchmarks."""
 
         # Single debate latency

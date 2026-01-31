@@ -139,12 +139,8 @@ class TestUpdateMessageExtended:
     @pytest.mark.asyncio
     async def test_update_message_error(self):
         connector = _make_connector()
-        client = MagicMock()
-        client.request = AsyncMock(side_effect=Exception("timeout"))
-        client.__aenter__ = AsyncMock(return_value=client)
-        client.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("httpx.AsyncClient", return_value=client):
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.side_effect = KeyError("unexpected key")
             result = await connector.update_message("c1", "m1", "text")
 
         assert result.success is False
@@ -779,11 +775,6 @@ class TestVerifyWebhook:
         mock_result.verified = True
         mock_result.error = None
 
-        with patch("aragora.connectors.chat.discord.Ed25519Verifier") as MockVerifier:
-            # Patch at import location within verify_webhook
-            pass
-
-        # Use a different approach - patch the import inside the method
         with patch("aragora.connectors.chat.webhook_security.Ed25519Verifier") as MockVerifier:
             instance = MockVerifier.return_value
             instance.verify.return_value = mock_result

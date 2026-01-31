@@ -16,7 +16,7 @@ import statistics
 import time
 import tracemalloc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -25,9 +25,9 @@ class BenchmarkResult:
 
     name: str
     iterations: int
-    times_ms: List[float] = field(default_factory=list)
-    memory_mb: List[float] = field(default_factory=list)
-    custom_metrics: Dict[str, List[float]] = field(default_factory=dict)
+    times_ms: list[float] = field(default_factory=list)
+    memory_mb: list[float] = field(default_factory=list)
+    custom_metrics: dict[str, list[float]] = field(default_factory=dict)
 
     @property
     def p50_ms(self) -> float:
@@ -55,7 +55,7 @@ class BenchmarkResult:
     def peak_memory_mb(self) -> float:
         return max(self.memory_mb) if self.memory_mb else 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "name": self.name,
             "iterations": self.iterations,
@@ -231,7 +231,7 @@ async def benchmark_query_latency(iterations: int = 100) -> BenchmarkResult:
     return result
 
 
-async def run_rlm_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[str, Any]:
+async def run_rlm_benchmarks(iterations: int = 100, warmup: int = 10) -> dict[str, Any]:
     """Run all RLM benchmarks."""
 
     results = {}
@@ -250,7 +250,7 @@ async def run_rlm_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[st
         try:
             result = await bench_func(iterations)
             results[result.name] = result.to_dict()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results[name.lower().replace(" ", "_")] = {"error": str(e)}
 
     return results

@@ -32,7 +32,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -74,7 +74,7 @@ class BenchmarkResult:
         )
 
 
-def calculate_percentile(data: List[float], percentile: float) -> float:
+def calculate_percentile(data: list[float], percentile: float) -> float:
     """Calculate percentile of a sorted list."""
     if not data:
         return 0.0
@@ -84,7 +84,7 @@ def calculate_percentile(data: List[float], percentile: float) -> float:
 
 
 def create_benchmark_result(
-    name: str, latencies: List[float], extra: dict = None
+    name: str, latencies: list[float], extra: dict = None
 ) -> BenchmarkResult:
     """Create a BenchmarkResult from latency measurements."""
     if not latencies:
@@ -124,8 +124,8 @@ class MockFederationStore:
     """Mock store for benchmarking federation operations."""
 
     def __init__(self, item_count: int):
-        self.items: Dict[str, Dict[str, Any]] = {}
-        self.regions: Dict[str, Dict[str, Any]] = {}
+        self.items: dict[str, dict[str, Any]] = {}
+        self.regions: dict[str, dict[str, Any]] = {}
         self._generate_items(item_count)
 
     def _generate_items(self, count: int):
@@ -145,7 +145,7 @@ class MockFederationStore:
                 },
             }
 
-    def register_region(self, region_id: str, endpoint: str, mode: str) -> Dict:
+    def register_region(self, region_id: str, endpoint: str, mode: str) -> dict:
         """Register a federated region."""
         region = {
             "region_id": region_id,
@@ -166,10 +166,10 @@ class MockFederationStore:
 
     async def get_items_for_sync(
         self,
-        visibility_levels: List[str],
+        visibility_levels: list[str],
         scope: str = "full",
         limit: int = 1000,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Get items filtered by visibility for sync."""
         # Simulate filtering
         await asyncio.sleep(0.001)
@@ -188,7 +188,7 @@ class MockFederationStore:
             ]
         return items
 
-    async def push_to_remote(self, region_id: str, items: List[Dict]) -> int:
+    async def push_to_remote(self, region_id: str, items: list[dict]) -> int:
         """Simulate pushing items to remote region."""
         # Simulate network latency
         await asyncio.sleep(0.005 * len(items) / 100)
@@ -196,13 +196,13 @@ class MockFederationStore:
 
     async def pull_from_remote(
         self, region_id: str, since: Optional[datetime] = None
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Simulate pulling items from remote region."""
         # Simulate network latency and return random items
         await asyncio.sleep(0.01)
         return list(self.items.values())[:50]
 
-    async def ingest_items(self, items: List[Dict]) -> int:
+    async def ingest_items(self, items: list[dict]) -> int:
         """Simulate ingesting pulled items."""
         await asyncio.sleep(0.001 * len(items))
         return len(items)
@@ -449,7 +449,7 @@ async def run_benchmarks(
     item_count: int = 1000,
     num_regions: int = 3,
     iterations: int = 100,
-) -> List[BenchmarkResult]:
+) -> list[BenchmarkResult]:
     """Run all federation sync benchmarks."""
 
     # Create mock store with test data

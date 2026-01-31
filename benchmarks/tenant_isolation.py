@@ -16,7 +16,7 @@ import statistics
 import time
 import tracemalloc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 import uuid
 
 
@@ -24,9 +24,9 @@ import uuid
 class BenchmarkResult:
     name: str
     iterations: int
-    times_ms: List[float] = field(default_factory=list)
-    memory_mb: List[float] = field(default_factory=list)
-    custom_metrics: Dict[str, List[float]] = field(default_factory=dict)
+    times_ms: list[float] = field(default_factory=list)
+    memory_mb: list[float] = field(default_factory=list)
+    custom_metrics: dict[str, list[float]] = field(default_factory=dict)
 
     @property
     def p50_ms(self) -> float:
@@ -46,7 +46,7 @@ class BenchmarkResult:
         idx = int(len(self.times_ms) * 0.99)
         return sorted(self.times_ms)[idx]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "iterations": self.iterations,
@@ -198,7 +198,7 @@ async def benchmark_quota_check(iterations: int = 100) -> BenchmarkResult:
             start = time.perf_counter()
             try:
                 await manager.check_quota(quota_type)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass  # Quota may be exceeded
             elapsed = (time.perf_counter() - start) * 1000
 
@@ -207,7 +207,7 @@ async def benchmark_quota_check(iterations: int = 100) -> BenchmarkResult:
     return result
 
 
-async def run_tenant_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[str, Any]:
+async def run_tenant_benchmarks(iterations: int = 100, warmup: int = 10) -> dict[str, Any]:
     """Run all tenant isolation benchmarks."""
 
     results = {}
@@ -226,7 +226,7 @@ async def run_tenant_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict
         try:
             result = await bench_func(iterations)
             results[result.name] = result.to_dict()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results[name.lower().replace(" ", "_")] = {"error": str(e)}
 
     return results

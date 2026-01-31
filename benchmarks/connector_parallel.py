@@ -16,16 +16,16 @@ import statistics
 import time
 import tracemalloc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
 class BenchmarkResult:
     name: str
     iterations: int
-    times_ms: List[float] = field(default_factory=list)
-    memory_mb: List[float] = field(default_factory=list)
-    custom_metrics: Dict[str, List[float]] = field(default_factory=dict)
+    times_ms: list[float] = field(default_factory=list)
+    memory_mb: list[float] = field(default_factory=list)
+    custom_metrics: dict[str, list[float]] = field(default_factory=dict)
 
     @property
     def p50_ms(self) -> float:
@@ -45,7 +45,7 @@ class BenchmarkResult:
         idx = int(len(self.times_ms) * 0.99)
         return sorted(self.times_ms)[idx]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "name": self.name,
             "iterations": self.iterations,
@@ -80,7 +80,7 @@ class MockConnector:
         await asyncio.sleep(self.latency_ms / 1000)
         return True
 
-    async def sync(self) -> Dict[str, Any]:
+    async def sync(self) -> dict[str, Any]:
         await asyncio.sleep(self.latency_ms / 1000)
         self.sync_count += 1
         return {
@@ -239,7 +239,7 @@ async def benchmark_error_recovery(iterations: int = 50) -> BenchmarkResult:
             self.max_retries = max_retries
             self.retries = 0
 
-        async def sync_with_retry(self) -> Dict[str, Any]:
+        async def sync_with_retry(self) -> dict[str, Any]:
             import random
 
             for attempt in range(self.max_retries):
@@ -269,7 +269,7 @@ async def benchmark_error_recovery(iterations: int = 50) -> BenchmarkResult:
     return result
 
 
-async def run_connector_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[str, Any]:
+async def run_connector_benchmarks(iterations: int = 100, warmup: int = 10) -> dict[str, Any]:
     """Run all connector parallelization benchmarks."""
 
     results = {}
@@ -288,7 +288,7 @@ async def run_connector_benchmarks(iterations: int = 100, warmup: int = 10) -> D
         try:
             result = await bench_func(iterations)
             results[result.name] = result.to_dict()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results[name.lower().replace(" ", "_")] = {"error": str(e)}
 
     return results

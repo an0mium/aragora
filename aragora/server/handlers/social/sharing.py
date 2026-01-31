@@ -115,7 +115,7 @@ class ShareStore:
     In production, this would be backed by a database.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings: dict[str, ShareSettings] = {}
         self._tokens: dict[str, str] = {}  # token -> debate_id
         self._lock = threading.Lock()
@@ -231,7 +231,7 @@ class SharingHandler(BaseHandler):
         self._store = get_share_store()
 
     @require_permission("sharing:read")
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         # Shared debate access (public endpoint)
         if path.startswith("/api/v1/shared/"):
@@ -248,7 +248,7 @@ class SharingHandler(BaseHandler):
         return None
 
     @require_permission("sharing:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle POST requests."""
         # Revoke share link
         if path.endswith("/share/revoke"):
@@ -282,7 +282,7 @@ class SharingHandler(BaseHandler):
             return None, str(e)
 
     @handle_errors("get share settings")
-    def _get_share_settings(self, debate_id: str, handler) -> HandlerResult:
+    def _get_share_settings(self, debate_id: str, handler: Any) -> HandlerResult:
         """Get sharing settings for a debate.
 
         Returns:
@@ -313,7 +313,7 @@ class SharingHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=30, limiter_name="share_update")
     @handle_errors("update share settings")
-    def _update_share_settings(self, debate_id: str, handler) -> HandlerResult:
+    def _update_share_settings(self, debate_id: str, handler: Any) -> HandlerResult:
         """Update sharing settings for a debate.
 
         POST body:
@@ -445,7 +445,7 @@ class SharingHandler(BaseHandler):
         )
 
     @handle_errors("revoke share")
-    def _revoke_share(self, debate_id: str, handler) -> HandlerResult:
+    def _revoke_share(self, debate_id: str, handler: Any) -> HandlerResult:
         """Revoke all share links for a debate.
 
         POST body: {} (empty)

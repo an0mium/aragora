@@ -31,7 +31,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -73,7 +73,7 @@ class BenchmarkResult:
         )
 
 
-def calculate_percentile(data: List[float], percentile: float) -> float:
+def calculate_percentile(data: list[float], percentile: float) -> float:
     """Calculate percentile of a sorted list."""
     if not data:
         return 0.0
@@ -83,7 +83,7 @@ def calculate_percentile(data: List[float], percentile: float) -> float:
 
 
 def create_benchmark_result(
-    name: str, latencies: List[float], extra: dict = None
+    name: str, latencies: list[float], extra: dict = None
 ) -> BenchmarkResult:
     """Create a BenchmarkResult from latency measurements."""
     if not latencies:
@@ -151,10 +151,10 @@ class MockStore:
                 "last_retrieved_at": base_time + timedelta(days=(i % 30)),
             }
 
-    async def get_nodes_for_workspace(self, workspace_id: str) -> List[dict]:
+    async def get_nodes_for_workspace(self, workspace_id: str) -> list[dict]:
         return list(self.items.values())
 
-    async def search_similar(self, content: str, threshold: float) -> List[dict]:
+    async def search_similar(self, content: str, threshold: float) -> list[dict]:
         # Simulate similarity search delay
         await asyncio.sleep(0.001)
         return list(self.items.values())[:10]
@@ -369,7 +369,7 @@ async def benchmark_merge_operation(
 async def run_benchmarks(
     item_count: int = 1000,
     iterations: int = 100,
-) -> List[BenchmarkResult]:
+) -> list[BenchmarkResult]:
     """Run all knowledge maintenance benchmarks."""
 
     # Create mock store with test data

@@ -30,7 +30,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -75,7 +75,7 @@ class BenchmarkResult:
         )
 
 
-def calculate_percentile(data: List[float], percentile: float) -> float:
+def calculate_percentile(data: list[float], percentile: float) -> float:
     """Calculate percentile of a sorted list."""
     if not data:
         return 0.0
@@ -85,7 +85,7 @@ def calculate_percentile(data: List[float], percentile: float) -> float:
 
 
 def create_benchmark_result(
-    name: str, latencies: List[float], extra: dict = None
+    name: str, latencies: list[float], extra: dict = None
 ) -> BenchmarkResult:
     """Create a BenchmarkResult from latency measurements."""
     if not latencies:
@@ -139,7 +139,7 @@ class MemoryTierBenchmark:
             db_path = Path(self._temp_dir) / "benchmark_memory.db"
         self.db_path = db_path
         self.memory: Optional[ContinuumMemory] = None
-        self.results: List[BenchmarkResult] = []
+        self.results: list[BenchmarkResult] = []
 
     def setup(self):
         """Initialize memory system."""
@@ -312,7 +312,7 @@ class MemoryTierBenchmark:
     def benchmark_concurrent_writes(self, concurrency: int = 10) -> BenchmarkResult:
         """Benchmark concurrent write operations."""
 
-        async def write_task(task_id: int, tier: MemoryTier) -> List[float]:
+        async def write_task(task_id: int, tier: MemoryTier) -> list[float]:
             latencies = []
             per_task = self.iterations // concurrency
             for i in range(per_task):
@@ -363,7 +363,7 @@ class MemoryTierBenchmark:
             latencies,
         )
 
-    def run_all(self) -> List[BenchmarkResult]:
+    def run_all(self) -> list[BenchmarkResult]:
         """Run all benchmarks."""
 
         self.setup()

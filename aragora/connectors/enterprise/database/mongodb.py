@@ -114,7 +114,7 @@ class MongoDBConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"MongoDB ({self.database_name})"
 
-    async def _get_client(self):
+    async def _get_client(self) -> Any:
         """Get or create MongoDB client."""
         if self._client is not None:
             return self._client
@@ -312,8 +312,8 @@ class MongoDBConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
-    ) -> list:
+        **kwargs: Any,
+    ) -> list[Any]:
         """
         Search across collections using text search or regex.
 
@@ -390,7 +390,7 @@ class MongoDBConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str):
+    async def fetch(self, evidence_id: str) -> dict[str, Any] | None:
         """Fetch a specific document by evidence ID."""
         from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
 
@@ -446,7 +446,7 @@ class MongoDBConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def start_change_stream(self):
+    async def start_change_stream(self) -> None:
         """Start change stream for real-time updates with resume token support."""
         if not self.use_change_streams:
             return
@@ -456,7 +456,7 @@ class MongoDBConnector(EnterpriseConnector):
         # Mark CDC stream as running
         self.cdc_manager.start()
 
-        async def change_stream_loop():
+        async def change_stream_loop() -> None:
             try:
                 pipeline = [
                     {
@@ -491,7 +491,7 @@ class MongoDBConnector(EnterpriseConnector):
 
         self._change_stream_task = asyncio.create_task(change_stream_loop())
 
-    async def _handle_change(self, change: dict[str, Any]):
+    async def _handle_change(self, change: dict[str, Any]) -> None:
         """Handle a change stream event and emit ChangeEvent."""
         try:
             # Create unified ChangeEvent from MongoDB change stream
@@ -512,7 +512,7 @@ class MongoDBConnector(EnterpriseConnector):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"[{self.name}] Change handler error: {e}")
 
-    async def stop_change_stream(self):
+    async def stop_change_stream(self) -> None:
         """Stop the change stream."""
         if self._change_stream_task:
             self._change_stream_task.cancel()
@@ -526,7 +526,7 @@ class MongoDBConnector(EnterpriseConnector):
         if self._cdc_manager:
             self._cdc_manager.stop()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close MongoDB client."""
         await self.stop_change_stream()
         if self._client:

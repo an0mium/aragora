@@ -17,16 +17,16 @@ import sys
 import time
 import tracemalloc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
 class BenchmarkResult:
     name: str
     iterations: int
-    times_ms: List[float] = field(default_factory=list)
-    memory_mb: List[float] = field(default_factory=list)
-    custom_metrics: Dict[str, List[float]] = field(default_factory=dict)
+    times_ms: list[float] = field(default_factory=list)
+    memory_mb: list[float] = field(default_factory=list)
+    custom_metrics: dict[str, list[float]] = field(default_factory=dict)
 
     @property
     def p50_ms(self) -> float:
@@ -46,7 +46,7 @@ class BenchmarkResult:
         idx = int(len(self.times_ms) * 0.99)
         return sorted(self.times_ms)[idx]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "name": self.name,
             "iterations": self.iterations,
@@ -193,9 +193,9 @@ async def benchmark_event_streaming(iterations: int = 100) -> BenchmarkResult:
 
     for _ in range(iterations):
         events_sent = 0
-        events: List[Dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
 
-        async def event_handler(event: Dict[str, Any]):
+        async def event_handler(event: dict[str, Any]):
             nonlocal events_sent
             events_sent += 1
             events.append(event)
@@ -226,7 +226,7 @@ async def benchmark_event_streaming(iterations: int = 100) -> BenchmarkResult:
     return result
 
 
-async def run_debate_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[str, Any]:
+async def run_debate_benchmarks(iterations: int = 100, warmup: int = 10) -> dict[str, Any]:
     """Run all extended debate benchmarks."""
 
     results = {}
@@ -247,7 +247,7 @@ async def run_debate_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict
             iters = iterations // 10 if "Memory" in name else iterations
             result = await bench_func(iters)
             results[result.name] = result.to_dict()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results[name.lower().replace(" ", "_")] = {"error": str(e)}
 
     return results

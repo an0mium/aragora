@@ -17,7 +17,7 @@ Usage:
 import statistics
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable
 
 
 @dataclass
@@ -47,7 +47,7 @@ class BenchmarkResult:
             and self.p99_ms <= self.slo_p99_ms
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -71,7 +71,7 @@ class BenchmarkResult:
         }
 
 
-def percentile(data: List[float], p: float) -> float:
+def percentile(data: list[float], p: float) -> float:
     """Calculate percentile of sorted data."""
     if not data:
         return 0.0
@@ -148,7 +148,7 @@ def run_benchmark(
 class MockHealthHandler:
     """Mock health endpoint for benchmarking."""
 
-    def handle(self) -> Tuple[str, int]:
+    def handle(self) -> tuple[str, int]:
         """Handle health check request."""
         return '{"status": "healthy", "timestamp": 1234567890}', 200
 
@@ -157,9 +157,9 @@ class MockAuthHandler:
     """Mock authentication handler for benchmarking."""
 
     def __init__(self):
-        self._token_cache: Dict[str, Dict] = {}
+        self._token_cache: dict[str, dict] = {}
 
-    def validate_token(self, token: str) -> Tuple[str, int]:
+    def validate_token(self, token: str) -> tuple[str, int]:
         """Validate JWT token."""
         # Simulate token validation (in-memory check)
         if token in self._token_cache:
@@ -176,9 +176,9 @@ class MockDebateHandler:
     """Mock debate handler for benchmarking."""
 
     def __init__(self):
-        self._debates: Dict[str, Dict] = {}
+        self._debates: dict[str, dict] = {}
 
-    def get_debate(self, debate_id: str) -> Tuple[str, int]:
+    def get_debate(self, debate_id: str) -> tuple[str, int]:
         """Get debate by ID."""
         if debate_id not in self._debates:
             self._debates[debate_id] = {
@@ -191,7 +191,7 @@ class MockDebateHandler:
 
         return json.dumps(self._debates[debate_id]), 200
 
-    def list_debates(self, limit: int = 20) -> Tuple[str, int]:
+    def list_debates(self, limit: int = 20) -> tuple[str, int]:
         """List debates with pagination."""
         debates = list(self._debates.values())[:limit]
         import json
@@ -203,9 +203,9 @@ class MockSearchHandler:
     """Mock search handler for benchmarking."""
 
     def __init__(self):
-        self._index: Dict[str, List[str]] = {}
+        self._index: dict[str, list[str]] = {}
 
-    def search(self, query: str, limit: int = 10) -> Tuple[str, int]:
+    def search(self, query: str, limit: int = 10) -> tuple[str, int]:
         """Search debates."""
         # Simulate search with simple string matching
         results = []

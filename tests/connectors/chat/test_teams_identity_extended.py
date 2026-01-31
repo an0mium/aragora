@@ -731,20 +731,18 @@ class TestFindOrCreateUserExtended:
         mock_usr_repo.get_by_email.side_effect = AttributeError("no method")
 
         with patch.object(bridge, "_get_user_repo", return_value=mock_usr_repo):
-            with patch("aragora.connectors.chat.teams_identity.uuid") as mock_uuid_mod:
-                mock_uuid_mod.uuid4.return_value = MagicMock(hex="abcdef123456rest")
-                with patch.dict(
-                    sys.modules,
-                    {
-                        "aragora.billing.models": MagicMock(
-                            hash_password=MagicMock(return_value=("hash", "salt")),
-                        ),
-                    },
-                ):
-                    result = await bridge._find_or_create_user(
-                        teams_user_full,
-                        create_if_missing=True,
-                    )
+            with patch.dict(
+                sys.modules,
+                {
+                    "aragora.billing.models": MagicMock(
+                        hash_password=MagicMock(return_value=("hash", "salt")),
+                    ),
+                },
+            ):
+                result = await bridge._find_or_create_user(
+                    teams_user_full,
+                    create_if_missing=True,
+                )
 
         assert result is not None
         assert result.startswith("teams-")

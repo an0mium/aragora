@@ -1109,3 +1109,711 @@ class TestSQLiteBackendTriageResults:
         await sqlite_store.delete_account(TENANT, "acct_1")
         assert await sqlite_store.get_message(TENANT, "msg_1") is None
         assert await sqlite_store.get_triage_result(TENANT, "msg_1") is None
+
+
+# ====================================================================
+# InMemory: Message Metadata Fields
+# ====================================================================
+
+
+class TestInMemoryMessageMetadata:
+    """Tests for rich message fields (recipients, cc, labels, thread_id, etc.)."""
+
+    @pytest.mark.asyncio
+    async def test_message_recipients_and_cc(self, store: InMemoryUnifiedInboxStore):
+        """Messages preserve recipients and cc lists."""
+        await store.save_account(TENANT, _make_account())
+        msg = _make_message(
+            recipients=["alice@co.com", "bob@co.com"],
+            cc=["carol@co.com"],
+        )
+        await store.save_message(TENANT, msg)
+        result = await store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["recipients"] == ["alice@co.com", "bob@co.com"]
+        assert result["cc"] == ["carol@co.com"]
+
+    @pytest.mark.asyncio
+    async def test_message_labels(self, store: InMemoryUnifiedInboxStore):
+        """Messages preserve labels list."""
+        await store.save_account(TENANT, _make_account())
+        msg = _make_message(labels=["inbox", "important", "starred"])
+        await store.save_message(TENANT, msg)
+        result = await store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["labels"] == ["inbox", "important", "starred"]
+
+    @pytest.mark.asyncio
+    async def test_message_thread_id(self, store: InMemoryUnifiedInboxStore):
+        """Messages preserve thread_id."""
+        await store.save_account(TENANT, _make_account())
+        msg = _make_message(thread_id="thread_abc123")
+        await store.save_message(TENANT, msg)
+        result = await store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["thread_id"] == "thread_abc123"
+
+    @pytest.mark.asyncio
+    async def test_message_has_attachments(self, store: InMemoryUnifiedInboxStore):
+        """Messages preserve has_attachments flag."""
+        await store.save_account(TENANT, _make_account())
+        msg = _make_message(has_attachments=True)
+        await store.save_message(TENANT, msg)
+        result = await store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["has_attachments"] is True
+
+    @pytest.mark.asyncio
+    async def test_message_body_preview(self, store: InMemoryUnifiedInboxStore):
+        """Messages preserve body_preview text."""
+        await store.save_account(TENANT, _make_account())
+        msg = _make_message(body_preview="This is a preview of the email body...")
+        await store.save_message(TENANT, msg)
+        result = await store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["body_preview"] == "This is a preview of the email body..."
+
+    @pytest.mark.asyncio
+    async def test_message_priority_reasons(self, store: InMemoryUnifiedInboxStore):
+        """Messages preserve priority_reasons list."""
+        await store.save_account(TENANT, _make_account())
+        reasons = ["VIP sender", "Contains urgent keyword"]
+        msg = _make_message(priority_reasons=reasons)
+        await store.save_message(TENANT, msg)
+        result = await store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["priority_reasons"] == reasons
+
+
+# ====================================================================
+# InMemory: Update Message Flags Edge Cases
+# ====================================================================
+
+
+class TestInMemoryMessageFlagsEdgeCases:
+    """Edge cases for update_message_flags on InMemory backend."""
+
+    @pytest.mark.asyncio
+    async def test_update_flags_no_changes_returns_true(self, store: InMemoryUnifiedInboxStore):
+        """Passing neither is_read nor is_starred should return True (no-op)."""
+        await store.save_account(TENANT, _make_account())
+        await store.save_message(TENANT, _make_message())
+        result = await store.update_message_flags(TENANT, "msg_1")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_update_flags_both_simultaneously(self, store: InMemoryUnifiedInboxStore):
+        """Setting both is_read and is_starred in a single call."""
+        await store.save_account(TENANT, _make_account())
+        await store.save_message(TENANT, _make_message(is_read=False, is_starred=False))
+        result = await store.update_message_flags(TENANT, "msg_1", is_read=True, is_starred=True)
+        assert result is True
+        msg = await store.get_message(TENANT, "msg_1")
+        assert msg is not None
+        assert msg["is_read"] is True
+        assert msg["is_starred"] is True
+
+    @pytest.mark.asyncio
+    async def test_update_starred_does_not_affect_unread_count(
+        self, store: InMemoryUnifiedInboxStore
+    ):
+        """Toggling is_starred alone should not change unread_count."""
+        await store.save_account(TENANT, _make_account())
+        await store.save_message(TENANT, _make_message(is_read=False))
+        acct_before = await store.get_account(TENANT, "acct_1")
+        assert acct_before is not None
+        assert acct_before["unread_count"] == 1
+        await store.update_message_flags(TENANT, "msg_1", is_starred=True)
+        acct_after = await store.get_account(TENANT, "acct_1")
+        assert acct_after is not None
+        assert acct_after["unread_count"] == 1
+
+
+# ====================================================================
+# InMemory: Account Connected At and Last Sync
+# ====================================================================
+
+
+class TestInMemoryAccountDatetimeFields:
+    """Tests for account datetime fields (connected_at, last_sync)."""
+
+    @pytest.mark.asyncio
+    async def test_account_with_datetime_fields(self, store: InMemoryUnifiedInboxStore):
+        """Account preserves connected_at and last_sync datetimes."""
+        now = _utc_now()
+        account = _make_account(connected_at=now, last_sync=now)
+        await store.save_account(TENANT, account)
+        result = await store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["connected_at"] == now
+        assert result["last_sync"] == now
+
+    @pytest.mark.asyncio
+    async def test_account_metadata_field(self, store: InMemoryUnifiedInboxStore):
+        """Account preserves metadata dict."""
+        account = _make_account(metadata={"sync_token": "abc123", "scopes": ["mail"]})
+        await store.save_account(TENANT, account)
+        result = await store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["metadata"] == {"sync_token": "abc123", "scopes": ["mail"]}
+
+
+# ====================================================================
+# InMemory: Multiple Messages Per Account
+# ====================================================================
+
+
+class TestInMemoryMultipleMessages:
+    """Tests for managing multiple messages under one account."""
+
+    @pytest.mark.asyncio
+    async def test_multiple_messages_accumulate_counts(self, store: InMemoryUnifiedInboxStore):
+        """Saving multiple messages properly accumulates account counts."""
+        await store.save_account(TENANT, _make_account())
+        for i in range(5):
+            await store.save_message(
+                TENANT,
+                _make_message(f"msg_{i}", external_id=f"ext_{i}", is_read=(i % 2 == 0)),
+            )
+        acct = await store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 5
+        # i=0 read, i=1 unread, i=2 read, i=3 unread, i=4 read -> 2 unread
+        assert acct["unread_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_delete_multiple_messages_decrements_counts(
+        self, store: InMemoryUnifiedInboxStore
+    ):
+        """Deleting multiple messages decrements counts correctly."""
+        await store.save_account(TENANT, _make_account())
+        for i in range(3):
+            await store.save_message(
+                TENANT,
+                _make_message(f"msg_{i}", external_id=f"ext_{i}", is_read=False),
+            )
+        acct = await store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 3
+        assert acct["unread_count"] == 3
+
+        await store.delete_message(TENANT, "msg_0")
+        await store.delete_message(TENANT, "msg_1")
+        acct = await store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 1
+        assert acct["unread_count"] == 1
+
+
+# ====================================================================
+# InMemory: Triage Result Full Fields
+# ====================================================================
+
+
+class TestInMemoryTriageResultFields:
+    """Tests that all triage result fields are preserved."""
+
+    @pytest.mark.asyncio
+    async def test_triage_all_fields(self, store: InMemoryUnifiedInboxStore):
+        """All triage result fields are stored and returned correctly."""
+        triage = _make_triage(
+            delegate_to="senior_agent",
+            schedule_for=_utc_now(),
+            suggested_response="I will handle this ASAP",
+            debate_summary="All agents agreed on delegation",
+        )
+        await store.save_triage_result(TENANT, triage)
+        result = await store.get_triage_result(TENANT, "msg_1")
+        assert result is not None
+        assert result["delegate_to"] == "senior_agent"
+        assert result["suggested_response"] == "I will handle this ASAP"
+        assert result["debate_summary"] == "All agents agreed on delegation"
+        assert result["schedule_for"] is not None
+
+    @pytest.mark.asyncio
+    async def test_triage_with_none_optional_fields(self, store: InMemoryUnifiedInboxStore):
+        """Triage result with None optional fields."""
+        triage = _make_triage(
+            delegate_to=None,
+            schedule_for=None,
+            suggested_response=None,
+            debate_summary=None,
+            agents_involved=[],
+        )
+        await store.save_triage_result(TENANT, triage)
+        result = await store.get_triage_result(TENANT, "msg_1")
+        assert result is not None
+        assert result["delegate_to"] is None
+        assert result["schedule_for"] is None
+        assert result["suggested_response"] is None
+        assert result["debate_summary"] is None
+        assert result["agents_involved"] == []
+
+
+# ====================================================================
+# SQLite: Dedup with Read-Status Tracking
+# ====================================================================
+
+
+class TestSQLiteDedupReadStatusTracking:
+    """Tests for SQLite save_message dedup with read-status change tracking."""
+
+    @pytest.mark.asyncio
+    async def test_dedup_unread_to_read_decrements_unread(
+        self, sqlite_store: SQLiteUnifiedInboxStore
+    ):
+        """Dedup save that changes is_read False->True should decrement unread count."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message(is_read=False))
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["unread_count"] == 1
+
+        # Save again same external_id, now read
+        await sqlite_store.save_message(TENANT, _make_message(message_id="msg_dup", is_read=True))
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["unread_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_dedup_read_to_unread_increments_unread(
+        self, sqlite_store: SQLiteUnifiedInboxStore
+    ):
+        """Dedup save that changes is_read True->False should increment unread count."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message(is_read=True))
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["unread_count"] == 0
+
+        # Same external_id, now unread
+        await sqlite_store.save_message(TENANT, _make_message(message_id="msg_dup", is_read=False))
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["unread_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_dedup_returns_original_message_id(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Dedup save returns the original message ID, not the new one."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        msg_id_1, created_1 = await sqlite_store.save_message(TENANT, _make_message("msg_original"))
+        assert msg_id_1 == "msg_original"
+        assert created_1 is True
+
+        msg_id_2, created_2 = await sqlite_store.save_message(
+            TENANT, _make_message("msg_new_id", subject="Updated subject")
+        )
+        assert msg_id_2 == "msg_original"
+        assert created_2 is False
+
+
+# ====================================================================
+# SQLite: Message Flag Toggling with Count Tracking
+# ====================================================================
+
+
+class TestSQLiteMessageFlagToggling:
+    """Tests for SQLite flag toggling and unread count tracking."""
+
+    @pytest.mark.asyncio
+    async def test_mark_read_then_unread(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Toggling read -> unread should restore unread count."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message(is_read=False))
+
+        # Mark as read
+        await sqlite_store.update_message_flags(TENANT, "msg_1", is_read=True)
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["unread_count"] == 0
+
+        # Mark as unread again
+        await sqlite_store.update_message_flags(TENANT, "msg_1", is_read=False)
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["unread_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_starred_flag_preserved(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Setting is_starred persists and can be toggled."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message(is_starred=False))
+
+        await sqlite_store.update_message_flags(TENANT, "msg_1", is_starred=True)
+        msg = await sqlite_store.get_message(TENANT, "msg_1")
+        assert msg is not None
+        assert msg["is_starred"] is True
+
+        await sqlite_store.update_message_flags(TENANT, "msg_1", is_starred=False)
+        msg = await sqlite_store.get_message(TENANT, "msg_1")
+        assert msg is not None
+        assert msg["is_starred"] is False
+
+    @pytest.mark.asyncio
+    async def test_both_flags_simultaneously(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Setting both is_read and is_starred in one call."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message(is_read=False, is_starred=False))
+
+        await sqlite_store.update_message_flags(TENANT, "msg_1", is_read=True, is_starred=True)
+        msg = await sqlite_store.get_message(TENANT, "msg_1")
+        assert msg is not None
+        assert msg["is_read"] is True
+        assert msg["is_starred"] is True
+
+
+# ====================================================================
+# SQLite: Delete Message with Count Updates
+# ====================================================================
+
+
+class TestSQLiteDeleteMessageCounts:
+    """Tests for SQLite delete_message with account count adjustments."""
+
+    @pytest.mark.asyncio
+    async def test_delete_unread_message_decrements_counts(
+        self, sqlite_store: SQLiteUnifiedInboxStore
+    ):
+        """Deleting unread message decrements both total and unread."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message(is_read=False))
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 1
+        assert acct["unread_count"] == 1
+
+        await sqlite_store.delete_message(TENANT, "msg_1")
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 0
+        assert acct["unread_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_delete_read_message_only_decrements_total(
+        self, sqlite_store: SQLiteUnifiedInboxStore
+    ):
+        """Deleting read message decrements total but not unread."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message(is_read=True))
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 1
+        assert acct["unread_count"] == 0
+
+        await sqlite_store.delete_message(TENANT, "msg_1")
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 0
+        assert acct["unread_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_delete_message_also_deletes_triage(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Deleting a message should also remove its triage result."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message())
+        await sqlite_store.save_triage_result(TENANT, _make_triage("msg_1"))
+        assert await sqlite_store.get_triage_result(TENANT, "msg_1") is not None
+
+        await sqlite_store.delete_message(TENANT, "msg_1")
+        assert await sqlite_store.get_triage_result(TENANT, "msg_1") is None
+
+
+# ====================================================================
+# SQLite: Rich Message Metadata
+# ====================================================================
+
+
+class TestSQLiteMessageMetadata:
+    """Tests for SQLite message metadata serialization/deserialization."""
+
+    @pytest.mark.asyncio
+    async def test_message_recipients_and_cc_roundtrip(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """JSON-serialized recipients and cc lists roundtrip correctly."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        msg = _make_message(
+            recipients=["a@co.com", "b@co.com"],
+            cc=["c@co.com", "d@co.com"],
+        )
+        await sqlite_store.save_message(TENANT, msg)
+        result = await sqlite_store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["recipients"] == ["a@co.com", "b@co.com"]
+        assert result["cc"] == ["c@co.com", "d@co.com"]
+
+    @pytest.mark.asyncio
+    async def test_message_labels_roundtrip(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """JSON-serialized labels list roundtrips correctly."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        msg = _make_message(labels=["inbox", "important", "work"])
+        await sqlite_store.save_message(TENANT, msg)
+        result = await sqlite_store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["labels"] == ["inbox", "important", "work"]
+
+    @pytest.mark.asyncio
+    async def test_message_priority_reasons_roundtrip(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """JSON-serialized priority_reasons list roundtrips correctly."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        reasons = ["VIP sender", "Mentions project deadline"]
+        msg = _make_message(priority_reasons=reasons)
+        await sqlite_store.save_message(TENANT, msg)
+        result = await sqlite_store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["priority_reasons"] == reasons
+
+    @pytest.mark.asyncio
+    async def test_message_thread_id_and_body_preview(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Thread ID and body preview stored and retrieved."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        msg = _make_message(
+            thread_id="thread_xyz",
+            body_preview="The quick brown fox jumps over the lazy dog.",
+        )
+        await sqlite_store.save_message(TENANT, msg)
+        result = await sqlite_store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["thread_id"] == "thread_xyz"
+        assert result["body_preview"] == "The quick brown fox jumps over the lazy dog."
+
+    @pytest.mark.asyncio
+    async def test_message_has_attachments_flag(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Boolean has_attachments flag roundtrips correctly through SQLite integers."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        msg = _make_message(has_attachments=True)
+        await sqlite_store.save_message(TENANT, msg)
+        result = await sqlite_store.get_message(TENANT, "msg_1")
+        assert result is not None
+        assert result["has_attachments"] is True
+
+
+# ====================================================================
+# SQLite: Account Field Updates with Special Types
+# ====================================================================
+
+
+class TestSQLiteAccountFieldUpdates:
+    """Tests for SQLite update_account_fields with datetime and metadata fields."""
+
+    @pytest.mark.asyncio
+    async def test_update_connected_at_datetime(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Updating connected_at with a datetime value formats it to ISO."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        now = _utc_now()
+        await sqlite_store.update_account_fields(TENANT, "acct_1", {"connected_at": now})
+        result = await sqlite_store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["connected_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_update_last_sync_datetime(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Updating last_sync with a datetime value formats it to ISO."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        now = _utc_now()
+        await sqlite_store.update_account_fields(TENANT, "acct_1", {"last_sync": now})
+        result = await sqlite_store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["last_sync"] is not None
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_via_account_fields(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Updating metadata via update_account_fields serializes to JSON."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.update_account_fields(
+            TENANT, "acct_1", {"metadata": {"token": "xyz", "scopes": ["mail", "calendar"]}}
+        )
+        result = await sqlite_store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["metadata"]["token"] == "xyz"
+        assert result["metadata"]["scopes"] == ["mail", "calendar"]
+
+    @pytest.mark.asyncio
+    async def test_update_multiple_fields_including_datetime(
+        self, sqlite_store: SQLiteUnifiedInboxStore
+    ):
+        """Update multiple fields including datetime and plain string."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        now = _utc_now()
+        await sqlite_store.update_account_fields(
+            TENANT, "acct_1", {"status": "syncing", "last_sync": now}
+        )
+        result = await sqlite_store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["status"] == "syncing"
+        assert result["last_sync"] is not None
+
+
+# ====================================================================
+# SQLite: Priority Score Sorting
+# ====================================================================
+
+
+class TestSQLitePriorityScoreSorting:
+    """Tests for SQLite list_messages sort ordering."""
+
+    @pytest.mark.asyncio
+    async def test_messages_sorted_by_priority_desc(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Messages should be sorted by priority_score descending."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_message(
+            TENANT, _make_message("msg_lo", external_id="e1", priority_score=0.1)
+        )
+        await sqlite_store.save_message(
+            TENANT, _make_message("msg_hi", external_id="e2", priority_score=0.9)
+        )
+        await sqlite_store.save_message(
+            TENANT, _make_message("msg_mid", external_id="e3", priority_score=0.5)
+        )
+
+        messages, _ = await sqlite_store.list_messages(TENANT)
+        scores = [m["priority_score"] for m in messages]
+        assert scores == sorted(scores, reverse=True)
+
+
+# ====================================================================
+# SQLite: Tenant Isolation
+# ====================================================================
+
+
+class TestSQLiteTenantIsolation:
+    """Tests for tenant isolation in the SQLite backend."""
+
+    @pytest.mark.asyncio
+    async def test_account_tenant_isolation(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Accounts in different tenants are fully isolated."""
+        await sqlite_store.save_account(TENANT, _make_account("acct_1"))
+        await sqlite_store.save_account(TENANT_2, _make_account("acct_2"))
+        assert len(await sqlite_store.list_accounts(TENANT)) == 1
+        assert len(await sqlite_store.list_accounts(TENANT_2)) == 1
+        assert await sqlite_store.get_account(TENANT, "acct_2") is None
+        assert await sqlite_store.get_account(TENANT_2, "acct_1") is None
+
+    @pytest.mark.asyncio
+    async def test_message_tenant_isolation(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Messages in different tenants are fully isolated."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        await sqlite_store.save_account(TENANT_2, _make_account())
+        await sqlite_store.save_message(TENANT, _make_message("msg_1", external_id="e1"))
+        await sqlite_store.save_message(TENANT_2, _make_message("msg_2", external_id="e2"))
+
+        assert await sqlite_store.get_message(TENANT, "msg_1") is not None
+        assert await sqlite_store.get_message(TENANT, "msg_2") is None
+        assert await sqlite_store.get_message(TENANT_2, "msg_2") is not None
+        assert await sqlite_store.get_message(TENANT_2, "msg_1") is None
+
+    @pytest.mark.asyncio
+    async def test_triage_tenant_isolation(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Triage results in different tenants are isolated."""
+        await sqlite_store.save_triage_result(TENANT, _make_triage("msg_1", confidence=0.9))
+        await sqlite_store.save_triage_result(TENANT_2, _make_triage("msg_1", confidence=0.3))
+        r1 = await sqlite_store.get_triage_result(TENANT, "msg_1")
+        r2 = await sqlite_store.get_triage_result(TENANT_2, "msg_1")
+        assert r1 is not None and r1["confidence"] == 0.9
+        assert r2 is not None and r2["confidence"] == 0.3
+
+
+# ====================================================================
+# SQLite: Triage Result Full Fields
+# ====================================================================
+
+
+class TestSQLiteTriageResultFields:
+    """Tests that all SQLite triage result fields are preserved."""
+
+    @pytest.mark.asyncio
+    async def test_triage_all_optional_fields(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """All triage result optional fields roundtrip through SQLite."""
+        triage = _make_triage(
+            delegate_to="senior_agent",
+            suggested_response="I will handle this ASAP",
+            debate_summary="Agents reached consensus on delegation",
+        )
+        await sqlite_store.save_triage_result(TENANT, triage)
+        result = await sqlite_store.get_triage_result(TENANT, "msg_1")
+        assert result is not None
+        assert result["delegate_to"] == "senior_agent"
+        assert result["suggested_response"] == "I will handle this ASAP"
+        assert result["debate_summary"] == "Agents reached consensus on delegation"
+        assert result["agents_involved"] == ["claude", "gpt"]
+
+    @pytest.mark.asyncio
+    async def test_triage_empty_agents_list(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Triage result with empty agents_involved list."""
+        triage = _make_triage(agents_involved=[])
+        await sqlite_store.save_triage_result(TENANT, triage)
+        result = await sqlite_store.get_triage_result(TENANT, "msg_1")
+        assert result is not None
+        assert result["agents_involved"] == []
+
+
+# ====================================================================
+# SQLite: Multiple Messages Account Count Accumulation
+# ====================================================================
+
+
+class TestSQLiteMultipleMessageCounts:
+    """Tests for multiple message accumulation in SQLite."""
+
+    @pytest.mark.asyncio
+    async def test_multiple_messages_accumulate_counts(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Saving multiple messages properly accumulates account counts."""
+        await sqlite_store.save_account(TENANT, _make_account())
+        for i in range(4):
+            await sqlite_store.save_message(
+                TENANT,
+                _make_message(f"msg_{i}", external_id=f"ext_{i}", is_read=(i < 2)),
+            )
+        acct = await sqlite_store.get_account(TENANT, "acct_1")
+        assert acct is not None
+        assert acct["total_messages"] == 4
+        # i=0 read, i=1 read, i=2 unread, i=3 unread -> 2 unread
+        assert acct["unread_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_filter_by_account_id(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Filter list_messages by account_id."""
+        await sqlite_store.save_account(TENANT, _make_account("acct_1"))
+        await sqlite_store.save_account(TENANT, _make_account("acct_2", email="b@co.com"))
+        await sqlite_store.save_message(TENANT, _make_message("msg_1", "acct_1", "e1"))
+        await sqlite_store.save_message(TENANT, _make_message("msg_2", "acct_2", "e2"))
+        messages, total = await sqlite_store.list_messages(TENANT, account_id="acct_1")
+        assert total == 1
+        assert messages[0]["account_id"] == "acct_1"
+
+
+# ====================================================================
+# SQLite: Account with Metadata Roundtrip
+# ====================================================================
+
+
+class TestSQLiteAccountMetadata:
+    """Tests for SQLite account metadata JSON roundtrip."""
+
+    @pytest.mark.asyncio
+    async def test_account_metadata_roundtrip(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Account metadata dict serializes to JSON and deserializes correctly."""
+        account = _make_account(metadata={"token": "secret", "scopes": ["read", "write"]})
+        await sqlite_store.save_account(TENANT, account)
+        result = await sqlite_store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["metadata"] == {"token": "secret", "scopes": ["read", "write"]}
+
+    @pytest.mark.asyncio
+    async def test_account_empty_metadata(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Account with no metadata gets empty dict."""
+        account = _make_account()
+        await sqlite_store.save_account(TENANT, account)
+        result = await sqlite_store.get_account(TENANT, "acct_1")
+        assert result is not None
+        assert result["metadata"] == {}
+
+    @pytest.mark.asyncio
+    async def test_account_datetime_fields_roundtrip(self, sqlite_store: SQLiteUnifiedInboxStore):
+        """Account connected_at and last_sync survive ISO serialization roundtrip."""
+        now = _utc_now()
+        account = _make_account(connected_at=now, last_sync=now)
+        await sqlite_store.save_account(TENANT, account)
+        result = await sqlite_store.get_account(TENANT, "acct_1")
+        assert result is not None
+        # These come back as parsed datetimes
+        assert result["connected_at"] is not None
+        assert result["last_sync"] is not None
