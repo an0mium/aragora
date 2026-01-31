@@ -48,8 +48,9 @@ try:
     from botocore.exceptions import BotoCoreError, ClientError
 except ImportError:
     # Define placeholder exceptions if botocore isn't installed
-    ClientError = type("ClientError", (Exception,), {})  # type: ignore[misc,assignment]
-    BotoCoreError = type("BotoCoreError", (Exception,), {})  # type: ignore[misc,assignment]
+    # Use type[Exception] to allow these to be used in except clauses
+    ClientError: type[Exception] = type("ClientError", (Exception,), {})
+    BotoCoreError: type[Exception] = type("BotoCoreError", (Exception,), {})
 
 # Secret names that should be loaded from Secrets Manager
 MANAGED_SECRETS = frozenset(
