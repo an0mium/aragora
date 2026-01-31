@@ -30,7 +30,8 @@ class TaskStatus(Enum):
 class ToolPermission(Enum):
     """Permissions for external agent tool access.
 
-    Maps to Aragora RBAC permissions with the prefix 'external_agents:tool:'.
+    Maps to Aragora RBAC permissions using existing COMPUTER_USE resource type.
+    This reuses the computer_use.* permission namespace for consistency.
     """
 
     FILE_READ = "file_read"
@@ -40,10 +41,27 @@ class ToolPermission(Enum):
     BROWSER_USE = "browser_use"
     CODE_EXECUTE = "code_execute"
     API_CALL = "api_call"
+    SCREENSHOT = "screenshot"
+
+    # Mapping to existing RBAC permission keys (computer_use.*)
+    _PERMISSION_MAP = {
+        "file_read": "computer_use.file_read",
+        "file_write": "computer_use.file_write",
+        "shell_execute": "computer_use.shell",
+        "network_access": "computer_use.network",
+        "browser_use": "computer_use.browser",
+        "code_execute": "computer_use.execute",
+        "api_call": "computer_use.network",  # Reuse network permission
+        "screenshot": "computer_use.screenshot",
+    }
 
     def to_permission_key(self) -> str:
-        """Convert to Aragora RBAC permission key."""
-        return f"external_agents:tool:{self.value}"
+        """Convert to Aragora RBAC permission key.
+
+        Uses existing computer_use.* permissions for consistency with
+        the broader RBAC system.
+        """
+        return self._PERMISSION_MAP.get(self.value, f"computer_use.{self.value}")
 
 
 @dataclass
