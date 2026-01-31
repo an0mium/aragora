@@ -17,6 +17,7 @@ from ..models import (
     HeadToHeadStats,
     OpponentBriefing,
 )
+import builtins
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
@@ -28,7 +29,7 @@ class AgentsAPI:
     def __init__(self, client: "AragoraClient"):
         self._client = client
 
-    def list(self) -> list[AgentProfile]:
+    def list(self) -> builtins.list[AgentProfile]:
         """
         List all available agents.
 
@@ -39,7 +40,7 @@ class AgentsAPI:
         agents = response.get("agents", response) if isinstance(response, dict) else response
         return [AgentProfile(**a) for a in agents]
 
-    async def list_async(self) -> list[AgentProfile]:
+    async def list_async(self) -> builtins.list[AgentProfile]:
         """Async version of list()."""
         response = await self._client._get_async("/api/agents")
         agents = response.get("agents", response) if isinstance(response, dict) else response

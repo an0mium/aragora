@@ -563,12 +563,9 @@ class TestTimeoutHandling:
         """Test that timeout returns server as unavailable."""
         detector = LocalLLMDetector(timeout=0.1)
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(side_effect=asyncio.TimeoutError())
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool(error=asyncio.TimeoutError())
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()
 
             assert server.available is False
@@ -578,24 +575,30 @@ class TestTimeoutHandling:
         """Test that timeout configuration is passed to request."""
         detector = LocalLLMDetector(timeout=15.0)
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"models": []})
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        # Track timeout passed to get()
+        captured_timeout = []
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = MagicMock()
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        @asynccontextmanager
+        async def mock_get_session(provider: str):
+            mock_client = MagicMock()
+
+            async def mock_get(url: str, timeout: float | None = None):
+                captured_timeout.append(timeout)
+                return create_mock_response(200, {"models": []})
+
+            mock_client.get = mock_get
+            yield mock_client
+
+        mock_pool.get_session = mock_get_session
+
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             await detector.detect_ollama()
 
             # Verify timeout was set
-            call_kwargs = mock_session.get.call_args[1]
-            assert "timeout" in call_kwargs
-            assert call_kwargs["timeout"].total == 15.0
+            assert len(captured_timeout) == 1
+            assert captured_timeout[0] == 15.0
 
 
 # =============================================================================

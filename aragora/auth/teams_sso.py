@@ -199,7 +199,10 @@ class TeamsSSO:
         try:
             import jwt
 
-            # Decode without verification first to get header
+            # SECURITY NOTE: This unverified decode is ONLY used to extract claims
+            # for introspection (e.g., getting audience value). ALL authorization
+            # decisions use the verified `claims` dict returned by jwt.decode() below
+            # with full RS256 signature validation against Azure AD JWKS.
             unverified = jwt.decode(token, options={"verify_signature": False})
 
             # Get signing key from JWKS
