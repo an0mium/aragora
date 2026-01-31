@@ -70,6 +70,10 @@ backend:
     existingClaim: ""
     storageClass: ""
     accessModes:
+      # RWX required when replicaCount > 1. If RWX isn't available:
+      # - set replicaCount: 1, or
+      # - set persistence.enabled: false, or
+      # - provide an RWX-capable storageClass (EFS/CephFS/NFS).
       - ReadWriteMany
     size: 10Gi
     storeDir: "/data/.aragora_beads"
