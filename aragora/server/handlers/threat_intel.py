@@ -26,6 +26,7 @@ import logging
 
 from aiohttp import web
 
+
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -83,7 +84,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=30)
     @validate_body(required_fields=["url"])
-    async def check_url(self, request: web.Request) -> HandlerResult:
+    async def check_url(self, request: web.Request) -> HandlerResult | web.Response:
         """
         Check a URL for threats.
 
@@ -140,7 +141,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=10)
     @validate_body(required_fields=["urls"])
-    async def check_urls_batch(self, request: web.Request) -> HandlerResult:
+    async def check_urls_batch(self, request: web.Request) -> HandlerResult | web.Response:
         """
         Check multiple URLs for threats.
 
@@ -259,7 +260,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=20)
     @validate_body(required_fields=["ips"])
-    async def check_ips_batch(self, request: web.Request) -> HandlerResult:
+    async def check_ips_batch(self, request: web.Request) -> HandlerResult | web.Response:
         """
         Check multiple IP addresses.
 

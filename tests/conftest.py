@@ -242,7 +242,7 @@ HAS_CULTURE_MANAGER = _check_aragora_module("aragora.organization.culture")
 REQUIRES_CULTURE_MANAGER = "OrganizationCultureManager not available"
 requires_culture_manager = not HAS_CULTURE_MANAGER
 
-HAS_MEMORY_ANALYTICS = _check_aragora_module("aragora.server.handlers.memory_analytics")
+HAS_MEMORY_ANALYTICS = _check_aragora_module("aragora.server.handlers.memory")
 REQUIRES_MEMORY_ANALYTICS = "MemoryAnalyticsHandler not available"
 requires_memory_analytics = not HAS_MEMORY_ANALYTICS
 

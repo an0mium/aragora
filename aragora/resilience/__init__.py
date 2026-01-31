@@ -123,6 +123,16 @@ from .health import (
     get_global_health_registry,
 )
 
+# HTTP client resilience utilities
+from .http_client import (
+    TRANSIENT_HTTP_STATUSES,
+    CircuitBreakerMixin,
+    HttpErrorInfo,
+    ResilientRequestConfig,
+    classify_http_error,
+    make_resilient_request,
+)
+
 __all__ = [
     # Core v1
     "CircuitBreaker",
@@ -185,4 +195,11 @@ __all__ = [
     "HealthReport",
     "HealthStatus",
     "get_global_health_registry",
+    # HTTP client resilience
+    "TRANSIENT_HTTP_STATUSES",
+    "CircuitBreakerMixin",
+    "HttpErrorInfo",
+    "ResilientRequestConfig",
+    "classify_http_error",
+    "make_resilient_request",
 ]

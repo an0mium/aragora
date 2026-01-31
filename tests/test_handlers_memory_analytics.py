@@ -93,8 +93,8 @@ class TestMemoryAnalyticsRoutes:
 
         handler = MemoryAnalyticsHandler({})
 
-        assert "/api/memory/analytics" in handler.ROUTES
-        assert "/api/memory/analytics/snapshot" in handler.ROUTES
+        assert "/api/v1/memory/analytics" in handler.ROUTES
+        assert "/api/v1/memory/analytics/snapshot" in handler.ROUTES
 
     def test_can_handle_analytics_route(self):
         """Test can_handle returns True for analytics route."""
@@ -165,18 +165,20 @@ class TestGetAnalytics:
         data = json.loads(result.body)
         assert "not available" in data.get("error", "").lower()
 
-    def test_handle_routes_to_get_analytics(self, handler_with_tracker):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_get_analytics(self, handler_with_tracker):
         """Test handle method routes to _get_analytics."""
-        result = handler_with_tracker.handle(
+        result = await handler_with_tracker.handle(
             "/api/memory/analytics",
             {"days": "30"},
         )
 
         assert result.status_code == 200
 
-    def test_handle_with_days_param(self, handler_with_tracker, mock_tracker):
+    @pytest.mark.asyncio
+    async def test_handle_with_days_param(self, handler_with_tracker, mock_tracker):
         """Test handle extracts days parameter."""
-        handler_with_tracker.handle(
+        await handler_with_tracker.handle(
             "/api/memory/analytics",
             {"days": "7"},
         )
@@ -200,9 +202,10 @@ class TestGetTierStats:
         data = json.loads(result.body)
         assert "not available" in data.get("error", "").lower()
 
-    def test_handle_routes_to_tier_stats(self, handler_with_tracker):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_tier_stats(self, handler_with_tracker):
         """Test handle method routes tier paths correctly."""
-        result = handler_with_tracker.handle(
+        result = await handler_with_tracker.handle(
             "/api/memory/analytics/tier/fast",
             {},
         )

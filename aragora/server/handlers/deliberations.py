@@ -124,7 +124,7 @@ class DeliberationsHandler(BaseHandler):
                 f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
                 f"reason={decision.reason}"
             )
-            return error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN", status=403)
+            return (error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN"), 403)
 
         return None
 
@@ -159,7 +159,7 @@ class DeliberationsHandler(BaseHandler):
                     return rbac_error
                 return await self._get_deliberation(request, deliberation_id)
 
-        return error_dict("Not found", code="NOT_FOUND", status=404)
+        return (error_dict("Not found", code="NOT_FOUND"), 404)
 
     async def _get_active_deliberations(self, request: Any) -> tuple[dict[str, Any], int]:
         """Get list of active vetted decisionmaking sessions."""
@@ -174,7 +174,7 @@ class DeliberationsHandler(BaseHandler):
             }, 200
         except Exception as e:
             logger.error(f"Error fetching deliberations: {e}")
-            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
+            return (error_dict(str(e), code="INTERNAL_ERROR"), 500)
 
     async def _fetch_active_from_store(self) -> list[dict[str, Any]]:
         """Fetch active vetted decisionmaking sessions from the debate store."""
@@ -279,7 +279,7 @@ class DeliberationsHandler(BaseHandler):
             }, 200
         except Exception as e:
             logger.error(f"Error fetching stats: {e}")
-            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
+            return (error_dict(str(e), code="INTERNAL_ERROR"), 500)
 
     async def _get_deliberation(
         self, request: Any, deliberation_id: str
@@ -300,10 +300,10 @@ class DeliberationsHandler(BaseHandler):
             except ImportError:
                 pass
 
-            return error_dict("Deliberation not found", code="NOT_FOUND", status=404)
+            return (error_dict("Deliberation not found", code="NOT_FOUND"), 404)
         except Exception as e:
             logger.error(f"Error fetching deliberation {deliberation_id}: {e}")
-            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
+            return (error_dict(str(e), code="INTERNAL_ERROR"), 500)
 
     async def _handle_stream(self, request: Any) -> Any:
         """Handle WebSocket stream for real-time updates."""

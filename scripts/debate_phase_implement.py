@@ -125,6 +125,7 @@ Your recommendation should be specific and actionable."""
         print("Agents: Claude Code Advocate + Codex Advocate + Claude Synthesizer")
         print("(Set GEMINI_API_KEY for true 3-provider debate)\n")
 
+    # Short meta-debate to keep phase implement feedback fast.
     protocol = DebateProtocol(rounds=2, consensus="judge")
     arena = Arena(env, agents, protocol)
     result = await arena.run()

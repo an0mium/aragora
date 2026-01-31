@@ -37,6 +37,7 @@ from aragora.connectors.exceptions import (
 )
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.resilience import CircuitBreaker
+from aragora.resilience.http_client import CircuitBreakerMixin
 
 logger = logging.getLogger(__name__)
 
@@ -437,11 +438,12 @@ class QBOQueryBuilder:
         return sanitized
 
 
-class QuickBooksConnector:
+class QuickBooksConnector(CircuitBreakerMixin):
     """
     QuickBooks Online integration connector.
 
     Handles OAuth authentication and API operations.
+    Uses CircuitBreakerMixin for standardized circuit breaker setup and methods.
     """
 
     BASE_URL_SANDBOX = "https://sandbox-quickbooks.api.intuit.com"
@@ -487,17 +489,14 @@ class QuickBooksConnector:
         self._credentials: QBOCredentials | None = None
         self._http_client: Any | None = None
 
-        # Circuit breaker for API resilience
-        if circuit_breaker is not None:
-            self._circuit_breaker = circuit_breaker
-        elif enable_circuit_breaker:
-            self._circuit_breaker = CircuitBreaker(
-                name="qbo",
-                failure_threshold=3,  # Strict for financial data
-                cooldown_seconds=60.0,
-            )
-        else:
-            self._circuit_breaker = None
+        # Use mixin for circuit breaker initialization
+        self.init_circuit_breaker(
+            name="qbo",
+            circuit_breaker=circuit_breaker,
+            enable=enable_circuit_breaker,
+            failure_threshold=3,  # Strict for financial data
+            cooldown_seconds=60.0,
+        )
 
     @property
     def is_configured(self) -> bool:

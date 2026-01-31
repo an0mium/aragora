@@ -163,6 +163,7 @@ class FractalOrchestrator:
 
         # Create environment and arena
         env = Environment(task=task)
+        # Fractal sub-debates keep rounds short to bound recursion cost.
         protocol = DebateProtocol(rounds=2, consensus="majority")
 
         arena = Arena(

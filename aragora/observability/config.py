@@ -4,15 +4,23 @@ Observability configuration for Aragora.
 Provides configuration for OpenTelemetry tracing and Prometheus metrics.
 All settings can be configured via environment variables.
 
-Environment Variables:
-    OTEL_ENABLED: Enable/disable OpenTelemetry tracing (default: false)
-    OTEL_EXPORTER_OTLP_ENDPOINT: OTLP collector endpoint (default: http://localhost:4317)
+Standard OpenTelemetry Environment Variables (recommended, takes precedence):
+    OTEL_EXPORTER_OTLP_ENDPOINT: OTLP collector endpoint (e.g., http://localhost:4317)
     OTEL_SERVICE_NAME: Service name for tracing (default: aragora)
+    OTEL_TRACES_SAMPLER: Sampler type (always_on, always_off, traceidratio,
+                         parentbased_always_on, parentbased_always_off,
+                         parentbased_traceidratio)
+    OTEL_TRACES_SAMPLER_ARG: Argument for sampler (e.g., 0.1 for 10% sampling)
+    OTEL_PROPAGATORS: Context propagators (default: tracecontext,baggage)
+    OTEL_RESOURCE_ATTRIBUTES: Additional resource attributes (key=value,key=value)
+
+Legacy/Compatibility Variables:
+    OTEL_ENABLED: Enable/disable OpenTelemetry tracing (default: false)
     OTEL_SAMPLE_RATE: Trace sampling rate 0.0-1.0 (default: 1.0)
     METRICS_ENABLED: Enable/disable Prometheus metrics (default: true)
     METRICS_PORT: Port for metrics endpoint (default: 9090)
 
-OTLP Export Variables (for advanced distributed tracing):
+OTLP Export Variables (Aragora-specific, fallback when OTEL_* not set):
     ARAGORA_OTLP_EXPORTER: Exporter type (none, jaeger, zipkin, otlp_grpc, otlp_http, datadog)
     ARAGORA_OTLP_ENDPOINT: Collector endpoint URL
     ARAGORA_SERVICE_NAME: Service name for traces (default: aragora)
@@ -36,15 +44,23 @@ from dataclasses import dataclass, field
 
 @dataclass
 class TracingConfig:
-    """Configuration for OpenTelemetry distributed tracing."""
+    """Configuration for OpenTelemetry distributed tracing.
+
+    Supports both standard OTEL_* and ARAGORA_* environment variables.
+    Standard OTEL_* variables take precedence when both are set.
+    """
 
     enabled: bool = False
     otlp_endpoint: str = "http://localhost:4317"
     service_name: str = "aragora"
+    service_version: str = "1.0.0"
+    environment: str = "development"
     sample_rate: float = 1.0
+    sampler_type: str = "parentbased_traceidratio"
     propagators: list[str] = field(default_factory=lambda: ["tracecontext", "baggage"])
     batch_size: int = 512
     export_timeout_ms: int = 30000
+    insecure: bool = False
 
     def __post_init__(self) -> None:
         """Validate configuration."""
@@ -73,14 +89,71 @@ _metrics_config: MetricsConfig | None = None
 
 
 def get_tracing_config() -> TracingConfig:
-    """Get tracing configuration from environment variables."""
+    """Get tracing configuration from environment variables.
+
+    Prioritizes standard OTEL_* variables over ARAGORA_* ones.
+    """
     global _tracing_config
     if _tracing_config is None:
+        # Check if any OTEL endpoint is configured (auto-enable if so)
+        otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        aragora_exporter = os.getenv("ARAGORA_OTLP_EXPORTER", "none").lower()
+        auto_enabled = bool(otel_endpoint) or (aragora_exporter != "none")
+
+        # Explicit enable flag takes precedence
+        explicit_enabled = os.getenv("OTEL_ENABLED", "").lower() in ("true", "1", "yes")
+        enabled = explicit_enabled or auto_enabled
+
+        # Endpoint: standard OTEL takes precedence
+        endpoint = otel_endpoint or os.getenv("ARAGORA_OTLP_ENDPOINT") or "http://localhost:4317"
+
+        # Service name
+        service_name = (
+            os.getenv("OTEL_SERVICE_NAME") or os.getenv("ARAGORA_SERVICE_NAME") or "aragora"
+        )
+
+        # Service version
+        service_version = os.getenv("ARAGORA_SERVICE_VERSION", "1.0.0")
+
+        # Environment
+        environment = os.getenv("ARAGORA_ENVIRONMENT", "development")
+
+        # Sampler type and rate
+        sampler_type = os.getenv("OTEL_TRACES_SAMPLER", "parentbased_traceidratio")
+        sample_rate = float(
+            os.getenv("OTEL_TRACES_SAMPLER_ARG")
+            or os.getenv("OTEL_SAMPLE_RATE")
+            or os.getenv("ARAGORA_TRACE_SAMPLE_RATE")
+            or "1.0"
+        )
+
+        # Propagators
+        propagators_str = os.getenv("OTEL_PROPAGATORS", "tracecontext,baggage")
+        propagators = [p.strip() for p in propagators_str.split(",") if p.strip()]
+
+        # Batch settings
+        batch_size = int(os.getenv("ARAGORA_OTLP_BATCH_SIZE", "512"))
+        export_timeout = int(os.getenv("ARAGORA_OTLP_EXPORT_TIMEOUT_MS", "30000"))
+
+        # Insecure mode
+        insecure = os.getenv("ARAGORA_OTLP_INSECURE", "false").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
         _tracing_config = TracingConfig(
-            enabled=os.getenv("OTEL_ENABLED", "false").lower() in ("true", "1", "yes"),
-            otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-            service_name=os.getenv("OTEL_SERVICE_NAME", "aragora"),
-            sample_rate=float(os.getenv("OTEL_SAMPLE_RATE", "1.0")),
+            enabled=enabled,
+            otlp_endpoint=endpoint,
+            service_name=service_name,
+            service_version=service_version,
+            environment=environment,
+            sample_rate=sample_rate,
+            sampler_type=sampler_type,
+            propagators=propagators,
+            batch_size=batch_size,
+            export_timeout_ms=export_timeout,
+            insecure=insecure,
         )
     return _tracing_config
 

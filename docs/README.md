@@ -78,6 +78,8 @@ organizational knowledge and channels**.
 | [API_ENDPOINTS](./API_ENDPOINTS.md) | HTTP endpoint reference |
 | [API_EXAMPLES](./API_EXAMPLES.md) | API usage examples |
 | [API_VERSIONING](./API_VERSIONING.md) | API version policy |
+| [BREAKING_CHANGES](./BREAKING_CHANGES.md) | Breaking changes and migration |
+| [MIGRATION_V1_TO_V2](./MIGRATION_V1_TO_V2.md) | API v1 to v2 migration guide |
 | [WEBSOCKET_EVENTS](./WEBSOCKET_EVENTS.md) | WebSocket event reference |
 | [SDK_TYPESCRIPT](./SDK_TYPESCRIPT.md) | TypeScript SDK guide |
 | [SDK_CONSOLIDATION](./SDK_CONSOLIDATION.md) | TypeScript SDK migration (v2 → v3) |
@@ -121,6 +123,7 @@ organizational knowledge and channels**.
 | [FRONTEND_DEVELOPMENT](./FRONTEND_DEVELOPMENT.md) | Frontend contribution guide |
 | [FRONTEND_ROUTES](./FRONTEND_ROUTES.md) | Frontend route and feature map |
 | [TESTING](./TESTING.md) | Test suite documentation |
+| [BREAKING_CHANGES](./BREAKING_CHANGES.md) | Breaking changes by version |
 | [DEPRECATION_POLICY](./DEPRECATION_POLICY.md) | Deprecation and migration policy |
 | [ERROR_CODES](./ERROR_CODES.md) | Error code reference |
 

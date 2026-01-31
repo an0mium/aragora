@@ -987,16 +987,28 @@ class TestRedisGauntletRunStore:
 # =============================================================================
 
 
+class MockAsyncContextManager:
+    """Mock async context manager for pool.acquire()."""
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    async def __aenter__(self):
+        return self.conn
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return None
+
+
 class TestPostgresGauntletRunStore:
     """Tests for PostgresGauntletRunStore with mocked asyncpg pool."""
 
     @pytest.fixture
     def mock_pool(self):
         """Create a mock asyncpg pool."""
-        pool = AsyncMock()
+        pool = MagicMock()
         conn = AsyncMock()
-        pool.acquire.return_value.__aenter__.return_value = conn
-        pool.acquire.return_value.__aexit__.return_value = None
+        pool.acquire.return_value = MockAsyncContextManager(conn)
         return pool, conn
 
     @pytest.fixture

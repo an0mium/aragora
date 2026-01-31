@@ -27,7 +27,7 @@ import functools
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, TypeVar, ParamSpec
+from typing import Any, Callable
 
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.billing.jwt_auth import create_access_token, extract_user_from_request
@@ -50,9 +50,6 @@ from ..secure import (
     UnauthorizedError,
     ForbiddenError,
 )
-
-P = ParamSpec("P")
-T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +85,7 @@ def admin_secure_endpoint(
     audit: bool = False,
     audit_action: str | None = None,
     resource_id_param: str | None = None,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Admin-specific secure endpoint decorator.
 
@@ -116,14 +113,14 @@ def admin_secure_endpoint(
         record_blocked_request,
     )
 
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def wrapper(
             self: "AdminHandler",
             request: Any,
-            *args: P.args,
-            **kwargs: P.kwargs,
-        ) -> T:
+            *args: Any,
+            **kwargs: Any,
+        ) -> HandlerResult:
             start_time = time.perf_counter()
 
             try:
@@ -865,7 +862,8 @@ class AdminHandler(SecureHandler):
 
     def _get_nomic_dir(self) -> str:
         """Get nomic directory from context or default."""
-        return self.ctx.get("nomic_dir", ".nomic")
+        nomic_dir = self.ctx.get("nomic_dir", ".nomic")
+        return str(nomic_dir) if nomic_dir else ".nomic"
 
     @handle_errors("get nomic status")
     def _get_nomic_status(self, handler: Any) -> HandlerResult:

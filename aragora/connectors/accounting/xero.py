@@ -25,6 +25,7 @@ from typing import Any
 import httpx
 
 from aragora.resilience import CircuitBreaker
+from aragora.resilience.http_client import CircuitBreakerMixin, classify_http_error
 
 logger = logging.getLogger(__name__)
 
@@ -505,7 +506,7 @@ class XeroError(Exception):
         self.details = details or {}
 
 
-class XeroConnector:
+class XeroConnector(CircuitBreakerMixin):
     """
     Xero Accounting API connector.
 
@@ -516,6 +517,8 @@ class XeroConnector:
     - Chart of accounts
     - Payments
     - Journal entries
+
+    Uses CircuitBreakerMixin for standardized circuit breaker setup and methods.
     """
 
     def __init__(
@@ -535,17 +538,14 @@ class XeroConnector:
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
 
-        # Circuit breaker for API resilience
-        if circuit_breaker is not None:
-            self._circuit_breaker = circuit_breaker
-        elif enable_circuit_breaker:
-            self._circuit_breaker = CircuitBreaker(
-                name="xero",
-                failure_threshold=3,  # Strict for financial data
-                cooldown_seconds=60.0,
-            )
-        else:
-            self._circuit_breaker = None
+        # Use mixin for circuit breaker initialization
+        self.init_circuit_breaker(
+            name="xero",
+            circuit_breaker=circuit_breaker,
+            enable=enable_circuit_breaker,
+            failure_threshold=3,  # Strict for financial data
+            cooldown_seconds=60.0,
+        )
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -572,10 +572,14 @@ class XeroConnector:
         params: dict | None = None,
         json_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Make API request with circuit breaker protection."""
-        # Check circuit breaker before making request
-        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
-            cooldown = self._circuit_breaker.cooldown_remaining()
+        """Make API request with circuit breaker protection.
+
+        Uses CircuitBreakerMixin helper methods for consistent circuit breaker
+        handling and classify_http_error for uniform error classification.
+        """
+        # Check circuit breaker using mixin method
+        if not self.check_circuit_breaker():
+            cooldown = self.get_circuit_cooldown()
             raise XeroError(
                 f"Circuit breaker open - retry in {cooldown:.1f}s",
                 status_code=503,
@@ -585,52 +589,40 @@ class XeroConnector:
             client = await self._get_client()
             response = await client.request(method, path, params=params, json=json_data)
 
-            # Handle transient errors (record failure for circuit breaker)
-            if response.status_code >= 500 or response.status_code == 429:
-                if self._circuit_breaker:
-                    self._circuit_breaker.record_failure()
-                try:
-                    error_data = response.json()
-                    raise XeroError(
-                        message=error_data.get("Message", response.text),
-                        status_code=response.status_code,
-                        details=error_data,
-                    )
-                except ValueError:
-                    raise XeroError(
-                        f"HTTP {response.status_code}: {response.text}",
-                        status_code=response.status_code,
-                    )
-
-            # Handle client errors (don't record failure - not transient)
+            # Use shared error classification
             if response.status_code >= 400:
                 try:
                     error_data = response.json()
-                    raise XeroError(
-                        message=error_data.get("Message", response.text),
-                        status_code=response.status_code,
-                        details=error_data,
-                    )
                 except ValueError:
-                    raise XeroError(
-                        f"HTTP {response.status_code}: {response.text}",
-                        status_code=response.status_code,
-                    )
+                    error_data = None
 
-            # Success - record for circuit breaker
-            if self._circuit_breaker:
-                self._circuit_breaker.record_success()
+                error_info = classify_http_error(
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    body=error_data or response.text,
+                )
+
+                # Record failure for transient errors only
+                if error_info.is_transient:
+                    self.record_circuit_failure()
+
+                raise XeroError(
+                    message=error_info.message,
+                    status_code=response.status_code,
+                    details=error_data if isinstance(error_data, dict) else {},
+                )
+
+            # Success - record for circuit breaker using mixin method
+            self.record_circuit_success()
 
             return response.json()
 
         except httpx.TimeoutException as e:
-            if self._circuit_breaker:
-                self._circuit_breaker.record_failure()
+            self.record_circuit_failure()
             raise XeroError(f"Request timeout: {e}", status_code=504)
 
         except httpx.ConnectError as e:
-            if self._circuit_breaker:
-                self._circuit_breaker.record_failure()
+            self.record_circuit_failure()
             raise XeroError(f"Connection error: {e}", status_code=503)
 
     # =========================================================================

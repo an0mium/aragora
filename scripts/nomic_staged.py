@@ -159,6 +159,7 @@ Argue passionately for your proposal. Challenge other proposals directly."""
     print("Agents: Gemini vs GPT/Codex vs Claude - ALL COMPETING VISIONARIES")
     print("TRUE heterogeneous debate - 3 different AI providers each proposing their vision.\n")
 
+    # Staged runner uses a short debate for speed and repeatability.
     protocol = DebateProtocol(rounds=2, consensus="judge")
     arena = Arena(env, agents, protocol)
     result = await arena.run()
@@ -228,6 +229,7 @@ Be specific enough that an engineer could implement it.""",
         ),
     ]
 
+    # Single-round design synthesis for staged execution speed.
     protocol = DebateProtocol(rounds=1, consensus="judge")
     arena = Arena(env, agents, protocol)
     result = await arena.run()

@@ -36,7 +36,7 @@ import logging
 import secrets
 import zipfile
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -102,7 +102,7 @@ class ReceiptsHandler(BaseHandler):
         body: Optional[dict[str, Any]] = None,
         query_params: Optional[dict[str, str]] = None,
         headers: Optional[dict[str, str]] = None,
-    ) -> Awaitable[HandlerResult]:
+    ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
         body = body or {}

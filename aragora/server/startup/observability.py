@@ -98,10 +98,16 @@ async def init_otlp_exporter() -> bool:
     """Initialize OpenTelemetry OTLP exporter for distributed tracing.
 
     Configures trace export to external backends like Jaeger, Zipkin,
-    or Datadog via the OTLP protocol. This is separate from the basic
-    OpenTelemetry setup and provides more flexible backend options.
+    or Datadog via the OTLP protocol. This function supports both standard
+    OpenTelemetry environment variables and Aragora-specific ones.
 
-    Environment Variables:
+    Standard OpenTelemetry Variables (recommended):
+        OTEL_EXPORTER_OTLP_ENDPOINT: OTLP collector endpoint (e.g., http://localhost:4317)
+        OTEL_SERVICE_NAME: Service name for traces (default: aragora)
+        OTEL_TRACES_SAMPLER: Sampler type (parentbased_traceidratio, etc.)
+        OTEL_TRACES_SAMPLER_ARG: Sampler argument (e.g., 0.1 for 10% sampling)
+
+    Aragora-specific Variables (fallback):
         ARAGORA_OTLP_EXPORTER: Exporter type (none, jaeger, zipkin, otlp_grpc, otlp_http, datadog)
         ARAGORA_OTLP_ENDPOINT: Collector endpoint URL
         ARAGORA_SERVICE_NAME: Service name for traces (default: aragora)
@@ -112,13 +118,35 @@ async def init_otlp_exporter() -> bool:
     Returns:
         True if OTLP exporter was configured, False otherwise
     """
+    # First try the new OTEL bridge (supports standard OTEL_* variables)
+    try:
+        from aragora.server.middleware.otel_bridge import (
+            get_bridge_config,
+            init_otel_bridge,
+        )
+
+        config = get_bridge_config()
+        if config.enabled:
+            if init_otel_bridge(config):
+                logger.info(
+                    f"OTLP bridge initialized: endpoint={config.endpoint}, "
+                    f"service={config.service_name}, sampler={config.sampler_type.value}"
+                )
+                return True
+    except ImportError as e:
+        logger.debug(f"OTEL bridge not available: {e}")
+    except (ValueError, TypeError, OSError, RuntimeError, ConnectionError) as e:
+        logger.debug(f"OTEL bridge initialization failed: {e}")
+
+    # Fall back to legacy OTLP exporter
     try:
         from aragora.observability.config import is_otlp_enabled
         from aragora.observability.otlp_export import configure_otlp_exporter, get_otlp_config
 
         if not is_otlp_enabled():
             logger.debug(
-                "OTLP exporter disabled (set ARAGORA_OTLP_EXPORTER to jaeger/zipkin/otlp_grpc/otlp_http/datadog)"
+                "OTLP exporter disabled. Set OTEL_EXPORTER_OTLP_ENDPOINT or "
+                "ARAGORA_OTLP_EXPORTER to enable distributed tracing."
             )
             return False
 

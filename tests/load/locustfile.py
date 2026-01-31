@@ -8,15 +8,22 @@ For headless mode:
     locust -f tests/load/locustfile.py --host=http://localhost:8080 \
         --headless -u 100 -r 10 --run-time 5m
 
+Using profiles:
+    ARAGORA_LOAD_PROFILE=medium locust -f tests/load/locustfile.py --host=http://localhost:8080
+
 Scenarios:
     - HealthCheckUser: Lightweight health check probes
     - APIBrowsingUser: Typical API browsing patterns
     - DebateUser: Users creating and monitoring debates
     - HeavyLoadUser: Stress testing with concurrent debates
+    - AuthenticationUser: Login/logout and token refresh
+    - KnowledgeUser: Knowledge management operations
 
 Environment Variables:
     ARAGORA_API_TOKEN: Authentication token (optional)
     ARAGORA_TEST_AGENT: Agent to use for debate tests (default: echo)
+    ARAGORA_LOAD_PROFILE: Load profile (smoke, light, medium, heavy, spike, soak)
+    ARAGORA_ENABLE_SLO_VALIDATION: Enable SLO validation on test stop (default: 1)
 """
 
 import json
@@ -24,7 +31,7 @@ import os
 import random
 import string
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from locust import HttpUser, TaskSet, between, task, events
 from locust.runners import MasterRunner
@@ -33,6 +40,14 @@ from locust.runners import MasterRunner
 # Configuration
 API_TOKEN = os.environ.get("ARAGORA_API_TOKEN", "")
 TEST_AGENT = os.environ.get("ARAGORA_TEST_AGENT", "echo")
+LOAD_PROFILE = os.environ.get("ARAGORA_LOAD_PROFILE", "light")
+ENABLE_SLO_VALIDATION = os.environ.get("ARAGORA_ENABLE_SLO_VALIDATION", "1") == "1"
+
+# SLO tracking
+_response_times: list[float] = []
+_request_count = 0
+_failure_count = 0
+_test_start_time = 0.0
 
 
 def random_string(length: int = 10) -> str:

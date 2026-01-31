@@ -21,7 +21,7 @@ import logging
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -111,9 +111,7 @@ class DecisionExplainHandler(SecureHandler):
             return True
         return False
 
-    async def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Awaitable[HandlerResult | None]:
+    async def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route decision explain requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)

@@ -103,6 +103,7 @@ Use this index for fast navigation. For a fuller map, see
 - Handler reference: [HANDLERS.md](HANDLERS.md)
 - Handler development: [HANDLER_DEVELOPMENT.md](HANDLER_DEVELOPMENT.md)
 - Testing: [TESTING.md](TESTING.md)
+- Breaking changes: [BREAKING_CHANGES.md](BREAKING_CHANGES.md)
 - Deprecation policy: [DEPRECATION_POLICY.md](DEPRECATION_POLICY.md)
 - Parity backlog: [PARITY_BACKLOG.md](PARITY_BACKLOG.md)
 

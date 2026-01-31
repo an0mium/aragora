@@ -6,6 +6,7 @@ Provides request tracing for observability:
 - Propagates trace IDs via X-Trace-ID header
 - Integrates with structured logging
 - Supports parent/child span relationships
+- Exports spans to OpenTelemetry collectors (Jaeger, Zipkin, OTLP, Datadog)
 
 Usage:
     from aragora.server.middleware.tracing import (
@@ -22,6 +23,10 @@ Usage:
     with trace_context(operation="debate.create") as span:
         # ... operation code ...
         span.set_tag("debate_id", debate_id)
+
+OpenTelemetry Integration:
+    Set OTEL_EXPORTER_OTLP_ENDPOINT to enable automatic span export.
+    See docs/OBSERVABILITY.md for configuration details.
 """
 
 from __future__ import annotations
@@ -178,8 +183,19 @@ class Span:
         )
 
     def finish(self) -> None:
-        """Mark the span as finished."""
+        """Mark the span as finished and export to OpenTelemetry if available."""
         self.end_time = time.time()
+        # Export to OpenTelemetry if bridge is available
+        try:
+            from aragora.server.middleware.otel_bridge import (
+                export_span_to_otel,
+                is_otel_available,
+            )
+
+            if is_otel_available():
+                export_span_to_otel(self)
+        except ImportError:
+            pass
 
     @property
     def duration_ms(self) -> float:
@@ -543,6 +559,42 @@ def add_trace_to_error(error_response: dict[str, Any]) -> dict[str, Any]:
     return error_response
 
 
+def init_tracing() -> bool:
+    """Initialize tracing with OpenTelemetry export if configured.
+
+    Call this at application startup to enable automatic span export
+    to external collectors (Jaeger, Zipkin, OTLP, Datadog).
+
+    Environment Variables:
+        OTEL_EXPORTER_OTLP_ENDPOINT: OTLP collector endpoint
+        OTEL_SERVICE_NAME: Service name for traces
+        OTEL_TRACES_SAMPLER: Sampler type
+        OTEL_TRACES_SAMPLER_ARG: Sampler argument (e.g., ratio)
+
+    Returns:
+        True if OpenTelemetry export was initialized, False otherwise.
+    """
+    try:
+        from aragora.server.middleware.otel_bridge import init_otel_bridge
+
+        return init_otel_bridge()
+    except ImportError:
+        return False
+
+
+def shutdown_tracing() -> None:
+    """Shutdown tracing and flush pending spans.
+
+    Call this during application shutdown to ensure all spans are exported.
+    """
+    try:
+        from aragora.server.middleware.otel_bridge import shutdown_otel_bridge
+
+        shutdown_otel_bridge()
+    except ImportError:
+        pass
+
+
 __all__ = [
     # Header constants
     "TRACE_ID_HEADER",
@@ -570,4 +622,7 @@ __all__ = [
     "extract_websocket_trace",
     # Error support
     "add_trace_to_error",
+    # Initialization
+    "init_tracing",
+    "shutdown_tracing",
 ]
