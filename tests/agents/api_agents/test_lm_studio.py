@@ -641,6 +641,10 @@ class TestLMStudioGenerateStream:
                 self._index += 1
                 return chunk
 
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
+
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.content = MockContent(mock_sse_chunks)
@@ -687,6 +691,10 @@ class TestLMStudioGenerateStream:
                 chunk = self._chunks[self._index]
                 self._index += 1
                 return chunk
+
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -743,6 +751,10 @@ class TestLMStudioGenerateStream:
                 self._index += 1
                 return chunk
 
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
+
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.content = MockContent(stream_chunks)
@@ -793,6 +805,10 @@ class TestLMStudioGenerateStream:
                 chunk = self._chunks[self._index]
                 self._index += 1
                 return chunk
+
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
 
         mock_response = MagicMock()
         mock_response.status = 200
