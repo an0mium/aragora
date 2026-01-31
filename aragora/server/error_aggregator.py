@@ -126,7 +126,7 @@ class ErrorSignature:
     def fingerprint(self) -> str:
         """Generate a short fingerprint for this signature."""
         data = f"{self.error_type}:{self.normalized_message}:{self.location}:{self.component}"
-        return hashlib.md5(data.encode()).hexdigest()[:12]
+        return hashlib.md5(data.encode(), usedforsecurity=False).hexdigest()[:12]
 
 
 @dataclass

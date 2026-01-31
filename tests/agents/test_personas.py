@@ -12,11 +12,11 @@ Tests cover:
 - Edge cases and boundary conditions
 """
 
-import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
-from dataclasses import FrozenInstanceError
+from unittest.mock import MagicMock, Mock
+
+import pytest
 
 from aragora.agents.personas import (
     EXPERTISE_DOMAINS,
