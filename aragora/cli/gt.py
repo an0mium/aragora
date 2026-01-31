@@ -432,10 +432,12 @@ def cmd_agent_list(args: argparse.Namespace) -> int:
         if role_filter is not None:
             agents = _run_async(hierarchy.get_agents_by_role(role_filter))
         else:
-            # Get all agents by iterating through all roles
-            agents = []
+            # Get all agents by iterating through all roles (dedupe by agent_id).
+            agents_by_id: dict[str, RoleAssignment] = {}
             for role in AgentRole:
-                agents.extend(_run_async(hierarchy.get_agents_by_role(role)))
+                for agent in _run_async(hierarchy.get_agents_by_role(role)):
+                    agents_by_id.setdefault(agent.agent_id, agent)
+            agents = list(agents_by_id.values())
 
         if not agents:
             print("No agents found")
@@ -470,9 +472,6 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
     try:
         from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
 
-        hierarchy = AgentHierarchy()
-        _run_async(hierarchy.initialize())
-
         # Parse role
         try:
             new_role = AgentRole(args.role.lower())
@@ -480,6 +479,9 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
             print(f"Invalid role: {args.role}")
             print(f"Valid: {', '.join(r.value for r in AgentRole)}")
             return 1
+
+        hierarchy = AgentHierarchy()
+        _run_async(hierarchy.initialize())
 
         # Get the existing assignment
         existing = _run_async(hierarchy.get_assignment(args.agent_id))

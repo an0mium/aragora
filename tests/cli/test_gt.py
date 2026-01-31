@@ -98,6 +98,7 @@ class MockAgent:
     role: MockRole = MockRole.CREW
     supervised_by: str | None = None
     assigned_at: datetime = None
+    metadata: dict | None = None
 
     def __post_init__(self):
         if self.assigned_at is None:
@@ -429,9 +430,13 @@ class TestCmdAgentPromote:
 
         mock_module = MagicMock()
         mock_module.AgentRole = MockRole
+        mock_agent = MockAgent(agent_id="agent-123", role=MockRole.CREW)
 
         with patch.dict("sys.modules", {"aragora.nomic.agent_roles": mock_module}):
-            with patch("aragora.cli.gt._run_async", return_value=True):
+            with patch(
+                "aragora.cli.gt._run_async",
+                side_effect=[None, mock_agent, True, True],
+            ):
                 result = cmd_agent_promote(args)
 
         assert result == 0
@@ -638,3 +643,13 @@ class TestAddGtSubparsers:
         args = parser.parse_args(["gt", "workspace", "init", "/path/to/dir", "--force"])
         assert args.directory == "/path/to/dir"
         assert args.force is True
+
+    def test_migrate_args(self):
+        """Test migrate arguments."""
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_gt_subparsers(subparsers)
+
+        args = parser.parse_args(["gt", "migrate", "--mode", "coordinator", "--apply"])
+        assert args.mode == "coordinator"
+        assert args.apply is True
