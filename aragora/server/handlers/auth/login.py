@@ -122,7 +122,7 @@ def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
         role=user.role,
     )
 
-    logger.info(f"User registered: {user.email} (id={user.id})")
+    logger.info(f"User registered: id={user.id}")
 
     # Audit log: user registration
     if AUDIT_AVAILABLE and audit_admin:
@@ -187,7 +187,7 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
     if lockout_tracker.is_locked(email=email, ip=client_ip):
         remaining_seconds = lockout_tracker.get_remaining_time(email=email, ip=client_ip)
         remaining_minutes = max(1, remaining_seconds // 60)
-        logger.warning(f"Login attempt on locked account/IP: email={email}, ip={client_ip}")
+        logger.warning(f"Login attempt on locked account/IP: ip={client_ip}")
         return error_response(
             f"Too many failed attempts. Try again in {remaining_minutes} minute(s).", 429
         )
@@ -199,7 +199,7 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
             remaining_minutes = max(
                 1, int((lockout_until - datetime.now(timezone.utc)).total_seconds() / 60)
             )
-            logger.warning(f"Login attempt on locked account (db): {email}")
+            logger.warning("Login attempt on locked account (db)")
             return error_response(
                 f"Account temporarily locked. Try again in {remaining_minutes} minute(s).", 429
             )
@@ -256,7 +256,7 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
     # Check if MFA is enabled - require second factor before issuing tokens
     if user.mfa_enabled and user.mfa_secret:
         pending_token = create_mfa_pending_token(user.id, user.email)
-        logger.info(f"User login pending MFA: {user.email}")
+        logger.info(f"User login pending MFA: user_id={user.id}")
         return json_response(
             {
                 "mfa_required": True,
@@ -273,7 +273,7 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
         role=user.role,
     )
 
-    logger.info(f"User logged in: {user.email}")
+    logger.info(f"User logged in: user_id={user.id}")
 
     # Audit log: successful login
     if AUDIT_AVAILABLE and audit_login:

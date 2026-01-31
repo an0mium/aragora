@@ -320,6 +320,8 @@ class AuthConfig:
         Returns:
             A short, URL-safe session ID
         """
+        if not self.enabled or not self.api_token:
+            return ""
         if expires_in is None:
             expires_in = SHAREABLE_LINK_TTL
 

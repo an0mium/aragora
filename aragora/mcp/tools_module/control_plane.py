@@ -267,11 +267,13 @@ async def submit_task_tool(
     if not coordinator:
         return {"error": "Control plane not available"}
 
-    # Parse payload
+    # Parse payload with type validation
     import json
 
     try:
         payload_dict = json.loads(payload) if payload else {}
+        if not isinstance(payload_dict, dict):
+            return {"error": f"Payload must be a JSON object, not {type(payload_dict).__name__}"}
     except json.JSONDecodeError as e:
         return {"error": f"Invalid JSON payload: {e}"}
 

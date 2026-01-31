@@ -84,11 +84,14 @@ async def run_workflow_tool(
         from aragora.workflow.engine import WorkflowEngine
         from aragora.workflow.templates import get_template
 
-        # Parse inputs
+        # Parse inputs with type validation
         workflow_inputs = {}
         if inputs:
             try:
-                workflow_inputs = json_module.loads(inputs)
+                parsed = json_module.loads(inputs)
+                if not isinstance(parsed, dict):
+                    return {"error": "Inputs must be a JSON object, not " + type(parsed).__name__}
+                workflow_inputs = parsed
             except json_module.JSONDecodeError:
                 return {"error": "Invalid JSON in inputs parameter"}
 

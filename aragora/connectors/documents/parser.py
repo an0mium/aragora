@@ -757,9 +757,9 @@ class DocumentParser:
             )
 
     def _parse_xml(self, content: bytes) -> ParsedDocument:
-        """Parse XML content."""
+        """Parse XML content safely (defusedxml prevents XXE attacks)."""
         try:
-            import xml.etree.ElementTree as ET
+            import defusedxml.ElementTree as ET
 
             root = ET.fromstring(content)
 

@@ -202,7 +202,7 @@ class TokenManager:
             self.config.secret_key.encode() if self.config.secret_key else b"",
             message.encode(),
             hashlib.sha256,
-        ).hexdigest()[:16]
+        ).hexdigest()  # Full 256-bit signature for proper collision resistance
         return f"{token}.{signature}"
 
     def _verify_signature(self, signed_token: str, session_id: str, user_id: str) -> bool:

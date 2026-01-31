@@ -599,31 +599,37 @@ class TestGenerateShareableLink:
     """Tests for generate_shareable_link function."""
 
     def test_appends_token_to_url(self):
-        """Should append token to URL."""
+        """Should append session to URL."""
         from aragora.server.auth import auth_config
 
         original_token = auth_config.api_token
+        original_enabled = auth_config.enabled
         try:
             auth_config.api_token = "secret"
+            auth_config.enabled = True
 
             link = generate_shareable_link("http://example.com", "loop123")
-            assert "token=" in link
-            assert link.startswith("http://example.com?token=")
+            assert "session=" in link
+            assert link.startswith("http://example.com?session=")
         finally:
             auth_config.api_token = original_token
+            auth_config.enabled = original_enabled
 
     def test_uses_ampersand_when_query_exists(self):
         """Should use & when URL already has query params."""
         from aragora.server.auth import auth_config
 
         original_token = auth_config.api_token
+        original_enabled = auth_config.enabled
         try:
             auth_config.api_token = "secret"
+            auth_config.enabled = True
 
             link = generate_shareable_link("http://example.com?foo=bar", "loop123")
-            assert "&token=" in link
+            assert "&session=" in link
         finally:
             auth_config.api_token = original_token
+            auth_config.enabled = original_enabled
 
     def test_no_token_returns_original_url(self):
         """No api_token should return original URL."""

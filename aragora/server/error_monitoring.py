@@ -24,6 +24,7 @@ Usage:
 
 import logging
 import os
+import threading
 from functools import wraps
 from typing import Any, Callable, Literal, TypeVar, cast
 
@@ -35,7 +36,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 # Sentry log level type
 SentryLevel = Literal["fatal", "critical", "error", "warning", "info", "debug"]
 
-# Global state
+# Global state (protected by _init_lock)
+_init_lock = threading.Lock()
 _initialized = False
 _sentry_available = False
 
@@ -96,67 +98,73 @@ def init_monitoring() -> bool:
     """
     global _initialized, _sentry_available
 
+    # Fast path: already initialized
     if _initialized:
         return _sentry_available
 
-    dsn = os.environ.get("SENTRY_DSN")
-    if not dsn:
-        logger.info("SENTRY_DSN not set, error monitoring disabled")
+    # Thread-safe initialization
+    with _init_lock:
+        if _initialized:
+            return _sentry_available
+
+        dsn = os.environ.get("SENTRY_DSN")
+        if not dsn:
+            logger.info("SENTRY_DSN not set, error monitoring disabled")
+            _initialized = True
+            return False
+
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+            from sentry_sdk.integrations.logging import LoggingIntegration
+
+            environment = os.environ.get("SENTRY_ENVIRONMENT", "development")
+            traces_sample_rate = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
+            profiles_sample_rate = float(os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.1"))
+            server_name = os.environ.get("SENTRY_SERVER_NAME", None)
+            release = _get_release_version()
+
+            sentry_sdk.init(
+                dsn=dsn,
+                environment=environment,
+                release=release,
+                server_name=server_name,
+                traces_sample_rate=traces_sample_rate,
+                profiles_sample_rate=profiles_sample_rate,
+                integrations=[
+                    AioHttpIntegration(),
+                    LoggingIntegration(
+                        level=logging.INFO,
+                        event_level=logging.ERROR,
+                    ),
+                ],
+                # Don't send PII by default
+                send_default_pii=False,
+                # Attach stack trace to log messages
+                attach_stacktrace=True,
+                # Sanitize events before sending
+                before_send=_before_send,
+                # Filter out health check transactions
+                before_send_transaction=_filter_health_checks,
+                # Enable source context
+                include_source_context=True,
+                # Max breadcrumbs to capture
+                max_breadcrumbs=50,
+            )
+
+            _sentry_available = True
+            logger.info(f"Sentry initialized: env={environment}, release={release}")
+
+        except ImportError:
+            logger.warning("sentry-sdk not installed, error monitoring disabled")
+            _sentry_available = False
+        except (ValueError, TypeError, RuntimeError) as e:
+            # Configuration errors (invalid DSN, bad sample rates, SDK runtime issues)
+            logger.error(f"Failed to initialize Sentry: {e}")
+            _sentry_available = False
+
         _initialized = True
-        return False
-
-    try:
-        import sentry_sdk
-        from sentry_sdk.integrations.aiohttp import AioHttpIntegration
-        from sentry_sdk.integrations.logging import LoggingIntegration
-
-        environment = os.environ.get("SENTRY_ENVIRONMENT", "development")
-        traces_sample_rate = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
-        profiles_sample_rate = float(os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.1"))
-        server_name = os.environ.get("SENTRY_SERVER_NAME", None)
-        release = _get_release_version()
-
-        sentry_sdk.init(
-            dsn=dsn,
-            environment=environment,
-            release=release,
-            server_name=server_name,
-            traces_sample_rate=traces_sample_rate,
-            profiles_sample_rate=profiles_sample_rate,
-            integrations=[
-                AioHttpIntegration(),
-                LoggingIntegration(
-                    level=logging.INFO,
-                    event_level=logging.ERROR,
-                ),
-            ],
-            # Don't send PII by default
-            send_default_pii=False,
-            # Attach stack trace to log messages
-            attach_stacktrace=True,
-            # Sanitize events before sending
-            before_send=_before_send,
-            # Filter out health check transactions
-            before_send_transaction=_filter_health_checks,
-            # Enable source context
-            include_source_context=True,
-            # Max breadcrumbs to capture
-            max_breadcrumbs=50,
-        )
-
-        _sentry_available = True
-        logger.info(f"Sentry initialized: env={environment}, release={release}")
-
-    except ImportError:
-        logger.warning("sentry-sdk not installed, error monitoring disabled")
-        _sentry_available = False
-    except (ValueError, TypeError, RuntimeError) as e:
-        # Configuration errors (invalid DSN, bad sample rates, SDK runtime issues)
-        logger.error(f"Failed to initialize Sentry: {e}")
-        _sentry_available = False
-
-    _initialized = True
-    return _sentry_available
+        return _sentry_available
 
 
 def _filter_health_checks(event: Any, hint: dict[str, Any]) -> Any:

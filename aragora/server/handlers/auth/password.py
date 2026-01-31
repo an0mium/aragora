@@ -109,7 +109,7 @@ def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerR
     # Invalidate all existing sessions by incrementing token version
     user_store.increment_token_version(user.id)
 
-    logger.info(f"Password changed for user: {user.email}")
+    logger.info(f"Password changed for user_id={user.id}")
 
     return json_response(
         {
@@ -179,7 +179,7 @@ def handle_forgot_password(handler_instance: "AuthHandler", handler) -> HandlerR
 
         if rate_error:
             # Rate limit hit - still return generic success for security
-            logger.warning(f"Password reset rate limited: email={email}, ip={client_ip}")
+            logger.warning(f"Password reset rate limited: ip={client_ip}")
         elif token:
             # Build reset link (frontend URL with token)
             base_url = os.environ.get("ARAGORA_FRONTEND_URL", "https://aragora.ai")
@@ -188,7 +188,7 @@ def handle_forgot_password(handler_instance: "AuthHandler", handler) -> HandlerR
             # Send email asynchronously
             send_password_reset_email(user, reset_link)
 
-            logger.info(f"Password reset requested: email={email}, ip={client_ip}")
+            logger.info(f"Password reset requested: user_id={user.id}, ip={client_ip}")
 
             # Audit log: password reset requested
             if AUDIT_AVAILABLE and audit_security:
@@ -200,7 +200,7 @@ def handle_forgot_password(handler_instance: "AuthHandler", handler) -> HandlerR
                 )
     else:
         # User doesn't exist - log but return same response
-        logger.debug(f"Password reset for non-existent email: {email}, ip={client_ip}")
+        logger.debug(f"Password reset for non-existent account: ip={client_ip}")
 
     # Always return success to prevent email enumeration
     return json_response(
@@ -312,9 +312,9 @@ This is an automated message. Please do not reply.
 
                 success = await email_client._send_email(recipient, subject, html_body, text_body)
                 if success:
-                    logger.info(f"Password reset email sent to: {user.email}")
+                    logger.info(f"Password reset email sent to user_id={user.id}")
                 else:
-                    logger.error(f"Failed to send password reset email to: {user.email}")
+                    logger.error(f"Failed to send password reset email to user_id={user.id}")
 
         except ImportError as e:
             logger.warning(f"Email integration not available: {e}")
@@ -420,7 +420,7 @@ def handle_reset_password(handler_instance: "AuthHandler", handler) -> HandlerRe
     store.consume_token(token)
     store.invalidate_tokens_for_email(email)
 
-    logger.info(f"Password reset completed: email={email}, ip={client_ip}")
+    logger.info(f"Password reset completed: user_id={user.id}, ip={client_ip}")
 
     # Audit log: password reset completed
     if AUDIT_AVAILABLE and audit_security:

@@ -501,8 +501,8 @@ class MicrosoftAdsConnector:
                 error_code=str(response.status_code),
             )
 
-        # Parse SOAP response (simplified - in production use proper XML parsing)
-        import xml.etree.ElementTree as ET
+        # Parse SOAP response safely (defusedxml prevents XXE attacks)
+        import defusedxml.ElementTree as ET
 
         root = ET.fromstring(response.text)
 
