@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -143,8 +144,8 @@ class TenantDataIsolation:
         """Initialize isolation enforcement."""
         self.config = config or TenantIsolationConfig()
         self._audit_log: list[IsolationAuditEntry] = []
-        self._encryption_keys: dict[str, bytes] = {}
-        self._key_access_order: list[str] = []  # Track access order for LRU eviction
+        # OrderedDict provides O(1) LRU eviction via move_to_end and popitem
+        self._encryption_keys: OrderedDict[str, bytes] = OrderedDict()
 
         # SECURITY: Validate that all shared_resources are in the allow-list
         invalid_shared = self.config.shared_resources - ALLOWED_SHARED_RESOURCES
