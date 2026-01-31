@@ -141,8 +141,8 @@ def mock_user_store():
 @pytest.fixture
 def oauth_handler(mock_user_store):
     """Create an OAuth handler with mock context."""
-    handler = OAuthHandler()
-    handler.ctx = {"user_store": mock_user_store}
+    ctx = {"user_store": mock_user_store}
+    handler = OAuthHandler(server_context=ctx)
     return handler
 
 

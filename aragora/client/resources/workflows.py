@@ -134,7 +134,7 @@ class WorkflowsAPI:
         workspace_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[Workflow]:
+    ) -> builtins.list[Workflow]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workspace_id:
@@ -331,7 +331,7 @@ class WorkflowsAPI:
         status: WorkflowStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[WorkflowExecution]:
+    ) -> builtins.list[WorkflowExecution]:
         """List workflow executions."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workflow_id:
@@ -349,7 +349,7 @@ class WorkflowsAPI:
         status: WorkflowStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[WorkflowExecution]:
+    ) -> builtins.list[WorkflowExecution]:
         """Async version of list_executions()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workflow_id:
@@ -414,7 +414,7 @@ class WorkflowsAPI:
         pattern: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[WorkflowTemplate]:
+    ) -> builtins.list[WorkflowTemplate]:
         """List workflow templates."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if category:
@@ -432,7 +432,7 @@ class WorkflowsAPI:
         pattern: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[WorkflowTemplate]:
+    ) -> builtins.list[WorkflowTemplate]:
         """Async version of list_templates()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if category:
@@ -494,22 +494,22 @@ class WorkflowsAPI:
 
         return await self._client._post_async(f"/api/workflow/templates/{template_id}/run", body)
 
-    def list_categories(self) -> list[str]:
+    def list_categories(self) -> builtins.list[str]:
         """List available workflow categories."""
         response = self._client._get("/api/workflow/categories")
         return response.get("categories", [])
 
-    async def list_categories_async(self) -> list[str]:
+    async def list_categories_async(self) -> builtins.list[str]:
         """Async version of list_categories()."""
         response = await self._client._get_async("/api/workflow/categories")
         return response.get("categories", [])
 
-    def list_patterns(self) -> list[str]:
+    def list_patterns(self) -> builtins.list[str]:
         """List available workflow patterns."""
         response = self._client._get("/api/workflow/patterns")
         return response.get("patterns", [])
 
-    async def list_patterns_async(self) -> list[str]:
+    async def list_patterns_async(self) -> builtins.list[str]:
         """Async version of list_patterns()."""
         response = await self._client._get_async("/api/workflow/patterns")
         return response.get("patterns", [])
@@ -524,7 +524,7 @@ class WorkflowsAPI:
         status: str = "pending",
         limit: int = 50,
         offset: int = 0,
-    ) -> list[WorkflowApproval]:
+    ) -> builtins.list[WorkflowApproval]:
         """List pending workflow approvals."""
         params: dict[str, Any] = {
             "status": status,
@@ -544,7 +544,7 @@ class WorkflowsAPI:
         status: str = "pending",
         limit: int = 50,
         offset: int = 0,
-    ) -> list[WorkflowApproval]:
+    ) -> builtins.list[WorkflowApproval]:
         """Async version of list_approvals()."""
         params: dict[str, Any] = {
             "status": status,
