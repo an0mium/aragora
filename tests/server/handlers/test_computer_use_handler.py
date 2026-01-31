@@ -21,7 +21,22 @@ import json
 
 import pytest
 
-from aragora.server.handlers.computer_use_handler import ComputerUseHandler
+# Import directly to avoid circular import in handlers package
+import importlib.util
+import sys
+
+_spec = importlib.util.spec_from_file_location(
+    "computer_use_handler",
+    "/Users/armand/Development/aragora/aragora/server/handlers/computer_use_handler.py",
+)
+if _spec and _spec.loader:
+    _module = importlib.util.module_from_spec(_spec)
+    sys.modules["computer_use_handler"] = _module
+    _spec.loader.exec_module(_module)
+    ComputerUseHandler = _module.ComputerUseHandler
+else:
+    # Fallback for type checking
+    ComputerUseHandler = None  # type: ignore
 
 
 # ===========================================================================

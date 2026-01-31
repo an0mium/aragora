@@ -2,12 +2,12 @@
 Analytics Core Module - Consolidated Analytics Handlers.
 
 This module consolidates analytics handlers for a unified domain structure.
-The original handler implementations remain in their respective files for
-maintainability, while this module provides a unified import point.
+The original handler implementations are in _analytics_impl.py and
+_analytics_metrics_impl.py, while this module provides a unified import point.
 
 Handlers consolidated:
-- AnalyticsHandler (from analytics.py): Core analytics endpoints
-- AnalyticsMetricsHandler (from analytics_metrics.py): Debate/agent metrics
+- AnalyticsHandler (from _analytics_impl.py): Core analytics endpoints
+- AnalyticsMetricsHandler (from _analytics_metrics_impl.py): Debate/agent metrics
 
 Note: AnalyticsDashboardHandler remains in analytics_dashboard.py as a separate
 large module per the consolidation plan.
@@ -17,15 +17,14 @@ Migrated as part of handler consolidation Tier 1.
 
 from __future__ import annotations
 
-# Re-export from original implementation files for backward compatibility
-# The actual implementations remain in the parent directory for maintainability
-from ..analytics import (
+# Re-export from renamed implementation files
+from .._analytics_impl import (
     ANALYTICS_PERMISSION,
     AnalyticsHandler,
     _analytics_limiter,
 )
 
-from ..analytics_metrics import (
+from .._analytics_metrics_impl import (
     ANALYTICS_METRICS_PERMISSION,
     AnalyticsMetricsHandler,
     VALID_GRANULARITIES,

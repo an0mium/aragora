@@ -1008,3 +1008,52 @@ class HandlerTestCase:
     def get_response_body(self, result) -> dict[str, Any]:
         """Get parsed response body."""
         return parse_handler_response(result)
+
+
+# ============================================================================
+# Safe Handler Imports (avoid circular imports)
+# ============================================================================
+
+
+def _safe_import_handler(module_path: str, class_name: str):
+    """Safely import a handler class, avoiding circular imports.
+
+    Args:
+        module_path: Full path to the module file
+        class_name: Name of the class to import
+
+    Returns:
+        The handler class, or None if import fails
+    """
+    import importlib.util
+    import sys
+
+    module_name = f"_safe_{class_name.lower()}"
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+            return getattr(module, class_name, None)
+        except Exception:
+            return None
+    return None
+
+
+@pytest.fixture
+def computer_use_handler_class():
+    """Provide ComputerUseHandler class with safe import.
+
+    This avoids the circular import issue in handlers/__init__.py.
+    """
+    import os
+
+    handlers_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    module_path = os.path.join(
+        handlers_dir, "aragora", "server", "handlers", "computer_use_handler.py"
+    )
+    handler_class = _safe_import_handler(module_path, "ComputerUseHandler")
+    if handler_class is None:
+        pytest.skip("ComputerUseHandler could not be imported")
+    return handler_class

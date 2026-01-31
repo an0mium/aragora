@@ -7,19 +7,23 @@ across SQLite and PostgreSQL backends.
 Features:
 - Advisory locking for PostgreSQL to prevent concurrent migration runs
 - Version tracking with applied_by metadata
+- Checksum verification to detect modified migration files
+- Rollback SQL storage for disaster recovery
 - Support for SQL and Python migration functions
 """
 
 from __future__ import annotations
 
+import hashlib
 import importlib
+import inspect
 import logging
 import os
 import pkgutil
 import socket
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -36,6 +40,11 @@ logger = logging.getLogger(__name__)
 MIGRATION_LOCK_ID = 2089872453
 
 
+def compute_checksum(content: str) -> str:
+    """Compute SHA-256 checksum of content."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
 @dataclass
 class Migration:
     """
@@ -48,6 +57,7 @@ class Migration:
         down_sql: SQL to rollback the migration (can be None if using down_fn)
         up_fn: Python function to apply migration (alternative to up_sql)
         down_fn: Python function to rollback migration (alternative to down_sql)
+        checksum: Optional pre-computed checksum (computed automatically if not provided)
     """
 
     version: int
@@ -56,10 +66,42 @@ class Migration:
     down_sql: str | None = None
     up_fn: Optional[Callable[[DatabaseBackend], None]] = None
     down_fn: Optional[Callable[[DatabaseBackend], None]] = None
+    checksum: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not self.up_sql and not self.up_fn:
             raise ValueError(f"Migration {self.version} must have up_sql or up_fn")
+
+    def compute_checksum(self) -> str:
+        """
+        Compute checksum based on migration content.
+
+        For SQL migrations, uses the up_sql content.
+        For function migrations, uses the function source code if available.
+        """
+        if self.checksum:
+            return self.checksum
+
+        content_parts = [str(self.version), self.name]
+
+        if self.up_sql:
+            content_parts.append(self.up_sql)
+        elif self.up_fn:
+            try:
+                content_parts.append(inspect.getsource(self.up_fn))
+            except (OSError, TypeError):
+                # Fallback to function name if source unavailable
+                content_parts.append(self.up_fn.__name__)
+
+        if self.down_sql:
+            content_parts.append(self.down_sql)
+        elif self.down_fn:
+            try:
+                content_parts.append(inspect.getsource(self.down_fn))
+            except (OSError, TypeError):
+                content_parts.append(self.down_fn.__name__ if self.down_fn else "")
+
+        return compute_checksum("\n".join(content_parts))
 
 
 class MigrationRunner:
@@ -68,6 +110,12 @@ class MigrationRunner:
 
     Tracks applied migrations in a _migrations table and supports both
     SQLite and PostgreSQL backends.
+
+    Features:
+    - Version tracking with applied_by metadata
+    - Checksum verification to detect modified migration files
+    - Rollback SQL storage for disaster recovery
+    - Advisory locking for PostgreSQL concurrent safety
     """
 
     MIGRATIONS_TABLE = "_aragora_migrations"
@@ -77,6 +125,7 @@ class MigrationRunner:
         backend: DatabaseBackend | None = None,
         db_path: str = "aragora.db",
         database_url: str | None = None,
+        verify_checksums: bool = True,
     ):
         """
         Initialize the migration runner.
@@ -85,6 +134,7 @@ class MigrationRunner:
             backend: Existing database backend to use.
             db_path: SQLite database path (if no backend provided).
             database_url: PostgreSQL URL (if no backend provided).
+            verify_checksums: Whether to verify migration checksums on upgrade.
         """
         if backend:
             self._backend = backend
@@ -103,6 +153,7 @@ class MigrationRunner:
                 self._backend = SQLiteBackend(db_path)
 
         self._migrations: list[Migration] = []
+        self._verify_checksums = verify_checksums
         self._init_migrations_table()
 
     def _init_migrations_table(self) -> None:
@@ -114,10 +165,42 @@ class MigrationRunner:
                 version {version_type} PRIMARY KEY,
                 name TEXT NOT NULL,
                 applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                applied_by TEXT DEFAULT NULL
+                applied_by TEXT DEFAULT NULL,
+                checksum TEXT DEFAULT NULL,
+                rollback_sql TEXT DEFAULT NULL
             )
         """
         self._backend.execute_write(sql)
+        # Ensure new columns exist (for upgrades from older schema)
+        self._ensure_tracking_columns()
+
+    def _ensure_tracking_columns(self) -> None:
+        """Add checksum and rollback_sql columns if they don't exist (schema upgrade)."""
+        # Check for checksum column
+        try:
+            self._backend.fetch_one(f"SELECT checksum FROM {self.MIGRATIONS_TABLE} LIMIT 1")
+        except Exception:
+            # Column doesn't exist, add it
+            try:
+                self._backend.execute_write(
+                    f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN checksum TEXT DEFAULT NULL"
+                )
+                logger.info("Added checksum column to migrations table")
+            except Exception as e:
+                logger.debug(f"Could not add checksum column (may already exist): {e}")
+
+        # Check for rollback_sql column
+        try:
+            self._backend.fetch_one(f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} LIMIT 1")
+        except Exception:
+            # Column doesn't exist, add it
+            try:
+                self._backend.execute_write(
+                    f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN rollback_sql TEXT DEFAULT NULL"
+                )
+                logger.info("Added rollback_sql column to migrations table")
+            except Exception as e:
+                logger.debug(f"Could not add rollback_sql column (may already exist): {e}")
 
     def _acquire_migration_lock(self, timeout_seconds: float = 30.0) -> bool:
         """
@@ -207,10 +290,52 @@ class MigrationRunner:
         applied = self.get_applied_versions()
         return [m for m in self._migrations if m.version not in applied]
 
+    def verify_checksums(self) -> list[tuple[int, str, str]]:
+        """
+        Verify checksums of all applied migrations.
+
+        Returns:
+            List of (version, stored_checksum, current_checksum) for mismatches.
+        """
+        mismatches = []
+        applied_versions = self.get_applied_versions()
+
+        for migration in self._migrations:
+            if migration.version in applied_versions:
+                current_checksum = migration.compute_checksum()
+                row = self._backend.fetch_one(
+                    f"SELECT checksum FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
+                    (migration.version,),
+                )
+                if row and row[0] and row[0] != current_checksum:
+                    mismatches.append((migration.version, row[0], current_checksum))
+
+        return mismatches
+
+    def get_stored_rollback_sql(self, version: int) -> str | None:
+        """
+        Get stored rollback SQL for a migration version.
+
+        This can be used for disaster recovery when the migration file
+        is no longer available.
+
+        Args:
+            version: Migration version.
+
+        Returns:
+            Rollback SQL if stored, None otherwise.
+        """
+        row = self._backend.fetch_one(
+            f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
+            (version,),
+        )
+        return row[0] if row else None
+
     def upgrade(
         self,
         target_version: int | None = None,
         lock_timeout: float = 30.0,
+        dry_run: bool = False,
     ) -> list[Migration]:
         """
         Apply pending migrations up to target version.
@@ -221,17 +346,41 @@ class MigrationRunner:
         Args:
             target_version: Maximum version to apply (None = all pending).
             lock_timeout: Maximum seconds to wait for migration lock.
+            dry_run: If True, only show what would be applied without executing.
 
         Returns:
-            List of applied migrations.
+            List of applied (or would-be-applied) migrations.
 
         Raises:
             RuntimeError: If migration lock cannot be acquired.
+            ValueError: If checksum verification fails (when verify_checksums=True).
         """
         applied: list[Migration] = []
         pending = self.get_pending_migrations()
 
         if not pending:
+            return applied
+
+        # Verify checksums of already-applied migrations
+        if self._verify_checksums:
+            mismatches = self.verify_checksums()
+            if mismatches:
+                mismatch_details = ", ".join(f"v{v}" for v, _, _ in mismatches)
+                raise ValueError(
+                    f"Migration checksum mismatch detected for: {mismatch_details}. "
+                    "Migration files may have been modified after being applied. "
+                    "This could cause inconsistencies. Review changes and consider "
+                    "creating new migrations instead of modifying existing ones."
+                )
+
+        if dry_run:
+            for migration in pending:
+                if target_version and migration.version > target_version:
+                    break
+                applied.append(migration)
+                logger.info(
+                    f"[DRY RUN] Would apply migration {migration.version}: {migration.name}"
+                )
             return applied
 
         # Acquire lock before running migrations
@@ -256,11 +405,16 @@ class MigrationRunner:
                             if stmt:
                                 self._backend.execute_write(stmt)
 
-                    # Record migration with applied_by metadata
+                    # Compute checksum and store rollback SQL
+                    checksum = migration.compute_checksum()
+                    rollback_sql = migration.down_sql
+
+                    # Record migration with full metadata
                     self._backend.execute_write(
-                        f"INSERT INTO {self.MIGRATIONS_TABLE} (version, name, applied_by) "
-                        "VALUES (?, ?, ?)",
-                        (migration.version, migration.name, applied_by),
+                        f"INSERT INTO {self.MIGRATIONS_TABLE} "
+                        "(version, name, applied_by, checksum, rollback_sql) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (migration.version, migration.name, applied_by, checksum, rollback_sql),
                     )
                     applied.append(migration)
                     logger.info(f"Applied migration {migration.version}")

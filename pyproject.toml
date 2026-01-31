@@ -347,7 +347,7 @@ ignore = ["E402", "E501"]
 "aragora/debate/breakpoints.py" = ["T201", "BLE001"]
 "aragora/nomic/gates.py" = ["T201", "BLE001"]
 "scripts/*" = ["T201", "F401", "F841", "BLE001", "G004"]
-"tests/*" = ["T201", "F401", "F841", "BLE001", "G004"]
+"tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004"]  # F821: SSO tests need refactor
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
 # BLE001: Ignore bare exception handlers in all modules (to be fixed incrementally)

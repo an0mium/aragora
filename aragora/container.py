@@ -74,11 +74,20 @@ class BudgetCoordinatorProtocol(Protocol):
     user_id: str | None
 
     def check_budget_before_debate(self, debate_id: str) -> None:
-        """Check if organization has sufficient budget before starting debate."""
+        """Check if organization has sufficient budget before starting debate.
+
+        Raises:
+            BudgetExceededError: If budget is exhausted.
+        """
         ...
 
-    def check_budget_mid_debate(self, debate_id: str, round_num: int) -> bool:
-        """Check if budget allows continuing the debate. Returns True if OK."""
+    def check_budget_mid_debate(self, debate_id: str, round_num: int) -> tuple[bool, str]:
+        """Check if budget allows continuing the debate.
+
+        Returns:
+            Tuple of (allowed: bool, reason: str).
+            allowed is True if debate can continue.
+        """
         ...
 
     def record_debate_cost(
@@ -101,22 +110,20 @@ class ConvergenceDetectorProtocol(Protocol):
 
     def check_convergence(
         self,
-        positions: list[str],
-        threshold: float = 0.85,
-    ) -> "ConvergenceResultProtocol":
-        """Check if positions have converged.
+        current_responses: dict[str, str],
+        previous_responses: dict[str, str],
+        round_number: int,
+    ) -> "ConvergenceResultProtocol | None":
+        """Check if debate has converged.
 
         Args:
-            positions: List of agent position strings
-            threshold: Similarity threshold for convergence
+            current_responses: Agent name -> response text for current round
+            previous_responses: Agent name -> response text for previous round
+            round_number: Current round number
 
         Returns:
-            ConvergenceResult with converged flag and similarity score
+            ConvergenceResult if enough data, None otherwise
         """
-        ...
-
-    def get_similarity(self, text_a: str, text_b: str) -> float:
-        """Compute similarity between two texts."""
         ...
 
 
@@ -125,8 +132,9 @@ class ConvergenceResultProtocol(Protocol):
     """Protocol for convergence check results."""
 
     converged: bool
-    similarity: float
-    details: dict[str, Any]
+    status: str
+    min_similarity: float
+    avg_similarity: float
 
 
 @runtime_checkable
@@ -147,12 +155,12 @@ class EventEmitterProtocol(Protocol):
     def emit_agent_preview(
         self,
         agents: list[Any],
-        role_assignments: dict[str, str] | None = None,
+        role_assignments: dict[Any, Any],
     ) -> None:
         """Emit agent preview for UI."""
         ...
 
-    def emit_moment(self, moment_type: str, data: dict[str, Any]) -> None:
+    def emit_moment(self, moment: Any) -> None:
         """Emit a significant moment event."""
         ...
 

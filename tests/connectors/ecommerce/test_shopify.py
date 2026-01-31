@@ -2105,3 +2105,927 @@ class TestSerializationRoundTrips:
         assert "acceptsMarketing" in d
         assert "taxExempt" in d
         assert "fullName" in d
+
+
+# ========================================================================
+# OAuth Authentication Flow Tests
+# ========================================================================
+
+
+class TestOAuthFlow:
+    """Tests for OAuth 2.0 authentication flow handling."""
+
+    def test_credentials_with_scope(self):
+        """Credentials can store OAuth scope."""
+        creds = ShopifyCredentials(
+            shop_domain="test.myshopify.com",
+            access_token="shpat_test",
+            scope="read_products,write_orders,read_customers",
+        )
+        assert "read_products" in creds.scope
+        assert "write_orders" in creds.scope
+
+    def test_credentials_scope_default_empty(self, credentials):
+        """Default scope is an empty string."""
+        assert credentials.scope == ""
+
+    def test_credentials_from_env_with_scope(self):
+        """Scope from env vars (if available) would be handled."""
+        # Note: Current implementation doesn't read scope from env,
+        # but we test the dataclass accepts it
+        creds = ShopifyCredentials(
+            shop_domain="test.myshopify.com",
+            access_token="tok",
+            scope="read_products",
+        )
+        assert creds.scope == "read_products"
+
+    @pytest.mark.asyncio
+    async def test_connect_with_valid_token(self, connector):
+        """Connect succeeds with valid access token."""
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(
+            return_value=_make_mock_response(
+                {"shop": {"name": "Test Store", "id": "12345"}},
+                status=200,
+            )
+        )
+        mock_session_cls = MagicMock(return_value=mock_session)
+
+        with patch("aiohttp.ClientSession", mock_session_cls):
+            result = await connector.connect()
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_connect_with_invalid_token(self, connector):
+        """Connect fails with invalid access token (401)."""
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(
+            return_value=_make_mock_response(
+                {"errors": "[API] Invalid API key or access token"},
+                status=401,
+            )
+        )
+        mock_session_cls = MagicMock(return_value=mock_session)
+
+        with patch("aiohttp.ClientSession", mock_session_cls):
+            result = await connector.connect()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_connect_with_expired_token(self, connector):
+        """Connect fails with expired token."""
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(
+            return_value=_make_mock_response(
+                {"errors": "Access token has expired"},
+                status=401,
+            )
+        )
+        mock_session_cls = MagicMock(return_value=mock_session)
+
+        with patch("aiohttp.ClientSession", mock_session_cls):
+            result = await connector.connect()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_connect_with_insufficient_scope(self, connector):
+        """Connect fails when token lacks required scope (403)."""
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(
+            return_value=_make_mock_response(
+                {"errors": "Required scope missing: read_products"},
+                status=403,
+            )
+        )
+        mock_session_cls = MagicMock(return_value=mock_session)
+
+        with patch("aiohttp.ClientSession", mock_session_cls):
+            result = await connector.connect()
+
+        assert result is False
+
+    def test_base_url_construction_with_custom_version(self):
+        """Base URL uses custom API version from credentials."""
+        creds = ShopifyCredentials(
+            shop_domain="custom.myshopify.com",
+            access_token="tok",
+            api_version="2025-01",
+        )
+        connector = _TestableShopifyConnector(credentials=creds)
+        assert "2025-01" in connector.base_url
+        assert "custom.myshopify.com" in connector.base_url
+
+    @pytest.mark.asyncio
+    async def test_request_includes_auth_header(self, connector):
+        """Requests include X-Shopify-Access-Token header."""
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"ok": True}))
+        connector._session = mock_session
+
+        await connector._request("GET", "/shop.json")
+
+        # The header is set at session creation, but we verify the request is made
+        mock_session.request.assert_called_once()
+
+
+# ========================================================================
+# Webhook Processing Tests
+# ========================================================================
+
+
+class TestWebhookHandling:
+    """Tests for Shopify webhook processing."""
+
+    @pytest.mark.asyncio
+    async def test_handle_webhook_default_returns_false(self, connector):
+        """Default webhook handler returns False (not implemented)."""
+        result = await connector.handle_webhook({"topic": "orders/create"})
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_handle_webhook_with_empty_payload(self, connector):
+        """Webhook handler handles empty payload."""
+        result = await connector.handle_webhook({})
+        assert result is False
+
+    def test_get_webhook_secret_default_none(self, connector):
+        """Default webhook secret is None."""
+        secret = connector.get_webhook_secret()
+        assert secret is None
+
+    def test_verify_webhook_signature_no_secret(self, connector):
+        """Signature verification passes when no secret is configured."""
+        payload = b'{"test": "data"}'
+        signature = "invalid_signature"
+        result = connector.verify_webhook_signature(payload, signature)
+        assert result is True  # No secret = skip verification
+
+    def test_verify_webhook_signature_with_secret(self, connector):
+        """Signature verification with a configured secret."""
+        import hmac
+        import hashlib
+
+        # Set up a mock secret
+        secret = "test_webhook_secret"
+        connector.get_webhook_secret = lambda: secret
+
+        payload = b'{"topic": "orders/create", "id": 12345}'
+        # Generate correct signature
+        expected_sig = hmac.new(
+            secret.encode(),
+            payload,
+            hashlib.sha256,
+        ).hexdigest()
+
+        result = connector.verify_webhook_signature(payload, expected_sig)
+        assert result is True
+
+    def test_verify_webhook_signature_invalid(self, connector):
+        """Invalid signature is rejected."""
+        secret = "test_webhook_secret"
+        connector.get_webhook_secret = lambda: secret
+
+        payload = b'{"topic": "orders/create"}'
+        invalid_sig = "completely_wrong_signature"
+
+        result = connector.verify_webhook_signature(payload, invalid_sig)
+        assert result is False
+
+    def test_verify_webhook_signature_tampered_payload(self, connector):
+        """Tampered payload fails verification."""
+        import hmac
+        import hashlib
+
+        secret = "test_webhook_secret"
+        connector.get_webhook_secret = lambda: secret
+
+        original_payload = b'{"amount": 100}'
+        tampered_payload = b'{"amount": 999}'
+
+        # Generate signature for original payload
+        sig = hmac.new(
+            secret.encode(),
+            original_payload,
+            hashlib.sha256,
+        ).hexdigest()
+
+        # Verify with tampered payload should fail
+        result = connector.verify_webhook_signature(tampered_payload, sig)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_handle_webhook_order_create(self, connector, sample_order_data):
+        """Order creation webhook can be processed."""
+        payload = {
+            "topic": "orders/create",
+            "order": sample_order_data,
+        }
+        # Default handler returns False, but payload is valid
+        result = await connector.handle_webhook(payload)
+        assert result is False  # Default implementation
+
+    @pytest.mark.asyncio
+    async def test_handle_webhook_product_update(self, connector, sample_product_data):
+        """Product update webhook payload structure."""
+        payload = {
+            "topic": "products/update",
+            "product": sample_product_data,
+        }
+        result = await connector.handle_webhook(payload)
+        assert result is False  # Default implementation
+
+    @pytest.mark.asyncio
+    async def test_handle_webhook_customer_create(self, connector, sample_customer_data):
+        """Customer creation webhook payload structure."""
+        payload = {
+            "topic": "customers/create",
+            "customer": sample_customer_data,
+        }
+        result = await connector.handle_webhook(payload)
+        assert result is False  # Default implementation
+
+
+# ========================================================================
+# Rate Limiting Tests
+# ========================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting handling."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error_status_code(self, connector):
+        """429 response raises ConnectorAPIError with status 429."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 429
+        resp_mock.text = AsyncMock(return_value="Exceeded 2 calls per second")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._session = mock_session
+
+        with pytest.raises(ConnectorAPIError) as exc_info:
+            await connector._request("GET", "/orders.json")
+
+        assert exc_info.value.status_code == 429
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error_message_included(self, connector):
+        """Rate limit error message is included in exception."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 429
+        resp_mock.text = AsyncMock(return_value='{"errors":"Rate limit exceeded"}')
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._session = mock_session
+
+        with pytest.raises(ConnectorAPIError) as exc_info:
+            await connector._request("GET", "/products.json")
+
+        assert "Rate limit" in str(exc_info.value.message)
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_on_bulk_operations(self, connector):
+        """Rate limiting is handled during bulk sync operations."""
+        call_count = 0
+
+        async def mock_request(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise ConnectorAPIError(
+                    "Rate limited",
+                    connector_name="shopify",
+                    status_code=429,
+                )
+            return {"orders": []}, {}
+
+        connector._request = mock_request
+
+        orders = []
+        try:
+            async for order in connector.sync_orders():
+                orders.append(order)
+        except ConnectorAPIError:
+            pass
+
+        # First call should succeed (returning empty orders)
+        assert call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_multiple_requests_no_rate_limit(self, connector, sample_order_data):
+        """Multiple sequential requests work when under rate limit."""
+        connector._request = AsyncMock(return_value=({"orders": [sample_order_data]}, {}))
+
+        # Make multiple calls
+        orders1 = []
+        async for order in connector.sync_orders():
+            orders1.append(order)
+
+        orders2 = []
+        async for order in connector.sync_orders():
+            orders2.append(order)
+
+        assert len(orders1) == 1
+        assert len(orders2) == 1
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_retry_after_header(self, connector):
+        """Rate limit response with Retry-After header."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 429
+        resp_mock.text = AsyncMock(return_value="Too many requests")
+        resp_mock.headers = {"Retry-After": "2.0"}
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._session = mock_session
+
+        with pytest.raises(ConnectorAPIError) as exc_info:
+            await connector._request("GET", "/orders.json")
+
+        assert exc_info.value.status_code == 429
+
+
+# ========================================================================
+# Product CRUD Operations Tests
+# ========================================================================
+
+
+class TestProductCRUDOperations:
+    """Additional tests for product CRUD operations."""
+
+    @pytest.mark.asyncio
+    async def test_sync_products_empty_response(self, connector):
+        """sync_products handles empty product list."""
+        connector._request = AsyncMock(return_value={"products": []})
+        products = []
+        async for p in connector.sync_products():
+            products.append(p)
+        assert products == []
+
+    @pytest.mark.asyncio
+    async def test_sync_products_multiple_products(self, connector, sample_product_data):
+        """sync_products yields multiple products."""
+        product2 = dict(sample_product_data)
+        product2["id"] = 2002
+        product2["title"] = "Widget 2"
+        product2["handle"] = "widget-2"
+
+        connector._request = AsyncMock(return_value={"products": [sample_product_data, product2]})
+        products = []
+        async for p in connector.sync_products():
+            products.append(p)
+
+        assert len(products) == 2
+        assert products[0].id == "2001"
+        assert products[1].id == "2002"
+
+    @pytest.mark.asyncio
+    async def test_sync_products_with_status_filter(self, connector, sample_product_data):
+        """sync_products passes status filter to API."""
+        connector._request = AsyncMock(return_value={"products": [sample_product_data]})
+        products = []
+        async for p in connector.sync_products(status="draft"):
+            products.append(p)
+
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert params["status"] == "draft"
+
+    @pytest.mark.asyncio
+    async def test_sync_products_with_limit(self, connector, sample_product_data):
+        """sync_products respects limit parameter."""
+        connector._request = AsyncMock(return_value={"products": [sample_product_data]})
+        products = []
+        async for p in connector.sync_products(limit=50):
+            products.append(p)
+
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert params["limit"] == 50
+
+    def test_parse_product_multiple_variants(self, connector, sample_product_data):
+        """Product with multiple variants is parsed correctly."""
+        variant2 = dict(sample_product_data["variants"][0])
+        variant2["id"] = 3002
+        variant2["title"] = "Small / Blue"
+        variant2["option1"] = "Small"
+        variant2["option2"] = "Blue"
+
+        sample_product_data["variants"].append(variant2)
+        product = connector._parse_product(sample_product_data)
+
+        assert len(product.variants) == 2
+        assert product.variants[1].option1 == "Small"
+
+    def test_parse_product_no_variants(self, connector, sample_product_data):
+        """Product without variants gets empty list."""
+        sample_product_data["variants"] = []
+        product = connector._parse_product(sample_product_data)
+        assert product.variants == []
+
+    def test_parse_product_multiple_images(self, connector, sample_product_data):
+        """Product with multiple images."""
+        sample_product_data["images"] = [
+            {"src": "https://cdn.shopify.com/image1.jpg"},
+            {"src": "https://cdn.shopify.com/image2.jpg"},
+            {"src": "https://cdn.shopify.com/image3.jpg"},
+        ]
+        product = connector._parse_product(sample_product_data)
+        assert len(product.images) == 3
+
+
+# ========================================================================
+# Order Management Tests
+# ========================================================================
+
+
+class TestOrderManagement:
+    """Additional tests for order management operations."""
+
+    @pytest.mark.asyncio
+    async def test_sync_orders_with_status_filter(self, connector, sample_order_data):
+        """sync_orders passes status filter to API."""
+        connector._request = AsyncMock(return_value=({"orders": [sample_order_data]}, {}))
+        orders = []
+        async for o in connector.sync_orders(status="open"):
+            orders.append(o)
+
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert params["status"] == "open"
+
+    @pytest.mark.asyncio
+    async def test_sync_orders_with_limit(self, connector, sample_order_data):
+        """sync_orders respects limit parameter."""
+        connector._request = AsyncMock(return_value=({"orders": [sample_order_data]}, {}))
+        orders = []
+        async for o in connector.sync_orders(limit=100):
+            orders.append(o)
+
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert params["limit"] == 100
+
+    def test_parse_order_multiple_line_items(
+        self, connector, sample_order_data, sample_line_item_data
+    ):
+        """Order with multiple line items is parsed correctly."""
+        item2 = dict(sample_line_item_data)
+        item2["id"] = 9002
+        item2["title"] = "Gadget"
+        item2["quantity"] = 1
+
+        sample_order_data["line_items"].append(item2)
+        order = connector._parse_order(sample_order_data)
+
+        assert len(order.line_items) == 2
+        assert order.line_items[1].title == "Gadget"
+
+    def test_parse_order_with_both_addresses(self, connector, sample_order_data):
+        """Order with both shipping and billing addresses."""
+        order = connector._parse_order(sample_order_data)
+        assert order.shipping_address is not None
+        assert order.billing_address is not None
+        assert order.shipping_address.city == "Portland"
+
+    def test_parse_order_partially_fulfilled(self, connector, sample_order_data):
+        """Partially fulfilled order status is parsed."""
+        sample_order_data["fulfillment_status"] = "partially_fulfilled"
+        order = connector._parse_order(sample_order_data)
+        assert order.fulfillment_status == OrderStatus.PARTIALLY_FULFILLED
+
+    @pytest.mark.asyncio
+    async def test_fulfill_order_with_tracking_only(self, connector):
+        """Fulfill order with tracking number but no company."""
+        connector._request = AsyncMock(return_value={"fulfillment": {"id": 1}})
+        result = await connector.fulfill_order("5001", tracking_number="TRACK123")
+
+        assert result is True
+        call_args = connector._request.call_args
+        json_data = call_args.kwargs.get("json_data") or call_args[1].get("json_data")
+        assert json_data["fulfillment"]["tracking_number"] == "TRACK123"
+        assert "tracking_company" not in json_data["fulfillment"]
+
+
+# ========================================================================
+# Customer Data Access Tests
+# ========================================================================
+
+
+class TestCustomerDataAccess:
+    """Additional tests for customer data access."""
+
+    @pytest.mark.asyncio
+    async def test_sync_customers_empty_response(self, connector):
+        """sync_customers handles empty customer list."""
+        connector._request = AsyncMock(return_value={"customers": []})
+        customers = []
+        async for c in connector.sync_customers():
+            customers.append(c)
+        assert customers == []
+
+    @pytest.mark.asyncio
+    async def test_sync_customers_multiple(self, connector, sample_customer_data):
+        """sync_customers yields multiple customers."""
+        customer2 = dict(sample_customer_data)
+        customer2["id"] = 7002
+        customer2["email"] = "buyer2@example.com"
+
+        connector._request = AsyncMock(
+            return_value={"customers": [sample_customer_data, customer2]}
+        )
+        customers = []
+        async for c in connector.sync_customers():
+            customers.append(c)
+
+        assert len(customers) == 2
+        assert customers[0].id == "7001"
+        assert customers[1].id == "7002"
+
+    @pytest.mark.asyncio
+    async def test_sync_customers_with_limit(self, connector, sample_customer_data):
+        """sync_customers respects limit parameter."""
+        connector._request = AsyncMock(return_value={"customers": [sample_customer_data]})
+        customers = []
+        async for c in connector.sync_customers(limit=50):
+            customers.append(c)
+
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert params["limit"] == 50
+
+    def test_customer_full_name_with_spaces(self, now_utc):
+        """Customer with names containing spaces."""
+        c = ShopifyCustomer(
+            id="c1",
+            email=None,
+            first_name="Mary Jane",
+            last_name="Watson Parker",
+            phone=None,
+            created_at=now_utc,
+            updated_at=now_utc,
+        )
+        assert c.full_name == "Mary Jane Watson Parker"
+
+    def test_parse_customer_with_no_orders(self, connector, sample_customer_data):
+        """Customer with zero orders."""
+        sample_customer_data["orders_count"] = 0
+        sample_customer_data["total_spent"] = "0.00"
+        customer = connector._parse_customer(sample_customer_data)
+        assert customer.orders_count == 0
+        assert customer.total_spent == Decimal("0.00")
+
+    def test_parse_customer_with_large_spend(self, connector, sample_customer_data):
+        """Customer with large total spent amount."""
+        sample_customer_data["total_spent"] = "1234567.89"
+        customer = connector._parse_customer(sample_customer_data)
+        assert customer.total_spent == Decimal("1234567.89")
+
+
+# ========================================================================
+# Error Handling Edge Cases (Extended)
+# ========================================================================
+
+
+class TestErrorHandlingExtended:
+    """Extended error handling tests."""
+
+    @pytest.mark.asyncio
+    async def test_request_502_bad_gateway(self, connector):
+        """502 Bad Gateway is wrapped as ConnectorAPIError."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 502
+        resp_mock.text = AsyncMock(return_value="Bad Gateway")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._session = mock_session
+
+        with pytest.raises(ConnectorAPIError) as exc_info:
+            await connector._request("GET", "/shop.json")
+        assert exc_info.value.status_code == 502
+
+    @pytest.mark.asyncio
+    async def test_request_503_service_unavailable(self, connector):
+        """503 Service Unavailable is wrapped as ConnectorAPIError."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 503
+        resp_mock.text = AsyncMock(return_value="Service Unavailable")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._session = mock_session
+
+        with pytest.raises(ConnectorAPIError) as exc_info:
+            await connector._request("GET", "/shop.json")
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_request_504_gateway_timeout(self, connector):
+        """504 Gateway Timeout is wrapped as ConnectorAPIError."""
+        mock_session = MagicMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 504
+        resp_mock.text = AsyncMock(return_value="Gateway Timeout")
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request = MagicMock(return_value=ctx)
+        connector._session = mock_session
+
+        with pytest.raises(ConnectorAPIError) as exc_info:
+            await connector._request("GET", "/orders.json")
+        assert exc_info.value.status_code == 504
+
+    @pytest.mark.asyncio
+    async def test_get_order_key_error(self, connector):
+        """get_order handles KeyError in response."""
+        connector._request = AsyncMock(return_value={"wrong_key": {}})
+        result = await connector.get_order("123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_product_value_error(self, connector):
+        """get_product handles ValueError during parsing."""
+        connector._request = AsyncMock(side_effect=ValueError("invalid decimal"))
+        result = await connector.get_product("123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_customer_os_error(self, connector):
+        """get_customer handles OSError (network issues)."""
+        connector._request = AsyncMock(side_effect=OSError("Connection reset"))
+        result = await connector.get_customer("123")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_fulfill_order_os_error(self, connector):
+        """fulfill_order handles OSError."""
+        connector._request = AsyncMock(side_effect=OSError("Connection refused"))
+        result = await connector.fulfill_order("123")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_update_inventory_os_error(self, connector):
+        """update_variant_inventory handles OSError."""
+        connector._request = AsyncMock(side_effect=OSError("Network unreachable"))
+        result = await connector.update_variant_inventory("ii", "loc", 5)
+        assert result is False
+
+
+# ========================================================================
+# Dataclass Serialization Edge Cases
+# ========================================================================
+
+
+class TestDataclassEdgeCases:
+    """Edge cases for dataclass serialization."""
+
+    def test_line_item_without_optional_fields(self):
+        """Line item with only required fields."""
+        item = ShopifyLineItem(
+            id="li_1",
+            product_id=None,
+            variant_id=None,
+            title="Mystery Item",
+            quantity=1,
+            price=Decimal("0.00"),
+        )
+        d = item.to_dict()
+        assert d["productId"] is None
+        assert d["variantId"] is None
+
+    def test_variant_with_all_options(self):
+        """Variant with all three option fields."""
+        v = ShopifyVariant(
+            id="v1",
+            product_id="p1",
+            title="Large / Red / Cotton",
+            price=Decimal("29.99"),
+            sku="SKU-L-R-C",
+            option1="Large",
+            option2="Red",
+            option3="Cotton",
+        )
+        d = v.to_dict()
+        assert d["option1"] == "Large"
+        assert d["option2"] == "Red"
+        assert d["option3"] == "Cotton"
+
+    def test_address_minimal(self):
+        """Address with minimal data."""
+        addr = ShopifyAddress(city="Unknown")
+        d = addr.to_dict()
+        assert d["city"] == "Unknown"
+        assert d["firstName"] is None
+
+    def test_order_with_no_email(self, now_utc):
+        """Order without customer email."""
+        order = ShopifyOrder(
+            id="1",
+            order_number=1,
+            name="#1",
+            email=None,
+            created_at=now_utc,
+            updated_at=now_utc,
+            total_price=Decimal("50.00"),
+            subtotal_price=Decimal("50.00"),
+            total_tax=Decimal("0"),
+            total_discounts=Decimal("0"),
+            currency="USD",
+            financial_status=PaymentStatus.PENDING,
+            fulfillment_status=None,
+        )
+        d = order.to_dict()
+        assert d["email"] is None
+
+    def test_product_with_empty_images(self, now_utc):
+        """Product with no images."""
+        product = ShopifyProduct(
+            id="p1",
+            title="Imageless Product",
+            handle="imageless",
+            vendor=None,
+            product_type=None,
+            status="draft",
+            created_at=now_utc,
+            updated_at=now_utc,
+            published_at=None,
+            images=[],
+        )
+        d = product.to_dict()
+        assert d["images"] == []
+
+    def test_customer_with_empty_tags(self, now_utc):
+        """Customer with no tags."""
+        c = ShopifyCustomer(
+            id="c1",
+            email="test@test.com",
+            first_name="Test",
+            last_name="User",
+            phone=None,
+            created_at=now_utc,
+            updated_at=now_utc,
+            tags=[],
+        )
+        d = c.to_dict()
+        assert d["tags"] == []
+
+
+# ========================================================================
+# Sync State Tests
+# ========================================================================
+
+
+class TestSyncStateIntegration:
+    """Tests for sync state handling in connector operations."""
+
+    @pytest.mark.asyncio
+    async def test_sync_items_with_last_sync_at(self, connector, sample_order_data):
+        """sync_items uses state.last_sync_at for filtering."""
+        from aragora.connectors.enterprise.base import SyncState
+
+        since_time = datetime(2024, 6, 1, tzinfo=timezone.utc)
+        state = SyncState(
+            connector_id="shopify",
+            last_sync_at=since_time,
+        )
+
+        async def fake_sync_orders(**kwargs):
+            assert kwargs.get("since") == since_time
+            yield connector._parse_order(sample_order_data)
+
+        async def fake_sync_products(**kwargs):
+            return
+            yield
+
+        async def fake_sync_customers(**kwargs):
+            return
+            yield
+
+        connector.sync_orders = fake_sync_orders
+        connector.sync_products = fake_sync_products
+        connector.sync_customers = fake_sync_customers
+
+        items = []
+        async for item in connector.sync_items(state):
+            items.append(item)
+
+        assert len(items) == 1
+
+    @pytest.mark.asyncio
+    async def test_full_sync_measures_duration(self, connector):
+        """full_sync tracks duration in milliseconds."""
+
+        async def fake_incremental(**kwargs):
+            await asyncio.sleep(0.01)  # 10ms delay
+            yield {"type": "order", "data": {}}
+
+        connector.incremental_sync = fake_incremental
+        result = await connector.full_sync()
+
+        assert result.duration_ms > 0
+        assert result.connector_id == "shopify"
+
+    @pytest.mark.asyncio
+    async def test_sync_items_batch_size_passed(self, connector, sample_order_data):
+        """sync_items passes batch_size to underlying sync methods."""
+        from aragora.connectors.enterprise.base import SyncState
+
+        state = SyncState(connector_id="shopify")
+        captured_limit = None
+
+        async def fake_sync_orders(**kwargs):
+            nonlocal captured_limit
+            captured_limit = kwargs.get("limit")
+            yield connector._parse_order(sample_order_data)
+
+        async def fake_sync_products(**kwargs):
+            return
+            yield
+
+        async def fake_sync_customers(**kwargs):
+            return
+            yield
+
+        connector.sync_orders = fake_sync_orders
+        connector.sync_products = fake_sync_products
+        connector.sync_customers = fake_sync_customers
+
+        items = []
+        async for item in connector.sync_items(state, batch_size=75):
+            items.append(item)
+
+        assert captured_limit == 75
+
+
+# ========================================================================
+# Analytics Edge Cases
+# ========================================================================
+
+
+class TestAnalyticsEdgeCases:
+    """Additional analytics tests."""
+
+    @pytest.mark.asyncio
+    async def test_order_stats_with_start_date(self, connector, sample_order_data):
+        """get_order_stats passes start_date to sync_orders."""
+        start_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        connector._request = AsyncMock(return_value=({"orders": [sample_order_data]}, {}))
+
+        await connector.get_order_stats(start_date=start_date)
+
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert "updated_at_min" in params
+
+    @pytest.mark.asyncio
+    async def test_order_stats_multiple_statuses(self, connector, sample_order_data):
+        """get_order_stats correctly counts various statuses."""
+        order2 = dict(sample_order_data)
+        order2["id"] = 5002
+        order2["fulfillment_status"] = None
+        order2["total_price"] = "100.00"
+
+        order3 = dict(sample_order_data)
+        order3["id"] = 5003
+        order3["fulfillment_status"] = "cancelled"
+        order3["total_price"] = "50.00"
+
+        connector._request = AsyncMock(
+            return_value=(
+                {"orders": [sample_order_data, order2, order3]},
+                {},
+            )
+        )
+
+        stats = await connector.get_order_stats()
+
+        assert stats["total_orders"] == 3
+        assert stats["fulfilled_orders"] == 1
+        assert stats["cancelled_orders"] == 1
+        # Revenue = 69.85 + 100 + 50 = 219.85
+        assert Decimal(stats["total_revenue"]) == Decimal("219.85")

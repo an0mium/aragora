@@ -30,10 +30,10 @@ from aragora.config.stability import Stability
 from .admin import AdminHandler, SecurityHandler
 from .agents import AgentConfigHandler
 from .agents import AgentsHandler
-from .analytics import AnalyticsHandler
+from ._analytics_impl import AnalyticsHandler
 from .analytics_dashboard import AnalyticsDashboardHandler
 from .endpoint_analytics import EndpointAnalyticsHandler
-from .analytics_metrics import AnalyticsMetricsHandler
+from ._analytics_metrics_impl import AnalyticsMetricsHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response

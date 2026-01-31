@@ -12,6 +12,7 @@ The handler is split into logical modules for better maintainability:
 - platform.py: Platform resilience, encryption, and startup checks
 - diagnostics.py: Deployment diagnostics and production readiness checklist
 - helpers.py: Sync, circuits, slow debates, component health
+- workers.py: Background workers and job queue health
 
 For backward compatibility, import HealthHandler from this package:
 
@@ -80,6 +81,11 @@ from .helpers import (
     circuit_breakers_status,
     component_health_status,
 )
+from .workers import (
+    worker_health_status,
+    job_queue_health_status,
+    combined_worker_queue_health,
+)
 
 # Keep mixin imports for backward compatibility
 from .probes import ProbesMixin
@@ -116,6 +122,9 @@ class HealthHandler(SecureHandler):
         "/api/v1/health/database",
         "/api/v1/health/platform",
         "/api/v1/platform/health",
+        "/api/v1/health/workers",  # Background worker status
+        "/api/v1/health/job-queue",  # Job queue health
+        "/api/v1/health/workers/all",  # Combined workers + queue health
         "/api/v1/diagnostics",
         "/api/v1/diagnostics/deployment",
         # Non-v1 routes (for backward compatibility)
@@ -188,6 +197,9 @@ class HealthHandler(SecureHandler):
             "/api/platform/health": self._platform_health,
             "/api/diagnostics": self._deployment_diagnostics,
             "/api/diagnostics/deployment": self._deployment_diagnostics,
+            "/api/health/workers": self._worker_health_status,
+            "/api/health/job-queue": self._job_queue_health_status,
+            "/api/health/workers/all": self._combined_worker_queue_health,
         }
 
         endpoint_handler = handlers.get(normalized)
@@ -261,6 +273,15 @@ class HealthHandler(SecureHandler):
     def _component_health_status(self) -> HandlerResult:
         return component_health_status(self)
 
+    def _worker_health_status(self) -> HandlerResult:
+        return worker_health_status(self)
+
+    def _job_queue_health_status(self) -> HandlerResult:
+        return job_queue_health_status(self)
+
+    def _combined_worker_queue_health(self) -> HandlerResult:
+        return combined_worker_queue_health(self)
+
     def _check_filesystem_health(self) -> dict[str, Any]:
         """Check filesystem write access to data directory."""
         from ..health_utils import check_filesystem_health
@@ -302,4 +323,8 @@ __all__ = [
     "_HEALTH_CACHE_TTL",
     "_HEALTH_CACHE_TTL_DETAILED",
     "_HEALTH_CACHE_TIMESTAMPS",
+    # Worker health functions
+    "worker_health_status",
+    "job_queue_health_status",
+    "combined_worker_queue_health",
 ]
