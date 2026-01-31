@@ -66,6 +66,26 @@ def _detect_layout(root: Path) -> str | None:
     return None
 
 
+def _describe_root(root: Path, layout: str | None) -> None:
+    label = layout or "unknown"
+    print(f"- {root} ({label})")
+    if layout == "coordinator":
+        paths = [
+            root / "workspaces" / "state.json",
+            root / "hooks" / "hooks.json",
+            root / "ledger.json",
+        ]
+    else:
+        paths = [
+            root / "state.json",
+            root / "hooks.json",
+            root / "ledger.json",
+        ]
+    for path in paths:
+        if path.exists():
+            print(f"  • found: {path}")
+
+
 def _migrate_workspace_state(
     source_state: Path,
     target_state: Path,
@@ -151,9 +171,12 @@ def main() -> None:
 
     target_base = Path(args.target).expanduser() if args.target else resolve_store_dir()
 
+    print(f"Found {len(roots)} legacy root(s):")
     for root in roots:
         layout = _detect_layout(root)
+        _describe_root(root, layout)
         if layout is None:
+            print("  • skipped (unknown layout)")
             continue
 
         if args.mode == "coordinator":
@@ -173,6 +196,8 @@ def main() -> None:
             if ledger_state.exists():
                 target_ledger = target_base / "ledger.json"
                 _migrate_ledger(ledger_state, target_ledger, args.apply)
+            elif (root / "ledger.json").exists():
+                print("  • ledger.json exists but was not migrated")
         else:
             workspace_state = root / "state.json"
             target_workspace = target_base / "state.json"

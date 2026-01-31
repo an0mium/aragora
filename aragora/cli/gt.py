@@ -25,6 +25,8 @@ import argparse
 import asyncio
 import json
 import logging
+import subprocess
+import sys
 from collections.abc import Coroutine
 from datetime import datetime
 from pathlib import Path
@@ -599,6 +601,27 @@ def cmd_workspace_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_migrate(args: argparse.Namespace) -> int:
+    """Run the Gastown state migration helper."""
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / "gastown_migrate_state.py"
+    if not script_path.exists():
+        print("Migration helper not found in this installation.")
+        return 1
+
+    cmd = [sys.executable, str(script_path)]
+    if args.source:
+        cmd += ["--from", args.source]
+    if args.target:
+        cmd += ["--to", args.target]
+    if args.mode:
+        cmd += ["--mode", args.mode]
+    if args.apply:
+        cmd.append("--apply")
+
+    result = subprocess.run(cmd, check=False)
+    return result.returncode
+
+
 # =============================================================================
 # Main GT Command Handler
 # =============================================================================
@@ -699,6 +722,19 @@ POLECAT (ephemeral worker), or CREW (persistent worker).
     workspace_init.add_argument("--force", "-f", action="store_true", help="Overwrite existing")
     workspace_init.set_defaults(func=cmd_workspace_init)
 
+    # --- Migration command ---
+    migrate_parser = gt_subparsers.add_parser("migrate", help="Migrate legacy Gastown state")
+    migrate_parser.add_argument("--from", dest="source", help="Legacy Gastown root dir")
+    migrate_parser.add_argument("--to", dest="target", help="Target canonical store dir")
+    migrate_parser.add_argument(
+        "--mode",
+        choices=["workspace", "coordinator"],
+        default="workspace",
+        help="Target layout for migration",
+    )
+    migrate_parser.add_argument("--apply", action="store_true", help="Apply changes")
+    migrate_parser.set_defaults(func=cmd_migrate)
+
 
 def cmd_gt(args: argparse.Namespace) -> int:
     """Handle the 'gt' command group."""
@@ -712,6 +748,7 @@ def cmd_gt(args: argparse.Namespace) -> int:
         print("  agent     Manage agents and roles")
         print("  witness   Witness patrol operations")
         print("  workspace Workspace management")
+        print("  migrate   Migrate legacy Gastown state")
         print("\nRun 'aragora gt <command> --help' for more information")
         return 0
 

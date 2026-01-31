@@ -32,6 +32,13 @@ Gastown extension persistence files:
 - `hooks.json` (hook definitions + trigger stats)
 - `ledger.json` (Mayor/Coordinator issue ledger, when using the coordinator)
 
+You can migrate any legacy Gastown state into the canonical store:
+
+```
+aragora gt migrate
+aragora gt migrate --apply
+```
+
 ## Quick Start
 
 ```python
