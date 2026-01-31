@@ -455,27 +455,129 @@ def partition_by_topic(
 
 def RLM_M(query: str, subset: list[KnowledgeItem] | None = None) -> str:
     """
-    Recursive RLM call placeholder.
+    Recursive RLM call for synthesizing knowledge subsets.
 
     In TRUE RLM, this triggers a recursive LLM call on a subset of knowledge.
-    This placeholder is replaced by the actual RLM runtime.
+    When called outside a TRUE RLM REPL environment, this function provides
+    a heuristic-based synthesis of the knowledge items based on the query.
 
     Args:
-        query: The query to answer
-        subset: Optional subset of knowledge items
+        query: The query to answer (used to guide synthesis)
+        subset: Optional subset of knowledge items to synthesize
 
     Returns:
-        Answer from recursive call
+        Synthesized answer based on the subset and query
 
     Example in TRUE RLM REPL:
         >>> facts_summary = RLM_M("What are the verified facts?", subset=km.facts)
         >>> claims_summary = RLM_M("What claims need validation?", subset=km.claims)
         >>> FINAL(f"Facts: {facts_summary}. Claims: {claims_summary}")
+
+    Note:
+        When used within a TRUE RLM REPL environment (via RLMEnvironment),
+        this placeholder is replaced by the actual runtime's _rlm_call method
+        which invokes a sub-LM for proper synthesis.
     """
-    raise NotImplementedError(
-        "RLM_M must be called within a TRUE RLM REPL environment. "
-        "Install with: pip install aragora[rlm]"
+    if subset is None or len(subset) == 0:
+        return f"No knowledge items provided for query: {query}"
+
+    # Extract query keywords for relevance scoring
+    query_lower = query.lower()
+    query_words = set(query_lower.split())
+
+    # Score and sort items by relevance to query
+    scored_items: list[tuple[float, KnowledgeItem]] = []
+    for item in subset:
+        content_lower = item.content.lower()
+        # Score based on keyword matches and confidence
+        keyword_score = sum(1 for word in query_words if word in content_lower)
+        relevance_score = keyword_score * 0.5 + item.confidence * 0.5
+        scored_items.append((relevance_score, item))
+
+    # Sort by relevance (highest first)
+    scored_items.sort(key=lambda x: x[0], reverse=True)
+
+    # Group items by source type
+    by_source: dict[str, list[KnowledgeItem]] = {}
+    for _, item in scored_items:
+        if item.source not in by_source:
+            by_source[item.source] = []
+        by_source[item.source].append(item)
+
+    # Build synthesis based on query patterns
+    synthesis_parts: list[str] = []
+
+    # Detect query intent
+    is_verification_query = any(
+        kw in query_lower for kw in ["verified", "validate", "confirm", "check"]
     )
+    is_summary_query = any(
+        kw in query_lower for kw in ["summarize", "summary", "overview", "key", "main"]
+    )
+    is_validation_query = any(
+        kw in query_lower for kw in ["need validation", "unvalidated", "pending"]
+    )
+
+    # Build response based on query type
+    if is_verification_query:
+        # Focus on high-confidence items
+        high_conf = [item for _, item in scored_items if item.confidence >= 0.7]
+        if high_conf:
+            synthesis_parts.append(f"Found {len(high_conf)} high-confidence items (>= 0.7):")
+            for item in high_conf[:5]:  # Top 5
+                synthesis_parts.append(
+                    f"  - [{item.confidence:.2f}] {_truncate_content(item.content, 100)}"
+                )
+        else:
+            synthesis_parts.append("No high-confidence items found matching the query.")
+
+    elif is_validation_query:
+        # Focus on low-confidence claims
+        needs_validation = [
+            item for _, item in scored_items if item.source == "claim" and item.confidence < 0.7
+        ]
+        if needs_validation:
+            synthesis_parts.append(f"Found {len(needs_validation)} claims needing validation:")
+            for item in needs_validation[:5]:  # Top 5
+                synthesis_parts.append(
+                    f"  - [{item.confidence:.2f}] {_truncate_content(item.content, 100)}"
+                )
+        else:
+            synthesis_parts.append("No claims found that require validation.")
+
+    elif is_summary_query or True:  # Default to summary
+        # Provide overview by source type
+        total_items = len(subset)
+        avg_confidence = (
+            sum(item.confidence for item in subset) / total_items if total_items > 0 else 0.0
+        )
+        synthesis_parts.append(
+            f"Knowledge synthesis ({total_items} items, avg confidence: {avg_confidence:.2f}):"
+        )
+
+        for source, items in by_source.items():
+            synthesis_parts.append(f"\n{source.capitalize()}s ({len(items)}):")
+            # Show top 3 most relevant items per source
+            for item in items[:3]:
+                synthesis_parts.append(
+                    f"  - [{item.confidence:.2f}] {_truncate_content(item.content, 80)}"
+                )
+            if len(items) > 3:
+                synthesis_parts.append(f"  ... and {len(items) - 3} more")
+
+    return "\n".join(synthesis_parts)
+
+
+def _truncate_content(content: str, max_length: int) -> str:
+    """Truncate content to max_length, preserving word boundaries."""
+    if len(content) <= max_length:
+        return content
+    # Find last space before max_length
+    truncated = content[:max_length]
+    last_space = truncated.rfind(" ")
+    if last_space > max_length * 0.5:
+        return truncated[:last_space] + "..."
+    return truncated + "..."
 
 
 def FINAL(answer: str) -> str:

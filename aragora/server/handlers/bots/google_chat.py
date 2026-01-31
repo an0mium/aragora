@@ -460,19 +460,12 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         connector = get_google_chat_connector()
         return connector is not None
 
-    def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
-    ) -> HandlerResult:
-        """Build Google Chat-specific status response."""
-        status = {
-            "platform": self.bot_platform,
-            "enabled": self._is_bot_enabled(),
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return Google Chat-specific config fields for status response."""
+        return {
             "credentials_configured": bool(GOOGLE_CHAT_CREDENTIALS),
             "project_id_configured": bool(GOOGLE_CHAT_PROJECT_ID),
         }
-        if extra_status:
-            status.update(extra_status)
-        return json_response(status)
 
     @rate_limit(requests_per_minute=60)
     async def handle(

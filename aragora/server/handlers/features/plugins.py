@@ -288,6 +288,10 @@ class PluginsHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "plugins:delete")
+        if perm_error:
+            return perm_error
+
         response: HandlerResult | None = None
 
         # Uninstall plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install

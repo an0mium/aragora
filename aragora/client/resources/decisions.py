@@ -9,6 +9,7 @@ Provides methods for unified decision-making:
 
 from __future__ import annotations
 
+import builtins
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _default_agent_list() -> list[str]:
+def _default_agent_list() -> builtins.list[str]:
     return [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
 
 
@@ -30,7 +31,7 @@ def _default_agent_list() -> list[str]:
 class DecisionConfig:
     """Configuration for a decision request."""
 
-    agents: list[str] = field(default_factory=_default_agent_list)
+    agents: builtins.list[str] = field(default_factory=_default_agent_list)
     rounds: int = DEFAULT_ROUNDS
     consensus: str = DEFAULT_CONSENSUS
     timeout_seconds: int = 300
@@ -97,7 +98,7 @@ class DecisionsAPI:
         config: DecisionConfig | None = None,
         context: DecisionContext | None = None,
         priority: str = "normal",
-        response_channels: Optional[list[ResponseChannel]] = None,
+        response_channels: Optional[builtins.list[ResponseChannel]] = None,
     ) -> DecisionResult:
         """
         Create a new decision request.
@@ -154,7 +155,7 @@ class DecisionsAPI:
         config: DecisionConfig | None = None,
         context: DecisionContext | None = None,
         priority: str = "normal",
-        response_channels: Optional[list[ResponseChannel]] = None,
+        response_channels: Optional[builtins.list[ResponseChannel]] = None,
     ) -> DecisionResult:
         """Async version of create()."""
         body: dict[str, Any] = {
@@ -233,7 +234,7 @@ class DecisionsAPI:
         decision_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[DecisionResult], int]:
+    ) -> tuple[builtins.list[DecisionResult], int]:
         """
         List recent decisions.
 
@@ -262,7 +263,7 @@ class DecisionsAPI:
         decision_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[DecisionResult], int]:
+    ) -> tuple[builtins.list[DecisionResult], int]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -281,7 +282,7 @@ class DecisionsAPI:
     def quick_decision(
         self,
         question: str,
-        agents: Optional[list[str]] = None,
+        agents: Optional[builtins.list[str]] = None,
     ) -> DecisionResult:
         """
         Make a quick decision with minimal configuration.
@@ -308,7 +309,7 @@ class DecisionsAPI:
     async def quick_decision_async(
         self,
         question: str,
-        agents: Optional[list[str]] = None,
+        agents: Optional[builtins.list[str]] = None,
     ) -> DecisionResult:
         """Async version of quick_decision()."""
         config = DecisionConfig(
@@ -326,7 +327,7 @@ class DecisionsAPI:
     def start_debate(
         self,
         topic: str,
-        agents: Optional[list[str]] = None,
+        agents: Optional[builtins.list[str]] = None,
         rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """
@@ -355,7 +356,7 @@ class DecisionsAPI:
     async def start_debate_async(
         self,
         topic: str,
-        agents: Optional[list[str]] = None,
+        agents: Optional[builtins.list[str]] = None,
         rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """Async version of start_debate()."""

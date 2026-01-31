@@ -36,7 +36,7 @@ import os
 import re
 import time
 import uuid
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import MaybeAsyncHandlerResult
@@ -1960,16 +1960,12 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
         """Check if Teams bot is configured."""
         return bool(TEAMS_APP_ID and TEAMS_APP_PASSWORD)
 
-    def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
-    ) -> HandlerResult:
-        """Build Teams-specific status response."""
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return Teams-specific config fields for status response."""
         sdk_available, sdk_error = _check_botframework_available()
         connector_available, connector_error = _check_connector_available()
 
-        status = {
-            "platform": self.bot_platform,
-            "enabled": self._is_bot_enabled(),
+        return {
             "app_id_configured": bool(TEAMS_APP_ID),
             "password_configured": bool(TEAMS_APP_PASSWORD),
             "tenant_id_configured": bool(TEAMS_TENANT_ID),
@@ -1989,9 +1985,6 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
                 "link_unfurling": True,
             },
         }
-        if extra_status:
-            status.update(extra_status)
-        return json_response(status)
 
     async def _ensure_bot(self) -> TeamsBot | None:
         """Lazily initialize the Teams bot."""

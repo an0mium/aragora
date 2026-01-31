@@ -49,8 +49,8 @@ try:
 except ImportError:
     # Define placeholder exceptions if botocore isn't installed
     # Use type[Exception] to allow these to be used in except clauses
-    ClientError: type[Exception] = type("ClientError", (Exception,), {})
-    BotoCoreError: type[Exception] = type("BotoCoreError", (Exception,), {})
+    ClientError: type[Exception] = type("ClientError", (Exception,), {})  # type: ignore[no-redef]
+    BotoCoreError: type[Exception] = type("BotoCoreError", (Exception,), {})  # type: ignore[no-redef]
 
 # Secret names that should be loaded from Secrets Manager
 MANAGED_SECRETS = frozenset(

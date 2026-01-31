@@ -33,7 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.audit.unified import audit_data, audit_security
 
@@ -85,17 +85,13 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         """Check if email inbound is enabled."""
         return EMAIL_INBOUND_ENABLED
 
-    def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
-    ) -> HandlerResult:
-        """Build email-specific status response."""
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return email-specific config fields for status response."""
         sendgrid_configured = bool(os.environ.get("SENDGRID_INBOUND_SECRET"))
         mailgun_configured = bool(os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY"))
         ses_configured = bool(os.environ.get("SES_NOTIFICATION_SECRET"))
 
-        status = {
-            "platform": self.bot_platform,
-            "enabled": self._is_bot_enabled(),
+        return {
             "inbound_enabled": EMAIL_INBOUND_ENABLED,
             "providers": {
                 "sendgrid": {
@@ -114,9 +110,6 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 },
             },
         }
-        if extra_status:
-            status.update(extra_status)
-        return json_response(status)
 
     @rate_limit(requests_per_minute=30)
     async def handle(

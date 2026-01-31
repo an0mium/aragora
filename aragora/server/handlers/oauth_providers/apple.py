@@ -198,22 +198,53 @@ class AppleOAuthProvider(OAuthProvider):
         """
         Get user information from Apple.
 
-        Apple doesn't have a userinfo endpoint. User info comes from:
-        1. The ID token (always includes 'sub' identifier)
+        Apple doesn't have a userinfo endpoint like other OAuth providers.
+        User info comes from:
+        1. The ID token (always includes 'sub' identifier, email if requested)
         2. The 'user' parameter in the callback (only on first authorization)
 
-        For this basic method, we extract from ID token only.
-        Use get_user_info_from_callback for full user data.
+        This method attempts to use the access_token parameter in multiple ways:
+        1. If it looks like a JWT (has 3 dot-separated parts), treat it as an ID token
+        2. Otherwise, return minimal info indicating the token is valid but no user info available
+
+        For complete user data including name (first authorization only), use
+        get_user_info_from_callback() which handles the 'user' POST parameter.
 
         Args:
-            access_token: Access token (unused - Apple uses ID token)
+            access_token: Access token or ID token from Apple
 
         Returns:
-            User information (limited - only sub from ID token)
+            User information extracted from ID token, or minimal info if access token only
+
+        Raises:
+            ValueError: If token is invalid or cannot be processed
         """
-        raise NotImplementedError(
-            "Apple doesn't provide a userinfo endpoint. "
-            "Use get_user_info_from_id_token() or get_user_info_from_callback() instead."
+        # Check if the token looks like a JWT (ID token)
+        # JWTs have 3 base64url-encoded parts separated by dots
+        parts = access_token.split(".")
+        if len(parts) == 3:
+            # This appears to be a JWT - try to decode it as an ID token
+            try:
+                return self.get_user_info_from_id_token(access_token)
+            except ValueError as e:
+                logger.warning(
+                    "[apple] Failed to decode token as ID token: %s. "
+                    "If this is an access token, use get_user_info_from_callback() instead.",
+                    e,
+                )
+                raise ValueError(
+                    f"Unable to extract user info from token: {e}. "
+                    "Apple requires ID token for user info. "
+                    "Use get_user_info_from_callback(tokens, user_json) for full OAuth flow."
+                ) from e
+
+        # The token doesn't look like a JWT - it's likely an opaque access token
+        # Apple's access tokens cannot be used to fetch user info (no userinfo endpoint)
+        raise ValueError(
+            "Apple does not provide a userinfo endpoint. "
+            "The access_token cannot be used to retrieve user information. "
+            "Use get_user_info_from_callback(tokens, user_json) with the full OAuthTokens "
+            "response which contains the id_token, or pass the id_token directly to this method."
         )
 
     def get_user_info_from_id_token(
@@ -299,6 +330,40 @@ class AppleOAuthProvider(OAuthProvider):
             raise ValueError("No ID token in Apple token response")
 
         return self.get_user_info_from_id_token(tokens.id_token, user_data)
+
+    def exchange_and_get_user(
+        self,
+        code: str,
+        redirect_uri: str | None = None,
+        user_json: str | None = None,
+    ) -> OAuthUserInfo:
+        """
+        Exchange authorization code and get user info in one call.
+
+        This overrides the base class method to properly handle Apple's OAuth flow,
+        which uses ID tokens instead of a userinfo endpoint.
+
+        Args:
+            code: Authorization code from callback
+            redirect_uri: Redirect URI used in authorization
+            user_json: Optional 'user' JSON string from Apple callback (first auth only).
+                      Apple provides user name/email in this parameter only during
+                      the first authorization - store it immediately!
+
+        Returns:
+            User information extracted from ID token and optional user data
+
+        Example:
+            # In your callback handler:
+            user_json = request.form.get('user')  # Apple sends via form_post
+            user_info = apple_provider.exchange_and_get_user(
+                code=request.form['code'],
+                user_json=user_json,
+            )
+            # Important: Store user_info.name immediately - won't be available next time!
+        """
+        tokens = self.exchange_code(code, redirect_uri)
+        return self.get_user_info_from_callback(tokens, user_json)
 
     def _fetch_apple_jwks(self) -> dict[str, Any]:
         """

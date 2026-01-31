@@ -11,7 +11,7 @@ Handles bidirectional event flow between Knowledge Mound and other subsystems:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.events.types import StreamEvent
 
@@ -22,9 +22,20 @@ logger = logging.getLogger(__name__)
 
 
 class MoundHandlersMixin:
-    """Mixin providing Knowledge Mound event handlers."""
+    """Mixin providing Knowledge Mound event handlers.
 
-    # These will be set by the main class
+    This mixin requires the implementing class to provide:
+    - stats: dict - Handler statistics tracking
+    - retry_handler: Any - Retry logic handler
+    - circuit_breaker: Any - Circuit breaker for failure protection
+    - _culture_cache: dict - Cache for culture hints
+    - _culture_cache_ttl: float - TTL for culture cache entries
+    - _staleness_debounce: dict - Debounce tracking for staleness events
+    - _staleness_debounce_seconds: float - Debounce interval
+    - _is_km_handler_enabled(handler_name: str) -> bool - Feature flag check
+    """
+
+    # Type annotations for required attributes from the implementing class
     stats: dict
     retry_handler: Any
     circuit_breaker: Any
@@ -33,9 +44,8 @@ class MoundHandlersMixin:
     _staleness_debounce: dict
     _staleness_debounce_seconds: float
 
-    def _is_km_handler_enabled(self, handler_name: str) -> bool:
-        """Check if a KM handler is enabled (defined in main class)."""
-        raise NotImplementedError
+    # Required method from parent class - checks feature flags
+    _is_km_handler_enabled: Callable[[str], bool]
 
     def _handle_mound_to_memory(self, event: StreamEvent) -> None:
         """Handle Knowledge Mound → Memory events.

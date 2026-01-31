@@ -24,9 +24,20 @@ logger = logging.getLogger(__name__)
 
 
 class DebateHandlersMixin:
-    """Mixin providing debate and ELO event handlers."""
+    """Mixin providing debate and ELO event handlers.
 
-    # These will be set by the main class
+    This mixin requires the implementing class to provide:
+    - stats: dict - Handler statistics tracking
+    - retry_handler: Any - Retry logic handler
+    - circuit_breaker: Any - Circuit breaker for failure protection
+    - _culture_cache: dict - Cache for culture hints
+    - _culture_cache_ttl: float - TTL for culture cache entries
+    - _staleness_debounce: dict - Debounce tracking for staleness events
+    - _staleness_debounce_seconds: float - Debounce interval
+    - _is_km_handler_enabled(handler_name: str) -> bool - Feature flag check
+    """
+
+    # Type annotations for required attributes from the implementing class
     stats: dict
     retry_handler: Any
     circuit_breaker: Any
@@ -35,9 +46,8 @@ class DebateHandlersMixin:
     _staleness_debounce: dict
     _staleness_debounce_seconds: float
 
-    def _is_km_handler_enabled(self, handler_name: str) -> bool:
-        """Check if a handler is enabled (defined in main class)."""
-        raise NotImplementedError
+    # Required method from parent class - checks feature flags
+    _is_km_handler_enabled: Callable[[str], bool]
 
     def _handle_elo_to_debate(self, event: StreamEvent) -> None:
         """Handle ELO → Debate events.
