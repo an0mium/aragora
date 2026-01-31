@@ -495,11 +495,13 @@ class TestModuleNotAvailable:
 
     def test_returns_503_when_module_unavailable(self, mock_server_context):
         """Test that 503 is returned when computer use module unavailable."""
-        with patch("aragora.server.handlers.computer_use_handler.COMPUTER_USE_AVAILABLE", False):
+        with patch("computer_use_handler.COMPUTER_USE_AVAILABLE", False):
             h = ComputerUseHandler(mock_server_context)
             mock_handler = MockRequestHandler()
 
-            result = h.handle("/api/v1/computer-use/tasks", {}, mock_handler)
+            # Bypass RBAC to test module unavailability
+            with patch.object(h, "_check_rbac_permission", return_value=None):
+                result = h.handle("/api/v1/computer-use/tasks", {}, mock_handler)
 
             assert result is not None
             assert result.status_code == 503

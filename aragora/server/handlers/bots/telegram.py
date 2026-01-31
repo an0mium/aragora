@@ -20,7 +20,7 @@ import hmac
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.audit.unified import audit_data
 
@@ -155,22 +155,15 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         """Check if Telegram bot is configured."""
         return bool(TELEGRAM_BOT_TOKEN)
 
-    def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
-    ) -> HandlerResult:
-        """Build Telegram-specific status response."""
-        status = {
-            "platform": self.bot_platform,
-            "enabled": self._is_bot_enabled(),
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return Telegram-specific config fields for status response."""
+        return {
             "token_configured": bool(TELEGRAM_BOT_TOKEN),
             "webhook_secret_configured": bool(TELEGRAM_WEBHOOK_SECRET),
             "webhook_token": (
                 TELEGRAM_WEBHOOK_TOKEN[:8] + "..." if TELEGRAM_WEBHOOK_TOKEN else None
             ),
         }
-        if extra_status:
-            status.update(extra_status)
-        return json_response(status)
 
     @rate_limit(requests_per_minute=60)
     async def handle(

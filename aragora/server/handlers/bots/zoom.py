@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import MaybeAsyncHandlerResult
@@ -76,21 +76,14 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         """Check if Zoom bot is configured."""
         return bool(ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET)
 
-    def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
-    ) -> HandlerResult:
-        """Build Zoom-specific status response."""
-        status = {
-            "platform": self.bot_platform,
-            "enabled": self._is_bot_enabled(),
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return Zoom-specific config fields for status response."""
+        return {
             "client_id_configured": bool(ZOOM_CLIENT_ID),
             "client_secret_configured": bool(ZOOM_CLIENT_SECRET),
             "bot_jid_configured": bool(ZOOM_BOT_JID),
             "secret_token_configured": bool(ZOOM_SECRET_TOKEN),
         }
-        if extra_status:
-            status.update(extra_status)
-        return json_response(status)
 
     def _ensure_bot(self) -> Any | None:
         """Lazily initialize the Zoom bot."""

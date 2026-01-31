@@ -24,7 +24,7 @@ import json
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import MaybeAsyncHandlerResult
@@ -207,19 +207,12 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         """Check if Discord bot is configured."""
         return bool(DISCORD_APPLICATION_ID)
 
-    def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
-    ) -> HandlerResult:
-        """Build Discord-specific status response."""
-        status = {
-            "platform": self.bot_platform,
-            "enabled": self._is_bot_enabled(),
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return Discord-specific config fields for status response."""
+        return {
             "application_id_configured": bool(DISCORD_APPLICATION_ID),
             "public_key_configured": bool(DISCORD_PUBLIC_KEY),
         }
-        if extra_status:
-            status.update(extra_status)
-        return json_response(status)
 
     @rate_limit(requests_per_minute=30)
     async def handle(

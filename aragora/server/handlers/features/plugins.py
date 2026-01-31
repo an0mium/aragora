@@ -250,6 +250,10 @@ class PluginsHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "plugins:write")
+        if perm_error:
+            return perm_error
+
         response: HandlerResult | None = None
 
         # Submit plugin: /api/v1/plugins/submit or /api/plugins/submit

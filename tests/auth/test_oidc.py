@@ -9,6 +9,8 @@ Tests cover:
 - Token exchange (mocked)
 - Discovery endpoint caching
 - Error handling
+- ID token validation with JWT
+- Security edge cases (insecure algorithms, production mode)
 """
 
 from __future__ import annotations
@@ -16,8 +18,10 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import secrets
 import time
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -40,6 +44,19 @@ def make_oidc_config(**kwargs) -> OIDCConfig:
     defaults = {"provider_type": SSOProviderType.OIDC}
     defaults.update(kwargs)
     return OIDCConfig(**defaults)
+
+
+def create_mock_http_pool():
+    """Create a mock HTTP pool for testing."""
+    mock_pool = MagicMock()
+    mock_client = AsyncMock()
+
+    @asynccontextmanager
+    async def mock_get_session(name):
+        yield mock_client
+
+    mock_pool.get_session = mock_get_session
+    return mock_pool, mock_client
 
 
 # ============================================================================
@@ -185,6 +202,88 @@ class TestOIDCConfig:
 
         assert config.provider_type == SSOProviderType.OIDC
 
+    def test_config_default_allowed_algorithms(self):
+        """Test that default allowed algorithms is RS256 only."""
+        config = make_oidc_config(
+            client_id="test",
+            client_secret="secret",
+            issuer_url="https://example.com",
+        )
+
+        assert config.allowed_algorithms == ["RS256"]
+
+    def test_config_validate_insecure_hs256_algorithm(self):
+        """Test validation fails for insecure HS256 algorithm."""
+        config = make_oidc_config(
+            client_id="test",
+            client_secret="secret",
+            issuer_url="https://example.com",
+            allowed_algorithms=["HS256"],
+        )
+
+        errors = config.validate()
+        assert any("HS256" in e and "insecure" in e for e in errors)
+
+    def test_config_validate_insecure_hs384_algorithm(self):
+        """Test validation fails for insecure HS384 algorithm."""
+        config = make_oidc_config(
+            client_id="test",
+            client_secret="secret",
+            issuer_url="https://example.com",
+            allowed_algorithms=["HS384"],
+        )
+
+        errors = config.validate()
+        assert any("HS384" in e and "insecure" in e for e in errors)
+
+    def test_config_validate_insecure_hs512_algorithm(self):
+        """Test validation fails for insecure HS512 algorithm."""
+        config = make_oidc_config(
+            client_id="test",
+            client_secret="secret",
+            issuer_url="https://example.com",
+            allowed_algorithms=["HS512"],
+        )
+
+        errors = config.validate()
+        assert any("HS512" in e and "insecure" in e for e in errors)
+
+    def test_config_validate_insecure_none_algorithm(self):
+        """Test validation fails for 'none' algorithm."""
+        config = make_oidc_config(
+            client_id="test",
+            client_secret="secret",
+            issuer_url="https://example.com",
+            allowed_algorithms=["none"],
+        )
+
+        errors = config.validate()
+        assert any("none" in e and "insecure" in e for e in errors)
+
+    def test_config_validate_secure_rs256_algorithm(self):
+        """Test validation passes for secure RS256 algorithm."""
+        config = make_oidc_config(
+            client_id="test",
+            client_secret="secret",
+            issuer_url="https://example.com",
+            allowed_algorithms=["RS256"],
+        )
+
+        errors = config.validate()
+        assert not any("RS256" in e for e in errors)
+
+    def test_config_validate_secure_es256_algorithm(self):
+        """Test validation passes for secure ES256 algorithm."""
+        config = make_oidc_config(
+            client_id="test",
+            client_secret="secret",
+            issuer_url="https://example.com",
+            allowed_algorithms=["ES256"],
+        )
+
+        errors = config.validate()
+        assert not any("ES256" in e for e in errors)
+
 
 # ============================================================================
 # OIDCProvider Tests
@@ -223,6 +322,22 @@ class TestOIDCProviderInitialization:
             OIDCProvider(config)
 
         assert "client_id" in str(exc_info.value)
+
+    def test_provider_initialization_with_insecure_algorithm_fails(self):
+        """Test provider raises error with insecure algorithm config."""
+        config = make_oidc_config(
+            client_id="test-client",
+            client_secret="test-secret",
+            issuer_url="https://login.example.com",
+            callback_url="https://app.example.com/callback",
+            entity_id="test-entity",
+            allowed_algorithms=["HS256"],  # Insecure!
+        )
+
+        with pytest.raises(SSOConfigurationError) as exc_info:
+            OIDCProvider(config)
+
+        assert "HS256" in str(exc_info.value) or "insecure" in str(exc_info.value).lower()
 
 
 # ============================================================================
@@ -402,6 +517,24 @@ class TestAuthorizationURL:
 
         assert "state=" in url
 
+    @pytest.mark.asyncio
+    async def test_authorization_url_azure_ad_response_mode(self):
+        """Test Azure AD specific response_mode parameter."""
+        config = make_oidc_config(
+            client_id="test-client",
+            client_secret="test-secret",
+            provider_type=SSOProviderType.AZURE_AD,
+            authorization_endpoint="https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+            token_endpoint="https://login.microsoftonline.com/tenant/oauth2/v2.0/token",
+            callback_url="https://app.example.com/callback",
+            entity_id="test-entity",
+        )
+        provider = OIDCProvider(config)
+
+        url = await provider.get_authorization_url(state="test-state")
+
+        assert "response_mode=query" in url
+
 
 # ============================================================================
 # Discovery Tests
@@ -433,51 +566,48 @@ class TestDiscovery:
             "jwks_uri": "https://login.example.com/.well-known/jwks.json",
         }
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = json.dumps(discovery_doc).encode()
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.json.return_value = discovery_doc
+        mock_response.raise_for_status = MagicMock()
+        mock_client.get.return_value = mock_response
 
-                result = await provider._discover_endpoints()
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider._discover_endpoints()
 
-                assert result["authorization_endpoint"] == "https://login.example.com/authorize"
-                assert result["token_endpoint"] == "https://login.example.com/token"
+            assert result["authorization_endpoint"] == "https://login.example.com/authorize"
+            assert result["token_endpoint"] == "https://login.example.com/token"
 
     @pytest.mark.asyncio
     async def test_discovery_caching(self, provider):
         """Test that discovery results are cached."""
         discovery_doc = {"authorization_endpoint": "https://example.com/auth"}
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = json.dumps(discovery_doc).encode()
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.json.return_value = discovery_doc
+        mock_response.raise_for_status = MagicMock()
+        mock_client.get.return_value = mock_response
 
-                # First call
-                await provider._discover_endpoints()
-                # Second call
-                await provider._discover_endpoints()
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            # First call
+            await provider._discover_endpoints()
+            # Second call
+            await provider._discover_endpoints()
 
-                # Should only fetch once
-                assert mock_urlopen.call_count == 1
+            # Should only fetch once due to caching
+            assert mock_client.get.call_count == 1
 
     @pytest.mark.asyncio
     async def test_discovery_failure_returns_empty(self, provider):
         """Test that discovery failure returns empty dict."""
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                # Use OSError which is what urllib raises on network errors
-                mock_urlopen.side_effect = OSError("Network error")
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_client.get.side_effect = OSError("Network error")
 
-                result = await provider._discover_endpoints()
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider._discover_endpoints()
 
-                assert result == {}
+            assert result == {}
 
     @pytest.mark.asyncio
     async def test_get_endpoint_prefers_config(self, provider):
@@ -487,6 +617,48 @@ class TestDiscovery:
         endpoint = await provider._get_endpoint("authorization_endpoint")
 
         assert endpoint == "https://config.example.com/auth"
+
+    @pytest.mark.asyncio
+    async def test_discovery_returns_empty_without_issuer(self):
+        """Test discovery returns empty when no issuer URL configured."""
+        config = make_oidc_config(
+            client_id="test-client",
+            client_secret="test-secret",
+            issuer_url="",  # No issuer
+            authorization_endpoint="https://example.com/authorize",
+            token_endpoint="https://example.com/token",
+            callback_url="https://app.example.com/callback",
+            entity_id="test-entity",
+        )
+        provider = OIDCProvider(config)
+
+        result = await provider._discover_endpoints()
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_discovery_handles_invalid_json(self, provider):
+        """Test discovery handles invalid JSON response gracefully."""
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        mock_client.get.return_value = mock_response
+
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider._discover_endpoints()
+
+            assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_discovery_handles_timeout(self, provider):
+        """Test discovery handles timeout errors gracefully."""
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_client.get.side_effect = TimeoutError("Request timed out")
+
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider._discover_endpoints()
+
+            assert result == {}
 
 
 # ============================================================================
@@ -571,7 +743,7 @@ class TestOIDCErrors:
 
 
 # ============================================================================
-# Token Validation Tests (Mocked)
+# Token Validation Tests
 # ============================================================================
 
 
@@ -607,6 +779,22 @@ class TestTokenValidation:
         )
 
         assert config.allowed_audiences == ["aud1", "aud2"]
+
+    @pytest.mark.asyncio
+    async def test_validate_id_token_no_jwks_uri_fails(self, provider_with_validation):
+        """Test ID token validation fails when JWKS URI is not available."""
+        # Clear jwks_uri from config
+        provider_with_validation.config.jwks_uri = ""
+
+        # Mock discovery to return no jwks_uri
+        async def mock_discovery():
+            return {}
+
+        with patch.object(provider_with_validation, "_discover_endpoints", mock_discovery):
+            with pytest.raises(SSOAuthenticationError) as exc_info:
+                await provider_with_validation._validate_id_token("fake.id.token")
+
+        assert "JWKS" in str(exc_info.value)
 
 
 # ============================================================================
@@ -736,66 +924,64 @@ class TestTokenExchange:
             "token_type": "Bearer",
         }
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = json.dumps(mock_tokens).encode()
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.json.return_value = mock_tokens
+        mock_response.raise_for_status = MagicMock()
+        mock_client.post.return_value = mock_response
 
-                tokens = await provider._exchange_code("auth-code", None)
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            tokens = await provider._exchange_code("auth-code", None)
 
-                assert tokens["access_token"] == "test-access-token"
-                assert tokens["refresh_token"] == "test-refresh-token"
+            assert tokens["access_token"] == "test-access-token"
+            assert tokens["refresh_token"] == "test-refresh-token"
 
     @pytest.mark.asyncio
     async def test_exchange_code_with_pkce_verifier(self, provider):
         """Test code exchange includes PKCE code verifier."""
         mock_tokens = {"access_token": "token", "expires_in": 3600}
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = json.dumps(mock_tokens).encode()
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.json.return_value = mock_tokens
+        mock_response.raise_for_status = MagicMock()
+        mock_client.post.return_value = mock_response
 
-                await provider._exchange_code("auth-code", "test-verifier")
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            await provider._exchange_code("auth-code", "test-verifier")
 
-                # Verify the request was made with code_verifier
-                call_args = mock_urlopen.call_args
-                request = call_args[0][0]
-                assert b"code_verifier=test-verifier" in request.data
+            # Verify the request was made with code_verifier
+            call_args = mock_client.post.call_args
+            assert call_args is not None
+            data = call_args.kwargs.get("data", {})
+            assert data.get("code_verifier") == "test-verifier"
 
     @pytest.mark.asyncio
     async def test_exchange_code_network_error(self, provider):
         """Test code exchange handles network errors."""
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_urlopen.side_effect = OSError("Connection refused")
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_client.post.side_effect = OSError("Connection refused")
 
-                with pytest.raises(SSOAuthenticationError) as exc_info:
-                    await provider._exchange_code("auth-code", None)
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            with pytest.raises(SSOAuthenticationError) as exc_info:
+                await provider._exchange_code("auth-code", None)
 
-                assert "network error" in str(exc_info.value).lower()
+            assert "network error" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
     async def test_exchange_code_invalid_json_response(self, provider):
         """Test code exchange handles invalid JSON response."""
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = b"not valid json"
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        mock_client.post.return_value = mock_response
 
-                with pytest.raises(SSOAuthenticationError) as exc_info:
-                    await provider._exchange_code("auth-code", None)
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            with pytest.raises(SSOAuthenticationError) as exc_info:
+                await provider._exchange_code("auth-code", None)
 
-                assert "invalid response" in str(exc_info.value).lower()
+            assert "invalid response" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
     async def test_exchange_code_no_token_endpoint(self):
@@ -822,6 +1008,18 @@ class TestTokenExchange:
                 await provider._exchange_code("auth-code", None)
 
             assert "token_endpoint" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_exchange_code_timeout_error(self, provider):
+        """Test code exchange handles timeout errors."""
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_client.post.side_effect = TimeoutError("Request timed out")
+
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            with pytest.raises(SSOAuthenticationError) as exc_info:
+                await provider._exchange_code("auth-code", None)
+
+            assert "network error" in str(exc_info.value).lower()
 
 
 # ============================================================================
@@ -886,28 +1084,28 @@ class TestAuthentication:
             "family_name": "User",
         }
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                # First call: token exchange, Second call: userinfo
-                mock_token_response = MagicMock()
-                mock_token_response.read.return_value = json.dumps(mock_tokens).encode()
-                mock_token_response.__enter__ = MagicMock(return_value=mock_token_response)
-                mock_token_response.__exit__ = MagicMock(return_value=False)
+        mock_pool, mock_client = create_mock_http_pool()
 
-                mock_userinfo_response = MagicMock()
-                mock_userinfo_response.read.return_value = json.dumps(mock_userinfo).encode()
-                mock_userinfo_response.__enter__ = MagicMock(return_value=mock_userinfo_response)
-                mock_userinfo_response.__exit__ = MagicMock(return_value=False)
+        # First call: token exchange, Second call: userinfo
+        mock_token_response = AsyncMock()
+        mock_token_response.json.return_value = mock_tokens
+        mock_token_response.raise_for_status = MagicMock()
 
-                mock_urlopen.side_effect = [mock_token_response, mock_userinfo_response]
+        mock_userinfo_response = AsyncMock()
+        mock_userinfo_response.json.return_value = mock_userinfo
+        mock_userinfo_response.raise_for_status = MagicMock()
 
-                user = await provider.authenticate(code="auth-code", state=state)
+        mock_client.post.return_value = mock_token_response
+        mock_client.get.return_value = mock_userinfo_response
 
-                assert user.id == "user-123"
-                assert user.email == "test@example.com"
-                assert user.name == "Test User"
-                assert user.first_name == "Test"
-                assert user.last_name == "User"
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            user = await provider.authenticate(code="auth-code", state=state)
+
+            assert user.id == "user-123"
+            assert user.email == "test@example.com"
+            assert user.name == "Test User"
+            assert user.first_name == "Test"
+            assert user.last_name == "User"
 
     @pytest.mark.asyncio
     async def test_authenticate_domain_restriction(self, provider):
@@ -923,24 +1121,24 @@ class TestAuthentication:
             "name": "Test",
         }
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_token_response = MagicMock()
-                mock_token_response.read.return_value = json.dumps(mock_tokens).encode()
-                mock_token_response.__enter__ = MagicMock(return_value=mock_token_response)
-                mock_token_response.__exit__ = MagicMock(return_value=False)
+        mock_pool, mock_client = create_mock_http_pool()
 
-                mock_userinfo_response = MagicMock()
-                mock_userinfo_response.read.return_value = json.dumps(mock_userinfo).encode()
-                mock_userinfo_response.__enter__ = MagicMock(return_value=mock_userinfo_response)
-                mock_userinfo_response.__exit__ = MagicMock(return_value=False)
+        mock_token_response = AsyncMock()
+        mock_token_response.json.return_value = mock_tokens
+        mock_token_response.raise_for_status = MagicMock()
 
-                mock_urlopen.side_effect = [mock_token_response, mock_userinfo_response]
+        mock_userinfo_response = AsyncMock()
+        mock_userinfo_response.json.return_value = mock_userinfo
+        mock_userinfo_response.raise_for_status = MagicMock()
 
-                with pytest.raises(SSOAuthenticationError) as exc_info:
-                    await provider.authenticate(code="auth-code", state=state)
+        mock_client.post.return_value = mock_token_response
+        mock_client.get.return_value = mock_userinfo_response
 
-                assert "domain not allowed" in str(exc_info.value).lower()
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            with pytest.raises(SSOAuthenticationError) as exc_info:
+                await provider.authenticate(code="auth-code", state=state)
+
+            assert "domain not allowed" in str(exc_info.value).lower()
 
 
 # ============================================================================
@@ -975,45 +1173,43 @@ class TestUserInfoRetrieval:
             "name": "John Doe",
         }
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = json.dumps(mock_userinfo).encode()
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.json.return_value = mock_userinfo
+        mock_response.raise_for_status = MagicMock()
+        mock_client.get.return_value = mock_response
 
-                result = await provider._fetch_userinfo("access-token")
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider._fetch_userinfo("access-token")
 
-                assert result["sub"] == "user-456"
-                assert result["email"] == "user@example.com"
+            assert result["sub"] == "user-456"
+            assert result["email"] == "user@example.com"
 
     @pytest.mark.asyncio
     async def test_fetch_userinfo_network_error(self, provider):
         """Test userinfo fetch handles network errors gracefully."""
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_urlopen.side_effect = OSError("Network error")
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_client.get.side_effect = OSError("Network error")
 
-                result = await provider._fetch_userinfo("access-token")
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider._fetch_userinfo("access-token")
 
-                # Should return empty dict on error, not raise
-                assert result == {}
+            # Should return empty dict on error, not raise
+            assert result == {}
 
     @pytest.mark.asyncio
     async def test_fetch_userinfo_invalid_json(self, provider):
         """Test userinfo fetch handles invalid JSON gracefully."""
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = b"invalid json"
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        mock_client.get.return_value = mock_response
 
-                result = await provider._fetch_userinfo("access-token")
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider._fetch_userinfo("access-token")
 
-                assert result == {}
+            assert result == {}
 
     @pytest.mark.asyncio
     async def test_fetch_userinfo_no_endpoint(self):
@@ -1162,22 +1358,21 @@ class TestTokenRefresh:
             "expires_in": 7200,
         }
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = json.dumps(mock_tokens).encode()
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.json.return_value = mock_tokens
+        mock_response.raise_for_status = MagicMock()
+        mock_client.post.return_value = mock_response
 
-                refreshed_user = await provider.refresh_token(original_user)
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            refreshed_user = await provider.refresh_token(original_user)
 
-                assert refreshed_user is not None
-                assert refreshed_user.access_token == "new-access-token"
-                assert refreshed_user.refresh_token == "new-refresh-token"
-                # User info should be preserved
-                assert refreshed_user.id == "user-123"
-                assert refreshed_user.email == "user@example.com"
+            assert refreshed_user is not None
+            assert refreshed_user.access_token == "new-access-token"
+            assert refreshed_user.refresh_token == "new-refresh-token"
+            # User info should be preserved
+            assert refreshed_user.id == "user-123"
+            assert refreshed_user.email == "user@example.com"
 
     @pytest.mark.asyncio
     async def test_refresh_token_no_refresh_token(self, provider):
@@ -1205,13 +1400,13 @@ class TestTokenRefresh:
             refresh_token="some-refresh-token",
         )
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_urlopen.side_effect = OSError("Network error")
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_client.post.side_effect = OSError("Network error")
 
-                result = await provider.refresh_token(user)
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider.refresh_token(user)
 
-                assert result is None
+            assert result is None
 
     @pytest.mark.asyncio
     async def test_refresh_token_invalid_response(self, provider):
@@ -1224,17 +1419,16 @@ class TestTokenRefresh:
             refresh_token="some-refresh-token",
         )
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = b"not json"
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        mock_client.post.return_value = mock_response
 
-                result = await provider.refresh_token(user)
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            result = await provider.refresh_token(user)
 
-                assert result is None
+            assert result is None
 
     @pytest.mark.asyncio
     async def test_refresh_token_preserves_original_refresh_token(self, provider):
@@ -1253,17 +1447,16 @@ class TestTokenRefresh:
             "expires_in": 3600,
         }
 
-        with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen") as mock_urlopen:
-                mock_response = MagicMock()
-                mock_response.read.return_value = json.dumps(mock_tokens).encode()
-                mock_response.__enter__ = MagicMock(return_value=mock_response)
-                mock_response.__exit__ = MagicMock(return_value=False)
-                mock_urlopen.return_value = mock_response
+        mock_pool, mock_client = create_mock_http_pool()
+        mock_response = AsyncMock()
+        mock_response.json.return_value = mock_tokens
+        mock_response.raise_for_status = MagicMock()
+        mock_client.post.return_value = mock_response
 
-                refreshed_user = await provider.refresh_token(user)
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            refreshed_user = await provider.refresh_token(user)
 
-                assert refreshed_user.refresh_token == "original-refresh-token"
+            assert refreshed_user.refresh_token == "original-refresh-token"
 
 
 # ============================================================================
@@ -1419,3 +1612,275 @@ class TestProviderSpecificConfigs:
         )
 
         assert config.hd == "example.com"
+
+
+# ============================================================================
+# Production Mode Security Tests
+# ============================================================================
+
+
+class TestProductionModeChecks:
+    """Tests for production mode security checks."""
+
+    def test_is_production_mode_defaults_to_production(self):
+        """Test that production mode defaults to True (secure by default)."""
+        from aragora.auth.oidc import _is_production_mode
+
+        # Clear any environment variable
+        with patch.dict(os.environ, {}, clear=True):
+            # Without ARAGORA_ENV set, should default to production
+            assert _is_production_mode() is True
+
+    def test_is_production_mode_in_development(self):
+        """Test that development environment is detected."""
+        from aragora.auth.oidc import _is_production_mode
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "development"}):
+            assert _is_production_mode() is False
+
+    def test_is_production_mode_in_test(self):
+        """Test that test environment is detected."""
+        from aragora.auth.oidc import _is_production_mode
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "test"}):
+            assert _is_production_mode() is False
+
+    def test_is_production_mode_in_local(self):
+        """Test that local environment is detected."""
+        from aragora.auth.oidc import _is_production_mode
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "local"}):
+            assert _is_production_mode() is False
+
+    def test_dev_auth_fallback_disabled_in_production(self):
+        """Test that dev auth fallback is disabled in production."""
+        from aragora.auth.oidc import _allow_dev_auth_fallback
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "production"}):
+            assert _allow_dev_auth_fallback() is False
+
+    def test_dev_auth_fallback_requires_explicit_flag_in_dev(self):
+        """Test that dev auth fallback requires explicit flag even in dev mode."""
+        from aragora.auth.oidc import _allow_dev_auth_fallback
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "development"}):
+            # Without explicit flag, should still be disabled
+            assert _allow_dev_auth_fallback() is False
+
+    def test_dev_auth_fallback_enabled_with_explicit_flag(self):
+        """Test that dev auth fallback is enabled with explicit flag in dev mode."""
+        from aragora.auth.oidc import _allow_dev_auth_fallback
+
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_ENV": "development",
+                "ARAGORA_ALLOW_DEV_AUTH_FALLBACK": "1",
+            },
+        ):
+            assert _allow_dev_auth_fallback() is True
+
+
+# ============================================================================
+# ID Token Validation with JWT Tests
+# ============================================================================
+
+
+class TestIDTokenValidationWithJWT:
+    """Tests for ID token validation using JWT library."""
+
+    @pytest.fixture
+    def provider_with_jwks(self):
+        """Create provider with JWKS configured."""
+        config = make_oidc_config(
+            client_id="test-client",
+            client_secret="test-secret",
+            issuer_url="https://login.example.com",
+            authorization_endpoint="https://login.example.com/authorize",
+            token_endpoint="https://login.example.com/token",
+            jwks_uri="https://login.example.com/.well-known/jwks.json",
+            callback_url="https://app.example.com/callback",
+            entity_id="test-entity",
+        )
+        return OIDCProvider(config)
+
+    @pytest.mark.asyncio
+    async def test_validate_id_token_with_valid_token(self, provider_with_jwks):
+        """Test ID token validation with valid token succeeds."""
+        import jwt
+
+        expected_claims = {
+            "sub": "user-123",
+            "email": "test@example.com",
+            "name": "Test User",
+            "iss": "https://login.example.com",
+            "aud": "test-client",
+            "exp": int(time.time()) + 3600,
+            "iat": int(time.time()),
+        }
+
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = "test-key"
+
+        mock_jwks_client = MagicMock()
+        mock_jwks_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+        with patch.object(provider_with_jwks, "_jwks_client", mock_jwks_client):
+            with patch("jwt.decode", return_value=expected_claims):
+                result = await provider_with_jwks._validate_id_token("fake.id.token")
+
+                assert result["sub"] == "user-123"
+                assert result["email"] == "test@example.com"
+
+    @pytest.mark.asyncio
+    async def test_validate_id_token_expired_token_fails(self, provider_with_jwks):
+        """Test ID token validation fails for expired token."""
+        import jwt.exceptions
+
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = "test-key"
+
+        mock_jwks_client = MagicMock()
+        mock_jwks_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+        with patch.object(provider_with_jwks, "_jwks_client", mock_jwks_client):
+            with patch(
+                "jwt.decode", side_effect=jwt.exceptions.ExpiredSignatureError("Token expired")
+            ):
+                with pytest.raises(jwt.exceptions.ExpiredSignatureError):
+                    await provider_with_jwks._validate_id_token("expired.id.token")
+
+    @pytest.mark.asyncio
+    async def test_validate_id_token_invalid_signature_fails(self, provider_with_jwks):
+        """Test ID token validation fails for invalid signature."""
+        import jwt.exceptions
+
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = "test-key"
+
+        mock_jwks_client = MagicMock()
+        mock_jwks_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+        with patch.object(provider_with_jwks, "_jwks_client", mock_jwks_client):
+            with patch(
+                "jwt.decode",
+                side_effect=jwt.exceptions.InvalidSignatureError("Signature verification failed"),
+            ):
+                with pytest.raises(jwt.exceptions.InvalidSignatureError):
+                    await provider_with_jwks._validate_id_token("invalid.signature.token")
+
+    @pytest.mark.asyncio
+    async def test_validate_id_token_invalid_audience_fails(self, provider_with_jwks):
+        """Test ID token validation fails for invalid audience."""
+        import jwt.exceptions
+
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = "test-key"
+
+        mock_jwks_client = MagicMock()
+        mock_jwks_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+        with patch.object(provider_with_jwks, "_jwks_client", mock_jwks_client):
+            with patch(
+                "jwt.decode", side_effect=jwt.exceptions.InvalidAudienceError("Invalid audience")
+            ):
+                with pytest.raises(jwt.exceptions.InvalidAudienceError):
+                    await provider_with_jwks._validate_id_token("wrong.audience.token")
+
+    @pytest.mark.asyncio
+    async def test_validate_id_token_invalid_issuer_fails(self, provider_with_jwks):
+        """Test ID token validation fails for invalid issuer."""
+        import jwt.exceptions
+
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = "test-key"
+
+        mock_jwks_client = MagicMock()
+        mock_jwks_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+        with patch.object(provider_with_jwks, "_jwks_client", mock_jwks_client):
+            with patch(
+                "jwt.decode", side_effect=jwt.exceptions.InvalidIssuerError("Invalid issuer")
+            ):
+                with pytest.raises(jwt.exceptions.InvalidIssuerError):
+                    await provider_with_jwks._validate_id_token("wrong.issuer.token")
+
+
+# ============================================================================
+# Claim Extraction Edge Cases
+# ============================================================================
+
+
+class TestClaimExtractionEdgeCases:
+    """Tests for edge cases in claim extraction."""
+
+    @pytest.fixture
+    def provider(self):
+        """Create provider for testing."""
+        config = make_oidc_config(
+            client_id="test-client",
+            client_secret="test-secret",
+            issuer_url="https://example.com",
+            callback_url="https://app.example.com/callback",
+            entity_id="test-entity",
+        )
+        return OIDCProvider(config)
+
+    def test_extract_list_claim_from_list(self, provider):
+        """Test extracting list claim when value is a list."""
+        claims = {"roles": ["admin", "user"]}
+        result = provider._extract_list_claim(claims, "roles", provider.config.claim_mapping)
+        assert result == ["admin", "user"]
+
+    def test_extract_list_claim_from_string(self, provider):
+        """Test extracting list claim when value is a string."""
+        claims = {"roles": "admin"}
+        result = provider._extract_list_claim(claims, "roles", provider.config.claim_mapping)
+        assert result == ["admin"]
+
+    def test_extract_list_claim_missing_key(self, provider):
+        """Test extracting list claim when key is missing."""
+        claims = {}
+        result = provider._extract_list_claim(claims, "roles", provider.config.claim_mapping)
+        assert result == []
+
+    def test_find_claim_key_with_mapping(self, provider):
+        """Test finding claim key with custom mapping."""
+        claims = {"sub": "user-123"}
+        mapping = {"sub": "id"}
+        result = provider._find_claim_key(claims, "id", mapping)
+        assert result == "sub"
+
+    def test_find_claim_key_without_mapping(self, provider):
+        """Test finding claim key falls back to direct key."""
+        claims = {"email": "user@example.com"}
+        mapping = {}
+        result = provider._find_claim_key(claims, "email", mapping)
+        assert result == "email"
+
+    def test_claims_to_user_with_string_roles(self, provider):
+        """Test claim mapping when roles is a single string."""
+        claims = {
+            "sub": "user-id",
+            "email": "user@example.com",
+            "roles": "admin",  # Single string, not list
+        }
+        tokens = {"access_token": "token", "expires_in": 3600}
+
+        user = provider._claims_to_user(claims, tokens)
+
+        assert "admin" in user.roles
+
+    def test_claims_to_user_missing_optional_fields(self, provider):
+        """Test claim mapping with missing optional fields."""
+        claims = {
+            "sub": "user-id",
+            # Only required fields, missing email, name, etc.
+        }
+        tokens = {"access_token": "token", "expires_in": 3600}
+
+        user = provider._claims_to_user(claims, tokens)
+
+        assert user.id == "user-id"
+        assert user.email == ""
+        assert user.name == ""

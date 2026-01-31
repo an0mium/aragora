@@ -20,7 +20,7 @@ import hmac
 import hashlib
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
@@ -103,21 +103,14 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         """Check if WhatsApp bot is configured."""
         return bool(WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID)
 
-    def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
-    ) -> HandlerResult:
-        """Build WhatsApp-specific status response."""
-        status = {
-            "platform": self.bot_platform,
-            "enabled": self._is_bot_enabled(),
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return WhatsApp-specific config fields for status response."""
+        return {
             "access_token_configured": bool(WHATSAPP_ACCESS_TOKEN),
             "phone_number_configured": bool(WHATSAPP_PHONE_NUMBER_ID),
             "verify_token_configured": bool(WHATSAPP_VERIFY_TOKEN),
             "app_secret_configured": bool(WHATSAPP_APP_SECRET),
         }
-        if extra_status:
-            status.update(extra_status)
-        return json_response(status)
 
     @rate_limit(requests_per_minute=60)
     async def handle(

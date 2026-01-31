@@ -77,6 +77,10 @@ class TestCommitPhaseExecution:
         )
 
         with patch("subprocess.run") as mock_run:
+            # Mock git diff --name-only (for _get_changed_files)
+            mock_diff_name = MagicMock()
+            mock_diff_name.returncode = 0
+            mock_diff_name.stdout = "file.py"
             # Mock git add
             mock_add = MagicMock()
             mock_add.returncode = 0
@@ -94,7 +98,13 @@ class TestCommitPhaseExecution:
             mock_stat.returncode = 0
             mock_stat.stdout = "file.py | 5 +++--"
 
-            mock_run.side_effect = [mock_add, mock_commit, mock_rev_parse, mock_stat]
+            mock_run.side_effect = [
+                mock_diff_name,
+                mock_add,
+                mock_commit,
+                mock_rev_parse,
+                mock_stat,
+            ]
 
             result = await phase.execute("Test improvement")
 

@@ -153,7 +153,8 @@ class BotHandlerMixin:
     ) -> HandlerResult:
         """Build the status response JSON.
 
-        Override this method to customize status response per bot.
+        Combines base status fields with platform-specific config from
+        _get_platform_config_status() and any extra_status provided.
 
         Args:
             extra_status: Additional fields to include.
@@ -165,9 +166,29 @@ class BotHandlerMixin:
             "platform": self.bot_platform,
             "enabled": self._is_bot_enabled(),
         }
+        # Add platform-specific config fields (override _get_platform_config_status)
+        status.update(self._get_platform_config_status())
         if extra_status:
             status.update(extra_status)
         return json_response(status)
+
+    def _get_platform_config_status(self) -> dict[str, Any]:
+        """Return platform-specific config fields for status response.
+
+        Override this method to add platform-specific fields instead of
+        overriding _build_status_response entirely.
+
+        Example:
+            def _get_platform_config_status(self) -> dict[str, Any]:
+                return {
+                    "token_configured": bool(MY_TOKEN),
+                    "webhook_configured": bool(MY_WEBHOOK_SECRET),
+                }
+
+        Returns:
+            Dict of platform-specific status fields.
+        """
+        return {}
 
     def _is_bot_enabled(self) -> bool:
         """Check if this bot integration is enabled.

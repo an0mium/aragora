@@ -729,16 +729,14 @@ class TestProtocolDefinitions:
             async def cleanup(self) -> None:
                 pass
 
-            async def __aenter__(self) -> "MockLifecycleManager":
-                return self
+            async def cancel_arena_tasks(self) -> None:
+                pass
 
-            async def __aexit__(
-                self,
-                exc_type: type[BaseException] | None,
-                exc_val: BaseException | None,
-                exc_tb: Any,
-            ) -> bool | None:
-                return None
+            def clear_cache(self) -> None:
+                pass
+
+            def track_circuit_breaker_metrics(self) -> None:
+                pass
 
         mock = MockLifecycleManager()
         assert isinstance(mock, LifecycleManagerProtocol)

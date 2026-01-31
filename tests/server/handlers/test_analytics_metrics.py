@@ -29,7 +29,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.analytics_metrics import (
+from aragora.server.handlers.analytics import (
     AnalyticsMetricsHandler,
     VALID_GRANULARITIES,
     VALID_TIME_RANGES,
@@ -417,7 +417,7 @@ class TestRateLimiting:
 
     async def test_rate_limit_exceeded_returns_429(self, handler, mock_http_handler):
         """Rate limit exceeded returns 429."""
-        from aragora.server.handlers.analytics_metrics import _analytics_metrics_limiter
+        from aragora.server.handlers.analytics import _analytics_metrics_limiter
 
         # Mock rate limiter to deny requests
         with patch.object(_analytics_metrics_limiter, "is_allowed", return_value=False):
@@ -1008,7 +1008,7 @@ class TestAnalyticsMetricsIntegration:
         """Full handle flow for debates overview."""
         handler.ctx["storage"] = mock_storage
 
-        from aragora.server.handlers.analytics_metrics import _analytics_metrics_limiter
+        from aragora.server.handlers.analytics import _analytics_metrics_limiter
 
         with patch.object(_analytics_metrics_limiter, "is_allowed", return_value=True):
             with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
@@ -1030,7 +1030,7 @@ class TestAnalyticsMetricsIntegration:
         """Full handle flow for agent performance."""
         handler.ctx["elo_system"] = mock_elo_system
 
-        from aragora.server.handlers.analytics_metrics import _analytics_metrics_limiter
+        from aragora.server.handlers.analytics import _analytics_metrics_limiter
 
         with patch.object(_analytics_metrics_limiter, "is_allowed", return_value=True):
             with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
@@ -1050,7 +1050,7 @@ class TestAnalyticsMetricsIntegration:
         self, handler, mock_http_handler, mock_auth_context
     ):
         """Handle returns None for paths not handled."""
-        from aragora.server.handlers.analytics_metrics import _analytics_metrics_limiter
+        from aragora.server.handlers.analytics import _analytics_metrics_limiter
 
         with patch.object(_analytics_metrics_limiter, "is_allowed", return_value=True):
             with patch.object(handler, "get_auth_context", return_value=mock_auth_context):
