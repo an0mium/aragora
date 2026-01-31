@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Database health check implementations.
 
@@ -11,14 +10,25 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
 
-def database_schema_health(handler) -> HandlerResult:
+@runtime_checkable
+class _HealthHandlerProtocol(Protocol):
+    """Protocol for handlers used by database health checks."""
+
+    ctx: dict[str, Any]
+
+    def get_storage(self) -> Any: ...
+    def get_elo_system(self) -> Any: ...
+    def get_nomic_dir(self) -> Any: ...
+
+
+def database_schema_health(handler: _HealthHandlerProtocol) -> HandlerResult:
     """Check health of consolidated database schema.
 
     Validates that all required tables exist in consolidated databases:
@@ -57,7 +67,7 @@ def database_schema_health(handler) -> HandlerResult:
         )
 
 
-def database_stores_health(handler) -> HandlerResult:
+def database_stores_health(handler: _HealthHandlerProtocol) -> HandlerResult:
     """Check health of all database stores.
 
     Returns detailed status for each database store:

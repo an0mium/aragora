@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Health handler package.
 
@@ -27,13 +26,17 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from ...base import (
     HandlerResult,
     error_response,
 )
-from ...secure import SecureHandler, ForbiddenError, UnauthorizedError
+from ...secure import SecureHandler
+from ...utils.auth import ForbiddenError, UnauthorizedError
+
+if TYPE_CHECKING:
+    from aragora.ops.deployment_validator import ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +51,7 @@ _HEALTH_CACHE_TTL_DETAILED = 2.0  # seconds for detailed health checks
 _HEALTH_CACHE_TIMESTAMPS: dict[str, float] = {}
 
 
-def _get_cached_health(key: str) -> Optional[dict[str, Any]]:
+def _get_cached_health(key: str) -> dict[str, Any] | None:
     """Get cached health result if still valid."""
     if key in _HEALTH_CACHE:
         cached_time = _HEALTH_CACHE_TIMESTAMPS.get(key, 0)
@@ -227,7 +230,7 @@ class HealthHandler(SecureHandler):
         return decay_health(self)
 
     def _cross_pollination_health(self) -> HandlerResult:
-        return cross_pollination_health(self)
+        return cross_pollination_health(self)  # type: ignore[arg-type]
 
     def _startup_health(self) -> HandlerResult:
         return startup_health(self)
@@ -241,7 +244,7 @@ class HealthHandler(SecureHandler):
     def _deployment_diagnostics(self) -> HandlerResult:
         return deployment_diagnostics(self)
 
-    def _generate_checklist(self, result) -> dict[str, Any]:
+    def _generate_checklist(self, result: "ValidationResult") -> dict[str, Any]:
         from .diagnostics import _generate_checklist
 
         return _generate_checklist(result)

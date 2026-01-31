@@ -272,32 +272,69 @@ class ContextPhase:
 
     def _build_explore_prompt(self) -> str:
         """Build the codebase exploration prompt."""
-        return f"""Explore the aragora codebase and provide a comprehensive summary of EXISTING features.
+        return f"""Explore the aragora codebase and provide a COMPREHENSIVE FEATURE INVENTORY.
 
 Working directory: {self.aragora_path}
 
 Your task:
-1. Read key files: aragora/__init__.py, aragora/debate/orchestrator.py, aragora/server/stream.py
-2. List ALL existing major features and capabilities
-3. Note any features related to: streaming, real-time, visualization, spectator mode, WebSocket
-4. Identify the project's current architecture and patterns
+1. Read key files: CLAUDE.md, aragora/__init__.py, aragora/debate/orchestrator.py, aragora/server/unified_server.py
+2. Read module indexes: aragora/debate/__init__.py, aragora/memory/__init__.py, aragora/knowledge/__init__.py
+3. List ALL existing features with their implementation locations
+4. Be EXHAUSTIVE - any feature you miss may be accidentally proposed for recreation
 
-Output format:
-## EXISTING FEATURES (DO NOT RECREATE)
-- Feature 1: description
-- Feature 2: description
-...
+Output format (FOLLOW EXACTLY):
 
-## ARCHITECTURE OVERVIEW
-Brief description of how the system is organized.
+## FEATURE INVENTORY (CANONICAL - DO NOT RECREATE ANY OF THESE)
 
-## RECENT FOCUS AREAS
-What has been worked on recently (from git log).
+### Core Debate Engine
+| Feature | Module | Status | Key Classes |
+|---------|--------|--------|-------------|
+| (feature name) | aragora/debate/... | IMPLEMENTED | ClassName |
 
-## GAPS AND OPPORTUNITIES
-What's genuinely missing (not already implemented).
+### Memory & Learning
+| Feature | Module | Status | Key Classes |
+|---------|--------|--------|-------------|
 
-CRITICAL: Be thorough. Features you miss here may be accidentally proposed for recreation."""
+### Knowledge Management
+| Feature | Module | Status | Key Classes |
+|---------|--------|--------|-------------|
+
+### API & Streaming
+| Feature | Module | Status | Key Classes |
+|---------|--------|--------|-------------|
+
+### Integrations & Connectors
+| Feature | Module | Status | Key Classes |
+|---------|--------|--------|-------------|
+
+### Enterprise & Security
+| Feature | Module | Status | Key Classes |
+|---------|--------|--------|-------------|
+
+### Self-Improvement (Nomic)
+| Feature | Module | Status | Key Classes |
+|---------|--------|--------|-------------|
+
+## ARCHITECTURE PATTERNS
+- List the main design patterns used (e.g., mixin-based handlers, adapter pattern for KM)
+
+## IMPLEMENTATION DENSITY BY AREA
+(Estimate: fully implemented, partially implemented, stub only)
+- Debate: X%
+- Memory: X%
+- Knowledge: X%
+- API: X%
+- Integrations: X%
+
+## GENUINE GAPS (truly missing, not variations of existing features)
+Only list features that have NO existing implementation or close variant.
+DO NOT list features that are already implemented under different names.
+
+CRITICAL RULES:
+1. If in doubt whether something exists, assume IT EXISTS and look harder
+2. Check for alternative names (e.g., "spectator mode" might be "read-only view")
+3. Check for partial implementations (e.g., WebSocket streaming exists even if not fully featured)
+4. NEVER propose something that could be a configuration change to existing code"""
 
     async def _gather_with_agent(self, agent: Any, name: str, harness: str) -> tuple[str, str, str]:
         """Run exploration with one agent."""

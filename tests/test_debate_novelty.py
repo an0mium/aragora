@@ -19,6 +19,8 @@ from aragora.debate.novelty import (
     NoveltyScore,
     NoveltyResult,
     NoveltyTracker,
+    CodebaseNoveltyChecker,
+    CodebaseNoveltyResult,
 )
 
 
@@ -453,3 +455,171 @@ class TestLowNoveltyDetection:
 
         # 0.4 < 0.5 threshold, should be flagged
         assert "a1" in result.low_novelty_agents
+
+
+# ============================================================================
+# Codebase Novelty Checker Tests
+# ============================================================================
+
+
+class TestCodebaseNoveltyChecker:
+    """Tests for CodebaseNoveltyChecker - validates proposals against codebase features."""
+
+    @pytest.fixture
+    def sample_context(self):
+        """Sample codebase context with feature inventory."""
+        return """
+## FEATURE INVENTORY
+
+### Core Debate Engine
+| Feature | Module | Status |
+|---------|--------|--------|
+| WebSocket Streaming | aragora/server/stream | IMPLEMENTED |
+| ELO Rankings | aragora/ranking/elo | IMPLEMENTED |
+| Consensus Detection | aragora/debate/consensus | IMPLEMENTED |
+| Convergence Detection | aragora/debate/convergence | IMPLEMENTED |
+
+### Memory
+- ContinuumMemory: Multi-tier memory system with fast/medium/slow/glacial tiers
+- MemoryCoordinator: Atomic cross-system memory writes
+
+### API
+- REST API: 461 endpoints
+- WebSocket: 22 streams
+"""
+
+    @pytest.fixture
+    def checker(self, sample_context, mock_backend):
+        """Create checker with mocked backend."""
+        return CodebaseNoveltyChecker(sample_context, backend=mock_backend)
+
+    def test_init_extracts_features(self, sample_context, mock_backend):
+        """Test that checker extracts features from context."""
+        checker = CodebaseNoveltyChecker(sample_context, backend=mock_backend)
+        # Should extract table rows + bullet points
+        assert len(checker.features) > 0
+
+    def test_check_proposal_novel(self, checker, mock_backend):
+        """Test checking a novel proposal."""
+        mock_backend.compute_similarity.return_value = 0.3  # Low similarity
+
+        result = checker.check_proposal(
+            "Add quantum computing support",
+            agent="agent-1",
+        )
+
+        assert result.is_novel is True
+        assert result.max_similarity < 0.65
+        assert result.warning is None
+
+    def test_check_proposal_duplicate(self, checker, mock_backend):
+        """Test checking a duplicate proposal."""
+        mock_backend.compute_similarity.return_value = 0.8  # High similarity
+
+        result = checker.check_proposal(
+            "Add WebSocket streaming for real-time updates",
+            agent="agent-1",
+        )
+
+        assert result.is_novel is False
+        assert result.max_similarity >= 0.65
+        assert result.warning is not None
+        assert "WebSocket" in result.warning or "duplicate" in result.warning.lower()
+
+    def test_check_proposal_direct_name_match(self, sample_context, mock_backend):
+        """Test that direct feature name matches boost similarity."""
+        # Even with low backend similarity, name match should flag
+        mock_backend.compute_similarity.return_value = 0.4
+        checker = CodebaseNoveltyChecker(sample_context, backend=mock_backend)
+
+        result = checker.check_proposal(
+            "Implement ELO Rankings for agents",
+            agent="agent-1",
+        )
+
+        # Name match should boost to at least 0.7
+        assert result.max_similarity >= 0.7
+        assert result.is_novel is False
+
+    def test_check_proposals_batch(self, sample_context, mock_backend):
+        """Test batch checking of proposals."""
+
+        # Use a function that returns different values based on input
+        def similarity_fn(proposal, feature):
+            if "WebSocket" in proposal:
+                return 0.8  # High similarity for WebSocket proposal
+            return 0.3  # Low similarity for novel proposal
+
+        mock_backend.compute_similarity.side_effect = similarity_fn
+        checker = CodebaseNoveltyChecker(sample_context, backend=mock_backend)
+
+        results = checker.check_proposals(
+            {
+                "agent-1": "Novel quantum proposal",
+                "agent-2": "Add WebSocket streaming",
+            }
+        )
+
+        assert "agent-1" in results
+        assert "agent-2" in results
+        assert results["agent-1"].is_novel
+        assert not results["agent-2"].is_novel
+
+    def test_get_non_novel_proposals(self, sample_context, mock_backend):
+        """Test getting only non-novel proposals."""
+
+        def similarity_fn(proposal, feature):
+            if "WebSocket" in proposal:
+                return 0.8
+            return 0.2
+
+        mock_backend.compute_similarity.side_effect = similarity_fn
+        checker = CodebaseNoveltyChecker(sample_context, backend=mock_backend)
+
+        non_novel = checker.get_non_novel_proposals(
+            {
+                "agent-1": "Novel idea about databases",
+                "agent-2": "WebSocket streaming feature",
+            }
+        )
+
+        assert len(non_novel) == 1
+        assert non_novel[0].agent == "agent-2"
+
+    def test_result_to_dict(self, checker, mock_backend):
+        """Test CodebaseNoveltyResult.to_dict()."""
+        mock_backend.compute_similarity.return_value = 0.8
+
+        result = checker.check_proposal("WebSocket streaming", "agent-1")
+        d = result.to_dict()
+
+        assert "agent" in d
+        assert "is_novel" in d
+        assert "max_similarity" in d
+        assert d["agent"] == "agent-1"
+        assert d["is_novel"] is False
+
+    def test_empty_context(self, mock_backend):
+        """Test checker with empty context."""
+        checker = CodebaseNoveltyChecker("", backend=mock_backend)
+
+        result = checker.check_proposal("Any proposal", "agent-1")
+
+        # Should pass if no features to compare against
+        assert result.is_novel is True
+        assert "No codebase features" in (result.warning or "")
+
+    def test_custom_threshold(self, sample_context, mock_backend):
+        """Test custom novelty threshold."""
+        mock_backend.compute_similarity.return_value = 0.5
+
+        # Lower threshold - 0.5 is now considered non-novel
+        checker = CodebaseNoveltyChecker(
+            sample_context,
+            backend=mock_backend,
+            novelty_threshold=0.4,
+        )
+
+        result = checker.check_proposal("Some proposal", "agent-1")
+
+        assert result.is_novel is False  # 0.5 >= 0.4 threshold

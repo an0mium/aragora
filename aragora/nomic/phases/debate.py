@@ -15,8 +15,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+import logging
+
 from aragora.config.settings import DebateSettings
+from aragora.debate.novelty import CodebaseNoveltyChecker
 from . import DebateResult
+
+logger = logging.getLogger(__name__)
 
 
 def _default_rounds() -> int:
@@ -119,11 +124,26 @@ class PostDebateHooks:
     on_belief_network_built: Callable | None = None
 
 
-SAFETY_PREAMBLE = """SAFETY RULES:
-1. Propose ADDITIONS, not removals
-2. Build new capabilities, don't simplify existing ones
-3. Check codebase analysis - if a feature exists, don't propose it
-4. Learn from previous failures shown below"""
+SAFETY_PREAMBLE = """MANDATORY SAFETY RULES (VIOLATION = PROPOSAL REJECTION):
+
+1. EXISTENCE CHECK REQUIRED: Before proposing ANY feature, you MUST verify it doesn't exist:
+   - Search the FEATURE INVENTORY tables below
+   - Check for alternative names (e.g., "spectator mode" = "read-only access", "live view" = "websocket streaming")
+   - Check for partial implementations that could be extended instead
+
+2. Propose ADDITIONS, not removals or simplifications
+   - Build on top of existing capabilities
+   - Extend, don't replace
+
+3. If a feature MIGHT exist (even partially), DO NOT propose it
+   - When in doubt, propose something else
+   - Configuration changes to existing features are NOT new features
+
+4. Learn from failures below - similar proposals have been rejected before
+
+5. Your proposal MUST include:
+   - "Existence Check: I searched for [X, Y, Z alternatives] and found: [nothing / partial in module X]"
+   - This proves you checked before proposing"""
 
 
 class DebatePhase:
@@ -538,6 +558,33 @@ class DebatePhase:
         # Run debate
         result = await self._run_debate(arena)
 
+        # Validate final answer against codebase features
+        codebase_novelty_warning = None
+        if result.final_answer and codebase_context:
+            try:
+                checker = CodebaseNoveltyChecker(codebase_context)
+                novelty_result = checker.check_proposal(
+                    result.final_answer,
+                    agent="consensus",
+                )
+                if not novelty_result.is_novel:
+                    codebase_novelty_warning = novelty_result.warning
+                    self._log(
+                        f"  [novelty] WARNING: Consensus may duplicate existing feature: "
+                        f"{novelty_result.most_similar_feature} "
+                        f"(similarity: {novelty_result.max_similarity:.2f})"
+                    )
+                    logger.warning(
+                        f"Codebase novelty check failed for consensus: {codebase_novelty_warning}"
+                    )
+                else:
+                    self._log(
+                        f"  [novelty] Consensus proposal passed codebase novelty check "
+                        f"(max_similarity: {novelty_result.max_similarity:.2f})"
+                    )
+            except Exception as e:
+                logger.warning(f"Codebase novelty check failed: {e}")
+
         # Process post-debate hooks
         if hooks:
             await self._run_post_debate_hooks(result, hooks)
@@ -558,6 +605,7 @@ class DebatePhase:
                 "final_answer": result.final_answer,
                 "consensus_reached": result.consensus_reached,
                 "confidence": result.confidence,
+                "codebase_novelty_warning": codebase_novelty_warning,
             },
             duration_seconds=phase_duration,
             improvement=result.final_answer or "",
@@ -606,19 +654,35 @@ You may adopt it, critique it, improve upon it, or propose something entirely di
 
         return f"""{SAFETY_PREAMBLE}
 
-What single improvement would most benefit aragora RIGHT NOW?
+=== YOUR TASK ===
+Propose ONE improvement that would most benefit aragora RIGHT NOW.
 
-CRITICAL: Read the codebase analysis below carefully. DO NOT propose features that already exist.
+=== CRITICAL: EXISTENCE CHECK PROTOCOL ===
+BEFORE you write your proposal, you MUST:
+1. Read the FEATURE INVENTORY tables in the codebase analysis
+2. Search for your proposed feature AND its synonyms/variants
+3. If ANY similar feature exists (even partially), DO NOT propose it
+4. Include your search results in your proposal: "Existence Check: [what you searched for] → [what you found]"
+
+PROPOSALS WITHOUT EXISTENCE CHECKS WILL BE REJECTED.
+
 {learning_text}
-Consider what would make aragora:
+=== EVALUATION CRITERIA ===
+Your proposal should make aragora:
 - More INTERESTING (novel, creative, intellectually stimulating)
 - More POWERFUL (capable, versatile, effective)
 - More VIRAL (shareable, demonstrable, meme-worthy)
 - More USEFUL (practical, solves real problems)
+
+=== PROPOSAL FORMAT ===
+Each agent proposes ONE specific, implementable feature:
+1. **Existence Check**: "I searched for [alternatives] and found [results]"
+2. **Feature Name**: Clear, specific name
+3. **What It Does**: Concrete description
+4. **How It Works**: Implementation approach
+5. **Why It Matters**: Value proposition
 {initial_section}
-Each agent should propose ONE specific, implementable feature.
-Be concrete: describe what it does, how it works, and why it matters.
-After debate, reach consensus on THE SINGLE BEST improvement to implement this cycle.
+After debate, reach consensus on THE SINGLE BEST improvement.
 
 Recent changes:
 {recent_changes}"""

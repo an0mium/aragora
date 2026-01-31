@@ -524,7 +524,77 @@ class NomicContextBuilder:
             except Exception as exc:
                 logger.warning("RLM full-corpus summary failed: %s", exc)
 
+        # Add explicit feature inventory from CLAUDE.md
+        feature_inventory = self._extract_feature_inventory()
+        if feature_inventory:
+            sections.append("## FEATURE INVENTORY FROM CLAUDE.md")
+            sections.append(
+                "The following features are ALREADY IMPLEMENTED. DO NOT propose recreating them."
+            )
+            sections.append(feature_inventory)
+            sections.append("")
+
         return "\n".join(sections)
+
+    def _extract_feature_inventory(self) -> str:
+        """
+        Extract feature inventory from CLAUDE.md for duplicate detection.
+
+        Specifically extracts the Feature Status and Quick Reference sections
+        to give agents a clear list of what already exists.
+        """
+        claude_md_path = self._aragora_path / "CLAUDE.md"
+        if not claude_md_path.exists():
+            return ""
+
+        try:
+            content = claude_md_path.read_text(errors="replace")
+        except OSError:
+            return ""
+
+        features = []
+
+        # Extract Quick Reference table
+        if "## Quick Reference" in content:
+            start = content.find("## Quick Reference")
+            end = content.find("\n## ", start + 1)
+            if end == -1:
+                end = len(content)
+            quick_ref = content[start:end]
+            features.append(quick_ref)
+
+        # Extract Feature Status section
+        if "## Feature Status" in content:
+            start = content.find("## Feature Status")
+            end = content.find("\n## ", start + 1)
+            if end == -1:
+                end = len(content)
+            status = content[start:end]
+            features.append(status)
+
+        # Extract "Core (stable)" and "Integrated" sections
+        for section in [
+            "**Core (stable):**",
+            "**Integrated:**",
+            "**Enterprise (production-ready):**",
+        ]:
+            if section in content:
+                start = content.find(section)
+                # Find end of list (next ** section or ##)
+                end = len(content)
+                for marker in ["**", "\n\n##"]:
+                    next_marker = content.find(marker, start + len(section))
+                    if next_marker != -1 and next_marker < end:
+                        end = next_marker
+                section_content = content[start:end].strip()
+                if section_content:
+                    features.append(f"\n### {section.strip('*:')}")
+                    features.append(section_content)
+
+        if not features:
+            return ""
+
+        return "\n\n".join(features)
 
     def _build_structured_content(self) -> str:
         """Build structured content string from the codebase index."""

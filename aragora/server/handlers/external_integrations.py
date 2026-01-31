@@ -46,6 +46,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.secure import SecureHandler
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -74,6 +75,22 @@ except ImportError:
 
     def record_rbac_check(*args, **kwargs):
         pass
+
+# =============================================================================
+# Rate Limits for External Integrations
+# =============================================================================
+
+# Rate limits for integration operations
+INTEGRATION_CREATE_RPM = 10  # Max 10 creates per minute
+INTEGRATION_LIST_RPM = 60  # Max 60 list operations per minute
+INTEGRATION_DELETE_RPM = 20  # Max 20 deletes per minute
+INTEGRATION_TEST_RPM = 5  # Max 5 tests per minute
+
+# Rate limiter instances
+_create_limiter = RateLimiter(requests_per_minute=INTEGRATION_CREATE_RPM)
+_list_limiter = RateLimiter(requests_per_minute=INTEGRATION_LIST_RPM)
+_delete_limiter = RateLimiter(requests_per_minute=INTEGRATION_DELETE_RPM)
+_test_limiter = RateLimiter(requests_per_minute=INTEGRATION_TEST_RPM)
 
 # =============================================================================
 # External Integrations Handler
@@ -233,6 +250,11 @@ class ExternalIntegrationsHandler(SecureHandler):
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for external integrations endpoints."""
+        # Rate limit check for list operations
+        client_ip = get_client_ip(handler)
+        if not _list_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for integrations list: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Zapier endpoints
         if path == "/api/v1/integrations/zapier/apps":
@@ -262,6 +284,16 @@ class ExternalIntegrationsHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle POST requests for external integrations endpoints."""
+        # Rate limit check - use test limiter for /test endpoints, create limiter otherwise
+        client_ip = get_client_ip(handler)
+        if path.endswith("/test"):
+            if not _test_limiter.is_allowed(client_ip):
+                logger.warning(f"Rate limit exceeded for integration test: {client_ip}")
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+        else:
+            if not _create_limiter.is_allowed(client_ip):
+                logger.warning(f"Rate limit exceeded for integration create: {client_ip}")
+                return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Zapier endpoints
         if path == "/api/v1/integrations/zapier/apps":
@@ -321,6 +353,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle DELETE requests for external integrations endpoints."""
+        # Rate limit check for delete operations
+        client_ip = get_client_ip(handler)
+        if not _delete_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for integration delete: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Zapier app deletion
         if path.startswith("/api/v1/integrations/zapier/apps/"):

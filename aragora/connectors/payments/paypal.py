@@ -12,6 +12,8 @@ Full integration with PayPal REST API:
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import logging
 import os
 import zlib
@@ -109,6 +111,7 @@ class PayPalCredentials:
     client_secret: str
     environment: PayPalEnvironment = PayPalEnvironment.SANDBOX
     webhook_id: str | None = None  # For webhook verification
+    webhook_secret: str | None = None  # HMAC secret for signature verification
 
     @property
     def base_url(self) -> str:
@@ -126,6 +129,7 @@ class PayPalCredentials:
         client_secret = os.environ.get(f"{prefix}CLIENT_SECRET", "")
         environment = os.environ.get(f"{prefix}ENVIRONMENT", "sandbox").lower()
         webhook_id = os.environ.get(f"{prefix}WEBHOOK_ID")
+        webhook_secret = os.environ.get(f"{prefix}WEBHOOK_SECRET")
 
         if not client_id or not client_secret:
             raise ValueError(f"Missing {prefix}CLIENT_ID or {prefix}CLIENT_SECRET")
@@ -135,6 +139,7 @@ class PayPalCredentials:
             client_secret=client_secret,
             environment=PayPalEnvironment(environment),
             webhook_id=webhook_id,
+            webhook_secret=webhook_secret,
         )
 
 
@@ -1041,12 +1046,27 @@ class PayPalClient:
         """
         Verify PayPal webhook signature.
 
-        Uses webhook ID validation and timestamp freshness checks.
-        In production, requires webhook_id to be configured.
+        Uses webhook ID validation, timestamp freshness checks, and
+        cryptographic signature verification using HMAC-SHA256.
+
+        In production, requires both webhook_id and webhook_secret to be configured.
+
+        Args:
+            transmission_id: PayPal-Transmission-Id header
+            timestamp: PayPal-Transmission-Time header
+            webhook_id: Webhook ID from PayPal (should match configured ID)
+            event_body: Raw JSON body of the webhook
+            cert_url: PayPal-Cert-Url header (for certificate-based verification)
+            auth_algo: PayPal-Auth-Algo header
+            actual_signature: PayPal-Transmission-Sig header (base64-encoded)
+
+        Returns:
+            True if signature is valid, False otherwise
         """
         env = os.environ.get("ARAGORA_ENV", "development").lower()
         is_production = env not in ("development", "dev", "local", "test")
 
+        # Check 1: Webhook ID must be configured in production
         if not self.credentials.webhook_id:
             if is_production:
                 logger.error(
@@ -1057,29 +1077,87 @@ class PayPalClient:
             logger.warning("Webhook ID not configured, skipping verification (dev only)")
             return True
 
+        # Check 2: Webhook ID must match
         if webhook_id != self.credentials.webhook_id:
-            logger.warning("PayPal webhook ID mismatch")
+            logger.warning(
+                f"SECURITY: PayPal webhook ID mismatch. "
+                f"Expected: {self.credentials.webhook_id[:8]}..., "
+                f"Got: {webhook_id[:8] if webhook_id else 'None'}..."
+            )
             return False
 
-        # Validate timestamp freshness (reject webhooks older than 5 minutes)
+        # Check 3: Webhook secret must be configured in production
+        if not self.credentials.webhook_secret:
+            if is_production:
+                logger.error(
+                    "SECURITY: PayPal webhook_secret not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning(
+                "Webhook secret not configured, skipping signature verification (dev only)"
+            )
+            return True
+
+        # Check 4: Validate timestamp freshness (reject webhooks older than 5 minutes)
         try:
             ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
             age_seconds = abs((datetime.now(timezone.utc) - ts).total_seconds())
             if age_seconds > 300:
-                logger.warning(f"PayPal webhook timestamp too old: {age_seconds:.0f}s")
+                logger.warning(
+                    f"SECURITY: PayPal webhook timestamp too old: {age_seconds:.0f}s. "
+                    "Possible replay attack."
+                )
                 return False
-        except (ValueError, TypeError):
-            logger.warning("PayPal webhook timestamp invalid")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"SECURITY: PayPal webhook timestamp invalid: {e}")
             if is_production:
                 return False
 
-        # Build expected signature input
-        expected_sig_input = (
-            f"{transmission_id}|{timestamp}|{webhook_id}|{zlib.crc32(event_body.encode())}"
-        )
-        logger.debug(f"Webhook verification for: {expected_sig_input[:50]}...")
+        # Check 5: Signature must be provided
+        if not actual_signature:
+            logger.warning("SECURITY: PayPal webhook signature is missing")
+            return False
 
-        return True
+        # Check 6: Compute expected signature and compare (timing-safe)
+        try:
+            # Build the signature input string per PayPal spec
+            # CRC32 should be unsigned (mask with 0xffffffff)
+            crc = zlib.crc32(event_body.encode("utf-8")) & 0xFFFFFFFF
+            expected_sig_input = f"{transmission_id}|{timestamp}|{webhook_id}|{crc}"
+
+            # Compute HMAC-SHA256 signature
+            expected_signature = base64.b64encode(
+                hmac.new(
+                    self.credentials.webhook_secret.encode("utf-8"),
+                    expected_sig_input.encode("utf-8"),
+                    hashlib.sha256,
+                ).digest()
+            ).decode("utf-8")
+
+            # Timing-safe comparison to prevent timing attacks
+            is_valid = hmac.compare_digest(expected_signature, actual_signature)
+
+            if not is_valid:
+                logger.warning(
+                    f"SECURITY: PayPal webhook signature mismatch. "
+                    f"Transmission ID: {transmission_id}"
+                )
+                logger.debug(f"Signature verification failed. Input: {expected_sig_input[:50]}...")
+            else:
+                logger.debug(
+                    f"PayPal webhook signature verified successfully. "
+                    f"Transmission ID: {transmission_id}"
+                )
+
+            return is_valid
+
+        except Exception as e:
+            logger.error(
+                f"SECURITY: PayPal webhook signature verification failed with error: {e}. "
+                f"Transmission ID: {transmission_id}"
+            )
+            return False
 
 
 # =============================================================================

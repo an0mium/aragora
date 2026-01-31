@@ -108,8 +108,18 @@ class SnoozeStore(SQLiteStore):
         )
         return [dict(row) for row in rows]
 
-    def get_due_snoozes(self, user_id: str | None = None) -> list[dict[str, Any]]:
-        """Get snoozes that are due (past their wake time)."""
+    def get_due_snoozes(
+        self, user_id: str | None = None, limit: int = 1000
+    ) -> list[dict[str, Any]]:
+        """Get snoozes that are due (past their wake time).
+
+        Args:
+            user_id: Optional user ID to filter by
+            limit: Maximum number of results (default 1000 to prevent unbounded queries)
+
+        Returns:
+            List of due snooze records
+        """
         now = datetime.now().isoformat()
         if user_id:
             rows = self.fetch_all(
@@ -117,8 +127,9 @@ class SnoozeStore(SQLiteStore):
                 SELECT {self._COLUMNS} FROM snoozes
                 WHERE user_id = ? AND status = 'active' AND snooze_until <= ?
                 ORDER BY snooze_until ASC
+                LIMIT ?
                 """,
-                (user_id, now),
+                (user_id, now, limit),
             )
         else:
             rows = self.fetch_all(
@@ -126,8 +137,9 @@ class SnoozeStore(SQLiteStore):
                 SELECT {self._COLUMNS} FROM snoozes
                 WHERE status = 'active' AND snooze_until <= ?
                 ORDER BY snooze_until ASC
+                LIMIT ?
                 """,
-                (now,),
+                (now, limit),
             )
         return [dict(row) for row in rows]
 

@@ -185,3 +185,4 @@ docs/investor/
 # Local data directories (runtime artifacts)
 data/
 consolidated/
+docs/openapi_generated.json

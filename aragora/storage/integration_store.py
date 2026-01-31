@@ -398,8 +398,12 @@ class IntegrationStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def list_all(self) -> list[IntegrationConfig]:
-        """List all integrations (admin use)."""
+    async def list_all(self, limit: int = 1000) -> list[IntegrationConfig]:
+        """List all integrations (admin use).
+
+        Args:
+            limit: Maximum number of results (default 1000 to prevent unbounded queries)
+        """
         pass
 
     # User ID mapping methods
@@ -477,9 +481,9 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
         with self._lock:
             return [v for k, v in self._store.items() if k.startswith(prefix)]
 
-    async def list_all(self) -> list[IntegrationConfig]:
+    async def list_all(self, limit: int = 1000) -> list[IntegrationConfig]:
         with self._lock:
-            return list(self._store.values())
+            return list(self._store.values())[:limit]
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
@@ -700,13 +704,17 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             configs.append(config)
         return configs
 
-    async def list_all(self) -> list[IntegrationConfig]:
+    async def list_all(self, limit: int = 1000) -> list[IntegrationConfig]:
         conn = self._get_conn()
-        cursor = conn.execute("""SELECT integration_type, enabled, created_at, updated_at,
+        cursor = conn.execute(
+            """SELECT integration_type, enabled, created_at, updated_at,
                       notify_on_consensus, notify_on_debate_end, notify_on_error,
                       notify_on_leaderboard, settings_json, messages_sent,
                       errors_24h, last_activity, last_error, user_id, workspace_id
-               FROM integrations""")
+               FROM integrations
+               LIMIT ?""",
+            (limit,),
+        )
         configs = []
         for row in cursor.fetchall():
             config = IntegrationConfig.from_row(row)
@@ -913,8 +921,8 @@ class RedisIntegrationStore(IntegrationStoreBackend):
         # Always use SQLite for list operations (authoritative)
         return await self._sqlite.list_for_user(user_id)
 
-    async def list_all(self) -> list[IntegrationConfig]:
-        return await self._sqlite.list_all()
+    async def list_all(self, limit: int = 1000) -> list[IntegrationConfig]:
+        return await self._sqlite.list_all(limit)
 
     def _mapping_redis_key(self, email: str, platform: str, user_id: str) -> str:
         return f"{self.REDIS_PREFIX}:mapping:{user_id}:{platform}:{email}"
@@ -1240,9 +1248,9 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         """List all integrations for a user (sync wrapper for async)."""
         return run_async(self.list_for_user_async(user_id))
 
-    async def list_all(self) -> list[IntegrationConfig]:
+    async def list_all(self, limit: int = 1000) -> list[IntegrationConfig]:
         """List all integrations (async)."""
-        return await self.list_all_async()
+        return await self.list_all_async(limit)
 
     async def list_all_async(self) -> list[IntegrationConfig]:
         """List all integrations asynchronously."""

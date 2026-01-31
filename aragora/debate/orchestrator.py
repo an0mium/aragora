@@ -11,6 +11,7 @@ import asyncio
 import time
 from collections import deque
 from types import TracebackType
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
@@ -125,6 +126,21 @@ if TYPE_CHECKING:
     from aragora.rlm.cognitive_limiter import RLMCognitiveLoadLimiter
     from aragora.types.protocols import EventEmitterProtocol
     from aragora.workflow.engine import Workflow
+
+
+@dataclass
+class _DebateExecutionState:
+    """Internal state for debate execution passed between _run_inner helper methods."""
+
+    debate_id: str
+    correlation_id: str
+    domain: str
+    task_complexity: Any  # TaskComplexity enum
+    ctx: "DebateContext"
+    gupp_bead_id: str | None = None
+    gupp_hook_entries: dict[str, str] = field(default_factory=dict)
+    debate_status: str = "completed"
+    debate_start_time: float = 0.0
 
 
 class Arena:
@@ -1922,39 +1938,32 @@ class Arena:
         finally:
             self._channel_integration = None
 
-    async def run(self, correlation_id: str = "") -> DebateResult:
-        """Run the full debate and return results."""
-        if self.protocol.timeout_seconds > 0:
-            try:
-                # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
-                return await asyncio.wait_for(
-                    self._run_inner(correlation_id=correlation_id),
-                    timeout=self.protocol.timeout_seconds,
-                )
-            except asyncio.TimeoutError:
-                logger.warning(f"debate_timeout timeout_seconds={self.protocol.timeout_seconds}")
-                # Return partial result with timeout indicator
-                return DebateResult(
-                    task=self.env.task,
-                    messages=getattr(self, "_partial_messages", []),
-                    critiques=getattr(self, "_partial_critiques", []),
-                    votes=[],
-                    dissenting_views=[],
-                    rounds_used=getattr(self, "_partial_rounds", 0),
-                )
-        return await self._run_inner(correlation_id=correlation_id)
+    # =========================================================================
+    # _run_inner Helper Methods (Extracted for readability)
+    # =========================================================================
 
-    async def _run_inner(self, correlation_id: str = "") -> DebateResult:
-        """Internal debate execution orchestrator coordinating all phases."""
+    async def _initialize_debate_context(self, correlation_id: str) -> _DebateExecutionState:
+        """Initialize debate context and return execution state.
+
+        Sets up:
+        - Debate ID and correlation ID
+        - Convergence detector (debate-scoped cache)
+        - Knowledge Mound context
+        - Culture hints
+        - DebateContext with all dependencies
+        - BeliefNetwork (if enabled)
+        - Task complexity classification
+        - Question domain classification
+        - Agent selection and hierarchy roles
+        - Agent-to-agent channels
+        """
         import uuid
 
         debate_id = str(uuid.uuid4())
-        # Generate correlation_id if not provided (prefix with 'corr-' to distinguish)
         if not correlation_id:
             correlation_id = f"corr-{debate_id[:8]}"
 
         # Reinitialize convergence detector with debate-scoped cache
-        # This prevents cross-debate embedding contamination
         self._reinit_convergence_for_debate(debate_id)
 
         # Extract domain early for metrics
@@ -1978,7 +1987,6 @@ class Arena:
             domain=domain,
             hook_manager=self.hook_manager,
             org_id=self.org_id,
-            # Provide budget check callback for mid-execution checks
             budget_check_callback=lambda round_num: self._budget_coordinator.check_budget_mid_debate(
                 debate_id, round_num
             ),
@@ -2000,7 +2008,6 @@ class Arena:
         governor.set_task_complexity(task_complexity)
 
         # Classify question domain using LLM for accurate persona selection
-        # This runs once and caches the result for get_persona_context() calls
         if self.prompt_builder:
             try:
                 await self.prompt_builder.classify_question_async(use_llm=True)
@@ -2014,23 +2021,44 @@ class Arena:
         # Apply performance-based agent selection if enabled
         if self.use_performance_selection:
             self.agents = self._select_debate_team(self.agents)
-            ctx.agents = self.agents  # Update context with selected agents
+            ctx.agents = self.agents
 
         # Assign hierarchy roles to agents (Gastown pattern)
         self._assign_hierarchy_roles(ctx, task_type=domain)
 
-        # Initialize agent-to-agent channels (after selection/role assignment)
+        # Initialize agent-to-agent channels
         await self._setup_agent_channels(ctx, debate_id)
 
-        # Structured logging for debate lifecycle (JSON in production)
-        with LogContext(trace_id=correlation_id):
+        return _DebateExecutionState(
+            debate_id=debate_id,
+            correlation_id=correlation_id,
+            domain=domain,
+            task_complexity=task_complexity,
+            ctx=ctx,
+        )
+
+    async def _setup_debate_infrastructure(self, state: _DebateExecutionState) -> None:
+        """Set up debate infrastructure before execution.
+
+        Handles:
+        - Structured logging for debate start
+        - Trackers notification
+        - Agent preview emission
+        - Budget validation
+        - GUPP hook tracking initialization
+        - Initial result creation
+        """
+        ctx = state.ctx
+
+        # Structured logging for debate lifecycle
+        with LogContext(trace_id=state.correlation_id):
             logger.info(
                 "debate_start",
-                debate_id=debate_id,
-                complexity=task_complexity.value,
+                debate_id=state.debate_id,
+                complexity=state.task_complexity.value,
                 agent_count=len(self.agents),
                 agents=[a.name for a in self.agents],
-                domain=domain,
+                domain=state.domain,
                 task_length=len(self.env.task),
             )
 
@@ -2041,17 +2069,18 @@ class Arena:
         self._emit_agent_preview()
 
         # Check budget before starting debate (may raise BudgetExceededError)
-        self._budget_coordinator.check_budget_before_debate(debate_id)
+        self._budget_coordinator.check_budget_before_debate(state.debate_id)
 
         # Initialize GUPP hook tracking for crash recovery
-        # Creates pending bead and pushes work to agent hooks
-        gupp_bead_id: str | None = None
-        gupp_hook_entries: dict[str, str] = {}
         if getattr(self.protocol, "enable_hook_tracking", False):
             try:
-                gupp_bead_id = await self._create_pending_debate_bead(debate_id, self.env.task)
-                if gupp_bead_id:
-                    gupp_hook_entries = await self._init_hook_tracking(debate_id, gupp_bead_id)
+                state.gupp_bead_id = await self._create_pending_debate_bead(
+                    state.debate_id, self.env.task
+                )
+                if state.gupp_bead_id:
+                    state.gupp_hook_entries = await self._init_hook_tracking(
+                        state.debate_id, state.gupp_bead_id
+                    )
             except (OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.debug(f"GUPP initialization failed (non-critical): {e}")
 
@@ -2067,132 +2096,124 @@ class Arena:
             final_answer="",
         )
 
-        # Track active debates metric
-        ACTIVE_DEBATES.inc()
-        debate_start_time = time.perf_counter()
-        debate_status = "completed"
+        # Record start time for metrics
+        state.debate_start_time = time.perf_counter()
 
-        # Initialize OpenTelemetry tracer for distributed tracing
-        tracer = get_tracer()
+    async def _execute_debate_phases(self, state: _DebateExecutionState, span: Any) -> None:
+        """Execute all debate phases with tracing and error handling.
 
-        # Initialize performance monitor for slow debate detection
-        perf_monitor = get_debate_monitor()
-        agent_names = [a.name for a in self.agents]
+        Args:
+            state: The debate execution state
+            span: OpenTelemetry span for tracing
+        """
+        ctx = state.ctx
 
-        with (
-            tracer.start_as_current_span("debate") as span,
-            perf_monitor.track_debate(debate_id, task=self.env.task, agent_names=agent_names),
-            n1_detection_scope(f"debate_{debate_id}"),
-            debate_loader_context(elo_system=self.elo_system) as loaders,
-        ):
-            # Make loaders available in context for phase handlers
-            ctx.data_loaders = loaders
-
-            # Add debate attributes to span
-            add_span_attributes(
-                span,
-                {
-                    "debate.id": debate_id,
-                    "debate.correlation_id": correlation_id,
-                    "debate.domain": domain,
-                    "debate.complexity": task_complexity.value,
-                    "debate.agent_count": len(self.agents),
-                    "debate.agents": ",".join(a.name for a in self.agents),
-                    "debate.task_length": len(self.env.task),
-                },
+        try:
+            # Execute all phases via PhaseExecutor with OpenTelemetry tracing
+            execution_result = await self.phase_executor.execute(
+                ctx,
+                debate_id=state.debate_id,
             )
+            self._log_phase_failures(execution_result)
 
-            try:
-                # Execute all phases via PhaseExecutor with OpenTelemetry tracing
-                # N+1 detection is active via n1_detection_scope (configurable via ARAGORA_N1_DETECTION env var)
-                execution_result = await self.phase_executor.execute(
-                    ctx,
-                    debate_id=debate_id,
-                )
+        except asyncio.TimeoutError:
+            # Timeout recovery - use partial results from context
+            ctx.result.messages = ctx.partial_messages
+            ctx.result.critiques = ctx.partial_critiques
+            ctx.result.rounds_used = ctx.partial_rounds
+            state.debate_status = "timeout"
+            span.set_attribute("debate.status", "timeout")
+            logger.warning("Debate timed out, returning partial results")
 
-                self._log_phase_failures(execution_result)
+        except EarlyStopError:
+            state.debate_status = "aborted"
+            span.set_attribute("debate.status", "aborted")
+            raise
 
-            except asyncio.TimeoutError:
-                # Timeout recovery - use partial results from context
-                ctx.result.messages = ctx.partial_messages
-                ctx.result.critiques = ctx.partial_critiques
-                ctx.result.rounds_used = ctx.partial_rounds
-                debate_status = "timeout"
-                span.set_attribute("debate.status", "timeout")
-                logger.warning("Debate timed out, returning partial results")
+        except Exception as e:
+            state.debate_status = "error"
+            span.set_attribute("debate.status", "error")
+            span.record_exception(e)
+            raise
 
-            except EarlyStopError:
-                # Early stop is intentional, not an error
-                debate_status = "aborted"
-                span.set_attribute("debate.status", "aborted")
-                raise
+    def _record_debate_metrics(self, state: _DebateExecutionState, span: Any) -> None:
+        """Record debate metrics in the finally block.
 
-            except Exception as e:
-                debate_status = "error"
-                span.set_attribute("debate.status", "error")
-                span.record_exception(e)
-                raise
+        Args:
+            state: The debate execution state
+            span: OpenTelemetry span for tracing
+        """
+        ACTIVE_DEBATES.dec()
+        duration = time.perf_counter() - state.debate_start_time
+        ctx = state.ctx
 
-            finally:
-                # Track metrics regardless of outcome
-                ACTIVE_DEBATES.dec()
-                duration = time.perf_counter() - debate_start_time
+        # Get consensus info from result
+        consensus_reached = getattr(ctx.result, "consensus_reached", False)
+        confidence = getattr(ctx.result, "confidence", 0.0)
 
-                # Get consensus info from result
-                consensus_reached = getattr(ctx.result, "consensus_reached", False)
-                confidence = getattr(ctx.result, "confidence", 0.0)
+        # Add final attributes to span
+        add_span_attributes(
+            span,
+            {
+                "debate.status": state.debate_status,
+                "debate.duration_seconds": duration,
+                "debate.consensus_reached": consensus_reached,
+                "debate.confidence": confidence,
+                "debate.message_count": len(ctx.result.messages) if ctx.result else 0,
+            },
+        )
 
-                # Add final attributes to span
-                add_span_attributes(
-                    span,
-                    {
-                        "debate.status": debate_status,
-                        "debate.duration_seconds": duration,
-                        "debate.consensus_reached": consensus_reached,
-                        "debate.confidence": confidence,
-                        "debate.message_count": len(ctx.result.messages) if ctx.result else 0,
-                    },
-                )
+        track_debate_outcome(
+            status=state.debate_status,
+            domain=state.domain,
+            duration_seconds=duration,
+            consensus_reached=consensus_reached,
+            confidence=confidence,
+        )
 
-                track_debate_outcome(
-                    status=debate_status,
-                    domain=domain,
-                    duration_seconds=duration,
-                    consensus_reached=consensus_reached,
-                    confidence=confidence,
-                )
+        # Structured logging for debate completion
+        logger.info(
+            "debate_end",
+            debate_id=state.debate_id,
+            status=state.debate_status,
+            duration_seconds=round(duration, 3),
+            consensus_reached=consensus_reached,
+            confidence=round(confidence, 3),
+            rounds_used=ctx.result.rounds_used if ctx.result else 0,
+            message_count=len(ctx.result.messages) if ctx.result else 0,
+            domain=state.domain,
+        )
 
-                # Structured logging for debate completion
-                logger.info(
-                    "debate_end",
-                    debate_id=debate_id,
-                    status=debate_status,
-                    duration_seconds=round(duration, 3),
-                    consensus_reached=consensus_reached,
-                    confidence=round(confidence, 3),
-                    rounds_used=ctx.result.rounds_used if ctx.result else 0,
-                    message_count=len(ctx.result.messages) if ctx.result else 0,
-                    domain=domain,
-                )
+        self._track_circuit_breaker_metrics()
 
-                self._track_circuit_breaker_metrics()
+    async def _handle_debate_completion(self, state: _DebateExecutionState) -> None:
+        """Handle post-debate completion tasks.
+
+        Includes:
+        - Trackers notification
+        - Extensions triggering (billing, training export)
+        - Budget recording
+        - Knowledge Mound ingestion
+        - GUPP hook completion
+        - Bead creation
+        - Supabase sync queuing
+        """
+        ctx = state.ctx
 
         # Notify subsystem coordinator of debate completion
         if ctx.result:
             self._trackers.on_debate_complete(ctx, ctx.result)
 
         # Trigger extensions (billing, training export)
-        # Extensions handle their own error handling and won't fail the debate
         self.extensions.on_debate_complete(ctx, ctx.result, self.agents)
 
         # Record debate cost against organization budget
         if ctx.result:
             self._budget_coordinator.record_debate_cost(
-                debate_id, ctx.result, extensions=self.extensions
+                state.debate_id, ctx.result, extensions=self.extensions
             )
 
-        # Ingest high-confidence consensus into Knowledge Mound for future retrieval
-        # This enables cross-debate learning by storing reliable conclusions
+        # Ingest high-confidence consensus into Knowledge Mound
         if ctx.result:
             try:
                 await self._ingest_debate_outcome(ctx.result)
@@ -2200,25 +2221,22 @@ class Arena:
                 logger.debug(f"Knowledge Mound ingestion failed (non-critical): {e}")
 
         # Complete GUPP hook tracking for crash recovery
-        # Updates the pending bead and marks agent hooks as completed
-        if gupp_bead_id and gupp_hook_entries:
+        if state.gupp_bead_id and state.gupp_hook_entries:
             try:
-                success = debate_status == "completed"
-                await self._update_debate_bead(gupp_bead_id, ctx.result, success)
+                success = state.debate_status == "completed"
+                await self._update_debate_bead(state.gupp_bead_id, ctx.result, success)
                 await self._complete_hook_tracking(
-                    gupp_bead_id,
-                    gupp_hook_entries,
+                    state.gupp_bead_id,
+                    state.gupp_hook_entries,
                     success,
-                    error_msg="" if success else f"Debate {debate_status}",
+                    error_msg="" if success else f"Debate {state.debate_status}",
                 )
                 if success:
-                    ctx.result.bead_id = gupp_bead_id
+                    ctx.result.bead_id = state.gupp_bead_id
             except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
                 logger.debug(f"GUPP completion failed (non-critical): {e}")
-        # Create a Bead to track this debate decision with git-backed audit trail
-        # This enables durable work tracking and audit history via the Gastown pattern
-        # (Skip if GUPP already created a bead)
-        elif ctx.result and not gupp_bead_id:
+        # Create a Bead if GUPP didn't already create one
+        elif ctx.result and not state.gupp_bead_id:
             try:
                 bead_id = await self._create_debate_bead(ctx.result)
                 if bead_id:
@@ -2226,18 +2244,31 @@ class Arena:
             except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Bead creation failed (non-critical): {e}")
 
-        # Queue for Supabase background sync (non-blocking)
-        # This enables cloud persistence when SUPABASE_SYNC_ENABLED=true
+        # Queue for Supabase background sync
         self._queue_for_supabase_sync(ctx, ctx.result)
 
+    async def _cleanup_debate_resources(self, state: _DebateExecutionState) -> DebateResult:
+        """Clean up debate resources and finalize result.
+
+        Handles:
+        - Checkpoint cleanup (on success)
+        - Convergence cache cleanup
+        - Agent channel teardown
+        - Result finalization
+        - Translation (if enabled)
+
+        Returns:
+            The finalized DebateResult
+        """
+        ctx = state.ctx
+
         # Clean up checkpoints after successful completion
-        # Keeps a configurable number of checkpoints for debugging (default 0 = delete all)
-        if debate_status == "completed" and getattr(
+        if state.debate_status == "completed" and getattr(
             self.protocol, "checkpoint_cleanup_on_success", True
         ):
             try:
                 keep_count = getattr(self.protocol, "checkpoint_keep_on_success", 0)
-                deleted = await self.cleanup_checkpoints(debate_id, keep_latest=keep_count)
+                deleted = await self.cleanup_checkpoints(state.debate_id, keep_latest=keep_count)
                 if deleted > 0:
                     logger.debug(
                         f"[checkpoint] Cleaned up {deleted} checkpoints for completed debate"
@@ -2257,6 +2288,95 @@ class Arena:
             await self._translate_conclusions(result)
 
         return result
+
+    async def run(self, correlation_id: str = "") -> DebateResult:
+        """Run the full debate and return results."""
+        if self.protocol.timeout_seconds > 0:
+            try:
+                # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
+                return await asyncio.wait_for(
+                    self._run_inner(correlation_id=correlation_id),
+                    timeout=self.protocol.timeout_seconds,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"debate_timeout timeout_seconds={self.protocol.timeout_seconds}")
+                # Return partial result with timeout indicator
+                return DebateResult(
+                    task=self.env.task,
+                    messages=getattr(self, "_partial_messages", []),
+                    critiques=getattr(self, "_partial_critiques", []),
+                    votes=[],
+                    dissenting_views=[],
+                    rounds_used=getattr(self, "_partial_rounds", 0),
+                )
+        return await self._run_inner(correlation_id=correlation_id)
+
+    async def _run_inner(self, correlation_id: str = "") -> DebateResult:
+        """Internal debate execution orchestrator coordinating all phases.
+
+        This method orchestrates the full debate lifecycle:
+        1. Initialize debate context (IDs, domain, agents, channels)
+        2. Set up infrastructure (logging, trackers, budget, hooks)
+        3. Execute debate phases with tracing and error handling
+        4. Handle completion (extensions, knowledge ingestion, beads)
+        5. Clean up resources (checkpoints, caches, channels)
+
+        The actual phase execution is delegated to PhaseExecutor which runs:
+        - ContextInitializer (Phase 0)
+        - ProposalPhase (Phase 1)
+        - DebateRoundsPhase (Phase 2)
+        - ConsensusPhase (Phase 3)
+        - AnalyticsPhase (Phases 4-6)
+        - FeedbackPhase (Phase 7)
+        """
+        # Phase 1: Initialize debate context and execution state
+        state = await self._initialize_debate_context(correlation_id)
+
+        # Phase 2: Set up debate infrastructure
+        await self._setup_debate_infrastructure(state)
+
+        # Track active debates metric
+        ACTIVE_DEBATES.inc()
+
+        # Initialize tracing and monitoring
+        tracer = get_tracer()
+        perf_monitor = get_debate_monitor()
+        agent_names = [a.name for a in self.agents]
+
+        # Phase 3: Execute debate phases with tracing context
+        with (
+            tracer.start_as_current_span("debate") as span,
+            perf_monitor.track_debate(state.debate_id, task=self.env.task, agent_names=agent_names),
+            n1_detection_scope(f"debate_{state.debate_id}"),
+            debate_loader_context(elo_system=self.elo_system) as loaders,
+        ):
+            # Make loaders available in context for phase handlers
+            state.ctx.data_loaders = loaders
+
+            # Add debate attributes to span
+            add_span_attributes(
+                span,
+                {
+                    "debate.id": state.debate_id,
+                    "debate.correlation_id": state.correlation_id,
+                    "debate.domain": state.domain,
+                    "debate.complexity": state.task_complexity.value,
+                    "debate.agent_count": len(self.agents),
+                    "debate.agents": ",".join(a.name for a in self.agents),
+                    "debate.task_length": len(self.env.task),
+                },
+            )
+
+            try:
+                await self._execute_debate_phases(state, span)
+            finally:
+                self._record_debate_metrics(state, span)
+
+        # Phase 4: Handle debate completion (trackers, extensions, knowledge)
+        await self._handle_debate_completion(state)
+
+        # Phase 5: Clean up resources and finalize result
+        return await self._cleanup_debate_resources(state)
 
     # NOTE: Legacy _run_inner code (1,300+ lines) removed after successful phase integration.
     # The debate execution is now handled by phase classes:

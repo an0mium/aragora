@@ -22,6 +22,8 @@ __all__ = [
     "NoveltyScore",
     "NoveltyResult",
     "NoveltyTracker",
+    "CodebaseNoveltyChecker",
+    "CodebaseNoveltyResult",
 ]
 
 import logging
@@ -299,3 +301,266 @@ class NoveltyTracker:
         self.history.clear()
         self.scores.clear()
         logger.debug("NoveltyTracker reset")
+
+
+@dataclass
+class CodebaseNoveltyResult:
+    """Result of checking proposal novelty against codebase features."""
+
+    proposal: str
+    agent: str
+    is_novel: bool
+    max_similarity: float
+    most_similar_feature: str | None = None
+    feature_module: str | None = None
+    warning: str | None = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "agent": self.agent,
+            "is_novel": self.is_novel,
+            "max_similarity": self.max_similarity,
+            "most_similar_feature": self.most_similar_feature,
+            "feature_module": self.feature_module,
+            "warning": self.warning,
+        }
+
+
+class CodebaseNoveltyChecker:
+    """
+    Checks proposal novelty against existing codebase features.
+
+    Unlike NoveltyTracker which compares proposals against each other,
+    this compares proposals against the feature inventory from the context phase.
+    This catches cases where agents propose features that already exist in the codebase.
+
+    Usage:
+        checker = CodebaseNoveltyChecker(codebase_context)
+        result = checker.check_proposal("Add WebSocket streaming", "agent-1")
+        if not result.is_novel:
+            print(f"Warning: {result.warning}")
+    """
+
+    # Common synonyms/variants that should trigger similarity checks
+    FEATURE_SYNONYMS = {
+        "streaming": ["websocket", "real-time", "live", "push", "sse", "server-sent"],
+        "spectator": ["viewer", "read-only", "observer", "watcher", "monitor"],
+        "dashboard": ["panel", "control center", "admin", "monitor", "overview"],
+        "memory": ["cache", "store", "persistence", "storage", "recall"],
+        "learning": ["training", "adaptation", "feedback", "improvement"],
+        "consensus": ["agreement", "voting", "majority", "convergence"],
+        "novelty": ["diversity", "uniqueness", "originality", "freshness"],
+    }
+
+    def __init__(
+        self,
+        codebase_context: str,
+        backend: SimilarityBackend | None = None,
+        novelty_threshold: float = 0.65,
+    ):
+        """
+        Initialize codebase novelty checker.
+
+        Args:
+            codebase_context: The feature inventory from context phase
+            backend: Similarity backend (default: auto-select best available)
+            novelty_threshold: Similarity above this triggers warning (default 0.65)
+        """
+        self.codebase_context = codebase_context
+        self.backend = backend or get_similarity_backend("auto")
+        self.novelty_threshold = novelty_threshold
+
+        # Extract feature entries from the context
+        self.features = self._extract_features(codebase_context)
+
+        logger.info(
+            f"CodebaseNoveltyChecker initialized with {len(self.features)} features, "
+            f"threshold={novelty_threshold}"
+        )
+
+    def _extract_features(self, context: str) -> list[dict]:
+        """
+        Extract feature entries from the codebase context.
+
+        Looks for table-formatted features and free-form feature mentions.
+        """
+        features = []
+
+        # Split into lines for processing
+        lines = context.split("\n")
+
+        current_section = ""
+        for line in lines:
+            # Track section headers
+            if line.startswith("##"):
+                current_section = line.strip("# ").lower()
+                continue
+
+            # Look for table rows (| feature | module | status |)
+            if "|" in line and "---" not in line:
+                parts = [p.strip() for p in line.split("|") if p.strip()]
+                if len(parts) >= 2:
+                    feature_name = parts[0]
+                    module = parts[1] if len(parts) > 1 else ""
+                    # Skip header rows
+                    if feature_name.lower() not in ["feature", "module", "status"]:
+                        features.append(
+                            {
+                                "name": feature_name,
+                                "module": module,
+                                "section": current_section,
+                                "text": f"{feature_name}: {module}",
+                            }
+                        )
+
+            # Look for bullet-point features (- Feature: description)
+            elif line.strip().startswith("- "):
+                feature_text = line.strip("- ").strip()
+                if ":" in feature_text:
+                    name, desc = feature_text.split(":", 1)
+                    features.append(
+                        {
+                            "name": name.strip(),
+                            "module": "",
+                            "section": current_section,
+                            "text": feature_text,
+                        }
+                    )
+
+        # Also extract key terms from the full context for broad matching
+        key_terms = self._extract_key_terms(context)
+        for term in key_terms:
+            if not any(f["name"].lower() == term.lower() for f in features):
+                features.append(
+                    {
+                        "name": term,
+                        "module": "unknown",
+                        "section": "extracted",
+                        "text": term,
+                    }
+                )
+
+        return features
+
+    def _extract_key_terms(self, context: str) -> list[str]:
+        """Extract key feature terms from context using simple heuristics."""
+        terms = []
+        # Look for capitalized phrases that might be feature names
+        import re
+
+        # Match patterns like "WebSocket Streaming", "ELO Rankings", etc.
+        patterns = [
+            r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b",  # Multi-word capitalized
+            r"\b[A-Z]{2,}[a-z]*\b",  # Acronyms like "ELO", "RLM"
+        ]
+
+        for pattern in patterns:
+            matches = re.findall(pattern, context)
+            for match in matches:
+                if len(match) > 3 and match not in terms:
+                    terms.append(match)
+
+        return terms[:50]  # Limit to avoid noise
+
+    def check_proposal(self, proposal: str, agent: str) -> CodebaseNoveltyResult:
+        """
+        Check if a proposal is novel against the codebase features.
+
+        Args:
+            proposal: The proposal text
+            agent: Agent name making the proposal
+
+        Returns:
+            CodebaseNoveltyResult with novelty assessment
+        """
+        if not self.features:
+            logger.warning("No features extracted from codebase context")
+            return CodebaseNoveltyResult(
+                proposal=proposal,
+                agent=agent,
+                is_novel=True,
+                max_similarity=0.0,
+                warning="No codebase features available for comparison",
+            )
+
+        max_similarity = 0.0
+        most_similar: dict | None = None
+
+        # Check against each feature
+        for feature in self.features:
+            feature_text = feature["text"]
+
+            # Compute direct similarity
+            similarity = self.backend.compute_similarity(proposal, feature_text)
+
+            # Boost similarity if proposal contains feature name directly
+            feature_name_lower = feature["name"].lower()
+            proposal_lower = proposal.lower()
+            if feature_name_lower in proposal_lower:
+                similarity = max(similarity, 0.7)  # At least 70% if name matches
+
+            # Check for synonym matches
+            for key, synonyms in self.FEATURE_SYNONYMS.items():
+                if key in feature_name_lower:
+                    for synonym in synonyms:
+                        if synonym in proposal_lower:
+                            similarity = max(similarity, 0.6)  # Boost for synonym match
+
+            if similarity > max_similarity:
+                max_similarity = similarity
+                most_similar = feature
+
+        is_novel = max_similarity < self.novelty_threshold
+
+        warning = None
+        if not is_novel and most_similar:
+            warning = (
+                f"Proposal may duplicate existing feature: '{most_similar['name']}' "
+                f"(module: {most_similar['module']}, similarity: {max_similarity:.2f})"
+            )
+            logger.warning(f"[{agent}] {warning}")
+
+        return CodebaseNoveltyResult(
+            proposal=proposal,
+            agent=agent,
+            is_novel=is_novel,
+            max_similarity=max_similarity,
+            most_similar_feature=most_similar["name"] if most_similar else None,
+            feature_module=most_similar["module"] if most_similar else None,
+            warning=warning,
+        )
+
+    def check_proposals(
+        self,
+        proposals: dict[str, str],
+    ) -> dict[str, CodebaseNoveltyResult]:
+        """
+        Check multiple proposals for novelty.
+
+        Args:
+            proposals: Agent name -> proposal text mapping
+
+        Returns:
+            Dict of agent name -> CodebaseNoveltyResult
+        """
+        results = {}
+        for agent, proposal in proposals.items():
+            results[agent] = self.check_proposal(proposal, agent)
+        return results
+
+    def get_non_novel_proposals(
+        self,
+        proposals: dict[str, str],
+    ) -> list[CodebaseNoveltyResult]:
+        """
+        Get list of proposals that may duplicate existing features.
+
+        Args:
+            proposals: Agent name -> proposal text mapping
+
+        Returns:
+            List of non-novel results with warnings
+        """
+        results = self.check_proposals(proposals)
+        return [r for r in results.values() if not r.is_novel]

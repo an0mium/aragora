@@ -8,6 +8,8 @@ Enables disaster recovery and session persistence via worktrees.
 from __future__ import annotations
 
 import asyncio
+import json
+from dataclasses import asdict
 import hashlib
 import logging
 import os
@@ -17,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from aragora.nomic.stores.paths import resolve_runtime_store_dir
 from .models import Hook, HookType
 
 logger = logging.getLogger(__name__)
@@ -42,13 +45,56 @@ class HookRunner:
             storage_path: Path for hook metadata storage
             auto_commit: Auto-commit state changes
         """
-        self._storage_path = Path(storage_path) if storage_path else None
+        base_path = Path(storage_path) if storage_path else resolve_runtime_store_dir()
+        self._storage_path = base_path
+        self._state_path = self._storage_path / "hooks.json"
         self._auto_commit = auto_commit
         self._hooks: dict[str, Hook] = {}
         self._lock = asyncio.Lock()
 
-        if self._storage_path:
-            self._storage_path.mkdir(parents=True, exist_ok=True)
+        self._storage_path.mkdir(parents=True, exist_ok=True)
+        self._load_state()
+
+    def _hook_to_dict(self, hook: Hook) -> dict[str, Any]:
+        data = asdict(hook)
+        data["type"] = hook.type.value
+        data["created_at"] = hook.created_at.isoformat()
+        data["updated_at"] = hook.updated_at.isoformat()
+        data["last_triggered"] = hook.last_triggered.isoformat() if hook.last_triggered else None
+        return data
+
+    def _hook_from_dict(self, data: dict[str, Any]) -> Hook:
+        payload = dict(data)
+        payload["type"] = HookType(payload["type"])
+        created_at = payload.get("created_at")
+        updated_at = payload.get("updated_at")
+        last_triggered = payload.get("last_triggered")
+        if isinstance(created_at, str):
+            payload["created_at"] = datetime.fromisoformat(created_at)
+        if isinstance(updated_at, str):
+            payload["updated_at"] = datetime.fromisoformat(updated_at)
+        if isinstance(last_triggered, str):
+            payload["last_triggered"] = datetime.fromisoformat(last_triggered)
+        return Hook(**payload)
+
+    def _load_state(self) -> None:
+        if not self._state_path.exists():
+            return
+        try:
+            payload = json.loads(self._state_path.read_text())
+        except json.JSONDecodeError:
+            logger.warning("Gastown hook state is corrupted; ignoring %s", self._state_path)
+            return
+        for hook_data in payload.get("hooks", []):
+            try:
+                hook = self._hook_from_dict(hook_data)
+            except (KeyError, TypeError, ValueError):
+                continue
+            self._hooks[hook.id] = hook
+
+    def _save_state(self) -> None:
+        payload = {"hooks": [self._hook_to_dict(h) for h in self._hooks.values()]}
+        self._state_path.write_text(json.dumps(payload, indent=2))
 
     async def create_hook(
         self,
@@ -87,6 +133,7 @@ class HookRunner:
             )
 
             self._hooks[hook_id] = hook
+            self._save_state()
 
             # Write hook script if content provided
             if content:
@@ -141,6 +188,7 @@ class HookRunner:
                 hook.metadata.update(metadata)
 
             hook.updated_at = datetime.utcnow()
+            self._save_state()
             return hook
 
     async def delete_hook(self, hook_id: str) -> bool:
@@ -156,6 +204,7 @@ class HookRunner:
                 hook_path.unlink()
 
             del self._hooks[hook_id]
+            self._save_state()
             logger.info(f"Deleted hook {hook_id}")
             return True
 
@@ -185,6 +234,7 @@ class HookRunner:
             hook.last_triggered = datetime.utcnow()
             hook.trigger_count += 1
             hook.updated_at = datetime.utcnow()
+            self._save_state()
 
         # Execute hook script
         result = await self._execute_hook(hook, context or {})
