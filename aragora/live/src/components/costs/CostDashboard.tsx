@@ -1,120 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { CostBreakdownChart } from './CostBreakdownChart';
 import { BudgetAlerts } from './BudgetAlerts';
 import { UsageTimeline } from './UsageTimeline';
 import { OptimizationRecommendations } from './OptimizationRecommendations';
 import { EfficiencyMetrics } from './EfficiencyMetrics';
 import { BudgetForecast } from './BudgetForecast';
-import { useAuth } from '@/context/AuthContext';
+import { useCosts, type TimeRange } from '@/hooks/useCosts';
 
 type TabView = 'overview' | 'recommendations' | 'efficiency' | 'forecast';
 
-type TimeRange = '24h' | '7d' | '30d' | '90d';
-
-interface CostData {
-  totalCost: number;
-  budget: number;
-  tokensUsed: number;
-  apiCalls: number;
-  lastUpdated: string;
-  costByProvider: Array<{ name: string; cost: number; percentage: number }>;
-  costByFeature: Array<{ name: string; cost: number; percentage: number }>;
-  dailyCosts: Array<{ date: string; cost: number; tokens: number }>;
-  alerts: Array<{ id: string; type: string; message: string; severity: string; timestamp: string }>;
-}
-
-const MOCK_COST_DATA: CostData = {
-  totalCost: 127.45,
-  budget: 500.00,
-  tokensUsed: 4250000,
-  apiCalls: 12847,
-  lastUpdated: new Date().toISOString(),
-  costByProvider: [
-    { name: 'Anthropic', cost: 78.50, percentage: 61.6 },
-    { name: 'OpenAI', cost: 35.20, percentage: 27.6 },
-    { name: 'Mistral', cost: 8.75, percentage: 6.9 },
-    { name: 'OpenRouter', cost: 5.00, percentage: 3.9 },
-  ],
-  costByFeature: [
-    { name: 'Debates', cost: 55.00, percentage: 43.2 },
-    { name: 'Email Triage', cost: 32.50, percentage: 25.5 },
-    { name: 'Code Review', cost: 22.80, percentage: 17.9 },
-    { name: 'Knowledge Work', cost: 17.15, percentage: 13.4 },
-  ],
-  dailyCosts: [
-    { date: '2025-01-15', cost: 15.20, tokens: 380000 },
-    { date: '2025-01-16', cost: 18.45, tokens: 461250 },
-    { date: '2025-01-17', cost: 12.30, tokens: 307500 },
-    { date: '2025-01-18', cost: 21.00, tokens: 525000 },
-    { date: '2025-01-19', cost: 16.75, tokens: 418750 },
-    { date: '2025-01-20', cost: 19.50, tokens: 487500 },
-    { date: '2025-01-21', cost: 24.25, tokens: 606250 },
-  ],
-  alerts: [
-    {
-      id: '1',
-      type: 'budget_warning',
-      message: 'Projected to reach 80% of monthly budget by Jan 25',
-      severity: 'warning',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: '2',
-      type: 'spike_detected',
-      message: 'Unusual spike in Debate costs detected (45% above average)',
-      severity: 'info',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ],
-};
-
 export function CostDashboard() {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [activeTab, setActiveTab] = useState<TabView>('overview');
-  const [costData, setCostData] = useState<CostData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const fetchCostData = useCallback(async () => {
-    // Skip if not authenticated - use mock data instead
-    if (!isAuthenticated || authLoading) {
-      setCostData(MOCK_COST_DATA);
-      setLoading(false);
-      return;
-    }
+  const {
+    costData,
+    isLoading,
+    error,
+    dismissAlert,
+    refresh,
+  } = useCosts(timeRange);
 
-    setLoading(true);
-    try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
-      }
-      const response = await fetch(`/api/costs?range=${timeRange}`, { headers });
-      if (response.ok) {
-        const data = await response.json();
-        setCostData(data);
-      } else {
-        // Use mock data for demo
-        setCostData(MOCK_COST_DATA);
-      }
-    } catch {
-      // Use mock data on error
-      setCostData(MOCK_COST_DATA);
-    } finally {
-      setLoading(false);
-    }
-  }, [timeRange, isAuthenticated, authLoading, tokens?.access_token]);
-
-  useEffect(() => {
-    fetchCostData();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchCostData, 300000);
-    return () => clearInterval(interval);
-  }, [fetchCostData]);
-
-  if (loading || !costData) {
+  if (isLoading || !costData) {
     return (
       <div className="animate-pulse space-y-6">
         <div className="h-8 bg-[var(--surface)] rounded w-1/3" />
@@ -145,10 +54,11 @@ export function CostDashboard() {
         <div className="flex items-center gap-2">
           <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
           <button
-            onClick={fetchCostData}
-            className="px-3 py-2 text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+            onClick={refresh}
+            disabled={isLoading}
+            className="px-3 py-2 text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50"
           >
-            Refresh
+            {isLoading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
       </div>
@@ -231,9 +141,16 @@ export function CostDashboard() {
             </div>
           </div>
 
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded p-4 text-red-400 text-sm font-mono">
+              Error loading cost data: {error.message}
+            </div>
+          )}
+
           {/* Alerts */}
           {costData.alerts.length > 0 && (
-            <BudgetAlerts alerts={costData.alerts} />
+            <BudgetAlerts alerts={costData.alerts} onDismiss={dismissAlert} />
           )}
 
           {/* Charts Grid */}

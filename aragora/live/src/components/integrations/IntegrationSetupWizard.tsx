@@ -167,6 +167,7 @@ interface IntegrationSetupWizardProps {
   type: IntegrationType;
   onClose: () => void;
   onSave: (config: Record<string, unknown>) => Promise<void>;
+  onTest?: (type: IntegrationType, config: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
   existingConfig?: Record<string, unknown>;
 }
 
@@ -174,6 +175,7 @@ export function IntegrationSetupWizard({
   type,
   onClose,
   onSave,
+  onTest,
   existingConfig
 }: IntegrationSetupWizardProps) {
   const config = INTEGRATION_CONFIGS[type];
@@ -196,10 +198,7 @@ export function IntegrationSetupWizard({
     setError(null);
 
     try {
-      // Simulate test - in production this would call the backend
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // For demo, check if required fields are filled
+      // Check required fields first
       const missingRequired = config.fields
         .filter(f => f.required && !formData[f.key])
         .map(f => f.label);
@@ -208,7 +207,19 @@ export function IntegrationSetupWizard({
         throw new Error(`Missing required fields: ${missingRequired.join(', ')}`);
       }
 
-      setTestStatus('success');
+      // Use the onTest callback if provided (calls real API)
+      if (onTest) {
+        const result = await onTest(type, formData);
+        if (result.success) {
+          setTestStatus('success');
+        } else {
+          throw new Error(result.error || 'Connection test failed');
+        }
+      } else {
+        // Fallback: validation-only test when no API handler provided
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setTestStatus('success');
+      }
     } catch (err) {
       setTestStatus('failed');
       setError(err instanceof Error ? err.message : 'Test failed');

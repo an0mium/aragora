@@ -9,6 +9,7 @@ import json
 import pytest
 
 from tests.conftest import requires_evolution, REQUIRES_EVOLUTION
+from tests.fixtures.shared.auth import setup_full_auth_bypass
 
 # Skip entire module if Evolution module is not available
 pytestmark = pytest.mark.skipif(requires_evolution, reason=REQUIRES_EVOLUTION)
@@ -23,6 +24,12 @@ from aragora.server.handlers.base import clear_cache
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def bypass_rbac(monkeypatch):
+    """Bypass RBAC checks for all tests in this module."""
+    setup_full_auth_bypass(monkeypatch)
 
 
 @pytest.fixture

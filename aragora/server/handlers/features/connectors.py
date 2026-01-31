@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
 from uuid import uuid4
 
+from aiohttp import web
+
 
 class ConnectorTypeMeta(TypedDict, total=False):
     """Metadata for a connector type."""
@@ -978,7 +980,9 @@ class ConnectorsHandler(SecureHandler):
             counts[category] = counts.get(category, 0) + 1
         return counts
 
-    async def _get_json_body(self, request: Any) -> dict[str, Any]:
+    async def _get_json_body(
+        self, request: Any
+    ) -> tuple[dict[str, Any] | None, web.Response | None]:
         """Parse JSON body from request."""
         return await parse_json_body(request, "connectors")
 

@@ -37,7 +37,7 @@ from aragora.connectors.exceptions import (
 )
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.resilience import CircuitBreaker
-from aragora.resilience.http_client import CircuitBreakerMixin
+from aragora.resilience.http_client import CircuitBreakerMixin, classify_http_error
 
 logger = logging.getLogger(__name__)
 
@@ -654,6 +654,9 @@ class QuickBooksConnector(CircuitBreakerMixin):
         """
         Make authenticated API request with retry logic and circuit breaker.
 
+        Uses CircuitBreakerMixin helper methods for consistent circuit breaker
+        handling and classify_http_error for uniform error classification.
+
         Args:
             method: HTTP method
             endpoint: API endpoint
@@ -673,9 +676,9 @@ class QuickBooksConnector(CircuitBreakerMixin):
 
         from aragora.server.http_client_pool import get_http_pool
 
-        # Check circuit breaker before making request
-        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
-            cooldown = self._circuit_breaker.cooldown_remaining()
+        # Check circuit breaker using mixin method
+        if not self.check_circuit_breaker():
+            cooldown = self.get_circuit_cooldown()
             raise ConnectorAPIError(
                 f"Circuit breaker open - retry in {cooldown:.1f}s",
                 connector_name="qbo",
@@ -697,8 +700,6 @@ class QuickBooksConnector(CircuitBreakerMixin):
             "Content-Type": "application/json",
         }
 
-        # Retryable status codes
-        retryable_statuses = {429, 500, 502, 503, 504}
         last_error: Exception | None = None
 
         pool = get_http_pool()
@@ -712,17 +713,22 @@ class QuickBooksConnector(CircuitBreakerMixin):
                         json=data,
                         timeout=30,
                     )
-                    # Handle rate limiting with Retry-After header
-                    if response.status_code == 429:
-                        retry_after = response.headers.get("Retry-After")
-                        if retry_after and attempt < max_retries:
-                            delay = float(retry_after)
-                            logger.warning(f"QBO rate limited, waiting {delay}s")
-                            await asyncio.sleep(delay)
-                            continue
 
-                    # Retry on server errors
-                    if response.status_code in retryable_statuses and attempt < max_retries:
+                    # Use shared error classification
+                    error_info = classify_http_error(
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                    )
+
+                    # Handle rate limiting with Retry-After header
+                    if error_info.is_rate_limit and attempt < max_retries:
+                        delay = error_info.retry_after or base_delay * (2**attempt)
+                        logger.warning(f"QBO rate limited, waiting {delay}s")
+                        await asyncio.sleep(delay)
+                        continue
+
+                    # Retry on transient errors
+                    if error_info.is_transient and attempt < max_retries:
                         delay = base_delay * (2**attempt)
                         logger.warning(
                             f"QBO request failed ({response.status_code}), "
@@ -735,18 +741,16 @@ class QuickBooksConnector(CircuitBreakerMixin):
 
                     if response.status_code >= 400:
                         error = response_data.get("Fault", {}).get("Error", [{}])[0]
-                        # Record failure for persistent errors
-                        if self._circuit_breaker:
-                            self._circuit_breaker.record_failure()
+                        # Record failure using mixin method
+                        self.record_circuit_failure()
                         raise ConnectorAPIError(
                             f"QBO API error: {error.get('Message', 'Unknown error')}",
                             connector_name="qbo",
                             status_code=response.status_code,
                         )
 
-                    # Success - record it
-                    if self._circuit_breaker:
-                        self._circuit_breaker.record_success()
+                    # Success - record using mixin method
+                    self.record_circuit_success()
 
                     return response_data
 
@@ -761,8 +765,7 @@ class QuickBooksConnector(CircuitBreakerMixin):
                     await asyncio.sleep(delay)
                     continue
                 # Record failure after all retries exhausted
-                if self._circuit_breaker:
-                    self._circuit_breaker.record_failure()
+                self.record_circuit_failure()
                 raise ConnectorNetworkError(
                     f"QBO connection failed after {max_retries} retries: {e}",
                     connector_name="qbo",
@@ -779,8 +782,7 @@ class QuickBooksConnector(CircuitBreakerMixin):
                     await asyncio.sleep(delay)
                     continue
                 # Record failure after all retries exhausted
-                if self._circuit_breaker:
-                    self._circuit_breaker.record_failure()
+                self.record_circuit_failure()
                 raise ConnectorTimeoutError(
                     f"QBO request timed out after {max_retries} retries",
                     connector_name="qbo",

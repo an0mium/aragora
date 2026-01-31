@@ -26,6 +26,8 @@ import base64
 import logging
 from typing import Any, Optional, cast
 
+from aiohttp import web
+
 from ..base import (
     HandlerResult,
     ServerContext,
@@ -585,7 +587,9 @@ class LegalHandler:
             return {k: v[0] for k, v in parse_qs(request.query_string).items()}
         return {}
 
-    async def _get_json_body(self, request: Any) -> dict[str, Any]:
+    async def _get_json_body(
+        self, request: Any
+    ) -> tuple[dict[str, Any] | None, web.Response | None]:
         """Parse JSON body from request."""
         return await parse_json_body(request, "legal")
 

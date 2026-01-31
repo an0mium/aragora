@@ -14,11 +14,18 @@ from unittest.mock import Mock, MagicMock, patch
 
 from aragora.server.handlers.introspection import IntrospectionHandler
 from aragora.server.handlers.base import clear_cache
+from tests.fixtures.shared.auth import setup_full_auth_bypass
 
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def bypass_rbac(monkeypatch):
+    """Bypass RBAC checks for all tests in this module."""
+    setup_full_auth_bypass(monkeypatch)
 
 
 @pytest.fixture

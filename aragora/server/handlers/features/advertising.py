@@ -32,6 +32,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
+from aiohttp import web
+
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.params import get_clamped_int_param
@@ -1153,7 +1155,9 @@ class AdvertisingHandler(SecureHandler):
         else:
             return "Balanced allocation considering both reach and conversion performance across platforms."
 
-    async def _get_json_body(self, request: Any) -> dict[str, Any]:
+    async def _get_json_body(
+        self, request: Any
+    ) -> tuple[dict[str, Any] | None, web.Response | None]:
         """Parse JSON body from request."""
         return await parse_json_body(request, "advertising")
 

@@ -12,6 +12,8 @@ interface Alert {
 
 interface BudgetAlertsProps {
   alerts: Alert[];
+  /** Callback when an alert is dismissed (sends to API) */
+  onDismiss?: (alertId: string) => void | Promise<void>;
 }
 
 const SEVERITY_CONFIG: Record<string, { color: string; bgColor: string; icon: string }> = {
@@ -20,20 +22,55 @@ const SEVERITY_CONFIG: Record<string, { color: string; bgColor: string; icon: st
   info: { color: 'text-blue-400', bgColor: 'bg-blue-500/10 border-blue-500/30', icon: 'ℹ️' },
 };
 
-export function BudgetAlerts({ alerts }: BudgetAlertsProps) {
+export function BudgetAlerts({ alerts, onDismiss }: BudgetAlertsProps) {
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState(true);
+  const [dismissing, setDismissing] = useState<Set<string>>(new Set());
 
   const visibleAlerts = alerts.filter(a => !dismissedAlerts.has(a.id));
 
   if (visibleAlerts.length === 0) return null;
 
-  const dismissAlert = (id: string) => {
+  const dismissAlert = async (id: string) => {
+    // Optimistic update - hide immediately
     setDismissedAlerts(prev => new Set([...prev, id]));
+
+    // Call API if provided
+    if (onDismiss) {
+      setDismissing(prev => new Set([...prev, id]));
+      try {
+        await onDismiss(id);
+      } catch {
+        // Revert on error
+        setDismissedAlerts(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      } finally {
+        setDismissing(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    }
   };
 
-  const dismissAll = () => {
-    setDismissedAlerts(new Set(alerts.map(a => a.id)));
+  const dismissAll = async () => {
+    const ids = alerts.map(a => a.id);
+    setDismissedAlerts(new Set(ids));
+
+    // Call API for each if provided
+    if (onDismiss) {
+      await Promise.all(ids.map(async id => {
+        try {
+          await onDismiss(id);
+        } catch {
+          // Ignore errors during bulk dismiss
+        }
+      }));
+    }
   };
 
   const formatTimeAgo = (timestamp: string): string => {
@@ -112,9 +149,10 @@ export function BudgetAlerts({ alerts }: BudgetAlertsProps) {
                   </div>
                   <button
                     onClick={() => dismissAlert(alert.id)}
-                    className="text-[var(--text-muted)] hover:text-[var(--text)] p-1"
+                    disabled={dismissing.has(alert.id)}
+                    className="text-[var(--text-muted)] hover:text-[var(--text)] p-1 disabled:opacity-50"
                   >
-                    ✕
+                    {dismissing.has(alert.id) ? '...' : '✕'}
                   </button>
                 </div>
               </div>

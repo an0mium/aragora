@@ -32,6 +32,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from aiohttp import web
+
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
@@ -1191,7 +1193,9 @@ class CRMHandler(SecureHandler):
             "hs_analytics_source": source,
         }
 
-    async def _get_json_body(self, request: Any) -> dict[str, Any]:
+    async def _get_json_body(
+        self, request: Any
+    ) -> tuple[dict[str, Any] | None, web.Response | None]:
         """Parse JSON body from request."""
         return await parse_json_body(request, "crm")
 

@@ -441,22 +441,313 @@ def on_request(
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs) -> None:
     """Called when load test starts."""
+    global _test_start_time
+    _test_start_time = time.time()
+
     print("=" * 60)
     print("Aragora Load Test Starting")
     print(f"Target: {environment.host}")
+    print(f"Profile: {LOAD_PROFILE}")
     print(f"Auth configured: {bool(API_TOKEN)}")
     print(f"Test agent: {TEST_AGENT}")
+    print(f"SLO validation: {'enabled' if ENABLE_SLO_VALIDATION else 'disabled'}")
     print("=" * 60)
 
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs) -> None:
     """Called when load test stops."""
+    global _response_times, _request_count, _failure_count, _test_start_time
+
     print("=" * 60)
     print("Aragora Load Test Complete")
     stats = environment.stats
     print(f"Total requests: {stats.total.num_requests}")
     print(f"Total failures: {stats.total.num_failures}")
     print(f"Avg response time: {stats.total.avg_response_time:.0f}ms")
+    print(f"p95 response time: {stats.total.get_response_time_percentile(0.95):.0f}ms")
     print(f"p99 response time: {stats.total.get_response_time_percentile(0.99):.0f}ms")
     print("=" * 60)
+
+    # SLO Validation
+    if ENABLE_SLO_VALIDATION:
+        try:
+            from tests.load.slo_validator import SLOValidator
+
+            duration = time.time() - _test_start_time if _test_start_time else 60
+
+            # Collect response times from Locust stats
+            response_times_ms = []
+            for entry in stats.entries.values():
+                if hasattr(entry, "response_times") and entry.response_times:
+                    for time_ms, count in entry.response_times.items():
+                        response_times_ms.extend([float(time_ms)] * count)
+
+            # Fallback if response_times not available
+            if not response_times_ms and stats.total.num_requests > 0:
+                avg = stats.total.avg_response_time
+                p95 = stats.total.get_response_time_percentile(0.95)
+                p99 = stats.total.get_response_time_percentile(0.99)
+                # Approximate distribution
+                response_times_ms = (
+                    [avg * 0.5] * int(stats.total.num_requests * 0.5)
+                    + [avg] * int(stats.total.num_requests * 0.35)
+                    + [p95] * int(stats.total.num_requests * 0.10)
+                    + [p99] * int(stats.total.num_requests * 0.05)
+                )
+
+            validator = SLOValidator.from_profile(LOAD_PROFILE)
+            result = validator.validate(
+                response_times_ms=response_times_ms,
+                total_requests=stats.total.num_requests,
+                failed_requests=stats.total.num_failures,
+                duration_seconds=duration,
+            )
+
+            print("\n" + result.format_report())
+
+            if not result.passed:
+                print("\n*** SLO VALIDATION FAILED ***")
+                for v in result.violations:
+                    print(f"  - {v.message}")
+
+        except ImportError:
+            print("\nSLO validation skipped (slo_validator not available)")
+        except Exception as e:
+            print(f"\nSLO validation error: {e}")
+
+
+# ==============================================================================
+# Authentication User - Login/logout and token management
+# ==============================================================================
+
+
+class AuthenticationTasks(TaskSet):
+    """Tasks for authentication flow testing."""
+
+    def on_start(self) -> None:
+        """Initialize auth state."""
+        self.access_token: Optional[str] = None
+        self.refresh_token: Optional[str] = None
+
+    @task(3)
+    def attempt_login(self) -> None:
+        """Attempt to login with test credentials."""
+        chars = string.ascii_lowercase + string.digits
+        email = f"loadtest_{''.join(random.choices(chars, k=8))}@test.aragora.io"
+
+        payload = {
+            "email": email,
+            "password": "loadtest_password_123",
+        }
+
+        with self.client.post(
+            "/api/auth/login",
+            json=payload,
+            name="POST /api/auth/login",
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 201):
+                try:
+                    data = response.json()
+                    self.access_token = data.get("access_token")
+                    self.refresh_token = data.get("refresh_token")
+                    response.success()
+                except json.JSONDecodeError:
+                    response.failure("Invalid JSON")
+            elif response.status_code in (401, 403, 429):
+                response.success()  # Expected responses
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(2)
+    def refresh_token_op(self) -> None:
+        """Refresh access token."""
+        if not self.refresh_token:
+            return
+
+        payload = {"refresh_token": self.refresh_token}
+
+        with self.client.post(
+            "/api/auth/refresh",
+            json=payload,
+            name="POST /api/auth/refresh",
+            catch_response=True,
+        ) as response:
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    self.access_token = data.get("access_token")
+                    response.success()
+                except json.JSONDecodeError:
+                    response.failure("Invalid JSON")
+            elif response.status_code in (401, 403, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(1)
+    def check_session(self) -> None:
+        """Check current session."""
+        headers = get_auth_headers()
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+
+        self.client.get(
+            "/api/auth/session",
+            headers=headers,
+            name="GET /api/auth/session",
+        )
+
+    @task(1)
+    def initiate_sso(self) -> None:
+        """Initiate SSO flow."""
+        provider = random.choice(["google", "github", "microsoft"])
+
+        with self.client.get(
+            f"/api/auth/sso/{provider}/authorize",
+            name="GET /api/auth/sso/:provider/authorize",
+            catch_response=True,
+            allow_redirects=False,
+        ) as response:
+            if response.status_code in (200, 302, 307):
+                response.success()
+            elif response.status_code in (404, 501):
+                response.success()  # Provider not configured
+            else:
+                response.failure(f"Status {response.status_code}")
+
+
+class AuthenticationUser(HttpUser):
+    """User simulating authentication flows."""
+
+    tasks = [AuthenticationTasks]
+    wait_time = between(2, 8)
+    weight = 2
+
+
+# ==============================================================================
+# Knowledge User - Knowledge management operations
+# ==============================================================================
+
+
+class KnowledgeTasks(TaskSet):
+    """Tasks for knowledge management testing."""
+
+    def on_start(self) -> None:
+        """Initialize knowledge state."""
+        self.created_nodes: list[str] = []
+
+    @task(3)
+    def create_knowledge_node(self) -> None:
+        """Create a knowledge node."""
+        topics = [
+            "artificial intelligence",
+            "machine learning",
+            "data science",
+            "software architecture",
+            "cloud computing",
+        ]
+
+        payload = {
+            "content": f"Knowledge about {random.choice(topics)}. Test content {random_string(10)}.",
+            "node_type": random.choice(["insight", "fact", "opinion"]),
+            "metadata": {"source": "load_test"},
+        }
+
+        with self.client.post(
+            "/api/knowledge/nodes",
+            json=payload,
+            name="POST /api/knowledge/nodes",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 201):
+                try:
+                    data = response.json()
+                    node_id = data.get("node_id") or data.get("id")
+                    if node_id:
+                        self.created_nodes.append(node_id)
+                    response.success()
+                except json.JSONDecodeError:
+                    response.failure("Invalid JSON")
+            elif response.status_code in (401, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(5)
+    def search_knowledge(self) -> None:
+        """Search knowledge base."""
+        queries = ["AI", "machine learning", "security", "data", "cloud", "architecture"]
+        query = random.choice(queries)
+
+        with self.client.get(
+            f"/api/knowledge/search?q={query}&limit=10",
+            name="GET /api/knowledge/search",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code == 200:
+                response.success()
+            elif response.status_code in (401, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(2)
+    def query_knowledge(self) -> None:
+        """Semantic query on knowledge."""
+        questions = [
+            "What are best practices for API security?",
+            "How does machine learning improve decisions?",
+            "What are microservices patterns?",
+        ]
+
+        payload = {
+            "query": random.choice(questions),
+            "context": {},
+        }
+
+        with self.client.post(
+            "/api/knowledge/query",
+            json=payload,
+            name="POST /api/knowledge/query",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code == 200:
+                response.success()
+            elif response.status_code in (401, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(1)
+    def get_knowledge_node(self) -> None:
+        """Retrieve a knowledge node."""
+        if not self.created_nodes:
+            return
+
+        node_id = random.choice(self.created_nodes)
+
+        with self.client.get(
+            f"/api/knowledge/nodes/{node_id}",
+            name="GET /api/knowledge/nodes/:id",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code == 200:
+                response.success()
+            elif response.status_code in (401, 404, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+
+class KnowledgeUser(HttpUser):
+    """User simulating knowledge management operations."""
+
+    tasks = [KnowledgeTasks]
+    wait_time = between(1, 5)
+    weight = 3

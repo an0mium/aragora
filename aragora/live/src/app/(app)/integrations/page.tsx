@@ -213,6 +213,29 @@ export default function IntegrationsPage() {
     }
   };
 
+  const handleTestIntegration = async (
+    type: IntegrationType,
+    config: Record<string, unknown>
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch(`${backendConfig.api}/api/integrations/${type}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return { success: data.success !== false, error: data.error };
+      } else {
+        const data = await res.json().catch(() => ({}));
+        return { success: false, error: data.error || `Test failed with status ${res.status}` };
+      }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Connection test failed' };
+    }
+  };
+
   return (
     <>
       <Scanlines opacity={0.02} />
@@ -622,6 +645,7 @@ console.log(result.success); // true`}
             setEditingConfig(undefined);
           }}
           onSave={handleSaveIntegration}
+          onTest={handleTestIntegration}
           existingConfig={editingConfig}
         />
       )}

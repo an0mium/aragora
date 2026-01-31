@@ -357,7 +357,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=10)
     @validate_body(required_fields=["hashes"])
-    async def check_hashes_batch(self, request: web.Request) -> HandlerResult:
+    async def check_hashes_batch(self, request: web.Request) -> HandlerResult | web.Response:
         """
         Check multiple file hashes.
 
@@ -413,7 +413,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=20)
     @validate_body(required_fields=["body"])
-    async def scan_email_content(self, request: web.Request) -> HandlerResult:
+    async def scan_email_content(self, request: web.Request) -> HandlerResult | web.Response:
         """
         Scan email content for threats.
 

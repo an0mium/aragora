@@ -27,6 +27,8 @@ from enum import Enum
 from typing import Any, cast
 from uuid import uuid4
 
+from aiohttp import web
+
 from ..base import (
     BaseHandler,
     HandlerResult,
@@ -907,13 +909,15 @@ class EmailWebhooksHandler(BaseHandler):
     # Utility Methods
     # =========================================================================
 
-    async def _get_json_body(self, request: Any) -> dict[str, Any]:
+    async def _get_json_body(
+        self, request: Any
+    ) -> tuple[dict[str, Any] | None, web.Response | None]:
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
                 return await parse_json_body(request, "email_webhooks._get_json_body")
-            return request.json
-        return {}
+            return request.json, None
+        return {}, None
 
     def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""

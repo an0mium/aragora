@@ -20,6 +20,8 @@ __all__ = [
 import logging
 from typing import Any, Optional
 
+from aiohttp import web
+
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
@@ -116,7 +118,7 @@ class BindingsHandler(BaseHandler):
         return error_response(f"Unknown bindings endpoint: {path}", 404)
 
     @handle_errors("bindings POST request")
-    async def handle_post(self, path: str, request: Any) -> HandlerResult:
+    async def handle_post(self, path: str, request: Any) -> HandlerResult | web.Response:
         """Handle POST requests for bindings endpoints."""
         path = strip_version_prefix(path)
 
@@ -224,7 +226,7 @@ class BindingsHandler(BaseHandler):
         return json_response(stats)
 
     @require_permission("bindings.create")
-    async def _create_binding(self, request: Any) -> HandlerResult:
+    async def _create_binding(self, request: Any) -> HandlerResult | web.Response:
         """Create a new message binding."""
         router = self._get_router()
         if not router:
@@ -287,7 +289,7 @@ class BindingsHandler(BaseHandler):
         )
 
     @require_permission("bindings.read")
-    async def _resolve_binding(self, request: Any) -> HandlerResult:
+    async def _resolve_binding(self, request: Any) -> HandlerResult | web.Response:
         """Resolve which binding applies to a message."""
         router = self._get_router()
         if not router:

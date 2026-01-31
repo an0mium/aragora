@@ -12,6 +12,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 from tests.conftest import requires_memory_analytics, REQUIRES_MEMORY_ANALYTICS
+from tests.fixtures.shared.auth import setup_full_auth_bypass
 
 # Skip entire module if MemoryAnalyticsHandler is not available
 pytestmark = pytest.mark.skipif(requires_memory_analytics, reason=REQUIRES_MEMORY_ANALYTICS)
@@ -20,6 +21,12 @@ pytestmark = pytest.mark.skipif(requires_memory_analytics, reason=REQUIRES_MEMOR
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def bypass_rbac(monkeypatch):
+    """Bypass RBAC checks for all tests in this module."""
+    setup_full_auth_bypass(monkeypatch)
 
 
 @pytest.fixture
@@ -169,7 +176,7 @@ class TestGetAnalytics:
     async def test_handle_routes_to_get_analytics(self, handler_with_tracker):
         """Test handle method routes to _get_analytics."""
         result = await handler_with_tracker.handle(
-            "/api/memory/analytics",
+            "/api/v1/memory/analytics",
             {"days": "30"},
         )
 
@@ -179,7 +186,7 @@ class TestGetAnalytics:
     async def test_handle_with_days_param(self, handler_with_tracker, mock_tracker):
         """Test handle extracts days parameter."""
         await handler_with_tracker.handle(
-            "/api/memory/analytics",
+            "/api/v1/memory/analytics",
             {"days": "7"},
         )
 
@@ -206,7 +213,7 @@ class TestGetTierStats:
     async def test_handle_routes_to_tier_stats(self, handler_with_tracker):
         """Test handle method routes tier paths correctly."""
         result = await handler_with_tracker.handle(
-            "/api/memory/analytics/tier/fast",
+            "/api/v1/memory/analytics/tier/fast",
             {},
         )
 
@@ -239,20 +246,22 @@ class TestTakeSnapshot:
         data = json.loads(result.body)
         assert "not available" in data.get("error", "").lower()
 
-    def test_handle_post_routes_to_snapshot(self, handler_with_tracker, mock_tracker):
+    @pytest.mark.asyncio
+    async def test_handle_post_routes_to_snapshot(self, handler_with_tracker, mock_tracker):
         """Test handle_post routes to _take_snapshot."""
-        result = handler_with_tracker.handle_post(
-            "/api/memory/analytics/snapshot",
+        result = await handler_with_tracker.handle_post(
+            "/api/v1/memory/analytics/snapshot",
             {},
         )
 
         assert result.status_code == 200
         mock_tracker.take_snapshot.assert_called_once()
 
-    def test_handle_post_wrong_path_returns_none(self, handler_with_tracker):
+    @pytest.mark.asyncio
+    async def test_handle_post_wrong_path_returns_none(self, handler_with_tracker):
         """Test handle_post returns None for unrecognized paths."""
-        result = handler_with_tracker.handle_post(
-            "/api/memory/other",
+        result = await handler_with_tracker.handle_post(
+            "/api/v1/memory/other",
             {},
         )
 
@@ -289,40 +298,44 @@ class TestTrackerLazyLoading:
 class TestParameterHandling:
     """Tests for query parameter handling."""
 
-    def test_days_parameter_clamped_to_max(self, handler_with_tracker, mock_tracker):
+    @pytest.mark.asyncio
+    async def test_days_parameter_clamped_to_max(self, handler_with_tracker, mock_tracker):
         """Test days parameter is clamped to maximum value."""
-        handler_with_tracker.handle(
-            "/api/memory/analytics",
+        await handler_with_tracker.handle(
+            "/api/v1/memory/analytics",
             {"days": "1000"},  # Exceeds max of 365
         )
 
         # Should be clamped to 365
         mock_tracker.get_analytics.assert_called_once_with(days=365)
 
-    def test_days_parameter_clamped_to_min(self, handler_with_tracker, mock_tracker):
+    @pytest.mark.asyncio
+    async def test_days_parameter_clamped_to_min(self, handler_with_tracker, mock_tracker):
         """Test days parameter is clamped to minimum value."""
-        handler_with_tracker.handle(
-            "/api/memory/analytics",
+        await handler_with_tracker.handle(
+            "/api/v1/memory/analytics",
             {"days": "0"},  # Below min of 1
         )
 
         # Should be clamped to 1
         mock_tracker.get_analytics.assert_called_once_with(days=1)
 
-    def test_days_parameter_default_value(self, handler_with_tracker, mock_tracker):
+    @pytest.mark.asyncio
+    async def test_days_parameter_default_value(self, handler_with_tracker, mock_tracker):
         """Test days parameter uses default when not provided."""
-        handler_with_tracker.handle(
-            "/api/memory/analytics",
+        await handler_with_tracker.handle(
+            "/api/v1/memory/analytics",
             {},  # No days param
         )
 
         # Should use default of 30
         mock_tracker.get_analytics.assert_called_once_with(days=30)
 
-    def test_invalid_days_parameter_uses_default(self, handler_with_tracker, mock_tracker):
+    @pytest.mark.asyncio
+    async def test_invalid_days_parameter_uses_default(self, handler_with_tracker, mock_tracker):
         """Test invalid days parameter uses default value."""
-        handler_with_tracker.handle(
-            "/api/memory/analytics",
+        await handler_with_tracker.handle(
+            "/api/v1/memory/analytics",
             {"days": "invalid"},
         )
 
@@ -338,21 +351,23 @@ class TestParameterHandling:
 class TestMemoryAnalyticsIntegration:
     """Integration tests for memory analytics handler."""
 
-    def test_full_analytics_flow(self, handler_with_tracker, mock_tracker):
+    @pytest.mark.asyncio
+    async def test_full_analytics_flow(self, handler_with_tracker, mock_tracker):
         """Test complete analytics retrieval flow."""
         # Get overall analytics
-        result1 = handler_with_tracker.handle("/api/memory/analytics", {})
+        result1 = await handler_with_tracker.handle("/api/v1/memory/analytics", {})
         assert result1.status_code == 200
 
         # Take a snapshot
-        result2 = handler_with_tracker.handle_post("/api/memory/analytics/snapshot", {})
+        result2 = await handler_with_tracker.handle_post("/api/v1/memory/analytics/snapshot", {})
         assert result2.status_code == 200
 
         # Verify calls
         mock_tracker.get_analytics.assert_called()
         mock_tracker.take_snapshot.assert_called()
 
-    def test_handle_returns_none_for_unknown_path(self, handler_with_tracker):
+    @pytest.mark.asyncio
+    async def test_handle_returns_none_for_unknown_path(self, handler_with_tracker):
         """Test handle returns None for paths it doesn't handle."""
-        result = handler_with_tracker.handle("/api/other/route", {})
+        result = await handler_with_tracker.handle("/api/v1/other/route", {})
         assert result is None
