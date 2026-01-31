@@ -251,6 +251,213 @@ class RBACAPI:
         """
         return self._client.request("GET", f"/api/v1/rbac/users/{user_id}/permissions")
 
+    def list_assignments(self, role_id: str) -> dict[str, Any]:
+        """List all assignments for a role."""
+        return self._client.request("GET", f"/api/v1/rbac/roles/{role_id}/assignments")
+
+    # ========== Bulk Operations ==========
+
+    def bulk_assign(self, assignments: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Bulk assign roles to multiple users.
+
+        Args:
+            assignments: List of {user_id: str, role_id: str, scope?: str}
+
+        Returns:
+            Bulk assignment results
+        """
+        return self._client.request(
+            "POST", "/api/v1/rbac/bulk-assign", json={"assignments": assignments}
+        )
+
+    # ========== User Management ==========
+
+    def list_users(self, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+        """List users in organization."""
+        return self._client.request("GET", "/api/users", params={"limit": limit, "offset": offset})
+
+    def invite_user(self, email: str, role: str | None = None) -> dict[str, Any]:
+        """
+        Invite a new user to organization.
+
+        Args:
+            email: User email address
+            role: Optional role to assign on acceptance
+        """
+        payload: dict[str, Any] = {"email": email}
+        if role:
+            payload["role"] = role
+        return self._client.request("POST", "/api/users/invite", json=payload)
+
+    def remove_user(self, user_id: str) -> dict[str, Any]:
+        """Remove a user from organization."""
+        return self._client.request("DELETE", f"/api/users/{user_id}")
+
+    def change_user_role(self, user_id: str, role: str) -> dict[str, Any]:
+        """Change user's role in organization."""
+        return self._client.request("PUT", f"/api/users/{user_id}/role", json={"role": role})
+
+    # ========== Workspace Roles ==========
+
+    def get_workspace_roles(self, workspace_id: str) -> dict[str, Any]:
+        """Get available roles for a workspace based on RBAC profile."""
+        return self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/roles")
+
+    def add_workspace_member(
+        self, workspace_id: str, user_id: str, role: str | None = None
+    ) -> dict[str, Any]:
+        """Add member to workspace."""
+        payload: dict[str, Any] = {"user_id": user_id}
+        if role:
+            payload["role"] = role
+        return self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/members", json=payload
+        )
+
+    def remove_workspace_member(self, workspace_id: str, user_id: str) -> dict[str, Any]:
+        """Remove member from workspace."""
+        return self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}"
+        )
+
+    def update_member_role(self, workspace_id: str, user_id: str, role: str) -> dict[str, Any]:
+        """Update member's role in workspace."""
+        return self._client.request(
+            "PUT",
+            f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role",
+            json={"role": role},
+        )
+
+    def list_profiles(self) -> dict[str, Any]:
+        """List available RBAC profiles (lite, standard, enterprise)."""
+        return self._client.request("GET", "/api/v1/workspaces/profiles")
+
+    # ========== Audit Trail ==========
+
+    def query_audit(
+        self,
+        action: str | None = None,
+        user_id: str | None = None,
+        since: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Query audit log entries."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if action:
+            params["action"] = action
+        if user_id:
+            params["user_id"] = user_id
+        if since:
+            params["since"] = since
+        return self._client.request("GET", "/api/v1/audit/entries", params=params)
+
+    def get_audit_report(
+        self, framework: str | None = None, since: str | None = None
+    ) -> dict[str, Any]:
+        """Generate compliance audit report."""
+        params: dict[str, Any] = {}
+        if framework:
+            params["framework"] = framework
+        if since:
+            params["since"] = since
+        return self._client.request("GET", "/api/v1/audit/report", params=params)
+
+    def verify_audit_integrity(self) -> dict[str, Any]:
+        """Verify audit log integrity."""
+        return self._client.request("GET", "/api/v1/audit/verify")
+
+    def get_user_activity_history(
+        self, user_id: str, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get user activity history."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/audit/actor/{user_id}/history",
+            params={"limit": limit, "offset": offset},
+        )
+
+    def get_resource_history(
+        self,
+        resource_type: str,
+        resource_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Get resource access history."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/audit/resource/{resource_type}/{resource_id}/history",
+            params={"limit": limit, "offset": offset},
+        )
+
+    def get_denied_access(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get denied access attempts."""
+        return self._client.request(
+            "GET", "/api/v1/audit/denied", params={"limit": limit, "offset": offset}
+        )
+
+    # ========== API Keys ==========
+
+    def generate_api_key(
+        self,
+        name: str,
+        permissions: list[str] | None = None,
+        expires_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate a new API key."""
+        payload: dict[str, Any] = {"name": name}
+        if permissions:
+            payload["permissions"] = permissions
+        if expires_at:
+            payload["expires_at"] = expires_at
+        return self._client.request("POST", "/api/auth/api-key", json=payload)
+
+    def list_api_keys(self) -> dict[str, Any]:
+        """List API keys for current user."""
+        return self._client.request("GET", "/api/keys")
+
+    def revoke_api_key(self, key_id: str) -> dict[str, Any]:
+        """Revoke an API key."""
+        return self._client.request("DELETE", f"/api/keys/{key_id}")
+
+    # ========== Sessions ==========
+
+    def list_sessions(self) -> dict[str, Any]:
+        """List active sessions for current user."""
+        return self._client.request("GET", "/api/auth/sessions")
+
+    def revoke_session(self, session_id: str) -> dict[str, Any]:
+        """Revoke a specific session."""
+        return self._client.request("DELETE", f"/api/auth/sessions/{session_id}")
+
+    def logout_all(self) -> dict[str, Any]:
+        """Logout from all devices."""
+        return self._client.request("POST", "/api/auth/logout-all", json={})
+
+    # ========== MFA ==========
+
+    def setup_mfa(self) -> dict[str, Any]:
+        """Setup MFA - generate secret and QR code."""
+        return self._client.request("POST", "/api/auth/mfa/setup", json={})
+
+    def enable_mfa(self, code: str) -> dict[str, Any]:
+        """Enable MFA by verifying setup code."""
+        return self._client.request("POST", "/api/auth/mfa/enable", json={"code": code})
+
+    def disable_mfa(self, code: str) -> dict[str, Any]:
+        """Disable MFA."""
+        return self._client.request("POST", "/api/auth/mfa/disable", json={"code": code})
+
+    def verify_mfa(self, code: str) -> dict[str, Any]:
+        """Verify MFA code during login."""
+        return self._client.request("POST", "/api/auth/mfa/verify", json={"code": code})
+
+    def regenerate_backup_codes(self, code: str) -> dict[str, Any]:
+        """Regenerate MFA backup codes."""
+        return self._client.request("POST", "/api/auth/mfa/backup-codes", json={"code": code})
+
 
 class AsyncRBACAPI:
     """
@@ -375,3 +582,200 @@ class AsyncRBACAPI:
     async def get_effective_permissions(self, user_id: str) -> dict[str, Any]:
         """Get all effective permissions for a user."""
         return await self._client.request("GET", f"/api/v1/rbac/users/{user_id}/permissions")
+
+    async def list_assignments(self, role_id: str) -> dict[str, Any]:
+        """List all assignments for a role."""
+        return await self._client.request("GET", f"/api/v1/rbac/roles/{role_id}/assignments")
+
+    # ========== Bulk Operations ==========
+
+    async def bulk_assign(self, assignments: list[dict[str, Any]]) -> dict[str, Any]:
+        """Bulk assign roles to multiple users."""
+        return await self._client.request(
+            "POST", "/api/v1/rbac/bulk-assign", json={"assignments": assignments}
+        )
+
+    # ========== User Management ==========
+
+    async def list_users(self, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+        """List users in organization."""
+        return await self._client.request(
+            "GET", "/api/users", params={"limit": limit, "offset": offset}
+        )
+
+    async def invite_user(self, email: str, role: str | None = None) -> dict[str, Any]:
+        """Invite a new user to organization."""
+        payload: dict[str, Any] = {"email": email}
+        if role:
+            payload["role"] = role
+        return await self._client.request("POST", "/api/users/invite", json=payload)
+
+    async def remove_user(self, user_id: str) -> dict[str, Any]:
+        """Remove a user from organization."""
+        return await self._client.request("DELETE", f"/api/users/{user_id}")
+
+    async def change_user_role(self, user_id: str, role: str) -> dict[str, Any]:
+        """Change user's role in organization."""
+        return await self._client.request("PUT", f"/api/users/{user_id}/role", json={"role": role})
+
+    # ========== Workspace Roles ==========
+
+    async def get_workspace_roles(self, workspace_id: str) -> dict[str, Any]:
+        """Get available roles for a workspace based on RBAC profile."""
+        return await self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/roles")
+
+    async def add_workspace_member(
+        self, workspace_id: str, user_id: str, role: str | None = None
+    ) -> dict[str, Any]:
+        """Add member to workspace."""
+        payload: dict[str, Any] = {"user_id": user_id}
+        if role:
+            payload["role"] = role
+        return await self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/members", json=payload
+        )
+
+    async def remove_workspace_member(self, workspace_id: str, user_id: str) -> dict[str, Any]:
+        """Remove member from workspace."""
+        return await self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}"
+        )
+
+    async def update_member_role(
+        self, workspace_id: str, user_id: str, role: str
+    ) -> dict[str, Any]:
+        """Update member's role in workspace."""
+        return await self._client.request(
+            "PUT",
+            f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role",
+            json={"role": role},
+        )
+
+    async def list_profiles(self) -> dict[str, Any]:
+        """List available RBAC profiles (lite, standard, enterprise)."""
+        return await self._client.request("GET", "/api/v1/workspaces/profiles")
+
+    # ========== Audit Trail ==========
+
+    async def query_audit(
+        self,
+        action: str | None = None,
+        user_id: str | None = None,
+        since: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Query audit log entries."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if action:
+            params["action"] = action
+        if user_id:
+            params["user_id"] = user_id
+        if since:
+            params["since"] = since
+        return await self._client.request("GET", "/api/v1/audit/entries", params=params)
+
+    async def get_audit_report(
+        self, framework: str | None = None, since: str | None = None
+    ) -> dict[str, Any]:
+        """Generate compliance audit report."""
+        params: dict[str, Any] = {}
+        if framework:
+            params["framework"] = framework
+        if since:
+            params["since"] = since
+        return await self._client.request("GET", "/api/v1/audit/report", params=params)
+
+    async def verify_audit_integrity(self) -> dict[str, Any]:
+        """Verify audit log integrity."""
+        return await self._client.request("GET", "/api/v1/audit/verify")
+
+    async def get_user_activity_history(
+        self, user_id: str, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get user activity history."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/audit/actor/{user_id}/history",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_resource_history(
+        self,
+        resource_type: str,
+        resource_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Get resource access history."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/audit/resource/{resource_type}/{resource_id}/history",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_denied_access(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get denied access attempts."""
+        return await self._client.request(
+            "GET", "/api/v1/audit/denied", params={"limit": limit, "offset": offset}
+        )
+
+    # ========== API Keys ==========
+
+    async def generate_api_key(
+        self,
+        name: str,
+        permissions: list[str] | None = None,
+        expires_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate a new API key."""
+        payload: dict[str, Any] = {"name": name}
+        if permissions:
+            payload["permissions"] = permissions
+        if expires_at:
+            payload["expires_at"] = expires_at
+        return await self._client.request("POST", "/api/auth/api-key", json=payload)
+
+    async def list_api_keys(self) -> dict[str, Any]:
+        """List API keys for current user."""
+        return await self._client.request("GET", "/api/keys")
+
+    async def revoke_api_key(self, key_id: str) -> dict[str, Any]:
+        """Revoke an API key."""
+        return await self._client.request("DELETE", f"/api/keys/{key_id}")
+
+    # ========== Sessions ==========
+
+    async def list_sessions(self) -> dict[str, Any]:
+        """List active sessions for current user."""
+        return await self._client.request("GET", "/api/auth/sessions")
+
+    async def revoke_session(self, session_id: str) -> dict[str, Any]:
+        """Revoke a specific session."""
+        return await self._client.request("DELETE", f"/api/auth/sessions/{session_id}")
+
+    async def logout_all(self) -> dict[str, Any]:
+        """Logout from all devices."""
+        return await self._client.request("POST", "/api/auth/logout-all", json={})
+
+    # ========== MFA ==========
+
+    async def setup_mfa(self) -> dict[str, Any]:
+        """Setup MFA - generate secret and QR code."""
+        return await self._client.request("POST", "/api/auth/mfa/setup", json={})
+
+    async def enable_mfa(self, code: str) -> dict[str, Any]:
+        """Enable MFA by verifying setup code."""
+        return await self._client.request("POST", "/api/auth/mfa/enable", json={"code": code})
+
+    async def disable_mfa(self, code: str) -> dict[str, Any]:
+        """Disable MFA."""
+        return await self._client.request("POST", "/api/auth/mfa/disable", json={"code": code})
+
+    async def verify_mfa(self, code: str) -> dict[str, Any]:
+        """Verify MFA code during login."""
+        return await self._client.request("POST", "/api/auth/mfa/verify", json={"code": code})
+
+    async def regenerate_backup_codes(self, code: str) -> dict[str, Any]:
+        """Regenerate MFA backup codes."""
+        return await self._client.request("POST", "/api/auth/mfa/backup-codes", json={"code": code})

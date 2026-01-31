@@ -52,6 +52,13 @@ _ALLOWED_BACKUP_SOURCE_DIRS: list[Path] = [
     Path("/var/lib/aragora"),
 ]
 
+# SECURITY: Allowed base directories for restore target paths.
+# Restores can only target paths within these directories.
+_ALLOWED_RESTORE_DIRS: list[Path] = [
+    Path(os.environ.get("ARAGORA_RESTORE_DIR", "/tmp/aragora_restore")).resolve(),
+    Path("/var/aragora/restore"),
+]
+
 
 class BackupHandler(BaseHandler):
     """
@@ -343,9 +350,29 @@ class BackupHandler(BaseHandler):
         Test restore a backup (dry-run).
 
         Body:
-            target_path: Optional target path for restore test info
+            target_path: Optional target path for restore test
         """
-        target_path = body.get("target_path", "/tmp/restore_test.db")
+        target_path = body.get("target_path", "restore_test.db")
+
+        # SECURITY: Validate target_path to prevent path traversal attacks (CWE-22)
+        validated_target = None
+        for allowed_base in _ALLOWED_RESTORE_DIRS:
+            try:
+                if not allowed_base.exists():
+                    allowed_base.mkdir(parents=True, exist_ok=True)
+                validated_target = safe_path(allowed_base, target_path, must_exist=False)
+                break
+            except PathTraversalError:
+                continue
+            except OSError:
+                continue
+
+        if validated_target is None:
+            logger.warning(f"Restore target path validation failed: {target_path}")
+            return error_response(
+                "Invalid target path. Path must be within allowed restore directories.",
+                400,
+            )
 
         manager = self._get_manager()
 
@@ -353,7 +380,7 @@ class BackupHandler(BaseHandler):
             # Dry run - doesn't actually restore
             success = manager.restore_backup(
                 backup_id=backup_id,
-                target_path=target_path,
+                target_path=str(validated_target),
                 dry_run=True,
             )
 
@@ -361,7 +388,7 @@ class BackupHandler(BaseHandler):
                 {
                     "backup_id": backup_id,
                     "restore_test_passed": success,
-                    "target_path": target_path,
+                    "target_path": str(validated_target),
                     "dry_run": True,
                     "message": "Dry-run restore test completed successfully",
                 }

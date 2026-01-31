@@ -231,6 +231,147 @@ class AgentsAPI:
             "GET", "/api/v1/agent/compare", params={"agent1": agent1, "agent2": agent2}
         )
 
+    # =========================================================================
+    # Health & Availability
+    # =========================================================================
+
+    def list_health(self) -> dict[str, Any]:
+        """Get health status for all agents."""
+        return self._client.request("GET", "/api/agents/health")
+
+    def list_availability(self) -> dict[str, Any]:
+        """Get availability status for all agents."""
+        return self._client.request("GET", "/api/agents/availability")
+
+    def list_local_agents(self) -> dict[str, Any]:
+        """List locally available agents (Ollama, etc.)."""
+        return self._client.request("GET", "/api/agents/local")
+
+    def get_local_status(self) -> dict[str, Any]:
+        """Get status of local agent providers."""
+        return self._client.request("GET", "/api/agents/local/status")
+
+    # =========================================================================
+    # Agent Details
+    # =========================================================================
+
+    def get_elo(self, name: str) -> dict[str, Any]:
+        """Get agent's ELO rating."""
+        return self._client.request("GET", f"/api/agent/{name}/elo")
+
+    def get_head_to_head(self, name: str, opponent: str) -> dict[str, Any]:
+        """Get head-to-head statistics against another agent."""
+        return self._client.request("GET", f"/api/agent/{name}/head-to-head/{opponent}")
+
+    def get_opponent_briefing(self, name: str, opponent: str) -> dict[str, Any]:
+        """Get strategic briefing about an opponent."""
+        return self._client.request("GET", f"/api/agent/{name}/opponent-briefing/{opponent}")
+
+    def get_positions(self, name: str) -> dict[str, Any]:
+        """Get agent's position history across debates."""
+        return self._client.request("GET", f"/api/agent/{name}/positions")
+
+    def get_introspection(self, name: str) -> dict[str, Any]:
+        """Get agent's self-awareness data."""
+        return self._client.request("GET", f"/api/agent/{name}/introspect")
+
+    # =========================================================================
+    # Leaderboard & Analytics
+    # =========================================================================
+
+    def get_leaderboard(self, view: str = "overall") -> dict[str, Any]:
+        """Get agent leaderboard."""
+        return self._client.request("GET", "/api/leaderboard", params={"view": view})
+
+    def get_recent_matches(self, limit: int = 20) -> dict[str, Any]:
+        """Get recent debate matches."""
+        return self._client.request("GET", "/api/matches/recent", params={"limit": limit})
+
+    def get_recent_flips(self, limit: int = 20) -> dict[str, Any]:
+        """Get recent position flips across all agents."""
+        return self._client.request("GET", "/api/flips/recent", params={"limit": limit})
+
+    def get_flips_summary(self) -> dict[str, Any]:
+        """Get aggregate flip statistics."""
+        return self._client.request("GET", "/api/flips/summary")
+
+    def get_calibration_leaderboard(self) -> dict[str, Any]:
+        """Get calibration leaderboard."""
+        return self._client.request("GET", "/api/calibration/leaderboard")
+
+    def get_rankings(
+        self,
+        domain: str | None = None,
+        period: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Get agent rankings with optional filters."""
+        params: dict[str, Any] = {"limit": limit}
+        if domain:
+            params["domain"] = domain
+        if period:
+            params["period"] = period
+        return self._client.request("GET", "/api/v1/rankings", params=params)
+
+    # =========================================================================
+    # Agent Lifecycle (Control Plane)
+    # =========================================================================
+
+    def register(self, agent_id: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Register an agent with the control plane."""
+        payload: dict[str, Any] = {"agent_id": agent_id}
+        if options:
+            payload.update(options)
+        return self._client.request("POST", "/api/v1/control-plane/agents", json=payload)
+
+    def unregister(self, agent_id: str) -> dict[str, Any]:
+        """Unregister an agent from the control plane."""
+        return self._client.request("DELETE", f"/api/v1/control-plane/agents/{agent_id}")
+
+    def heartbeat(self, agent_id: str, status: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Send heartbeat for an agent."""
+        payload: dict[str, Any] = {}
+        if status:
+            payload["status"] = status
+        return self._client.request(
+            "POST", f"/api/v1/control-plane/agents/{agent_id}/heartbeat", json=payload
+        )
+
+    # =========================================================================
+    # Agent Management
+    # =========================================================================
+
+    def enable(self, name: str) -> dict[str, Any]:
+        """Enable an agent for participation."""
+        return self._client.request("POST", f"/api/v1/agents/{name}/enable", json={})
+
+    def disable(self, name: str) -> dict[str, Any]:
+        """Disable an agent from participation."""
+        return self._client.request("POST", f"/api/v1/agents/{name}/disable", json={})
+
+    def calibrate(self, name: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Trigger calibration for an agent."""
+        return self._client.request("POST", f"/api/v1/agents/{name}/calibrate", json=options or {})
+
+    def get_quota(self, name: str) -> dict[str, Any]:
+        """Get rate quota for an agent."""
+        return self._client.request("GET", f"/api/v1/agents/{name}/quota")
+
+    def set_quota(self, name: str, quota: dict[str, Any]) -> dict[str, Any]:
+        """Set rate quota for an agent."""
+        return self._client.request("PUT", f"/api/v1/agents/{name}/quota", json=quota)
+
+    def update_elo(self, name: str, change: float, reason: str | None = None) -> dict[str, Any]:
+        """Manually update agent's ELO rating."""
+        payload: dict[str, Any] = {"change": change}
+        if reason:
+            payload["reason"] = reason
+        return self._client.request("POST", f"/api/v1/agents/{name}/elo", json=payload)
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get aggregate statistics for all agents."""
+        return self._client.request("GET", "/api/v1/agents/stats")
+
 
 class AsyncAgentsAPI:
     """
@@ -375,3 +516,152 @@ class AsyncAgentsAPI:
         return await self._client.request(
             "GET", "/api/v1/agent/compare", params={"agent1": agent1, "agent2": agent2}
         )
+
+    # =========================================================================
+    # Health & Availability
+    # =========================================================================
+
+    async def list_health(self) -> dict[str, Any]:
+        """Get health status for all agents."""
+        return await self._client.request("GET", "/api/agents/health")
+
+    async def list_availability(self) -> dict[str, Any]:
+        """Get availability status for all agents."""
+        return await self._client.request("GET", "/api/agents/availability")
+
+    async def list_local_agents(self) -> dict[str, Any]:
+        """List locally available agents (Ollama, etc.)."""
+        return await self._client.request("GET", "/api/agents/local")
+
+    async def get_local_status(self) -> dict[str, Any]:
+        """Get status of local agent providers."""
+        return await self._client.request("GET", "/api/agents/local/status")
+
+    # =========================================================================
+    # Agent Details
+    # =========================================================================
+
+    async def get_elo(self, name: str) -> dict[str, Any]:
+        """Get agent's ELO rating."""
+        return await self._client.request("GET", f"/api/agent/{name}/elo")
+
+    async def get_head_to_head(self, name: str, opponent: str) -> dict[str, Any]:
+        """Get head-to-head statistics against another agent."""
+        return await self._client.request("GET", f"/api/agent/{name}/head-to-head/{opponent}")
+
+    async def get_opponent_briefing(self, name: str, opponent: str) -> dict[str, Any]:
+        """Get strategic briefing about an opponent."""
+        return await self._client.request("GET", f"/api/agent/{name}/opponent-briefing/{opponent}")
+
+    async def get_positions(self, name: str) -> dict[str, Any]:
+        """Get agent's position history across debates."""
+        return await self._client.request("GET", f"/api/agent/{name}/positions")
+
+    async def get_introspection(self, name: str) -> dict[str, Any]:
+        """Get agent's self-awareness data."""
+        return await self._client.request("GET", f"/api/agent/{name}/introspect")
+
+    # =========================================================================
+    # Leaderboard & Analytics
+    # =========================================================================
+
+    async def get_leaderboard(self, view: str = "overall") -> dict[str, Any]:
+        """Get agent leaderboard."""
+        return await self._client.request("GET", "/api/leaderboard", params={"view": view})
+
+    async def get_recent_matches(self, limit: int = 20) -> dict[str, Any]:
+        """Get recent debate matches."""
+        return await self._client.request("GET", "/api/matches/recent", params={"limit": limit})
+
+    async def get_recent_flips(self, limit: int = 20) -> dict[str, Any]:
+        """Get recent position flips across all agents."""
+        return await self._client.request("GET", "/api/flips/recent", params={"limit": limit})
+
+    async def get_flips_summary(self) -> dict[str, Any]:
+        """Get aggregate flip statistics."""
+        return await self._client.request("GET", "/api/flips/summary")
+
+    async def get_calibration_leaderboard(self) -> dict[str, Any]:
+        """Get calibration leaderboard."""
+        return await self._client.request("GET", "/api/calibration/leaderboard")
+
+    async def get_rankings(
+        self,
+        domain: str | None = None,
+        period: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        """Get agent rankings with optional filters."""
+        params: dict[str, Any] = {"limit": limit}
+        if domain:
+            params["domain"] = domain
+        if period:
+            params["period"] = period
+        return await self._client.request("GET", "/api/v1/rankings", params=params)
+
+    # =========================================================================
+    # Agent Lifecycle (Control Plane)
+    # =========================================================================
+
+    async def register(
+        self, agent_id: str, options: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Register an agent with the control plane."""
+        payload: dict[str, Any] = {"agent_id": agent_id}
+        if options:
+            payload.update(options)
+        return await self._client.request("POST", "/api/v1/control-plane/agents", json=payload)
+
+    async def unregister(self, agent_id: str) -> dict[str, Any]:
+        """Unregister an agent from the control plane."""
+        return await self._client.request("DELETE", f"/api/v1/control-plane/agents/{agent_id}")
+
+    async def heartbeat(
+        self, agent_id: str, status: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Send heartbeat for an agent."""
+        payload: dict[str, Any] = {}
+        if status:
+            payload["status"] = status
+        return await self._client.request(
+            "POST", f"/api/v1/control-plane/agents/{agent_id}/heartbeat", json=payload
+        )
+
+    # =========================================================================
+    # Agent Management
+    # =========================================================================
+
+    async def enable(self, name: str) -> dict[str, Any]:
+        """Enable an agent for participation."""
+        return await self._client.request("POST", f"/api/v1/agents/{name}/enable", json={})
+
+    async def disable(self, name: str) -> dict[str, Any]:
+        """Disable an agent from participation."""
+        return await self._client.request("POST", f"/api/v1/agents/{name}/disable", json={})
+
+    async def calibrate(self, name: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Trigger calibration for an agent."""
+        return await self._client.request(
+            "POST", f"/api/v1/agents/{name}/calibrate", json=options or {}
+        )
+
+    async def get_quota(self, name: str) -> dict[str, Any]:
+        """Get rate quota for an agent."""
+        return await self._client.request("GET", f"/api/v1/agents/{name}/quota")
+
+    async def set_quota(self, name: str, quota: dict[str, Any]) -> dict[str, Any]:
+        """Set rate quota for an agent."""
+        return await self._client.request("PUT", f"/api/v1/agents/{name}/quota", json=quota)
+
+    async def update_elo(
+        self, name: str, change: float, reason: str | None = None
+    ) -> dict[str, Any]:
+        """Manually update agent's ELO rating."""
+        payload: dict[str, Any] = {"change": change}
+        if reason:
+            payload["reason"] = reason
+        return await self._client.request("POST", f"/api/v1/agents/{name}/elo", json=payload)
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get aggregate statistics for all agents."""
+        return await self._client.request("GET", "/api/v1/agents/stats")
