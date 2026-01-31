@@ -943,7 +943,8 @@ class KnowledgeMound:
             The node ID
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         # Set workspace if not set
         if not node.workspace_id:
@@ -987,7 +988,8 @@ class KnowledgeMound:
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
         """Get a knowledge node by ID."""
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
         return self._meta_store.get_node(node_id)
 
     async def add_relationship(
@@ -1014,7 +1016,8 @@ class KnowledgeMound:
             Relationship ID
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         rel = KnowledgeRelationship(
             from_node_id=from_node_id,
@@ -1049,7 +1052,8 @@ class KnowledgeMound:
             Query result with matching nodes
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         import time
 
@@ -1144,7 +1148,8 @@ class KnowledgeMound:
             List of connected nodes
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         visited: set[str] = set()
         result: list[KnowledgeNode] = []
@@ -1198,7 +1203,8 @@ class KnowledgeMound:
             List of matching nodes
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         return self._meta_store.query_nodes(
             workspace_id=workspace_id or self.workspace_id,
@@ -1214,7 +1220,8 @@ class KnowledgeMound:
     async def get_stats(self) -> dict[str, Any]:
         """Get statistics about the knowledge mound."""
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
         return self._meta_store.get_stats(self.workspace_id)
 
     async def delete_node(self, node_id: str) -> bool:
@@ -1228,7 +1235,8 @@ class KnowledgeMound:
             True if deleted, False if node not found
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         # Delete from vector store if available
         if self._vector_store:
@@ -1261,7 +1269,8 @@ class KnowledgeMound:
             List of matching KnowledgeNodes
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         ws_id = workspace_id or self.workspace_id
         node_ids = self._meta_store.query_by_provenance(
@@ -1298,7 +1307,8 @@ class KnowledgeMound:
             List of relationships
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
         return self._meta_store.get_relationships(node_id, relationship_type, direction)
 
     async def merge_from_debate(
@@ -1399,7 +1409,8 @@ class KnowledgeMound:
             Dict with 'nodes' and 'links' arrays for D3 force-directed graph
         """
         self._ensure_initialized()
-        assert self._meta_store is not None
+        if self._meta_store is None:
+            raise RuntimeError("Meta store not initialized - call initialize() first")
 
         nodes: list[dict[str, Any]] = []
         links: list[dict[str, Any]] = []

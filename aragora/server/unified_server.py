@@ -623,8 +623,10 @@ class UnifiedServer:
                 # Configure SSL if cert and key are provided
                 if self.ssl_enabled:
                     # ssl_enabled is True only when both ssl_cert and ssl_key are set
-                    assert self.ssl_cert is not None
-                    assert self.ssl_key is not None
+                    if self.ssl_cert is None:
+                        raise ValueError("ssl_cert required when ssl_enabled is True")
+                    if self.ssl_key is None:
+                        raise ValueError("ssl_key required when ssl_enabled is True")
                     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
                     ssl_context.load_cert_chain(
                         certfile=self.ssl_cert,

@@ -131,7 +131,8 @@ class AuditKnowledgeAdapter:
 
             # Search for related facts
             try:
-                assert self._embedding_service is not None
+                if self._embedding_service is None:
+                    raise RuntimeError("Embedding service not initialized")
                 related = await self._embedding_service.hybrid_search(
                     query=chunk_content[:500],  # First 500 chars for query
                     workspace_id=workspace,
@@ -141,7 +142,8 @@ class AuditKnowledgeAdapter:
                 # Also get facts with matching topics
                 from aragora.knowledge.types import FactFilters
 
-                assert self._fact_store is not None
+                if self._fact_store is None:
+                    raise RuntimeError("Fact store not initialized")
                 facts = self._fact_store.list_facts(FactFilters(workspace_id=workspace, limit=10))
 
                 # Filter for relevance (simple keyword matching)
@@ -242,7 +244,8 @@ class AuditKnowledgeAdapter:
             )
 
             # Store in fact store
-            assert self._fact_store is not None
+            if self._fact_store is None:
+                raise RuntimeError("Fact store not initialized")
             self._fact_store.add_fact(
                 statement=fact.statement,
                 evidence_ids=fact.evidence_ids,
@@ -309,7 +312,8 @@ class AuditKnowledgeAdapter:
         try:
             # Search for similar content
             query = f"{finding.title} {finding.description}"
-            assert self._embedding_service is not None
+            if self._embedding_service is None:
+                raise RuntimeError("Embedding service not initialized")
             results = await self._embedding_service.hybrid_search(
                 query=query,
                 workspace_id=workspace,
@@ -331,7 +335,8 @@ class AuditKnowledgeAdapter:
             # Also search facts
             from aragora.knowledge.types import FactFilters
 
-            assert self._fact_store is not None
+            if self._fact_store is None:
+                raise RuntimeError("Fact store not initialized")
             facts = self._fact_store.query_facts(
                 query=finding.title,
                 filters=FactFilters(workspace_id=workspace, limit=5),
@@ -383,7 +388,8 @@ class AuditKnowledgeAdapter:
             # Search for related facts
             from aragora.knowledge.types import FactFilters
 
-            assert self._fact_store is not None
+            if self._fact_store is None:
+                raise RuntimeError("Fact store not initialized")
             facts = self._fact_store.query_facts(
                 query=f"{finding.title} {finding.description}",
                 filters=FactFilters(workspace_id=workspace, limit=10),

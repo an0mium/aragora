@@ -240,7 +240,8 @@ class GoogleHomeConnector(DeviceConnector):
                     private_key.encode(),
                     password=None,
                 )
-                assert isinstance(key, RSAPrivateKey)
+                if not isinstance(key, RSAPrivateKey):
+                    raise TypeError(f"Expected RSAPrivateKey, got {type(key).__name__}")
                 message = f"{header_b64}.{payload_b64}".encode()
                 signature = key.sign(
                     message,

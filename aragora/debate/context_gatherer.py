@@ -260,7 +260,10 @@ class ContextGatherer:
                     # Fallback: instantiate directly if singleton helper unavailable
                     try:
                         # KnowledgeMound is guaranteed non-None by the outer check
-                        assert KnowledgeMound is not None
+                        if KnowledgeMound is None:
+                            raise RuntimeError(
+                                "KnowledgeMound not available - knowledge module not loaded"
+                            )
                         self._knowledge_mound = KnowledgeMound(
                             workspace_id=self._knowledge_workspace_id
                         )

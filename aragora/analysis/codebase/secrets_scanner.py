@@ -541,7 +541,8 @@ class SecretsScanner:
 
     async def _scan_file(self, file_path: str, repo_path: str) -> list[SecretFinding]:
         """Scan a single file for secrets."""
-        assert self._semaphore is not None
+        if self._semaphore is None:
+            raise RuntimeError("Semaphore not initialized - call initialize() first")
 
         async with self._semaphore:
             return await asyncio.to_thread(self._scan_file_sync, file_path, repo_path)

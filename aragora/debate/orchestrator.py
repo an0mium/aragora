@@ -1315,7 +1315,8 @@ class Arena:
         # Return instance-level cached domain if available
         if self._cache.has_debate_domain():
             # has_debate_domain() guarantees debate_domain is not None
-            assert self._cache.debate_domain is not None
+            if self._cache.debate_domain is None:
+                raise RuntimeError("Cached debate domain is None - cache may be corrupted")
             return self._cache.debate_domain
 
         # Use module-level LRU cache for the actual computation

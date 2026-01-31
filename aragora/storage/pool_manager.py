@@ -154,7 +154,8 @@ async def initialize_shared_pool(
         else:
             # last_err is guaranteed to be set here since we only reach the else
             # branch if we never broke out of the loop (i.e., all attempts failed)
-            assert last_err is not None
+            if last_err is None:
+                raise RuntimeError("Connection retry loop completed without error - logic error")
             raise last_err
         _pool_event_loop = current_loop
         _pool_config = {

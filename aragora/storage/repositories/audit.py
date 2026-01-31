@@ -92,7 +92,8 @@ class AuditRepository:
                 ),
             )
             # lastrowid is guaranteed to be set after INSERT
-            assert cursor.lastrowid is not None
+            if cursor.lastrowid is None:
+                raise RuntimeError("INSERT did not return a row ID")
             return cursor.lastrowid
 
     def get_log(

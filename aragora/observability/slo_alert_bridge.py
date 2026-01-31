@@ -225,7 +225,8 @@ class SLOAlertBridge:
             )
 
             # Client is guaranteed to be non-None after the above assignment
-            assert self._pagerduty_client is not None
+            if self._pagerduty_client is None:
+                raise RuntimeError("PagerDuty client not initialized")
             incident = await self._pagerduty_client.create_incident(request)
             logger.info(f"Created PagerDuty incident {incident.id} for {violation.operation}")
             return incident.id
@@ -306,7 +307,8 @@ class SLOAlertBridge:
             ]
 
             # Manager is guaranteed to be non-None after the above assignment
-            assert self._notification_manager is not None
+            if self._notification_manager is None:
+                raise RuntimeError("Notification manager not initialized")
             await self._notification_manager.notify(
                 event_type=NotificationEventType.SLA_VIOLATION,
                 title=f"SLO Violation: {violation.operation} {violation.percentile}",

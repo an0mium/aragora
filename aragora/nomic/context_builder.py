@@ -442,7 +442,8 @@ class NomicContextBuilder:
         """
         if self._index is None:
             await self.build_index()
-        assert self._index is not None
+        if self._index is None:
+            raise RuntimeError("Index not built - call build_index() first")
 
         sections = []
         sections.append(

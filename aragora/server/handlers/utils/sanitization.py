@@ -185,7 +185,8 @@ def sanitize_user_response(user_data: dict[str, Any]) -> dict[str, Any]:
     }
     result = sanitize_response(user_data, additional_fields=user_fields)
     # Type narrowing: input is dict, so output is dict
-    assert isinstance(result, dict)
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Expected dict from sanitization, got {type(result).__name__}")
     return result
 
 
@@ -212,7 +213,8 @@ def sanitize_integration_response(integration_data: dict[str, Any]) -> dict[str,
     }
     result = sanitize_response(integration_data, additional_fields=integration_fields)
     # Type narrowing: input is dict, so output is dict
-    assert isinstance(result, dict)
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Expected dict from sanitization, got {type(result).__name__}")
     return result
 
 
@@ -241,7 +243,8 @@ def sanitize_payment_response(payment_data: dict[str, Any]) -> dict[str, Any]:
 
     result = sanitize_response(payment_data, additional_fields=payment_fields)
     # Type narrowing: input is dict, so output is dict
-    assert isinstance(result, dict)
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Expected dict from sanitization, got {type(result).__name__}")
 
     # Mask last 4 digits if present
     if "card_last_four" not in result:

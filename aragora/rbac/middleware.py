@@ -151,7 +151,8 @@ class RoutePermission:
             return False, None
 
         # Pattern is always compiled in __post_init__
-        assert isinstance(self.pattern, Pattern), "pattern must be compiled"
+        if not isinstance(self.pattern, Pattern):
+            raise RuntimeError("RoutePermission pattern must be a compiled regex")
         match = self.pattern.match(path)
         if not match:
             return False, None
