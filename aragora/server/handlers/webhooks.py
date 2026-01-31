@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.rate_limit import RateLimiter
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.url_security import validate_webhook_url
@@ -68,6 +69,11 @@ logger = logging.getLogger(__name__)
 WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
 WEBHOOK_TEST_RPM = 5  # Max 5 test deliveries per minute
 WEBHOOK_LIST_RPM = 60  # Max 60 list operations per minute
+
+# Rate limiter instances
+_register_limiter = RateLimiter(requests_per_minute=WEBHOOK_REGISTER_RPM)
+_test_limiter = RateLimiter(requests_per_minute=WEBHOOK_TEST_RPM)
+_list_limiter = RateLimiter(requests_per_minute=WEBHOOK_LIST_RPM)
 
 # Backward compatibility alias - the old WebhookStore interface is now provided
 # by WebhookConfigStoreBackend from aragora.storage.webhook_config_store
