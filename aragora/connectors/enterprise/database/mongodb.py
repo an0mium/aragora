@@ -55,8 +55,8 @@ class MongoDBConnector(EnterpriseConnector):
         title_field: str | None = None,
         use_change_streams: bool = False,
         connection_string: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         connector_id = f"mongodb_{host}_{database}"
         super().__init__(connector_id=connector_id, **kwargs)
 
