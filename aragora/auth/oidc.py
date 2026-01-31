@@ -502,7 +502,7 @@ class OIDCProvider(SSOProvider):
                 {"code": "DOMAIN_NOT_ALLOWED"},
             )
 
-        logger.info(f"OIDC authentication successful for {user.email}")
+        logger.info(f"OIDC authentication successful for user_id={user.id}")
         return user
 
     async def _exchange_code(
@@ -573,10 +573,26 @@ class OIDCProvider(SSOProvider):
             try:
                 # Validate and decode ID token
                 claims = await self._validate_id_token(id_token)
-            except (ValueError, KeyError, TypeError) as e:
-                # Token parsing/validation errors
+            except (
+                ValueError,
+                KeyError,
+                TypeError,
+                jwt.exceptions.InvalidSignatureError,
+                jwt.exceptions.DecodeError,
+                jwt.exceptions.InvalidTokenError,
+                jwt.exceptions.ExpiredSignatureError,
+                jwt.exceptions.InvalidAudienceError,
+                jwt.exceptions.InvalidIssuerError,
+                jwt.exceptions.InvalidAlgorithmError,
+                jwt.exceptions.InvalidKeyError,
+                jwt.exceptions.MissingRequiredClaimError,
+                jwt.exceptions.PyJWKClientError,
+                jwt.exceptions.PyJWKError,
+                jwt.exceptions.PyJWTError,
+            ) as e:
+                # Token parsing/validation errors - catch all JWT exceptions for defense in depth
                 # SECURITY: Never silently fall back to userinfo - could allow signature bypass
-                if not _allow_dev_auth_fallback():
+                if _is_production_mode() or not _allow_dev_auth_fallback():
                     logger.error(f"ID token validation failed: {e}")
                     raise SSOAuthenticationError(
                         f"ID token validation failed: {e}. "
@@ -587,6 +603,22 @@ class OIDCProvider(SSOProvider):
                     f"ID token validation failed, using userinfo fallback (dev mode): {e}. "
                     "This is INSECURE - do not use in production!"
                 )
+                # Emit security audit event for the fallback if audit system is available
+                try:
+                    from aragora.server.middleware.audit_logger import audit_security_event
+
+                    audit_security_event(
+                        event_type="oidc_token_validation_fallback",
+                        actor="system",
+                        details={
+                            "error": str(e),
+                            "error_type": type(e).__name__,
+                            "issuer": self.config.issuer_url,
+                            "fallback": "userinfo_endpoint",
+                        },
+                    )
+                except ImportError:
+                    pass  # Audit system not available - warning log above is sufficient
 
         # Fetch from userinfo endpoint if needed
         if not claims.get("email"):

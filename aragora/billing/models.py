@@ -514,6 +514,45 @@ class User:
             f"MFA bypass approved for service account {self.id} by {approved_by}. "
             f"Expires: {self.mfa_bypass_expires_at}"
         )
+        try:
+            from aragora.audit.unified import audit_admin
+
+            audit_admin(
+                admin_id=approved_by,
+                action="mfa_bypass_approved",
+                target_type="service_account",
+                target_id=str(self.id),
+                details={"reason": reason, "expires_days": expires_days},
+            )
+        except ImportError:
+            pass
+
+    def revoke_mfa_bypass(self, revoked_by: str, reason: str = "manual_revocation") -> None:
+        """Revoke MFA bypass for this service account."""
+        if not self.is_service_account:
+            raise ValueError("MFA bypass can only be revoked for service accounts")
+        previous_approved_by = self.mfa_bypass_approved_by
+        self.mfa_bypass_approved_at = None
+        self.mfa_bypass_approved_by = None
+        self.mfa_bypass_expires_at = None
+        self.mfa_bypass_reason = None
+        self.updated_at = datetime.now(timezone.utc)
+        logger.info(
+            f"MFA bypass revoked for service account {self.id} by {revoked_by}. "
+            f"Reason: {reason}. Previously approved by: {previous_approved_by}"
+        )
+        try:
+            from aragora.audit.unified import audit_admin
+
+            audit_admin(
+                admin_id=revoked_by,
+                action="mfa_bypass_revoked",
+                target_type="service_account",
+                target_id=str(self.id),
+                details={"reason": reason, "previous_approved_by": previous_approved_by},
+            )
+        except ImportError:
+            pass
 
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
         """Convert to dictionary."""

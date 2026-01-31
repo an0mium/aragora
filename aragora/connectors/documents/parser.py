@@ -1000,8 +1000,14 @@ class DocumentParser:
                 # Extract MOBI to get HTML content
                 tempdir, extracted = mobi.extract(mobi_path)
 
-                # Read the extracted HTML
-                html_path = os.path.join(tempdir, extracted)
+                # Read the extracted HTML (with path traversal protection)
+                html_path = os.path.realpath(os.path.join(tempdir, extracted))
+                if not html_path.startswith(os.path.realpath(tempdir)):
+                    return ParsedDocument(
+                        content="",
+                        format=DocumentFormat.MOBI,
+                        errors=["MOBI extraction produced invalid path"],
+                    )
                 if os.path.exists(html_path):
                     with open(html_path, "rb") as f:
                         html_content = f.read()

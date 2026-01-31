@@ -10,9 +10,8 @@ Provides secure admin impersonation with:
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import time
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
@@ -161,10 +160,8 @@ class ImpersonationManager:
         return self._store
 
     def _generate_session_id(self, admin_id: str, target_id: str) -> str:
-        """Generate unique session ID."""
-        timestamp = str(time.time_ns())
-        data = f"{admin_id}:{target_id}:{timestamp}"
-        return hashlib.sha256(data.encode()).hexdigest()[:16]
+        """Generate cryptographically secure session ID."""
+        return secrets.token_hex(32)
 
     def _log_audit(self, entry: ImpersonationAuditEntry) -> None:
         """Log audit entry via callback, in-memory, and persistent store."""

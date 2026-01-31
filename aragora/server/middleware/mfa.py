@@ -110,7 +110,18 @@ def require_mfa(func: Callable) -> Callable:
             if full_user:
                 # Check for service account with valid MFA bypass
                 if _has_valid_mfa_bypass(full_user):
-                    logger.debug(f"Service account {user.id} bypassing MFA requirement")
+                    logger.warning(f"Service account {user.id} bypassing MFA requirement")
+                    try:
+                        from aragora.audit.unified import audit_security
+
+                        audit_security(
+                            event_type="mfa_bypass",
+                            actor_id=user.id,
+                            reason="service_account_bypass",
+                            details={"operation": "require_mfa decorator bypass"},
+                        )
+                    except ImportError:
+                        pass
                     kwargs["user"] = user
                     return func(*args, **kwargs)
                 if not getattr(full_user, "mfa_enabled", False):
@@ -187,7 +198,18 @@ def require_admin_mfa(func: Callable) -> Callable:
                     # Check for service account bypass first
                     if _has_valid_mfa_bypass(full_user):
                         has_bypass = True
-                        logger.debug(f"Admin service account {user.id} bypassing MFA requirement")
+                        logger.warning(f"Admin service account {user.id} bypassing MFA requirement")
+                        try:
+                            from aragora.audit.unified import audit_security
+
+                            audit_security(
+                                event_type="mfa_bypass",
+                                actor_id=user.id,
+                                reason="service_account_bypass",
+                                details={"operation": "require_admin_mfa decorator bypass"},
+                            )
+                        except ImportError:
+                            pass
                     else:
                         mfa_enabled = getattr(full_user, "mfa_enabled", False)
             else:
@@ -258,9 +280,22 @@ def require_admin_with_mfa(func: Callable) -> Callable:
             if full_user:
                 if _has_valid_mfa_bypass(full_user):
                     has_bypass = True
-                    logger.debug(
+                    logger.warning(
                         f"Admin service account {user.id} bypassing MFA for sensitive operation"
                     )
+                    try:
+                        from aragora.audit.unified import audit_security
+
+                        audit_security(
+                            event_type="mfa_bypass",
+                            actor_id=user.id,
+                            reason="service_account_bypass",
+                            details={
+                                "operation": "require_admin_with_mfa decorator bypass for sensitive operation"
+                            },
+                        )
+                    except ImportError:
+                        pass
                 else:
                     mfa_enabled = getattr(full_user, "mfa_enabled", False)
         else:
@@ -497,9 +532,20 @@ def require_mfa_fresh(max_age_minutes: int = 15) -> Callable:
                 if full_user:
                     if _has_valid_mfa_bypass(full_user):
                         has_bypass = True
-                        logger.debug(
+                        logger.warning(
                             f"Service account {user.id} bypassing MFA freshness requirement"
                         )
+                        try:
+                            from aragora.audit.unified import audit_security
+
+                            audit_security(
+                                event_type="mfa_bypass",
+                                actor_id=user.id,
+                                reason="service_account_bypass",
+                                details={"operation": "require_mfa_fresh decorator bypass"},
+                            )
+                        except ImportError:
+                            pass
                     else:
                         mfa_enabled = getattr(full_user, "mfa_enabled", False)
             else:

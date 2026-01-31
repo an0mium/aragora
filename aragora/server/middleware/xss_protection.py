@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import logging
 import os
-import threading
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -326,22 +326,22 @@ class CSPNonceContext:
         return f'nonce="{self.nonce}"'
 
 
-# Thread-local storage for per-request nonce
-_nonce_context = threading.local()
+# Context-variable storage for per-request nonce
+_nonce_context: ContextVar[CSPNonceContext | None] = ContextVar("xss_nonce", default=None)
 
 
 def get_request_nonce() -> str:
     """Get the CSP nonce for the current request.
 
-    Creates a new nonce context if one doesn't exist for this thread.
+    Creates a new nonce context if one doesn't exist for this async context.
 
     Returns:
         The nonce string for the current request
     """
-    ctx = getattr(_nonce_context, "context", None)
+    ctx = _nonce_context.get()
     if ctx is None:
         ctx = CSPNonceContext()
-        _nonce_context.context = ctx
+        _nonce_context.set(ctx)
     return ctx.nonce
 
 
@@ -351,7 +351,7 @@ def clear_request_nonce() -> None:
     Should be called at the end of each request to ensure
     a fresh nonce is generated for the next request.
     """
-    _nonce_context.context = None
+    _nonce_context.set(None)
 
 
 @asynccontextmanager
