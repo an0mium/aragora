@@ -119,7 +119,16 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            components?: Record<string, never>;
+                            uptime_seconds?: number;
+                            memory_usage_mb?: number;
+                            active_connections?: number;
+                            error_count?: number;
+                        };
+                    };
                 };
             };
         };
@@ -191,7 +200,15 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            phase?: string;
+                            cycle_id?: string;
+                            /** Format: date-time */
+                            last_success?: string;
+                            pending_improvements?: number;
+                        };
+                    };
                 };
             };
         };
@@ -256,7 +273,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            status?: "healthy" | "stalled" | "degraded";
+                            /** Format: date-time */
+                            last_activity?: string;
+                        };
+                    };
                 };
             };
         };
@@ -321,7 +345,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            lines?: string[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -388,7 +417,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            entries?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -629,7 +663,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
                 /** @description Proposal not found */
                 404: {
@@ -694,7 +733,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
                 /** @description Loop already running */
                 409: {
@@ -759,7 +803,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
                 /** @description Loop not running */
                 409: {
@@ -824,7 +873,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
                 /** @description Loop not running or already paused */
                 409: {
@@ -889,7 +943,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
                 /** @description Loop not paused */
                 409: {
@@ -954,7 +1013,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
                 /** @description Loop not running */
                 409: {
@@ -1021,7 +1085,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            modes?: {
+                                name?: string;
+                                description?: string;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -1090,7 +1161,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            cycles?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -1157,7 +1233,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            events?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -1224,7 +1305,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            debates?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -1289,7 +1375,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            total_debates?: number;
+                            consensus_rate?: number;
+                            avg_duration_s?: number;
+                        };
+                    };
                 };
             };
         };
@@ -1361,7 +1453,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            task?: string;
+                            status?: string;
+                            details?: Record<string, never>;
+                        };
+                    };
                 };
             };
         };
@@ -1619,7 +1717,15 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            agents?: {
+                                name?: string;
+                                elo?: number;
+                                rank?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -1687,7 +1793,15 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            agents?: {
+                                name?: string;
+                                elo?: number;
+                                rank?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -1756,7 +1870,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            agents?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -1919,7 +2038,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            matches?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -2051,7 +2175,15 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            buckets?: {
+                                range?: string;
+                                predicted?: number;
+                                actual?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -2116,7 +2248,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            brier_score?: number;
+                            calibration_error?: number;
+                            overconfidence?: boolean;
+                        };
+                    };
                 };
             };
         };
@@ -2182,7 +2320,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            score?: number;
+                            total_debates?: number;
+                        };
+                    };
                 };
             };
         };
@@ -2251,7 +2394,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            flips?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -2316,7 +2464,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            nodes?: Record<string, never>[];
+                            edges?: Record<string, never>[];
+                        };
+                    };
                 };
             };
         };
@@ -2381,7 +2534,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            rivals?: {
+                                name?: string;
+                                agreement_rate?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -2446,7 +2606,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            allies?: {
+                                name?: string;
+                                agreement_rate?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -2511,7 +2678,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            moments?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -2576,7 +2748,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            trustworthiness?: number;
+                            expertise?: number;
+                            standing?: string;
+                        };
+                    };
                 };
             };
         };
@@ -2639,7 +2817,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            name?: string;
+                            style?: string;
+                            traits?: string[];
+                        };
+                    };
                 };
             };
         };
@@ -2702,7 +2886,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            name?: string;
+                            observed_traits?: string[];
+                            debate_count?: number;
+                        };
+                    };
                 };
             };
         };
@@ -2765,7 +2955,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            prompt?: string;
+                            agent?: string;
+                        };
+                    };
                 };
             };
         };
@@ -2828,7 +3023,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            win_rate?: number;
+                            avg_elo_delta?: number;
+                            debates_participated?: number;
+                        };
+                    };
                 };
             };
         };
@@ -2893,7 +3094,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            domains?: {
+                                domain?: string;
+                                score?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -2956,7 +3164,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            accuracy?: number;
+                            total_predictions?: number;
+                        };
+                    };
                 };
             };
         };
@@ -3073,7 +3286,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            agent_a?: Record<string, never>;
+                            agent_b?: Record<string, never>;
+                            comparison?: Record<string, never>;
+                        };
+                    };
                 };
             };
         };
@@ -3138,7 +3357,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            matches?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -3203,7 +3427,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            agents?: {
+                                name?: string;
+                                calibration_error?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -3263,7 +3494,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            personas?: {
+                                name?: string;
+                                style?: string;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -6919,7 +7157,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            topics?: {
+                                title?: string;
+                                score?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -6979,7 +7224,13 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            topic?: string;
+                            category?: string;
+                            confidence?: number;
+                        };
+                    };
                 };
             };
         };
@@ -8229,7 +8480,15 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            plugins?: {
+                                name?: string;
+                                version?: string;
+                                description?: string;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -8267,7 +8526,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            plugins?: {
+                                name?: string;
+                                version?: string;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -8305,7 +8571,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            categories?: Record<string, never>[];
+                            featured?: Record<string, never>[];
+                        };
+                    };
                 };
             };
         };
@@ -8349,7 +8620,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            submission_id?: string;
+                        };
+                    };
                 };
             };
         };
@@ -8385,7 +8661,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            submissions?: Record<string, never>[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -8426,7 +8707,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            name?: string;
+                            version?: string;
+                            description?: string;
+                            installed?: boolean;
+                        };
+                    };
                 };
             };
         };
@@ -8473,7 +8761,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            output?: Record<string, never>;
+                        };
+                    };
                 };
             };
         };
@@ -8518,7 +8811,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
             };
         };
@@ -8544,7 +8842,12 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            message?: string;
+                        };
+                    };
                 };
             };
         };
@@ -8584,7 +8887,14 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            traits?: {
+                                name?: string;
+                                confidence?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -8642,7 +8952,11 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            suggestions?: Record<string, never>[];
+                        };
+                    };
                 };
             };
         };
@@ -24428,7 +24742,7 @@ export interface paths {
          * Create graph debate
          * @description Run a new graph-structured debate with automatic branching on disagreement.
          */
-        post: operations["handle_post"];
+        post: operations["create_graph_debate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24588,7 +24902,7 @@ export interface paths {
          * Create matrix debate
          * @description Run parallel scenario debates to explore a topic under different conditions.
          */
-        post: operations["handle_post"];
+        post: operations["create_matrix_debate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24686,7 +25000,7 @@ export interface paths {
          * Get decision receipt
          * @description Get the cryptographic decision receipt for a completed gauntlet run.
          */
-        get: operations["_get_receipt"];
+        get: operations["get_gauntlet_receipt"];
         put?: never;
         post?: never;
         delete?: never;
@@ -58555,7 +58869,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        status?: string;
+                        components?: Record<string, never>;
+                        uptime_seconds?: number;
+                        memory_usage_mb?: number;
+                        active_connections?: number;
+                        error_count?: number;
+                    };
+                };
             };
         };
     };
@@ -58819,7 +59142,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        status?: string;
+                        message?: string;
+                    };
+                };
             };
             /** @description Proposal not found */
             404: {
@@ -58995,7 +59323,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        modes?: {
+                            name?: string;
+                            description?: string;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59018,7 +59353,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        cycles?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59041,7 +59381,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        events?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59064,7 +59409,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        debates?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59085,7 +59435,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        total_debates?: number;
+                        consensus_rate?: number;
+                        avg_duration_s?: number;
+                    };
+                };
             };
         };
     };
@@ -59106,7 +59462,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        task?: string;
+                        status?: string;
+                        details?: Record<string, never>;
+                    };
+                };
             };
         };
     };
@@ -59223,7 +59585,15 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        agents?: {
+                            name?: string;
+                            elo?: number;
+                            rank?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59244,7 +59614,15 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        agents?: {
+                            name?: string;
+                            elo?: number;
+                            rank?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59269,7 +59647,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        agents?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59334,7 +59717,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        matches?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59378,7 +59766,15 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        buckets?: {
+                            range?: string;
+                            predicted?: number;
+                            actual?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59399,7 +59795,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        brier_score?: number;
+                        calibration_error?: number;
+                        overconfidence?: boolean;
+                    };
+                };
             };
         };
     };
@@ -59420,7 +59822,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        score?: number;
+                        total_debates?: number;
+                    };
+                };
             };
         };
     };
@@ -59444,7 +59851,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        flips?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59465,7 +59877,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        nodes?: Record<string, never>[];
+                        edges?: Record<string, never>[];
+                    };
+                };
             };
         };
     };
@@ -59486,7 +59903,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        rivals?: {
+                            name?: string;
+                            agreement_rate?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59507,7 +59931,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        allies?: {
+                            name?: string;
+                            agreement_rate?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59528,7 +59959,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        moments?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59549,7 +59985,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        trustworthiness?: number;
+                        expertise?: number;
+                        standing?: string;
+                    };
+                };
             };
         };
     };
@@ -59570,7 +60012,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        name?: string;
+                        style?: string;
+                        traits?: string[];
+                    };
+                };
             };
         };
     };
@@ -59591,7 +60039,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        name?: string;
+                        observed_traits?: string[];
+                        debate_count?: number;
+                    };
+                };
             };
         };
     };
@@ -59612,7 +60066,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        prompt?: string;
+                        agent?: string;
+                    };
+                };
             };
         };
     };
@@ -59633,7 +60092,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        win_rate?: number;
+                        avg_elo_delta?: number;
+                        debates_participated?: number;
+                    };
+                };
             };
         };
     };
@@ -59654,7 +60119,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        domains?: {
+                            domain?: string;
+                            score?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59675,7 +60147,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        accuracy?: number;
+                        total_predictions?: number;
+                    };
+                };
             };
         };
     };
@@ -59698,7 +60175,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        wins?: number;
+                        losses?: number;
+                        draws?: number;
+                        elo_delta?: number;
+                    };
+                };
             };
             /** @description Not found - The requested resource does not exist */
             404: {
@@ -59739,7 +60223,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        strengths?: string[];
+                        weaknesses?: string[];
+                        strategies?: string[];
+                    };
+                };
             };
             /** @description Not found - The requested resource does not exist */
             404: {
@@ -59780,7 +60270,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        agent_a?: Record<string, never>;
+                        agent_b?: Record<string, never>;
+                        comparison?: Record<string, never>;
+                    };
+                };
             };
         };
     };
@@ -59801,7 +60297,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        matches?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -59822,7 +60323,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        agents?: {
+                            name?: string;
+                            calibration_error?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -59840,7 +60348,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        personas?: {
+                            name?: string;
+                            style?: string;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -61385,7 +61900,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        topics?: {
+                            title?: string;
+                            score?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -61405,7 +61927,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        topic?: string;
+                        category?: string;
+                        confidence?: number;
+                    };
+                };
             };
         };
     };
@@ -61771,7 +62299,15 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        plugins?: {
+                            name?: string;
+                            version?: string;
+                            description?: string;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -61789,7 +62325,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        plugins?: {
+                            name?: string;
+                            version?: string;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -61807,7 +62350,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        categories?: Record<string, never>[];
+                        featured?: Record<string, never>[];
+                    };
+                };
             };
         };
     };
@@ -61829,7 +62377,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        status?: string;
+                        submission_id?: string;
+                    };
+                };
             };
         };
     };
@@ -61847,7 +62400,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        submissions?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -61868,7 +62426,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        name?: string;
+                        version?: string;
+                        description?: string;
+                        installed?: boolean;
+                    };
+                };
             };
         };
     };
@@ -61893,7 +62458,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        status?: string;
+                        output?: Record<string, never>;
+                    };
+                };
             };
         };
     };
@@ -61918,7 +62488,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        status?: string;
+                        message?: string;
+                    };
+                };
             };
         };
     };
@@ -61939,7 +62514,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        status?: string;
+                        message?: string;
+                    };
+                };
             };
         };
     };
@@ -61962,7 +62542,14 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        traits?: {
+                            name?: string;
+                            confidence?: number;
+                        }[];
+                    };
+                };
             };
         };
     };
@@ -61980,7 +62567,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        suggestions?: Record<string, never>[];
+                    };
+                };
             };
         };
     };
@@ -82486,7 +83077,7 @@ export interface operations {
             };
         };
     };
-    handle_post: {
+    create_graph_debate: {
         parameters: {
             query?: never;
             header?: never;
@@ -82763,7 +83354,7 @@ export interface operations {
             };
         };
     };
-    handle_post: {
+    create_matrix_debate: {
         parameters: {
             query?: never;
             header?: never;
@@ -82948,7 +83539,7 @@ export interface operations {
             };
         };
     };
-    _get_receipt: {
+    get_gauntlet_receipt: {
         parameters: {
             query?: {
                 format?: "json" | "html" | "md" | "sarif" | "pdf" | "csv";
