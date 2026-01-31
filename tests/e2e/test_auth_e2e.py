@@ -273,8 +273,14 @@ class TestTokenExpiration:
         # to expire, which is impractical in unit tests. In production, tokens
         # are validated with exp claim checking built into JWT libraries.
 
+    @pytest.mark.flaky(reruns=2)
     def test_refresh_token_generates_new_access_token(self, auth_handler, test_user):
-        """E2E: Refresh token should generate a new access token."""
+        """E2E: Refresh token should generate a new access token.
+
+        Marked flaky(reruns=2) because rate limiting (429) can occur under
+        heavy parallel test load. A rerun typically succeeds once the rate
+        limit window resets.
+        """
         if not hasattr(auth_handler, "_handle_refresh"):
             pytest.skip("Handler does not support token refresh")
 
@@ -293,6 +299,7 @@ class TestTokenExpiration:
         refresh_result = auth_handler._handle_refresh(refresh_request)
 
         status = get_status(refresh_result)
+        assert status != 429, "Rate limited during refresh - will retry via flaky rerun"
         if status == 200:
             refresh_data = get_body(refresh_result)
             # Check for access_token in various response formats
@@ -304,11 +311,7 @@ class TestTokenExpiration:
                 # New token should be valid
                 payload = decode_jwt(new_access)
                 assert payload is not None
-        elif status == 429:
-            pytest.skip("Rate limited during refresh - expected under heavy load")
-        else:
-            # Other statuses are acceptable - endpoint may have different behavior
-            pass
+        # Other statuses are acceptable - endpoint may have different behavior
 
 
 class TestRoleBasedAccessControl:

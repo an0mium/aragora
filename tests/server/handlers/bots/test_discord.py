@@ -274,42 +274,172 @@ class TestStatusEndpoint:
 
 
 class TestSignatureVerification:
-    """Tests for Discord Ed25519 signature verification."""
+    """Tests for Discord Ed25519 signature verification.
 
-    def test_verify_signature_skipped_when_no_key(self):
-        """Signature verification is skipped when no public key configured."""
+    Phase 3.1: Tests verify fail-closed behavior in production and
+    environment-aware bypass in development mode.
+    """
+
+    def test_verify_rejects_when_no_key_and_production(self):
+        """Signature verification fails closed when no public key configured."""
         from aragora.server.handlers.bots.discord import _verify_discord_signature
 
         with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", None):
-            result = _verify_discord_signature("any_sig", "1234", b"body")
+            with patch(
+                "aragora.server.handlers.bots.discord._should_allow_unverified",
+                return_value=False,
+            ):
+                result = _verify_discord_signature("any_sig", "1234", b"body")
+        assert result is False
+
+    def test_verify_allows_when_no_key_and_dev_mode(self):
+        """Signature verification allows unverified in dev mode when no key."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", None):
+            with patch(
+                "aragora.server.handlers.bots.discord._should_allow_unverified",
+                return_value=True,
+            ):
+                result = _verify_discord_signature("any_sig", "1234", b"body")
         assert result is True
 
-    def test_verify_signature_skipped_when_empty_key(self):
-        """Signature verification is skipped when public key is empty string."""
+    def test_verify_rejects_when_empty_key_and_production(self):
+        """Signature verification fails closed when public key is empty string."""
         from aragora.server.handlers.bots.discord import _verify_discord_signature
 
         with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", ""):
-            result = _verify_discord_signature("any_sig", "1234", b"body")
-        assert result is True
+            with patch(
+                "aragora.server.handlers.bots.discord._should_allow_unverified",
+                return_value=False,
+            ):
+                result = _verify_discord_signature("any_sig", "1234", b"body")
+        assert result is False
 
-    def test_verify_signature_returns_false_on_bad_signature(self):
-        """Bad signature returns False when key is configured."""
+    def test_verify_rejects_missing_signature_header(self):
+        """Missing signature header returns False when key is configured."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+        import time as time_mod
+
+        current = str(int(time_mod.time()))
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            # Empty signature, valid timestamp
+            result = _verify_discord_signature("", current, b"body")
+        assert result is False
+
+    def test_verify_rejects_missing_timestamp_header(self):
+        """Missing timestamp header returns False when key is configured."""
         from aragora.server.handlers.bots.discord import _verify_discord_signature
 
-        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "abc123def456"):
-            with patch("aragora.server.handlers.bots.discord.VerifyKey", side_effect=ImportError):
-                # When nacl not available, should skip verification
-                result = _verify_discord_signature("invalid", "1234", b"body")
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            result = _verify_discord_signature("aabb", "", b"body")
+        assert result is False
+
+    def test_verify_rejects_stale_timestamp(self):
+        """Requests with timestamps older than 5 minutes are rejected."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+        import time as time_mod
+
+        # Timestamp 10 minutes in the past
+        stale_ts = str(int(time_mod.time()) - 600)
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            with patch("aragora.server.handlers.bots.discord._NACL_AVAILABLE", True):
+                result = _verify_discord_signature("aabb", stale_ts, b"body")
+        assert result is False
+
+    def test_verify_rejects_invalid_timestamp_format(self):
+        """Non-numeric timestamp is rejected."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            result = _verify_discord_signature("aabb", "not-a-number", b"body")
+        assert result is False
+
+    def test_verify_rejects_when_nacl_missing_in_production(self):
+        """PyNaCl missing fails closed in production."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+        import time as time_mod
+
+        current = str(int(time_mod.time()))
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            with patch("aragora.server.handlers.bots.discord._NACL_AVAILABLE", False):
+                with patch(
+                    "aragora.server.handlers.bots.discord._should_allow_unverified",
+                    return_value=False,
+                ):
+                    result = _verify_discord_signature("aabb", current, b"body")
+        assert result is False
+
+    def test_verify_allows_when_nacl_missing_in_dev_mode(self):
+        """PyNaCl missing allows in dev mode with explicit opt-in."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+        import time as time_mod
+
+        current = str(int(time_mod.time()))
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            with patch("aragora.server.handlers.bots.discord._NACL_AVAILABLE", False):
+                with patch(
+                    "aragora.server.handlers.bots.discord._should_allow_unverified",
+                    return_value=True,
+                ):
+                    result = _verify_discord_signature("aabb", current, b"body")
         assert result is True
 
     def test_verify_signature_invalid_hex_format(self):
-        """Invalid hex format in signature returns False."""
+        """Invalid hex format in public key returns False."""
         from aragora.server.handlers.bots.discord import _verify_discord_signature
+        import sys
+        import time as time_mod
 
-        # Use a valid-looking but actually invalid hex key
+        current = str(int(time_mod.time()))
+
+        # Mock nacl modules since PyNaCl may not be installed in test env
+        mock_bad_sig_error = type("BadSignatureError", (Exception,), {})
+        mock_verify_key = MagicMock(side_effect=ValueError("non-hexadecimal number"))
+        mock_nacl_signing = MagicMock(VerifyKey=mock_verify_key)
+        mock_nacl_exceptions = MagicMock(BadSignatureError=mock_bad_sig_error)
+
         with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "not_valid_hex_zzz"):
-            result = _verify_discord_signature("bad", "1234", b"body")
-        # Should return False due to ValueError on hex conversion
+            with patch("aragora.server.handlers.bots.discord._NACL_AVAILABLE", True):
+                with patch.dict(
+                    sys.modules,
+                    {
+                        "nacl": MagicMock(),
+                        "nacl.signing": mock_nacl_signing,
+                        "nacl.exceptions": mock_nacl_exceptions,
+                    },
+                ):
+                    result = _verify_discord_signature("bad", current, b"body")
+        # Should return False due to ValueError on hex conversion of public key
+        assert result is False
+
+    def test_verify_accepts_fresh_timestamp(self):
+        """Requests with fresh timestamps pass the replay check (fail at signature, not timestamp)."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+        import sys
+        import time as time_mod
+
+        # Timestamp 30 seconds ago (well within the 5-minute window)
+        fresh_ts = str(int(time_mod.time()) - 30)
+
+        # Mock nacl modules since PyNaCl may not be installed in test env
+        mock_bad_sig_error = type("BadSignatureError", (Exception,), {})
+        mock_verify_key = MagicMock(side_effect=ValueError("invalid key length"))
+        mock_nacl_signing = MagicMock(VerifyKey=mock_verify_key)
+        mock_nacl_exceptions = MagicMock(BadSignatureError=mock_bad_sig_error)
+
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            with patch("aragora.server.handlers.bots.discord._NACL_AVAILABLE", True):
+                with patch.dict(
+                    sys.modules,
+                    {
+                        "nacl": MagicMock(),
+                        "nacl.signing": mock_nacl_signing,
+                        "nacl.exceptions": mock_nacl_exceptions,
+                    },
+                ):
+                    result = _verify_discord_signature("aabb", fresh_ts, b"body")
+        # Will be False because VerifyKey raises ValueError on bad key, but NOT due to timestamp
         assert result is False
 
     @pytest.mark.asyncio

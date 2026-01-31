@@ -991,7 +991,9 @@ class TestGitHubTrendingIngestor:
 
     @pytest.mark.asyncio
     async def test_fetch_trending_rate_limit_error(self):
-        """Test handling of rate limit errors."""
+        """Test handling of rate limit errors raises ExternalServiceError."""
+        from aragora.exceptions import ExternalServiceError
+
         ingestor = GitHubTrendingIngestor(max_retries=1, base_retry_delay=0.01)
 
         with patch("httpx.AsyncClient") as MockClient:
@@ -1007,10 +1009,13 @@ class TestGitHubTrendingIngestor:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
-            result = await ingestor.fetch_trending(limit=5)
+            # ExternalServiceError is raised for rate limits (not caught by retry logic)
+            with pytest.raises(ExternalServiceError) as exc_info:
+                await ingestor.fetch_trending(limit=5)
 
-        # Should return empty list after ExternalServiceError is caught (no fallback)
-        assert result == []
+            assert "Rate limit exceeded" in str(exc_info.value)
+            assert exc_info.value.service == "GitHub API"
+            assert exc_info.value.status_code == 403
 
 
 # =============================================================================

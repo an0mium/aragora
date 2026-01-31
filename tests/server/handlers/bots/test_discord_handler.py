@@ -438,11 +438,14 @@ class TestModalSubmit:
 
 
 class TestSignatureVerification:
-    """Tests for Discord signature verification."""
+    """Tests for Discord Ed25519 signature verification.
+
+    Phase 3.1: Verifies fail-closed behavior and proper rejection.
+    """
 
     @pytest.mark.asyncio
     async def test_invalid_signature_rejected(self, handler, ping_interaction):
-        """Test invalid signature is rejected."""
+        """Test invalid signature is rejected with 401."""
         body = json.dumps(ping_interaction).encode()
 
         mock_http = MockHandler(
@@ -494,8 +497,32 @@ class TestSignatureVerification:
                     "/api/v1/bots/discord/interactions", {}, mock_http
                 )
 
-        # Should either reject or skip verification
+        # Should be rejected with 401
         assert result is not None
+        assert result.status_code == 401
+
+    def test_verify_function_rejects_no_key_in_production(self):
+        """Verify function fails closed when no public key and not in dev mode."""
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", None):
+            with patch(
+                "aragora.server.handlers.bots.discord._should_allow_unverified",
+                return_value=False,
+            ):
+                result = _verify_discord_signature("sig", "1234", b"body")
+        assert result is False
+
+    def test_verify_function_rejects_stale_timestamp(self):
+        """Verify function rejects requests with stale timestamps (replay protection)."""
+        import time as time_mod
+        from aragora.server.handlers.bots.discord import _verify_discord_signature
+
+        stale_ts = str(int(time_mod.time()) - 600)  # 10 minutes ago
+        with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "aabbccdd"):
+            with patch("aragora.server.handlers.bots.discord._NACL_AVAILABLE", True):
+                result = _verify_discord_signature("aabb", stale_ts, b"body")
+        assert result is False
 
 
 # ===========================================================================

@@ -523,8 +523,14 @@ class TestEdgeCases:
         assert result is not None
 
     @pytest.mark.asyncio
+    @pytest.mark.flaky(reruns=2)
     async def test_empty_search_results(self, handler, mock_http_handler, mock_evidence_store):
-        """Test handling of empty search results."""
+        """Test handling of empty search results.
+
+        Marked flaky(reruns=2) because rate limiting (429) can occur under
+        heavy parallel test load. A rerun typically succeeds once the rate
+        limit window resets.
+        """
         mock_evidence_store.search_evidence.return_value = []
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
@@ -532,9 +538,7 @@ class TestEdgeCases:
             result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
-        # Check if rate limited first
-        if result.status_code == 429:
-            pytest.skip("Rate limited - expected under heavy load, not a failure")
+        assert result.status_code != 429, "Rate limited - will retry via flaky rerun"
         data = parse_response(result)
         assert data["results"] == []
         assert data["count"] == 0

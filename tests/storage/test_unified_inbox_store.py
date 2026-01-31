@@ -1,13 +1,28 @@
-"""Tests for UnifiedInboxStore."""
+"""Tests for UnifiedInboxStore.
 
+Covers:
+- Module-level utility functions (_utc_now, _format_dt, _parse_dt, _json_loads)
+- InMemoryUnifiedInboxStore: full CRUD for accounts, messages, triage results
+- SQLiteUnifiedInboxStore: full CRUD parity with in-memory backend
+- Message listing with filters, search, pagination, and sort ordering
+- Deduplication on save_message with read-status change tracking
+- Account count bookkeeping (total_messages, unread_count, sync_errors)
+- Singleton management (get/set/reset store)
+- Abstract base class guard
+"""
+
+import tempfile
 import threading
+from pathlib import Path
 
 import pytest
 from datetime import datetime, timezone
 from typing import Any, Dict
+from unittest.mock import patch
 
 from aragora.storage.unified_inbox_store import (
     InMemoryUnifiedInboxStore,
+    SQLiteUnifiedInboxStore,
     UnifiedInboxStoreBackend,
     _format_dt,
     _json_loads,
@@ -99,6 +114,13 @@ def store() -> InMemoryUnifiedInboxStore:
     # Use RLock to allow re-entrant acquisition within the same thread.
     s._lock = threading.RLock()
     return s
+
+
+@pytest.fixture
+def sqlite_store(tmp_path: Path) -> SQLiteUnifiedInboxStore:
+    """Create a SQLiteUnifiedInboxStore with a temporary database file."""
+    db_path = tmp_path / "test_inbox.db"
+    return SQLiteUnifiedInboxStore(db_path)
 
 
 # ====================================================================
