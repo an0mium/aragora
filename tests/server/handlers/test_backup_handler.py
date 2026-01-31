@@ -417,6 +417,41 @@ class TestRestoreTest:
         assert result.status_code == 200
 
 
+class TestRestorePathTraversal:
+    """Test path traversal prevention in restore endpoint (CWE-22)."""
+
+    @pytest.mark.asyncio
+    async def test_path_traversal_dotdot_rejected(self, handler):
+        """Test that ../ path traversal attempts are rejected."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/backups/backup-001/restore-test",
+            body={"target_path": "../../../etc/passwd"},
+        )
+        # Should fail validation - either 400 or 500 depending on error handling
+        assert result.status_code in (400, 500)
+
+    @pytest.mark.asyncio
+    async def test_path_traversal_absolute_outside_rejected(self, handler):
+        """Test that absolute paths outside restore dir are rejected."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/backups/backup-001/restore-test",
+            body={"target_path": "/etc/passwd"},
+        )
+        assert result.status_code in (400, 500)
+
+    @pytest.mark.asyncio
+    async def test_path_traversal_encoded_rejected(self, handler):
+        """Test that encoded traversal attempts are rejected."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/backups/backup-001/restore-test",
+            body={"target_path": "..%2F..%2Fetc%2Fpasswd"},
+        )
+        assert result.status_code in (400, 500)
+
+
 class TestDeleteBackup:
     """Test delete backup endpoint."""
 

@@ -383,7 +383,8 @@ class TestAgentRegistration:
         assert result is not None
         assert result.status_code == 404
 
-    def test_register_agent_success(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_register_agent_success(self, control_plane_handler, mock_http_handler):
         """Test registering a new agent."""
         http = mock_http_handler(
             method="POST",
@@ -396,14 +397,15 @@ class TestAgentRegistration:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/agents", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/agents", {}, http)
 
         assert result is not None
         assert result.status_code == 201
         body = parse_handler_response(result)
         assert "agent_id" in body
 
-    def test_register_agent_missing_id(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_register_agent_missing_id(self, control_plane_handler, mock_http_handler):
         """Test registering agent without ID returns 400."""
         http = mock_http_handler(
             method="POST",
@@ -411,7 +413,7 @@ class TestAgentRegistration:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/agents", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/agents", {}, http)
 
         assert result is not None
         assert result.status_code == 400
@@ -442,7 +444,8 @@ class TestAgentRegistration:
         assert result is not None
         assert result.status_code == 404
 
-    def test_agent_heartbeat_success(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_agent_heartbeat_success(self, control_plane_handler, mock_http_handler):
         """Test sending agent heartbeat."""
         http = mock_http_handler(
             method="POST",
@@ -450,7 +453,7 @@ class TestAgentRegistration:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/control-plane/agents/test-agent-001/heartbeat", {}, http
         )
 
@@ -459,7 +462,8 @@ class TestAgentRegistration:
         body = parse_handler_response(result)
         assert body["acknowledged"] is True
 
-    def test_agent_heartbeat_not_found(
+    @pytest.mark.asyncio
+    async def test_agent_heartbeat_not_found(
         self, control_plane_handler, mock_http_handler, mock_coordinator
     ):
         """Test heartbeat for non-existent agent."""
@@ -471,7 +475,7 @@ class TestAgentRegistration:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/control-plane/agents/nonexistent/heartbeat", {}, http
         )
 
@@ -507,7 +511,8 @@ class TestTaskScheduling:
         assert result is not None
         assert result.status_code == 404
 
-    def test_submit_task_success(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_submit_task_success(self, control_plane_handler, mock_http_handler):
         """Test submitting a new task."""
         http = mock_http_handler(
             method="POST",
@@ -519,14 +524,15 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
 
         assert result is not None
         assert result.status_code == 201
         body = parse_handler_response(result)
         assert "task_id" in body
 
-    def test_submit_task_missing_type(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_submit_task_missing_type(self, control_plane_handler, mock_http_handler):
         """Test submitting task without type returns 400."""
         http = mock_http_handler(
             method="POST",
@@ -534,12 +540,13 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_submit_task_with_priority(
+    @pytest.mark.asyncio
+    async def test_submit_task_with_priority(
         self, control_plane_handler, mock_http_handler, mock_coordinator
     ):
         """Test submitting task with high priority."""
@@ -553,12 +560,13 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
 
         assert result is not None
         assert result.status_code == 201
 
-    def test_submit_task_invalid_priority(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_submit_task_invalid_priority(self, control_plane_handler, mock_http_handler):
         """Test submitting task with invalid priority."""
         http = mock_http_handler(
             method="POST",
@@ -570,12 +578,13 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_claim_task_success(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_claim_task_success(self, control_plane_handler, mock_http_handler):
         """Test claiming a task."""
         http = mock_http_handler(
             method="POST",
@@ -586,14 +595,15 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks/claim", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/tasks/claim", {}, http)
 
         assert result is not None
         assert result.status_code == 200
         body = parse_handler_response(result)
         assert "task" in body
 
-    def test_claim_task_missing_agent_id(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_claim_task_missing_agent_id(self, control_plane_handler, mock_http_handler):
         """Test claiming task without agent ID returns 400."""
         http = mock_http_handler(
             method="POST",
@@ -601,12 +611,13 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks/claim", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/tasks/claim", {}, http)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_claim_task_no_available_task(
+    @pytest.mark.asyncio
+    async def test_claim_task_no_available_task(
         self, control_plane_handler, mock_http_handler, mock_coordinator
     ):
         """Test claiming when no tasks available."""
@@ -621,13 +632,14 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks/claim", {}, http)
+        result = await control_plane_handler.handle_post("/api/control-plane/tasks/claim", {}, http)
 
         assert result is not None
         body = parse_handler_response(result)
         assert body.get("task") is None
 
-    def test_complete_task_success(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_complete_task_success(self, control_plane_handler, mock_http_handler):
         """Test completing a task."""
         http = mock_http_handler(
             method="POST",
@@ -638,7 +650,7 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/control-plane/tasks/task-001/complete", {}, http
         )
 
@@ -647,7 +659,8 @@ class TestTaskScheduling:
         body = parse_handler_response(result)
         assert body["completed"] is True
 
-    def test_complete_task_not_found(
+    @pytest.mark.asyncio
+    async def test_complete_task_not_found(
         self, control_plane_handler, mock_http_handler, mock_coordinator
     ):
         """Test completing non-existent task."""
@@ -659,14 +672,15 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/control-plane/tasks/nonexistent/complete", {}, http
         )
 
         assert result is not None
         assert result.status_code == 404
 
-    def test_fail_task_success(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_fail_task_success(self, control_plane_handler, mock_http_handler):
         """Test failing a task."""
         http = mock_http_handler(
             method="POST",
@@ -678,7 +692,7 @@ class TestTaskScheduling:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/control-plane/tasks/task-001/fail", {}, http
         )
 
@@ -687,11 +701,12 @@ class TestTaskScheduling:
         body = parse_handler_response(result)
         assert body["failed"] is True
 
-    def test_cancel_task_success(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_cancel_task_success(self, control_plane_handler, mock_http_handler):
         """Test canceling a task."""
         http = mock_http_handler(method="POST", headers={"Content-Type": "application/json"})
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/control-plane/tasks/task-001/cancel", {}, http
         )
 
@@ -700,7 +715,8 @@ class TestTaskScheduling:
         body = parse_handler_response(result)
         assert body["cancelled"] is True
 
-    def test_cancel_completed_task(
+    @pytest.mark.asyncio
+    async def test_cancel_completed_task(
         self, control_plane_handler, mock_http_handler, mock_coordinator
     ):
         """Test canceling already completed task."""
@@ -708,7 +724,7 @@ class TestTaskScheduling:
 
         http = mock_http_handler(method="POST", headers={"Content-Type": "application/json"})
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/control-plane/tasks/completed-task/cancel", {}, http
         )
 
@@ -1214,7 +1230,10 @@ class TestErrorHandling:
 class TestDeliberations:
     """Tests for deliberation (vetted decisionmaking) endpoints."""
 
-    def test_submit_deliberation_missing_content(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_submit_deliberation_missing_content(
+        self, control_plane_handler, mock_http_handler
+    ):
         """Test submitting deliberation without content."""
         http = mock_http_handler(
             method="POST",
@@ -1222,7 +1241,9 @@ class TestDeliberations:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/deliberations", {}, http)
+        result = await control_plane_handler.handle_post(
+            "/api/control-plane/deliberations", {}, http
+        )
 
         assert result is not None
         assert result.status_code == 400

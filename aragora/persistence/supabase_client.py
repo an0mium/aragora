@@ -122,7 +122,7 @@ class SupabaseClient:
             _log_slow_query("save_cycle", elapsed, f"cycle={cycle.cycle_number}")
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])
+                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
                 return row.get("id")
             return None
         except Exception as e:
@@ -230,7 +230,7 @@ class SupabaseClient:
             result = self.client.table("debate_artifacts").insert(data).execute()
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])
+                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
                 return row.get("id")
             return None
         except Exception as e:
@@ -322,7 +322,7 @@ class SupabaseClient:
             result = self.client.table("stream_events").insert(data).execute()
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])
+                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
                 return row.get("id")
             return None
         except Exception as e:
@@ -402,7 +402,7 @@ class SupabaseClient:
             result = self.client.table("agent_metrics").insert(data).execute()
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])
+                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
                 return row.get("id")
             return None
         except Exception as e:

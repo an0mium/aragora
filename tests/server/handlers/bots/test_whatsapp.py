@@ -470,9 +470,13 @@ class TestWebhookPostRouting:
     def test_webhook_invalid_json_returns_400(self):
         """Should return 400 for invalid JSON body."""
         handler = _make_handler()
-        mock_request = _make_mock_request(b"not json!!", signature="sha256=any")
+        invalid_body = b"not json!!"
+        test_secret = "test_secret_key"
+        # Compute valid signature for the invalid JSON body
+        valid_sig = _compute_signature(invalid_body, test_secret)
+        mock_request = _make_mock_request(invalid_body, signature=valid_sig)
 
-        with patch.object(whatsapp_module, "WHATSAPP_APP_SECRET", ""):
+        with patch.object(whatsapp_module, "WHATSAPP_APP_SECRET", test_secret):
             result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
@@ -510,7 +514,8 @@ class TestMessageHandling:
         handler = _make_handler()
         payload = _make_webhook_payload(text_body="Hello, bot!")
 
-        result = _dispatch_webhook(handler, payload, app_secret="secret")
+        # Use mock_debate to avoid Redis/async dependencies
+        result = _dispatch_webhook(handler, payload, app_secret="secret", mock_debate=True)
 
         assert result is not None
         assert result.status_code == 200

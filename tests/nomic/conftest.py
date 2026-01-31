@@ -62,8 +62,11 @@ def mock_codex_agent() -> MagicMock:
 
 @pytest.fixture
 def mock_log_fn() -> MagicMock:
-    """Create a mock logging function."""
-    return MagicMock()
+    """Create a mock logging function that accepts any args/kwargs."""
+    mock = MagicMock()
+    # Ensure the mock accepts any positional and keyword arguments
+    mock.side_effect = lambda *args, **kwargs: None
+    return mock
 
 
 @pytest.fixture

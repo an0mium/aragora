@@ -9,6 +9,11 @@ This directory contains detailed documentation for the core algorithms that powe
 | [CONSENSUS.md](./CONSENSUS.md) | How consensus is determined from agent votes, evidence chains, and dissent tracking |
 | [CONVERGENCE.md](./CONVERGENCE.md) | Semantic convergence detection for early debate termination |
 | [ELO_CALIBRATION.md](./ELO_CALIBRATION.md) | Agent skill ratings, domain-specific ELO, and calibration scoring |
+| [NOVELTY_DETECTION.md](./NOVELTY_DETECTION.md) | Semantic distance tracking to prevent groupthink and hollow consensus |
+| [FLIP_DETECTION.md](./FLIP_DETECTION.md) | Position reversal detection and agent consistency scoring |
+| [BELIEF_NETWORK.md](./BELIEF_NETWORK.md) | Bayesian belief propagation for probabilistic claim reasoning |
+| [RLM_CONCEPTS.md](./RLM_CONCEPTS.md) | REPL-based programmatic context access for large content |
+| [PROOF_GENERATION.md](./PROOF_GENERATION.md) | Formal verification with Z3/Lean for machine-verified proofs |
 
 ## Algorithm Overview
 
@@ -101,6 +106,11 @@ calibration = (1 - avg_brier) * confidence_from_sample_size
 | Convergence | `aragora/debate/convergence.py` |
 | ELO | `aragora/ranking/elo.py` |
 | Calibration | `aragora/ranking/calibration_engine.py` |
+| Novelty Detection | `aragora/debate/novelty.py` |
+| Flip Detection | `aragora/insights/flip_detector.py` |
+| Belief Network | `aragora/reasoning/belief.py` |
+| RLM | `aragora/rlm/factory.py`, `aragora/rlm/bridge.py` |
+| Proof Generation | `aragora/verification/formal.py` |
 
 ## See Also
 

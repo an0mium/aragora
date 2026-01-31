@@ -363,7 +363,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         self.event_emitter: Optional["EventEmitterProtocol"] = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
-        self.hyperparams: ContinuumHyperparams = ContinuumHyperparams(
+        self.hyperparams: ContinuumHyperparams = ContinuumHyperparams(  # type: ignore[assignment]
             surprise_weight_success=0.3,  # Weight for success rate surprise
             surprise_weight_semantic=0.3,  # Weight for semantic novelty
             surprise_weight_temporal=0.2,  # Weight for timing surprise

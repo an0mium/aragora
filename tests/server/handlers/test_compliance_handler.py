@@ -1447,9 +1447,10 @@ class TestErrorHandling:
                 return_value=MagicMock(),
             ),
         ):
-            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
+            real_handler = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(real_handler)
             with patch.object(
-                h, "_get_status", side_effect=PermissionDeniedError("compliance:read")
+                real_handler, "_get_status", side_effect=PermissionDeniedError("compliance:read")
             ):
                 result = await h.handle("GET", "/api/v2/compliance/status")
         assert result.status_code == 403
@@ -1478,8 +1479,11 @@ class TestErrorHandling:
                 return_value=MagicMock(),
             ),
         ):
-            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
-            with patch.object(h, "_get_status", side_effect=Exception("Unexpected error")):
+            real_handler = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(real_handler)
+            with patch.object(
+                real_handler, "_get_status", side_effect=Exception("Unexpected error")
+            ):
                 result = await h.handle("GET", "/api/v2/compliance/status")
         assert result.status_code == 500
 

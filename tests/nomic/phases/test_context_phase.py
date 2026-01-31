@@ -11,14 +11,23 @@ Phase 0: Gather codebase understanding
 """
 
 import asyncio
-import os
-from pathlib import Path
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.nomic.phases.context import ContextPhase, set_metrics_recorder
 from aragora.nomic.phases import ContextResult
+from aragora.nomic.phases.context import ContextPhase, set_metrics_recorder
+
+
+@contextmanager
+def mock_streaming_context(task_id: str):
+    """Mock context manager for streaming_task_context."""
+    yield
+
+
+# Patch path for streaming_task_context at the source module
+STREAM_PATCH = "aragora.server.stream.arena_hooks.streaming_task_context"
 
 
 class TestContextPhaseInitialization:
@@ -123,10 +132,7 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True
@@ -151,10 +157,7 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert "duration_seconds" in result
@@ -175,10 +178,7 @@ class TestContextPhaseExecution:
             stream_emit_fn=mock_stream_emit_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             await phase.execute()
 
         # Check that stream events were emitted
@@ -199,10 +199,7 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True
@@ -223,10 +220,7 @@ class TestContextPhaseExecution:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True
@@ -251,10 +245,7 @@ class TestContextPhaseAgentExploration:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             name, harness, content = await phase._gather_with_agent(
                 mock_claude_agent, "claude", "Claude Code"
             )
@@ -278,10 +269,7 @@ class TestContextPhaseAgentExploration:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             name, harness, content = await phase._gather_with_agent(
                 mock_claude_agent, "claude", "Claude Code"
             )
@@ -303,10 +291,7 @@ class TestContextPhaseAgentExploration:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             name, harness, content = await phase._gather_with_agent(
                 mock_claude_agent, "claude", "Claude Code"
             )
@@ -333,10 +318,7 @@ class TestContextPhaseAgentExploration:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             name, harness, content = await phase._gather_with_agent(
                 mock_claude_agent, "claude", "Claude Code"
             )
@@ -358,10 +340,7 @@ class TestContextPhaseAgentExploration:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             name, harness, content = await phase._gather_with_agent(
                 mock_claude_agent, "claude", "Claude Code"
             )
@@ -385,10 +364,7 @@ class TestContextPhaseAgentExploration:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             with patch("asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for:
                 mock_wait_for.return_value = "Analysis"
                 await phase._gather_with_agent(mock_claude_agent, "claude", "Claude Code")
@@ -425,11 +401,8 @@ class TestContextPhaseKiloCode:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
-            result = await phase.execute()
+        with patch(STREAM_PATCH, mock_streaming_context):
+            await phase.execute()
 
         # Factory should be called to create Gemini and Grok agents
         assert kilocode_factory.call_count == 2
@@ -454,10 +427,7 @@ class TestContextPhaseKiloCode:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             await phase.execute()
 
         # Factory should not be called
@@ -485,10 +455,7 @@ class TestContextPhaseFallback:
             get_features_fn=get_features,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         # Should still succeed with fallback context
@@ -510,10 +477,7 @@ class TestContextPhaseFallback:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         # Should still complete without raising
@@ -543,11 +507,8 @@ class TestContextPhaseRLMIntegration:
             context_builder=context_builder,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
-            result = await phase.execute()
+        with patch(STREAM_PATCH, mock_streaming_context):
+            await phase.execute()
 
         # Context builder methods should be called
         context_builder.build_debate_context.assert_called()
@@ -571,10 +532,7 @@ class TestContextPhaseRLMIntegration:
             context_builder=context_builder,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         # Should succeed with agent context
@@ -601,14 +559,10 @@ class TestContextPhaseRLMIntegration:
             context_builder=context_builder,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         # build_rlm_context should not be called in the RLM block
-        # (but may still be called in the initial context building)
         assert result["success"] is True
 
 
@@ -653,10 +607,7 @@ class TestContextPhaseMetrics:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             await phase.execute()
 
         # Phase recorder should be called once
@@ -754,10 +705,7 @@ class TestContextPhaseIntegration:
             stream_emit_fn=mock_stream_emit_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True
@@ -782,10 +730,7 @@ class TestContextPhaseIntegration:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         # Should still succeed with partial results
@@ -809,10 +754,7 @@ class TestContextPhaseNullAgents:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True
@@ -830,10 +772,7 @@ class TestContextPhaseNullAgents:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True
@@ -859,10 +798,7 @@ class TestContextPhaseEdgeCases:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         # Should only include valid analysis
@@ -886,10 +822,7 @@ class TestContextPhaseEdgeCases:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True
@@ -910,10 +843,7 @@ class TestContextPhaseEdgeCases:
             log_fn=mock_log_fn,
         )
 
-        with patch(
-            "aragora.nomic.phases.context.streaming_task_context",
-            return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()),
-        ):
+        with patch(STREAM_PATCH, mock_streaming_context):
             result = await phase.execute()
 
         assert result["success"] is True

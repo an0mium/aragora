@@ -572,7 +572,7 @@ class TestDiscovery:
         mock_response.raise_for_status = MagicMock()
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("aragora.auth.oidc.get_http_pool", return_value=mock_pool):
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             result = await provider._discover_endpoints()
 
             assert result["authorization_endpoint"] == "https://login.example.com/authorize"
@@ -589,7 +589,7 @@ class TestDiscovery:
         mock_response.raise_for_status = MagicMock()
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("aragora.auth.oidc.get_http_pool", return_value=mock_pool):
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             # First call
             await provider._discover_endpoints()
             # Second call
@@ -604,7 +604,7 @@ class TestDiscovery:
         mock_pool, mock_client = create_mock_http_pool()
         mock_client.get = AsyncMock(side_effect=OSError("Network error"))
 
-        with patch("aragora.auth.oidc.get_http_pool", return_value=mock_pool):
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             result = await provider._discover_endpoints()
 
             assert result == {}

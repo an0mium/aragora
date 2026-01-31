@@ -698,8 +698,16 @@ class EloSystem(KMAdapterMixin):
         return generate_match_id(participants, task, domain)
 
     def _normalize_match_params(
-        self, debate_id, participants, scores, winner, loser, draw, task, domain
-    ):
+        self,
+        debate_id: str | None,
+        participants: list[str] | str | None,
+        scores: dict[str, float] | None,
+        winner: str | None,
+        loser: str | None,
+        draw: bool | None,
+        task: str | None,
+        domain: str | None,
+    ) -> tuple[str | None, list[str], dict[str, float] | None, str | None]:
         """Normalize legacy and modern match signatures."""
         return normalize_match_params(
             debate_id, participants, scores, winner, loser, draw, task, domain
@@ -738,7 +746,15 @@ class EloSystem(KMAdapterMixin):
             task=task,
         )
 
-    def _save_match(self, debate_id, winner, participants, domain, scores, elo_changes):
+    def _save_match(
+        self,
+        debate_id: str | None,
+        winner: str | None,
+        participants: list[str],
+        domain: str | None,
+        scores: dict[str, float] | None,
+        elo_changes: dict[str, float],
+    ) -> None:
         """Save match to history."""
         save_match(self._db, debate_id, winner, participants, domain, scores, elo_changes)
 

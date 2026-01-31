@@ -417,3 +417,355 @@ class TestDebatesAdvancedFeatures:
                 json={"channels": ["slack", "email"]},
             )
             client.close()
+
+
+class TestDebatesLifecycle:
+    """Tests for debate lifecycle methods."""
+
+    def test_start_debate(self) -> None:
+        """Start a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "status": "running"}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.start("deb_123")
+
+            mock_request.assert_called_once_with("POST", "/api/v1/debates/deb_123/start")
+            assert result["success"] is True
+            client.close()
+
+    def test_stop_debate(self) -> None:
+        """Stop a running debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "status": "stopped"}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.stop("deb_123")
+
+            mock_request.assert_called_once_with("POST", "/api/v1/debates/deb_123/stop")
+            assert result["success"] is True
+            client.close()
+
+    def test_pause_debate(self) -> None:
+        """Pause a running debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "status": "paused"}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.pause("deb_123")
+
+            mock_request.assert_called_once_with("POST", "/api/v1/debates/deb_123/pause")
+            assert result["success"] is True
+            client.close()
+
+    def test_resume_debate(self) -> None:
+        """Resume a paused debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "status": "running"}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.resume("deb_123")
+
+            mock_request.assert_called_once_with("POST", "/api/v1/debates/deb_123/resume")
+            assert result["success"] is True
+            client.close()
+
+    def test_delete_debate(self) -> None:
+        """Delete a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.delete("deb_123")
+
+            mock_request.assert_called_once_with("DELETE", "/api/v1/debates/deb_123")
+            assert result["success"] is True
+            client.close()
+
+    def test_clone_debate(self) -> None:
+        """Clone a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"debate_id": "deb_cloned"}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.clone("deb_123", preserve_agents=True)
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/debates/deb_123/clone",
+                json={"preserveAgents": True, "preserveContext": False},
+            )
+            assert result["debate_id"] == "deb_cloned"
+            client.close()
+
+    def test_archive_debate(self) -> None:
+        """Archive a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.archive("deb_123")
+
+            mock_request.assert_called_once_with("POST", "/api/v1/debates/deb_123/archive")
+            assert result["success"] is True
+            client.close()
+
+
+class TestDebatesAnalysis:
+    """Tests for debate analysis methods."""
+
+    def test_get_rhetorical(self) -> None:
+        """Get rhetorical pattern observations."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"observations": [], "summary": {}}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.debates.get_rhetorical("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/rhetorical")
+            client.close()
+
+    def test_get_trickster(self) -> None:
+        """Get trickster hollow consensus detection."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "hollow_consensus_detected": False,
+                "confidence": 0.85,
+            }
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_trickster("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/trickster")
+            assert result["hollow_consensus_detected"] is False
+            client.close()
+
+    def test_get_summary(self) -> None:
+        """Get a debate summary."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"verdict": "Adopt microservices", "confidence": 0.9}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_summary("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/summary")
+            assert result["verdict"] == "Adopt microservices"
+            client.close()
+
+    def test_verify_claim(self) -> None:
+        """Verify a specific claim."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"verified": True, "confidence": 0.95}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.verify_claim(
+                "deb_123", "claim_456", evidence="Supporting evidence"
+            )
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/debates/deb_123/verify",
+                json={"claim_id": "claim_456", "evidence": "Supporting evidence"},
+            )
+            assert result["verified"] is True
+            client.close()
+
+
+class TestDebatesRoundsAgentsVotes:
+    """Tests for rounds, agents, and votes methods."""
+
+    def test_get_rounds(self) -> None:
+        """Get rounds from a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"rounds": [{"number": 1, "proposals": []}]}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_rounds("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/rounds")
+            assert len(result["rounds"]) == 1
+            client.close()
+
+    def test_get_agents(self) -> None:
+        """Get agents participating in a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"agents": [{"name": "claude", "role": "proposer"}]}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_agents("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/agents")
+            assert result["agents"][0]["name"] == "claude"
+            client.close()
+
+    def test_get_votes(self) -> None:
+        """Get votes from a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"votes": [{"agent": "claude", "position": "pro"}]}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_votes("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/votes")
+            assert result["votes"][0]["agent"] == "claude"
+            client.close()
+
+    def test_add_user_input(self) -> None:
+        """Add user input to a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"input_id": "inp_123", "success": True}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.add_user_input("deb_123", "Consider scalability", "suggestion")
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/debates/deb_123/user-input",
+                json={"input": "Consider scalability", "type": "suggestion"},
+            )
+            assert result["success"] is True
+            client.close()
+
+    def test_get_timeline(self) -> None:
+        """Get the timeline of events."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"timeline": [{"type": "round_start"}]}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_timeline("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/timeline")
+            assert result["timeline"][0]["type"] == "round_start"
+            client.close()
+
+    def test_add_evidence(self) -> None:
+        """Add evidence to a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"evidence_id": "ev_123", "success": True}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.add_evidence(
+                "deb_123", "Studies show...", source="research-paper"
+            )
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/debates/deb_123/evidence",
+                json={"evidence": "Studies show...", "source": "research-paper"},
+            )
+            assert result["evidence_id"] == "ev_123"
+            client.close()
+
+
+class TestDebatesBatchOperations:
+    """Tests for batch operations."""
+
+    def test_submit_batch(self) -> None:
+        """Submit multiple debates for batch processing."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"batch_id": "batch_123", "total_jobs": 2}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.submit_batch(
+                [
+                    {"task": "Debate 1"},
+                    {"task": "Debate 2"},
+                ]
+            )
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/debates/batch",
+                json={"requests": [{"task": "Debate 1"}, {"task": "Debate 2"}]},
+            )
+            assert result["total_jobs"] == 2
+            client.close()
+
+    def test_get_batch_status(self) -> None:
+        """Get the status of a batch job."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"batch_id": "batch_123", "status": "running"}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_batch_status("batch_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/batch/batch_123/status")
+            assert result["status"] == "running"
+            client.close()
+
+    def test_get_queue_status(self) -> None:
+        """Get the current queue status."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"pending_count": 5, "running_count": 2}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_queue_status()
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/queue/status")
+            assert result["pending_count"] == 5
+            client.close()
+
+
+class TestDebatesGraph:
+    """Tests for graph and visualization methods."""
+
+    def test_get_graph(self) -> None:
+        """Get the argument graph for a debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"nodes": [], "edges": []}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_graph("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/graph/deb_123")
+            assert "nodes" in result
+            client.close()
+
+    def test_get_graph_branches(self) -> None:
+        """Get branches in the argument graph."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"branches": [{"branch_id": "br_1"}]}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_graph_branches("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/graph/deb_123/branches")
+            assert len(result["branches"]) == 1
+            client.close()
+
+    def test_get_matrix_comparison(self) -> None:
+        """Get matrix comparison for a multi-scenario debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"scenarios": [], "comparison_matrix": []}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_matrix_comparison("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/matrix/deb_123")
+            assert "scenarios" in result
+            client.close()
+
+
+class TestDebatesSearch:
+    """Tests for search functionality."""
+
+    def test_search_debates(self) -> None:
+        """Search across all debates."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"debates": [], "total": 0}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.search("microservices", limit=10, status="completed")
+
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/search",
+                params={
+                    "query": "microservices",
+                    "limit": 10,
+                    "offset": 0,
+                    "status": "completed",
+                },
+            )
+            assert "debates" in result
+            client.close()

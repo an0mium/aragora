@@ -26,6 +26,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from aragora.utils.paths import PathTraversalError, safe_path
+
 logger = logging.getLogger(__name__)
 
 # SQL identifier validation pattern - prevents SQL injection via malicious table/column names
@@ -578,13 +580,19 @@ class BackupManager:
         target = Path(target_path)
 
         # SECURITY: Prevent path traversal attacks (CWE-22)
-        resolved_target = target.resolve()
-        allowed_root = self.backup_dir.resolve().parent
-        if not resolved_target.is_relative_to(allowed_root):
+        # Use dedicated restore directory within backup_dir for strict path validation
+        restore_dir = self.backup_dir / "restore"
+        restore_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Use safe_path to validate target is within restore directory
+            # This catches ../escapes, symlink attacks, and other traversal attempts
+            validated_target = safe_path(restore_dir, target, must_exist=False)
+        except PathTraversalError as e:
             raise ValueError(
                 f"Path traversal not allowed: target must be within "
-                f"{allowed_root}, got {resolved_target}"
-            )
+                f"{restore_dir}, got {target}. Error: {e}"
+            ) from e
 
         if not backup_path.exists():
             raise FileNotFoundError(f"Backup file not found: {backup_path}")
@@ -595,24 +603,24 @@ class BackupManager:
             raise ValueError(f"Backup verification failed: {result.errors}")
 
         if dry_run:
-            logger.info("Dry run: would restore %s to %s", backup_id, target)
+            logger.info("Dry run: would restore %s to %s", backup_id, validated_target)
             return True
 
         # Create backup of target if it exists
-        if target.exists():
-            target_backup = target.with_suffix(
+        if validated_target.exists():
+            target_backup = validated_target.with_suffix(
                 f".backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
             )
-            shutil.copy(target, target_backup)
+            shutil.copy(validated_target, target_backup)
             logger.info("Created backup of target: %s", target_backup)
 
         try:
             if self.compression:
-                self._decompress_file(backup_path, target)
+                self._decompress_file(backup_path, validated_target)
             else:
-                shutil.copy(backup_path, target)
+                shutil.copy(backup_path, validated_target)
 
-            logger.info("Restored backup %s to %s", backup_id, target)
+            logger.info("Restored backup %s to %s", backup_id, validated_target)
             self._emit_restore_metrics(backup_id, success=True)
             return True
 

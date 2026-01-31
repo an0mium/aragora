@@ -456,15 +456,12 @@ class TenantDataIsolation:
                 seed = f"aragora_tenant_key_{tid}".encode()
                 self._encryption_keys[tid] = hashlib.sha256(seed).digest()
 
-            # LRU eviction: remove oldest keys if at capacity
-            self._key_access_order.append(tid)
+            # LRU: key already at end from assignment, evict if at capacity
             if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:
                 self._evict_oldest_keys()
         else:
-            # Move to end of access order (most recently used)
-            if tid in self._key_access_order:
-                self._key_access_order.remove(tid)
-            self._key_access_order.append(tid)
+            # O(1) move to end of OrderedDict for LRU tracking
+            self._encryption_keys.move_to_end(tid)
 
         return self._encryption_keys[tid]
 
@@ -585,15 +582,12 @@ class TenantDataIsolation:
                 seed = f"aragora_tenant_key_{tid}".encode()
                 self._encryption_keys[tid] = hashlib.sha256(seed).digest()
 
-            # LRU eviction: remove oldest keys if at capacity
-            self._key_access_order.append(tid)
+            # LRU: key already at end from assignment, evict if at capacity
             if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:
                 self._evict_oldest_keys()
         else:
-            # Move to end of access order (most recently used)
-            if tid in self._key_access_order:
-                self._key_access_order.remove(tid)
-            self._key_access_order.append(tid)
+            # O(1) move to end of OrderedDict for LRU tracking
+            self._encryption_keys.move_to_end(tid)
 
         return self._encryption_keys[tid]
 

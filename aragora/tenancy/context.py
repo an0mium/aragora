@@ -255,7 +255,7 @@ def tenant_required(
 ) -> Callable[P, T]: ...
 
 
-def tenant_required(
+def tenant_required(  # type: ignore[misc]
     func: Callable[P, T] | Callable[P, Awaitable[T]],
 ) -> Callable[P, T] | Callable[P, Awaitable[T]]:
     """
@@ -296,7 +296,7 @@ def for_tenant(
 
 
 @overload
-def for_tenant(
+def for_tenant(  # type: ignore[overload-cannot-match]
     tenant_id: str,
 ) -> Callable[
     [Callable[P, T]],
@@ -304,7 +304,7 @@ def for_tenant(
 ]: ...
 
 
-def for_tenant(
+def for_tenant(  # type: ignore[misc]
     tenant_id: str,
 ) -> Callable[
     [Callable[P, T] | Callable[P, Awaitable[T]]],

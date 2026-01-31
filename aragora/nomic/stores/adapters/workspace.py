@@ -126,7 +126,7 @@ def nomic_bead_to_workspace(
 ) -> WorkspaceBeadT:
     metadata = bead.metadata or {}
     status = resolve_workspace_bead_status(bead.status, metadata, status_cls)
-    return bead_cls(
+    return bead_cls(  # type: ignore[call-arg]
         bead_id=bead.id,
         convoy_id=metadata.get("convoy_id", ""),
         workspace_id=metadata.get("workspace_id", ""),

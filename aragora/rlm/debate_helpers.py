@@ -464,12 +464,22 @@ def RLM_M(query: str, subset: list[dict[str, Any]] | None = None) -> str:
             synthesis_parts.append("No explicit critiques found in the provided messages.")
 
     elif is_consensus_query:
-        # Look for agreement patterns
-        agreement_markers = ["agree", "consensus", "support", "concur", "align"]
+        # Look for agreement patterns (use regex word boundaries to avoid false positives
+        # like "disagree" matching the "agree" pattern)
+        agreement_patterns = [
+            r"\bagree\b",
+            r"\bconsensus\b",
+            r"\bsupport\b",
+            r"\bconcur\b",
+            r"\balign\b",
+        ]
         agreements = [
             msg
             for _, msg in scored_messages
-            if any(marker in msg.get("content", "").lower() for marker in agreement_markers)
+            if any(
+                re.search(pattern, msg.get("content", ""), re.IGNORECASE)
+                for pattern in agreement_patterns
+            )
         ]
         if agreements:
             synthesis_parts.append(f"Found {len(agreements)} agreement(s):")

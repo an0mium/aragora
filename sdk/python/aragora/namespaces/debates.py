@@ -278,6 +278,215 @@ class DebatesAPI:
             "GET", "/api/v1/history/debates", params={"limit": limit, "offset": offset}
         )
 
+    # ========== Additional CRUD ==========
+
+    def update(self, debate_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing debate."""
+        return self._client.request("PUT", f"/api/v1/debates/{debate_id}", json=updates)
+
+    def delete(self, debate_id: str) -> dict[str, Any]:
+        """Delete a debate."""
+        return self._client.request("DELETE", f"/api/v1/debates/{debate_id}")
+
+    def clone(
+        self,
+        debate_id: str,
+        preserve_agents: bool = True,
+        preserve_context: bool = False,
+    ) -> dict[str, Any]:
+        """Clone a debate (create a copy with fresh state)."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/clone",
+            json={"preserveAgents": preserve_agents, "preserveContext": preserve_context},
+        )
+
+    def archive(self, debate_id: str) -> dict[str, Any]:
+        """Archive a debate."""
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/archive")
+
+    # ========== Lifecycle ==========
+
+    def start(self, debate_id: str) -> dict[str, Any]:
+        """Start a debate."""
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/start")
+
+    def stop(self, debate_id: str) -> dict[str, Any]:
+        """Stop a running debate."""
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/stop")
+
+    def pause(self, debate_id: str) -> dict[str, Any]:
+        """Pause a running debate."""
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/pause")
+
+    def resume(self, debate_id: str) -> dict[str, Any]:
+        """Resume a paused debate."""
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/resume")
+
+    # ========== Analysis ==========
+
+    def get_rhetorical(self, debate_id: str) -> dict[str, Any]:
+        """Get rhetorical pattern observations for a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/rhetorical")
+
+    def get_trickster(self, debate_id: str) -> dict[str, Any]:
+        """Get trickster hollow consensus detection status."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/trickster")
+
+    def get_summary(self, debate_id: str) -> dict[str, Any]:
+        """Get a human-readable summary of the debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/summary")
+
+    def get_verification_report(self, debate_id: str) -> dict[str, Any]:
+        """Get the verification report for debate conclusions."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/verification-report")
+
+    def verify_claim(
+        self,
+        debate_id: str,
+        claim_id: str,
+        evidence: str | None = None,
+    ) -> dict[str, Any]:
+        """Verify a specific claim from the debate."""
+        payload: dict[str, Any] = {"claim_id": claim_id}
+        if evidence:
+            payload["evidence"] = evidence
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/verify", json=payload)
+
+    # ========== Follow-up & Continuation ==========
+
+    def get_followup_suggestions(self, debate_id: str) -> dict[str, Any]:
+        """Get suggestions for follow-up debates."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/followups")
+
+    def follow_up(
+        self,
+        debate_id: str,
+        crux_id: str | None = None,
+        context: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a follow-up debate from an existing one."""
+        payload: dict[str, Any] = {}
+        if crux_id:
+            payload["cruxId"] = crux_id
+        if context:
+            payload["context"] = context
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/followup", json=payload)
+
+    def list_forks(self, debate_id: str) -> dict[str, Any]:
+        """List all forks created from a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/forks")
+
+    # ========== Rounds, Agents, Votes ==========
+
+    def get_rounds(self, debate_id: str) -> dict[str, Any]:
+        """Get rounds from a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/rounds")
+
+    def get_agents(self, debate_id: str) -> dict[str, Any]:
+        """Get agents participating in a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/agents")
+
+    def get_votes(self, debate_id: str) -> dict[str, Any]:
+        """Get votes from a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/votes")
+
+    def add_user_input(
+        self,
+        debate_id: str,
+        input_text: str,
+        input_type: str = "suggestion",  # 'suggestion' | 'vote' | 'question' | 'context'
+    ) -> dict[str, Any]:
+        """Add user input to a debate."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/user-input",
+            json={"input": input_text, "type": input_type},
+        )
+
+    def get_timeline(self, debate_id: str) -> dict[str, Any]:
+        """Get the timeline of events in a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/timeline")
+
+    def add_evidence(
+        self,
+        debate_id: str,
+        evidence: str,
+        source: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Add evidence to a debate."""
+        payload: dict[str, Any] = {"evidence": evidence}
+        if source:
+            payload["source"] = source
+        if metadata:
+            payload["metadata"] = metadata
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/evidence", json=payload)
+
+    # ========== Search ==========
+
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+        status: str | None = None,
+        domain: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Search across all debates."""
+        params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        if domain:
+            params["domain"] = domain
+        if since:
+            params["since"] = since
+        if until:
+            params["until"] = until
+        return self._client.request("GET", "/api/v1/search", params=params)
+
+    # ========== Batch Operations ==========
+
+    def submit_batch(self, requests: list[dict[str, Any]]) -> dict[str, Any]:
+        """Submit multiple debates for batch processing."""
+        return self._client.request("POST", "/api/v1/debates/batch", json={"requests": requests})
+
+    def get_batch_status(self, batch_id: str) -> dict[str, Any]:
+        """Get the status of a batch job."""
+        return self._client.request("GET", f"/api/v1/debates/batch/{batch_id}/status")
+
+    def list_batches(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List all batch jobs."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        return self._client.request("GET", "/api/v1/debates/batch", params=params)
+
+    def get_queue_status(self) -> dict[str, Any]:
+        """Get the current queue status."""
+        return self._client.request("GET", "/api/v1/debates/queue/status")
+
+    # ========== Graph & Visualization ==========
+
+    def get_graph(self, debate_id: str) -> dict[str, Any]:
+        """Get the argument graph for a debate."""
+        return self._client.request("GET", f"/api/v1/debates/graph/{debate_id}")
+
+    def get_graph_branches(self, debate_id: str) -> dict[str, Any]:
+        """Get branches in the argument graph."""
+        return self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/branches")
+
+    def get_matrix_comparison(self, debate_id: str) -> dict[str, Any]:
+        """Get matrix comparison for a multi-scenario debate."""
+        return self._client.request("GET", f"/api/v1/debates/matrix/{debate_id}")
+
 
 class AsyncDebatesAPI:
     """
@@ -483,3 +692,220 @@ class AsyncDebatesAPI:
         return await self._client.request(
             "GET", "/api/v1/history/debates", params={"limit": limit, "offset": offset}
         )
+
+    # ========== Additional CRUD ==========
+
+    async def update(self, debate_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing debate."""
+        return await self._client.request("PUT", f"/api/v1/debates/{debate_id}", json=updates)
+
+    async def delete(self, debate_id: str) -> dict[str, Any]:
+        """Delete a debate."""
+        return await self._client.request("DELETE", f"/api/v1/debates/{debate_id}")
+
+    async def clone(
+        self,
+        debate_id: str,
+        preserve_agents: bool = True,
+        preserve_context: bool = False,
+    ) -> dict[str, Any]:
+        """Clone a debate (create a copy with fresh state)."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/clone",
+            json={"preserveAgents": preserve_agents, "preserveContext": preserve_context},
+        )
+
+    async def archive(self, debate_id: str) -> dict[str, Any]:
+        """Archive a debate."""
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/archive")
+
+    # ========== Lifecycle ==========
+
+    async def start(self, debate_id: str) -> dict[str, Any]:
+        """Start a debate."""
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/start")
+
+    async def stop(self, debate_id: str) -> dict[str, Any]:
+        """Stop a running debate."""
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/stop")
+
+    async def pause(self, debate_id: str) -> dict[str, Any]:
+        """Pause a running debate."""
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/pause")
+
+    async def resume(self, debate_id: str) -> dict[str, Any]:
+        """Resume a paused debate."""
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/resume")
+
+    # ========== Analysis ==========
+
+    async def get_rhetorical(self, debate_id: str) -> dict[str, Any]:
+        """Get rhetorical pattern observations for a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/rhetorical")
+
+    async def get_trickster(self, debate_id: str) -> dict[str, Any]:
+        """Get trickster hollow consensus detection status."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/trickster")
+
+    async def get_summary(self, debate_id: str) -> dict[str, Any]:
+        """Get a human-readable summary of the debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/summary")
+
+    async def get_verification_report(self, debate_id: str) -> dict[str, Any]:
+        """Get the verification report for debate conclusions."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/verification-report")
+
+    async def verify_claim(
+        self,
+        debate_id: str,
+        claim_id: str,
+        evidence: str | None = None,
+    ) -> dict[str, Any]:
+        """Verify a specific claim from the debate."""
+        payload: dict[str, Any] = {"claim_id": claim_id}
+        if evidence:
+            payload["evidence"] = evidence
+        return await self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/verify", json=payload
+        )
+
+    # ========== Follow-up & Continuation ==========
+
+    async def get_followup_suggestions(self, debate_id: str) -> dict[str, Any]:
+        """Get suggestions for follow-up debates."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/followups")
+
+    async def follow_up(
+        self,
+        debate_id: str,
+        crux_id: str | None = None,
+        context: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a follow-up debate from an existing one."""
+        payload: dict[str, Any] = {}
+        if crux_id:
+            payload["cruxId"] = crux_id
+        if context:
+            payload["context"] = context
+        return await self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/followup", json=payload
+        )
+
+    async def list_forks(self, debate_id: str) -> dict[str, Any]:
+        """List all forks created from a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/forks")
+
+    # ========== Rounds, Agents, Votes ==========
+
+    async def get_rounds(self, debate_id: str) -> dict[str, Any]:
+        """Get rounds from a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/rounds")
+
+    async def get_agents(self, debate_id: str) -> dict[str, Any]:
+        """Get agents participating in a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/agents")
+
+    async def get_votes(self, debate_id: str) -> dict[str, Any]:
+        """Get votes from a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/votes")
+
+    async def add_user_input(
+        self,
+        debate_id: str,
+        input_text: str,
+        input_type: str = "suggestion",  # 'suggestion' | 'vote' | 'question' | 'context'
+    ) -> dict[str, Any]:
+        """Add user input to a debate."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/user-input",
+            json={"input": input_text, "type": input_type},
+        )
+
+    async def get_timeline(self, debate_id: str) -> dict[str, Any]:
+        """Get the timeline of events in a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/timeline")
+
+    async def add_evidence(
+        self,
+        debate_id: str,
+        evidence: str,
+        source: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Add evidence to a debate."""
+        payload: dict[str, Any] = {"evidence": evidence}
+        if source:
+            payload["source"] = source
+        if metadata:
+            payload["metadata"] = metadata
+        return await self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/evidence", json=payload
+        )
+
+    # ========== Search ==========
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+        status: str | None = None,
+        domain: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> dict[str, Any]:
+        """Search across all debates."""
+        params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        if domain:
+            params["domain"] = domain
+        if since:
+            params["since"] = since
+        if until:
+            params["until"] = until
+        return await self._client.request("GET", "/api/v1/search", params=params)
+
+    # ========== Batch Operations ==========
+
+    async def submit_batch(self, requests: list[dict[str, Any]]) -> dict[str, Any]:
+        """Submit multiple debates for batch processing."""
+        return await self._client.request(
+            "POST", "/api/v1/debates/batch", json={"requests": requests}
+        )
+
+    async def get_batch_status(self, batch_id: str) -> dict[str, Any]:
+        """Get the status of a batch job."""
+        return await self._client.request("GET", f"/api/v1/debates/batch/{batch_id}/status")
+
+    async def list_batches(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List all batch jobs."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        return await self._client.request("GET", "/api/v1/debates/batch", params=params)
+
+    async def get_queue_status(self) -> dict[str, Any]:
+        """Get the current queue status."""
+        return await self._client.request("GET", "/api/v1/debates/queue/status")
+
+    # ========== Graph & Visualization ==========
+
+    async def get_graph(self, debate_id: str) -> dict[str, Any]:
+        """Get the argument graph for a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/graph/{debate_id}")
+
+    async def get_graph_branches(self, debate_id: str) -> dict[str, Any]:
+        """Get branches in the argument graph."""
+        return await self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/branches")
+
+    async def get_matrix_comparison(self, debate_id: str) -> dict[str, Any]:
+        """Get matrix comparison for a multi-scenario debate."""
+        return await self._client.request("GET", f"/api/v1/debates/matrix/{debate_id}")

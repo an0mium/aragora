@@ -1010,7 +1010,12 @@ class TestSessionManagement:
 
     def test_revoke_current_session_rejected(self, auth_handler, mock_auth_context):
         """Test cannot revoke current session."""
+        import hashlib
+
         request = make_mock_handler(command="DELETE")
+        test_token = "test_token"
+        # Session ID is computed as hash of token, not from JWT jti claim
+        current_session_id = hashlib.sha256(test_token.encode()).hexdigest()[:32]
 
         with patch(
             "aragora.server.handlers.auth.handler.extract_user_from_request",
@@ -1020,13 +1025,13 @@ class TestSessionManagement:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
-                    "aragora.server.middleware.auth.extract_token",
-                    return_value="test_token",
+                    "aragora.server.handlers.auth.sessions.extract_token",
+                    return_value=test_token,
                 ):
-                    with patch("aragora.billing.jwt_auth.decode_jwt") as mock_decode:
-                        mock_decode.return_value = MagicMock(jti="current-session")
+                    with patch("aragora.server.handlers.auth.sessions.decode_jwt") as mock_decode:
+                        mock_decode.return_value = MagicMock(jti="some-jti")
 
-                        result = auth_handler._handle_revoke_session(request, "current-session")
+                        result = auth_handler._handle_revoke_session(request, current_session_id)
 
         parsed = parse_result(result)
         assert parsed["success"] is False
