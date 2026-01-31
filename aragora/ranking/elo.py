@@ -707,7 +707,7 @@ class EloSystem(KMAdapterMixin):
         draw: bool | None,
         task: str | None,
         domain: str | None,
-    ) -> tuple[str | None, list[str], dict[str, float] | None, str | None]:
+    ) -> tuple[str, list[str] | None, dict[str, float] | None]:
         """Normalize legacy and modern match signatures."""
         return normalize_match_params(
             debate_id, participants, scores, winner, loser, draw, task, domain
