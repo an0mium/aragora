@@ -28,6 +28,7 @@ from typing import (
     ParamSpec,
     TypeVar,
     cast,
+    overload,
 )
 
 if TYPE_CHECKING:
@@ -242,7 +243,19 @@ def get_context_info() -> TenantContextInfo:
     )
 
 
-def tenant_required(  # type: ignore[misc]
+@overload
+def tenant_required(
+    func: Callable[P, Awaitable[T]],
+) -> Callable[P, Awaitable[T]]: ...
+
+
+@overload
+def tenant_required(
+    func: Callable[P, T],
+) -> Callable[P, T]: ...
+
+
+def tenant_required(
     func: Callable[P, T] | Callable[P, Awaitable[T]],
 ) -> Callable[P, T] | Callable[P, Awaitable[T]]:
     """
@@ -273,7 +286,25 @@ def tenant_required(  # type: ignore[misc]
     return wrapper
 
 
-def for_tenant(  # type: ignore[misc]
+@overload
+def for_tenant(
+    tenant_id: str,
+) -> Callable[
+    [Callable[P, Awaitable[T]]],
+    Callable[P, Awaitable[T]],
+]: ...
+
+
+@overload
+def for_tenant(
+    tenant_id: str,
+) -> Callable[
+    [Callable[P, T]],
+    Callable[P, T],
+]: ...
+
+
+def for_tenant(
     tenant_id: str,
 ) -> Callable[
     [Callable[P, T] | Callable[P, Awaitable[T]]],
