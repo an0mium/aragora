@@ -1622,3 +1622,357 @@ class TestSuspendAction:
         result = budget.can_spend_extended(10.0)
         # Without auto_suspend, falls through to soft limit behavior
         assert result.allowed is True
+
+
+# ===========================================================================
+# Additional Coverage Tests
+# ===========================================================================
+
+
+class TestBudgetCreationExtended:
+    """Additional tests for budget creation parameters."""
+
+    def test_create_budget_with_created_by(self, manager):
+        """Test budget creation records the creating user."""
+        budget = manager.create_budget(
+            org_id="test-org",
+            name="Created By Test",
+            amount_usd=100.0,
+            created_by="admin-user-42",
+        )
+
+        assert budget.created_by == "admin-user-42"
+
+        # Verify persistence
+        retrieved = manager.get_budget(budget.budget_id)
+        assert retrieved.created_by == "admin-user-42"
+
+    def test_create_budget_with_description(self, manager):
+        """Test budget creation with description persists correctly."""
+        budget = manager.create_budget(
+            org_id="test-org",
+            name="Described Budget",
+            amount_usd=250.0,
+            description="Monthly AI inference budget for team alpha",
+        )
+
+        assert budget.description == "Monthly AI inference budget for team alpha"
+
+        retrieved = manager.get_budget(budget.budget_id)
+        assert retrieved.description == "Monthly AI inference budget for team alpha"
+
+
+class TestRecordSpendExtended:
+    """Additional tests for record_spend parameters."""
+
+    def test_record_spend_with_debate_id(self, manager):
+        """Test that record_spend stores debate_id in transactions."""
+        budget = manager.create_budget(
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+        )
+
+        manager.record_spend(
+            "test-org",
+            15.0,
+            description="Debate cost",
+            debate_id="debate-abc-123",
+            user_id="user-xyz",
+        )
+
+        transactions = manager.get_transactions(budget.budget_id)
+        assert len(transactions) == 1
+        assert transactions[0].debate_id == "debate-abc-123"
+        assert transactions[0].user_id == "user-xyz"
+        assert transactions[0].description == "Debate cost"
+
+
+class TestGetAlertsExtended:
+    """Additional tests for alert retrieval filtering."""
+
+    def test_get_alerts_by_budget_id(self, manager):
+        """Test filtering alerts by budget_id."""
+        b1 = manager.create_budget(org_id="test-org", name="Budget 1", amount_usd=100.0)
+        b2 = manager.create_budget(org_id="test-org", name="Budget 2", amount_usd=100.0)
+
+        # Trigger alerts on both budgets
+        manager.record_spend("test-org", 55.0)
+
+        alerts_b1 = manager.get_alerts(budget_id=b1.budget_id)
+        for alert in alerts_b1:
+            assert alert.budget_id == b1.budget_id
+
+        alerts_b2 = manager.get_alerts(budget_id=b2.budget_id)
+        for alert in alerts_b2:
+            assert alert.budget_id == b2.budget_id
+
+    def test_get_alerts_unacknowledged_only(self, manager):
+        """Test filtering unacknowledged alerts only."""
+        manager.create_budget(org_id="test-org", name="Test", amount_usd=100.0)
+
+        # Trigger an alert
+        manager.record_spend("test-org", 55.0)
+
+        all_alerts = manager.get_alerts(org_id="test-org")
+        assert len(all_alerts) >= 1
+
+        # Acknowledge the first alert
+        manager.acknowledge_alert(all_alerts[0].alert_id, "user-1")
+
+        # Now filter unacknowledged only
+        unacked = manager.get_alerts(org_id="test-org", unacknowledged_only=True)
+        for alert in unacked:
+            assert alert.acknowledged is False
+
+    def test_get_alerts_with_limit(self, manager):
+        """Test alert retrieval with limit parameter."""
+        manager.create_budget(
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+        )
+
+        # Trigger multiple alerts by crossing thresholds
+        manager.record_spend("test-org", 80.0)  # crosses 50% and 75%
+
+        all_alerts = manager.get_alerts(org_id="test-org")
+        assert len(all_alerts) >= 2
+
+        limited = manager.get_alerts(org_id="test-org", limit=1)
+        assert len(limited) == 1
+
+
+class TestAlertCallbackErrorHandling:
+    """Tests for alert callback error handling."""
+
+    def test_alert_callback_exception_does_not_break_spend(self, manager):
+        """Test that a failing alert callback does not prevent spending."""
+
+        def failing_callback(alert):
+            raise RuntimeError("Callback exploded")
+
+        successful_alerts = []
+        manager.register_alert_callback(failing_callback)
+        manager.register_alert_callback(lambda a: successful_alerts.append(a))
+
+        manager.create_budget(
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+        )
+
+        # This should not raise despite the failing callback
+        manager.record_spend("test-org", 55.0, "Test spend")
+
+        # The second callback should still have been called
+        assert len(successful_alerts) >= 1
+
+    def test_multiple_alert_callbacks_all_called(self, manager):
+        """Test that all registered callbacks are invoked."""
+        results_a = []
+        results_b = []
+        results_c = []
+
+        manager.register_alert_callback(lambda a: results_a.append(a))
+        manager.register_alert_callback(lambda a: results_b.append(a))
+        manager.register_alert_callback(lambda a: results_c.append(a))
+
+        manager.create_budget(
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+        )
+
+        manager.record_spend("test-org", 55.0)
+
+        # All three callbacks should have received the alert
+        assert len(results_a) >= 1
+        assert len(results_b) >= 1
+        assert len(results_c) >= 1
+
+
+class TestBudgetSummaryEdgeCases:
+    """Additional tests for budget summary edge cases."""
+
+    def test_get_summary_no_budgets(self, manager):
+        """Test summary for org with no budgets."""
+        summary = manager.get_summary("empty-org")
+
+        assert summary["org_id"] == "empty-org"
+        assert summary["total_budget_usd"] == 0.0
+        assert summary["total_spent_usd"] == 0.0
+        assert summary["total_remaining_usd"] == 0.0
+        assert summary["overall_usage_percentage"] == 0
+        assert summary["active_budgets"] == 0
+        assert summary["exceeded_budgets"] == 0
+        assert summary["budgets"] == []
+
+    def test_get_summary_with_exceeded_budgets(self, manager):
+        """Test summary counts exceeded budgets correctly."""
+        b1 = manager.create_budget(
+            org_id="test-org", name="Small", amount_usd=50.0, auto_suspend=False
+        )
+        b2 = manager.create_budget(
+            org_id="test-org", name="Large", amount_usd=500.0, auto_suspend=False
+        )
+
+        # Exceed the small budget (both get the same spend)
+        manager.record_spend("test-org", 55.0)
+
+        summary = manager.get_summary("test-org")
+        assert summary["exceeded_budgets"] == 1
+        # Both should still be active since auto_suspend=False
+        assert summary["active_budgets"] == 2
+
+
+class TestCountTransactionsExtended:
+    """Additional tests for count_transactions with filters."""
+
+    def test_count_transactions_with_date_range(self, manager):
+        """Test counting transactions with date range filters."""
+        import time
+
+        budget = manager.create_budget(
+            org_id="test-org",
+            name="Test",
+            amount_usd=1000.0,
+        )
+
+        before = time.time()
+        manager.record_spend("test-org", 10.0, "Early")
+        time.sleep(0.1)
+        midpoint = time.time()
+        time.sleep(0.1)
+        manager.record_spend("test-org", 20.0, "Late")
+        after = time.time()
+
+        # Count all
+        total = manager.count_transactions(budget.budget_id)
+        assert total == 2
+
+        # Count only after midpoint
+        late_count = manager.count_transactions(budget.budget_id, date_from=midpoint)
+        assert late_count == 1
+
+        # Count only before midpoint
+        early_count = manager.count_transactions(budget.budget_id, date_to=midpoint)
+        assert early_count == 1
+
+        # Count within range
+        all_range = manager.count_transactions(budget.budget_id, date_from=before, date_to=after)
+        assert all_range == 2
+
+
+class TestBudgetToDictEdgeCases:
+    """Additional tests for Budget.to_dict edge cases."""
+
+    def test_to_dict_zero_period_timestamps(self):
+        """Test to_dict with zero period start/end produces None ISO dates."""
+        budget = Budget(
+            budget_id="test",
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+            period_start=0.0,
+            period_end=0.0,
+        )
+        data = budget.to_dict()
+        assert data["period_start_iso"] is None
+        assert data["period_end_iso"] is None
+
+
+class TestOrgSpendingTrendsExtended:
+    """Additional tests for org spending trends."""
+
+    def test_get_org_spending_trends_different_periods(self, manager):
+        """Test org-wide spending trends with all period types."""
+        manager.create_budget(org_id="test-org", name="Test", amount_usd=500.0)
+        manager.record_spend("test-org", 10.0, "Spend")
+
+        for period in ["hour", "day", "week", "month"]:
+            trends = manager.get_org_spending_trends("test-org", period=period)
+            assert len(trends) >= 1
+            assert trends[-1]["total_spent_usd"] > 0
+
+    def test_get_org_spending_trends_empty(self, manager):
+        """Test org spending trends with no transactions."""
+        manager.create_budget(org_id="test-org", name="Test", amount_usd=500.0)
+
+        trends = manager.get_org_spending_trends("test-org")
+        assert trends == []
+
+    def test_get_org_spending_trends_with_limit(self, manager):
+        """Test org spending trends respects limit parameter."""
+        manager.create_budget(org_id="test-org", name="Test", amount_usd=500.0)
+        manager.record_spend("test-org", 10.0, "Spend")
+
+        trends = manager.get_org_spending_trends("test-org", limit=1)
+        assert len(trends) <= 1
+
+    def test_spending_trends_invalid_period_defaults_to_day(self, manager):
+        """Test that invalid period falls back to day grouping."""
+        budget = manager.create_budget(org_id="test-org", name="Test", amount_usd=500.0)
+        manager.record_spend("test-org", 10.0, "Spend")
+
+        # Unknown period should default to day
+        trends = manager.get_spending_trends(budget.budget_id, period="unknown")
+        assert len(trends) >= 1
+
+    def test_org_spending_trends_invalid_period_defaults_to_day(self, manager):
+        """Test that org trends with invalid period falls back to day."""
+        manager.create_budget(org_id="test-org", name="Test", amount_usd=500.0)
+        manager.record_spend("test-org", 10.0, "Spend")
+
+        trends = manager.get_org_spending_trends("test-org", period="invalid")
+        assert len(trends) >= 1
+
+
+class TestCanSpendExtendedFallthrough:
+    """Tests for can_spend_extended fallthrough behavior."""
+
+    def test_warn_action_allows_spending(self):
+        """Test WARN action allows spending (soft behavior)."""
+        budget = Budget(
+            budget_id="test",
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+            spent_usd=100.0,
+            thresholds=[
+                BudgetThreshold(1.00, BudgetAction.WARN),
+            ],
+        )
+        result = budget.can_spend_extended(10.0)
+        assert result.allowed is True
+        assert result.message == "OK"
+
+    def test_soft_limit_action_allows_spending(self):
+        """Test SOFT_LIMIT action allows spending (with flag)."""
+        budget = Budget(
+            budget_id="test",
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+            spent_usd=100.0,
+            thresholds=[
+                BudgetThreshold(1.00, BudgetAction.SOFT_LIMIT),
+            ],
+        )
+        result = budget.can_spend_extended(10.0)
+        assert result.allowed is True
+
+    def test_notify_action_allows_spending(self):
+        """Test NOTIFY action allows spending (alert-only)."""
+        budget = Budget(
+            budget_id="test",
+            org_id="test-org",
+            name="Test",
+            amount_usd=100.0,
+            spent_usd=100.0,
+            thresholds=[
+                BudgetThreshold(1.00, BudgetAction.NOTIFY),
+            ],
+        )
+        result = budget.can_spend_extended(10.0)
+        assert result.allowed is True

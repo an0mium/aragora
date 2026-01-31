@@ -1,22 +1,37 @@
 """
-Tests for ConsensusPhase module.
+Tests for consensus phase module.
 
 Tests cover:
 - ConsensusDependencies dataclass
 - ConsensusCallbacks dataclass
-- ConsensusPhase class with different consensus modes
-- Vote collection and aggregation
-- Winner selection and synthesis generation
+- ConsensusPhase initialization (new style and legacy style)
+- execute method (timeout, error handling, cancellation, hooks)
+- _execute_consensus mode routing (none, majority, unanimous, judge, byzantine, unknown)
+- _handle_none_consensus method
+- _handle_fallback_consensus method
+- _handle_majority_consensus method
+- _handle_unanimous_consensus method
+- _handle_judge_consensus method
+- _ensure_quorum method
+- _required_participation method
+- _normalize_choice_to_agent method
+- _count_weighted_votes method
+- _add_user_votes method
+- _emit_guaranteed_events method
+- _verify_consensus_formally method
 - Error handling and edge cases
 """
 
 import asyncio
+import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.core_types import DebateResult, Vote
+from aragora.debate.context import DebateContext
 from aragora.debate.phases.consensus_phase import (
     ConsensusCallbacks,
     ConsensusDependencies,
@@ -24,567 +39,1175 @@ from aragora.debate.phases.consensus_phase import (
 )
 
 
-@dataclass
-class MockVote:
-    """Mock vote for testing."""
-
-    agent: str
-    choice: str
-    reasoning: str = "test reasoning"
-    confidence: float = 0.8
-    continue_debate: bool = False
+# =============================================================================
+# Mock Objects
+# =============================================================================
 
 
 @dataclass
-class MockMessage:
-    """Mock message for testing."""
+class MockAgent:
+    """Mock agent for testing."""
 
-    agent: str
-    content: str
-    role: str = "proposer"
-    round: int = 0
+    name: str = "test-agent"
+    provider: str = "test-provider"
+    model_type: str = "test-model"
+    timeout: float = 120.0
 
 
 @dataclass
 class MockProtocol:
-    """Mock debate protocol."""
+    """Mock debate protocol for testing."""
 
-    consensus: str = "majority"
+    consensus: str = "none"
     rounds: int = 3
+    consensus_timeout: float = 5.0
+    consensus_threshold: float = 0.6
+    min_participation_ratio: float = 0.5
+    min_participation_count: int = 2
+    user_vote_weight: float = 0.5
+    formal_verification_enabled: bool = False
+    judge_selection: str = "random"
+    enable_judge_deliberation: bool = False
+    enable_position_shuffling: bool = False
+    position_shuffling_permutations: int = 3
+    enable_self_vote_mitigation: bool = False
+    enable_verbosity_normalization: bool = False
     verify_claims_during_consensus: bool = False
 
 
 @dataclass
-class MockDebateResult:
-    """Mock debate result for context."""
-
-    id: str = "test-debate-123"
-    task: str = "Test task"
-    messages: list = field(default_factory=list)
-    critiques: list = field(default_factory=list)
-    votes: list = field(default_factory=list)
-    final_answer: str = ""
-    winner: str = ""
-    confidence: float = 0.0
-    consensus_reached: bool = False
-    participants: list = field(default_factory=list)
-    rounds_used: int = 0
-
-
-@dataclass
 class MockEnvironment:
-    """Mock environment for context."""
+    """Mock debate environment for testing."""
 
-    task: str = "Test debate task"
-    context: str = ""
-
-
-@dataclass
-class MockDebateContext:
-    """Mock debate context for testing."""
-
-    debate_id: str = "test-debate-123"
-    env: MockEnvironment = field(default_factory=MockEnvironment)
-    result: MockDebateResult = field(default_factory=MockDebateResult)
-    agents: list = field(default_factory=list)
-    proposers: list = field(default_factory=list)
-    partial_messages: list = field(default_factory=list)
-    context_messages: list = field(default_factory=list)
+    task: str = "Test task"
 
 
-class MockAgent:
-    """Mock agent for testing."""
+def make_vote(
+    agent: str = "voter1",
+    choice: str = "agent1",
+    reasoning: str = "Good proposal",
+    confidence: float = 0.8,
+) -> Vote:
+    """Create a real Vote object for testing."""
+    return Vote(agent=agent, choice=choice, reasoning=reasoning, confidence=confidence)
 
-    def __init__(self, name: str, role: str = "proposer"):
-        self.name = name
-        self.role = role
-        self.model = f"mock-{name}"
 
-    async def generate(self, prompt: str) -> str:
-        return f"Response from {self.name}"
+def make_context(
+    proposals: dict[str, str] | None = None,
+    agents: list | None = None,
+    consensus_mode: str = "none",
+) -> tuple[DebateContext, MockProtocol]:
+    """Create a DebateContext with sensible defaults for testing."""
+    protocol = MockProtocol(consensus=consensus_mode)
+    result = DebateResult()
+    ctx = DebateContext(
+        env=MockEnvironment(),
+        agents=agents or [MockAgent(name="agent1"), MockAgent(name="agent2")],
+        proposals=proposals
+        if proposals is not None
+        else {"agent1": "Proposal A", "agent2": "Proposal B"},
+        result=result,
+        start_time=time.time(),
+        debate_id="test-debate-123",
+    )
+    return ctx, protocol
 
-    async def vote(self, prompt: str) -> MockVote:
-        return MockVote(agent=self.name, choice="agent1")
+
+# =============================================================================
+# ConsensusDependencies Tests
+# =============================================================================
 
 
 class TestConsensusDependencies:
     """Tests for ConsensusDependencies dataclass."""
 
     def test_default_values(self):
-        """Dependencies have expected defaults."""
+        """Dependencies initializes with correct defaults."""
         deps = ConsensusDependencies()
 
         assert deps.protocol is None
         assert deps.elo_system is None
         assert deps.memory is None
         assert deps.agent_weights == {}
+        assert deps.flip_detector is None
+        assert deps.position_tracker is None
+        assert deps.calibration_tracker is None
+        assert deps.recorder is None
+        assert deps.hooks == {}
         assert deps.user_votes == []
 
-    def test_with_protocol(self):
-        """Dependencies accept protocol."""
+    def test_custom_values(self):
+        """Dependencies accepts and stores custom values."""
         protocol = MockProtocol()
-        deps = ConsensusDependencies(protocol=protocol)
+        deps = ConsensusDependencies(
+            protocol=protocol,
+            agent_weights={"agent1": 1.5},
+            user_votes=[{"choice": "agent1"}],
+        )
 
-        assert deps.protocol == protocol
-        assert deps.protocol.consensus == "majority"
+        assert deps.protocol is protocol
+        assert deps.agent_weights == {"agent1": 1.5}
+        assert len(deps.user_votes) == 1
 
-    def test_with_agent_weights(self):
-        """Dependencies accept agent weights."""
-        weights = {"agent1": 1.0, "agent2": 0.8}
-        deps = ConsensusDependencies(agent_weights=weights)
 
-        assert deps.agent_weights == weights
+# =============================================================================
+# ConsensusCallbacks Tests
+# =============================================================================
 
 
 class TestConsensusCallbacks:
     """Tests for ConsensusCallbacks dataclass."""
 
     def test_default_values(self):
-        """Callbacks have None defaults."""
-        callbacks = ConsensusCallbacks()
+        """Callbacks initializes with all None defaults."""
+        cbs = ConsensusCallbacks()
 
-        assert callbacks.vote_with_agent is None
-        assert callbacks.with_timeout is None
-        assert callbacks.select_judge is None
-        assert callbacks.verify_claims is None
+        assert cbs.vote_with_agent is None
+        assert cbs.with_timeout is None
+        assert cbs.select_judge is None
+        assert cbs.build_judge_prompt is None
+        assert cbs.generate_with_agent is None
+        assert cbs.group_similar_votes is None
+        assert cbs.get_calibration_weight is None
+        assert cbs.notify_spectator is None
+        assert cbs.drain_user_events is None
+        assert cbs.extract_debate_domain is None
+        assert cbs.get_belief_analyzer is None
+        assert cbs.user_vote_multiplier is None
+        assert cbs.verify_claims is None
 
-    def test_with_vote_callback(self):
-        """Callbacks accept vote function."""
-        vote_fn = AsyncMock()
-        callbacks = ConsensusCallbacks(vote_with_agent=vote_fn)
-
-        assert callbacks.vote_with_agent == vote_fn
-
-    def test_with_multiple_callbacks(self):
-        """Callbacks accept multiple functions."""
+    def test_custom_values(self):
+        """Callbacks stores custom callable values."""
         vote_fn = AsyncMock()
         timeout_fn = MagicMock()
-        judge_fn = MagicMock()
+        cbs = ConsensusCallbacks(vote_with_agent=vote_fn, with_timeout=timeout_fn)
 
-        callbacks = ConsensusCallbacks(
-            vote_with_agent=vote_fn,
-            with_timeout=timeout_fn,
-            select_judge=judge_fn,
-        )
+        assert cbs.vote_with_agent is vote_fn
+        assert cbs.with_timeout is timeout_fn
 
-        assert callbacks.vote_with_agent == vote_fn
-        assert callbacks.with_timeout == timeout_fn
-        assert callbacks.select_judge == judge_fn
+
+# =============================================================================
+# ConsensusPhase Initialization Tests
+# =============================================================================
 
 
 class TestConsensusPhaseInit:
     """Tests for ConsensusPhase initialization."""
 
-    def test_init_with_dependencies(self):
-        """ConsensusPhase initializes with dependencies."""
+    def test_init_with_dataclasses(self):
+        """Initializes correctly with new-style dataclass dependencies."""
         protocol = MockProtocol()
         deps = ConsensusDependencies(protocol=protocol)
-        callbacks = ConsensusCallbacks()
+        cbs = ConsensusCallbacks(vote_with_agent=AsyncMock())
 
-        phase = ConsensusPhase(deps, callbacks)
+        phase = ConsensusPhase(deps=deps, callbacks=cbs)
 
-        # Check internal state is set up
-        assert phase.protocol == protocol
+        assert phase.protocol is protocol
+        assert phase._vote_with_agent is cbs.vote_with_agent
 
-    def test_init_with_kwargs_style(self):
-        """ConsensusPhase initializes with kwargs style."""
+    def test_init_with_legacy_params(self):
+        """Initializes correctly with legacy keyword arguments."""
         protocol = MockProtocol()
+        vote_fn = AsyncMock()
 
         phase = ConsensusPhase(
             protocol=protocol,
             elo_system=None,
             memory=None,
+            vote_with_agent=vote_fn,
         )
 
-        assert phase.protocol == protocol
+        assert phase.protocol is protocol
+        assert phase._vote_with_agent is vote_fn
 
+    def test_init_creates_helper_classes(self):
+        """Initialization creates internal helper classes."""
+        deps = ConsensusDependencies(protocol=MockProtocol())
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
 
-class TestConsensusPhaseMajorityMode:
-    """Tests for ConsensusPhase in majority mode."""
+        assert phase._winner_selector is not None
+        assert phase._consensus_verifier is not None
+        assert phase._synthesis_generator is not None
+        assert phase._vote_bonus_calculator is not None
 
-    @pytest.fixture
-    def majority_phase(self):
-        """Create ConsensusPhase configured for majority voting."""
-        protocol = MockProtocol(consensus="majority")
+    def test_init_with_no_protocol(self):
+        """Initializes gracefully with no protocol."""
+        phase = ConsensusPhase()
 
-        # Mock the vote callback
-        async def mock_vote(agent, prompt, **kwargs):
-            return MockVote(agent=agent.name, choice="proposal_1", confidence=0.8)
-
-        callbacks = ConsensusCallbacks(
-            vote_with_agent=mock_vote,
-            with_timeout=lambda coro, timeout: coro,
-            notify_spectator=MagicMock(),
-        )
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            agent_weights={"agent1": 1.0, "agent2": 0.9},
-            vote_with_agent=mock_vote,
-            with_timeout=lambda coro, timeout: coro,
-            notify_spectator=MagicMock(),
-        )
-
-    @pytest.fixture
-    def ctx_with_proposals(self):
-        """Create context with proposals for voting."""
-        ctx = MockDebateContext()
-        ctx.agents = [MockAgent("agent1"), MockAgent("agent2"), MockAgent("agent3")]
-
-        # Add proposals to messages
-        ctx.result.messages = [
-            MockMessage(agent="agent1", content="Proposal 1 content", role="proposer"),
-            MockMessage(agent="agent2", content="Proposal 2 content", role="proposer"),
-        ]
-        ctx.result.participants = ["agent1", "agent2", "agent3"]
-
-        return ctx
-
-    @pytest.mark.asyncio
-    async def test_majority_voting_selects_winner(self, majority_phase, ctx_with_proposals):
-        """Majority mode collects votes and selects winner."""
-        # This would be an integration test if VoteCollector is used internally
-        # For now, test that the phase can be constructed
-        assert majority_phase.protocol.consensus == "majority"
-
-
-class TestConsensusPhaseModeNone:
-    """Tests for ConsensusPhase in 'none' mode (no consensus)."""
-
-    @pytest.fixture
-    def none_phase(self):
-        """Create ConsensusPhase configured for no consensus."""
-        protocol = MockProtocol(consensus="none")
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=None,
-            memory=None,
-            notify_spectator=MagicMock(),
-        )
-
-    def test_none_mode_configured(self, none_phase):
-        """None mode is properly configured."""
-        assert none_phase.protocol.consensus == "none"
-
-
-class TestConsensusPhaseModeUnanimous:
-    """Tests for ConsensusPhase in unanimous mode."""
-
-    @pytest.fixture
-    def unanimous_phase(self):
-        """Create ConsensusPhase configured for unanimous voting."""
-        protocol = MockProtocol(consensus="unanimous")
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            notify_spectator=MagicMock(),
-        )
-
-    def test_unanimous_mode_configured(self, unanimous_phase):
-        """Unanimous mode is properly configured."""
-        assert unanimous_phase.protocol.consensus == "unanimous"
-
-
-class TestConsensusPhaseModeJudge:
-    """Tests for ConsensusPhase in judge mode."""
-
-    @pytest.fixture
-    def judge_phase(self):
-        """Create ConsensusPhase configured for judge mode."""
-        protocol = MockProtocol(consensus="judge")
-
-        mock_judge = MockAgent("judge", role="judge")
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            select_judge=MagicMock(return_value=mock_judge),
-            build_judge_prompt=MagicMock(return_value="Judge prompt"),
-            generate_with_agent=AsyncMock(return_value="Judge decision"),
-            notify_spectator=MagicMock(),
-        )
-
-    def test_judge_mode_configured(self, judge_phase):
-        """Judge mode is properly configured."""
-        assert judge_phase.protocol.consensus == "judge"
-
-
-class TestConsensusPhaseErrorHandling:
-    """Tests for ConsensusPhase error handling."""
-
-    @pytest.fixture
-    def error_prone_phase(self):
-        """Create ConsensusPhase with error-prone callbacks."""
-        protocol = MockProtocol(consensus="majority")
-
-        async def failing_vote(agent, prompt, **kwargs):
-            raise RuntimeError("Vote collection failed")
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=None,
-            memory=None,
-            vote_with_agent=failing_vote,
-            notify_spectator=MagicMock(),
-        )
-
-    def test_phase_handles_missing_protocol(self):
-        """Phase handles missing protocol gracefully."""
-        phase = ConsensusPhase(protocol=None)
-        # Should not raise during construction
         assert phase.protocol is None
 
 
-class TestConsensusPhaseWithVerification:
-    """Tests for ConsensusPhase with claim verification enabled."""
-
-    @pytest.fixture
-    def verified_phase(self):
-        """Create ConsensusPhase with verification enabled."""
-        protocol = MockProtocol(
-            consensus="majority",
-            verify_claims_during_consensus=True,
-        )
-
-        async def mock_verify(claims):
-            return {"verified": 2, "total": 3}
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            verify_claims=mock_verify,
-            notify_spectator=MagicMock(),
-        )
-
-    def test_verification_enabled(self, verified_phase):
-        """Verification is enabled when configured."""
-        assert verified_phase.protocol.verify_claims_during_consensus is True
+# =============================================================================
+# _handle_none_consensus Tests
+# =============================================================================
 
 
-class TestConsensusPhaseUserVotes:
-    """Tests for ConsensusPhase with user votes."""
+class TestHandleNoneConsensus:
+    """Tests for _handle_none_consensus method."""
 
-    @pytest.fixture
-    def user_vote_phase(self):
-        """Create ConsensusPhase with user votes enabled."""
-        protocol = MockProtocol(consensus="majority")
+    @pytest.mark.asyncio
+    async def test_combines_all_proposals(self):
+        """None mode combines all proposals into final answer."""
+        ctx, protocol = make_context(proposals={"agent1": "Proposal A", "agent2": "Proposal B"})
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
 
-        user_votes = [
-            {"user_id": "user1", "choice": "proposal_1", "weight": 1.0},
-            {"user_id": "user2", "choice": "proposal_2", "weight": 0.5},
+        await phase._handle_none_consensus(ctx)
+
+        assert "[agent1]" in ctx.result.final_answer
+        assert "Proposal A" in ctx.result.final_answer
+        assert "[agent2]" in ctx.result.final_answer
+        assert "Proposal B" in ctx.result.final_answer
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == 0.5
+
+    @pytest.mark.asyncio
+    async def test_handles_empty_proposals(self):
+        """None mode handles empty proposals."""
+        ctx, protocol = make_context(proposals={})
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._handle_none_consensus(ctx)
+
+        assert "No proposals available" in ctx.result.final_answer
+        assert ctx.result.consensus_reached is False
+
+    @pytest.mark.asyncio
+    async def test_single_proposal(self):
+        """None mode handles single proposal."""
+        ctx, protocol = make_context(proposals={"agent1": "Only proposal"})
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._handle_none_consensus(ctx)
+
+        assert "[agent1]" in ctx.result.final_answer
+        assert "Only proposal" in ctx.result.final_answer
+
+
+# =============================================================================
+# _handle_fallback_consensus Tests
+# =============================================================================
+
+
+class TestHandleFallbackConsensus:
+    """Tests for _handle_fallback_consensus method."""
+
+    @pytest.mark.asyncio
+    async def test_fallback_with_no_votes_no_tally(self):
+        """Fallback with no votes and no tally uses proposals text."""
+        ctx, protocol = make_context(proposals={"agent1": "Proposal A", "agent2": "Proposal B"})
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._handle_fallback_consensus(ctx, reason="timeout")
+
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == 0.5
+        assert ctx.result.consensus_strength == "fallback"
+        assert "[agent1]" in ctx.result.final_answer
+        assert "[agent2]" in ctx.result.final_answer
+
+    @pytest.mark.asyncio
+    async def test_fallback_with_existing_votes(self):
+        """Fallback uses existing votes to determine winner."""
+        ctx, protocol = make_context(proposals={"agent1": "Proposal A", "agent2": "Proposal B"})
+        v1 = make_vote(agent="voter1", choice="agent1")
+        v2 = make_vote(agent="voter2", choice="agent1")
+        v3 = make_vote(agent="voter3", choice="agent2")
+        ctx.result.votes = [v1, v2, v3]
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._handle_fallback_consensus(ctx, reason="error")
+
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.winner == "agent1"
+        assert ctx.result.consensus_strength == "fallback"
+
+    @pytest.mark.asyncio
+    async def test_fallback_with_vote_tally(self):
+        """Fallback uses vote_tally when no result votes available."""
+        ctx, protocol = make_context(proposals={"agent1": "Proposal A", "agent2": "Proposal B"})
+        ctx.vote_tally = {"agent2": 5.0, "agent1": 3.0}
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._handle_fallback_consensus(ctx, reason="timeout")
+
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.winner == "agent2"
+
+    @pytest.mark.asyncio
+    async def test_fallback_with_no_proposals(self):
+        """Fallback with no proposals produces descriptive message."""
+        ctx, protocol = make_context(proposals={})
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._handle_fallback_consensus(ctx, reason="timeout")
+
+        assert "No proposals available" in ctx.result.final_answer
+        assert ctx.result.consensus_reached is False
+
+    @pytest.mark.asyncio
+    async def test_fallback_winner_not_in_proposals(self):
+        """Fallback with winner not in proposals produces combined answer."""
+        ctx, protocol = make_context(proposals={"agent1": "Proposal A"})
+        v1 = make_vote(agent="voter1", choice="agent_unknown")
+        ctx.result.votes = [v1]
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._handle_fallback_consensus(ctx, reason="error")
+
+        # Winner is "agent_unknown" which is not in proposals, so combined text
+        assert "agent_unknown" in ctx.result.final_answer
+        assert ctx.result.consensus_reached is True
+
+
+# =============================================================================
+# _ensure_quorum Tests
+# =============================================================================
+
+
+class TestEnsureQuorum:
+    """Tests for _ensure_quorum method."""
+
+    def test_quorum_met(self):
+        """Returns True when enough votes are present."""
+        ctx, protocol = make_context(agents=[MockAgent(name=f"a{i}") for i in range(4)])
+        protocol.min_participation_ratio = 0.5
+        protocol.min_participation_count = 2
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        assert phase._ensure_quorum(ctx, vote_count=3) is True
+
+    def test_quorum_not_met(self):
+        """Returns False and sets result when insufficient votes."""
+        ctx, protocol = make_context(agents=[MockAgent(name=f"a{i}") for i in range(10)])
+        protocol.min_participation_ratio = 0.5
+        protocol.min_participation_count = 2
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        result = phase._ensure_quorum(ctx, vote_count=1)
+
+        assert result is False
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == 0.0
+        assert ctx.result.status == "insufficient_participation"
+
+    def test_quorum_with_notify_spectator(self):
+        """Notifies spectator when quorum not met."""
+        ctx, protocol = make_context(agents=[MockAgent(name=f"a{i}") for i in range(10)])
+        notify_fn = MagicMock()
+        deps = ConsensusDependencies(protocol=protocol)
+        cbs = ConsensusCallbacks(notify_spectator=notify_fn)
+        phase = ConsensusPhase(deps=deps, callbacks=cbs)
+
+        phase._ensure_quorum(ctx, vote_count=1)
+
+        notify_fn.assert_called_once()
+        call_args = notify_fn.call_args
+        assert "Insufficient participation" in call_args[1]["details"]
+
+
+# =============================================================================
+# _required_participation Tests
+# =============================================================================
+
+
+class TestRequiredParticipation:
+    """Tests for _required_participation method."""
+
+    def test_uses_ratio_and_count(self):
+        """Returns max of ratio-based and count-based minimum."""
+        protocol = MockProtocol(min_participation_ratio=0.5, min_participation_count=2)
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        # 10 agents * 0.5 = 5 > min_count 2
+        assert phase._required_participation(10) == 5
+
+    def test_min_count_dominates_small_groups(self):
+        """min_participation_count dominates for small groups."""
+        protocol = MockProtocol(min_participation_ratio=0.5, min_participation_count=3)
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        # 4 agents * 0.5 = 2 < min_count 3
+        assert phase._required_participation(4) == 3
+
+
+# =============================================================================
+# _normalize_choice_to_agent Tests
+# =============================================================================
+
+
+class TestNormalizeChoiceToAgent:
+    """Tests for _normalize_choice_to_agent method."""
+
+    def _make_phase(self):
+        deps = ConsensusDependencies(protocol=MockProtocol())
+        return ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+    def test_exact_match_in_proposals(self):
+        """Returns choice unchanged when it matches a proposal key exactly."""
+        phase = self._make_phase()
+        agents = [MockAgent(name="claude-opus")]
+        proposals = {"claude-opus": "proposal text"}
+
+        result = phase._normalize_choice_to_agent("claude-opus", agents, proposals)
+
+        assert result == "claude-opus"
+
+    def test_case_insensitive_match(self):
+        """Matches agent name case-insensitively."""
+        phase = self._make_phase()
+        agents = [MockAgent(name="Claude-Opus")]
+        proposals = {}
+
+        result = phase._normalize_choice_to_agent("claude-opus", agents, proposals)
+
+        assert result == "Claude-Opus"
+
+    def test_prefix_match(self):
+        """Matches when choice is a prefix of agent name."""
+        phase = self._make_phase()
+        agents = [MockAgent(name="claude-opus-4")]
+        proposals = {}
+
+        result = phase._normalize_choice_to_agent("claude", agents, proposals)
+
+        assert result == "claude-opus-4"
+
+    def test_base_name_match_with_hyphen(self):
+        """Matches base name (before hyphen) of agent."""
+        phase = self._make_phase()
+        agents = [MockAgent(name="gpt-4o")]
+        proposals = {}
+
+        result = phase._normalize_choice_to_agent("gpt", agents, proposals)
+
+        assert result == "gpt-4o"
+
+    def test_empty_choice_returns_empty(self):
+        """Returns empty string for empty choice."""
+        phase = self._make_phase()
+        result = phase._normalize_choice_to_agent("", [], {})
+
+        assert result == ""
+
+    def test_no_match_returns_original(self):
+        """Returns original choice when no match found."""
+        phase = self._make_phase()
+        agents = [MockAgent(name="claude")]
+        proposals = {}
+
+        result = phase._normalize_choice_to_agent("unknown-agent", agents, proposals)
+
+        assert result == "unknown-agent"
+
+
+# =============================================================================
+# _count_weighted_votes Tests
+# =============================================================================
+
+
+class TestCountWeightedVotes:
+    """Tests for _count_weighted_votes method."""
+
+    def _make_phase(self):
+        deps = ConsensusDependencies(protocol=MockProtocol())
+        return ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+    def test_counts_with_uniform_weights(self):
+        """Counts votes with uniform weights."""
+        phase = self._make_phase()
+        votes = [
+            make_vote(agent="v1", choice="agent1"),
+            make_vote(agent="v2", choice="agent1"),
+            make_vote(agent="v3", choice="agent2"),
         ]
+        choice_mapping = {}
+        weight_cache = {"v1": 1.0, "v2": 1.0, "v3": 1.0}
 
-        return ConsensusPhase(
+        counts, total = phase._count_weighted_votes(votes, choice_mapping, weight_cache)
+
+        assert counts["agent1"] == 2.0
+        assert counts["agent2"] == 1.0
+        assert total == 3.0
+
+    def test_counts_with_varying_weights(self):
+        """Counts votes with different agent weights."""
+        phase = self._make_phase()
+        votes = [
+            make_vote(agent="v1", choice="agent1"),
+            make_vote(agent="v2", choice="agent2"),
+        ]
+        choice_mapping = {}
+        weight_cache = {"v1": 2.0, "v2": 0.5}
+
+        counts, total = phase._count_weighted_votes(votes, choice_mapping, weight_cache)
+
+        assert counts["agent1"] == 2.0
+        assert counts["agent2"] == 0.5
+        assert total == 2.5
+
+    def test_uses_choice_mapping(self):
+        """Maps votes to canonical choices via choice_mapping."""
+        phase = self._make_phase()
+        votes = [
+            make_vote(agent="v1", choice="Agent-1"),
+            make_vote(agent="v2", choice="agent_1"),
+        ]
+        choice_mapping = {"Agent-1": "agent1", "agent_1": "agent1"}
+        weight_cache = {"v1": 1.0, "v2": 1.0}
+
+        counts, total = phase._count_weighted_votes(votes, choice_mapping, weight_cache)
+
+        assert counts["agent1"] == 2.0
+        assert total == 2.0
+
+    def test_default_weight_for_unknown_agent(self):
+        """Uses default weight 1.0 for agents not in cache."""
+        phase = self._make_phase()
+        votes = [make_vote(agent="unknown", choice="agent1")]
+        weight_cache = {}
+
+        counts, total = phase._count_weighted_votes(votes, {}, weight_cache)
+
+        assert counts["agent1"] == 1.0
+        assert total == 1.0
+
+
+# =============================================================================
+# _add_user_votes Tests
+# =============================================================================
+
+
+class TestAddUserVotes:
+    """Tests for _add_user_votes method."""
+
+    def test_adds_user_votes_with_weight(self):
+        """Adds user votes with base weight from protocol."""
+        protocol = MockProtocol(user_vote_weight=1.0)
+        deps = ConsensusDependencies(
             protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            user_votes=user_votes,
-            user_vote_multiplier=MagicMock(return_value=1.5),
-            notify_spectator=MagicMock(),
+            user_votes=[{"choice": "agent1", "user_id": "user1"}],
+        )
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        vote_counts = {"agent1": 5.0}
+        new_counts, new_total = phase._add_user_votes(vote_counts, 5.0, {})
+
+        assert new_counts["agent1"] == 6.0
+        assert new_total == 6.0
+
+    def test_no_user_votes(self):
+        """Handles case with no user votes."""
+        protocol = MockProtocol(user_vote_weight=0.5)
+        deps = ConsensusDependencies(protocol=protocol, user_votes=[])
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        vote_counts = {"agent1": 5.0}
+        new_counts, new_total = phase._add_user_votes(vote_counts, 5.0, {})
+
+        assert new_counts["agent1"] == 5.0
+        assert new_total == 5.0
+
+    def test_user_vote_multiplier_callback(self):
+        """Uses user_vote_multiplier callback when provided."""
+        protocol = MockProtocol(user_vote_weight=1.0)
+        multiplier_fn = MagicMock(return_value=2.0)
+        deps = ConsensusDependencies(
+            protocol=protocol,
+            user_votes=[{"choice": "agent1", "intensity": 8}],
+        )
+        cbs = ConsensusCallbacks(user_vote_multiplier=multiplier_fn)
+        phase = ConsensusPhase(deps=deps, callbacks=cbs)
+
+        vote_counts = {"agent1": 5.0}
+        new_counts, new_total = phase._add_user_votes(vote_counts, 5.0, {})
+
+        # base_weight(1.0) * multiplier(2.0) = 2.0 added
+        assert new_counts["agent1"] == 7.0
+        multiplier_fn.assert_called_once_with(8, protocol)
+
+    def test_user_vote_with_choice_mapping(self):
+        """User votes respect choice_mapping for canonical names."""
+        protocol = MockProtocol(user_vote_weight=1.0)
+        deps = ConsensusDependencies(
+            protocol=protocol,
+            user_votes=[{"choice": "Agent1", "intensity": 5}],
+        )
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        vote_counts = {"agent1": 5.0}
+        choice_mapping = {"Agent1": "agent1"}
+        new_counts, new_total = phase._add_user_votes(vote_counts, 5.0, choice_mapping)
+
+        assert new_counts["agent1"] == 6.0
+
+    def test_user_vote_with_empty_choice_skipped(self):
+        """User votes with empty choice are skipped."""
+        protocol = MockProtocol(user_vote_weight=1.0)
+        deps = ConsensusDependencies(
+            protocol=protocol,
+            user_votes=[{"choice": "", "user_id": "user1"}],
+        )
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        vote_counts = {"agent1": 5.0}
+        new_counts, new_total = phase._add_user_votes(vote_counts, 5.0, {})
+
+        assert new_counts["agent1"] == 5.0
+        assert new_total == 5.0
+
+
+# =============================================================================
+# execute Tests
+# =============================================================================
+
+
+class TestExecute:
+    """Tests for the execute method."""
+
+    @pytest.mark.asyncio
+    async def test_execute_none_mode(self):
+        """Execute runs none consensus mode end-to-end."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A"},
+            consensus_mode="none",
+        )
+        deps = ConsensusDependencies(protocol=protocol)
+        cbs = ConsensusCallbacks()
+        phase = ConsensusPhase(deps=deps, callbacks=cbs)
+
+        with patch.object(
+            phase._synthesis_generator,
+            "generate_mandatory_synthesis",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            await phase.execute(ctx)
+
+        assert ctx.result.final_answer is not None
+        assert ctx.result.consensus_reached is False
+
+    @pytest.mark.asyncio
+    async def test_execute_handles_timeout(self):
+        """Execute handles timeout by falling back."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A"},
+            consensus_mode="majority",
+        )
+        protocol.consensus_timeout = 0.001  # Very short timeout
+        deps = ConsensusDependencies(protocol=protocol)
+        cbs = ConsensusCallbacks()
+        phase = ConsensusPhase(deps=deps, callbacks=cbs)
+
+        async def slow_consensus(*args, **kwargs):
+            await asyncio.sleep(10)
+
+        with patch.object(phase, "_execute_consensus", side_effect=slow_consensus):
+            with patch.object(
+                phase._synthesis_generator,
+                "generate_mandatory_synthesis",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                await phase.execute(ctx)
+
+        assert ctx.result.consensus_strength == "fallback"
+
+    @pytest.mark.asyncio
+    async def test_execute_handles_exception(self):
+        """Execute handles exceptions by falling back."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A"},
+            consensus_mode="majority",
+        )
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_execute_consensus", side_effect=RuntimeError("test error")):
+            with patch.object(
+                phase._synthesis_generator,
+                "generate_mandatory_synthesis",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                await phase.execute(ctx)
+
+        assert ctx.result.consensus_strength == "fallback"
+
+    @pytest.mark.asyncio
+    async def test_execute_respects_cancellation_token(self):
+        """Execute raises DebateCancelled when cancellation token is set."""
+        from aragora.debate.cancellation import DebateCancelled
+
+        ctx, protocol = make_context()
+        # Use a mock token to avoid asyncio.Event cross-loop issues
+        token = MagicMock()
+        token.is_cancelled = True
+        token.reason = "User requested cancellation"
+        ctx.cancellation_token = token
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with pytest.raises(DebateCancelled):
+            await phase.execute(ctx)
+
+    @pytest.mark.asyncio
+    async def test_execute_triggers_pre_consensus_hook(self):
+        """Execute triggers PRE_CONSENSUS hook when hook_manager is present."""
+        ctx, protocol = make_context(consensus_mode="none")
+        hook_manager = AsyncMock()
+        ctx.hook_manager = hook_manager
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(
+            phase._synthesis_generator,
+            "generate_mandatory_synthesis",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            await phase.execute(ctx)
+
+        hook_manager.trigger.assert_any_call("pre_consensus", ctx=ctx, proposals=ctx.proposals)
+
+    @pytest.mark.asyncio
+    async def test_execute_fallback_synthesis_on_failure(self):
+        """Execute creates fallback synthesis when synthesis generator fails."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal text here"},
+            consensus_mode="none",
+        )
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(
+            phase._synthesis_generator,
+            "generate_mandatory_synthesis",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            await phase.execute(ctx)
+
+        assert ctx.result.synthesis is not None
+        assert "Debate Summary" in ctx.result.synthesis
+
+
+# =============================================================================
+# _execute_consensus Mode Routing Tests
+# =============================================================================
+
+
+class TestExecuteConsensusRouting:
+    """Tests for _execute_consensus mode routing."""
+
+    @pytest.mark.asyncio
+    async def test_routes_none_mode(self):
+        """Routes 'none' mode to _handle_none_consensus."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_none_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "none")
+            mock.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
+    async def test_routes_majority_mode(self):
+        """Routes 'majority' mode to _handle_majority_consensus."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_majority_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "majority")
+            mock.assert_called_once_with(ctx, threshold_override=None)
+
+    @pytest.mark.asyncio
+    async def test_routes_weighted_to_majority(self):
+        """Routes 'weighted' mode to _handle_majority_consensus."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_majority_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "weighted")
+            mock.assert_called_once_with(ctx, threshold_override=None)
+
+    @pytest.mark.asyncio
+    async def test_routes_supermajority_with_threshold(self):
+        """Routes 'supermajority' to majority with 2/3 threshold override."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_majority_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "supermajority")
+            _, kwargs = mock.call_args
+            assert kwargs["threshold_override"] >= 2 / 3
+
+    @pytest.mark.asyncio
+    async def test_routes_any_with_zero_threshold(self):
+        """Routes 'any' mode to majority with 0.0 threshold override."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_majority_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "any")
+            _, kwargs = mock.call_args
+            assert kwargs["threshold_override"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_routes_unanimous_mode(self):
+        """Routes 'unanimous' mode to _handle_unanimous_consensus."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_unanimous_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "unanimous")
+            mock.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
+    async def test_routes_judge_mode(self):
+        """Routes 'judge' mode to _handle_judge_consensus."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_judge_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "judge")
+            mock.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
+    async def test_routes_byzantine_mode(self):
+        """Routes 'byzantine' mode to _handle_byzantine_consensus."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_byzantine_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "byzantine")
+            mock.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
+    async def test_unknown_mode_falls_back_to_none(self):
+        """Unknown consensus mode falls back to none."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_none_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "unknown_mode")
+            mock.assert_called_once_with(ctx)
+
+
+# =============================================================================
+# _emit_guaranteed_events Tests
+# =============================================================================
+
+
+class TestEmitGuaranteedEvents:
+    """Tests for _emit_guaranteed_events method."""
+
+    def test_emits_consensus_event(self):
+        """Emits on_consensus hook with correct data."""
+        ctx, protocol = make_context()
+        ctx.result.consensus_reached = True
+        ctx.result.confidence = 0.85
+        ctx.result.final_answer = "Winner answer"
+        ctx.result.synthesis = "Full synthesis"
+        on_consensus = MagicMock()
+        hooks = {"on_consensus": on_consensus}
+        deps = ConsensusDependencies(protocol=protocol, hooks=hooks)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        phase._emit_guaranteed_events(ctx)
+
+        on_consensus.assert_called_once_with(
+            reached=True,
+            confidence=0.85,
+            answer="Winner answer",
+            synthesis="Full synthesis",
         )
 
-    def test_user_votes_configured(self, user_vote_phase):
-        """User votes are properly configured."""
-        assert len(user_vote_phase.user_votes) == 2
+    def test_emits_debate_end_event(self):
+        """Emits on_debate_end hook with duration and rounds."""
+        ctx, protocol = make_context()
+        ctx.result.rounds_used = 3
+        ctx.start_time = time.time() - 10.0
+        on_debate_end = MagicMock()
+        hooks = {"on_debate_end": on_debate_end}
+        deps = ConsensusDependencies(protocol=protocol, hooks=hooks)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        phase._emit_guaranteed_events(ctx)
+
+        on_debate_end.assert_called_once()
+        call_kwargs = on_debate_end.call_args[1]
+        assert call_kwargs["rounds"] == 3
+        assert call_kwargs["duration"] >= 9.0
+
+    def test_handles_hook_errors_gracefully(self):
+        """Handles errors in hook callbacks without raising."""
+        ctx, protocol = make_context()
+        ctx.result.consensus_reached = True
+        ctx.result.confidence = 0.5
+        ctx.result.final_answer = "answer"
+        ctx.result.synthesis = ""
+        on_consensus = MagicMock(side_effect=RuntimeError("Hook error"))
+        hooks = {"on_consensus": on_consensus}
+        deps = ConsensusDependencies(protocol=protocol, hooks=hooks)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        # Should not raise
+        phase._emit_guaranteed_events(ctx)
+
+    def test_no_emit_when_no_result(self):
+        """Does nothing when ctx.result is None."""
+        ctx, protocol = make_context()
+        ctx.result = None
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        # Should not raise
+        phase._emit_guaranteed_events(ctx)
+
+    def test_no_emit_when_no_hooks(self):
+        """Does nothing when no hooks are configured."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol, hooks={})
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        # Should not raise
+        phase._emit_guaranteed_events(ctx)
 
 
-class TestConsensusPhaseWithELO:
-    """Tests for ConsensusPhase with ELO system integration."""
+# =============================================================================
+# _handle_judge_consensus Tests
+# =============================================================================
 
-    @pytest.fixture
-    def elo_phase(self):
-        """Create ConsensusPhase with ELO system."""
-        protocol = MockProtocol(consensus="majority")
 
-        elo_system = MagicMock()
-        elo_system.get_agent_ratings.return_value = {
-            "agent1": 1200,
-            "agent2": 1100,
-            "agent3": 1000,
-        }
+class TestHandleJudgeConsensus:
+    """Tests for _handle_judge_consensus method."""
 
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=elo_system,
-            memory=MagicMock(),
-            notify_spectator=MagicMock(),
+    @pytest.mark.asyncio
+    async def test_judge_without_required_callbacks(self):
+        """Judge mode fails gracefully without select_judge/generate_with_agent."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A"},
+            consensus_mode="judge",
         )
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
 
-    def test_elo_system_configured(self, elo_phase):
-        """ELO system is properly configured."""
-        assert elo_phase.elo_system is not None
-        ratings = elo_phase.elo_system.get_agent_ratings()
-        assert ratings["agent1"] == 1200
+        await phase._handle_judge_consensus(ctx)
 
+        assert ctx.result.consensus_reached is False
+        assert ctx.result.confidence == 0.5
 
-class TestConsensusPhaseWithCalibration:
-    """Tests for ConsensusPhase with calibration tracking."""
-
-    @pytest.fixture
-    def calibrated_phase(self):
-        """Create ConsensusPhase with calibration tracker."""
-        protocol = MockProtocol(consensus="majority")
-
-        calibration = MagicMock()
-        calibration.get_calibration_score.return_value = 0.85
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            calibration_tracker=calibration,
-            get_calibration_weight=MagicMock(return_value=1.2),
-            notify_spectator=MagicMock(),
+    @pytest.mark.asyncio
+    async def test_judge_successful_synthesis(self):
+        """Judge mode produces synthesis from judge agent."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A"},
+            consensus_mode="judge",
         )
-
-    def test_calibration_configured(self, calibrated_phase):
-        """Calibration tracker is properly configured."""
-        assert calibrated_phase.calibration_tracker is not None
-        score = calibrated_phase.calibration_tracker.get_calibration_score()
-        assert score == 0.85
-
-
-class TestConsensusPhaseWithFlipDetection:
-    """Tests for ConsensusPhase with flip detection."""
-
-    @pytest.fixture
-    def flip_phase(self):
-        """Create ConsensusPhase with flip detector."""
-        protocol = MockProtocol(consensus="majority")
-
-        flip_detector = MagicMock()
-        flip_detector.detect_flip.return_value = False
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            flip_detector=flip_detector,
-            notify_spectator=MagicMock(),
+        judge_agent = MockAgent(name="judge-claude")
+        select_judge = AsyncMock(return_value=judge_agent)
+        generate_fn = AsyncMock(return_value="Judge synthesis result")
+        build_prompt = MagicMock(return_value="Judge prompt")
+        deps = ConsensusDependencies(protocol=protocol)
+        cbs = ConsensusCallbacks(
+            select_judge=select_judge,
+            generate_with_agent=generate_fn,
+            build_judge_prompt=build_prompt,
         )
+        phase = ConsensusPhase(deps=deps, callbacks=cbs)
 
-    def test_flip_detector_configured(self, flip_phase):
-        """Flip detector is properly configured."""
-        assert flip_phase.flip_detector is not None
-        assert flip_phase.flip_detector.detect_flip() is False
+        await phase._handle_judge_consensus(ctx)
 
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.confidence == 0.8
+        assert ctx.result.final_answer == "Judge synthesis result"
+        assert ctx.result.winner == "judge-claude"
 
-class TestConsensusPhaseWithPositionTracking:
-    """Tests for ConsensusPhase with position tracking."""
-
-    @pytest.fixture
-    def position_phase(self):
-        """Create ConsensusPhase with position tracker."""
-        protocol = MockProtocol(consensus="majority")
-
-        position_tracker = MagicMock()
-        position_tracker.get_position.return_value = {"agent1": "for", "agent2": "against"}
-
-        return ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            position_tracker=position_tracker,
-            notify_spectator=MagicMock(),
+    @pytest.mark.asyncio
+    async def test_judge_falls_back_on_all_failures(self):
+        """Judge mode falls back to majority when all judges fail."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A"},
+            consensus_mode="judge",
         )
+        judge_agent = MockAgent(name="judge-claude")
+        select_judge = AsyncMock(return_value=judge_agent)
+        generate_fn = AsyncMock(side_effect=RuntimeError("Judge failed"))
+        build_prompt = MagicMock(return_value="Judge prompt")
+        deps = ConsensusDependencies(protocol=protocol)
+        cbs = ConsensusCallbacks(
+            select_judge=select_judge,
+            generate_with_agent=generate_fn,
+            build_judge_prompt=build_prompt,
+        )
+        phase = ConsensusPhase(deps=deps, callbacks=cbs)
 
-    def test_position_tracker_configured(self, position_phase):
-        """Position tracker is properly configured."""
-        assert position_phase.position_tracker is not None
-        positions = position_phase.position_tracker.get_position()
-        assert positions["agent1"] == "for"
+        # Mock the majority and fallback paths too
+        with patch.object(
+            phase, "_handle_majority_consensus", new_callable=AsyncMock
+        ) as mock_majority:
+            # Majority also fails -> full fallback
+            mock_majority.side_effect = RuntimeError("Majority also failed")
+            await phase._handle_judge_consensus(ctx)
+
+        # Should have fallen back
+        assert ctx.result.consensus_strength == "fallback"
 
 
-# Integration tests that test multiple components working together
+# =============================================================================
+# _verify_consensus_formally Tests
+# =============================================================================
+
+
+class TestVerifyConsensusFormally:
+    """Tests for _verify_consensus_formally method."""
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_protocol(self):
+        """Skips formal verification when protocol is None."""
+        ctx, _ = make_context()
+        phase = ConsensusPhase()
+
+        await phase._verify_consensus_formally(ctx)
+        assert ctx.result.formal_verification is None
+
+    @pytest.mark.asyncio
+    async def test_skips_when_not_enabled(self):
+        """Skips formal verification when not enabled in protocol."""
+        ctx, protocol = make_context()
+        protocol.formal_verification_enabled = False
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._verify_consensus_formally(ctx)
+
+        assert ctx.result.formal_verification is None
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_final_answer(self):
+        """Skips formal verification when no final answer available."""
+        ctx, protocol = make_context()
+        protocol.formal_verification_enabled = True
+        ctx.result.final_answer = ""
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        await phase._verify_consensus_formally(ctx)
+
+        assert ctx.result.formal_verification is None
+
+
+# =============================================================================
+# _apply_calibration_to_votes Tests
+# =============================================================================
+
+
+class TestApplyCalibrationToVotes:
+    """Tests for _apply_calibration_to_votes method."""
+
+    def test_returns_votes_unchanged_when_no_calibration_tracker(self):
+        """Returns votes unchanged when calibration_tracker is None."""
+        deps = ConsensusDependencies(protocol=MockProtocol(), calibration_tracker=None)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        votes = [make_vote(agent="agent1", confidence=0.8)]
+        ctx, _ = make_context()
+
+        result = phase._apply_calibration_to_votes(votes, ctx)
+
+        assert result is votes
+        assert result[0].confidence == 0.8
+
+    def test_handles_exception_votes_in_list(self):
+        """Passes through exception objects in vote list."""
+        calibration_tracker = MagicMock()
+        deps = ConsensusDependencies(
+            protocol=MockProtocol(),
+            calibration_tracker=calibration_tracker,
+        )
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        err = RuntimeError("vote failed")
+        votes = [err]
+        ctx, _ = make_context()
+
+        result = phase._apply_calibration_to_votes(votes, ctx)
+
+        assert result[0] is err
+
+
+# =============================================================================
+# Integration-style Tests
+# =============================================================================
 
 
 class TestConsensusPhaseIntegration:
     """Integration tests for ConsensusPhase."""
 
     @pytest.mark.asyncio
-    async def test_full_consensus_flow_with_mocks(self):
-        """Test full consensus flow with mocked dependencies."""
-        protocol = MockProtocol(consensus="majority")
+    async def test_full_none_consensus_flow(self):
+        """Tests complete none consensus flow including events."""
+        on_consensus = MagicMock()
+        on_debate_end = MagicMock()
+        hooks = {"on_consensus": on_consensus, "on_debate_end": on_debate_end}
 
-        # Create mock agents
-        agents = [
-            MockAgent("agent1", "proposer"),
-            MockAgent("agent2", "critic"),
-            MockAgent("agent3", "voter"),
-        ]
-
-        # Create context
-        ctx = MockDebateContext()
-        ctx.agents = agents
-        ctx.result.messages = [
-            MockMessage(agent="agent1", content="Proposal 1"),
-            MockMessage(agent="agent2", content="Proposal 2"),
-        ]
-
-        # Create votes mock
-        async def mock_vote(agent, prompt, **kwargs):
-            # Majority votes for agent1
-            if agent.name in ["agent1", "agent3"]:
-                return MockVote(agent=agent.name, choice="agent1", confidence=0.9)
-            return MockVote(agent=agent.name, choice="agent2", confidence=0.7)
-
-        phase = ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            vote_with_agent=mock_vote,
-            with_timeout=lambda coro, timeout: coro,
-            notify_spectator=MagicMock(),
-            drain_user_events=MagicMock(return_value=[]),
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A", "agent2": "Proposal B"},
+            consensus_mode="none",
         )
+        deps = ConsensusDependencies(protocol=protocol, hooks=hooks)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
 
-        # Phase should be properly constructed
-        assert phase.protocol.consensus == "majority"
+        with patch.object(
+            phase._synthesis_generator,
+            "generate_mandatory_synthesis",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            await phase.execute(ctx)
+
+        # Both proposals should appear in the final answer
+        assert "Proposal A" in ctx.result.final_answer
+        assert "Proposal B" in ctx.result.final_answer
+        assert ctx.result.consensus_reached is False
+
+        # Events should have been emitted
+        on_consensus.assert_called_once()
+        on_debate_end.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_consensus_with_tie_handling(self):
-        """Test consensus handling when votes are tied."""
-        protocol = MockProtocol(consensus="majority")
+    async def test_execute_with_no_protocol_uses_none_mode(self):
+        """Execute with no protocol defaults to 'none' consensus mode."""
+        ctx, _ = make_context(proposals={"agent1": "Proposal A"})
+        phase = ConsensusPhase()
 
-        # Create votes that result in a tie
-        async def tied_vote(agent, prompt, **kwargs):
-            if agent.name == "agent1":
-                return MockVote(agent=agent.name, choice="option_a", confidence=0.8)
-            return MockVote(agent=agent.name, choice="option_b", confidence=0.8)
+        with patch.object(
+            phase._synthesis_generator,
+            "generate_mandatory_synthesis",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            await phase.execute(ctx)
 
-        phase = ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            vote_with_agent=tied_vote,
-            notify_spectator=MagicMock(),
-        )
-
-        assert phase.protocol.consensus == "majority"
-
-    @pytest.mark.asyncio
-    async def test_consensus_empty_votes(self):
-        """Test consensus handling with no votes collected."""
-        protocol = MockProtocol(consensus="majority")
-
-        phase = ConsensusPhase(
-            protocol=protocol,
-            elo_system=MagicMock(),
-            memory=MagicMock(),
-            notify_spectator=MagicMock(),
-        )
-
-        # Empty context
-        ctx = MockDebateContext()
-        ctx.agents = []
-        ctx.result.messages = []
-
-        # Should handle gracefully
-        assert phase.protocol.consensus == "majority"
+        assert ctx.result.consensus_reached is False
+        assert "Proposal A" in ctx.result.final_answer
