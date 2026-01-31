@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
+import builtins
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
@@ -41,8 +42,8 @@ class Workflow:
     id: str
     name: str
     description: str | None = None
-    steps: list[dict[str, Any]] = field(default_factory=list)
-    triggers: list[dict[str, Any]] = field(default_factory=list)
+    steps: builtins.list[dict[str, Any]] = field(default_factory=builtins.list)
+    triggers: builtins.list[dict[str, Any]] = field(default_factory=builtins.list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
     workspace_id: str | None = None
@@ -73,7 +74,7 @@ class WorkflowTemplate:
     description: str
     category: str
     pattern: str | None = None
-    steps: list[dict[str, Any]] = field(default_factory=list)
+    steps: builtins.list[dict[str, Any]] = field(default_factory=builtins.list)
     inputs_schema: dict[str, Any] = field(default_factory=dict)
     is_public: bool = True
 
@@ -86,7 +87,7 @@ class WorkflowApproval:
     workflow_id: str
     execution_id: str
     step_name: str
-    approvers: list[str] = field(default_factory=list)
+    approvers: builtins.list[str] = field(default_factory=builtins.list)
     status: str = "pending"
     created_at: datetime | None = None
     resolved_at: datetime | None = None
@@ -108,7 +109,7 @@ class WorkflowsAPI:
         workspace_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[Workflow]:
+    ) -> builtins.list[Workflow]:
         """
         List workflows.
 
