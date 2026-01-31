@@ -2,17 +2,29 @@
 Email Webhook Handler for Inbound Email Processing.
 
 Handles inbound emails from:
-- SendGrid Inbound Parse Webhook
+- SendGrid Inbound Parse Webhook (HMAC-SHA256 signature verification)
+- Mailgun Webhook (HMAC-SHA256 signature verification)
 - AWS SES SNS Notifications
 
+Security (Phase 3.1):
+- SendGrid: Verifies X-Twilio-Email-Event-Webhook-Signature header using
+  HMAC-SHA256 with base64-encoded digest. Uses timing-safe comparison via
+  hmac.compare_digest() to prevent timing attacks.
+- Mailgun: Verifies signature field in POST body using HMAC-SHA256 hex digest
+  over (timestamp + token). Uses timing-safe comparison via hmac.compare_digest().
+- SES: Validates SNS message structure and TopicArn format.
+- All providers return 401 on verification failure.
+
 Endpoints:
-- POST /api/bots/email/webhook/sendgrid - SendGrid Inbound Parse
-- POST /api/bots/email/webhook/ses - AWS SES SNS notifications
-- GET  /api/bots/email/status - Integration status
+- POST /api/v1/bots/email/webhook/sendgrid - SendGrid Inbound Parse
+- POST /api/v1/bots/email/webhook/mailgun  - Mailgun Inbound Webhook
+- POST /api/v1/bots/email/webhook/ses      - AWS SES SNS notifications
+- GET  /api/v1/bots/email/status           - Integration status
 
 Environment Variables:
 - EMAIL_INBOUND_SECRET - Secret for webhook signature verification
-- SENDGRID_INBOUND_SECRET - SendGrid-specific secret (falls back to EMAIL_INBOUND_SECRET)
+- SENDGRID_INBOUND_SECRET - SendGrid webhook signing key (falls back to EMAIL_INBOUND_SECRET)
+- MAILGUN_WEBHOOK_SIGNING_KEY - Mailgun webhook signing key
 - SES_NOTIFICATION_SECRET - SES-specific secret (falls back to EMAIL_INBOUND_SECRET)
 """
 
@@ -60,6 +72,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
     ROUTES = [
         "/api/v1/bots/email/webhook/sendgrid",
+        "/api/v1/bots/email/webhook/mailgun",
         "/api/v1/bots/email/webhook/ses",
         "/api/v1/bots/email/status",
     ]
@@ -77,6 +90,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
     ) -> HandlerResult:
         """Build email-specific status response."""
         sendgrid_configured = bool(os.environ.get("SENDGRID_INBOUND_SECRET"))
+        mailgun_configured = bool(os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY"))
         ses_configured = bool(os.environ.get("SES_NOTIFICATION_SECRET"))
 
         status = {
@@ -87,6 +101,12 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 "sendgrid": {
                     "configured": sendgrid_configured,
                     "webhook_url": "/api/v1/bots/email/webhook/sendgrid",
+                    "signature_verification": "hmac-sha256",
+                },
+                "mailgun": {
+                    "configured": mailgun_configured,
+                    "webhook_url": "/api/v1/bots/email/webhook/mailgun",
+                    "signature_verification": "hmac-sha256",
                 },
                 "ses": {
                     "configured": ses_configured,
@@ -118,6 +138,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
         if path == "/api/v1/bots/email/webhook/sendgrid":
             return self._handle_sendgrid_webhook(handler)
+        elif path == "/api/v1/bots/email/webhook/mailgun":
+            return self._handle_mailgun_webhook(handler)
         elif path == "/api/v1/bots/email/webhook/ses":
             return self._handle_ses_webhook(handler)
 
@@ -197,6 +219,165 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"SendGrid webhook error: {e}")
+            # Return 200 to prevent retries
+            return json_response({"status": "error", "message": str(e)[:100]})
+
+    def _handle_mailgun_webhook(self, handler: Any) -> HandlerResult:
+        """
+        Handle Mailgun inbound webhook.
+
+        Mailgun sends POST with either multipart/form-data or JSON containing:
+        - sender: Sender email address
+        - recipient: Recipient email address
+        - subject: Email subject
+        - body-plain: Plain text body
+        - body-html: HTML body
+        - stripped-text: Text body with quoted parts removed
+        - message-headers: JSON array of headers
+
+        Signature verification uses three fields from the POST body:
+        - signature.timestamp: Unix epoch seconds
+        - signature.token: Random 50-char string
+        - signature.signature: HMAC-SHA256 hex digest
+
+        Security:
+            Verifies HMAC-SHA256 signature using MAILGUN_WEBHOOK_SIGNING_KEY.
+            Returns 401 if verification fails. Uses timing-safe comparison
+            via hmac.compare_digest() to prevent timing attacks.
+        """
+        try:
+            from aragora.integrations.email_reply_loop import (
+                verify_mailgun_signature,
+                handle_email_reply,
+                InboundEmail,
+            )
+
+            content_length = int(handler.headers.get("Content-Length", 0))
+            body = handler.rfile.read(content_length)
+
+            # Parse body to extract signature fields and email data
+            content_type = handler.headers.get("Content-Type", "")
+
+            if "application/json" in content_type:
+                try:
+                    payload = json.loads(body.decode("utf-8"))
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON in Mailgun webhook: {e}")
+                    return error_response("Invalid JSON", 400)
+            else:
+                # Parse form data (multipart or urlencoded)
+                payload = self._parse_form_data(body, content_type)
+
+            # Extract signature fields
+            # Mailgun sends signature data either at top level or nested under "signature"
+            sig_data = payload.get("signature", {})
+            if isinstance(sig_data, dict):
+                mg_timestamp = str(sig_data.get("timestamp", ""))
+                mg_token = sig_data.get("token", "")
+                mg_signature = sig_data.get("signature", "")
+            else:
+                # Flat form data layout
+                mg_timestamp = str(payload.get("timestamp", ""))
+                mg_token = payload.get("token", "")
+                mg_signature = payload.get("signature", "")
+
+            # Verify HMAC-SHA256 signature
+            if not verify_mailgun_signature(mg_timestamp, mg_token, mg_signature):
+                logger.warning("Mailgun signature verification failed")
+                audit_security(
+                    event_type="email_webhook_auth_failed",
+                    actor_id="unknown",
+                    resource_type="mailgun_webhook",
+                    resource_id="signature",
+                    reason="hmac_sha256_verification_failed",
+                )
+                return error_response("Invalid signature", 401)
+
+            # Extract email data from payload
+            # Mailgun nests event data under "event-data" for event webhooks,
+            # or provides fields directly for inbound routes
+            event_data = payload.get("event-data", payload)
+
+            from_email = (
+                event_data.get("sender", "")
+                or event_data.get("from", "")
+                or event_data.get("From", "")
+            )
+            to_email = (
+                event_data.get("recipient", "")
+                or event_data.get("to", "")
+                or event_data.get("To", "")
+            )
+            subject = event_data.get("subject", event_data.get("Subject", ""))
+            body_plain = event_data.get("body-plain", event_data.get("stripped-text", ""))
+            body_html = event_data.get("body-html", "")
+            message_id = event_data.get("Message-Id", event_data.get("message-id", ""))
+
+            # Parse headers if available
+            headers = {}
+            raw_headers = event_data.get("message-headers", "")
+            if isinstance(raw_headers, str) and raw_headers:
+                try:
+                    header_list = json.loads(raw_headers)
+                    for header_pair in header_list:
+                        if isinstance(header_pair, (list, tuple)) and len(header_pair) >= 2:
+                            headers[header_pair[0]] = header_pair[1]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            elif isinstance(raw_headers, list):
+                for header_pair in raw_headers:
+                    if isinstance(header_pair, (list, tuple)) and len(header_pair) >= 2:
+                        headers[header_pair[0]] = header_pair[1]
+
+            if not message_id:
+                import time as _time
+
+                message_id = f"mailgun-{_time.time()}"
+
+            email_data = InboundEmail(
+                message_id=message_id,
+                from_email=from_email,
+                to_email=to_email,
+                subject=subject,
+                body_plain=body_plain,
+                body_html=body_html,
+                in_reply_to=headers.get("In-Reply-To", ""),
+                references=(
+                    headers.get("References", "").split() if headers.get("References") else []
+                ),
+                headers=headers,
+            )
+
+            logger.info(
+                f"Mailgun inbound email from {email_data.from_email}: "
+                f"subject='{email_data.subject[:50]}'"
+            )
+
+            audit_data(
+                user_id=f"email:{email_data.from_email}",
+                resource_type="inbound_email",
+                resource_id=email_data.message_id,
+                action="create",
+                provider="mailgun",
+                subject_preview=email_data.subject[:50],
+            )
+
+            # Process asynchronously
+            import asyncio
+
+            try:
+                asyncio.get_running_loop()
+                asyncio.create_task(handle_email_reply(email_data))
+            except RuntimeError:
+                asyncio.run(handle_email_reply(email_data))
+
+            return json_response({"status": "ok", "message_id": email_data.message_id})
+
+        except ImportError as e:
+            logger.error(f"Email reply loop module not available: {e}")
+            return error_response("Email processing not available", 503)
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
+            logger.exception(f"Mailgun webhook error: {e}")
             # Return 200 to prevent retries
             return json_response({"status": "error", "message": str(e)[:100]})
 

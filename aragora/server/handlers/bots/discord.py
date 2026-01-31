@@ -9,7 +9,13 @@ Endpoints:
 
 Environment Variables:
 - DISCORD_APPLICATION_ID - Required for interaction verification
-- DISCORD_PUBLIC_KEY - Required for signature verification
+- DISCORD_PUBLIC_KEY - Required for Ed25519 signature verification
+
+Security (Phase 3.1):
+- Ed25519 signature verification on all incoming interactions
+- Replay attack protection via timestamp freshness checking (5-minute window)
+- Fails closed in production: rejects requests when public key or PyNaCl missing
+- Uses centralized webhook_security module for environment-aware behavior
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -37,9 +44,44 @@ logger = logging.getLogger(__name__)
 DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID")
 DISCORD_PUBLIC_KEY = os.environ.get("DISCORD_PUBLIC_KEY")
 
-# Log warnings at module load time for missing secrets
+# Maximum age of request timestamp before it is considered a replay (seconds)
+_MAX_TIMESTAMP_AGE = 300  # 5 minutes, matching Discord's recommendation
+
+# PyNaCl availability flag - checked once at import time for logging
+_NACL_AVAILABLE = False
+try:
+    from nacl.signing import VerifyKey  # noqa: F401
+    from nacl.exceptions import BadSignatureError  # noqa: F401
+
+    _NACL_AVAILABLE = True
+except ImportError:
+    pass
+
+# Log warnings at module load time for missing dependencies/secrets
 if not DISCORD_PUBLIC_KEY:
     logger.warning("DISCORD_PUBLIC_KEY not configured - signature verification disabled")
+if not _NACL_AVAILABLE:
+    logger.warning(
+        "PyNaCl not installed - Discord Ed25519 signature verification unavailable. "
+        "Install with: pip install pynacl"
+    )
+
+
+def _should_allow_unverified() -> bool:
+    """Check if unverified Discord webhooks should be allowed.
+
+    Uses the centralized webhook_security module for environment-aware behavior.
+    In production: always returns False (fail closed).
+    In development: returns True only with explicit ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS.
+    """
+    try:
+        from aragora.connectors.chat.webhook_security import should_allow_unverified
+
+        return should_allow_unverified("discord")
+    except ImportError:
+        # If webhook_security module is not available, fail closed
+        logger.warning("webhook_security module not available, failing closed")
+        return False
 
 
 def _verify_discord_signature(
@@ -49,30 +91,91 @@ def _verify_discord_signature(
 ) -> bool:
     """Verify Discord request signature using Ed25519.
 
-    See: https://discord.com/developers/docs/interactions/receiving-and-responding#security-and-authorization
-    """
-    if not DISCORD_PUBLIC_KEY:
-        logger.warning("DISCORD_PUBLIC_KEY not configured, skipping signature verification")
-        return True
+    Security properties:
+    - Validates the request was signed by Discord using the application's public key
+    - Rejects requests with timestamps older than 5 minutes (replay protection)
+    - Fails closed in production when public key or PyNaCl is missing
+    - Permits unverified requests only in dev mode with explicit opt-in
 
+    See: https://discord.com/developers/docs/interactions/receiving-and-responding
+
+    Args:
+        signature: Value of X-Signature-Ed25519 header (hex-encoded).
+        timestamp: Value of X-Signature-Timestamp header.
+        body: Raw request body bytes.
+
+    Returns:
+        True if the signature is valid, False otherwise.
+    """
+    # --- Check: Public key configured ---
+    if not DISCORD_PUBLIC_KEY:
+        if _should_allow_unverified():
+            logger.warning(
+                "DISCORD_PUBLIC_KEY not configured, allowing unverified request (dev mode)"
+            )
+            return True
+        logger.warning("DISCORD_PUBLIC_KEY not configured, rejecting request")
+        return False
+
+    # --- Check: Required headers present ---
+    if not signature or not timestamp:
+        logger.warning(
+            "Missing required Discord signature headers: "
+            f"signature={'present' if signature else 'missing'}, "
+            f"timestamp={'present' if timestamp else 'missing'}"
+        )
+        return False
+
+    # --- Check: Replay protection via timestamp freshness ---
+    try:
+        request_time = int(timestamp)
+        current_time = int(time.time())
+        if abs(current_time - request_time) > _MAX_TIMESTAMP_AGE:
+            logger.warning(
+                f"Discord request timestamp too old: "
+                f"request_time={request_time}, current_time={current_time}, "
+                f"delta={abs(current_time - request_time)}s > {_MAX_TIMESTAMP_AGE}s"
+            )
+            return False
+    except (ValueError, OverflowError):
+        logger.warning(f"Invalid Discord timestamp format: {timestamp!r}")
+        return False
+
+    # --- Check: PyNaCl available ---
+    if not _NACL_AVAILABLE:
+        if _should_allow_unverified():
+            logger.warning(
+                "PyNaCl not installed, allowing unverified request (dev mode). "
+                "Install with: pip install pynacl"
+            )
+            return True
+        logger.warning("PyNaCl not installed, rejecting request")
+        return False
+
+    # --- Verify Ed25519 signature ---
     try:
         from nacl.signing import VerifyKey
-        from nacl.exceptions import BadSignature
+        from nacl.exceptions import BadSignatureError
+    except ImportError:
+        # Should not happen since _NACL_AVAILABLE was True, but handle gracefully
+        logger.error("PyNaCl import failed despite _NACL_AVAILABLE=True")
+        return False
 
+    try:
         verify_key = VerifyKey(bytes.fromhex(DISCORD_PUBLIC_KEY))
-        message = timestamp.encode() + body
+        message = timestamp.encode("utf-8") + body
         verify_key.verify(message, bytes.fromhex(signature))
         return True
-    except ImportError:
-        logger.warning("PyNaCl not installed, skipping signature verification")
-        return True
-    except BadSignature:
+    except BadSignatureError:
+        logger.warning("Discord Ed25519 signature verification failed: bad signature")
         return False
     except (ValueError, TypeError) as e:
-        logger.warning(f"Invalid signature format: {e}")
+        # ValueError: invalid hex in signature or public key
+        # TypeError: unexpected argument types
+        logger.warning(f"Discord signature verification error (invalid format): {e}")
         return False
     except (RuntimeError, OSError, AttributeError) as e:
-        logger.exception(f"Unexpected signature verification error: {e}")
+        logger.exception(f"Unexpected Discord signature verification error: {e}")
         return False
 
 
