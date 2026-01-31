@@ -541,11 +541,9 @@ class TenantDataIsolation:
         """
         if len(key) != 32:
             raise ValueError("Encryption key must be 32 bytes")
+        # O(1) update: add/update key and move to end of OrderedDict for LRU tracking
         self._encryption_keys[tenant_id] = key
-        # Track in access order
-        if tenant_id in self._key_access_order:
-            self._key_access_order.remove(tenant_id)
-        self._key_access_order.append(tenant_id)
+        self._encryption_keys.move_to_end(tenant_id)
         # Evict if at capacity
         if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:
             self._evict_oldest_keys()
