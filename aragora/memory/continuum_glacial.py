@@ -24,14 +24,24 @@ class ContinuumGlacialMixin:
 
     Enables cross-session learning by retrieving long-term patterns
     from the glacial tier (30-day half-life foundational knowledge).
+
+    Requirements:
+        The host class must provide:
+        - connection(): Context manager returning sqlite3.Connection
+        - retrieve(): Memory retrieval with tier filtering
+        - hyperparams: Dict containing tier configuration
     """
 
     # These must be provided by the main class
     hyperparams: dict[str, Any]
 
     def connection(self) -> Any:
-        """Get database connection context manager."""
-        raise NotImplementedError
+        """Get database connection context manager.
+
+        Must be provided by the host class (e.g., SQLiteStore.connection()).
+        Returns a context manager yielding sqlite3.Connection.
+        """
+        ...  # Provided by SQLiteStore via MRO
 
     def retrieve(
         self,
@@ -42,8 +52,22 @@ class ContinuumGlacialMixin:
         include_glacial: bool = True,
         tier: Any | None = None,
     ) -> list["ContinuumMemoryEntry"]:
-        """Retrieve memories - must be implemented by main class."""
-        raise NotImplementedError
+        """Retrieve memories matching criteria.
+
+        Must be provided by the host class (e.g., ContinuumMemory.retrieve()).
+
+        Args:
+            query: Optional keyword filter
+            tiers: Filter to specific memory tiers
+            limit: Maximum entries to return
+            min_importance: Minimum importance threshold
+            include_glacial: Whether to include glacial tier
+            tier: Single tier filter (alternative to tiers list)
+
+        Returns:
+            List of matching ContinuumMemoryEntry objects
+        """
+        ...
 
     def get_glacial_insights(
         self,

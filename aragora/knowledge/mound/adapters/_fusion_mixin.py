@@ -8,21 +8,29 @@ Follows the established mixin pattern from:
 - ReverseFlowMixin (_reverse_flow_base.py) - Template method for KM → Source sync
 - SemanticSearchMixin (_semantic_mixin.py) - Template method for vector search
 
+Default implementations are provided for all required methods:
+- _get_fusion_sources(): Returns common adapter sources by default
+- _extract_fusible_data(): Extracts confidence, source_id, validity from common fields
+- _apply_fusion_result(): Updates dict/object records with fused confidence
+
 Usage:
     from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 
     class MyAdapter(FusionMixin, KnowledgeMoundAdapter):
         adapter_name = "my_adapter"
 
+        # Optional: Override for custom fusion sources (defaults to common set)
         def _get_fusion_sources(self) -> list[str]:
             return ["consensus", "elo", "belief"]
 
+        # Optional: Override for custom data extraction (defaults handle common fields)
         def _extract_fusible_data(self, km_item: Dict) -> Dict | None:
             return {
                 "confidence": km_item.get("confidence"),
                 "source_id": km_item.get("id"),
             }
 
+        # Optional: Override for custom fusion application (defaults update common attrs)
         def _apply_fusion_result(
             self, record, fusion_result, metadata
         ) -> bool:
@@ -34,7 +42,6 @@ from __future__ import annotations
 
 import logging
 import time
-from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
@@ -103,15 +110,20 @@ class FusionMixin:
     - fuse_validations_from_km(): Template method for fusion operations
     - _partition_by_source(): Organize items by source adapter
     - _compute_adapter_weight(): Calculate adapter reliability weights
+    - _get_fusion_sources(): Default fusion sources (can be overridden)
+    - _extract_fusible_data(): Default data extraction (can be overridden)
+    - _apply_fusion_result(): Default fusion application (can be overridden)
     - Automatic metrics recording and event emission
 
     Required from inheriting class:
     - adapter_name: str identifying the adapter for metrics
-    - _get_fusion_sources(): List of adapters to fuse data from
-    - _extract_fusible_data(): Extract fusible data from KM items
-    - _apply_fusion_result(): Apply fusion result to a record
-    - _emit_event(): Event emission (from KnowledgeMoundAdapter)
-    - _record_metric(): Metrics recording (from KnowledgeMoundAdapter)
+
+    Optional (have defaults but can be overridden):
+    - _get_fusion_sources(): Custom fusion sources
+    - _extract_fusible_data(): Custom data extraction logic
+    - _apply_fusion_result(): Custom fusion application logic
+    - _emit_event(): Event emission (defaults to no-op)
+    - _record_metric(): Metrics recording (defaults to no-op)
     """
 
     # Expected from KnowledgeMoundAdapter or subclass
@@ -138,25 +150,28 @@ class FusionMixin:
         """Expected from KnowledgeMoundAdapter."""
         pass  # Will be provided by base class
 
-    @abstractmethod
     def _get_fusion_sources(self) -> list[str]:
         """Return list of source adapter names this adapter can fuse data from.
 
+        This default implementation returns a common set of adapter sources.
         Override in subclass to specify which adapters to accept data from.
 
         Returns:
             List of adapter names (e.g., ["consensus", "elo", "belief"]).
         """
-        raise NotImplementedError
+        # Default set of common fusion sources
+        # Adapters can override to be more specific
+        return ["consensus", "elo", "evidence", "belief", "continuum", "insights"]
 
-    @abstractmethod
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
     ) -> Optional[dict[str, Any]]:
         """Extract fusible data from a KM item.
 
-        Override in subclass to extract relevant fields for fusion.
+        This default implementation extracts common fields that are typically
+        used for validation fusion. Override in subclass to extract
+        adapter-specific fields.
 
         Args:
             km_item: A Knowledge Mound item with validation data.
@@ -165,9 +180,59 @@ class FusionMixin:
             Dictionary of extracted data suitable for fusion,
             or None if item cannot be fused.
         """
-        raise NotImplementedError
+        metadata = km_item.get("metadata", {})
 
-    @abstractmethod
+        # Extract source ID - try multiple common locations
+        source_id = km_item.get("id") or metadata.get("source_id") or metadata.get("record_id")
+
+        if not source_id:
+            return None
+
+        # Extract confidence - try multiple common fields
+        confidence = km_item.get("confidence")
+        if confidence is None:
+            confidence = km_item.get("importance")
+        if confidence is None:
+            confidence = metadata.get("confidence")
+        if confidence is None:
+            confidence = metadata.get("reliability_score")
+        if confidence is None:
+            confidence = 0.5
+
+        # Handle string confidence levels
+        if isinstance(confidence, str):
+            confidence_map = {
+                "verified": 0.95,
+                "high": 0.85,
+                "medium": 0.6,
+                "low": 0.35,
+                "unverified": 0.2,
+            }
+            confidence = confidence_map.get(confidence.lower(), 0.5)
+
+        # Normalize confidence and determine validity
+        if confidence is None:
+            confidence_value = 0.5
+        else:
+            try:
+                confidence_value = float(confidence)
+            except (TypeError, ValueError):
+                confidence_value = 0.5
+
+        is_valid = confidence_value >= 0.5
+
+        return {
+            "confidence": confidence_value,
+            "source_id": source_id,
+            "is_valid": is_valid,
+            "sources": metadata.get("sources", []),
+            "reasoning": metadata.get("reasoning"),
+            # Include adapter-specific fields if present
+            "consensus_strength": metadata.get("consensus_strength"),
+            "validation_count": metadata.get("validation_count", 1),
+            "reliability": metadata.get("reliability_score", confidence),
+        }
+
     def _apply_fusion_result(
         self,
         record: Any,
@@ -176,7 +241,8 @@ class FusionMixin:
     ) -> bool:
         """Apply a fusion result to a source record.
 
-        Override in subclass to apply fused data to your records.
+        This default implementation updates common fields on dict or object records.
+        Override in subclass to apply adapter-specific fusion logic.
 
         Args:
             record: The target record to update.
@@ -186,7 +252,77 @@ class FusionMixin:
         Returns:
             True if the record was updated, False otherwise.
         """
-        raise NotImplementedError
+        from datetime import datetime, timezone
+
+        try:
+            fused_confidence = fusion_result.fused_confidence
+            is_valid = fusion_result.is_valid
+            strategy = (
+                fusion_result.strategy_used.value
+                if hasattr(fusion_result.strategy_used, "value")
+                else str(fusion_result.strategy_used)
+            )
+            source_count = len(fusion_result.source_validations)
+
+            # Handle dict records
+            if isinstance(record, dict):
+                # Update confidence/reliability fields
+                if "confidence" in record:
+                    record["confidence"] = fused_confidence
+                elif "reliability_score" in record:
+                    record["reliability_score"] = fused_confidence
+                elif "importance" in record:
+                    record["importance"] = fused_confidence
+                else:
+                    record["fused_confidence"] = fused_confidence
+
+                # Mark as fused
+                record["km_fused"] = True
+                record["km_fused_confidence"] = fused_confidence
+                record["km_fusion_is_valid"] = is_valid
+                record["km_fusion_strategy"] = strategy
+                record["km_fusion_source_count"] = source_count
+                record["km_fusion_timestamp"] = datetime.now(timezone.utc).isoformat()
+
+                if metadata:
+                    record["km_fusion_metadata"] = metadata
+
+                record_id = record.get("id", "unknown")
+
+            # Handle object records
+            else:
+                # Try to update common confidence attributes
+                for attr in ("confidence", "reliability_score", "importance"):
+                    if hasattr(record, attr):
+                        try:
+                            setattr(record, attr, fused_confidence)
+                            break
+                        except (AttributeError, TypeError):
+                            continue
+
+                # Try to update metadata dict if present
+                if hasattr(record, "metadata") and isinstance(record.metadata, dict):
+                    record.metadata["km_fused"] = True
+                    record.metadata["km_fused_confidence"] = fused_confidence
+                    record.metadata["km_fusion_is_valid"] = is_valid
+                    record.metadata["km_fusion_strategy"] = strategy
+                    record.metadata["km_fusion_source_count"] = source_count
+                    record.metadata["km_fusion_timestamp"] = datetime.now(timezone.utc).isoformat()
+                    if metadata:
+                        record.metadata["km_fusion_metadata"] = metadata
+
+                record_id = getattr(record, "id", getattr(record, "record_id", "unknown"))
+
+            logger.debug(
+                f"Applied fusion result to record {record_id}: "
+                f"confidence={fused_confidence:.3f}, valid={is_valid}, sources={source_count}"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result: {e}")
+            return False
 
     def _get_record_for_fusion(self, source_id: str) -> Any | None:
         """Get a record by its source ID for fusion.

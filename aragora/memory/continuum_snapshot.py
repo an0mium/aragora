@@ -24,6 +24,12 @@ class ContinuumSnapshotMixin:
 
     Enables complete debate state restoration with memory context
     via the checkpoint system.
+
+    Requirements:
+        The host class must provide:
+        - connection(): Context manager returning sqlite3.Connection
+        - hyperparams: Dict containing tier configuration
+        - _tier_manager: TierManager instance for promotion cooldown
     """
 
     # These must be provided by the main class
@@ -31,8 +37,12 @@ class ContinuumSnapshotMixin:
     _tier_manager: Any
 
     def connection(self) -> Any:
-        """Get database connection context manager."""
-        raise NotImplementedError
+        """Get database connection context manager.
+
+        Must be provided by the host class (e.g., SQLiteStore.connection()).
+        Returns a context manager yielding sqlite3.Connection.
+        """
+        ...
 
     def export_snapshot(
         self,

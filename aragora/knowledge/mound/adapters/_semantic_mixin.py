@@ -11,20 +11,24 @@ Usage:
         adapter_name = "my_adapter"
         source_type = "my_source"  # For SemanticStore
 
+        # Optional: Override for custom record lookup (defaults use common patterns)
         def _get_record_by_id(self, record_id: str) -> Any | None:
-            # Return the full record from your source system
             return self._source.get(record_id)
 
+        # Optional: Override for custom serialization (defaults handle dicts, dataclasses)
         def _record_to_dict(self, record: Any) -> dict[str, Any]:
-            # Convert your record to a dictionary
             return record.to_dict()
+
+Default implementations are provided for _get_record_by_id() and _record_to_dict()
+that handle common adapter patterns:
+- _get_record_by_id(): Tries get() method, _source.get(), and dict storage lookups
+- _record_to_dict(): Handles dicts, dataclasses, to_dict() methods, and common attributes
 """
 
 from __future__ import annotations
 
 import logging
 import time
-from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
@@ -40,15 +44,19 @@ class SemanticSearchMixin:
     Provides:
     - semantic_search(): Vector-based similarity search with fallback
     - _enrich_semantic_results(): Convert search results to full records
+    - _get_record_by_id(): Default record lookup (can be overridden)
+    - _record_to_dict(): Default record serialization (can be overridden)
     - Automatic metrics recording and event emission
 
     Required from inheriting class:
     - adapter_name: str identifying the adapter for metrics
     - source_type: str identifying the source for SemanticStore
-    - _get_record_by_id(): Method to fetch full records
-    - _record_to_dict(): Method to convert records to dicts
-    - _record_metric(): Method from KnowledgeMoundAdapter
-    - _emit_event(): Method from KnowledgeMoundAdapter
+
+    Optional (have defaults but can be overridden):
+    - _get_record_by_id(): Custom record lookup logic
+    - _record_to_dict(): Custom serialization logic
+    - _record_metric(): Metrics recording (defaults to no-op)
+    - _emit_event(): Event emission (defaults to no-op)
     - search_similar(): Fallback keyword search method
     """
 
@@ -66,9 +74,16 @@ class SemanticSearchMixin:
         """Expected from KnowledgeMoundAdapter."""
         pass  # Will be provided by base class
 
-    @abstractmethod
     def _get_record_by_id(self, record_id: str) -> Any | None:
         """Get a full record by its ID from the source system.
+
+        This default implementation attempts to find a record using common
+        adapter patterns. Override this method for custom record lookup logic.
+
+        Lookup strategy:
+        1. Try adapter's get() method if available
+        2. Try adapter's _source.get() if _source is set
+        3. Try looking up in common storage attributes (_records, _items, _data)
 
         Args:
             record_id: The record identifier.
@@ -76,11 +91,55 @@ class SemanticSearchMixin:
         Returns:
             The full record, or None if not found.
         """
-        raise NotImplementedError
+        # Strategy 1: Try adapter's get() method
+        get_method = getattr(self, "get", None)
+        if callable(get_method):
+            try:
+                result = get_method(record_id)
+                if result is not None:
+                    return result
+            except Exception as e:
+                logger.debug(f"get() method failed for {record_id}: {e}")
 
-    @abstractmethod
+        # Strategy 2: Try _source.get() if _source exists
+        source = getattr(self, "_source", None)
+        if source is not None:
+            get_from_source = getattr(source, "get", None)
+            if callable(get_from_source):
+                try:
+                    result = get_from_source(record_id)
+                    if result is not None:
+                        return result
+                except Exception as e:
+                    logger.debug(f"_source.get() failed for {record_id}: {e}")
+
+        # Strategy 3: Look up in common storage attributes
+        for attr_name in ("_records", "_items", "_data", "_beliefs", "_cruxes"):
+            storage = getattr(self, attr_name, None)
+            if isinstance(storage, dict):
+                if record_id in storage:
+                    return storage[record_id]
+                # Try with adapter-specific prefix stripping
+                stripped_id = self._extract_record_id(record_id)
+                if stripped_id != record_id and stripped_id in storage:
+                    return storage[stripped_id]
+
+        logger.debug(
+            f"[{self.adapter_name}] Record not found: {record_id}. "
+            f"Override _get_record_by_id() for custom lookup logic."
+        )
+        return None
+
     def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
         """Convert a record to a dictionary for API responses.
+
+        This default implementation handles common record types:
+        - dict: Returns as-is with similarity added
+        - dataclass: Uses dataclasses.asdict() if available
+        - object with to_dict(): Calls the method
+        - object: Extracts common attributes
+
+        Override this method for custom serialization logic.
 
         Args:
             record: The record to convert.
@@ -89,7 +148,83 @@ class SemanticSearchMixin:
         Returns:
             Dictionary representation of the record.
         """
-        raise NotImplementedError
+        result: dict[str, Any]
+
+        # Already a dict
+        if isinstance(record, dict):
+            result = dict(record)
+            result["similarity"] = similarity
+            return result
+
+        # Has to_dict() method
+        if hasattr(record, "to_dict") and callable(record.to_dict):
+            try:
+                result = record.to_dict()
+                result["similarity"] = similarity
+                return result
+            except Exception as e:
+                logger.debug(f"to_dict() failed: {e}")
+
+        # Is a dataclass
+        try:
+            import dataclasses
+
+            if dataclasses.is_dataclass(record) and not isinstance(record, type):
+                result = dataclasses.asdict(record)
+                result["similarity"] = similarity
+                return result
+        except Exception as e:
+            logger.debug(f"dataclasses.asdict() failed: {e}")
+
+        # Extract common attributes manually
+        result = {"similarity": similarity}
+
+        # Common ID fields
+        for id_field in ("id", "record_id", "node_id", "claim_id"):
+            if hasattr(record, id_field):
+                result["id"] = getattr(record, id_field)
+                break
+
+        # Common content fields
+        for content_field in ("content", "text", "statement", "topic", "description"):
+            if hasattr(record, content_field):
+                result["content"] = getattr(record, content_field)
+                break
+
+        # Common confidence/score fields
+        for score_field in ("confidence", "score", "reliability", "importance"):
+            if hasattr(record, score_field):
+                value = getattr(record, score_field)
+                # Handle objects with .value (like enums or Probability)
+                if hasattr(value, "value"):
+                    value = value.value
+                elif hasattr(value, "p_true"):
+                    value = value.p_true
+                result[score_field] = value
+
+        # Common timestamp fields
+        for ts_field in ("created_at", "timestamp", "updated_at", "detected_at"):
+            if hasattr(record, ts_field):
+                ts_value = getattr(record, ts_field)
+                if hasattr(ts_value, "isoformat"):
+                    result[ts_field] = ts_value.isoformat()
+                else:
+                    result[ts_field] = str(ts_value)
+
+        # Common metadata field
+        if hasattr(record, "metadata"):
+            result["metadata"] = getattr(record, "metadata")
+
+        # Domain/category fields
+        for domain_field in ("domain", "category", "type"):
+            if hasattr(record, domain_field):
+                value = getattr(record, domain_field)
+                if hasattr(value, "value"):
+                    result[domain_field] = value.value
+                else:
+                    result[domain_field] = value
+
+        return result
 
     def _extract_record_id(self, source_id: str) -> str:
         """Extract the actual record ID from a prefixed source ID.
