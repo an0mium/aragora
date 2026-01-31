@@ -968,7 +968,7 @@ class TestApplyPersonaToAgent:
 
     def test_apply_persona_sets_generation_params(self):
         """Test that apply_persona sets generation parameters."""
-        agent = Mock()
+        agent = Mock(spec=[])  # Empty spec to avoid set_generation_params
         agent.system_prompt = ""
         agent.temperature = 0.7
         agent.top_p = 1.0
