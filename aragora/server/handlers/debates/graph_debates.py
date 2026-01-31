@@ -101,7 +101,7 @@ class GraphDebatesHandler(SecureHandler):
         operation_id="get_graph_debate",
     )
     @handle_errors("graph debates GET")
-    async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
+    async def handle_get(self, handler: Any, path: str, query_params: dict) -> HandlerResult:
         """Handle GET requests for graph debates with RBAC."""
         # RBAC: Require authentication and debates:read permission
         try:
@@ -153,7 +153,7 @@ class GraphDebatesHandler(SecureHandler):
         },
     )
     @handle_errors("graph debates POST")
-    async def handle_post(self, *args, **kwargs) -> HandlerResult:
+    async def handle_post(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Handle POST requests for graph debates with RBAC.
 
         POST /api/debates/graph - Run a new graph debate
@@ -210,7 +210,7 @@ class GraphDebatesHandler(SecureHandler):
         return await self._run_graph_debate(handler, data)
 
     @with_timeout(180.0)
-    async def _run_graph_debate(self, handler, data: dict) -> HandlerResult:
+    async def _run_graph_debate(self, handler: Any, data: dict) -> HandlerResult:
         """Run a graph-structured debate with automatic branching.
 
         Request body:
@@ -319,7 +319,7 @@ class GraphDebatesHandler(SecureHandler):
             event_emitter = getattr(handler, "event_emitter", None)
 
             # Define run_agent function
-            async def run_agent(agent, prompt: str, context: list) -> str:
+            async def run_agent(agent: Any, prompt: str, context: list[Any]) -> str:
                 from aragora.server.stream.arena_hooks import streaming_task_context
 
                 agent_name = getattr(agent, "name", "graph-agent")
@@ -383,7 +383,7 @@ class GraphDebatesHandler(SecureHandler):
             logger.warning(f"Failed to load agents: {e}")
             return []
 
-    async def _get_graph_debate(self, handler, debate_id: str) -> HandlerResult:
+    async def _get_graph_debate(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get a graph debate by ID."""
         storage = getattr(handler, "storage", None)
         if not storage:
@@ -414,7 +414,7 @@ class GraphDebatesHandler(SecureHandler):
             "503": {"description": "Storage not configured"},
         },
     )
-    async def _get_branches(self, handler, debate_id: str) -> HandlerResult:
+    async def _get_branches(self, handler: Any, debate_id: str) -> HandlerResult:
         """Get all branches for a graph debate."""
         storage = getattr(handler, "storage", None)
         if not storage:

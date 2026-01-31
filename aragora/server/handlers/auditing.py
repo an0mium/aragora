@@ -220,7 +220,7 @@ class AuditResultRecorder:
     """Record audit results to ELO system and storage."""
 
     @staticmethod
-    def record_probe_elo(elo_system, agent_name: str, report, report_id: str) -> None:
+    def record_probe_elo(elo_system: Any, agent_name: str, report: Any, report_id: str) -> None:
         """Record capability probe results to ELO system."""
         if not elo_system or report.probes_run <= 0:
             return
@@ -241,7 +241,7 @@ class AuditResultRecorder:
             logger.warning(f"Failed to record ELO result for capability probe: {e}")
 
     @staticmethod
-    def calculate_audit_elo_adjustments(verdict, elo_system) -> dict:
+    def calculate_audit_elo_adjustments(verdict: Any, elo_system: Any) -> dict[str, int]:
         """Calculate ELO adjustments from audit findings."""
         if not elo_system:
             return {}
@@ -256,7 +256,7 @@ class AuditResultRecorder:
         return elo_adjustments
 
     @staticmethod
-    def save_probe_report(nomic_dir, agent_name: str, report) -> None:
+    def save_probe_report(nomic_dir: Any, agent_name: str, report: Any) -> None:
         """Save capability probe report to storage."""
         if not nomic_dir:
             return
@@ -272,15 +272,15 @@ class AuditResultRecorder:
 
     @staticmethod
     def save_audit_report(
-        nomic_dir,
+        nomic_dir: Any,
         audit_id: str,
         task: str,
         context: str,
-        agents: list,
-        verdict,
-        config,
+        agents: list[Any],
+        verdict: Any,
+        config: Any,
         duration_ms: float,
-        elo_adjustments: dict,
+        elo_adjustments: dict[str, Any],
     ) -> None:
         """Save deep audit report to storage."""
         if not nomic_dir:
@@ -359,7 +359,7 @@ class AuditingHandler(SecureHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route auditing requests to appropriate methods.
 
         Note: These endpoints require POST with request body, which handler provides.
@@ -424,7 +424,7 @@ class AuditingHandler(SecureHandler):
             logger.exception(f"Unexpected error getting attack types: {e}")
             return error_response(safe_error_message(e, "get attack types"), 500)
 
-    def _get_attack_category(self, attack_type) -> str:
+    def _get_attack_category(self, attack_type: Any) -> str:
         """Categorize attack types for easier filtering."""
         from aragora.modes.redteam import AttackType
 
@@ -447,7 +447,7 @@ class AuditingHandler(SecureHandler):
             return "robustness"
 
     @require_permission("admin:audit")
-    def _run_capability_probe(self, handler, user=None) -> HandlerResult:
+    def _run_capability_probe(self, handler: Any, user: Any = None) -> HandlerResult:
         """Run capability probes on an agent to find vulnerabilities.
 
         Requires admin:audit permission (admin/owner only).
@@ -502,7 +502,7 @@ class AuditingHandler(SecureHandler):
             prober = CapabilityProber(elo_system=elo_system, elo_penalty_multiplier=5.0)
             report_id = f"probe-report-{uuid.uuid4().hex[:8]}"
 
-            async def run_agent_fn(target_agent, prompt: str) -> str:
+            async def run_agent_fn(target_agent: Any, prompt: str) -> str:
                 from aragora.server.stream.arena_hooks import streaming_task_context
 
                 agent_name = getattr(target_agent, "name", "probe-agent")
@@ -617,7 +617,7 @@ class AuditingHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=5, burst=2, limiter_name="deep_audit")
     @require_permission("admin:audit")
-    def _run_deep_audit(self, handler, user=None) -> HandlerResult:
+    def _run_deep_audit(self, handler: Any, user: Any = None) -> HandlerResult:
         """Run a deep audit (Heavy3-inspired intensive multi-round debate protocol).
 
         Requires admin:audit permission (admin/owner only).
@@ -774,12 +774,12 @@ class AuditingHandler(SecureHandler):
     def _get_audit_config(
         self,
         audit_type: str,
-        parsed: dict,
-        config_class,
-        strategy_preset,
-        contract_preset,
-        code_preset,
-    ):
+        parsed: dict[str, Any],
+        config_class: Any,
+        strategy_preset: Any,
+        contract_preset: Any,
+        code_preset: Any,
+    ) -> Any:
         """Get audit config from preset or parsed values."""
         if audit_type == "strategy":
             return strategy_preset
@@ -880,7 +880,9 @@ class AuditingHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=5, burst=2, limiter_name="red_team")
     @require_permission("admin:audit")
-    def _run_red_team_analysis(self, debate_id: str, handler, user=None) -> HandlerResult:
+    def _run_red_team_analysis(
+        self, debate_id: str, handler: Any, user: Any = None
+    ) -> HandlerResult:
         """Run adversarial red-team analysis on a debate.
 
         Requires admin:audit permission (admin/owner only).
@@ -975,6 +977,6 @@ class AuditingHandler(SecureHandler):
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 
     # _read_json_body moved to BaseHandler.read_json_body
-    def _read_json_body(self, handler) -> dict | None:
+    def _read_json_body(self, handler: Any) -> dict[str, Any] | None:
         """Read and parse JSON body - delegates to base class."""
         return self.read_json_body(handler)

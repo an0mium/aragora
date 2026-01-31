@@ -79,7 +79,7 @@ try:
 except ImportError:
     METRICS_AVAILABLE = False
 
-    def record_rbac_check(*args, **kwargs):
+    def record_rbac_check(*args: Any, **kwargs: Any) -> None:
         pass
 
 
@@ -233,11 +233,11 @@ class AdminHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/admin")
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _require_admin(self, handler) -> tuple[Any | None, HandlerResult | None]:
+    def _require_admin(self, handler: Any) -> tuple[Any | None, HandlerResult | None]:
         """
         Verify the request is from an admin user with MFA enabled.
 
@@ -341,7 +341,7 @@ class AdminHandler(SecureHandler):
         return None
 
     def handle(
-        self, path: str, query_params: dict, handler, method: str = "GET"
+        self, path: str, query_params: dict[str, Any], handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
         """Route admin requests to appropriate methods."""
         # Determine HTTP method from handler if not provided
@@ -421,7 +421,7 @@ class AdminHandler(SecureHandler):
         return error_response("Method not allowed", 405)
 
     @handle_errors("list organizations")
-    def _list_organizations(self, handler, query_params: dict) -> HandlerResult:
+    def _list_organizations(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List all organizations with pagination.
         Requires admin:organizations:list permission.
         """
@@ -457,7 +457,7 @@ class AdminHandler(SecureHandler):
         )
 
     @handle_errors("list users")
-    def _list_users(self, handler, query_params: dict) -> HandlerResult:
+    def _list_users(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List all users with pagination and filtering.
         Requires admin:users:list permission.
         """
@@ -500,7 +500,7 @@ class AdminHandler(SecureHandler):
         )
 
     @handle_errors("get admin stats")
-    def _get_stats(self, handler) -> HandlerResult:
+    def _get_stats(self, handler: Any) -> HandlerResult:
         """Get system-wide statistics.
         Requires admin:stats:read permission.
         """
@@ -519,7 +519,7 @@ class AdminHandler(SecureHandler):
         return json_response({"stats": stats})
 
     @handle_errors("get system metrics")
-    def _get_system_metrics(self, handler) -> HandlerResult:
+    def _get_system_metrics(self, handler: Any) -> HandlerResult:
         """Get aggregated system metrics from various sources.
         Requires admin:metrics:read permission.
         """
@@ -581,7 +581,7 @@ class AdminHandler(SecureHandler):
         return json_response({"metrics": metrics})
 
     @handle_errors("get revenue stats")
-    def _get_revenue_stats(self, handler) -> HandlerResult:
+    def _get_revenue_stats(self, handler: Any) -> HandlerResult:
         """Get revenue and billing statistics.
         Requires admin:revenue:read permission.
         """
@@ -633,7 +633,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("impersonate user")
     @log_request("admin impersonate")
-    def _impersonate_user(self, handler, target_user_id: str) -> HandlerResult:
+    def _impersonate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
         """
         Create an impersonation token for a user.
 
@@ -700,7 +700,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("deactivate user")
     @log_request("admin deactivate user")
-    def _deactivate_user(self, handler, target_user_id: str) -> HandlerResult:
+    def _deactivate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
         """Deactivate a user account."""
         auth_ctx, err = self._require_admin(handler)
         if err:
@@ -744,7 +744,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("activate user")
     @log_request("admin activate user")
-    def _activate_user(self, handler, target_user_id: str) -> HandlerResult:
+    def _activate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
         """Activate a user account."""
         auth_ctx, err = self._require_admin(handler)
         if err:
@@ -784,7 +784,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("unlock user")
     @log_request("admin unlock user")
-    def _unlock_user(self, handler, target_user_id: str) -> HandlerResult:
+    def _unlock_user(self, handler: Any, target_user_id: str) -> HandlerResult:
         """
         Unlock a user account that has been locked due to failed login attempts.
 
@@ -863,12 +863,12 @@ class AdminHandler(SecureHandler):
     # Nomic Admin Endpoints
     # =========================================================================
 
-    def _get_nomic_dir(self):
+    def _get_nomic_dir(self) -> str:
         """Get nomic directory from context or default."""
         return self.ctx.get("nomic_dir", ".nomic")
 
     @handle_errors("get nomic status")
-    def _get_nomic_status(self, handler) -> HandlerResult:
+    def _get_nomic_status(self, handler: Any) -> HandlerResult:
         """
         Get detailed nomic loop status including state machine state.
         Requires admin:nomic:read permission.
@@ -955,7 +955,7 @@ class AdminHandler(SecureHandler):
         return json_response(status)
 
     @handle_errors("get nomic circuit breakers")
-    def _get_nomic_circuit_breakers(self, handler) -> HandlerResult:
+    def _get_nomic_circuit_breakers(self, handler: Any) -> HandlerResult:
         """Get detailed circuit breaker status for the nomic loop.
         Requires admin:nomic:read permission.
         """
@@ -987,7 +987,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("reset nomic phase")
     @log_request("admin reset nomic")
-    def _reset_nomic_phase(self, handler) -> HandlerResult:
+    def _reset_nomic_phase(self, handler: Any) -> HandlerResult:
         """
         Reset nomic loop to a specific phase.
         Requires admin:nomic:write permission.
@@ -1108,7 +1108,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("pause nomic")
     @log_request("admin pause nomic")
-    def _pause_nomic(self, handler) -> HandlerResult:
+    def _pause_nomic(self, handler: Any) -> HandlerResult:
         """
         Pause the nomic loop for manual intervention.
         Requires admin:nomic:write permission.
@@ -1195,7 +1195,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("resume nomic")
     @log_request("admin resume nomic")
-    def _resume_nomic(self, handler) -> HandlerResult:
+    def _resume_nomic(self, handler: Any) -> HandlerResult:
         """
         Resume a paused nomic loop.
         Requires admin:nomic:write permission.
@@ -1286,7 +1286,7 @@ class AdminHandler(SecureHandler):
 
     @handle_errors("reset nomic circuit breakers")
     @log_request("admin reset circuit breakers")
-    def _reset_nomic_circuit_breakers(self, handler) -> HandlerResult:
+    def _reset_nomic_circuit_breakers(self, handler: Any) -> HandlerResult:
         """
         Reset all nomic circuit breakers.
         Requires admin:nomic:write permission.

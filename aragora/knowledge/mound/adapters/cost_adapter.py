@@ -88,7 +88,7 @@ class CostAnomaly:
         }
 
 
-class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
+class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, ResilientAdapterMixin):
     """
     Adapter that bridges CostTracker to the Knowledge Mound.
 
@@ -116,8 +116,9 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
 
     ID_PREFIX = "ct_"
 
-    # ReverseFlowMixin configuration
+    # Mixin configuration
     adapter_name = "cost"
+    source_type = "cost"
 
     # Thresholds
     MIN_ALERT_LEVEL = "warning"  # Store WARNING and above
@@ -125,6 +126,111 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
 
     # Alert level ordering for comparison
     ALERT_LEVELS = ["info", "warning", "critical", "exceeded"]
+
+    # ========================================================================
+    # FusionMixin required method implementations
+    # ========================================================================
+
+    def _get_fusion_sources(self) -> list[str]:
+        """Return list of source adapters this adapter can fuse data from."""
+        return ["consensus", "evidence", "insights"]
+
+    def _extract_fusible_data(
+        self,
+        km_item: dict[str, Any],
+    ) -> Optional[dict[str, Any]]:
+        """Extract fusible data from a KM item."""
+        metadata = km_item.get("metadata", {})
+        confidence = km_item.get("confidence") or metadata.get("confidence")
+        if confidence is None:
+            return None
+        return {
+            "confidence": float(confidence),
+            "is_valid": float(confidence) >= 0.5,
+            "source_id": km_item.get("id") or metadata.get("source_id"),
+            "severity": metadata.get("severity", 0.5),
+            "anomaly_type": metadata.get("anomaly_type"),
+            "sources": metadata.get("sources", []),
+        }
+
+    def _apply_fusion_result(
+        self,
+        record: Any,
+        fusion_result: Any,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Apply a fusion result to a cost record."""
+        try:
+            fused_confidence = getattr(fusion_result, "fused_confidence", None)
+            if fused_confidence is None:
+                return False
+            if isinstance(record, dict):
+                record["km_fused"] = True
+                record["km_fused_confidence"] = fused_confidence
+                if metadata:
+                    record["fusion_metadata"] = metadata
+                logger.debug(
+                    f"Applied fusion result to cost record: fused_confidence={fused_confidence:.3f}"
+                )
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result to cost: {e}")
+            return False
+
+    # ========================================================================
+    # SemanticSearchMixin required method implementations
+    # ========================================================================
+
+    def _get_record_by_id(self, record_id: str) -> Any | None:
+        """Get an alert, anomaly, or cost snapshot record by ID.
+
+        Searches alerts, anomalies, and cost snapshots. Handles the ct_ prefix
+        from the SemanticStore.
+        """
+        raw_id = record_id
+        if record_id.startswith(self.ID_PREFIX):
+            raw_id = record_id[len(self.ID_PREFIX) :]
+
+        for storage in (self._alerts, self._anomalies, self._cost_snapshots):
+            if record_id in storage:
+                return storage[record_id]
+            if raw_id in storage:
+                return storage[raw_id]
+            prefixed = f"{self.ID_PREFIX}{raw_id}"
+            if prefixed in storage:
+                return storage[prefixed]
+
+        return None
+
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
+        """Convert a cost record to dict."""
+        if isinstance(record, dict):
+            result = dict(record)
+            result["similarity"] = similarity
+            return result
+        # Handle CostAnomaly dataclass
+        if hasattr(record, "to_dict"):
+            result = record.to_dict()
+            result["similarity"] = similarity
+            return result
+        return {
+            "id": getattr(record, "id", None),
+            "content": getattr(record, "description", ""),
+            "severity": getattr(record, "severity", 0.0),
+            "similarity": similarity,
+            "metadata": getattr(record, "metadata", {}),
+        }
+
+    def _extract_record_id(self, source_id: str) -> str:
+        """Extract record ID from prefixed source ID."""
+        if source_id.startswith(self.ID_PREFIX):
+            return source_id[len(self.ID_PREFIX) :]
+        return source_id
+
+    # ========================================================================
+    # Initialization
+    # ========================================================================
 
     def __init__(
         self,

@@ -58,8 +58,8 @@ class PostgreSQLConnector(EnterpriseConnector):
         content_columns: Optional[list[str]] = None,
         notify_channel: str | None = None,
         pool_size: int = 5,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         connector_id = f"postgres_{host}_{database}_{schema}"
         super().__init__(connector_id=connector_id, **kwargs)
 
@@ -110,7 +110,7 @@ class PostgreSQLConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"PostgreSQL ({self.database}.{self.schema})"
 
-    async def _get_pool(self):
+    async def _get_pool(self) -> Any:
         """Get or create connection pool."""
         if self._pool is not None:
             return self._pool
@@ -329,8 +329,8 @@ class PostgreSQLConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
-    ) -> list:
+        **kwargs: Any,
+    ) -> list[Any]:
         """
         Search across indexed tables using full-text search.
 
@@ -400,7 +400,7 @@ class PostgreSQLConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str):
+    async def fetch(self, evidence_id: str) -> dict[str, Any] | None:
         """Fetch a specific row by evidence ID."""
         from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
 
@@ -447,14 +447,14 @@ class PostgreSQLConnector(EnterpriseConnector):
             logger.error(f"[{self.name}] Fetch failed: {e}")
             return None
 
-    async def start_listener(self):
+    async def start_listener(self) -> None:
         """Start LISTEN/NOTIFY listener for real-time updates."""
         if not self.notify_channel:
             return
 
         pool = await self._get_pool()
 
-        async def listener_loop():
+        async def listener_loop() -> None:
             async with pool.acquire() as conn:
                 await conn.add_listener(self.notify_channel, self._handle_notification)
                 logger.info(f"[{self.name}] Listening on channel: {self.notify_channel}")
@@ -470,7 +470,9 @@ class PostgreSQLConnector(EnterpriseConnector):
 
         self._listener_task = asyncio.create_task(listener_loop())
 
-    async def _handle_notification(self, connection, pid, channel, payload):
+    async def _handle_notification(
+        self, connection: Any, pid: int, channel: str, payload: str
+    ) -> None:
         """Handle NOTIFY message and emit ChangeEvent."""
         try:
             # Create unified ChangeEvent from NOTIFY payload
@@ -496,7 +498,7 @@ class PostgreSQLConnector(EnterpriseConnector):
         except (ValueError, KeyError, json.JSONDecodeError) as e:
             logger.warning(f"[{self.name}] Notification handler error: {e}")
 
-    async def stop_listener(self):
+    async def stop_listener(self) -> None:
         """Stop the LISTEN/NOTIFY listener gracefully."""
         # Signal the listener loop to stop
         self._stop_event.set()
