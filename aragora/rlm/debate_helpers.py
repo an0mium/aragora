@@ -367,31 +367,189 @@ def partition_debate(
 # RLM Primitives (for use in REPL)
 
 
-def RLM_M(query: str, subset: list[dict[str, Any] | None] = None) -> str:
+def RLM_M(query: str, subset: list[dict[str, Any]] | None = None) -> str:
     """
-    Recursive RLM call placeholder.
+    Recursive RLM call for synthesizing debate message subsets.
 
     In TRUE RLM, this triggers a recursive LLM call on a subset of context.
-    This placeholder is replaced by the actual RLM runtime.
+    When called outside a TRUE RLM REPL environment, this function provides
+    a heuristic-based synthesis of the debate messages based on the query.
 
     Args:
-        query: The query to answer
-        subset: Optional subset of messages to query
+        query: The query to answer (used to guide synthesis)
+        subset: Optional subset of messages to synthesize
 
     Returns:
-        Answer from recursive call
+        Synthesized answer based on the subset and query
 
     Example in TRUE RLM REPL:
         >>> # LLM writes code like this:
         >>> round1_summary = RLM_M("What was proposed?", subset=get_round(debate, 1))
         >>> round2_summary = RLM_M("What critiques were made?", subset=get_round(debate, 2))
         >>> FINAL(f"Round 1: {round1_summary}. Round 2: {round2_summary}")
+
+    Note:
+        When used within a TRUE RLM REPL environment (via RLMEnvironment),
+        this placeholder is replaced by the actual runtime's _rlm_call method
+        which invokes a sub-LM for proper synthesis.
     """
-    # Placeholder - replaced by actual RLM runtime
-    raise NotImplementedError(
-        "RLM_M must be called within a TRUE RLM REPL environment. "
-        "Install with: pip install aragora[rlm]"
+    if subset is None or len(subset) == 0:
+        return f"No debate messages provided for query: {query}"
+
+    # Extract query keywords for relevance scoring
+    query_lower = query.lower()
+    query_words = set(query_lower.split())
+
+    # Score and sort messages by relevance to query
+    scored_messages: list[tuple[float, dict[str, Any]]] = []
+    for msg in subset:
+        content = msg.get("content", "")
+        content_lower = content.lower()
+        # Score based on keyword matches
+        keyword_score = sum(1 for word in query_words if word in content_lower)
+        # Boost for longer, more substantial messages
+        length_score = min(len(content) / 500, 1.0) * 0.2
+        relevance_score = keyword_score * 0.8 + length_score
+        scored_messages.append((relevance_score, msg))
+
+    # Sort by relevance (highest first)
+    scored_messages.sort(key=lambda x: x[0], reverse=True)
+
+    # Group messages by agent
+    by_agent: dict[str, list[dict[str, Any]]] = {}
+    for _, msg in scored_messages:
+        agent = msg.get("agent", msg.get("agent_name", "unknown"))
+        if agent not in by_agent:
+            by_agent[agent] = []
+        by_agent[agent].append(msg)
+
+    # Group messages by round
+    by_round: dict[int, list[dict[str, Any]]] = {}
+    for _, msg in scored_messages:
+        round_num = msg.get("round", msg.get("round_num", 0))
+        if round_num not in by_round:
+            by_round[round_num] = []
+        by_round[round_num].append(msg)
+
+    # Build synthesis based on query patterns
+    synthesis_parts: list[str] = []
+
+    # Detect query intent
+    is_proposal_query = any(kw in query_lower for kw in ["propos", "suggest", "recommend", "idea"])
+    is_critique_query = any(
+        kw in query_lower for kw in ["critique", "disagree", "issue", "problem", "concern"]
     )
+    is_consensus_query = any(kw in query_lower for kw in ["consensus", "agree", "common", "shared"])
+    is_summary_query = any(
+        kw in query_lower for kw in ["summarize", "summary", "overview", "key", "main"]
+    )
+    is_round_query = any(kw in query_lower for kw in ["round"])
+
+    # Build response based on query type
+    if is_critique_query:
+        # Focus on critique patterns
+        critique_markers = ["disagree", "however", "but", "issue", "problem", "concern", "critique"]
+        critiques = [
+            msg
+            for _, msg in scored_messages
+            if any(marker in msg.get("content", "").lower() for marker in critique_markers)
+        ]
+        if critiques:
+            synthesis_parts.append(f"Found {len(critiques)} critique(s):")
+            for msg in critiques[:5]:  # Top 5
+                agent = msg.get("agent", msg.get("agent_name", "unknown"))
+                content = msg.get("content", "")
+                synthesis_parts.append(f"  - {agent}: {_truncate_content(content, 100)}")
+        else:
+            synthesis_parts.append("No explicit critiques found in the provided messages.")
+
+    elif is_consensus_query:
+        # Look for agreement patterns
+        agreement_markers = ["agree", "consensus", "support", "concur", "align"]
+        agreements = [
+            msg
+            for _, msg in scored_messages
+            if any(marker in msg.get("content", "").lower() for marker in agreement_markers)
+        ]
+        if agreements:
+            synthesis_parts.append(f"Found {len(agreements)} agreement(s):")
+            for msg in agreements[:5]:  # Top 5
+                agent = msg.get("agent", msg.get("agent_name", "unknown"))
+                content = msg.get("content", "")
+                synthesis_parts.append(f"  - {agent}: {_truncate_content(content, 100)}")
+        else:
+            synthesis_parts.append("No explicit agreements found in the provided messages.")
+
+    elif is_proposal_query:
+        # Focus on proposals
+        proposal_markers = ["propose", "suggest", "recommend", "should", "could"]
+        proposals = [
+            msg
+            for _, msg in scored_messages
+            if any(marker in msg.get("content", "").lower() for marker in proposal_markers)
+        ]
+        if proposals:
+            synthesis_parts.append(f"Found {len(proposals)} proposal(s):")
+            for msg in proposals[:5]:  # Top 5
+                agent = msg.get("agent", msg.get("agent_name", "unknown"))
+                content = msg.get("content", "")
+                synthesis_parts.append(f"  - {agent}: {_truncate_content(content, 100)}")
+        else:
+            # Fall back to showing top messages
+            synthesis_parts.append(f"Showing {min(5, len(scored_messages))} relevant message(s):")
+            for _, msg in scored_messages[:5]:
+                agent = msg.get("agent", msg.get("agent_name", "unknown"))
+                content = msg.get("content", "")
+                synthesis_parts.append(f"  - {agent}: {_truncate_content(content, 100)}")
+
+    elif is_round_query and by_round:
+        # Summarize by round
+        synthesis_parts.append(
+            f"Debate summary ({len(subset)} messages across {len(by_round)} round(s)):"
+        )
+        for round_num in sorted(by_round.keys()):
+            msgs = by_round[round_num]
+            agents = list({m.get("agent", m.get("agent_name", "unknown")) for m in msgs})
+            synthesis_parts.append(
+                f"\nRound {round_num} ({len(msgs)} messages from {', '.join(agents)}):"
+            )
+            for msg in msgs[:2]:  # Top 2 per round
+                agent = msg.get("agent", msg.get("agent_name", "unknown"))
+                content = msg.get("content", "")
+                synthesis_parts.append(f"  - {agent}: {_truncate_content(content, 80)}")
+            if len(msgs) > 2:
+                synthesis_parts.append(f"  ... and {len(msgs) - 2} more")
+
+    elif is_summary_query or True:  # Default to summary
+        # Provide overview by agent
+        total_messages = len(subset)
+        synthesis_parts.append(
+            f"Debate synthesis ({total_messages} messages from {len(by_agent)} agent(s)):"
+        )
+
+        for agent, msgs in by_agent.items():
+            synthesis_parts.append(f"\n{agent} ({len(msgs)} messages):")
+            # Show top 2 most relevant messages per agent
+            for msg in msgs[:2]:
+                content = msg.get("content", "")
+                round_num = msg.get("round", msg.get("round_num", "?"))
+                synthesis_parts.append(f"  - [Round {round_num}] {_truncate_content(content, 80)}")
+            if len(msgs) > 2:
+                synthesis_parts.append(f"  ... and {len(msgs) - 2} more")
+
+    return "\n".join(synthesis_parts)
+
+
+def _truncate_content(content: str, max_length: int) -> str:
+    """Truncate content to max_length, preserving word boundaries."""
+    if len(content) <= max_length:
+        return content
+    # Find last space before max_length
+    truncated = content[:max_length]
+    last_space = truncated.rfind(" ")
+    if last_space > max_length * 0.5:
+        return truncated[:last_space] + "..."
+    return truncated + "..."
 
 
 def FINAL(answer: str) -> str:

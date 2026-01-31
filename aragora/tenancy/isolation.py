@@ -513,15 +513,21 @@ class TenantDataIsolation:
             return None
 
     def _evict_oldest_keys(self) -> None:
-        """Evict oldest encryption keys when at capacity (LRU eviction)."""
+        """Evict oldest encryption keys when at capacity (LRU eviction).
+
+        Uses OrderedDict.popitem(last=False) for O(1) eviction of oldest entries.
+        """
         # Remove oldest 10% of keys
         evict_count = max(1, len(self._encryption_keys) // 10)
         evicted = 0
-        while evicted < evict_count and self._key_access_order:
-            oldest_tid = self._key_access_order.pop(0)
-            if oldest_tid in self._encryption_keys and oldest_tid != "_shared":
-                del self._encryption_keys[oldest_tid]
-                evicted += 1
+        while evicted < evict_count and self._encryption_keys:
+            # O(1) removal of oldest entry using OrderedDict.popitem
+            oldest_tid, oldest_key = self._encryption_keys.popitem(last=False)
+            if oldest_tid == "_shared":
+                # Don't evict shared key - put it back at end
+                self._encryption_keys["_shared"] = oldest_key
+                continue
+            evicted += 1
         if evicted > 0:
             logger.debug(f"Evicted {evicted} encryption keys (LRU)")
 

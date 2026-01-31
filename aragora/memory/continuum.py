@@ -984,7 +984,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
         entries: list[ContinuumMemoryEntry] = []
         for row in rows:
-            entry: ContinuumMemoryEntry = ContinuumMemoryEntry(
+            mem_entry: ContinuumMemoryEntry = ContinuumMemoryEntry(
                 id=row[0],
                 tier=MemoryTier(row[1]),
                 content=row[2],
@@ -998,7 +998,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 updated_at=row[10],
                 metadata=safe_json_loads(row[11], {}),
             )
-            entries.append(entry)
+            entries.append(mem_entry)
 
         # Emit MEMORY_RECALL event if memories were retrieved
         if entries and self.event_emitter:

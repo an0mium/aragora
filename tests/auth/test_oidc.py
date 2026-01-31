@@ -584,12 +584,12 @@ class TestDiscovery:
         discovery_doc = {"authorization_endpoint": "https://example.com/auth"}
 
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.json.return_value = discovery_doc
         mock_response.raise_for_status = MagicMock()
-        mock_client.get.return_value = mock_response
+        mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.auth.oidc.get_http_pool", return_value=mock_pool):
             # First call
             await provider._discover_endpoints()
             # Second call
@@ -602,9 +602,9 @@ class TestDiscovery:
     async def test_discovery_failure_returns_empty(self, provider):
         """Test that discovery failure returns empty dict."""
         mock_pool, mock_client = create_mock_http_pool()
-        mock_client.get.side_effect = OSError("Network error")
+        mock_client.get = AsyncMock(side_effect=OSError("Network error"))
 
-        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+        with patch("aragora.auth.oidc.get_http_pool", return_value=mock_pool):
             result = await provider._discover_endpoints()
 
             assert result == {}

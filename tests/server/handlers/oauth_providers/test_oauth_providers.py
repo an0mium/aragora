@@ -571,11 +571,16 @@ class TestAppleIdTokenVerification:
             provider._decode_id_token("not.a.valid.jwt.token", verify=False)
         assert "Invalid ID token format" in str(exc_info.value)
 
-    def test_get_user_info_raises_not_implemented(self, apple_config):
-        """Should raise NotImplementedError for get_user_info."""
+    def test_get_user_info_raises_value_error_for_opaque_token(self, apple_config):
+        """Should raise ValueError for opaque access tokens (not JWTs).
+
+        Apple doesn't have a userinfo endpoint. The method accepts ID tokens (JWTs)
+        but rejects opaque access tokens with a helpful error message.
+        """
         provider = AppleOAuthProvider(apple_config)
 
-        with pytest.raises(NotImplementedError) as exc_info:
+        # Opaque token (not a JWT - doesn't have 3 dot-separated parts)
+        with pytest.raises(ValueError) as exc_info:
             provider.get_user_info("access_token")
         assert "userinfo endpoint" in str(exc_info.value)
 

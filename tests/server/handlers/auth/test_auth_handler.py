@@ -322,7 +322,6 @@ class TestMethodRouting:
                 path="/api/auth/login",
                 query_params={},
                 handler=request,
-                method="DELETE",
             )
         )
         parsed = parse_result(result)
@@ -343,7 +342,6 @@ class TestMethodRouting:
                 path="/api/auth/login",
                 query_params={},
                 handler=request,
-                method="POST",
             )
         )
         parsed = parse_result(result)
