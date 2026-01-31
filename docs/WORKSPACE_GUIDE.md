@@ -23,6 +23,10 @@ To persist canonical stores:
 This keeps dev/test runs isolated while allowing production deployments to
 persist convoy/bead state.
 
+Gastown workspace metadata (workspaces/rigs) is persisted to
+`state.json` under the canonical store directory when using the
+Gastown extension workspace manager.
+
 ## Quick Start
 
 ```python
