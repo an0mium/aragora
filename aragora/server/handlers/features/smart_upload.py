@@ -26,6 +26,213 @@ from aragora.server.handlers.utils.responses import error_dict
 
 logger = logging.getLogger(__name__)
 
+# Magic byte signatures for content-type validation
+# Maps file signatures to (expected_mime_type, expected_extensions)
+MAGIC_SIGNATURES: dict[bytes, tuple[str, list[str]]] = {
+    # Images
+    b"\x89PNG\r\n\x1a\n": ("image/png", [".png"]),
+    b"\xff\xd8\xff": ("image/jpeg", [".jpg", ".jpeg"]),
+    b"GIF87a": ("image/gif", [".gif"]),
+    b"GIF89a": ("image/gif", [".gif"]),
+    b"RIFF": ("image/webp", [".webp"]),  # WebP (check for WEBP after RIFF)
+    # Documents
+    b"%PDF": ("application/pdf", [".pdf"]),
+    # Archives (also covers Office docs which are ZIP-based)
+    b"PK\x03\x04": ("application/zip", [".zip", ".docx", ".xlsx", ".pptx", ".odt"]),
+    b"PK\x05\x06": ("application/zip", [".zip"]),  # Empty archive
+    b"PK\x07\x08": ("application/zip", [".zip"]),  # Spanned archive
+    # Executables (DANGEROUS)
+    b"MZ": ("application/x-executable", [".exe", ".dll"]),
+    b"\x7fELF": ("application/x-executable", [".elf", ".so", ".out"]),
+    b"\xca\xfe\xba\xbe": ("application/x-mach-binary", [".dylib"]),  # Mach-O
+    b"\xcf\xfa\xed\xfe": ("application/x-mach-binary", [".dylib", ".bundle"]),  # Mach-O 64
+    b"\xfe\xed\xfa\xce": ("application/x-mach-binary", []),  # Mach-O 32-bit BE
+    b"\xfe\xed\xfa\xcf": ("application/x-mach-binary", []),  # Mach-O 64-bit BE
+    # Scripts (potentially dangerous)
+    b"#!": ("text/x-script", [".sh", ".bash", ".py", ".pl", ".rb"]),
+    # Audio
+    b"ID3": ("audio/mpeg", [".mp3"]),
+    b"\xff\xfb": ("audio/mpeg", [".mp3"]),
+    b"\xff\xfa": ("audio/mpeg", [".mp3"]),
+    b"fLaC": ("audio/flac", [".flac"]),
+    b"OggS": ("audio/ogg", [".ogg"]),
+    # Video
+    b"\x00\x00\x00\x1cftyp": ("video/mp4", [".mp4", ".m4v", ".m4a"]),
+    b"\x00\x00\x00\x20ftyp": ("video/mp4", [".mp4", ".m4v", ".m4a"]),
+    # Compressed
+    b"\x1f\x8b": ("application/gzip", [".gz", ".tgz"]),
+    b"BZh": ("application/x-bzip2", [".bz2"]),
+    b"\xfd7zXZ\x00": ("application/x-xz", [".xz"]),
+    b"Rar!\x1a\x07": ("application/x-rar", [".rar"]),
+    b"7z\xbc\xaf\x27\x1c": ("application/x-7z-compressed", [".7z"]),
+}
+
+# Dangerous MIME types that should be blocked
+DANGEROUS_MIME_TYPES: set[str] = {
+    "application/x-executable",
+    "application/x-mach-binary",
+    "application/x-dosexec",
+    "application/x-msdownload",
+    "application/x-sharedlib",
+    "application/vnd.microsoft.portable-executable",
+}
+
+# Dangerous extensions that should be blocked
+DANGEROUS_EXTENSIONS: set[str] = {
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".bat",
+    ".cmd",
+    ".com",
+    ".scr",
+    ".msi",
+    ".msp",
+    ".vbs",
+    ".vbe",
+    ".jse",
+    ".ws",
+    ".wsf",
+    ".wsc",
+    ".wsh",
+    ".ps1",
+    ".psm1",
+    ".psd1",
+}
+
+
+@dataclass
+class ContentValidationResult:
+    """Result of content-type validation."""
+
+    valid: bool
+    detected_mime: str | None = None
+    expected_extensions: list[str] | None = None
+    is_dangerous: bool = False
+    mismatch_warning: str | None = None
+
+
+def validate_content_type(
+    content: bytes,
+    filename: str,
+    claimed_mime: str | None = None,
+) -> ContentValidationResult:
+    """
+    Validate file content matches the claimed type using magic bytes.
+
+    Args:
+        content: Raw file bytes
+        filename: Claimed filename
+        claimed_mime: Optional claimed MIME type
+
+    Returns:
+        ContentValidationResult with validation details
+    """
+    ext = Path(filename).suffix.lower()
+
+    # Check for dangerous extensions first
+    if ext in DANGEROUS_EXTENSIONS:
+        logger.warning("[SECURITY] Blocked dangerous file extension: %s", filename)
+        return ContentValidationResult(
+            valid=False,
+            is_dangerous=True,
+            mismatch_warning=f"Dangerous file extension blocked: {ext}",
+        )
+
+    # Check magic bytes
+    detected_mime = None
+    expected_extensions = None
+
+    for signature, (mime_type, extensions) in MAGIC_SIGNATURES.items():
+        if content.startswith(signature):
+            # Special case for WEBP: check for "WEBP" marker after RIFF
+            if signature == b"RIFF":
+                if len(content) >= 12 and content[8:12] == b"WEBP":
+                    detected_mime = "image/webp"
+                    expected_extensions = [".webp"]
+                else:
+                    # RIFF but not WEBP (could be WAV, AVI, etc.)
+                    continue
+            else:
+                detected_mime = mime_type
+                expected_extensions = extensions
+            break
+
+    # Check for ftyp-based video (variable offset)
+    if detected_mime is None and len(content) >= 12:
+        # ftyp can appear at offset 4 with variable box size
+        for offset in (4, 8):
+            if offset + 4 <= len(content) and content[offset : offset + 4] == b"ftyp":
+                detected_mime = "video/mp4"
+                expected_extensions = [".mp4", ".m4v", ".m4a", ".mov"]
+                break
+
+    # Block dangerous detected MIME types
+    if detected_mime in DANGEROUS_MIME_TYPES:
+        logger.warning(
+            "[SECURITY] Blocked dangerous file type detected in %s: %s",
+            filename,
+            detected_mime,
+        )
+        return ContentValidationResult(
+            valid=False,
+            detected_mime=detected_mime,
+            is_dangerous=True,
+            mismatch_warning=f"Dangerous file type blocked: {detected_mime}",
+        )
+
+    # Check for extension mismatch
+    mismatch_warning = None
+    if detected_mime and expected_extensions:
+        if ext and ext not in expected_extensions:
+            # Special case: Office documents are ZIP-based
+            office_extensions = {".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp"}
+            if detected_mime == "application/zip" and ext in office_extensions:
+                # This is expected - Office docs are ZIP files
+                pass
+            else:
+                mismatch_warning = (
+                    f"Content-type mismatch: file '{filename}' has extension '{ext}' "
+                    f"but content appears to be {detected_mime} "
+                    f"(expected extensions: {', '.join(expected_extensions)})"
+                )
+                logger.warning("[SECURITY] %s", mismatch_warning)
+
+    # Check claimed MIME vs detected
+    if claimed_mime and detected_mime:
+        # Normalize MIME types for comparison
+        claimed_base = claimed_mime.split(";")[0].strip().lower()
+        if claimed_base != detected_mime.lower():
+            # Allow some common variations
+            mime_aliases = {
+                ("image/jpg", "image/jpeg"),
+                ("audio/mp3", "audio/mpeg"),
+                ("video/quicktime", "video/mp4"),
+            }
+            if (claimed_base, detected_mime.lower()) not in mime_aliases and (
+                detected_mime.lower(),
+                claimed_base,
+            ) not in mime_aliases:
+                warning = (
+                    f"Claimed MIME type '{claimed_mime}' doesn't match "
+                    f"detected type '{detected_mime}' for file '{filename}'"
+                )
+                if mismatch_warning:
+                    mismatch_warning += f"; {warning}"
+                else:
+                    mismatch_warning = warning
+                logger.warning("[SECURITY] %s", warning)
+
+    return ContentValidationResult(
+        valid=True,
+        detected_mime=detected_mime,
+        expected_extensions=expected_extensions,
+        is_dangerous=False,
+        mismatch_warning=mismatch_warning,
+    )
+
+
 # Try to import handler base
 try:
     from ..base import (
@@ -608,6 +815,23 @@ async def smart_upload(
     content_hash = hashlib.sha256(file_content).hexdigest()[:16]
     upload_id = f"{uuid.uuid4().hex[:8]}_{content_hash}"
 
+    # Validate content type against magic bytes
+    validation = validate_content_type(file_content, filename, mime_type)
+
+    if not validation.valid:
+        # Block dangerous or invalid files
+        result = UploadResult(
+            id=upload_id,
+            filename=filename,
+            size=len(file_content),
+            category=FileCategory.UNKNOWN,
+            action=ProcessingAction.SKIP,
+            status="rejected",
+            error=validation.mismatch_warning or "Content validation failed",
+        )
+        _upload_results[upload_id] = result
+        return result
+
     # Detect category and action
     category = detect_file_category(filename, mime_type)
     action = override_action or get_processing_action(category)
@@ -637,8 +861,14 @@ async def smart_upload(
         result.completed_at = time.time()
         result.result = processing_result
 
+        # Add validation warning if present (file passed but had mismatch)
+        if validation.mismatch_warning:
+            if result.result is None:
+                result.result = {}
+            result.result["content_type_warning"] = validation.mismatch_warning
+
     except Exception as e:
-        logger.error(f"Smart upload failed for {filename}: {e}")
+        logger.error("Smart upload failed for %s: %s", filename, e)
         result.status = "failed"
         result.error = str(e)
 

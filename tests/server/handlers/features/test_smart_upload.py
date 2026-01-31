@@ -45,6 +45,7 @@ from aragora.server.handlers.features.smart_upload import (
     smart_upload,
     get_upload_status,
     _upload_results,
+    validate_content_type,
 )
 
 
@@ -378,3 +379,235 @@ class TestFileProcessing:
 
         assert result["expanded"] is True
         assert result["file_count"] == 1
+
+
+class TestContentTypeValidation:
+    """Tests for content-type validation using magic bytes."""
+
+    def test_validate_png_content(self):
+        """Test validating PNG file by magic bytes."""
+        # PNG magic bytes
+        png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+        result = validate_content_type(png_content, "image.png")
+
+        assert result.valid is True
+        assert result.detected_mime == "image/png"
+        assert ".png" in result.expected_extensions
+        assert result.is_dangerous is False
+
+    def test_validate_jpeg_content(self):
+        """Test validating JPEG file by magic bytes."""
+        jpeg_content = b"\xff\xd8\xff" + b"\x00" * 100
+        result = validate_content_type(jpeg_content, "photo.jpg")
+
+        assert result.valid is True
+        assert result.detected_mime == "image/jpeg"
+        assert ".jpg" in result.expected_extensions
+
+    def test_validate_gif_content(self):
+        """Test validating GIF file by magic bytes."""
+        gif87_content = b"GIF87a" + b"\x00" * 100
+        result = validate_content_type(gif87_content, "animation.gif")
+
+        assert result.valid is True
+        assert result.detected_mime == "image/gif"
+
+        gif89_content = b"GIF89a" + b"\x00" * 100
+        result = validate_content_type(gif89_content, "animation.gif")
+
+        assert result.valid is True
+        assert result.detected_mime == "image/gif"
+
+    def test_validate_pdf_content(self):
+        """Test validating PDF file by magic bytes."""
+        pdf_content = b"%PDF-1.4" + b"\x00" * 100
+        result = validate_content_type(pdf_content, "document.pdf")
+
+        assert result.valid is True
+        assert result.detected_mime == "application/pdf"
+        assert ".pdf" in result.expected_extensions
+
+    def test_validate_zip_content(self):
+        """Test validating ZIP file by magic bytes."""
+        import io
+        import zipfile
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("test.txt", "hello")
+
+        result = validate_content_type(buffer.getvalue(), "archive.zip")
+
+        assert result.valid is True
+        assert result.detected_mime == "application/zip"
+
+    def test_block_exe_extension(self):
+        """Test blocking executable by extension."""
+        content = b"MZ" + b"\x00" * 100  # PE header
+        result = validate_content_type(content, "malware.exe")
+
+        assert result.valid is False
+        assert result.is_dangerous is True
+        assert "Dangerous file extension blocked" in result.mismatch_warning
+
+    def test_block_dll_extension(self):
+        """Test blocking DLL by extension."""
+        content = b"\x00" * 100
+        result = validate_content_type(content, "library.dll")
+
+        assert result.valid is False
+        assert result.is_dangerous is True
+
+    def test_block_bat_extension(self):
+        """Test blocking batch file by extension."""
+        content = b"@echo off\r\ndel /s /q *"
+        result = validate_content_type(content, "script.bat")
+
+        assert result.valid is False
+        assert result.is_dangerous is True
+
+    def test_block_exe_by_content(self):
+        """Test blocking executable by magic bytes even with safe extension."""
+        # PE executable header with .txt extension
+        pe_content = b"MZ" + b"\x00" * 100
+        result = validate_content_type(pe_content, "safe.txt")
+
+        assert result.valid is False
+        assert result.is_dangerous is True
+        assert result.detected_mime == "application/x-executable"
+
+    def test_block_elf_by_content(self):
+        """Test blocking ELF executable by magic bytes."""
+        elf_content = b"\x7fELF" + b"\x00" * 100
+        result = validate_content_type(elf_content, "binary.txt")
+
+        assert result.valid is False
+        assert result.is_dangerous is True
+
+    def test_extension_mismatch_warning(self):
+        """Test warning when extension doesn't match content."""
+        # PNG content with .jpg extension
+        png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+        result = validate_content_type(png_content, "photo.jpg")
+
+        assert result.valid is True  # Not blocked, but warned
+        assert result.mismatch_warning is not None
+        assert "mismatch" in result.mismatch_warning.lower()
+
+    def test_mime_type_mismatch_warning(self):
+        """Test warning when claimed MIME doesn't match content."""
+        png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+        result = validate_content_type(png_content, "image.png", claimed_mime="image/gif")
+
+        assert result.valid is True
+        assert result.mismatch_warning is not None
+        assert "Claimed MIME type" in result.mismatch_warning
+
+    def test_office_docs_as_zip_allowed(self):
+        """Test that Office documents (ZIP-based) don't trigger mismatch warning."""
+        import io
+        import zipfile
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("[Content_Types].xml", "<Types/>")
+
+        result = validate_content_type(buffer.getvalue(), "document.docx")
+
+        assert result.valid is True
+        assert result.detected_mime == "application/zip"
+        # No mismatch warning since .docx is expected for ZIP
+        assert result.mismatch_warning is None
+
+    def test_unknown_content_type(self):
+        """Test handling of unknown/undetectable content."""
+        unknown_content = b"some random text content"
+        result = validate_content_type(unknown_content, "file.txt")
+
+        assert result.valid is True
+        assert result.detected_mime is None
+        assert result.is_dangerous is False
+
+    def test_mp3_id3_detection(self):
+        """Test detecting MP3 by ID3 header."""
+        mp3_content = b"ID3" + b"\x00" * 100
+        result = validate_content_type(mp3_content, "song.mp3")
+
+        assert result.valid is True
+        assert result.detected_mime == "audio/mpeg"
+
+    def test_gzip_detection(self):
+        """Test detecting gzip compressed files."""
+        gzip_content = b"\x1f\x8b" + b"\x00" * 100
+        result = validate_content_type(gzip_content, "archive.gz")
+
+        assert result.valid is True
+        assert result.detected_mime == "application/gzip"
+
+
+class TestSmartUploadWithValidation:
+    """Tests for smart_upload with content validation integration."""
+
+    @pytest.mark.asyncio
+    async def test_smart_upload_blocks_exe(self):
+        """Test that smart_upload blocks executable files."""
+        exe_content = b"MZ" + b"\x00" * 100
+
+        result = await smart_upload(exe_content, "malware.exe")
+
+        assert result.status == "rejected"
+        assert result.error is not None
+        assert "Dangerous" in result.error
+
+    @pytest.mark.asyncio
+    async def test_smart_upload_blocks_disguised_exe(self):
+        """Test that smart_upload blocks exe disguised as txt."""
+        exe_content = b"MZ" + b"\x00" * 100
+
+        result = await smart_upload(exe_content, "readme.txt")
+
+        assert result.status == "rejected"
+        assert "Dangerous" in (result.error or "")
+
+    @pytest.mark.asyncio
+    async def test_smart_upload_valid_png(self):
+        """Test smart upload accepts valid PNG."""
+        png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        result = await smart_upload(png_content, "image.png")
+
+        assert result.status in ("completed", "processing")
+        assert result.error is None or result.error == ""
+
+    @pytest.mark.asyncio
+    async def test_smart_upload_warns_on_mismatch(self):
+        """Test smart upload includes warning on content mismatch."""
+        # PNG content with .jpg extension
+        png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+
+        result = await smart_upload(png_content, "photo.jpg")
+
+        assert result.status == "completed"
+        # Warning should be in result
+        if result.result:
+            assert "content_type_warning" in result.result
+
+    @pytest.mark.asyncio
+    async def test_smart_upload_blocks_vbs_scripts(self):
+        """Test blocking VBScript file extensions."""
+        vbs_content = b'WScript.Echo "Hello"'
+
+        result = await smart_upload(vbs_content, "script.vbs")
+
+        # .vbs is in dangerous extensions
+        assert result.status == "rejected"
+        assert "Dangerous" in (result.error or "")
+
+    @pytest.mark.asyncio
+    async def test_smart_upload_blocks_ps1(self):
+        """Test blocking PowerShell scripts."""
+        ps1_content = b"Get-Process | Stop-Process"
+
+        result = await smart_upload(ps1_content, "script.ps1")
+
+        assert result.status == "rejected"

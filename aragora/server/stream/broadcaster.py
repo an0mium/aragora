@@ -13,7 +13,7 @@ import logging
 import secrets
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -194,13 +194,17 @@ class DebateStateCache:
     Maintains a bounded cache of debate states with TTL-based eviction
     for ended debates.
 
+    Uses OrderedDict for O(1) LRU eviction instead of O(n) min() scan.
+    Uses deque for O(1) message buffer truncation instead of O(n) list slicing.
+
     Thread-safe for concurrent access.
     """
 
     def __init__(self, config: BroadcasterConfig | None = None):
         self.config = config or BroadcasterConfig()
 
-        self.debate_states: dict[str, dict] = {}
+        # OrderedDict maintains insertion/access order for O(1) LRU eviction
+        self.debate_states: OrderedDict[str, dict] = OrderedDict()
         self._lock = threading.Lock()
         self._last_access: dict[str, float] = {}
 
@@ -244,22 +248,27 @@ class DebateStateCache:
     def _handle_debate_start(self, loop_id: str, event: StreamEvent) -> None:
         """Initialize state for new debate."""
         # Enforce max size with LRU eviction (prefer ended debates)
+        # O(1) eviction: find first ended debate from front (oldest), else evict oldest overall
         if len(self.debate_states) >= self.config.max_debate_states:
-            ended_states = [
-                (k, self._last_access.get(k, 0))
-                for k, v in self.debate_states.items()
-                if v.get("ended")
-            ]
-            if ended_states:
-                oldest = min(ended_states, key=lambda x: x[1])[0]
-                self.debate_states.pop(oldest, None)
-                self._last_access.pop(oldest, None)
+            evicted = False
+            # Check for any ended debate from front (oldest first)
+            for key in self.debate_states:
+                if self.debate_states[key].get("ended"):
+                    self.debate_states.pop(key)
+                    self._last_access.pop(key, None)
+                    evicted = True
+                    break
+            # If no ended debate found, evict oldest (front)
+            if not evicted and self.debate_states:
+                oldest_id, _ = self.debate_states.popitem(last=False)
+                self._last_access.pop(oldest_id, None)
 
         self.debate_states[loop_id] = {
             "id": loop_id,
             "task": event.data.get("task"),
             "agents": event.data.get("agents"),
-            "messages": [],
+            # Use deque with maxlen for O(1) automatic eviction of oldest entries
+            "messages": deque(maxlen=1000),
             "consensus_reached": False,
             "consensus_confidence": 0.0,
             "consensus_answer": "",
@@ -279,6 +288,7 @@ class DebateStateCache:
         content = event.data.get("content", "")
 
         state = self.debate_states[loop_id]
+        # deque with maxlen provides O(1) append with automatic eviction
         state["messages"].append(
             {
                 "agent": agent,
@@ -287,9 +297,8 @@ class DebateStateCache:
                 "content": content,
             }
         )
-        # Cap at last 1000 messages
-        if len(state["messages"]) > 1000:
-            state["messages"] = state["messages"][-1000:]
+        # Move to end for LRU (most recently accessed)
+        self.debate_states.move_to_end(loop_id)
         self._last_access[loop_id] = time.time()
 
         # Trigger TTS synthesis for live voice sessions (fire-and-forget)
@@ -306,6 +315,8 @@ class DebateStateCache:
         """Update round count."""
         if loop_id in self.debate_states:
             self.debate_states[loop_id]["rounds"] = event.round
+            # Move to end for LRU (most recently accessed)
+            self.debate_states.move_to_end(loop_id)
             self._last_access[loop_id] = time.time()
 
     def _handle_consensus(self, loop_id: str, event: StreamEvent) -> None:
@@ -317,6 +328,8 @@ class DebateStateCache:
         state["consensus_reached"] = event.data.get("reached", False)
         state["consensus_confidence"] = event.data.get("confidence", 0.0)
         state["consensus_answer"] = event.data.get("answer", "")
+        # Move to end for LRU (most recently accessed)
+        self.debate_states.move_to_end(loop_id)
         self._last_access[loop_id] = time.time()
 
     def _handle_debate_end(self, loop_id: str, event: StreamEvent) -> None:
@@ -325,6 +338,8 @@ class DebateStateCache:
             state = self.debate_states[loop_id]
             state["ended"] = True
             state["duration"] = event.data.get("duration", 0.0)
+            # Move to end for LRU (most recently accessed)
+            self.debate_states.move_to_end(loop_id)
             self._last_access[loop_id] = time.time()
 
     def _handle_loop_unregister(self, loop_id: str) -> None:
@@ -333,11 +348,20 @@ class DebateStateCache:
         self._last_access.pop(loop_id, None)
 
     def get_state(self, loop_id: str) -> dict | None:
-        """Get cached state for a debate."""
+        """Get cached state for a debate.
+
+        Returns a copy with messages converted from deque to list
+        for JSON serialization compatibility.
+        """
         with self._lock:
             if loop_id in self.debate_states:
+                # Move to end for LRU (most recently accessed)
+                self.debate_states.move_to_end(loop_id)
                 self._last_access[loop_id] = time.time()
-                return self.debate_states[loop_id].copy()
+                state = self.debate_states[loop_id].copy()
+                # Convert deque to list for JSON serialization
+                state["messages"] = list(state["messages"])
+                return state
         return None
 
     def cleanup_stale(self) -> int:
@@ -381,13 +405,16 @@ class LoopRegistry:
     Provides registration, unregistration, and state updates for loops
     with TTL-based cleanup of stale entries.
 
+    Uses OrderedDict for O(1) LRU eviction instead of O(n) min() scan.
+
     Thread-safe for concurrent access.
     """
 
     def __init__(self, config: BroadcasterConfig | None = None):
         self.config = config or BroadcasterConfig()
 
-        self.active_loops: dict[str, LoopInstance] = {}
+        # OrderedDict maintains insertion/access order for O(1) LRU eviction
+        self.active_loops: OrderedDict[str, LoopInstance] = OrderedDict()
         self._lock = threading.Lock()
         self._last_access: dict[str, float] = {}
 
@@ -410,12 +437,10 @@ class LoopRegistry:
         )
 
         with self._lock:
-            # LRU eviction if at capacity
+            # LRU eviction if at capacity - O(1) using OrderedDict.popitem(last=False)
             if len(self.active_loops) >= self.config.max_active_loops:
-                oldest = min(self._last_access, key=self._last_access.get, default=None)
-                if oldest:
-                    self.active_loops.pop(oldest, None)
-                    self._last_access.pop(oldest, None)
+                oldest_id, _ = self.active_loops.popitem(last=False)
+                self._last_access.pop(oldest_id, None)
 
             self.active_loops[loop_id] = instance
             self._last_access[loop_id] = time.time()
@@ -450,6 +475,8 @@ class LoopRegistry:
                 self.active_loops[loop_id].cycle = cycle
             if phase is not None:
                 self.active_loops[loop_id].phase = phase
+            # Move to end for LRU (most recently accessed)
+            self.active_loops.move_to_end(loop_id)
             self._last_access[loop_id] = time.time()
         return True
 
@@ -472,6 +499,8 @@ class LoopRegistry:
         """Get a specific loop instance."""
         with self._lock:
             if loop_id in self.active_loops:
+                # Move to end for LRU (most recently accessed)
+                self.active_loops.move_to_end(loop_id)
                 self._last_access[loop_id] = time.time()
                 return self.active_loops[loop_id]
         return None
@@ -718,9 +747,6 @@ class WebSocketBroadcaster:
     def cleanup(self) -> None:
         """Clean up all resources across all components."""
         self._running = False
-        # Unsubscribe from emitter to prevent memory leaks
-        if hasattr(self, "_state_update_handler"):
-            self._emitter.unsubscribe(self._state_update_handler)
         self.client_manager.cleanup()
         self.debate_state_cache.cleanup()
         self.loop_registry.cleanup()

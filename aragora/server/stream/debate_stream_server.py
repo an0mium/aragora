@@ -21,6 +21,7 @@ import os
 import secrets
 import threading
 import time
+from collections import deque
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
@@ -372,7 +373,8 @@ class DebateStreamServer(ServerBase):
                     "id": loop_id,
                     "task": event.data.get("task", ""),
                     "agents": event.data.get("agents", []),
-                    "messages": [],
+                    # Use deque with maxlen for O(1) automatic eviction of oldest entries
+                    "messages": deque(maxlen=1000),
                     "consensus_reached": False,
                     "consensus_confidence": 0.0,
                     "consensus_answer": "",
@@ -385,6 +387,7 @@ class DebateStreamServer(ServerBase):
             elif event.type == StreamEventType.AGENT_MESSAGE:
                 if loop_id in self.debate_states:
                     state = self.debate_states[loop_id]
+                    # deque with maxlen provides O(1) append with automatic eviction
                     state["messages"].append(
                         {
                             "agent": event.agent,
@@ -393,9 +396,6 @@ class DebateStreamServer(ServerBase):
                             "content": event.data.get("content", ""),
                         }
                     )
-                    # Cap at last 1000 messages to allow full debate history without truncation
-                    if len(state["messages"]) > 1000:
-                        state["messages"] = state["messages"][-1000:]
                     self._debate_states_last_access[loop_id] = time.time()
             elif event.type == StreamEventType.CONSENSUS:
                 if loop_id in self.debate_states:
@@ -845,9 +845,13 @@ class DebateStreamServer(ServerBase):
             websocket: The WebSocket connection
             debate_id: The debate ID to send state for
         """
-        # Get state under lock
+        # Get state under lock and convert deque to list for JSON serialization
         with self._debate_states_lock:
             state = self.debate_states.get(debate_id)
+            if state:
+                # Create a copy with messages converted from deque to list
+                state = state.copy()
+                state["messages"] = list(state["messages"])
 
         if state:
             await websocket.send(
