@@ -467,7 +467,8 @@ class SupabaseClient:
             return None
 
         try:
-            assert self.client is not None  # Guaranteed by is_configured check
+            if self.client is None:
+                raise RuntimeError("Supabase client not initialized - call configure() first")
             channel = self.client.channel(f"events:{loop_id}")  # type: ignore[attr-defined]
 
             def handle_insert(payload):

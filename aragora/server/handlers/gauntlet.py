@@ -1036,6 +1036,7 @@ class GauntletHandler(BaseHandler):
         summary="Get decision receipt",
         description="Get the cryptographic decision receipt for a completed gauntlet run.",
         tags=["Gauntlet", "Receipts"],
+        operation_id="get_gauntlet_receipt",
         parameters=[
             {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}},
             {

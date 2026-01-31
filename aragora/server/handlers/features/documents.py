@@ -109,7 +109,7 @@ class DocumentHandler(BaseHandler):
         return False
 
     @require_permission("documents:read")
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET document requests to appropriate methods."""
         if path == "/api/v1/documents":
             return self._list_documents()
@@ -127,7 +127,9 @@ class DocumentHandler(BaseHandler):
         return None
 
     @require_permission("documents:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST document requests to appropriate methods."""
         if path == "/api/v1/documents/upload":
             # Extract knowledge processing options from query params
@@ -147,7 +149,9 @@ class DocumentHandler(BaseHandler):
         return None
 
     @require_permission("documents:delete")
-    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route DELETE document requests to appropriate methods."""
         if path.startswith("/api/v1/documents/") and not path.endswith("/upload"):
             # Extract doc_id from /api/documents/{doc_id}
@@ -182,7 +186,7 @@ class DocumentHandler(BaseHandler):
             logger.error(f"Error deleting document {doc_id}: {e}")
             return error_response(safe_error_message(e, "delete document"), 500)
 
-    def get_document_store(self):
+    def get_document_store(self) -> Any:
         """Get document store instance."""
         return self.ctx.get("document_store")
 
@@ -229,7 +233,7 @@ class DocumentHandler(BaseHandler):
         except Exception as e:
             return error_response(safe_error_message(e, "get document"), 500)
 
-    def _check_upload_rate_limit(self, handler) -> HandlerResult | None:
+    def _check_upload_rate_limit(self, handler: Any) -> HandlerResult | None:
         """Check IP-based upload rate limit.
 
         Returns error response if rate limited, None if allowed.
@@ -286,7 +290,7 @@ class DocumentHandler(BaseHandler):
 
         return None
 
-    def _get_client_ip(self, handler) -> str:
+    def _get_client_ip(self, handler: Any) -> str:
         """Get client IP address, respecting trusted proxy headers."""
         remote_ip = handler.client_address[0] if hasattr(handler, "client_address") else "unknown"
         # For simplicity, just return remote IP (full proxy handling is in unified_server)
@@ -296,8 +300,8 @@ class DocumentHandler(BaseHandler):
     @handle_errors("document upload")
     def _upload_document(
         self,
-        handler,
-        user=None,
+        handler: Any,
+        user: Any = None,
         process_knowledge: bool = True,
         workspace_id: str = "default",
     ) -> HandlerResult:
@@ -476,7 +480,7 @@ class DocumentHandler(BaseHandler):
             ).to_response(500)
 
     def _parse_upload_with_error(
-        self, handler, content_type: str, content_length: int
+        self, handler: Any, content_type: str, content_length: int
     ) -> tuple[bytes | None, str | None, UploadError | None]:
         """Parse file content and filename from upload request with detailed errors.
 
@@ -490,7 +494,7 @@ class DocumentHandler(BaseHandler):
             return self._parse_raw_upload_with_error(handler, content_length)
 
     def _parse_upload(
-        self, handler, content_type: str, content_length: int
+        self, handler: Any, content_type: str, content_length: int
     ) -> tuple[bytes | None, str | None]:
         """Parse file content and filename from upload request.
 
@@ -507,7 +511,7 @@ class DocumentHandler(BaseHandler):
             return content, filename
 
     def _parse_multipart_with_error(
-        self, handler, content_type: str, content_length: int
+        self, handler: Any, content_type: str, content_length: int
     ) -> tuple[bytes | None, str | None, UploadError | None]:
         """Parse multipart form data upload with detailed errors."""
         # Parse boundary
@@ -630,7 +634,7 @@ class DocumentHandler(BaseHandler):
         )
 
     def _parse_multipart(
-        self, handler, content_type: str, content_length: int
+        self, handler: Any, content_type: str, content_length: int
     ) -> tuple[bytes | None, str | None]:
         """Parse multipart form data upload (legacy)."""
         content, filename, _ = self._parse_multipart_with_error(
@@ -639,7 +643,7 @@ class DocumentHandler(BaseHandler):
         return content, filename
 
     def _parse_raw_upload_with_error(
-        self, handler, content_length: int
+        self, handler: Any, content_length: int
     ) -> tuple[bytes | None, str | None, UploadError | None]:
         """Parse raw file upload with X-Filename header (with detailed errors)."""
         raw_filename = handler.headers.get("X-Filename", "document.txt")
@@ -687,7 +691,9 @@ class DocumentHandler(BaseHandler):
 
         return file_content, filename, None
 
-    def _parse_raw_upload(self, handler, content_length: int) -> tuple[bytes | None, str | None]:
+    def _parse_raw_upload(
+        self, handler: Any, content_length: int
+    ) -> tuple[bytes | None, str | None]:
         """Parse raw file upload with X-Filename header (legacy)."""
         content, filename, _ = self._parse_raw_upload_with_error(handler, content_length)
         return content, filename

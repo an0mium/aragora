@@ -210,8 +210,11 @@ class ValidationHandlersMixin:
 
             import asyncio
 
-            # Type assertion for the mound after null check
-            assert mound is not None  # Verified above with `if not mound: return`
+            # Type check for the mound after null check
+            if mound is None:
+                raise RuntimeError(
+                    "KnowledgeMound not initialized - verified above with `if not mound: return`"
+                )
 
             async def ingest_consensus_with_enhancements(
                 km: "KnowledgeMound",

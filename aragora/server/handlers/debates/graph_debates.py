@@ -142,6 +142,7 @@ class GraphDebatesHandler(SecureHandler):
         summary="Create graph debate",
         description="Run a new graph-structured debate with automatic branching on disagreement.",
         tags=["Debates", "Graph Debates"],
+        operation_id="create_graph_debate",
         responses={
             "200": {"description": "Graph debate created and executed"},
             "400": {"description": "Invalid request body"},

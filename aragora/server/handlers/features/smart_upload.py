@@ -913,6 +913,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return None
 
+        @require_permission("upload:create")
         async def handle_post(
             self,
             path: str,

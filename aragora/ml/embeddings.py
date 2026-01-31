@@ -129,10 +129,12 @@ class LocalEmbeddingService:
         """Get embedding dimension (lazy loaded)."""
         if self._dimension is None:
             self._ensure_model_loaded()
-            assert self._model is not None  # Guaranteed by _ensure_model_loaded
+            if self._model is None:
+                raise RuntimeError("Model not initialized - _ensure_model_loaded() failed")
             dim = self._model.get_sentence_embedding_dimension()
             # get_sentence_embedding_dimension can return None, but standard models always have a dimension
-            assert dim is not None, f"Model {self.model_name} returned None for embedding dimension"
+            if dim is None:
+                raise RuntimeError(f"Model {self.model_name} returned None for embedding dimension")
             self._dimension = dim
         return self._dimension
 
@@ -163,7 +165,8 @@ class LocalEmbeddingService:
             Embedding vector as list of floats
         """
         self._ensure_model_loaded()
-        assert self._model is not None  # Guaranteed by _ensure_model_loaded
+        if self._model is None:
+            raise RuntimeError("Model not initialized - _ensure_model_loaded() failed")
         embedding = self._model.encode(
             text,
             normalize_embeddings=self.config.normalize,
@@ -185,7 +188,8 @@ class LocalEmbeddingService:
             return []
 
         self._ensure_model_loaded()
-        assert self._model is not None  # Guaranteed by _ensure_model_loaded
+        if self._model is None:
+            raise RuntimeError("Model not initialized - _ensure_model_loaded() failed")
         embeddings = self._model.encode(
             list(texts),
             normalize_embeddings=self.config.normalize,

@@ -321,6 +321,95 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         except Exception as e:
             logger.debug(f"Failed to record metric: {e}")
 
+    # SemanticSearchMixin required methods
+
+    def _get_record_by_id(self, record_id: str) -> Any | None:
+        """Get a belief or crux record by ID (required by SemanticSearchMixin).
+
+        Searches beliefs first, then cruxes, then provenance chains.
+        Handles prefixed IDs (bl_, cx_, pv_) from the SemanticStore.
+
+        Args:
+            record_id: The record identifier, possibly prefixed.
+
+        Returns:
+            The record dict, or None if not found.
+        """
+        # Try beliefs with and without prefix
+        if record_id.startswith(self.BELIEF_PREFIX):
+            belief = self._beliefs.get(record_id)
+            if belief is not None:
+                return belief
+            return self._beliefs.get(record_id[len(self.BELIEF_PREFIX) :])
+
+        # Try cruxes with and without prefix
+        if record_id.startswith(self.CRUX_PREFIX):
+            crux = self._cruxes.get(record_id)
+            if crux is not None:
+                return crux
+            return self._cruxes.get(record_id[len(self.CRUX_PREFIX) :])
+
+        # Try provenance with and without prefix
+        if record_id.startswith(self.PROVENANCE_PREFIX):
+            prov = self._provenance.get(record_id)
+            if prov is not None:
+                return prov
+            return self._provenance.get(record_id[len(self.PROVENANCE_PREFIX) :])
+
+        # No prefix: try all storage dicts with prefixed and raw IDs
+        for prefix, storage in [
+            (self.BELIEF_PREFIX, self._beliefs),
+            (self.CRUX_PREFIX, self._cruxes),
+            (self.PROVENANCE_PREFIX, self._provenance),
+        ]:
+            if record_id in storage:
+                return storage[record_id]
+            prefixed = f"{prefix}{record_id}"
+            if prefixed in storage:
+                return storage[prefixed]
+
+        return None
+
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> dict[str, Any]:
+        """Convert a belief/crux/provenance record to dict (required by SemanticSearchMixin).
+
+        Handles dict records from the in-memory stores. Adds a similarity
+        score for semantic search ranking.
+
+        Args:
+            record: The record (typically a dict from _beliefs, _cruxes, or _provenance).
+            similarity: Similarity score from the semantic search.
+
+        Returns:
+            Dictionary representation with similarity score.
+        """
+        if isinstance(record, dict):
+            result = dict(record)
+            result["similarity"] = similarity
+            return result
+        # Fallback for non-dict records (e.g., dataclass objects)
+        return {
+            "id": getattr(record, "id", getattr(record, "node_id", None)),
+            "content": getattr(record, "claim_statement", getattr(record, "statement", "")),
+            "confidence": getattr(record, "confidence", 0.0),
+            "similarity": similarity,
+            "metadata": getattr(record, "metadata", {}),
+        }
+
+    def _extract_record_id(self, source_id: str) -> str:
+        """Extract record ID from prefixed source ID (override for SemanticSearchMixin).
+
+        Args:
+            source_id: The source ID from SemanticStore, possibly prefixed.
+
+        Returns:
+            The actual record ID for lookup.
+        """
+        for prefix in (self.BELIEF_PREFIX, self.CRUX_PREFIX, self.PROVENANCE_PREFIX):
+            if source_id.startswith(prefix):
+                return source_id[len(prefix) :]
+        return source_id
+
     @property
     def network(self) -> Optional["BeliefNetwork"]:
         """Access the underlying BeliefNetwork."""

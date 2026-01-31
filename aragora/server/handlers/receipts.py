@@ -374,6 +374,7 @@ class ReceiptsHandler(BaseHandler):
         summary="Get receipt",
         description="Get a specific receipt by ID or gauntlet ID.",
         tags=["Receipts"],
+        operation_id="get_receipt_by_id",
         parameters=[
             {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}}
         ],

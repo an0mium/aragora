@@ -677,7 +677,8 @@ class ChainExecutor:
         retries = 0
         # Get deliberation manager (guaranteed non-None by caller check)
         deliberation_manager = self._deliberation_manager
-        assert deliberation_manager is not None  # Checked by execute() method
+        if deliberation_manager is None:
+            raise RuntimeError("Deliberation manager not initialized - call initialize() first")
         while retries <= stage.retry_count:
             try:
                 # Submit deliberation through the manager

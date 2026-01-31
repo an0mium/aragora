@@ -48,6 +48,7 @@ class DocumentQueryHandler(BaseHandler):
         """Handle GET requests - not supported for query endpoints."""
         return error_response("Use POST method for document queries", 405)
 
+    @require_permission("documents:read")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/documents/query":

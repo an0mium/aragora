@@ -264,7 +264,8 @@ class OpenAIWhisperBackend(TranscriptionBackend):
 
             api_key = self.config.openai_api_key or os.getenv("OPENAI_API_KEY")
             self._client = openai.AsyncOpenAI(api_key=api_key)
-        assert self._client is not None  # Help type checker
+        if self._client is None:
+            raise RuntimeError("OpenAI client not initialized - client creation failed")
         return self._client
 
     async def transcribe(

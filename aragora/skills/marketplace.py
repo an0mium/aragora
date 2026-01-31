@@ -466,7 +466,8 @@ class SkillMarketplace:
         logger.info(f"Published skill: {skill_id} v{manifest.version}")
 
         listing = await self.get_skill(skill_id)
-        assert listing is not None, f"Skill {skill_id} not found after publish"
+        if listing is None:
+            raise RuntimeError(f"Skill {skill_id} not found after publish")
         return listing
 
     async def unpublish(self, skill_id: str, author_id: str) -> bool:

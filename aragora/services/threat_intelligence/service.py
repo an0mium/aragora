@@ -1297,7 +1297,10 @@ class ThreatIntelligenceService:
                         continue
 
                     # At this point, result is dict[str, Any] (not Exception, not None)
-                    assert isinstance(result, dict)
+                    if not isinstance(result, dict):
+                        raise TypeError(
+                            f"Expected dict from threat source, got {type(result).__name__}"
+                        )
                     source_results[source_name] = self._parse_source_result(
                         source_name, result, threat_types_found
                     )

@@ -86,7 +86,7 @@ _verification_history: OrderedDict[str, VerificationHistoryEntry] = OrderedDict(
 _governance_store = None
 
 
-def _get_governance_store():
+def _get_governance_store() -> Any:
     """Get or create governance store for persistence."""
     global _governance_store
     if _governance_store is None:
@@ -154,7 +154,7 @@ def _add_to_history(
     return entry_id
 
 
-def _cleanup_old_history():
+def _cleanup_old_history() -> None:
     """Remove entries older than TTL."""
     cutoff = time.time() - HISTORY_TTL_SECONDS
     to_remove = [k for k, v in _verification_history.items() if v.timestamp < cutoff]
@@ -226,7 +226,7 @@ def _build_proof_tree(result: dict) -> list | None:
     return nodes
 
 
-def _init_verification():
+def _init_verification() -> dict[str, Any]:
     """Deferred import to avoid circular dependencies."""
     from aragora.verification.formal import (
         FormalLanguage,
@@ -297,7 +297,7 @@ class FormalVerificationHandler(BaseHandler):
             logger.warning(f"Auth check failed for verification: {e}")
             return error_response("Authentication required", 401)
 
-    def _get_manager(self):
+    def _get_manager(self) -> Any:
         """Get or create the formal verification manager."""
         if self._manager is None:
             mods = _init_verification()
@@ -314,7 +314,7 @@ class FormalVerificationHandler(BaseHandler):
 
     async def handle_async(
         self,
-        handler,
+        handler: Any,
         method: str,
         path: str,
         body: bytes | None = None,
@@ -350,7 +350,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification claim")
     @rate_limit(requests_per_minute=30)
-    async def _handle_verify_claim(self, handler, body: bytes | None) -> HandlerResult:
+    async def _handle_verify_claim(self, handler: Any, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/claim - Verify a single claim.
 
@@ -417,7 +417,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification batch")
     @rate_limit(requests_per_minute=10)
-    async def _handle_verify_batch(self, handler, body: bytes | None) -> HandlerResult:
+    async def _handle_verify_batch(self, handler: Any, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/batch - Batch verification of multiple claims.
 
@@ -468,7 +468,7 @@ class FormalVerificationHandler(BaseHandler):
 
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def verify_one(claim_info: dict):
+        async def verify_one(claim_info: dict) -> Any:
             async with semaphore:
                 claim = claim_info.get("claim", "").strip()
                 if not claim:
@@ -512,7 +512,7 @@ class FormalVerificationHandler(BaseHandler):
         return json_response({"results": processed, "summary": summary})
 
     @handle_errors("formal verification status")
-    def _handle_verify_status(self, handler) -> HandlerResult:
+    def _handle_verify_status(self, handler: Any) -> HandlerResult:
         """
         GET /api/verify/status - Get backend availability status.
 
@@ -542,7 +542,7 @@ class FormalVerificationHandler(BaseHandler):
 
     @handle_errors("formal verification translate")
     @rate_limit(requests_per_minute=30)
-    async def _handle_translate(self, handler, body: bytes | None) -> HandlerResult:
+    async def _handle_translate(self, handler: Any, body: bytes | None) -> HandlerResult:
         """
         POST /api/verify/translate - Translate claim to formal language only.
 

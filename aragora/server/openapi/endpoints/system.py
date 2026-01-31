@@ -36,7 +36,19 @@ SYSTEM_ENDPOINTS = {
 - Observer metrics
 - Recent error counts""",
             "operationId": "getDetailedHealth",
-            "responses": {"200": _ok_response("Detailed health information")},
+            "responses": {
+                "200": _ok_response(
+                    "Detailed health information",
+                    {
+                        "status": {"type": "string"},
+                        "components": {"type": "object"},
+                        "uptime_seconds": {"type": "number"},
+                        "memory_usage_mb": {"type": "number"},
+                        "active_connections": {"type": "integer"},
+                        "error_count": {"type": "integer"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },

@@ -376,7 +376,9 @@ class OrganizationsHandler(SecureHandler):
 
         return json_response({"success": True})
 
-    def _check_org_access(self, user, org_id: str, min_role: str = "member") -> tuple[bool, str]:
+    def _check_org_access(
+        self, user: Any, org_id: str, min_role: str = "member"
+    ) -> tuple[bool, str]:
         """Check if user has access to organization with minimum role."""
         if not user:
             return False, "Authentication required"

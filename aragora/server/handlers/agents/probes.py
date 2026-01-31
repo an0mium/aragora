@@ -12,6 +12,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
+from typing import Any
 
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.rbac.decorators import require_permission
@@ -47,7 +48,7 @@ _agent_imports, AGENT_AVAILABLE = try_import("aragora.agents.base", "create_agen
 create_agent = _agent_imports.get("create_agent")
 
 
-def _safe_int(value, default: int = 0) -> int:
+def _safe_int(value: Any, default: int = 0) -> int:
     """Safely convert value to int, returning default on failure."""
     try:
         return int(value)
@@ -74,7 +75,9 @@ class ProbesHandler(BaseHandler):
         return False
 
     @require_permission("probes:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route GET requests."""
         if path == "/api/v1/probes/reports":
             return self._list_probe_reports(handler, query_params)
@@ -83,7 +86,9 @@ class ProbesHandler(BaseHandler):
             return self._get_probe_report(handler, report_id)
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/probes/capability":
             return self._run_capability_probe(handler)
@@ -97,14 +102,14 @@ class ProbesHandler(BaseHandler):
         sunset_date="2026-06-01",
         message="Legacy /api/probes/run endpoint used",
     )
-    def _run_capability_probe_legacy(self, handler) -> HandlerResult:
+    def _run_capability_probe_legacy(self, handler: Any) -> HandlerResult:
         """Legacy endpoint for capability probes. Use /api/probes/capability instead."""
         return self._run_capability_probe(handler)
 
     @require_user_auth
     @rate_limit(requests_per_minute=10, burst=3, limiter_name="capability_probe")
     @handle_errors("capability probe")
-    def _run_capability_probe(self, handler, user=None) -> HandlerResult:
+    def _run_capability_probe(self, handler: Any, user: Any = None) -> HandlerResult:
         """Run capability probes on an agent to find vulnerabilities.
 
         POST body:

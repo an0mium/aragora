@@ -543,7 +543,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             from aragora.billing.jwt_auth import extract_user_from_request
 
             # Extract handler from kwargs or args
@@ -694,7 +694,7 @@ def api_endpoint(
     return decorator
 
 
-def rate_limit(*args, **kwargs) -> Callable[[Callable], Callable]:
+def rate_limit(*args: Any, **kwargs: Any) -> Callable[[Callable], Callable]:
     """Async-friendly wrapper around middleware rate limiting."""
     from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
 
@@ -705,7 +705,7 @@ def rate_limit(*args, **kwargs) -> Callable[[Callable], Callable]:
         if inspect.iscoroutinefunction(func):
 
             @wraps(func)
-            async def async_wrapper(*wrapper_args, **wrapper_kwargs):
+            async def async_wrapper(*wrapper_args: Any, **wrapper_kwargs: Any) -> Any:
                 result = decorated(*wrapper_args, **wrapper_kwargs)
                 if inspect.isawaitable(result):
                     return await result
@@ -724,7 +724,7 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
         if inspect.iscoroutinefunction(func):
 
             @wraps(func)
-            async def async_wrapper(self, request, *args, **kwargs):
+            async def async_wrapper(self: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
                 try:
                     body = await request.json()
                 except (json.JSONDecodeError, ValueError, TypeError) as e:
@@ -745,7 +745,7 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
             return async_wrapper
 
         @wraps(func)
-        def sync_wrapper(self, request, *args, **kwargs):
+        def sync_wrapper(self: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
             try:
                 body = request.json() if callable(getattr(request, "json", None)) else None
             except (json.JSONDecodeError, ValueError, TypeError) as e:
@@ -935,7 +935,7 @@ class AuthenticatedHandlerMixin:
                 return json_response({"user_id": user.user_id})
     """
 
-    def require_auth(self, handler) -> Any:
+    def require_auth(self, handler: Any) -> Any:
         """Require authentication and return user context or error.
 
         Args:
@@ -1395,7 +1395,7 @@ class BaseHandler:
     # Maximum request body size (10MB default)
     MAX_BODY_SIZE = 10 * 1024 * 1024
 
-    def read_json_body(self, handler, max_size: int = None) -> dict | None:
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict | None:
         """Read and parse JSON body from request handler.
 
         Args:
@@ -1417,7 +1417,7 @@ class BaseHandler:
         except (json.JSONDecodeError, ValueError):
             return None
 
-    def validate_content_length(self, handler, max_size: int = None) -> int | None:
+    def validate_content_length(self, handler: Any, max_size: int | None = None) -> int | None:
         """Validate Content-Length header.
 
         Args:
@@ -1438,7 +1438,7 @@ class BaseHandler:
 
         return content_length
 
-    def validate_json_content_type(self, handler) -> HandlerResult | None:
+    def validate_json_content_type(self, handler: Any) -> HandlerResult | None:
         """Validate that Content-Type is application/json for JSON endpoints.
 
         Args:
@@ -1469,7 +1469,7 @@ class BaseHandler:
         return None
 
     def read_json_body_validated(
-        self, handler, max_size: int = None
+        self, handler: Any, max_size: int | None = None
     ) -> tuple[dict | None, HandlerResult | None]:
         """Read and parse JSON body with Content-Type validation.
 

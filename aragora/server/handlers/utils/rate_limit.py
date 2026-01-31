@@ -334,7 +334,7 @@ def rate_limit(
 
             return "unknown"
 
-        def _check_rate_limit(key: str):
+        def _check_rate_limit(key: str) -> Any:
             """Check rate limit and return error response if exceeded."""
             if not limiter.is_allowed(key):
                 from aragora.server.handlers.base import error_response
@@ -355,7 +355,7 @@ def rate_limit(
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
-            async def async_wrapper(self, *args, **kwargs):
+            async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
                 key = _get_key_from_args(args, kwargs)
                 error = _check_rate_limit(key)
                 if error:
@@ -366,7 +366,7 @@ def rate_limit(
         else:
 
             @wraps(func)
-            def sync_wrapper(self, *args, **kwargs):
+            def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
                 key = _get_key_from_args(args, kwargs)
                 error = _check_rate_limit(key)
                 if error:
@@ -417,7 +417,7 @@ def auth_rate_limit(
         limiter = _get_limiter(name, effective_rpm)
         display_name = endpoint_name or func.__qualname__
 
-        def _get_key_from_args(args, kwargs) -> str:
+        def _get_key_from_args(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
             """Extract rate limit key from function arguments."""
             if key_func:
                 if args and hasattr(args[0], "headers"):
@@ -468,7 +468,7 @@ def auth_rate_limit(
             except Exception as e:
                 logger.debug(f"Failed to log security audit event: {e}")
 
-        def _check_rate_limit(key: str):
+        def _check_rate_limit(key: str) -> Any:
             """Check rate limit and return error response if exceeded."""
             if not limiter.is_allowed(key):
                 from aragora.server.handlers.base import error_response
@@ -495,7 +495,7 @@ def auth_rate_limit(
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 key = _get_key_from_args(args, kwargs)
                 error = _check_rate_limit(key)
                 if error:
@@ -506,7 +506,7 @@ def auth_rate_limit(
         else:
 
             @wraps(func)
-            def sync_wrapper(*args, **kwargs):
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 key = _get_key_from_args(args, kwargs)
                 error = _check_rate_limit(key)
                 if error:

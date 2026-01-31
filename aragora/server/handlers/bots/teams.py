@@ -73,6 +73,11 @@ if not TEAMS_APP_PASSWORD:
 _active_debates: dict[str, dict[str, Any]] = {}
 _user_votes: dict[str, dict[str, str]] = {}  # debate_id -> {user_id: vote}
 
+# Conversation reference store for proactive messaging.
+# Maps conversation_id -> conversation reference dict needed to send
+# proactive messages later (service_url, conversation, bot identity, tenant info).
+_conversation_references: dict[str, dict[str, Any]] = {}
+
 # Agent display names for UI
 AGENT_DISPLAY_NAMES: dict[str, str] = {
     "claude": "Claude",
@@ -90,6 +95,45 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
 # Command pattern for parsing @mentions
 # Matches: @BotName command arguments
 MENTION_PATTERN = re.compile(r"<at>.*?</at>\s*", re.IGNORECASE)
+
+# Maximum length for card text fields to prevent API errors
+MAX_CARD_TEXT_LENGTH = 500
+MAX_TOPIC_DISPLAY_LENGTH = 200
+
+
+def _store_conversation_reference(activity: dict[str, Any]) -> None:
+    """Store conversation reference from an activity for proactive messaging.
+
+    The conversation reference contains everything needed to send a proactive
+    message later (service URL, conversation ID, bot identity, tenant info).
+
+    Args:
+        activity: Bot Framework activity payload.
+    """
+    conversation = activity.get("conversation", {})
+    conversation_id = conversation.get("id", "")
+    if not conversation_id:
+        return
+
+    _conversation_references[conversation_id] = {
+        "service_url": activity.get("serviceUrl", ""),
+        "conversation": conversation,
+        "bot": activity.get("recipient", {}),
+        "tenant_id": conversation.get("tenantId", ""),
+        "channel_data": activity.get("channelData", {}),
+    }
+
+
+def get_conversation_reference(conversation_id: str) -> dict[str, Any] | None:
+    """Get stored conversation reference for proactive messaging.
+
+    Args:
+        conversation_id: The conversation ID to look up.
+
+    Returns:
+        Conversation reference dict or None if not found.
+    """
+    return _conversation_references.get(conversation_id)
 
 
 def _check_botframework_available() -> tuple[bool, str | None]:

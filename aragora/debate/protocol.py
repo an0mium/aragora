@@ -185,11 +185,9 @@ class DebateProtocol:
 
     # Early stopping: End debate when agents agree further rounds won't help
     # Based on ai-counsel pattern - can save 40-70% API costs
-    # Set to near-impossible thresholds to ensure full 9-round debates
+    # Default 0.85 = high bar but achievable; ARAGORA_AI_PROTOCOL overrides to 0.95
     early_stopping: bool = True
-    early_stop_threshold: float = (
-        0.95  # fraction of agents saying stop to trigger (near-impossible)
-    )
+    early_stop_threshold: float = 0.85  # fraction of agents saying stop to trigger
     min_rounds_before_early_stop: int = (
         DEFAULT_MIN_ROUNDS_BEFORE_EARLY_STOP  # minimum rounds before allowing early exit
     )
@@ -203,7 +201,7 @@ class DebateProtocol:
     # Auto-detect consensus without explicit voting
     convergence_detection: bool = True
     convergence_threshold: float = (
-        0.95  # Similarity for convergence (high bar to prevent premature consensus)
+        0.85  # Similarity for convergence (matches ConvergenceDetector default)
     )
     divergence_threshold: float = 0.40  # Below this is diverging
 

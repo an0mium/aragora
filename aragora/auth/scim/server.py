@@ -383,13 +383,13 @@ class SCIMServer:
         self._router = None
 
     @property
-    def router(self):
+    def router(self) -> Any:
         """Get the FastAPI router for SCIM endpoints."""
         if self._router is None:
             self._router = self._create_router()
         return self._router
 
-    def _create_router(self):
+    def _create_router(self) -> Any:
         """Create FastAPI router with SCIM endpoints."""
         try:
             from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -448,7 +448,7 @@ class SCIMServer:
             count: int = Query(100, ge=1, le=1000),
             filter: str = Query(None),
             _: None = Depends(verify_bearer_token),
-        ):
+        ) -> JSONResponse:
             result = await self.list_users(startIndex, count, filter)
             return JSONResponse(content=result, media_type="application/scim+json")
 
@@ -456,7 +456,7 @@ class SCIMServer:
         async def create_user(
             request: Request,
             _: None = Depends(verify_bearer_token),
-        ):
+        ) -> JSONResponse:
             body, err = await parse_json_body(request)
             if err:
                 return err
@@ -469,7 +469,7 @@ class SCIMServer:
         async def get_user(
             user_id: str,
             _: None = Depends(verify_bearer_token),
-        ):
+        ) -> JSONResponse:
             result, status = await self.get_user(user_id)
             return JSONResponse(
                 content=result, status_code=status, media_type="application/scim+json"
@@ -480,7 +480,7 @@ class SCIMServer:
             user_id: str,
             request: Request,
             _: None = Depends(verify_bearer_token),
-        ):
+        ) -> JSONResponse:
             body, err = await parse_json_body(request)
             if err:
                 return err
@@ -494,7 +494,7 @@ class SCIMServer:
             user_id: str,
             request: Request,
             _: None = Depends(verify_bearer_token),
-        ):
+        ) -> JSONResponse:
             body, err = await parse_json_body(request)
             if err:
                 return err
@@ -507,7 +507,7 @@ class SCIMServer:
         async def delete_user(
             user_id: str,
             _: None = Depends(verify_bearer_token),
-        ):
+        ) -> JSONResponse:
             result, status = await self.delete_user(user_id)
             if status == 204:
                 return JSONResponse(content=None, status_code=204)
@@ -524,7 +524,7 @@ class SCIMServer:
                 count: int = Query(100, ge=1, le=1000),
                 filter: str = Query(None),
                 _: None = Depends(verify_bearer_token),
-            ):
+            ) -> JSONResponse:
                 result = await self.list_groups(startIndex, count, filter)
                 return JSONResponse(content=result, media_type="application/scim+json")
 
@@ -532,7 +532,7 @@ class SCIMServer:
             async def create_group(
                 request: Request,
                 _: None = Depends(verify_bearer_token),
-            ):
+            ) -> JSONResponse:
                 body, err = await parse_json_body(request)
                 if err:
                     return err
@@ -545,7 +545,7 @@ class SCIMServer:
             async def get_group(
                 group_id: str,
                 _: None = Depends(verify_bearer_token),
-            ):
+            ) -> JSONResponse:
                 result, status = await self.get_group(group_id)
                 return JSONResponse(
                     content=result, status_code=status, media_type="application/scim+json"
@@ -556,7 +556,7 @@ class SCIMServer:
                 group_id: str,
                 request: Request,
                 _: None = Depends(verify_bearer_token),
-            ):
+            ) -> JSONResponse:
                 body, err = await parse_json_body(request)
                 if err:
                     return err
@@ -570,7 +570,7 @@ class SCIMServer:
                 group_id: str,
                 request: Request,
                 _: None = Depends(verify_bearer_token),
-            ):
+            ) -> JSONResponse:
                 body, err = await parse_json_body(request)
                 if err:
                     return err
@@ -583,7 +583,7 @@ class SCIMServer:
             async def delete_group(
                 group_id: str,
                 _: None = Depends(verify_bearer_token),
-            ):
+            ) -> JSONResponse:
                 result, status = await self.delete_group(group_id)
                 if status == 204:
                     return JSONResponse(content=None, status_code=204)

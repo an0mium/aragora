@@ -779,7 +779,8 @@ class NotificationService:
     def webhook_provider(self) -> WebhookProvider:
         """Get the webhook provider for endpoint management."""
         provider = self.providers[NotificationChannel.WEBHOOK]
-        assert isinstance(provider, WebhookProvider)
+        if not isinstance(provider, WebhookProvider):
+            raise TypeError(f"Expected WebhookProvider, got {type(provider).__name__}")
         return provider
 
     def get_configured_channels(self) -> list[NotificationChannel]:

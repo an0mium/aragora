@@ -1689,19 +1689,16 @@ class TestSchedulerEdgeCases:
     async def test_create_debate_with_empty_result_dict(
         self, scheduler_with_creator, mock_debate_creator, mock_store
     ):
-        """Test debate creation with empty result dict (truthy but no keys)."""
+        """Test debate creation with empty result dict (falsy in Python)."""
         mock_debate_creator.return_value = {}
         topic = _make_topic(topic="Test topic", category="tech", volume=500)
         scored = TopicScore(topic=topic, score=0.8)
 
         await scheduler_with_creator._create_debate(topic, scored)
 
-        # Empty dict is truthy, so it should be treated as a successful result
-        assert scheduler_with_creator.metrics.debates_created == 1
-        record = mock_store.record_scheduled_debate.call_args[0][0]
-        assert record.consensus_reached is False  # default from .get()
-        assert record.confidence == 0.0
-        assert record.rounds_used == 0
+        # Empty dict is falsy in Python, so the code treats it like None
+        assert scheduler_with_creator.metrics.debates_failed == 1
+        assert scheduler_with_creator.metrics.debates_created == 0
 
     @pytest.mark.asyncio
     async def test_record_scheduled_debate_failure_on_create(

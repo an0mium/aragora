@@ -174,6 +174,7 @@ class MatrixDebatesHandler(SecureHandler):
         summary="Create matrix debate",
         description="Run parallel scenario debates to explore a topic under different conditions.",
         tags=["Debates", "Matrix Debates"],
+        operation_id="create_matrix_debate",
         responses={
             "200": {"description": "Matrix debate created and executed"},
             "400": {"description": "Invalid request body"},

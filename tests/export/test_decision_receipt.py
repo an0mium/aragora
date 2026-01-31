@@ -482,6 +482,38 @@ class TestDecisionReceiptEdgeCases:
         assert "quotes" in md
         assert "quotes" in html
 
+    def test_xss_prevention_in_html_export(self):
+        """Verify HTML export escapes XSS payloads in all user-supplied fields."""
+        receipt = DecisionReceipt(
+            receipt_id='<script>alert("id")</script>',
+            gauntlet_id="gauntlet",
+            input_summary="test",
+            input_type="<img src=x onerror=alert(1)>",
+            verdict='<script>alert("verdict")</script>',
+            risk_level="<b onmouseover=alert(1)>HIGH</b>",
+            findings=[
+                ReceiptFinding(
+                    id="xss-test",
+                    severity='<script>alert("sev")</script>',
+                    category="test",
+                    title='<script>alert("title")</script>',
+                    description="<img src=x onerror=alert(1)>",
+                    mitigation='"><script>alert("mit")</script>',
+                )
+            ],
+            agents_involved=["claude", '<script>alert("agent")</script>'],
+        )
+
+        html = receipt.to_html()
+
+        # No raw script tags should appear in the output
+        assert "<script>" not in html
+        # Escaped versions should be present
+        assert "&lt;script&gt;" in html
+        # No event handler injection
+        assert "onerror=" not in html
+        assert "onmouseover=" not in html
+
     def test_unicode_content(self):
         """Test handling of unicode content."""
         receipt = DecisionReceipt(

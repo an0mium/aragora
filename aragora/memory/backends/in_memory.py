@@ -280,7 +280,8 @@ class InMemoryBackend:
 def _verify_protocol() -> None:
     """Verify InMemoryBackend implements MemoryBackend protocol."""
     backend: MemoryBackend = InMemoryBackend()  # Type check
-    assert isinstance(backend, MemoryBackend)
+    if not isinstance(backend, MemoryBackend):
+        raise TypeError(f"Expected MemoryBackend, got {type(backend).__name__}")
 
 
 __all__ = ["InMemoryBackend"]

@@ -637,25 +637,52 @@ class TestGlobalWorkQueuePop:
 
     @pytest.mark.asyncio
     async def test_pop_filter_by_work_type(self, queue: GlobalWorkQueue):
+        """Pop with work_type filter returns matching item when it is highest priority."""
         await queue.initialize()
-        bead = _make_work_item(id="bead", work_type=WorkType.BEAD, base_priority=50)
-        convoy = _make_work_item(id="convoy", work_type=WorkType.CONVOY, base_priority=80)
+        bead = _make_work_item(id="bead", work_type=WorkType.BEAD, base_priority=90)
+        convoy = _make_work_item(id="convoy", work_type=WorkType.CONVOY, base_priority=50)
         await queue.push(bead)
         await queue.push(convoy)
         result = await queue.pop(work_type=WorkType.BEAD)
         assert result is not None
         assert result.id == "bead"
+        assert result.work_type == WorkType.BEAD
+
+    @pytest.mark.asyncio
+    async def test_pop_filter_by_work_type_only_matching(self, queue: GlobalWorkQueue):
+        """Pop with work_type filter when all items are of that type."""
+        await queue.initialize()
+        bead1 = _make_work_item(id="bead1", work_type=WorkType.BEAD, base_priority=80)
+        bead2 = _make_work_item(id="bead2", work_type=WorkType.BEAD, base_priority=40)
+        await queue.push(bead1)
+        await queue.push(bead2)
+        result = await queue.pop(work_type=WorkType.BEAD)
+        assert result is not None
+        assert result.id == "bead1"
 
     @pytest.mark.asyncio
     async def test_pop_filter_by_tags(self, queue: GlobalWorkQueue):
+        """Pop with tag filter returns matching item when it is highest priority."""
         await queue.initialize()
-        tagged = _make_work_item(id="tagged", tags=["deploy"], base_priority=50)
-        untagged = _make_work_item(id="untagged", base_priority=80)
+        tagged = _make_work_item(id="tagged", tags=["deploy"], base_priority=90)
+        untagged = _make_work_item(id="untagged", base_priority=50)
         await queue.push(tagged)
         await queue.push(untagged)
         result = await queue.pop(tags=["deploy"])
         assert result is not None
         assert result.id == "tagged"
+
+    @pytest.mark.asyncio
+    async def test_pop_filter_by_tags_only_matching(self, queue: GlobalWorkQueue):
+        """Pop with tag filter when all items have matching tags."""
+        await queue.initialize()
+        t1 = _make_work_item(id="t1", tags=["deploy"], base_priority=80)
+        t2 = _make_work_item(id="t2", tags=["deploy"], base_priority=40)
+        await queue.push(t1)
+        await queue.push(t2)
+        result = await queue.pop(tags=["deploy"])
+        assert result is not None
+        assert result.id == "t1"
 
     @pytest.mark.asyncio
     async def test_pop_skips_blocked(self, queue: GlobalWorkQueue):

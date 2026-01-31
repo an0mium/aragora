@@ -754,7 +754,7 @@ def require_storage(func: Callable) -> Callable:
     """
 
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         storage = self.get_storage()
         if not storage:
             return error_response("Storage not available", 503)
@@ -779,7 +779,7 @@ def require_feature(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             if not feature_check():
                 return error_response(f"{feature_name} not available", status_code)
             return func(*args, **kwargs)

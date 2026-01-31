@@ -82,6 +82,10 @@ class SchedulerHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "scheduler:write")
+        if perm_error:
+            return perm_error
+
         if path == "/api/v1/scheduler/jobs":
             return self._create_job(handler)
 
@@ -114,6 +118,10 @@ class SchedulerHandler(BaseHandler):
 
     def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "scheduler:delete")
+        if perm_error:
+            return perm_error
+
         if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")
             if len(parts) == 5:

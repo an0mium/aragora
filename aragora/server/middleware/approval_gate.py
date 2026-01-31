@@ -423,8 +423,9 @@ def require_approval(
             if not auth_context:
                 raise ValueError("No AuthorizationContext found for approval check")
 
-            # Type assertion for auth_context
-            assert isinstance(auth_context, AuthorizationContext)
+            # Type check for auth_context
+            if not isinstance(auth_context, AuthorizationContext):
+                raise TypeError(f"Expected AuthorizationContext, got {type(auth_context).__name__}")
 
             # Check if user has auto-approve role
             if auto_roles and auth_context.has_any_role(*auto_roles):

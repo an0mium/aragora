@@ -245,6 +245,10 @@ class PluginsHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "plugins:write")
+        if perm_error:
+            return perm_error
+
         response: HandlerResult | None = None
 
         # Submit plugin: /api/v1/plugins/submit or /api/plugins/submit
@@ -277,6 +281,10 @@ class PluginsHandler(BaseHandler):
 
     def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "plugins:delete")
+        if perm_error:
+            return perm_error
+
         response: HandlerResult | None = None
 
         # Uninstall plugin: /api/v1/plugins/{name}/install or /api/plugins/{name}/install

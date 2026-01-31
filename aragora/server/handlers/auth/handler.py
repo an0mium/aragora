@@ -293,7 +293,7 @@ class AuthHandler(SecureHandler):
 
         return error_response("Method not allowed", 405)
 
-    def _require_user_id(self, handler) -> tuple[str | None, HandlerResult | None]:
+    def _require_user_id(self, handler: Any) -> tuple[str | None, HandlerResult | None]:
         """Return authenticated user_id or error response."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -301,12 +301,12 @@ class AuthHandler(SecureHandler):
             return None, error_response("Authentication required", 401)
         return auth_ctx.user_id, None
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
     def _check_permission(
-        self, handler, permission_key: str, resource_id: str | None = None
+        self, handler: Any, permission_key: str, resource_id: str | None = None
     ) -> HandlerResult | None:
         """Check RBAC permission. Returns error response if denied, None if allowed.
 
@@ -348,11 +348,11 @@ class AuthHandler(SecureHandler):
     # Login/Register - Delegated to login.py
     # =========================================================================
 
-    def _handle_register(self, handler) -> HandlerResult:
+    def _handle_register(self, handler: Any) -> HandlerResult:
         """Handle user registration."""
         return handle_register(self, handler)
 
-    def _handle_login(self, handler) -> HandlerResult:
+    def _handle_login(self, handler: Any) -> HandlerResult:
         """Handle user login."""
         return handle_login(self, handler)
 
@@ -362,7 +362,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=20, limiter_name="auth_refresh")
     @handle_errors("token refresh")
-    def _handle_refresh(self, handler) -> HandlerResult:
+    def _handle_refresh(self, handler: Any) -> HandlerResult:
         """Handle token refresh."""
         from aragora.billing.jwt_auth import (
             create_token_pair,
@@ -425,7 +425,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=10, limiter_name="auth_logout")
     @handle_errors("logout")
-    def _handle_logout(self, handler) -> HandlerResult:
+    def _handle_logout(self, handler: Any) -> HandlerResult:
         """Handle user logout (token invalidation)."""
         # RBAC check: authentication.revoke permission required
         if error := self._check_permission(handler, "authentication.revoke"):
@@ -476,7 +476,7 @@ class AuthHandler(SecureHandler):
     @rate_limit(requests_per_minute=3, limiter_name="auth_logout_all")
     @handle_errors("logout all devices")
     @log_request("logout all devices")
-    def _handle_logout_all(self, handler) -> HandlerResult:
+    def _handle_logout_all(self, handler: Any) -> HandlerResult:
         """
         Handle logout from all devices.
 
@@ -544,7 +544,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=30, limiter_name="auth_get_me")
     @handle_errors("get user info")
-    def _handle_get_me(self, handler) -> HandlerResult:
+    def _handle_get_me(self, handler: Any) -> HandlerResult:
         """Get current user information."""
         # RBAC check: authentication.read permission required
         if error := self._check_permission(handler, "authentication.read"):
@@ -586,7 +586,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=5, limiter_name="auth_update_me")
     @handle_errors("update user info")
-    def _handle_update_me(self, handler) -> HandlerResult:
+    def _handle_update_me(self, handler: Any) -> HandlerResult:
         """Update current user information."""
         # RBAC check: authentication.read permission required (user updating own info)
         if error := self._check_permission(handler, "authentication.read"):
@@ -628,7 +628,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=10, limiter_name="auth_revoke_token")
     @handle_errors("revoke token")
-    def _handle_revoke_token(self, handler) -> HandlerResult:
+    def _handle_revoke_token(self, handler: Any) -> HandlerResult:
         """Explicitly revoke a specific token."""
         # RBAC check: session.revoke permission required
         if error := self._check_permission(handler, "session.revoke"):
@@ -684,19 +684,19 @@ class AuthHandler(SecureHandler):
     # Password Management - Delegated to password.py
     # =========================================================================
 
-    def _handle_change_password(self, handler) -> HandlerResult:
+    def _handle_change_password(self, handler: Any) -> HandlerResult:
         """Change user password."""
         return handle_change_password(self, handler)
 
-    def _handle_forgot_password(self, handler) -> HandlerResult:
+    def _handle_forgot_password(self, handler: Any) -> HandlerResult:
         """Handle forgot password request."""
         return handle_forgot_password(self, handler)
 
-    def _handle_reset_password(self, handler) -> HandlerResult:
+    def _handle_reset_password(self, handler: Any) -> HandlerResult:
         """Handle password reset with token."""
         return handle_reset_password(self, handler)
 
-    def _send_password_reset_email(self, user, reset_link: str) -> None:
+    def _send_password_reset_email(self, user: Any, reset_link: str) -> None:
         """Send password reset email to user (fire-and-forget)."""
         send_password_reset_email(user, reset_link)
 
@@ -704,19 +704,19 @@ class AuthHandler(SecureHandler):
     # API Key Management - Delegated to api_keys.py
     # =========================================================================
 
-    def _handle_generate_api_key(self, handler) -> HandlerResult:
+    def _handle_generate_api_key(self, handler: Any) -> HandlerResult:
         """Generate a new API key for the user."""
         return handle_generate_api_key(self, handler)
 
-    def _handle_revoke_api_key(self, handler) -> HandlerResult:
+    def _handle_revoke_api_key(self, handler: Any) -> HandlerResult:
         """Revoke the user's API key."""
         return handle_revoke_api_key(self, handler)
 
-    def _handle_list_api_keys(self, handler) -> HandlerResult:
+    def _handle_list_api_keys(self, handler: Any) -> HandlerResult:
         """List API keys for the current user."""
         return handle_list_api_keys(self, handler)
 
-    def _handle_revoke_api_key_prefix(self, handler, prefix: str) -> HandlerResult:
+    def _handle_revoke_api_key_prefix(self, handler: Any, prefix: str) -> HandlerResult:
         """Revoke the user's API key by prefix."""
         return handle_revoke_api_key_prefix(self, handler, prefix)
 
@@ -724,23 +724,23 @@ class AuthHandler(SecureHandler):
     # MFA/2FA Methods - Delegated to mfa.py
     # =========================================================================
 
-    def _handle_mfa_setup(self, handler) -> HandlerResult:
+    def _handle_mfa_setup(self, handler: Any) -> HandlerResult:
         """Generate MFA secret and provisioning URI for setup."""
         return handle_mfa_setup(self, handler)
 
-    def _handle_mfa_enable(self, handler) -> HandlerResult:
+    def _handle_mfa_enable(self, handler: Any) -> HandlerResult:
         """Enable MFA after verifying setup code."""
         return handle_mfa_enable(self, handler)
 
-    def _handle_mfa_disable(self, handler) -> HandlerResult:
+    def _handle_mfa_disable(self, handler: Any) -> HandlerResult:
         """Disable MFA for the user."""
         return handle_mfa_disable(self, handler)
 
-    def _handle_mfa_verify(self, handler) -> HandlerResult:
+    def _handle_mfa_verify(self, handler: Any) -> HandlerResult:
         """Verify MFA code during login."""
         return handle_mfa_verify(self, handler)
 
-    def _handle_mfa_backup_codes(self, handler) -> HandlerResult:
+    def _handle_mfa_backup_codes(self, handler: Any) -> HandlerResult:
         """Regenerate MFA backup codes."""
         return handle_mfa_backup_codes(self, handler)
 
@@ -748,11 +748,11 @@ class AuthHandler(SecureHandler):
     # Session Management - Delegated to sessions.py
     # =========================================================================
 
-    def _handle_list_sessions(self, handler) -> HandlerResult:
+    def _handle_list_sessions(self, handler: Any) -> HandlerResult:
         """List all active sessions for the current user."""
         return handle_list_sessions(self, handler)
 
-    def _handle_revoke_session(self, handler, session_id: str) -> HandlerResult:
+    def _handle_revoke_session(self, handler: Any, session_id: str) -> HandlerResult:
         """Revoke a specific session."""
         return handle_revoke_session(self, handler, session_id)
 
