@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.debate.arena_config import (
     ALL_CONFIG_CLASSES,
     PRIMARY_CONFIG_CLASSES,
@@ -46,7 +47,7 @@ class TestDebateConfig:
 
     def test_defaults(self):
         c = DebateConfig()
-        assert c.rounds == 3
+        assert c.rounds == DEFAULT_ROUNDS
         assert c.consensus_threshold == 0.7
         assert c.convergence_detection is True
         assert c.convergence_threshold == 0.85

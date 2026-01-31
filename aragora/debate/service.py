@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, cast
 from aragora.agents.base import AgentType
 from aragora.config.settings import get_settings
 from aragora.core import Agent, DebateResult, Environment
-from aragora.debate.protocol import DebateProtocol
+from aragora.debate.protocol import DebateProtocol, resolve_default_protocol
 
 # Type alias for consensus modes (must match DebateProtocol.consensus)
 ConsensusMode = Literal[
@@ -168,11 +168,11 @@ class DebateOptions:
         """Convert options to a DebateProtocol."""
         # Use "judge" as default if consensus not set (matches DebateProtocol default)
         consensus_value: ConsensusMode = self.consensus if self.consensus is not None else "judge"
-        return DebateProtocol(
-            rounds=self.rounds or 3,
-            consensus=consensus_value,
-            topology=self.topology,
-        )
+        protocol = resolve_default_protocol()
+        protocol.rounds = self.rounds or protocol.rounds
+        protocol.consensus = consensus_value
+        protocol.topology = self.topology
+        return protocol
 
 
 class DebateService:

@@ -45,6 +45,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields as dataclass_fields
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.debate.protocol import CircuitBreaker
 
 if TYPE_CHECKING:
@@ -1172,7 +1173,7 @@ class DebateConfig:
     """
 
     # Protocol settings (passed to DebateProtocol or override defaults)
-    rounds: int = 3  # Number of debate rounds
+    rounds: int = DEFAULT_ROUNDS  # Number of debate rounds
     consensus_threshold: float = 0.7  # Threshold for consensus detection
     convergence_detection: bool = True  # Enable semantic convergence detection
     convergence_threshold: float = 0.85  # Similarity threshold for convergence

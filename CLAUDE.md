@@ -34,10 +34,10 @@ Context for Claude Code when working with the Aragora codebase.
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
 | Ops | `aragora/ops/` | `deployment_validator.py` (runtime validation) |
-| Workspace | `aragora/workspace/` | `bead.py`, `convoy.py` (orchestration layer) |
-| Nomic Stores | `aragora/nomic/stores/` | `beads.py`, `convoys.py`, `paths.py` (canonical storage) |
-| Gateway | `aragora/gateway/` | API gateway module |
-| Observability | `aragora/observability/` | `metrics.py`, `tracing.py` (monitoring) |
+| Workspace | `aragora/workspace/` | `bead.py`, `convoy.py`, `manager.py` |
+| Nomic Stores | `aragora/nomic/stores/` | `bead_store.py`, `convoy_store.py`, `paths.py` |
+| Gateway | `aragora/gateway/` | `server.py`, `router.py`, `protocol.py` |
+| Observability | `aragora/observability/` | `metrics.py`, `tracing.py`, `slo.py`, `logging.py` |
 
 ## Canonical Storage Paths
 
@@ -53,7 +53,7 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 2,495 Python modules | 78,000+ tests | 2,195 test files | 180 debate modules | 340 HTTP handlers + 22 WebSocket streams | 461 API endpoints | 34 KM adapters | 105 SDK namespaces
+**Codebase Scale:** 2,550+ Python modules | 96,000+ tests | 2,469 test files | 182 debate modules | 395 HTTP handlers + 25 WebSocket streams | 461 API endpoints | 22 KM adapters | 105 SDK namespaces
 
 ## Architecture
 
@@ -85,7 +85,7 @@ aragora/
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
-│       └── adapters/       # KM adapters (20 registered)
+│       └── adapters/       # KM adapters (22 registered)
 │           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
 │   ├── chat/               # Telegram, WhatsApp connectors
@@ -97,9 +97,9 @@ aragora/
 │   ├── unified_server.py   # Main server (461 API endpoints)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
-│   ├── handlers/           # HTTP endpoint handlers (90 modules)
+│   ├── handlers/           # HTTP endpoint handlers (395 modules)
 │   │   └── social/         # Chat platform handlers (Telegram, WhatsApp)
-│   └── stream/             # WebSocket streaming (22 modules)
+│   └── stream/             # WebSocket streaming (25 modules)
 │       ├── tts_integration.py  # TTS for voice/chat
 │       └── voice_stream.py     # Voice session management
 ├── ranking/          # Agent skill tracking
@@ -190,6 +190,15 @@ python scripts/nomic_staged.py commit      # Commit the changes
 # Run debate + design + implement, then pause before verify
 python scripts/nomic_staged.py all
 ```
+
+### Nomic Loop Variants
+
+| Variant | Location | Use Case |
+|---------|----------|----------|
+| Original loop | `scripts/nomic_loop.py` | Autonomous multi-cycle self-improvement |
+| Staged execution | `scripts/nomic_staged.py` | Phase-by-phase manual control |
+| Goal-driven | `scripts/self_develop.py` | Decompose high-level goals into tracks |
+| Programmatic API | `aragora/nomic/autonomous_orchestrator.py` | Library integration for custom workflows |
 
 ### Key Components
 
@@ -289,7 +298,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 78,000+ tests across 2,195 test files
+**Test Suite:** 96,000+ tests across 2,469 test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
@@ -345,7 +354,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 950+ tests passing)
-  - 20 adapters (Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, CalibrationFusion, Workflow, Resilience, Governance, Analytics, Extraction)
+  - 22 adapters (Belief, CalibrationFusion, ComputerUse, Consensus, Continuum, ControlPlane, Cost, Critique, Culture, ELO, Evidence, Extraction, Fabric, Gateway, Insights, Performance, Provenance, Pulse, Ranking, Receipt, RLM, Workspace)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics
