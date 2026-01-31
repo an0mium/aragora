@@ -123,7 +123,7 @@ test = [
     "boto3>=1.34,<2.0",  # S3 and AWS tests
     # Document generation
     "weasyprint>=68.0,<70.0",  # PDF generation tests
-    "reportlab>=3.6,<4.0",  # Report generation tests
+    "reportlab>=3.6,<5.0",  # Report generation (4.x compatible)
     # ML and embeddings
     "scikit-learn>=1.5.0,<2.0",  # ML-based tests
     "sentence-transformers>=3.0.0,<6.0",  # Embedding tests
