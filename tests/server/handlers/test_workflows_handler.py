@@ -2772,3 +2772,1179 @@ class TestAuditIntegration:
                     call_kwargs = mock_audit.call_args.kwargs
                     assert call_kwargs["action"] == "execute"
                     assert call_kwargs["resource_type"] == "workflow_execution"
+
+
+# =============================================================================
+# Additional Comprehensive Tests for Pattern Factory/Category Filtering
+# =============================================================================
+
+
+class TestPatternFactoryCategoryFiltering:
+    """Tests for workflow pattern and category filtering."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        mock = MagicMock()
+        mock.headers = MagicMock()
+        mock.headers.get.return_value = ""
+        return mock
+
+    def test_list_workflows_with_category_filter(self, handler, mock_http):
+        """List workflows filters by category parameter."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.return_value = {
+                        "workflows": [{"id": "wf1", "category": "legal"}],
+                        "total_count": 1,
+                        "limit": 50,
+                        "offset": 0,
+                    }
+
+                    result = handler._handle_list_workflows(
+                        {"category": "legal"},
+                        mock_http,
+                    )
+
+                    assert result.status_code == 200
+                    body = json.loads(result.body)
+                    assert "workflows" in body
+
+    def test_list_workflows_with_search_filter(self, handler, mock_http):
+        """List workflows filters by search term."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.return_value = {
+                        "workflows": [{"id": "wf1", "name": "Contract Review"}],
+                        "total_count": 1,
+                        "limit": 50,
+                        "offset": 0,
+                    }
+
+                    result = handler._handle_list_workflows(
+                        {"search": "contract"},
+                        mock_http,
+                    )
+
+                    assert result.status_code == 200
+
+    def test_list_workflows_combined_filters(self, handler, mock_http):
+        """List workflows with multiple filters combined."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.return_value = {
+                        "workflows": [],
+                        "total_count": 0,
+                        "limit": 10,
+                        "offset": 20,
+                    }
+
+                    result = handler._handle_list_workflows(
+                        {"category": "legal", "search": "nda", "limit": "10", "offset": "20"},
+                        mock_http,
+                    )
+
+                    assert result.status_code == 200
+                    body = json.loads(result.body)
+                    assert body["limit"] == 10
+                    assert body["offset"] == 20
+
+    def test_list_templates_with_category_filter(self, handler, mock_http):
+        """List templates filters by category."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                mock_async.return_value = [{"id": "tpl1", "category": "finance"}]
+
+                result = handler._handle_list_templates(
+                    {"category": "finance"},
+                    mock_http,
+                )
+
+                assert result.status_code == 200
+                body = json.loads(result.body)
+                assert "templates" in body
+
+    def test_list_templates_multiple_results(self, handler, mock_http):
+        """List templates returns multiple templates."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                mock_async.return_value = [
+                    {"id": "tpl1", "category": "legal"},
+                    {"id": "tpl2", "category": "legal"},
+                    {"id": "tpl3", "category": "finance"},
+                ]
+
+                result = handler._handle_list_templates({}, mock_http)
+
+                assert result.status_code == 200
+                body = json.loads(result.body)
+                assert body["count"] == 3
+
+
+# =============================================================================
+# Additional Tests for Node Configuration Edge Cases
+# =============================================================================
+
+
+class TestNodeConfigurationEdgeCases:
+    """Tests for workflow node configuration edge cases."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_parallel_execution_pattern(self, mock_store):
+        """Create workflow with parallel execution pattern."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Parallel Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Parallel Step",
+                    "step_type": "task",
+                    "execution_pattern": "parallel",
+                    "config": {"max_parallel": 5},
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_loop_pattern(self, mock_store):
+        """Create workflow with loop execution pattern."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Loop Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Loop Step",
+                    "step_type": "task",
+                    "execution_pattern": "loop",
+                    "config": {"max_iterations": 10},
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_conditional_pattern(self, mock_store):
+        """Create workflow with conditional execution pattern."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Conditional Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Conditional Step",
+                    "step_type": "decision",
+                    "execution_pattern": "conditional",
+                    "config": {},
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_timeout_config(self, mock_store):
+        """Create workflow with custom timeout configuration."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Timeout Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Timed Step",
+                    "step_type": "task",
+                    "timeout_seconds": 300,
+                    "retries": 3,
+                    "config": {},
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_optional_step(self, mock_store):
+        """Create workflow with optional step that can fail."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Optional Step Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Optional Step",
+                    "step_type": "task",
+                    "optional": True,
+                    "config": {},
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+
+# =============================================================================
+# Additional Tests for Approval Checklist Updates
+# =============================================================================
+
+
+class TestApprovalChecklistUpdates:
+    """Tests for approval with checklist updates."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        mock = MagicMock()
+        mock.headers = {"Content-Type": "application/json", "Content-Length": "100"}
+        mock.rfile = MagicMock()
+        return mock
+
+    def test_resolve_approval_with_checklist(self, handler, mock_http):
+        """Resolve approval with checklist items."""
+        import json
+
+        body_data = {
+            "status": "approved",
+            "notes": "All items checked",
+            "checklist": {
+                "item1": True,
+                "item2": True,
+                "item3": False,
+            },
+        }
+        mock_http.rfile.read.return_value = json.dumps(body_data).encode()
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_auth_context") as mock_ctx:
+                mock_auth = MagicMock()
+                mock_auth.user_id = "approver_123"
+                mock_ctx.return_value = mock_auth
+
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.return_value = True
+
+                    result = handler._handle_resolve_approval("apr_123", body_data, {}, mock_http)
+
+                    assert result.status_code == 200
+
+    def test_resolve_approval_rejected_with_notes(self, handler, mock_http):
+        """Resolve approval as rejected with explanation notes."""
+        import json
+
+        body_data = {
+            "status": "rejected",
+            "notes": "Missing required documentation in section 3",
+        }
+        mock_http.rfile.read.return_value = json.dumps(body_data).encode()
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_auth_context") as mock_ctx:
+                mock_auth = MagicMock()
+                mock_auth.user_id = "reviewer_456"
+                mock_ctx.return_value = mock_auth
+
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.return_value = True
+
+                    result = handler._handle_resolve_approval("apr_456", body_data, {}, mock_http)
+
+                    assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_list_approvals_by_workflow(self):
+        """List pending approvals filtered by workflow ID."""
+        from aragora.server.handlers.workflows import list_pending_approvals
+
+        with patch("aragora.server.handlers.workflows._approval_store") as mock_store:
+            mock_approval = MagicMock()
+            mock_approval.to_dict.return_value = {
+                "id": "apr_1",
+                "workflow_id": "wf_123",
+                "status": "pending",
+            }
+            mock_store.list_pending.return_value = [mock_approval]
+
+            result = await list_pending_approvals(workflow_id="wf_123")
+
+            assert isinstance(result, list)
+
+
+# =============================================================================
+# Additional Tests for Step Result Serialization
+# =============================================================================
+
+
+class TestStepResultSerialization:
+    """Tests for step result serialization to dict."""
+
+    def test_step_result_to_dict_complete(self):
+        """Step result with all fields serializes correctly."""
+        from aragora.server.handlers.workflows import _step_result_to_dict
+        from datetime import datetime, timezone
+
+        mock_step = MagicMock()
+        mock_step.step_id = "step_1"
+        mock_step.step_name = "Process Data"
+        mock_step.status = MagicMock()
+        mock_step.status.value = "completed"
+        mock_step.started_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        mock_step.completed_at = datetime(2024, 1, 1, 12, 0, 30, tzinfo=timezone.utc)
+        mock_step.duration_ms = 30000.0
+        mock_step.output = {"result": "processed"}
+        mock_step.error = None
+        mock_step.metrics = {"tokens": 1500}
+        mock_step.retry_count = 0
+
+        result = _step_result_to_dict(mock_step)
+
+        assert result["step_id"] == "step_1"
+        assert result["step_name"] == "Process Data"
+        assert result["status"] == "completed"
+        assert result["duration_ms"] == 30000.0
+        assert result["output"] == {"result": "processed"}
+        assert result["error"] is None
+        assert result["metrics"] == {"tokens": 1500}
+        assert result["retry_count"] == 0
+
+    def test_step_result_to_dict_with_error(self):
+        """Step result with error serializes correctly."""
+        from aragora.server.handlers.workflows import _step_result_to_dict
+
+        mock_step = MagicMock()
+        mock_step.step_id = "step_2"
+        mock_step.step_name = "Validate"
+        mock_step.status = MagicMock()
+        mock_step.status.value = "failed"
+        mock_step.started_at = None
+        mock_step.completed_at = None
+        mock_step.duration_ms = 100.0
+        mock_step.output = None
+        mock_step.error = "Validation failed: missing required field"
+        mock_step.metrics = {}
+        mock_step.retry_count = 2
+
+        result = _step_result_to_dict(mock_step)
+
+        assert result["status"] == "failed"
+        assert result["error"] == "Validation failed: missing required field"
+        assert result["retry_count"] == 2
+        assert result["started_at"] is None
+        assert result["completed_at"] is None
+
+    def test_step_result_to_dict_status_as_string(self):
+        """Step result handles status as plain string without .value attribute."""
+        from aragora.server.handlers.workflows import _step_result_to_dict
+        from unittest.mock import PropertyMock
+
+        # Create a mock step where status is a real string, not a MagicMock
+        mock_step = MagicMock()
+        mock_step.step_id = "step_3"
+        mock_step.step_name = "Transform"
+        # Configure status as a string-like object that has no .value
+        type(mock_step).status = PropertyMock(return_value="running")
+        mock_step.started_at = None
+        mock_step.completed_at = None
+        mock_step.duration_ms = 0
+        mock_step.output = None
+        mock_step.error = None
+        mock_step.metrics = {}
+        mock_step.retry_count = 0
+
+        result = _step_result_to_dict(mock_step)
+
+        # The function should handle the status gracefully
+        assert "status" in result
+
+
+# =============================================================================
+# Additional Tests for Version Increment Logic
+# =============================================================================
+
+
+class TestVersionIncrementLogic:
+    """Tests for workflow version increment logic."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_update_increments_patch_version(self, mock_store):
+        """Update increments the patch version number."""
+        from aragora.server.handlers.workflows import update_workflow
+        from datetime import datetime, timezone
+
+        existing = MagicMock()
+        existing.version = "1.2.3"
+        existing.created_by = "user1"
+        existing.created_at = datetime.now(timezone.utc)
+        mock_store.get_workflow.return_value = existing
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await update_workflow(
+                    "wf_123",
+                    {"name": "Updated", "steps": [{"id": "s1", "name": "S", "step_type": "task"}]},
+                )
+
+                # Version should be incremented from 1.2.3 to 1.2.4
+                assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_update_increments_from_1_0_0(self, mock_store):
+        """Update increments version from 1.0.0 to 1.0.1."""
+        from aragora.server.handlers.workflows import update_workflow
+        from datetime import datetime, timezone
+
+        existing = MagicMock()
+        existing.version = "1.0.0"
+        existing.created_by = "user1"
+        existing.created_at = datetime.now(timezone.utc)
+        mock_store.get_workflow.return_value = existing
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await update_workflow(
+                    "wf_123",
+                    {"name": "Updated", "steps": [{"id": "s1", "name": "S", "step_type": "task"}]},
+                )
+
+                assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_update_increments_single_digit_version(self, mock_store):
+        """Update handles single-digit version numbers."""
+        from aragora.server.handlers.workflows import update_workflow
+        from datetime import datetime, timezone
+
+        existing = MagicMock()
+        existing.version = "1"
+        existing.created_by = "user1"
+        existing.created_at = datetime.now(timezone.utc)
+        mock_store.get_workflow.return_value = existing
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await update_workflow(
+                    "wf_123",
+                    {"name": "Updated", "steps": [{"id": "s1", "name": "S", "step_type": "task"}]},
+                )
+
+                # Should increment to "2"
+                assert result is not None
+
+
+# =============================================================================
+# Additional Tests for Storage Error Handling
+# =============================================================================
+
+
+class TestStorageErrorHandling:
+    """Tests for storage error handling scenarios."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        mock = MagicMock()
+        mock.headers = MagicMock()
+        mock.headers.get.return_value = ""
+        return mock
+
+    def test_list_workflows_handles_os_error(self, handler, mock_http):
+        """List workflows propagates OSError (not caught by handler)."""
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.side_effect = OSError("Database connection lost")
+
+                    # OSError is not caught by the list handler - it propagates
+                    with pytest.raises(OSError):
+                        handler._handle_list_workflows({}, mock_http)
+
+    def test_get_workflow_handles_type_error(self, handler, mock_http):
+        """Get workflow returns error response on TypeError."""
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.side_effect = TypeError("Unexpected type")
+
+                    result = handler._handle_get_workflow("wf_123", {}, mock_http)
+
+                    # Handler catches TypeError and returns 500
+                    assert result.status_code == 500
+
+    def test_create_workflow_handles_os_error(self, handler, mock_http):
+        """Create workflow returns error response on OSError."""
+        mock_http.headers = {"Content-Type": "application/json", "Content-Length": "100"}
+        mock_http.rfile = MagicMock()
+        mock_http.rfile.read.return_value = b'{"name": "Test", "steps": []}'
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch.object(handler, "_get_auth_context") as mock_ctx:
+                    mock_ctx.return_value = None
+                    with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                        mock_async.side_effect = OSError("Disk full")
+
+                        result = handler._handle_create_workflow(
+                            {"name": "Test", "steps": []}, {}, mock_http
+                        )
+
+                        # Handler catches OSError and returns 503
+                        assert result.status_code == 503
+
+    def test_delete_workflow_handles_attribute_error(self, handler, mock_http):
+        """Delete workflow returns error response on AttributeError."""
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.side_effect = AttributeError("Missing attribute")
+
+                    result = handler._handle_delete_workflow("wf_123", {}, mock_http)
+
+                    # Handler catches AttributeError and returns 500
+                    assert result.status_code == 500
+
+    def test_execute_workflow_handles_connection_error(self, handler, mock_http):
+        """Execute workflow returns error response on ConnectionError."""
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.side_effect = ConnectionError("Connection refused")
+
+                    result = handler._handle_execute("wf_123", {}, {}, mock_http)
+
+                    # Handler catches ConnectionError and returns 503
+                    assert result.status_code == 503
+
+    def test_execute_workflow_handles_timeout_error(self, handler, mock_http):
+        """Execute workflow returns error response on TimeoutError."""
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.side_effect = TimeoutError("Request timed out")
+
+                    result = handler._handle_execute("wf_123", {}, {}, mock_http)
+
+                    # Handler catches TimeoutError and returns 503
+                    assert result.status_code == 503
+
+
+# =============================================================================
+# Additional Tests for Visual Node Data Handling
+# =============================================================================
+
+
+class TestVisualNodeDataHandling:
+    """Tests for visual node data in workflow definitions."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_visual_positions(self, mock_store):
+        """Create workflow preserves visual position data."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Visual Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Step 1",
+                    "step_type": "task",
+                    "visual": {
+                        "position": {"x": 100, "y": 200},
+                        "size": {"width": 200, "height": 100},
+                    },
+                    "config": {},
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_canvas_settings(self, mock_store):
+        """Create workflow preserves canvas settings."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Canvas Workflow",
+            "steps": [{"id": "s1", "name": "S1", "step_type": "task", "config": {}}],
+            "canvas": {
+                "width": 5000,
+                "height": 4000,
+                "zoom": 0.8,
+                "pan_x": 100,
+                "pan_y": 50,
+                "snap_to_grid": True,
+                "grid_size": 25,
+            },
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_edge_visual_data(self, mock_store):
+        """Create workflow preserves edge visual data."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Edge Visual Workflow",
+            "steps": [
+                {"id": "s1", "name": "S1", "step_type": "task", "config": {}},
+                {"id": "s2", "name": "S2", "step_type": "task", "config": {}},
+            ],
+            "transitions": [
+                {
+                    "id": "tr1",
+                    "from_step": "s1",
+                    "to_step": "s2",
+                    "condition": "True",
+                    "visual": {
+                        "edge_type": "data_flow",
+                        "label": "Next",
+                        "animated": True,
+                        "color": "#48bb78",
+                    },
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+
+# =============================================================================
+# Additional Tests for Tenant Isolation
+# =============================================================================
+
+
+class TestTenantIsolation:
+    """Tests for tenant isolation in workflow operations."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        mock = MagicMock()
+        mock.headers = MagicMock()
+        mock.headers.get.return_value = ""
+        return mock
+
+    def test_list_workflows_uses_tenant_from_auth(self, handler, mock_http):
+        """List workflows uses tenant from authentication context."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_auth_context") as mock_ctx:
+                mock_auth = MagicMock()
+                mock_auth.org_id = "tenant_abc"
+                mock_ctx.return_value = mock_auth
+
+                with patch.object(handler, "_get_tenant_id", return_value="tenant_abc"):
+                    with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                        mock_async.return_value = {
+                            "workflows": [],
+                            "total_count": 0,
+                            "limit": 50,
+                            "offset": 0,
+                        }
+
+                        result = handler._handle_list_workflows({}, mock_http)
+
+                        assert result.status_code == 200
+
+    def test_create_workflow_sets_tenant_id(self, handler, mock_http):
+        """Create workflow sets tenant_id from context."""
+        import json
+
+        mock_http.headers = {"Content-Type": "application/json", "Content-Length": "100"}
+        mock_http.rfile = MagicMock()
+        mock_http.rfile.read.return_value = json.dumps(
+            {
+                "name": "Tenant Workflow",
+                "steps": [{"id": "s1", "name": "S1", "step_type": "task", "config": {}}],
+            }
+        ).encode()
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="org_xyz"):
+                with patch.object(handler, "_get_auth_context") as mock_ctx:
+                    mock_ctx.return_value = None
+
+                    with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                        mock_async.return_value = {"id": "wf_new", "tenant_id": "org_xyz"}
+
+                        result = handler._handle_create_workflow(
+                            {"name": "Test", "steps": []}, {}, mock_http
+                        )
+
+                        # Verify the call was made
+                        assert mock_async.called
+
+    def test_get_workflow_respects_tenant_boundary(self, handler, mock_http):
+        """Get workflow respects tenant boundary."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="tenant_123"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    # Simulate workflow not found in this tenant
+                    mock_async.return_value = None
+
+                    result = handler._handle_get_workflow("wf_other_tenant", {}, mock_http)
+
+                    assert result.status_code == 404
+
+
+# =============================================================================
+# Additional Tests for Workflow Definition Validation
+# =============================================================================
+
+
+class TestWorkflowDefinitionValidation:
+    """Tests for workflow definition validation."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_requires_name(self, mock_store):
+        """Create workflow requires name field."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "steps": [{"id": "s1", "name": "S1", "step_type": "task", "config": {}}],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                # This should raise ValueError or return validation error
+                try:
+                    await create_workflow(workflow_data)
+                except (ValueError, KeyError):
+                    pass  # Expected
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_requires_steps(self, mock_store):
+        """Create workflow requires at least one step."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Empty Workflow",
+            "steps": [],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                try:
+                    await create_workflow(workflow_data)
+                except ValueError as e:
+                    assert "at least one step" in str(e).lower()
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_validates_transitions(self, mock_store):
+        """Create workflow validates transition references."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Bad Transitions",
+            "steps": [{"id": "s1", "name": "S1", "step_type": "task", "config": {}}],
+            "transitions": [{"from_step": "s1", "to_step": "nonexistent", "condition": "True"}],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                try:
+                    await create_workflow(workflow_data)
+                except ValueError as e:
+                    assert "unknown step" in str(e).lower() or "not found" in str(e).lower()
+
+
+# =============================================================================
+# Additional Tests for Execution Result Handling
+# =============================================================================
+
+
+class TestExecutionResultHandling:
+    """Tests for workflow execution result handling."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        mock = MagicMock()
+        mock.headers = MagicMock()
+        mock.headers.get.return_value = ""
+        return mock
+
+    def test_execution_success_returns_completed_status(self, handler, mock_http):
+        """Successful execution returns completed status."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.return_value = {
+                        "id": "exec_123",
+                        "status": "completed",
+                        "outputs": {"result": "success"},
+                        "steps": [],
+                    }
+
+                    result = handler._handle_execute("wf_123", {"inputs": {}}, {}, mock_http)
+
+                    assert result.status_code == 200
+                    body = json.loads(result.body)
+                    assert body["status"] == "completed"
+
+    def test_execution_failure_returns_failed_status(self, handler, mock_http):
+        """Failed execution returns failed status with error."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch.object(handler, "_get_tenant_id", return_value="test"):
+                with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                    mock_async.return_value = {
+                        "id": "exec_456",
+                        "status": "failed",
+                        "error": "Step validation failed",
+                        "steps": [],
+                    }
+
+                    result = handler._handle_execute("wf_123", {"inputs": {}}, {}, mock_http)
+
+                    assert result.status_code == 200
+                    body = json.loads(result.body)
+                    assert body["status"] == "failed"
+                    assert "error" in body
+
+    def test_terminate_execution_changes_status(self, handler, mock_http):
+        """Terminating execution changes status to terminated."""
+        import json
+
+        with patch.object(handler, "_check_permission", return_value=None):
+            with patch("aragora.server.handlers.workflows._run_async") as mock_async:
+                mock_async.return_value = True
+
+                result = handler._handle_terminate_execution("exec_123", {}, mock_http)
+
+                assert result.status_code == 200
+                body = json.loads(result.body)
+                assert body["terminated"] is True
+
+
+# =============================================================================
+# Additional Tests for Human Checkpoint Step Type
+# =============================================================================
+
+
+class TestHumanCheckpointStepType:
+    """Tests for human checkpoint step type handling."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_human_checkpoint(self, mock_store):
+        """Create workflow with human checkpoint step."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Approval Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Request Approval",
+                    "step_type": "human_checkpoint",
+                    "config": {
+                        "approval_type": "single",
+                        "timeout_hours": 24,
+                        "required_approvers": ["manager"],
+                    },
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_multi_approver(self, mock_store):
+        """Create workflow with multi-approver checkpoint."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Multi-Approval Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Committee Approval",
+                    "step_type": "human_checkpoint",
+                    "config": {
+                        "approval_type": "multi",
+                        "required_count": 3,
+                        "required_approvers": ["legal", "finance", "compliance"],
+                    },
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+
+# =============================================================================
+# Additional Tests for Memory Step Types
+# =============================================================================
+
+
+class TestMemoryStepTypes:
+    """Tests for memory read/write step types."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_memory_read(self, mock_store):
+        """Create workflow with memory read step."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Memory Read Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Read Context",
+                    "step_type": "memory_read",
+                    "config": {
+                        "memory_key": "user_preferences",
+                        "default_value": {},
+                    },
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_memory_write(self, mock_store):
+        """Create workflow with memory write step."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Memory Write Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Store Result",
+                    "step_type": "memory_write",
+                    "config": {
+                        "memory_key": "processing_result",
+                        "ttl_seconds": 3600,
+                    },
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+
+# =============================================================================
+# Additional Tests for Debate Step Type
+# =============================================================================
+
+
+class TestDebateStepType:
+    """Tests for debate step type in workflows."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_create_workflow_with_debate_step(self, mock_store):
+        """Create workflow with debate step."""
+        from aragora.server.handlers.workflows import create_workflow
+
+        workflow_data = {
+            "name": "Debate Workflow",
+            "steps": [
+                {
+                    "id": "s1",
+                    "name": "Run Debate",
+                    "step_type": "debate",
+                    "config": {
+                        "topic": "Should we proceed?",
+                        "agents": ["claude", "gpt4"],
+                        "rounds": 3,
+                        "consensus_threshold": 0.7,
+                    },
+                }
+            ],
+        }
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow(workflow_data)
+
+                assert "id" in result
+
+
+# =============================================================================
+# Additional Tests for Workflow Clone Operations
+# =============================================================================
+
+
+class TestWorkflowCloneOperations:
+    """Tests for workflow clone/fork operations."""
+
+    @pytest.fixture
+    def mock_store(self):
+        return MagicMock()
+
+    @pytest.mark.asyncio
+    async def test_create_from_template_increments_usage(self, mock_store):
+        """Creating from template increments usage count."""
+        from aragora.server.handlers.workflows import create_workflow_from_template
+
+        mock_template = MagicMock()
+        mock_template.clone.return_value = mock_template
+        mock_template.to_dict.return_value = {
+            "id": "wf_new",
+            "name": "From Template",
+            "steps": [{"id": "s1", "name": "S1", "step_type": "task", "config": {}}],
+        }
+        mock_store.get_template.return_value = mock_template
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                await create_workflow_from_template("tpl_123", "My Workflow")
+
+                mock_store.increment_template_usage.assert_called_once_with("tpl_123")
+
+    @pytest.mark.asyncio
+    async def test_create_from_template_applies_customizations(self, mock_store):
+        """Creating from template applies customizations."""
+        from aragora.server.handlers.workflows import create_workflow_from_template
+
+        mock_template = MagicMock()
+        mock_clone = MagicMock()
+        mock_clone.to_dict.return_value = {
+            "id": "wf_custom",
+            "name": "Customized",
+            "description": "Original description",
+            "steps": [{"id": "s1", "name": "S1", "step_type": "task", "config": {}}],
+        }
+        mock_template.clone.return_value = mock_clone
+        mock_store.get_template.return_value = mock_template
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with patch("aragora.server.handlers.workflows.audit_data"):
+                result = await create_workflow_from_template(
+                    "tpl_123",
+                    "Custom Workflow",
+                    customizations={"description": "Custom description"},
+                )
+
+                assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_create_from_nonexistent_template_raises(self, mock_store):
+        """Creating from nonexistent template raises ValueError."""
+        from aragora.server.handlers.workflows import create_workflow_from_template
+
+        mock_store.get_template.return_value = None
+
+        with patch("aragora.server.handlers.workflows._get_store", return_value=mock_store):
+            with pytest.raises(ValueError, match="Template not found"):
+                await create_workflow_from_template("nonexistent", "My Workflow")

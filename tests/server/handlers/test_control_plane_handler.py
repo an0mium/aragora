@@ -26,6 +26,54 @@ from tests.server.handlers.conftest import (
 
 
 # ============================================================================
+# Auto-use fixture to patch _run_async for control plane tests
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def mock_run_async():
+    """Patch _run_async to handle async calls in tests.
+
+    The control plane handler uses _run_async() internally to call async
+    coordinator methods from sync handler methods. In async tests, this
+    conflicts with the running event loop. This fixture patches _run_async
+    to simply run the coroutine directly using asyncio.get_event_loop().run_until_complete()
+    or return the awaitable result when already in async context.
+    """
+
+    def _mock_run_async(coro):
+        """Run a coroutine, handling both sync and async test contexts."""
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an async context - the coroutine should be awaited
+            # But since this is called from sync code, we need to handle it
+            # Create a task and return the result immediately if possible
+            if asyncio.iscoroutine(coro):
+                # Use nest_asyncio approach or return mock result
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(asyncio.run, coro)
+                    return future.result(timeout=5.0)
+            return coro
+        except RuntimeError:
+            # No running event loop - we can use run_until_complete
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
+            except Exception:
+                # Fallback: if it's already a result, return it
+                return coro
+
+    with patch("aragora.server.handlers.control_plane._run_async", side_effect=_mock_run_async):
+        yield
+
+
+# ============================================================================
 # Fixtures
 # ============================================================================
 
@@ -917,41 +965,44 @@ class TestAuditLogs:
 
     def test_get_audit_logs_success(self, control_plane_handler, mock_http_handler):
         """Test querying audit logs."""
-        http = mock_http_handler(method="GET")
-        result = control_plane_handler.handle("/api/control-plane/audit", {}, http)
+        with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+            http = mock_http_handler(method="GET")
+            result = control_plane_handler.handle("/api/control-plane/audit", {}, http)
 
-        assert result is not None
-        assert result.status_code == 200
-        body = parse_handler_response(result)
-        assert "entries" in body
-        assert "total" in body
+            assert result is not None
+            assert result.status_code == 200
+            body = parse_handler_response(result)
+            assert "entries" in body
+            assert "total" in body
 
     def test_get_audit_logs_with_filters(self, control_plane_handler, mock_http_handler):
         """Test querying audit logs with filters."""
-        http = mock_http_handler(method="GET")
-        result = control_plane_handler.handle(
-            "/api/control-plane/audit",
-            {
-                "actions": "task.submitted,task.completed",
-                "limit": "50",
-            },
-            http,
-        )
+        with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+            http = mock_http_handler(method="GET")
+            result = control_plane_handler.handle(
+                "/api/control-plane/audit",
+                {
+                    "actions": "task.submitted,task.completed",
+                    "limit": "50",
+                },
+                http,
+            )
 
-        assert result is not None
-        assert result.status_code == 200
+            assert result is not None
+            assert result.status_code == 200
 
     def test_get_audit_logs_not_configured(self, control_plane_handler, mock_http_handler):
         """Test audit logs when not configured."""
         control_plane_handler.ctx["audit_log"] = None
 
-        http = mock_http_handler(method="GET")
-        result = control_plane_handler.handle("/api/control-plane/audit", {}, http)
+        with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+            http = mock_http_handler(method="GET")
+            result = control_plane_handler.handle("/api/control-plane/audit", {}, http)
 
-        assert result is not None
-        assert result.status_code == 200
-        body = parse_handler_response(result)
-        assert "message" in body
+            assert result is not None
+            assert result.status_code == 200
+            body = parse_handler_response(result)
+            assert "message" in body
 
     def test_get_audit_stats_success(self, control_plane_handler, mock_http_handler):
         """Test getting audit log statistics."""
@@ -963,23 +1014,25 @@ class TestAuditLogs:
 
     def test_verify_audit_integrity_success(self, control_plane_handler, mock_http_handler):
         """Test verifying audit log integrity."""
-        http = mock_http_handler(method="GET")
-        result = control_plane_handler.handle("/api/control-plane/audit/verify", {}, http)
+        with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+            http = mock_http_handler(method="GET")
+            result = control_plane_handler.handle("/api/control-plane/audit/verify", {}, http)
 
-        assert result is not None
-        assert result.status_code == 200
-        body = parse_handler_response(result)
-        assert body["valid"] is True
+            assert result is not None
+            assert result.status_code == 200
+            body = parse_handler_response(result)
+            assert body["valid"] is True
 
     def test_verify_audit_integrity_not_configured(self, control_plane_handler, mock_http_handler):
         """Test audit verification when not configured."""
         control_plane_handler.ctx["audit_log"] = None
 
-        http = mock_http_handler(method="GET")
-        result = control_plane_handler.handle("/api/control-plane/audit/verify", {}, http)
+        with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+            http = mock_http_handler(method="GET")
+            result = control_plane_handler.handle("/api/control-plane/audit/verify", {}, http)
 
-        assert result is not None
-        assert result.status_code == 503
+            assert result is not None
+            assert result.status_code == 503
 
 
 # ============================================================================
@@ -997,16 +1050,17 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(method="GET")
-            result = control_plane_handler.handle(
-                "/api/control-plane/policies/violations", {}, http
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(method="GET")
+                result = control_plane_handler.handle(
+                    "/api/control-plane/policies/violations", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 200
-            body = parse_handler_response(result)
-            assert "violations" in body
-            assert "total" in body
+                assert result is not None
+                assert result.status_code == 200
+                body = parse_handler_response(result)
+                assert "violations" in body
+                assert "total" in body
 
     def test_list_policy_violations_with_filters(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1015,28 +1069,30 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(method="GET")
-            result = control_plane_handler.handle(
-                "/api/control-plane/policies/violations",
-                {"status": "open", "policy_id": "policy-001"},
-                http,
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(method="GET")
+                result = control_plane_handler.handle(
+                    "/api/control-plane/policies/violations",
+                    {"status": "open", "policy_id": "policy-001"},
+                    http,
+                )
 
-            assert result is not None
-            assert result.status_code == 200
+                assert result is not None
+                assert result.status_code == 200
 
     def test_list_policy_violations_store_not_available(
         self, control_plane_handler, mock_http_handler
     ):
         """Test violations when store not available."""
         with patch.object(control_plane_handler, "_get_policy_store", return_value=None):
-            http = mock_http_handler(method="GET")
-            result = control_plane_handler.handle(
-                "/api/control-plane/policies/violations", {}, http
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(method="GET")
+                result = control_plane_handler.handle(
+                    "/api/control-plane/policies/violations", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 503
+                assert result is not None
+                assert result.status_code == 503
 
     def test_get_policy_violation_by_id(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1045,13 +1101,14 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(method="GET")
-            result = control_plane_handler.handle(
-                "/api/control-plane/policies/violations/violation-001", {}, http
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(method="GET")
+                result = control_plane_handler.handle(
+                    "/api/control-plane/policies/violations/violation-001", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 200
+                assert result is not None
+                assert result.status_code == 200
 
     def test_get_policy_violation_not_found(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1062,13 +1119,14 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(method="GET")
-            result = control_plane_handler.handle(
-                "/api/control-plane/policies/violations/nonexistent", {}, http
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(method="GET")
+                result = control_plane_handler.handle(
+                    "/api/control-plane/policies/violations/nonexistent", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 404
+                assert result is not None
+                assert result.status_code == 404
 
     def test_get_policy_violation_stats(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1077,16 +1135,17 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(method="GET")
-            result = control_plane_handler.handle(
-                "/api/control-plane/policies/violations/stats", {}, http
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(method="GET")
+                result = control_plane_handler.handle(
+                    "/api/control-plane/policies/violations/stats", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 200
-            body = parse_handler_response(result)
-            assert "total" in body
-            assert "open" in body
+                assert result is not None
+                assert result.status_code == 200
+                body = parse_handler_response(result)
+                assert "total" in body
+                assert "open" in body
 
     def test_update_policy_violation_status(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1095,20 +1154,21 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(
-                method="PATCH",
-                body={"status": "resolved", "resolution_notes": "Fixed"},
-                headers={"Content-Type": "application/json"},
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(
+                    method="PATCH",
+                    body={"status": "resolved", "resolution_notes": "Fixed"},
+                    headers={"Content-Type": "application/json"},
+                )
 
-            result = control_plane_handler.handle_patch(
-                "/api/control-plane/policies/violations/violation-001", {}, http
-            )
+                result = control_plane_handler.handle_patch(
+                    "/api/control-plane/policies/violations/violation-001", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 200
-            body = parse_handler_response(result)
-            assert body["updated"] is True
+                assert result is not None
+                assert result.status_code == 200
+                body = parse_handler_response(result)
+                assert body["updated"] is True
 
     def test_update_policy_violation_invalid_status(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1117,18 +1177,19 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(
-                method="PATCH",
-                body={"status": "invalid_status"},
-                headers={"Content-Type": "application/json"},
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(
+                    method="PATCH",
+                    body={"status": "invalid_status"},
+                    headers={"Content-Type": "application/json"},
+                )
 
-            result = control_plane_handler.handle_patch(
-                "/api/control-plane/policies/violations/violation-001", {}, http
-            )
+                result = control_plane_handler.handle_patch(
+                    "/api/control-plane/policies/violations/violation-001", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 400
+                assert result is not None
+                assert result.status_code == 400
 
     def test_update_policy_violation_missing_status(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1137,18 +1198,19 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(
-                method="PATCH",
-                body={},
-                headers={"Content-Type": "application/json"},
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(
+                    method="PATCH",
+                    body={},
+                    headers={"Content-Type": "application/json"},
+                )
 
-            result = control_plane_handler.handle_patch(
-                "/api/control-plane/policies/violations/violation-001", {}, http
-            )
+                result = control_plane_handler.handle_patch(
+                    "/api/control-plane/policies/violations/violation-001", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 400
+                assert result is not None
+                assert result.status_code == 400
 
     def test_update_policy_violation_not_found(
         self, control_plane_handler, mock_http_handler, mock_policy_store
@@ -1159,18 +1221,19 @@ class TestPolicyViolations:
         with patch.object(
             control_plane_handler, "_get_policy_store", return_value=mock_policy_store
         ):
-            http = mock_http_handler(
-                method="PATCH",
-                body={"status": "resolved"},
-                headers={"Content-Type": "application/json"},
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                http = mock_http_handler(
+                    method="PATCH",
+                    body={"status": "resolved"},
+                    headers={"Content-Type": "application/json"},
+                )
 
-            result = control_plane_handler.handle_patch(
-                "/api/control-plane/policies/violations/nonexistent", {}, http
-            )
+                result = control_plane_handler.handle_patch(
+                    "/api/control-plane/policies/violations/nonexistent", {}, http
+                )
 
-            assert result is not None
-            assert result.status_code == 404
+                assert result is not None
+                assert result.status_code == 404
 
 
 # ============================================================================
@@ -1250,7 +1313,7 @@ class TestDeliberations:
 
     def test_get_deliberation_result(self, control_plane_handler, mock_http_handler):
         """Test getting deliberation result by ID."""
-        with patch("aragora.server.handlers.control_plane.get_decision_result") as mock_get:
+        with patch("aragora.core.decision_results.get_decision_result") as mock_get:
             mock_get.return_value = {
                 "request_id": "req-001",
                 "status": "completed",
@@ -1267,7 +1330,7 @@ class TestDeliberations:
 
     def test_get_deliberation_not_found(self, control_plane_handler, mock_http_handler):
         """Test getting non-existent deliberation."""
-        with patch("aragora.server.handlers.control_plane.get_decision_result") as mock_get:
+        with patch("aragora.core.decision_results.get_decision_result") as mock_get:
             mock_get.return_value = None
 
             http = mock_http_handler(method="GET")
@@ -1280,7 +1343,7 @@ class TestDeliberations:
 
     def test_get_deliberation_status(self, control_plane_handler, mock_http_handler):
         """Test getting deliberation status."""
-        with patch("aragora.server.handlers.control_plane.get_decision_status") as mock_status:
+        with patch("aragora.core.decision_results.get_decision_status") as mock_status:
             mock_status.return_value = {
                 "request_id": "req-001",
                 "status": "processing",
@@ -1342,7 +1405,8 @@ class TestAuthorization:
 class TestEventEmission:
     """Tests for WebSocket event emission."""
 
-    def test_agent_registration_emits_event(
+    @pytest.mark.asyncio
+    async def test_agent_registration_emits_event(
         self, control_plane_handler, mock_http_handler, mock_stream
     ):
         """Test that agent registration emits event."""
@@ -1355,7 +1419,7 @@ class TestEventEmission:
             headers={"Content-Type": "application/json"},
         )
 
-        control_plane_handler.handle_post("/api/control-plane/agents", {}, http)
+        await control_plane_handler.handle_post("/api/control-plane/agents", {}, http)
 
     def test_agent_unregistration_emits_event(
         self, control_plane_handler, mock_http_handler, mock_stream
@@ -1364,7 +1428,8 @@ class TestEventEmission:
         http = mock_http_handler(method="DELETE")
         control_plane_handler.handle_delete("/api/control-plane/agents/test-agent-001", {}, http)
 
-    def test_task_submission_emits_event(
+    @pytest.mark.asyncio
+    async def test_task_submission_emits_event(
         self, control_plane_handler, mock_http_handler, mock_stream
     ):
         """Test that task submission emits event."""
@@ -1377,7 +1442,7 @@ class TestEventEmission:
             headers={"Content-Type": "application/json"},
         )
 
-        control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
+        await control_plane_handler.handle_post("/api/control-plane/tasks", {}, http)
 
 
 # ============================================================================
@@ -1412,7 +1477,8 @@ class TestVersionedAPI:
         assert result is not None
         assert result.status_code == 200
 
-    def test_v1_post_path(self, control_plane_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_v1_post_path(self, control_plane_handler, mock_http_handler):
         """Test that v1 POST paths work."""
         http = mock_http_handler(
             method="POST",
@@ -1423,7 +1489,7 @@ class TestVersionedAPI:
             headers={"Content-Type": "application/json"},
         )
 
-        result = control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, http)
+        result = await control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, http)
 
         assert result is not None
         assert result.status_code == 201

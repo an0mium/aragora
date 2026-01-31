@@ -639,10 +639,10 @@ class TestDiscovery:
     async def test_discovery_handles_invalid_json(self, provider):
         """Test discovery handles invalid JSON response gracefully."""
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.raise_for_status = MagicMock()
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-        mock_client.get.return_value = mock_response
+        mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             result = await provider._discover_endpoints()
@@ -653,7 +653,7 @@ class TestDiscovery:
     async def test_discovery_handles_timeout(self, provider):
         """Test discovery handles timeout errors gracefully."""
         mock_pool, mock_client = create_mock_http_pool()
-        mock_client.get.side_effect = TimeoutError("Request timed out")
+        mock_client.get = AsyncMock(side_effect=TimeoutError("Request timed out"))
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             result = await provider._discover_endpoints()
@@ -925,10 +925,10 @@ class TestTokenExchange:
         }
 
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.json.return_value = mock_tokens
         mock_response.raise_for_status = MagicMock()
-        mock_client.post.return_value = mock_response
+        mock_client.post = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             tokens = await provider._exchange_code("auth-code", None)
@@ -942,10 +942,10 @@ class TestTokenExchange:
         mock_tokens = {"access_token": "token", "expires_in": 3600}
 
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.json.return_value = mock_tokens
         mock_response.raise_for_status = MagicMock()
-        mock_client.post.return_value = mock_response
+        mock_client.post = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             await provider._exchange_code("auth-code", "test-verifier")
@@ -972,10 +972,10 @@ class TestTokenExchange:
     async def test_exchange_code_invalid_json_response(self, provider):
         """Test code exchange handles invalid JSON response."""
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.raise_for_status = MagicMock()
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-        mock_client.post.return_value = mock_response
+        mock_client.post = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             with pytest.raises(SSOAuthenticationError) as exc_info:
@@ -1087,16 +1087,17 @@ class TestAuthentication:
         mock_pool, mock_client = create_mock_http_pool()
 
         # First call: token exchange, Second call: userinfo
-        mock_token_response = AsyncMock()
+        # Use MagicMock since response methods are sync
+        mock_token_response = MagicMock()
         mock_token_response.json.return_value = mock_tokens
         mock_token_response.raise_for_status = MagicMock()
 
-        mock_userinfo_response = AsyncMock()
+        mock_userinfo_response = MagicMock()
         mock_userinfo_response.json.return_value = mock_userinfo
         mock_userinfo_response.raise_for_status = MagicMock()
 
-        mock_client.post.return_value = mock_token_response
-        mock_client.get.return_value = mock_userinfo_response
+        mock_client.post = AsyncMock(return_value=mock_token_response)
+        mock_client.get = AsyncMock(return_value=mock_userinfo_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             user = await provider.authenticate(code="auth-code", state=state)
@@ -1123,16 +1124,17 @@ class TestAuthentication:
 
         mock_pool, mock_client = create_mock_http_pool()
 
-        mock_token_response = AsyncMock()
+        # Use MagicMock since response methods are sync
+        mock_token_response = MagicMock()
         mock_token_response.json.return_value = mock_tokens
         mock_token_response.raise_for_status = MagicMock()
 
-        mock_userinfo_response = AsyncMock()
+        mock_userinfo_response = MagicMock()
         mock_userinfo_response.json.return_value = mock_userinfo
         mock_userinfo_response.raise_for_status = MagicMock()
 
-        mock_client.post.return_value = mock_token_response
-        mock_client.get.return_value = mock_userinfo_response
+        mock_client.post = AsyncMock(return_value=mock_token_response)
+        mock_client.get = AsyncMock(return_value=mock_userinfo_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             with pytest.raises(SSOAuthenticationError) as exc_info:
@@ -1174,10 +1176,10 @@ class TestUserInfoRetrieval:
         }
 
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.json.return_value = mock_userinfo
         mock_response.raise_for_status = MagicMock()
-        mock_client.get.return_value = mock_response
+        mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             result = await provider._fetch_userinfo("access-token")
@@ -1201,10 +1203,10 @@ class TestUserInfoRetrieval:
     async def test_fetch_userinfo_invalid_json(self, provider):
         """Test userinfo fetch handles invalid JSON gracefully."""
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.raise_for_status = MagicMock()
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-        mock_client.get.return_value = mock_response
+        mock_client.get = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             result = await provider._fetch_userinfo("access-token")
@@ -1359,10 +1361,10 @@ class TestTokenRefresh:
         }
 
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.json.return_value = mock_tokens
         mock_response.raise_for_status = MagicMock()
-        mock_client.post.return_value = mock_response
+        mock_client.post = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             refreshed_user = await provider.refresh_token(original_user)
@@ -1420,10 +1422,10 @@ class TestTokenRefresh:
         )
 
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.raise_for_status = MagicMock()
         mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-        mock_client.post.return_value = mock_response
+        mock_client.post = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             result = await provider.refresh_token(user)
@@ -1448,10 +1450,10 @@ class TestTokenRefresh:
         }
 
         mock_pool, mock_client = create_mock_http_pool()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()  # Use MagicMock since response methods are sync
         mock_response.json.return_value = mock_tokens
         mock_response.raise_for_status = MagicMock()
-        mock_client.post.return_value = mock_response
+        mock_client.post = AsyncMock(return_value=mock_response)
 
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             refreshed_user = await provider.refresh_token(user)

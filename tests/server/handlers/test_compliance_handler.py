@@ -1862,7 +1862,9 @@ class TestXSSProtection:
             "generated_at": "2025-01-15T00:00:00Z",
         }
         html = handler._render_soc2_html(report)
-        assert "onerror=" not in html
+        # The raw <img> tag should be escaped to &lt;img
+        assert "<img" not in html
+        assert "&lt;img" in html
 
     def test_render_soc2_html_escapes_organization(self, handler):
         """Verify organization field is escaped."""
@@ -1907,9 +1909,11 @@ class TestStatusAdditional:
     @pytest.mark.asyncio
     async def test_status_all_compliant_score_100(self, handler):
         """Test score calculation when all controls are compliant."""
+        # Patch the internal handler's _evaluate_controls
         with patch.object(
-            handler,
+            handler._handler,
             "_evaluate_controls",
+            new_callable=AsyncMock,
             return_value=[
                 {"control_id": "C1", "status": "compliant"},
                 {"control_id": "C2", "status": "compliant"},
@@ -1924,8 +1928,9 @@ class TestStatusAdditional:
     async def test_status_partial_compliance(self, handler):
         """Test score calculation with partial compliance."""
         with patch.object(
-            handler,
+            handler._handler,
             "_evaluate_controls",
+            new_callable=AsyncMock,
             return_value=[
                 {"control_id": "C1", "status": "compliant"},
                 {"control_id": "C2", "status": "compliant"},
@@ -1941,7 +1946,9 @@ class TestStatusAdditional:
     @pytest.mark.asyncio
     async def test_status_empty_controls(self, handler):
         """Test score calculation with no controls."""
-        with patch.object(handler, "_evaluate_controls", return_value=[]):
+        with patch.object(
+            handler._handler, "_evaluate_controls", new_callable=AsyncMock, return_value=[]
+        ):
             result = await handler._get_status()
         body = json.loads(result.body)
         assert body["compliance_score"] == 0
@@ -1951,7 +1958,9 @@ class TestStatusAdditional:
         """Test mostly_compliant threshold (80-95%)."""
         controls = [{"control_id": f"C{i}", "status": "compliant"} for i in range(9)]
         controls.append({"control_id": "C10", "status": "non_compliant"})
-        with patch.object(handler, "_evaluate_controls", return_value=controls):
+        with patch.object(
+            handler._handler, "_evaluate_controls", new_callable=AsyncMock, return_value=controls
+        ):
             result = await handler._get_status()
         body = json.loads(result.body)
         assert body["compliance_score"] == 90  # 9/10 = 90%
@@ -2268,14 +2277,11 @@ class TestHandlerMainEntry:
     @pytest.mark.asyncio
     async def test_handle_post_body_parsing(self, handler):
         """Test POST body parsing."""
-        from io import BytesIO
-
-        mock_handler = MagicMock()
-        mock_handler.command = "POST"
-        mock_handler.headers = {"Content-Type": "application/json", "Content-Length": "25"}
-        mock_handler.rfile = BytesIO(b'{"user_id": "user-test"}')
+        # Use wrapper's API: handle(method, path, body=...)
         result = await handler.handle(
-            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_handler
+            "POST",
+            "/api/v2/compliance/gdpr/right-to-be-forgotten",
+            body={"user_id": "user-test"},
         )
         # May fail due to legal hold or succeed
         assert result.status_code in (200, 400, 500)

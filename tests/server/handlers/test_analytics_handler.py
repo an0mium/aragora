@@ -19,7 +19,9 @@ Validates the REST API endpoints for analytics and metrics including:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -259,6 +261,25 @@ def mock_calibration_tracker():
 
     tracker.get_calibration_summary.return_value = summary
     return tracker
+
+
+@pytest.fixture
+def mock_calibration_module(mock_calibration_tracker):
+    """Inject a mock calibration module into sys.modules.
+
+    The aragora.ranking.calibration module doesn't exist yet, so we need to
+    inject a mock to enable testing the calibration endpoint.
+    """
+    mock_mod = ModuleType("aragora.ranking.calibration")
+    mock_mod.CalibrationTracker = MagicMock(return_value=mock_calibration_tracker)
+
+    original = sys.modules.get("aragora.ranking.calibration")
+    sys.modules["aragora.ranking.calibration"] = mock_mod
+    yield mock_mod
+    if original is not None:
+        sys.modules["aragora.ranking.calibration"] = original
+    else:
+        sys.modules.pop("aragora.ranking.calibration", None)
 
 
 @pytest.fixture
@@ -1260,7 +1281,7 @@ class TestAnalyticsHandlerLearningEfficiency:
             mock_auth.return_value = mock_auth_context
             mock_check.return_value = True
 
-            with patch("aragora.server.handlers.analytics.get_elo_store", side_effect=ImportError):
+            with patch("aragora.ranking.elo.get_elo_store", side_effect=ImportError):
                 result = await analytics_handler.handle(
                     "/api/v1/analytics/learning-efficiency", {}, mock_http_handler
                 )
@@ -1289,7 +1310,7 @@ class TestAnalyticsHandlerLearningEfficiency:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -1323,7 +1344,7 @@ class TestAnalyticsHandlerLearningEfficiency:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -1354,7 +1375,7 @@ class TestAnalyticsHandlerLearningEfficiency:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -1387,7 +1408,7 @@ class TestAnalyticsHandlerLearningEfficiency:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -1423,7 +1444,7 @@ class TestAnalyticsHandlerVotingAccuracy:
             mock_auth.return_value = mock_auth_context
             mock_check.return_value = True
 
-            with patch("aragora.server.handlers.analytics.get_elo_store", side_effect=ImportError):
+            with patch("aragora.ranking.elo.get_elo_store", side_effect=ImportError):
                 result = await analytics_handler.handle(
                     "/api/v1/analytics/voting-accuracy", {}, mock_http_handler
                 )
@@ -1452,7 +1473,7 @@ class TestAnalyticsHandlerVotingAccuracy:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -1486,7 +1507,7 @@ class TestAnalyticsHandlerVotingAccuracy:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -1506,6 +1527,17 @@ class TestAnalyticsHandlerVotingAccuracy:
 # ==============================================================================
 
 
+# Helper to check if calibration module exists
+def _calibration_module_available():
+    """Check if the calibration module is available."""
+    try:
+        import aragora.ranking.calibration  # noqa: F401
+
+        return True
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+
 class TestAnalyticsHandlerCalibration:
     """Test GET /api/analytics/calibration endpoint."""
 
@@ -1523,7 +1555,7 @@ class TestAnalyticsHandlerCalibration:
             mock_auth.return_value = mock_auth_context
             mock_check.return_value = True
 
-            with patch("aragora.server.handlers.analytics.get_elo_store", side_effect=ImportError):
+            with patch("aragora.ranking.elo.get_elo_store", side_effect=ImportError):
                 result = await analytics_handler.handle(
                     "/api/v1/analytics/calibration", {}, mock_http_handler
                 )
@@ -1539,6 +1571,7 @@ class TestAnalyticsHandlerCalibration:
         mock_http_handler,
         mock_elo_system,
         mock_calibration_tracker,
+        mock_calibration_module,
         mock_auth_context,
         reset_rate_limiter,
     ):
@@ -1552,15 +1585,9 @@ class TestAnalyticsHandlerCalibration:
             mock_auth.return_value = mock_auth_context
             mock_check.return_value = True
 
-            with (
-                patch(
-                    "aragora.server.handlers.analytics.get_elo_store",
-                    return_value=mock_elo_system,
-                ),
-                patch(
-                    "aragora.server.handlers.analytics.CalibrationTracker",
-                    return_value=mock_calibration_tracker,
-                ),
+            with patch(
+                "aragora.ranking.elo.get_elo_store",
+                return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
                     "/api/analytics/calibration",
@@ -1592,15 +1619,10 @@ class TestAnalyticsHandlerCalibration:
             mock_auth.return_value = mock_auth_context
             mock_check.return_value = True
 
-            with (
-                patch(
-                    "aragora.server.handlers.analytics.get_elo_store",
-                    return_value=mock_elo_system,
-                ),
-                patch(
-                    "aragora.server.handlers.analytics.CalibrationTracker",
-                    side_effect=ImportError,
-                ),
+            # Since the module doesn't exist, it naturally returns None for calibration
+            with patch(
+                "aragora.ranking.elo.get_elo_store",
+                return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
                     "/api/analytics/calibration",
@@ -1619,6 +1641,7 @@ class TestAnalyticsHandlerCalibration:
         mock_http_handler,
         mock_elo_system,
         mock_calibration_tracker,
+        mock_calibration_module,
         mock_auth_context,
         reset_rate_limiter,
     ):
@@ -1632,15 +1655,9 @@ class TestAnalyticsHandlerCalibration:
             mock_auth.return_value = mock_auth_context
             mock_check.return_value = True
 
-            with (
-                patch(
-                    "aragora.server.handlers.analytics.get_elo_store",
-                    return_value=mock_elo_system,
-                ),
-                patch(
-                    "aragora.server.handlers.analytics.CalibrationTracker",
-                    return_value=mock_calibration_tracker,
-                ),
+            with patch(
+                "aragora.ranking.elo.get_elo_store",
+                return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
                     "/api/analytics/calibration", {}, mock_http_handler
@@ -1750,7 +1767,7 @@ class TestAnalyticsHandlerErrorHandling:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 # Invalid limit value should default
@@ -1843,7 +1860,7 @@ class TestAnalyticsHandlerIntegration:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 # Test learning-efficiency with params
@@ -2329,7 +2346,7 @@ class TestAgentPerformanceMetrics:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -2361,7 +2378,7 @@ class TestAgentPerformanceMetrics:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -2384,6 +2401,7 @@ class TestAgentPerformanceMetrics:
         mock_http_handler,
         mock_elo_system,
         mock_calibration_tracker,
+        mock_calibration_module,
         mock_auth_context,
         reset_rate_limiter,
     ):
@@ -2397,15 +2415,9 @@ class TestAgentPerformanceMetrics:
             mock_auth.return_value = mock_auth_context
             mock_check.return_value = True
 
-            with (
-                patch(
-                    "aragora.server.handlers.analytics.get_elo_store",
-                    return_value=mock_elo_system,
-                ),
-                patch(
-                    "aragora.server.handlers.analytics.CalibrationTracker",
-                    return_value=mock_calibration_tracker,
-                ),
+            with patch(
+                "aragora.ranking.elo.get_elo_store",
+                return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
                     "/api/analytics/calibration",
@@ -2448,7 +2460,7 @@ class TestQueryParameterValidation:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 # Request limit > max (1000)
@@ -2483,7 +2495,7 @@ class TestQueryParameterValidation:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 # Request limit < min (0 or negative)
@@ -2518,7 +2530,7 @@ class TestQueryParameterValidation:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -2551,7 +2563,7 @@ class TestQueryParameterValidation:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.get_elo_store",
+                "aragora.ranking.elo.get_elo_store",
                 return_value=mock_elo_system,
             ):
                 result = await analytics_handler.handle(
@@ -2643,7 +2655,7 @@ class TestCrossPollinationStats:
             mock_check.return_value = True
 
             with patch(
-                "aragora.server.handlers.analytics.RLMHierarchyCache",
+                "aragora.rlm.bridge.RLMHierarchyCache",
                 return_value=mock_cache,
             ):
                 result = await analytics_handler.handle(
@@ -2866,9 +2878,9 @@ class TestMemoryStatistics:
         nomic_dir = tmp_path / "nomic"
         nomic_dir.mkdir()
 
-        # Create all database files
+        # Create all database files (use aragora_insights.db per DB_INSIGHTS_PATH config)
         (nomic_dir / "debate_embeddings.db").touch()
-        (nomic_dir / "insights.db").touch()
+        (nomic_dir / "aragora_insights.db").touch()
         (nomic_dir / "continuum_memory.db").touch()
 
         analytics_handler.ctx["nomic_dir"] = nomic_dir

@@ -22,17 +22,43 @@ logger = logging.getLogger(__name__)
 class ProbesMixin:
     """Mixin providing K8s liveness and readiness probes.
 
-    Should be mixed into a handler class that provides:
-    - get_storage() method
-    - get_elo_system() method
+    Should be mixed into a handler class that has a `ctx` attribute
+    (typically a ServerContext dict) containing storage and elo_system.
+
+    When mixed with BaseHandler or its subclasses, these methods will
+    access the storage and ELO system from the server context.
     """
 
-    # Subclasses should implement these
+    # Type hint for ctx attribute (provided by BaseHandler or similar)
+    ctx: dict[str, Any]
+
     def get_storage(self) -> Any:
-        raise NotImplementedError
+        """Get debate storage instance from server context.
+
+        Returns:
+            DebateStorage instance if configured, None otherwise.
+        """
+        # Use ctx if available (when mixed with BaseHandler)
+        if hasattr(self, "ctx") and self.ctx is not None:
+            return self.ctx.get("storage")
+        return None
 
     def get_elo_system(self) -> Any:
-        raise NotImplementedError
+        """Get ELO system instance from server context.
+
+        Checks class attribute first (set by unified_server for efficiency),
+        then falls back to ctx lookup.
+
+        Returns:
+            EloSystem instance if configured, None otherwise.
+        """
+        # Check class attribute first (set by unified_server)
+        if hasattr(self.__class__, "elo_system") and self.__class__.elo_system is not None:
+            return self.__class__.elo_system
+        # Fall back to ctx if available (when mixed with BaseHandler)
+        if hasattr(self, "ctx") and self.ctx is not None:
+            return self.ctx.get("elo_system")
+        return None
 
     def liveness_probe(self) -> HandlerResult:
         """Kubernetes liveness probe - lightweight check that server is alive.

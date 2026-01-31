@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -81,8 +82,12 @@ class ActionResult:
 
 
 @dataclass
-class Action:
-    """Base class for all computer-use actions."""
+class Action(ABC):
+    """Base class for all computer-use actions.
+
+    This is an abstract base class. Subclasses must implement:
+    - to_tool_input(): Convert action to Claude tool input format
+    """
 
     action_id: str = ""
     action_type: ActionType = ActionType.SCREENSHOT
@@ -92,9 +97,18 @@ class Action:
         if not self.action_id:
             self.action_id = f"action-{uuid.uuid4().hex[:8]}"
 
+    @abstractmethod
     def to_tool_input(self) -> dict[str, Any]:
-        """Convert to Claude tool input format."""
-        raise NotImplementedError
+        """Convert to Claude tool input format.
+
+        Returns:
+            Dictionary with 'action' key and action-specific parameters
+            matching Claude's computer_20241022 tool schema.
+
+        Raises:
+            NotImplementedError: If subclass doesn't override this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement to_tool_input()")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""

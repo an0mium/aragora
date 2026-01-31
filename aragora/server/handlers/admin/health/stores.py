@@ -29,16 +29,40 @@ class StoresMixin:
     """
 
     def get_storage(self) -> Any:
-        """Get debate storage. Subclasses must implement."""
-        raise NotImplementedError
+        """Get debate storage instance.
+
+        Returns the debate storage from the context dict. Returns None if
+        storage is not initialized yet (will auto-create on first debate).
+
+        Returns:
+            DebateStorage instance if available, None otherwise.
+        """
+        return self.ctx.get("storage")
 
     def get_elo_system(self) -> Any:
-        """Get ELO ranking system. Subclasses must implement."""
-        raise NotImplementedError
+        """Get ELO ranking system instance.
+
+        Returns the ELO system from either a class attribute (set by unified_server)
+        or from the context dict. Returns None if not initialized.
+
+        Returns:
+            EloSystem instance if available, None otherwise.
+        """
+        # Check class attribute first (set by unified_server), then ctx
+        if hasattr(self.__class__, "elo_system") and self.__class__.elo_system is not None:
+            return self.__class__.elo_system
+        return self.ctx.get("elo_system")
 
     def get_nomic_dir(self) -> Path | None:
-        """Get nomic directory path. Subclasses must implement."""
-        raise NotImplementedError
+        """Get nomic directory path.
+
+        Returns the path to the nomic session directory where databases
+        like elo.db and consensus_memory.db are stored.
+
+        Returns:
+            Path to nomic directory if configured, None otherwise.
+        """
+        return self.ctx.get("nomic_dir")
 
     ctx: dict[str, Any]  # Context dict for accessing stores
 
