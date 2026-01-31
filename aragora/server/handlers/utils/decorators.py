@@ -424,6 +424,13 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "connectors:create": ["admin", "owner"],
     "connectors:delete": ["admin", "owner"],
     "connectors:configure": ["admin", "owner"],
+    # Webhook permissions
+    "webhooks:read": ["member", "admin", "owner"],
+    "webhooks:create": ["admin", "owner"],
+    "webhooks:update": ["admin", "owner"],
+    "webhooks:delete": ["admin", "owner"],
+    "webhooks:test": ["admin", "owner"],
+    "webhooks:admin": ["admin", "owner"],
     # Admin permissions
     "admin:*": ["owner"],
     "admin:audit": ["admin", "owner"],

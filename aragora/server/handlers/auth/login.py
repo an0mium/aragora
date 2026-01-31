@@ -16,7 +16,7 @@ from aragora.auth.lockout import get_lockout_tracker
 
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
-from ..utils.rate_limit import get_client_ip, rate_limit
+from ..utils.rate_limit import auth_rate_limit, get_client_ip
 from .validation import validate_email, validate_password
 
 if TYPE_CHECKING:
@@ -49,7 +49,9 @@ logger = logging.getLogger(__name__)
         "503": {"description": "User service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=2, limiter_name="auth_register")
+@auth_rate_limit(
+    requests_per_minute=5, limiter_name="auth_register", endpoint_name="user registration"
+)
 @handle_errors("user registration")
 @log_request("user registration")
 def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -154,7 +156,7 @@ def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
         "503": {"description": "Authentication service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=3, limiter_name="auth_login")
+@auth_rate_limit(requests_per_minute=5, limiter_name="auth_login", endpoint_name="user login")
 @handle_errors("user login")
 @log_request("user login")
 def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:

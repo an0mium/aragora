@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -20,7 +21,7 @@ class ReplayAPI:
         self,
         limit: int = 20,
         debate_id: str | None = None,
-    ) -> list[ReplaySummary]:
+    ) -> builtins.list[ReplaySummary]:
         """
         List available debate replays.
 
@@ -43,7 +44,7 @@ class ReplayAPI:
         self,
         limit: int = 20,
         debate_id: str | None = None,
-    ) -> list[ReplaySummary]:
+    ) -> builtins.list[ReplaySummary]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit}
         if debate_id:

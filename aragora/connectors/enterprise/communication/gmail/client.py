@@ -99,7 +99,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def check_circuit_breaker(self) -> bool:
         """Return circuit breaker status with safe fallback."""
         try:
-            method = super().check_circuit_breaker  # type: ignore[misc]
+            method = super().check_circuit_breaker  # type: ignore[misc, safe-super]
             result = method()
             if result is Ellipsis or result is None or self._is_protocol_method(method):
                 return not getattr(self, "_circuit_open", False)
@@ -110,7 +110,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Return circuit breaker status with safe fallback."""
         try:
-            method = super().get_circuit_breaker_status  # type: ignore[misc]
+            method = super().get_circuit_breaker_status  # type: ignore[misc, safe-super]
             status = method()
             if status is Ellipsis or status is None or self._is_protocol_method(method):
                 return {"cooldown_seconds": 60, "failure_count": getattr(self, "_failure_count", 0)}
@@ -121,7 +121,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def record_success(self) -> None:
         """Record circuit breaker success with safe fallback."""
         try:
-            method = super().record_success  # type: ignore[misc]
+            method = super().record_success  # type: ignore[misc, safe-super]
             method()
             if self._is_protocol_method(method):
                 self._success_count = getattr(self, "_success_count", 0) + 1
@@ -131,7 +131,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     def record_failure(self) -> None:
         """Record circuit breaker failure with safe fallback."""
         try:
-            method = super().record_failure  # type: ignore[misc]
+            method = super().record_failure  # type: ignore[misc, safe-super]
             method()
             if self._is_protocol_method(method):
                 self._failure_count = getattr(self, "_failure_count", 0) + 1

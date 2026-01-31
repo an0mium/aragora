@@ -434,7 +434,9 @@ class TestOAuthFlowCompletion:
         # Should redirect with error
         assert result.status_code == 302
         assert "error=" in result.headers.get("Location", "")
-        assert "already+linked" in result.headers.get("Location", "").lower()
+        # URL encoding may use %20 or + for spaces
+        location_lower = result.headers.get("Location", "").lower()
+        assert "already" in location_lower and "linked" in location_lower
 
 
 # ===========================================================================
@@ -658,6 +660,9 @@ class TestOAuthMethodNotAllowed:
         mock_create_span.return_value.__exit__ = MagicMock(return_value=False)
         mock_limiter.is_allowed.return_value = True
 
+        # Set the command on the handler (handle() uses handler.command if available)
+        mock_request_handler.command = "POST"
+
         # POST to providers list (GET only)
         result = oauth_handler.handle(
             "/api/v1/auth/oauth/providers",
@@ -680,6 +685,9 @@ class TestOAuthMethodNotAllowed:
         mock_create_span.return_value.__enter__ = MagicMock(return_value=mock_span)
         mock_create_span.return_value.__exit__ = MagicMock(return_value=False)
         mock_limiter.is_allowed.return_value = True
+
+        # Set the command on the handler (handle() uses handler.command if available)
+        mock_request_handler.command = "DELETE"
 
         result = oauth_handler.handle(
             "/api/v1/auth/oauth/link",

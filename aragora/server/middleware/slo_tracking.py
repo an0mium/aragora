@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Awaitable, Generator
 from contextlib import contextmanager
@@ -38,7 +39,10 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 R = TypeVar("R")
 
-# Request counters (thread-safe via atomic operations)
+# Lock for thread-safe counter updates (RLock allows reentrant calls)
+_counter_lock = threading.RLock()
+
+# Request counters (protected by _counter_lock)
 _total_requests = 0
 _successful_requests = 0
 _total_debates = 0
@@ -56,14 +60,15 @@ def _record_request(success: bool = True, is_debate: bool = False) -> None:
     """
     global _total_requests, _successful_requests, _total_debates, _successful_debates
 
-    _total_requests += 1
-    if success:
-        _successful_requests += 1
-
-    if is_debate:
-        _total_debates += 1
+    with _counter_lock:
+        _total_requests += 1
         if success:
-            _successful_debates += 1
+            _successful_requests += 1
+
+        if is_debate:
+            _total_debates += 1
+            if success:
+                _successful_debates += 1
 
 
 def _record_latency(latency_ms: float) -> None:
@@ -74,11 +79,12 @@ def _record_latency(latency_ms: float) -> None:
     """
     global _recent_latencies
 
-    _recent_latencies.append(latency_ms)
+    with _counter_lock:
+        _recent_latencies.append(latency_ms)
 
-    # Keep bounded
-    if len(_recent_latencies) > _max_latency_samples:
-        _recent_latencies = _recent_latencies[-_max_latency_samples:]
+        # Keep bounded
+        if len(_recent_latencies) > _max_latency_samples:
+            _recent_latencies = _recent_latencies[-_max_latency_samples:]
 
 
 def _get_p99_latency() -> float:
@@ -87,14 +93,15 @@ def _get_p99_latency() -> float:
     Returns:
         p99 latency in seconds
     """
-    if not _recent_latencies:
-        return 0.0
+    with _counter_lock:
+        if not _recent_latencies:
+            return 0.0
 
-    sorted_latencies = sorted(_recent_latencies)
-    p99_index = int(len(sorted_latencies) * 0.99)
-    p99_ms = sorted_latencies[min(p99_index, len(sorted_latencies) - 1)]
+        sorted_latencies = sorted(_recent_latencies)
+        p99_index = int(len(sorted_latencies) * 0.99)
+        p99_ms = sorted_latencies[min(p99_index, len(sorted_latencies) - 1)]
 
-    return p99_ms / 1000  # Convert to seconds
+        return p99_ms / 1000  # Convert to seconds
 
 
 def sync_slo_measurements() -> None:
@@ -118,14 +125,15 @@ def get_tracking_stats() -> dict[str, Any]:
     Returns:
         Dictionary with tracking stats
     """
-    return {
-        "total_requests": _total_requests,
-        "successful_requests": _successful_requests,
-        "total_debates": _total_debates,
-        "successful_debates": _successful_debates,
-        "recent_latency_samples": len(_recent_latencies),
-        "p99_latency_ms": _get_p99_latency() * 1000,
-    }
+    with _counter_lock:
+        return {
+            "total_requests": _total_requests,
+            "successful_requests": _successful_requests,
+            "total_debates": _total_debates,
+            "successful_debates": _successful_debates,
+            "recent_latency_samples": len(_recent_latencies),
+            "p99_latency_ms": _get_p99_latency() * 1000,
+        }
 
 
 @contextmanager

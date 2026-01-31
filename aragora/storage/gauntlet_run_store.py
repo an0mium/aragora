@@ -39,6 +39,30 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _batch_deserialize_json(rows: list[tuple[str, ...]], idx: int = 0) -> list[dict[str, Any]]:
+    """Batch deserialize JSON from query results.
+
+    Pre-allocates the result list for better memory efficiency.
+    Skips json.loads for already-parsed JSONB results (asyncpg returns dicts).
+
+    Args:
+        rows: List of tuples from cursor.fetchall()
+        idx: Index of the JSON column in each row (default 0)
+
+    Returns:
+        List of deserialized dictionaries
+    """
+    if not rows:
+        return []
+
+    results: list[dict[str, Any]] = [{}] * len(rows)
+    for i, row in enumerate(rows):
+        data = row[idx]
+        results[i] = json.loads(data) if isinstance(data, str) else data
+    return results
+
+
 # Global singleton
 _gauntlet_run_store: Optional["GauntletRunStoreBackend"] = None
 _store_lock = threading.RLock()
@@ -394,7 +418,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                     "SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC LIMIT ? OFFSET ?",
                     (limit, offset),
                 )
-                return [json.loads(row[0]) for row in cursor.fetchall()]
+                return _batch_deserialize_json(cursor.fetchall())
             finally:
                 conn.close()
 
@@ -416,7 +440,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                     "SELECT data_json FROM gauntlet_runs WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
                     (status, limit, offset),
                 )
-                return [json.loads(row[0]) for row in cursor.fetchall()]
+                return _batch_deserialize_json(cursor.fetchall())
             finally:
                 conn.close()
 
@@ -438,7 +462,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                     "SELECT data_json FROM gauntlet_runs WHERE template_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
                     (template_id, limit, offset),
                 )
-                return [json.loads(row[0]) for row in cursor.fetchall()]
+                return _batch_deserialize_json(cursor.fetchall())
             finally:
                 conn.close()
 
@@ -461,7 +485,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                     """,
                     (limit,),
                 )
-                return [json.loads(row[0]) for row in cursor.fetchall()]
+                return _batch_deserialize_json(cursor.fetchall())
             finally:
                 conn.close()
 
@@ -728,7 +752,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return await self._fallback.list_all()
 
         try:
-            results = []
+            results: list[dict[str, Any]] = []
             cursor = "0"
             while cursor != 0:
                 cursor, keys = self._redis_client.scan(
@@ -740,9 +764,10 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                     data_keys = [k for k in keys if b":idx:" not in k and b"idx:" not in k]
                     if data_keys:
                         values = self._redis_client.mget(data_keys)
-                        for v in values:
-                            if v:
-                                results.append(json.loads(v))
+                        # Batch deserialize: filter None values and parse
+                        valid_values = [v for v in values if v]
+                        if valid_values:
+                            results.extend(_batch_deserialize_json([(v,) for v in valid_values]))
             return results
         except Exception as e:
             logger.warning(f"Redis list_all failed, using fallback: {e}")
@@ -760,7 +785,9 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
 
             keys = [f"{self.REDIS_PREFIX}{rid.decode()}" for rid in run_ids]
             values = self._redis_client.mget(keys)
-            return [json.loads(v) for v in values if v]
+            # Batch deserialize: filter None values and parse
+            valid_values = [v for v in values if v]
+            return _batch_deserialize_json([(v,) for v in valid_values])
         except Exception as e:
             logger.warning(f"Redis list_by_status failed, using fallback: {e}")
             return await self._fallback.list_by_status(status)
@@ -777,7 +804,9 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
 
             keys = [f"{self.REDIS_PREFIX}{rid.decode()}" for rid in run_ids]
             values = self._redis_client.mget(keys)
-            return [json.loads(v) for v in values if v]
+            # Batch deserialize: filter None values and parse
+            valid_values = [v for v in values if v]
+            return _batch_deserialize_json([(v,) for v in valid_values])
         except Exception as e:
             logger.warning(f"Redis list_by_template failed, using fallback: {e}")
             return await self._fallback.list_by_template(template_id)
@@ -976,11 +1005,8 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
         """List all runs."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch("SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC")
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            # Convert asyncpg Record rows to tuples for batch deserialize
+            return _batch_deserialize_json([(row["data_json"],) for row in rows])
 
     def list_all_sync(self) -> list[dict[str, Any]]:
         """List all runs (sync wrapper)."""
@@ -995,11 +1021,8 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
                 "SELECT data_json FROM gauntlet_runs WHERE status = $1 ORDER BY created_at DESC",
                 status,
             )
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            # Convert asyncpg Record rows to tuples for batch deserialize
+            return _batch_deserialize_json([(row["data_json"],) for row in rows])
 
     def list_by_status_sync(self, status: str) -> list[dict[str, Any]]:
         """List runs by status (sync wrapper)."""
@@ -1014,11 +1037,8 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
                 "SELECT data_json FROM gauntlet_runs WHERE template_id = $1 ORDER BY created_at DESC",
                 template_id,
             )
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            # Convert asyncpg Record rows to tuples for batch deserialize
+            return _batch_deserialize_json([(row["data_json"],) for row in rows])
 
     def list_by_template_sync(self, template_id: str) -> list[dict[str, Any]]:
         """List runs by template (sync wrapper)."""
@@ -1032,11 +1052,8 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
             rows = await conn.fetch("""SELECT data_json FROM gauntlet_runs
                    WHERE status IN ('pending', 'running')
                    ORDER BY created_at DESC""")
-            results = []
-            for row in rows:
-                data = row["data_json"]
-                results.append(json.loads(data) if isinstance(data, str) else data)
-            return results
+            # Convert asyncpg Record rows to tuples for batch deserialize
+            return _batch_deserialize_json([(row["data_json"],) for row in rows])
 
     def list_active_sync(self) -> list[dict[str, Any]]:
         """List active runs (sync wrapper)."""

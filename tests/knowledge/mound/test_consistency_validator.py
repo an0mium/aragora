@@ -28,6 +28,18 @@ from aragora.knowledge.mound.consistency_validator import (
 
 
 # ============================================================================
+# Helpers
+# ============================================================================
+
+
+def _make_query_result(items: list) -> MagicMock:
+    """Create a mock query result with items attribute."""
+    result = MagicMock()
+    result.items = items
+    return result
+
+
+# ============================================================================
 # Fixtures
 # ============================================================================
 
@@ -36,7 +48,8 @@ from aragora.knowledge.mound.consistency_validator import (
 def mock_mound():
     """Create a mock KnowledgeMound for testing."""
     mound = MagicMock()
-    mound.query = AsyncMock(return_value=[])
+    # Query returns an object with .items attribute
+    mound.query = AsyncMock(return_value=_make_query_result([]))
     mound.get = AsyncMock(return_value=None)
     mound.update = AsyncMock(return_value=True)
     mound.delete = AsyncMock(return_value=True)
@@ -260,7 +273,7 @@ class TestReferentialIntegrityCheck:
     @pytest.mark.asyncio
     async def test_detects_broken_parent_reference(self, validator, mock_mound, sample_nodes):
         """Test detection of broken parent references."""
-        mock_mound.query.return_value = sample_nodes
+        mock_mound.query.return_value = _make_query_result(sample_nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.REFERENTIAL])
 
@@ -286,7 +299,7 @@ class TestReferentialIntegrityCheck:
                 "parent_id": "node-1",
             },
         ]
-        mock_mound.query.return_value = valid_nodes
+        mock_mound.query.return_value = _make_query_result(valid_nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.REFERENTIAL])
 
@@ -319,7 +332,7 @@ class TestContentValidationCheck:
             {"id": "empty-1", "workspace_id": "ws_test", "content": ""},
             {"id": "whitespace-1", "workspace_id": "ws_test", "content": "   "},
         ]
-        mock_mound.query.return_value = nodes
+        mock_mound.query.return_value = _make_query_result(nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.CONTENT])
 
@@ -339,7 +352,7 @@ class TestContentValidationCheck:
         nodes = [
             {"id": "big-1", "workspace_id": "ws_test", "content": "x" * 200},
         ]
-        mock_mound.query.return_value = nodes
+        mock_mound.query.return_value = _make_query_result(nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.CONTENT])
 
@@ -357,7 +370,7 @@ class TestContentValidationCheck:
         nodes = [
             {"content": "No ID or workspace"},
         ]
-        mock_mound.query.return_value = nodes
+        mock_mound.query.return_value = _make_query_result(nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.CONTENT])
 
@@ -381,7 +394,7 @@ class TestStalenessCheck:
     @pytest.mark.asyncio
     async def test_detects_stale_content(self, validator, mock_mound, stale_nodes):
         """Test detection of stale content."""
-        mock_mound.query.return_value = stale_nodes
+        mock_mound.query.return_value = _make_query_result(stale_nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.STALENESS])
 
@@ -404,7 +417,7 @@ class TestStalenessCheck:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             },
         ]
-        mock_mound.query.return_value = recent_nodes
+        mock_mound.query.return_value = _make_query_result(recent_nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.STALENESS])
 
@@ -427,7 +440,7 @@ class TestConfidenceDecayCheck:
     @pytest.mark.asyncio
     async def test_detects_low_confidence(self, validator, mock_mound, low_confidence_nodes):
         """Test detection of low confidence nodes."""
-        mock_mound.query.return_value = low_confidence_nodes
+        mock_mound.query.return_value = _make_query_result(low_confidence_nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.CONFIDENCE])
 
@@ -446,7 +459,7 @@ class TestConfidenceDecayCheck:
             {"id": "high-1", "workspace_id": "ws_test", "content": "Good", "confidence": 0.9},
             {"id": "high-2", "workspace_id": "ws_test", "content": "Good", "confidence": 0.8},
         ]
-        mock_mound.query.return_value = high_conf_nodes
+        mock_mound.query.return_value = _make_query_result(high_conf_nodes)
 
         report = await validator.validate("ws_test", [ConsistencyCheckType.CONFIDENCE])
 
@@ -520,7 +533,7 @@ class TestFullValidation:
     @pytest.mark.asyncio
     async def test_runs_all_checks(self, validator, mock_mound, sample_nodes):
         """Test that validate runs all check types."""
-        mock_mound.query.return_value = sample_nodes
+        mock_mound.query.return_value = _make_query_result(sample_nodes)
 
         report = await validator.validate("ws_test")
 
@@ -539,7 +552,7 @@ class TestFullValidation:
     @pytest.mark.asyncio
     async def test_returns_complete_report(self, validator, mock_mound, sample_nodes):
         """Test that validate returns a complete report."""
-        mock_mound.query.return_value = sample_nodes
+        mock_mound.query.return_value = _make_query_result(sample_nodes)
 
         report = await validator.validate("ws_test")
 
@@ -551,7 +564,7 @@ class TestFullValidation:
     @pytest.mark.asyncio
     async def test_handles_empty_workspace(self, validator, mock_mound):
         """Test handling of empty workspace."""
-        mock_mound.query.return_value = []
+        mock_mound.query.return_value = _make_query_result([])
 
         report = await validator.validate("ws_empty")
 
@@ -570,7 +583,7 @@ class TestAutoFix:
     @pytest.mark.asyncio
     async def test_dry_run_reports_fixes(self, validator, mock_mound, sample_nodes):
         """Test that dry run reports what would be fixed."""
-        mock_mound.query.return_value = sample_nodes
+        mock_mound.query.return_value = _make_query_result(sample_nodes)
 
         result = await validator.auto_fix("ws_test", dry_run=True)
 
@@ -592,7 +605,7 @@ class TestAutoFix:
                 "parent_id": "nonexistent",
             }
         ]
-        mock_mound.query.return_value = nodes
+        mock_mound.query.return_value = _make_query_result(nodes)
 
         result = await validator.auto_fix("ws_test", dry_run=False)
 

@@ -5,6 +5,7 @@ Provides SDK methods for document management, batch processing, and auditing.
 
 from __future__ import annotations
 
+import builtins
 import base64
 import os
 from pathlib import Path
@@ -46,7 +47,7 @@ class DocumentsAPI:
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[Document]:
+    ) -> builtins.list[Document]:
         """
         List uploaded documents.
 
@@ -71,7 +72,7 @@ class DocumentsAPI:
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[Document]:
+    ) -> builtins.list[Document]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -195,7 +196,7 @@ class DocumentsAPI:
 
     def batch_upload(
         self,
-        file_paths: list[str],
+        file_paths: builtins.list[str],
         metadata: dict[str, Any] | None = None,
     ) -> BatchUploadResponse:
         """
@@ -234,7 +235,7 @@ class DocumentsAPI:
 
     async def batch_upload_async(
         self,
-        file_paths: list[str],
+        file_paths: builtins.list[str],
         metadata: dict[str, Any] | None = None,
     ) -> BatchUploadResponse:
         """Async version of batch_upload()."""
@@ -340,7 +341,7 @@ class DocumentsAPI:
         document_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[DocumentChunk]:
+    ) -> builtins.list[DocumentChunk]:
         """
         Get chunks for a document.
 
@@ -362,7 +363,7 @@ class DocumentsAPI:
         document_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[DocumentChunk]:
+    ) -> builtins.list[DocumentChunk]:
         """Async version of chunks()."""
         params = {"limit": limit, "offset": offset}
         response = await self._client._get_async(
@@ -414,8 +415,8 @@ class DocumentsAPI:
 
     def create_audit(
         self,
-        document_ids: list[str],
-        audit_types: Optional[list[str]] = None,
+        document_ids: builtins.list[str],
+        audit_types: Optional[builtins.list[str]] = None,
         model: str = "gemini-1.5-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:
@@ -444,8 +445,8 @@ class DocumentsAPI:
 
     async def create_audit_async(
         self,
-        document_ids: list[str],
-        audit_types: Optional[list[str]] = None,
+        document_ids: builtins.list[str],
+        audit_types: Optional[builtins.list[str]] = None,
         model: str = "gemini-1.5-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:
@@ -465,7 +466,7 @@ class DocumentsAPI:
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[AuditSession]:
+    ) -> builtins.list[AuditSession]:
         """
         List audit sessions.
 
@@ -490,7 +491,7 @@ class DocumentsAPI:
         limit: int = 20,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[AuditSession]:
+    ) -> builtins.list[AuditSession]:
         """Async version of list_audits()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -595,7 +596,7 @@ class DocumentsAPI:
         session_id: str,
         severity: str | None = None,
         audit_type: str | None = None,
-    ) -> list[AuditFinding]:
+    ) -> builtins.list[AuditFinding]:
         """
         Get findings from an audit session.
 
@@ -622,7 +623,7 @@ class DocumentsAPI:
         session_id: str,
         severity: str | None = None,
         audit_type: str | None = None,
-    ) -> list[AuditFinding]:
+    ) -> builtins.list[AuditFinding]:
         """Async version of audit_findings()."""
         params: dict[str, Any] = {}
         if severity:

@@ -1212,18 +1212,24 @@ class TestDesignPhaseDeepAudit:
         """Should reject design if deep audit fails."""
         from aragora.nomic.phases.design import DesignPhase, DesignConfig
 
-        # Create a callable that simulates deep_audit behavior
-        # Called with "check" action first, should return (True, reason)
-        # Then called with "run" action, should return the audit result dict
-        call_count = 0
+        # The deep_audit_fn is called:
+        # - sync for "check" action, returning (bool, str)
+        # - awaited for "run" action, returning a dict
+        # So we create a callable that returns (bool,str) for check
+        # and returns a coroutine for run
 
-        async def deep_audit_fn(action, content, phase=None):
-            nonlocal call_count
-            call_count += 1
+        call_count = [0]  # Use list for mutable closure
+
+        def deep_audit_fn(action, content, phase=None):
+            call_count[0] += 1
             if action == "check":
                 return True, "Needs audit due to suspicious patterns"
             elif action == "run":
-                return {"approved": False, "unanimous_issues": ["Security concern"]}
+                # Return an awaitable (coroutine function result)
+                async def _run_audit():
+                    return {"approved": False, "unanimous_issues": ["Security concern"]}
+
+                return _run_audit()
             return None
 
         config = DesignConfig(enable_decomposition=False)
@@ -1242,7 +1248,7 @@ class TestDesignPhaseDeepAudit:
         result = await phase.execute(improvement="Suspicious feature")
 
         # The deep audit should have been called (for check and run)
-        assert call_count >= 1
+        assert call_count[0] >= 1
         assert result["success"] is False
         # Either the error mentions deep_audit or the data has the flag
         assert (

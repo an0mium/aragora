@@ -652,7 +652,11 @@ class TestDecayHealthDegraded:
         mock_scheduler = MagicMock()
         mock_scheduler.is_running = True
         # Workspace with decay older than 48 hours
-        stale_time = (datetime.now(timezone.utc) - timedelta(hours=72)).isoformat() + "Z"
+        # Note: isoformat() with timezone-aware datetime already includes +00:00,
+        # so we use replace("+00:00", "Z") to get the "Z" suffix format
+        stale_time = (
+            (datetime.now(timezone.utc) - timedelta(hours=72)).isoformat().replace("+00:00", "Z")
+        )
         mock_scheduler.get_stats.return_value = {
             "decay_interval_hours": 24,
             "last_decay_per_workspace": {

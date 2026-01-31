@@ -9,6 +9,7 @@ Provides methods for notification management:
 
 from __future__ import annotations
 
+import builtins
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -78,7 +79,7 @@ class NotificationsAPI:
     # Preferences
     # =========================================================================
 
-    def get_preferences(self) -> list[NotificationPreference]:
+    def get_preferences(self) -> builtins.list[NotificationPreference]:
         """
         Get notification preferences for the current user.
 
@@ -89,7 +90,7 @@ class NotificationsAPI:
         prefs = response.get("preferences", [])
         return [self._parse_preference(p) for p in prefs]
 
-    async def get_preferences_async(self) -> list[NotificationPreference]:
+    async def get_preferences_async(self) -> builtins.list[NotificationPreference]:
         """Async version of get_preferences()."""
         response = await self._client._get_async("/api/v1/notifications/preferences")
         prefs = response.get("preferences", [])
@@ -99,7 +100,7 @@ class NotificationsAPI:
         self,
         event_type: str,
         enabled: bool | None = None,
-        channels: Optional[list[str]] = None,
+        channels: Optional[builtins.list[str]] = None,
         frequency: str | None = None,
     ) -> NotificationPreference:
         """
@@ -129,7 +130,7 @@ class NotificationsAPI:
         self,
         event_type: str,
         enabled: bool | None = None,
-        channels: Optional[list[str]] = None,
+        channels: Optional[builtins.list[str]] = None,
         frequency: str | None = None,
     ) -> NotificationPreference:
         """Async version of update_preference()."""
@@ -191,7 +192,7 @@ class NotificationsAPI:
     # Channels
     # =========================================================================
 
-    def list_channels(self) -> list[NotificationChannel]:
+    def list_channels(self) -> builtins.list[NotificationChannel]:
         """
         List configured notification channels.
 
@@ -202,7 +203,7 @@ class NotificationsAPI:
         channels = response.get("channels", [])
         return [self._parse_channel(c) for c in channels]
 
-    async def list_channels_async(self) -> list[NotificationChannel]:
+    async def list_channels_async(self) -> builtins.list[NotificationChannel]:
         """Async version of list_channels()."""
         response = await self._client._get_async("/api/v1/notifications/channels")
         channels = response.get("channels", [])
@@ -289,7 +290,7 @@ class NotificationsAPI:
         type_filter: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[Notification], int]:
+    ) -> tuple[builtins.list[Notification], int]:
         """
         List notifications.
 
@@ -318,7 +319,7 @@ class NotificationsAPI:
         type_filter: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[Notification], int]:
+    ) -> tuple[builtins.list[Notification], int]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:

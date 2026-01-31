@@ -283,7 +283,8 @@ class HierarchyRegistry:
                 break
 
             parent_key = current.parent_key
-            assert parent_key is not None  # Guaranteed by has_parent check
+            if parent_key is None:
+                raise RuntimeError("Invariant violation: has_parent is True but parent_key is None")
             parent = self._nodes.get(parent_key)
             if parent:
                 ancestors.append(parent)

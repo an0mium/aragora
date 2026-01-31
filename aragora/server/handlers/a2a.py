@@ -344,6 +344,7 @@ class A2AHandler(BaseHandler):
 
         return json_response(agent.to_dict())
 
+    @rate_limit(requests_per_minute=30)
     @require_permission("a2a:create")
     async def _handle_submit_task(self, handler: Any) -> HandlerResult:
         """Submit a task for execution."""

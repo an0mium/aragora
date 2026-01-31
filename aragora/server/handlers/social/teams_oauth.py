@@ -283,7 +283,7 @@ class TeamsOAuthHandler(SecureHandler):
         except ImportError:
             return error_response("httpx not available", 503)
         except httpx.HTTPStatusError as e:
-            logger.error(f"Teams token exchange failed: {e.response.text}")
+            logger.error(f"Teams token exchange failed: status={e.response.status_code}")
             return error_response(f"Token exchange failed: {e}", 500)
         except Exception as e:
             logger.error(f"Teams token exchange failed: {e}")
@@ -477,7 +477,7 @@ class TeamsOAuthHandler(SecureHandler):
         except ImportError:
             return error_response("httpx not available", 503)
         except httpx.HTTPStatusError as e:
-            logger.error(f"Teams token refresh failed: {e.response.text}")
+            logger.error(f"Teams token refresh failed: status={e.response.status_code}")
             return error_response(f"Token refresh failed: {e}", 500)
         except Exception as e:
             logger.error(f"Teams token refresh failed: {e}")

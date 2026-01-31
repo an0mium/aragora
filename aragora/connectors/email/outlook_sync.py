@@ -438,7 +438,8 @@ class OutlookSyncService:
                 message_id = self._extract_message_id(webhook.resource)
                 if message_id:
                     try:
-                        assert self._connector is not None
+                        if self._connector is None:
+                            raise RuntimeError("Connector not initialized - call start() first")
                         msg = await self._connector.get_message(message_id)
                         synced = await self._process_message(
                             msg,

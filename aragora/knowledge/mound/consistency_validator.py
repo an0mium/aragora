@@ -209,6 +209,9 @@ class ConsistencyValidator:
         """Convert a KnowledgeItem to a dict with all relevant fields."""
         if hasattr(item, "to_dict"):
             return item.to_dict()
+        # Handle raw dicts directly
+        if isinstance(item, dict):
+            return item
         # Fallback for items that don't have to_dict
         return {
             "id": getattr(item, "id", ""),

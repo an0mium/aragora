@@ -89,11 +89,45 @@ class DebateTrace:
     final_result: dict | None = None
     metadata: dict = field(default_factory=dict)
 
+    # Checksum caching fields (not serialized)
+    _checksum_dirty: bool = field(default=True, repr=False, compare=False)
+    _cached_checksum: str | None = field(default=None, repr=False, compare=False)
+    _last_event_count: int = field(default=0, repr=False, compare=False)
+
+    def _mark_checksum_dirty(self) -> None:
+        """Mark checksum as needing recalculation."""
+        object.__setattr__(self, "_checksum_dirty", True)
+
+    def add_event(self, event: TraceEvent) -> None:
+        """Add an event and mark checksum as dirty."""
+        self.events.append(event)
+        self._mark_checksum_dirty()
+
+    def clear_events(self) -> None:
+        """Clear all events and mark checksum as dirty."""
+        self.events.clear()
+        self._mark_checksum_dirty()
+
     @property
     def checksum(self) -> str:
-        """Generate checksum for trace integrity verification."""
-        content = json.dumps([e.to_dict() for e in self.events], sort_keys=True)
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
+        """Generate checksum for trace integrity verification (cached).
+
+        Uses dirty flag pattern with event count fallback to detect direct
+        list modifications for backward compatibility.
+        """
+        # Detect direct modifications to events list via count change
+        current_count = len(self.events)
+        if current_count != self._last_event_count:
+            object.__setattr__(self, "_checksum_dirty", True)
+
+        if self._checksum_dirty or self._cached_checksum is None:
+            content = json.dumps([e.to_dict() for e in self.events], sort_keys=True)
+            object.__setattr__(
+                self, "_cached_checksum", hashlib.sha256(content.encode()).hexdigest()[:16]
+            )
+            object.__setattr__(self, "_checksum_dirty", False)
+            object.__setattr__(self, "_last_event_count", current_count)
+        return self._cached_checksum  # type: ignore[return-value]
 
     @property
     def duration_ms(self) -> int | None:
@@ -348,7 +382,7 @@ class DebateTracer(SQLiteStore):
             metadata=metadata or {},
         )
 
-        self.trace.events.append(event)
+        self.trace.add_event(event)
         return event
 
     def start_round(self, round_num: int) -> None:
@@ -640,8 +674,10 @@ class DebateReplayer:
             random_seed=new_seed,
         )
 
-        # Copy events up to fork point
-        new_tracer.trace.events = self.trace.events[: fork_idx + 1]
+        # Copy events up to fork point (use clear + add to properly track checksum)
+        new_tracer.trace.clear_events()
+        for event in self.trace.events[: fork_idx + 1]:
+            new_tracer.trace.add_event(event)
         new_tracer._event_counter = fork_idx + 1
 
         # Set current round from last round event

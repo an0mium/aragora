@@ -114,6 +114,7 @@ class RLMContextHandler(BaseHandler):
             return True
         return False
 
+    @rate_limit(requests_per_minute=60)
     @require_permission("rlm:read")
     def handle(
         self,
@@ -140,6 +141,7 @@ class RLMContextHandler(BaseHandler):
 
         return None
 
+    @rate_limit(requests_per_minute=30)
     @require_permission("rlm:create")
     def handle_post(
         self,
@@ -157,6 +159,7 @@ class RLMContextHandler(BaseHandler):
 
         return None
 
+    @rate_limit(requests_per_minute=30)
     def handle_delete(
         self,
         path: str,

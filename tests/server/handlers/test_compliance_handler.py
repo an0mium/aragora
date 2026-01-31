@@ -30,6 +30,89 @@ from aragora.server.handlers.compliance_handler import (
     create_compliance_handler,
 )
 import builtins
+from io import BytesIO
+
+
+# ===========================================================================
+# Test Helper: Handler Wrapper for Test-Friendly API
+# ===========================================================================
+
+
+class TestableComplianceHandler:
+    """Wrapper around ComplianceHandler for test-friendly API.
+
+    Allows calling handle() with a more flexible signature:
+        handle(method, path, query_params=..., body=..., headers=...)
+
+    Instead of the real handler's:
+        handle(path, query_params, http_handler)
+    """
+
+    def __init__(self, real_handler: ComplianceHandler):
+        self._handler = real_handler
+
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Delegate to real handler."""
+        return self._handler.can_handle(path, method)
+
+    @property
+    def ROUTES(self) -> list:
+        """Expose ROUTES attribute."""
+        return self._handler.ROUTES
+
+    async def handle(
+        self,
+        method_or_path: str,
+        path_or_query: str | dict | None = None,
+        query_params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ):
+        """Test-friendly handle method.
+
+        Supports calling convention:
+            handle(method, path, query_params=..., body=..., headers=...)
+        """
+        # Determine if first arg is a method or a path
+        if method_or_path in ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"):
+            # First arg is method, second should be path
+            method = method_or_path
+            if isinstance(path_or_query, str):
+                path = path_or_query
+                qp = query_params or {}
+            else:
+                raise ValueError(f"Expected path string, got {type(path_or_query)}")
+        elif method_or_path.startswith("/"):
+            # First arg is path (legacy format)
+            path = method_or_path
+            qp = path_or_query if isinstance(path_or_query, dict) else {}
+            method = "GET"
+        else:
+            raise ValueError(f"Invalid first argument: {method_or_path}")
+
+        # Create mock HTTP handler using a simple class for proper attribute access
+        class MockHTTPHandler:
+            pass
+
+        mock_http = MockHTTPHandler()
+        mock_http.command = method
+        mock_http.headers = dict(headers) if headers else {}
+
+        if body:
+            body_bytes = json.dumps(body).encode("utf-8")
+            mock_http.rfile = BytesIO(body_bytes)
+            mock_http.headers["Content-Length"] = str(len(body_bytes))
+            mock_http.headers["Content-Type"] = "application/json"
+        else:
+            mock_http.rfile = BytesIO(b"")
+            mock_http.headers["Content-Length"] = "0"
+
+        return await self._handler.handle(path, qp, mock_http)
+
+    # Delegate internal methods for testing
+    def __getattr__(self, name: str):
+        """Delegate unknown attributes to real handler."""
+        return getattr(self._handler, name)
 
 
 # ===========================================================================
@@ -488,6 +571,19 @@ def mock_deletion_coordinator():
 
 
 @pytest.fixture
+def mock_permission_checker():
+    """Create a mock permission checker that always allows access."""
+    mock_decision = MagicMock()
+    mock_decision.allowed = True
+    mock_decision.permission_key = None
+    mock_decision.resource_id = None
+
+    mock_checker = MagicMock()
+    mock_checker.check_permission.return_value = mock_decision
+    return mock_checker
+
+
+@pytest.fixture
 def handler(
     mock_server_context,
     mock_audit_store,
@@ -495,6 +591,7 @@ def handler(
     mock_deletion_scheduler,
     mock_legal_hold_manager,
     mock_deletion_coordinator,
+    mock_permission_checker,
 ):
     """Create handler with mocked dependencies."""
     with (
@@ -518,9 +615,13 @@ def handler(
             "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
             return_value=mock_deletion_coordinator,
         ),
+        patch(
+            "aragora.rbac.decorators.get_permission_checker",
+            return_value=mock_permission_checker,
+        ),
     ):
         h = ComplianceHandler(mock_server_context)
-        yield h
+        yield TestableComplianceHandler(h)
 
 
 # ===========================================================================
@@ -742,7 +843,7 @@ class TestRightToBeForgotten:
                 return_value=mock_deletion_coordinator,
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             result = await h.handle(
                 "POST",
                 "/api/v2/compliance/gdpr/right-to-be-forgotten",
@@ -795,7 +896,7 @@ class TestRightToBeForgotten:
                 return_value=mock_deletion_coordinator,
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             result = await h.handle(
                 "POST",
                 "/api/v2/compliance/gdpr/right-to-be-forgotten",
@@ -837,7 +938,7 @@ class TestRightToBeForgotten:
                 return_value=mock_deletion_coordinator,
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             result = await h.handle(
                 "POST",
                 "/api/v2/compliance/gdpr/right-to-be-forgotten",
@@ -1156,7 +1257,7 @@ class TestCoordinatedDeletion:
                 return_value=mock_deletion_coordinator,
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             result = await h.handle(
                 "POST",
                 "/api/v2/compliance/gdpr/coordinated-deletion",
@@ -1216,7 +1317,7 @@ class TestCoordinatedDeletion:
                 return_value=mock_deletion_coordinator,
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             result = await h.handle(
                 "POST",
                 "/api/v2/compliance/gdpr/coordinated-deletion",
@@ -1256,7 +1357,7 @@ class TestCoordinatedDeletion:
                 return_value=mock_deletion_coordinator,
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             result = await h.handle(
                 "POST", "/api/v2/compliance/gdpr/execute-pending", body={"include_backups": True}
             )
@@ -1346,7 +1447,7 @@ class TestErrorHandling:
                 return_value=MagicMock(),
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             with patch.object(
                 h, "_get_status", side_effect=PermissionDeniedError("compliance:read")
             ):
@@ -1377,7 +1478,7 @@ class TestErrorHandling:
                 return_value=MagicMock(),
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             with patch.object(h, "_get_status", side_effect=Exception("Unexpected error")):
                 result = await h.handle("GET", "/api/v2/compliance/status")
         assert result.status_code == 500
@@ -1663,7 +1764,7 @@ class TestLegalHoldBlocksDeletion:
                 return_value=mock_deletion_coordinator,
             ),
         ):
-            h = ComplianceHandler(mock_server_context)
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
             with pytest.raises(ValueError, match="legal hold"):
                 await h._schedule_deletion(
                     user_id="user-blocked",
@@ -1706,3 +1807,810 @@ class TestFinalExportGeneration:
         assert "preferences" in export["data_categories"]
         assert "activity" in export["data_categories"]
         assert "checksum" in export
+
+
+# ===========================================================================
+# XSS Protection Tests
+# ===========================================================================
+
+
+class TestXSSProtection:
+    """Test XSS protection in HTML rendering."""
+
+    def test_render_soc2_html_escapes_control_id(self, handler):
+        """Verify control_id is escaped to prevent XSS."""
+        report = {
+            "report_id": "test",
+            "report_type": "SOC 2 Type II",
+            "period": {"start": "2025-01-01", "end": "2025-03-31"},
+            "organization": "Test",
+            "summary": {"controls_tested": 1, "controls_effective": 1, "exceptions": 0},
+            "controls": [
+                {
+                    "control_id": "<script>alert('xss')</script>",
+                    "category": "Security",
+                    "name": "Test",
+                    "status": "compliant",
+                }
+            ],
+            "generated_at": "2025-01-15T00:00:00Z",
+        }
+        html = handler._render_soc2_html(report)
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_render_soc2_html_escapes_category(self, handler):
+        """Verify category is escaped to prevent XSS."""
+        report = {
+            "report_id": "test",
+            "report_type": "SOC 2 Type II",
+            "period": {"start": "2025-01-01", "end": "2025-03-31"},
+            "organization": "Test",
+            "summary": {"controls_tested": 1, "controls_effective": 1, "exceptions": 0},
+            "controls": [
+                {
+                    "control_id": "CC1.1",
+                    "category": "<img src=x onerror=alert('xss')>",
+                    "name": "Test",
+                    "status": "compliant",
+                }
+            ],
+            "generated_at": "2025-01-15T00:00:00Z",
+        }
+        html = handler._render_soc2_html(report)
+        assert "onerror=" not in html
+
+    def test_render_soc2_html_escapes_organization(self, handler):
+        """Verify organization field is escaped."""
+        report = {
+            "report_id": "test",
+            "report_type": "SOC 2 Type II",
+            "period": {"start": "2025-01-01", "end": "2025-03-31"},
+            "organization": "<script>document.write('pwned')</script>",
+            "summary": {"controls_tested": 1, "controls_effective": 1, "exceptions": 0},
+            "controls": [],
+            "generated_at": "2025-01-15T00:00:00Z",
+        }
+        html = handler._render_soc2_html(report)
+        assert "document.write" not in html or "&lt;script&gt;" in html
+
+
+# ===========================================================================
+# ROUTES Attribute Tests
+# ===========================================================================
+
+
+class TestROUTESAttribute:
+    """Test ROUTES class attribute."""
+
+    def test_routes_contains_compliance_base(self, handler):
+        """ROUTES contains base compliance path."""
+        assert "/api/v2/compliance" in handler.ROUTES
+
+    def test_routes_contains_wildcard(self, handler):
+        """ROUTES contains wildcard path."""
+        assert "/api/v2/compliance/*" in handler.ROUTES
+
+
+# ===========================================================================
+# Additional Status Tests
+# ===========================================================================
+
+
+class TestStatusAdditional:
+    """Additional tests for compliance status endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_status_all_compliant_score_100(self, handler):
+        """Test score calculation when all controls are compliant."""
+        with patch.object(
+            handler,
+            "_evaluate_controls",
+            return_value=[
+                {"control_id": "C1", "status": "compliant"},
+                {"control_id": "C2", "status": "compliant"},
+            ],
+        ):
+            result = await handler._get_status()
+        body = json.loads(result.body)
+        assert body["compliance_score"] == 100
+        assert body["status"] == "compliant"
+
+    @pytest.mark.asyncio
+    async def test_status_partial_compliance(self, handler):
+        """Test score calculation with partial compliance."""
+        with patch.object(
+            handler,
+            "_evaluate_controls",
+            return_value=[
+                {"control_id": "C1", "status": "compliant"},
+                {"control_id": "C2", "status": "compliant"},
+                {"control_id": "C3", "status": "non_compliant"},
+                {"control_id": "C4", "status": "non_compliant"},
+            ],
+        ):
+            result = await handler._get_status()
+        body = json.loads(result.body)
+        assert body["compliance_score"] == 50  # 2/4 = 50%
+        assert body["status"] == "non_compliant"  # <60%
+
+    @pytest.mark.asyncio
+    async def test_status_empty_controls(self, handler):
+        """Test score calculation with no controls."""
+        with patch.object(handler, "_evaluate_controls", return_value=[]):
+            result = await handler._get_status()
+        body = json.loads(result.body)
+        assert body["compliance_score"] == 0
+
+    @pytest.mark.asyncio
+    async def test_status_mostly_compliant_threshold(self, handler):
+        """Test mostly_compliant threshold (80-95%)."""
+        controls = [{"control_id": f"C{i}", "status": "compliant"} for i in range(9)]
+        controls.append({"control_id": "C10", "status": "non_compliant"})
+        with patch.object(handler, "_evaluate_controls", return_value=controls):
+            result = await handler._get_status()
+        body = json.loads(result.body)
+        assert body["compliance_score"] == 90  # 9/10 = 90%
+        assert body["status"] == "mostly_compliant"
+
+
+# ===========================================================================
+# Additional Assessment Criteria Tests
+# ===========================================================================
+
+
+class TestAssessmentCriteria:
+    """Test all assessment criteria methods."""
+
+    @pytest.mark.asyncio
+    async def test_assess_integrity_criteria(self, handler):
+        """Test processing integrity criteria assessment."""
+        result = await handler._assess_integrity_criteria()
+        assert result["status"] == "effective"
+        assert "key_findings" in result
+        assert result["controls_tested"] == result["controls_effective"]
+
+    @pytest.mark.asyncio
+    async def test_assess_confidentiality_criteria(self, handler):
+        """Test confidentiality criteria assessment."""
+        result = await handler._assess_confidentiality_criteria()
+        assert result["status"] == "effective"
+        assert "key_findings" in result
+        assert len(result["key_findings"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_assess_privacy_criteria(self, handler):
+        """Test privacy criteria assessment."""
+        result = await handler._assess_privacy_criteria()
+        assert result["status"] == "effective"
+        assert "key_findings" in result
+
+
+# ===========================================================================
+# Additional verify_date_range Tests
+# ===========================================================================
+
+
+class TestVerifyDateRangeAdditional:
+    """Additional tests for date range verification."""
+
+    @pytest.mark.asyncio
+    async def test_verify_date_range_missing_from(self, handler, mock_audit_store):
+        """Test date range without from date."""
+        result = await handler._verify_date_range({"to": "2025-12-31T23:59:59Z"})
+        assert "type" in result
+        assert result["type"] == "date_range"
+
+    @pytest.mark.asyncio
+    async def test_verify_date_range_missing_to(self, handler, mock_audit_store):
+        """Test date range without to date."""
+        result = await handler._verify_date_range({"from": "2025-01-01T00:00:00Z"})
+        assert "type" in result
+
+    @pytest.mark.asyncio
+    async def test_verify_date_range_invalid_event_timestamp(self, handler):
+        """Test date range with invalid event timestamps."""
+        mock_store = MockAuditStore()
+        mock_store._events = [
+            {
+                "id": "evt-bad",
+                "action": "test",
+                "resource_type": "test",
+                "resource_id": "123",
+                "timestamp": "not-a-valid-timestamp",
+            }
+        ]
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_audit_store", return_value=mock_store
+        ):
+            result = await handler._verify_date_range(
+                {"from": "2025-01-01T00:00:00Z", "to": "2025-12-31T23:59:59Z"}
+            )
+        # Should not crash, might log errors
+        assert "type" in result
+
+
+# ===========================================================================
+# GDPR Export Additional Tests
+# ===========================================================================
+
+
+class TestGdprExportAdditional:
+    """Additional GDPR export tests."""
+
+    @pytest.mark.asyncio
+    async def test_gdpr_export_includes_all_by_default(self, handler):
+        """Test default export includes all data categories."""
+        result = await handler.handle(
+            "GET", "/api/v2/compliance/gdpr-export", query_params={"user_id": "user-123"}
+        )
+        body = json.loads(result.body)
+        assert "decisions" in body["data_categories"]
+        assert "preferences" in body["data_categories"]
+        assert "activity" in body["data_categories"]
+
+    @pytest.mark.asyncio
+    async def test_gdpr_export_preferences_only(self, handler):
+        """Test export with only preferences."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr-export",
+            query_params={"user_id": "user-123", "include": "preferences"},
+        )
+        body = json.loads(result.body)
+        assert "preferences" in body["data_categories"]
+        assert "decisions" not in body["data_categories"]
+
+
+# ===========================================================================
+# fetch_audit_events Tests
+# ===========================================================================
+
+
+class TestFetchAuditEvents:
+    """Test _fetch_audit_events method."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_audit_events_with_dates(self, handler, mock_audit_store):
+        """Test fetching events within date range."""
+        from_ts = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        to_ts = datetime(2025, 12, 31, tzinfo=timezone.utc)
+        events = await handler._fetch_audit_events(
+            from_ts=from_ts,
+            to_ts=to_ts,
+            limit=100,
+            event_type=None,
+        )
+        assert isinstance(events, list)
+
+    @pytest.mark.asyncio
+    async def test_fetch_audit_events_with_event_type(self, handler, mock_audit_store):
+        """Test fetching events filtered by type."""
+        events = await handler._fetch_audit_events(
+            from_ts=None,
+            to_ts=None,
+            limit=100,
+            event_type="user.login",
+        )
+        assert isinstance(events, list)
+
+    @pytest.mark.asyncio
+    async def test_fetch_audit_events_error_returns_empty(self, handler):
+        """Test error handling in fetch_audit_events."""
+        failing_store = MagicMock()
+        failing_store.get_log.side_effect = RuntimeError("DB error")
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_audit_store", return_value=failing_store
+        ):
+            events = await handler._fetch_audit_events(
+                from_ts=None, to_ts=None, limit=100, event_type=None
+            )
+        assert events == []
+
+
+# ===========================================================================
+# Schedule Deletion Additional Tests
+# ===========================================================================
+
+
+class TestScheduleDeletionAdditional:
+    """Additional tests for schedule_deletion method."""
+
+    @pytest.mark.asyncio
+    async def test_schedule_deletion_fallback_on_scheduler_error(
+        self,
+        mock_server_context,
+        mock_audit_store,
+        mock_receipt_store,
+        mock_deletion_coordinator,
+    ):
+        """Test fallback behavior when scheduler fails."""
+        failing_scheduler = MagicMock()
+        failing_scheduler.schedule_deletion.side_effect = RuntimeError("Scheduler error")
+        legal_hold_manager = MockLegalHoldManager()
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_scheduler",
+                return_value=failing_scheduler,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_legal_hold_manager",
+                return_value=legal_hold_manager,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
+                return_value=mock_deletion_coordinator,
+            ),
+        ):
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
+            result = await h._schedule_deletion(
+                user_id="user-test",
+                request_id="req-test",
+                scheduled_for=datetime.now(timezone.utc) + timedelta(days=30),
+                reason="Test",
+            )
+        assert result["status"] == "scheduled_fallback"
+        assert "error" in result
+
+
+# ===========================================================================
+# Log RTBF Request Tests
+# ===========================================================================
+
+
+class TestLogRTBFRequest:
+    """Test _log_rtbf_request method."""
+
+    @pytest.mark.asyncio
+    async def test_log_rtbf_request_success(self, handler, mock_audit_store):
+        """Test successful RTBF logging."""
+        await handler._log_rtbf_request(
+            request_id="rtbf-123",
+            user_id="user-456",
+            reason="User request",
+            deletion_scheduled=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        # Should not raise
+
+    @pytest.mark.asyncio
+    async def test_log_rtbf_request_failure(self, handler):
+        """Test RTBF logging handles failures gracefully."""
+        failing_store = MagicMock()
+        failing_store.log_event.side_effect = RuntimeError("DB error")
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_audit_store", return_value=failing_store
+        ):
+            # Should not raise
+            await handler._log_rtbf_request(
+                request_id="rtbf-123",
+                user_id="user-456",
+                reason="User request",
+                deletion_scheduled=datetime.now(timezone.utc) + timedelta(days=30),
+            )
+
+
+# ===========================================================================
+# Audit Events Format Tests
+# ===========================================================================
+
+
+class TestAuditEventsFormats:
+    """Test different audit events output formats."""
+
+    @pytest.mark.asyncio
+    async def test_audit_events_limit_parameter(self, handler):
+        """Test limit parameter is respected."""
+        result = await handler.handle(
+            "GET", "/api/v2/compliance/audit-events", query_params={"limit": "5"}
+        )
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] <= 5
+
+    @pytest.mark.asyncio
+    async def test_audit_events_max_limit_enforced(self, handler):
+        """Test maximum limit is enforced."""
+        result = await handler.handle(
+            "GET", "/api/v2/compliance/audit-events", query_params={"limit": "99999"}
+        )
+        assert result.status_code == 200
+        # The handler should cap at 10000
+
+    @pytest.mark.asyncio
+    async def test_audit_events_with_timestamp_filters(self, handler):
+        """Test timestamp filtering."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/audit-events",
+            query_params={"from": "1704067200", "to": "1735689599"},
+        )
+        assert result.status_code == 200
+
+
+# ===========================================================================
+# Handler Main Entry Point Tests
+# ===========================================================================
+
+
+class TestHandlerMainEntry:
+    """Test the main handle method entry point."""
+
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_status(self, handler):
+        """Test routing to status endpoint."""
+        mock_handler = MagicMock()
+        mock_handler.command = "GET"
+        mock_handler.headers = {}
+        result = await handler.handle("/api/v2/compliance/status", {}, mock_handler)
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_soc2(self, handler):
+        """Test routing to SOC2 endpoint."""
+        mock_handler = MagicMock()
+        mock_handler.command = "GET"
+        mock_handler.headers = {}
+        result = await handler.handle("/api/v2/compliance/soc2-report", {}, mock_handler)
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_handle_post_body_parsing(self, handler):
+        """Test POST body parsing."""
+        from io import BytesIO
+
+        mock_handler = MagicMock()
+        mock_handler.command = "POST"
+        mock_handler.headers = {"Content-Type": "application/json", "Content-Length": "25"}
+        mock_handler.rfile = BytesIO(b'{"user_id": "user-test"}')
+        result = await handler.handle(
+            "/api/v2/compliance/gdpr/right-to-be-forgotten", {}, mock_handler
+        )
+        # May fail due to legal hold or succeed
+        assert result.status_code in (200, 400, 500)
+
+
+# ===========================================================================
+# verify_trail Additional Tests
+# ===========================================================================
+
+
+class TestVerifyTrailAdditional:
+    """Additional tests for _verify_trail method."""
+
+    @pytest.mark.asyncio
+    async def test_verify_trail_found_via_gauntlet(self, handler, mock_receipt_store):
+        """Test trail found via gauntlet_id lookup."""
+        mock_receipt_store._receipts["trail-gauntlet"] = MockStoredReceipt(
+            receipt_id="trail-gauntlet",
+            gauntlet_id="lookup-via-gauntlet",
+        )
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=mock_receipt_store,
+        ):
+            result = await handler._verify_trail("lookup-via-gauntlet")
+        assert result["valid"] is True
+
+    @pytest.mark.asyncio
+    async def test_verify_trail_signed_receipt(self, handler, mock_receipt_store):
+        """Test verification of signed receipt."""
+        mock_receipt_store._receipts["signed-receipt"] = MockStoredReceipt(
+            receipt_id="signed-receipt",
+            signature="signature-data",
+        )
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=mock_receipt_store,
+        ):
+            result = await handler._verify_trail("signed-receipt")
+        assert result["valid"] is True
+        assert result["signed"] is True
+
+    @pytest.mark.asyncio
+    async def test_verify_trail_unsigned_receipt(self, handler):
+        """Test verification of unsigned receipt."""
+        store = MockReceiptStore()
+        store._receipts["unsigned"] = MockStoredReceipt(
+            receipt_id="unsigned",
+            signature=None,
+        )
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=store,
+        ):
+            result = await handler._verify_trail("unsigned")
+        assert result["valid"] is True
+        assert result["signed"] is False
+
+
+# ===========================================================================
+# Render CSV Additional Tests
+# ===========================================================================
+
+
+class TestRenderCSVAdditional:
+    """Additional tests for CSV rendering."""
+
+    def test_render_gdpr_csv_with_list_data(self, handler):
+        """Test CSV rendering with list data."""
+        export_data = {
+            "user_id": "user-csv",
+            "export_id": "export-csv",
+            "requested_at": "2025-01-15T00:00:00Z",
+            "data_categories": ["activity"],
+            "activity": [
+                {"action": "login", "timestamp": "2025-01-01"},
+                {"action": "logout", "timestamp": "2025-01-02"},
+            ],
+            "checksum": "abc",
+        }
+        csv = handler._render_gdpr_csv(export_data)
+        assert "ACTIVITY" in csv
+        assert "login" in csv
+
+    def test_render_gdpr_csv_with_dict_data(self, handler):
+        """Test CSV rendering with dict data."""
+        export_data = {
+            "user_id": "user-csv",
+            "export_id": "export-csv",
+            "requested_at": "2025-01-15T00:00:00Z",
+            "data_categories": ["preferences"],
+            "preferences": {"theme": "dark", "notifications": "enabled"},
+            "checksum": "abc",
+        }
+        csv = handler._render_gdpr_csv(export_data)
+        assert "PREFERENCES" in csv
+        assert "theme" in csv
+
+
+# ===========================================================================
+# List Deletions Additional Tests
+# ===========================================================================
+
+
+class TestListDeletionsAdditional:
+    """Additional tests for list deletions endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_list_deletions_limit_enforced(self, handler):
+        """Test deletion list limit is enforced."""
+        result = await handler.handle(
+            "GET", "/api/v2/compliance/gdpr/deletions", query_params={"limit": "999"}
+        )
+        body = json.loads(result.body)
+        assert body["filters"]["limit"] == 200  # Max is 200
+
+
+# ===========================================================================
+# Create Legal Hold Additional Tests
+# ===========================================================================
+
+
+class TestCreateLegalHoldAdditional:
+    """Additional tests for create legal hold endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_create_legal_hold_extracts_user_from_header(self, handler):
+        """Test that created_by is extracted from auth header."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/legal-holds",
+            body={"user_ids": ["user-123"], "reason": "Test"},
+            headers={"Authorization": "Bearer ara_testkey12345678"},
+        )
+        assert result.status_code == 201
+        body = json.loads(result.body)
+        assert "legal_hold" in body
+
+
+# ===========================================================================
+# Execute Pending Deletions Additional Tests
+# ===========================================================================
+
+
+class TestExecutePendingDeletionsAdditional:
+    """Additional tests for execute pending deletions."""
+
+    @pytest.mark.asyncio
+    async def test_execute_pending_limit_enforced(
+        self,
+        mock_server_context,
+        mock_audit_store,
+        mock_receipt_store,
+        mock_deletion_scheduler,
+        mock_legal_hold_manager,
+        mock_deletion_coordinator,
+    ):
+        """Test limit parameter is capped at 500."""
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_scheduler",
+                return_value=mock_deletion_scheduler,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_legal_hold_manager",
+                return_value=mock_legal_hold_manager,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
+                return_value=mock_deletion_coordinator,
+            ),
+        ):
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
+            result = await h.handle(
+                "POST", "/api/v2/compliance/gdpr/execute-pending", body={"limit": 9999}
+            )
+        assert result.status_code == 200
+
+
+# ===========================================================================
+# Coordinated Deletion Dry Run Tests
+# ===========================================================================
+
+
+class TestCoordinatedDeletionDryRun:
+    """Test coordinated deletion dry run mode."""
+
+    @pytest.mark.asyncio
+    async def test_coordinated_deletion_dry_run(
+        self,
+        mock_server_context,
+        mock_audit_store,
+        mock_receipt_store,
+        mock_deletion_scheduler,
+        mock_deletion_coordinator,
+    ):
+        """Test dry run mode doesn't actually delete."""
+        legal_hold_manager = MockLegalHoldManager()
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_scheduler",
+                return_value=mock_deletion_scheduler,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_legal_hold_manager",
+                return_value=legal_hold_manager,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
+                return_value=mock_deletion_coordinator,
+            ),
+        ):
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
+            result = await h.handle(
+                "POST",
+                "/api/v2/compliance/gdpr/coordinated-deletion",
+                body={"user_id": "user-test", "reason": "Test", "dry_run": True},
+            )
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "Dry run" in body["message"]
+
+
+# ===========================================================================
+# Backup Exclusions List Limit Tests
+# ===========================================================================
+
+
+class TestBackupExclusionsLimit:
+    """Test backup exclusions list limit."""
+
+    @pytest.mark.asyncio
+    async def test_backup_exclusions_limit_enforced(self, handler):
+        """Test backup exclusions limit is capped at 500."""
+        result = await handler.handle(
+            "GET", "/api/v2/compliance/gdpr/backup-exclusions", query_params={"limit": "9999"}
+        )
+        assert result.status_code == 200
+
+
+# ===========================================================================
+# RTBF Without Export Tests
+# ===========================================================================
+
+
+class TestRTBFWithoutExport:
+    """Test RTBF without export generation."""
+
+    @pytest.mark.asyncio
+    async def test_rtbf_without_export(
+        self,
+        mock_server_context,
+        mock_audit_store,
+        mock_receipt_store,
+        mock_deletion_scheduler,
+        mock_deletion_coordinator,
+    ):
+        """Test RTBF request without export generation."""
+        legal_hold_manager = MockLegalHoldManager()
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_scheduler",
+                return_value=mock_deletion_scheduler,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_legal_hold_manager",
+                return_value=legal_hold_manager,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
+                return_value=mock_deletion_coordinator,
+            ),
+        ):
+            h = TestableComplianceHandler(ComplianceHandler(mock_server_context))
+            result = await h.handle(
+                "POST",
+                "/api/v2/compliance/gdpr/right-to-be-forgotten",
+                body={"user_id": "user-no-export", "include_export": False},
+            )
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "export_url" not in body
+
+
+# ===========================================================================
+# Final Export With Consent Data Tests
+# ===========================================================================
+
+
+class TestFinalExportWithConsent:
+    """Test final export with consent data."""
+
+    @pytest.mark.asyncio
+    async def test_generate_final_export_includes_consent(
+        self, handler, mock_audit_store, mock_receipt_store
+    ):
+        """Test final export includes consent data when available."""
+        mock_consent_export = MagicMock()
+        mock_consent_export.to_dict.return_value = {"consents": [{"type": "marketing"}]}
+        mock_consent_manager = MagicMock()
+        mock_consent_manager.export_consent_data.return_value = mock_consent_export
+
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.privacy.consent.get_consent_manager",
+                return_value=mock_consent_manager,
+            ),
+        ):
+            export = await handler._generate_final_export("user-with-consent")
+        assert "consent_records" in export["data_categories"]

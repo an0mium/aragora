@@ -15,6 +15,8 @@ import threading
 from datetime import datetime
 from typing import Any
 
+from aragora.server.handlers.utils.rate_limit import rate_limit
+
 from .storage import (
     _check_email_permission,
     get_gmail_connector,
@@ -42,6 +44,7 @@ def get_categorizer():
         return _categorizer
 
 
+@rate_limit(requests_per_minute=60)  # READ operation
 async def handle_categorize_email(
     email_data: dict[str, Any],
     user_id: str = "default",
@@ -113,6 +116,7 @@ async def handle_categorize_email(
         }
 
 
+@rate_limit(requests_per_minute=60)  # READ operation
 async def handle_categorize_batch(
     emails: list[dict[str, Any]],
     user_id: str = "default",
@@ -191,6 +195,7 @@ async def handle_categorize_batch(
         }
 
 
+@rate_limit(requests_per_minute=20)  # WRITE operation
 async def handle_feedback_batch(
     feedback_items: list[dict[str, Any]],
     user_id: str = "default",
@@ -255,6 +260,7 @@ async def handle_feedback_batch(
         }
 
 
+@rate_limit(requests_per_minute=20)  # WRITE operation
 async def handle_apply_category_label(
     email_id: str,
     category: str,

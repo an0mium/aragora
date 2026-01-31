@@ -531,6 +531,7 @@ class JWTOAuthStateStore(OAuthStateStore):
                 "Using derived secret. For multi-instance deployments, set a shared secret."
             )
         self._used_nonces: set[str] = set()  # Simple replay protection
+        self._nonce_lock = threading.Lock()  # Protect nonce set access
         self._nonce_cleanup_threshold = 10000
 
     def generate(
@@ -615,19 +616,20 @@ class JWTOAuthStateStore(OAuthStateStore):
             logger.debug("JWT state: expired")
             return None
 
-        # Check replay (nonce already used)
+        # Check replay (nonce already used) - thread-safe
         nonce = payload.get("n", "")
-        if nonce in self._used_nonces:
-            logger.warning("JWT state: replay detected (nonce reused)")
-            return None
+        with self._nonce_lock:
+            if nonce in self._used_nonces:
+                logger.warning("JWT state: replay detected (nonce reused)")
+                return None
 
-        # Mark nonce as used (simple in-memory tracking)
-        self._used_nonces.add(nonce)
+            # Mark nonce as used (simple in-memory tracking)
+            self._used_nonces.add(nonce)
 
-        # Cleanup old nonces periodically
-        if len(self._used_nonces) > self._nonce_cleanup_threshold:
-            # Just clear old nonces - expired states won't validate anyway
-            self._used_nonces.clear()
+            # Cleanup old nonces periodically
+            if len(self._used_nonces) > self._nonce_cleanup_threshold:
+                # Just clear old nonces - expired states won't validate anyway
+                self._used_nonces.clear()
 
         return OAuthState(
             user_id=payload.get("u"),
@@ -643,7 +645,8 @@ class JWTOAuthStateStore(OAuthStateStore):
 
     def size(self) -> int:
         """Return count of tracked nonces (for replay protection)."""
-        return len(self._used_nonces)
+        with self._nonce_lock:
+            return len(self._used_nonces)
 
 
 class FallbackOAuthStateStore(OAuthStateStore):

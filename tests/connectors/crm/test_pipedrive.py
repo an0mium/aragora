@@ -2103,3 +2103,761 @@ class TestEdgeCases:
         assert note.pinned_to_deal_flag is False
         assert note.pinned_to_person_flag is False
         assert note.pinned_to_organization_flag is False
+
+
+# =============================================================================
+# Custom Field Handling Tests
+# =============================================================================
+
+
+class TestCustomFieldHandling:
+    """Tests for custom field handling across models."""
+
+    def test_person_with_custom_fields(self):
+        person = Person(
+            id=1,
+            name="Test",
+            custom_fields={"industry": "Tech", "lead_source": "Website"},
+        )
+        assert person.custom_fields["industry"] == "Tech"
+        assert person.custom_fields["lead_source"] == "Website"
+
+    def test_organization_with_custom_fields(self):
+        org = Organization(
+            id=1,
+            name="Test Corp",
+            custom_fields={"revenue": 1000000, "employees": 50},
+        )
+        assert org.custom_fields["revenue"] == 1000000
+        assert org.custom_fields["employees"] == 50
+
+    def test_deal_with_custom_fields(self):
+        deal = Deal(
+            id=1,
+            title="Test Deal",
+            custom_fields={
+                "contract_type": "Annual",
+                "discount_percentage": 15.5,
+                "is_priority": True,
+            },
+        )
+        assert deal.custom_fields["contract_type"] == "Annual"
+        assert deal.custom_fields["discount_percentage"] == 15.5
+        assert deal.custom_fields["is_priority"] is True
+
+    @pytest.mark.asyncio
+    async def test_create_person_with_custom_fields(self, pipedrive_client, mock_httpx_client):
+        """Test creating a person with custom fields passed as kwargs."""
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "success": True,
+                "data": {"id": 123, "name": "Custom Fields Person"},
+            }
+        )
+        await pipedrive_client.create_person(
+            name="Custom Fields Person",
+            custom_field_123="value1",
+            another_custom_field="value2",
+        )
+        call_kwargs = mock_httpx_client.request.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["custom_field_123"] == "value1"
+        assert body["another_custom_field"] == "value2"
+
+    @pytest.mark.asyncio
+    async def test_create_organization_with_custom_fields(
+        self, pipedrive_client, mock_httpx_client
+    ):
+        """Test creating an organization with custom fields."""
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "success": True,
+                "data": {"id": 456, "name": "Custom Org"},
+            }
+        )
+        await pipedrive_client.create_organization(
+            name="Custom Org",
+            industry="Technology",
+            annual_revenue="1000000",
+        )
+        call_kwargs = mock_httpx_client.request.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["industry"] == "Technology"
+        assert body["annual_revenue"] == "1000000"
+
+    @pytest.mark.asyncio
+    async def test_create_deal_with_custom_fields(self, pipedrive_client, mock_httpx_client):
+        """Test creating a deal with custom fields."""
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "success": True,
+                "data": {"id": 789, "title": "Custom Deal", "status": "open"},
+            }
+        )
+        await pipedrive_client.create_deal(
+            title="Custom Deal",
+            contract_type="Enterprise",
+            renewal_date="2024-12-31",
+        )
+        call_kwargs = mock_httpx_client.request.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["contract_type"] == "Enterprise"
+        assert body["renewal_date"] == "2024-12-31"
+
+    def test_custom_fields_default_empty_dict(self):
+        """Verify custom_fields defaults to empty dict without sharing state."""
+        person1 = Person(id=1, name="Person 1")
+        person2 = Person(id=2, name="Person 2")
+        person1.custom_fields["key"] = "value"
+        assert "key" not in person2.custom_fields
+
+
+# =============================================================================
+# Pagination Tests
+# =============================================================================
+
+
+class TestPagination:
+    """Tests for pagination handling across list operations."""
+
+    @pytest.mark.asyncio
+    async def test_get_persons_pagination_params(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client.get_persons(start=100, limit=50)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["start"] == 100
+        assert params["limit"] == 50
+
+    @pytest.mark.asyncio
+    async def test_get_deals_pagination_params(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client.get_deals(start=200, limit=25)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["start"] == 200
+        assert params["limit"] == 25
+
+    @pytest.mark.asyncio
+    async def test_get_activities_pagination_params(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client.get_activities(start=50, limit=75)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["start"] == 50
+        assert params["limit"] == 75
+
+    @pytest.mark.asyncio
+    async def test_get_notes_pagination_params(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client.get_notes(start=10, limit=20)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["start"] == 10
+        assert params["limit"] == 20
+
+    @pytest.mark.asyncio
+    async def test_get_products_pagination_params(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client.get_products(start=0, limit=500)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["start"] == 0
+        assert params["limit"] == 500
+
+    @pytest.mark.asyncio
+    async def test_search_persons_limit_param(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"success": True, "data": {"items": []}}
+        )
+        await pipedrive_client.search_persons("test", limit=25)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["limit"] == 25
+
+    @pytest.mark.asyncio
+    async def test_search_deals_limit_param(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"success": True, "data": {"items": []}}
+        )
+        await pipedrive_client.search_deals("test", limit=50)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["limit"] == 50
+
+    @pytest.mark.asyncio
+    async def test_search_products_limit_param(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"success": True, "data": {"items": []}}
+        )
+        await pipedrive_client.search_products("test", limit=30)
+        call_kwargs = mock_httpx_client.request.call_args
+        params = call_kwargs.kwargs["params"]
+        assert params["limit"] == 30
+
+
+# =============================================================================
+# Rate Limiting and Error Recovery Tests
+# =============================================================================
+
+
+class TestRateLimitingAndErrors:
+    """Tests for rate limiting and error scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error_includes_details(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Too many requests", "error_code": "rate_limit"},
+            status_code=429,
+        )
+        with pytest.raises(PipedriveError) as exc_info:
+            await pipedrive_client.get_persons()
+        assert exc_info.value.status_code == 429
+        assert exc_info.value.error_code == "rate_limit"
+        assert "Too many requests" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_unauthorized_error_401(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Invalid API token", "error_code": "unauthorized"},
+            status_code=401,
+        )
+        with pytest.raises(PipedriveError) as exc_info:
+            await pipedrive_client.get_persons()
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.error_code == "unauthorized"
+
+    @pytest.mark.asyncio
+    async def test_forbidden_error_403(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Access denied", "error_code": "forbidden"},
+            status_code=403,
+        )
+        with pytest.raises(PipedriveError) as exc_info:
+            await pipedrive_client.get_deal(1)
+        assert exc_info.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_not_found_error_404(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Resource not found", "error_code": "not_found"},
+            status_code=404,
+        )
+        with pytest.raises(PipedriveError) as exc_info:
+            await pipedrive_client.get_person(99999)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.error_code == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_bad_request_error_400(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Invalid request data", "error_code": "bad_request"},
+            status_code=400,
+        )
+        with pytest.raises(PipedriveError) as exc_info:
+            await pipedrive_client.create_person(name="")
+        assert exc_info.value.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_service_unavailable_503(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Service temporarily unavailable"},
+            status_code=503,
+        )
+        with pytest.raises(PipedriveError) as exc_info:
+            await pipedrive_client.get_deals()
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_gateway_timeout_504(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Gateway timeout"},
+            status_code=504,
+        )
+        with pytest.raises(PipedriveError) as exc_info:
+            await pipedrive_client.get_organizations()
+        assert exc_info.value.status_code == 504
+
+    @pytest.mark.asyncio
+    async def test_success_false_with_unknown_error(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"success": False},
+            status_code=200,
+        )
+        with pytest.raises(PipedriveError, match="Unknown error"):
+            await pipedrive_client.get_persons()
+
+    @pytest.mark.asyncio
+    async def test_validation_error_on_create(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "success": False,
+                "error": "Name is required",
+                "error_code": "validation_error",
+            },
+            status_code=200,
+        )
+        with pytest.raises(PipedriveError, match="Name is required"):
+            await pipedrive_client.create_deal(title="")
+
+
+# =============================================================================
+# API Response Parsing Tests
+# =============================================================================
+
+
+class TestApiResponseParsing:
+    """Tests for various API response parsing scenarios."""
+
+    def test_person_from_api_with_multiple_emails(self):
+        data = {
+            "id": 1,
+            "name": "Multi-Email Person",
+            "email": [
+                {"value": "work@example.com", "primary": False, "label": "work"},
+                {"value": "primary@example.com", "primary": True, "label": "personal"},
+                {"value": "other@example.com", "primary": False, "label": "other"},
+            ],
+            "phone": [],
+        }
+        person = Person.from_api(data)
+        assert person.email == "primary@example.com"
+
+    def test_person_from_api_with_multiple_phones(self):
+        data = {
+            "id": 1,
+            "name": "Multi-Phone Person",
+            "email": [],
+            "phone": [
+                {"value": "+1-555-0001", "primary": False, "label": "work"},
+                {"value": "+1-555-0002", "primary": True, "label": "mobile"},
+            ],
+        }
+        person = Person.from_api(data)
+        assert person.phone == "+1-555-0002"
+
+    def test_deal_from_api_with_null_values(self):
+        """Test deal parsing with null/missing optional values."""
+        data = {
+            "id": 1,
+            "title": "Deal with nulls",
+            "status": "open",
+            "person_id": None,
+            "org_id": None,
+            "stage_id": None,
+            "pipeline_id": None,
+            "owner_id": None,
+            "expected_close_date": None,
+            "probability": None,
+        }
+        deal = Deal.from_api(data)
+        assert deal.value == 0.0  # Default when value not present
+        assert deal.person_id is None
+        assert deal.org_id is None
+
+    def test_deal_from_api_value_missing(self):
+        """Test deal parsing when value field is completely missing."""
+        data = {"id": 1, "title": "No value field", "status": "open"}
+        deal = Deal.from_api(data)
+        assert deal.value == 0.0
+
+    def test_activity_from_api_with_null_dates(self):
+        data = {
+            "id": 1,
+            "type": "task",
+            "subject": "Task with no dates",
+            "done": False,
+            "due_date": None,
+            "add_time": None,
+            "update_time": None,
+            "marked_as_done_time": None,
+        }
+        activity = Activity.from_api(data)
+        assert activity.due_date is None
+        assert activity.add_time is None
+        assert activity.marked_as_done_time is None
+
+    def test_organization_from_api_with_inactive_flag(self):
+        data = {
+            "id": 1,
+            "name": "Inactive Org",
+            "active_flag": False,
+        }
+        org = Organization.from_api(data)
+        assert org.active_flag is False
+
+    def test_product_from_api_with_multiple_prices(self):
+        data = {
+            "id": 1,
+            "name": "Multi-Price Product",
+            "prices": [
+                {"price": 99.99, "currency": "USD", "cost": 50.00},
+                {"price": 89.99, "currency": "EUR", "cost": 45.00},
+                {"price": 79.99, "currency": "GBP", "cost": 40.00},
+            ],
+        }
+        product = Product.from_api(data)
+        assert len(product.prices) == 3
+        assert product.prices[0]["currency"] == "USD"
+
+    def test_user_from_api_with_all_flags(self):
+        data = {
+            "id": 1,
+            "name": "Super Admin",
+            "email": "admin@example.com",
+            "active_flag": True,
+            "is_admin": True,
+            "is_you": True,
+        }
+        user = User.from_api(data)
+        assert user.active_flag is True
+        assert user.is_admin is True
+        assert user.is_you is True
+
+    def test_stage_from_api_with_rotten_settings(self):
+        data = {
+            "id": 1,
+            "name": "Stale Stage",
+            "pipeline_id": 1,
+            "rotten_flag": True,
+            "rotten_days": 14,
+            "deal_probability": 50,
+        }
+        stage = Stage.from_api(data)
+        assert stage.rotten_flag is True
+        assert stage.rotten_days == 14
+        assert stage.deal_probability == 50
+
+    def test_note_from_api_with_all_pins(self):
+        data = {
+            "id": 1,
+            "content": "Pinned everywhere",
+            "deal_id": 100,
+            "person_id": 1,
+            "org_id": 10,
+            "pinned_to_deal_flag": True,
+            "pinned_to_person_flag": True,
+            "pinned_to_organization_flag": True,
+        }
+        note = Note.from_api(data)
+        assert note.pinned_to_deal_flag is True
+        assert note.pinned_to_person_flag is True
+        assert note.pinned_to_organization_flag is True
+
+    def test_pipeline_from_api_with_deal_probability_enabled(self):
+        data = {
+            "id": 1,
+            "name": "Probability Pipeline",
+            "deal_probability": True,
+            "active": True,
+        }
+        pipeline = Pipeline.from_api(data)
+        assert pipeline.deal_probability is True
+        assert pipeline.active is True
+
+
+# =============================================================================
+# Deal-Specific Operations Tests
+# =============================================================================
+
+
+class TestDealSpecificOperations:
+    """Additional tests for deal-specific operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_deal_with_expected_close_date(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"success": True, "data": {"id": 1, "title": "Deal", "status": "open"}}
+        )
+        expected_date = datetime(2024, 12, 31, tzinfo=timezone.utc)
+        await pipedrive_client.create_deal(
+            title="Deal with date",
+            expected_close_date=expected_date,
+        )
+        call_kwargs = mock_httpx_client.request.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["expected_close_date"] == "2024-12-31"
+
+    @pytest.mark.asyncio
+    async def test_create_deal_with_all_associations(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"success": True, "data": {"id": 1, "title": "Full Deal", "status": "open"}}
+        )
+        await pipedrive_client.create_deal(
+            title="Full Deal",
+            value=100000,
+            currency="EUR",
+            person_id=1,
+            org_id=10,
+            stage_id=3,
+            pipeline_id=1,
+            owner_id=5,
+            probability=85.0,
+            visible_to="1",
+        )
+        call_kwargs = mock_httpx_client.request.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["value"] == 100000
+        assert body["currency"] == "EUR"
+        assert body["person_id"] == 1
+        assert body["org_id"] == 10
+        assert body["stage_id"] == 3
+        assert body["pipeline_id"] == 1
+        assert body["owner_id"] == 5
+        assert body["probability"] == 85.0
+        assert body["visible_to"] == "1"
+
+    def test_deal_to_api_excludes_none_values(self):
+        deal = Deal(
+            id=1,
+            title="Simple Deal",
+            value=0.0,
+            currency="USD",
+        )
+        result = deal.to_api()
+        assert "person_id" not in result
+        assert "org_id" not in result
+        assert "stage_id" not in result
+        assert "pipeline_id" not in result
+        assert "owner_id" not in result
+        assert "expected_close_date" not in result
+
+    def test_deal_from_api_parses_all_datetime_fields(self):
+        data = {
+            "id": 1,
+            "title": "Deal with dates",
+            "status": "won",
+            "add_time": "2023-01-15 10:00:00",
+            "update_time": "2023-06-20 14:30:00",
+            "won_time": "2023-06-20 14:00:00",
+            "close_time": "2023-06-20 14:00:00",
+            "expected_close_date": "2023-06-30",
+        }
+        deal = Deal.from_api(data)
+        assert deal.add_time is not None
+        assert deal.update_time is not None
+        assert deal.won_time is not None
+        assert deal.close_time is not None
+        assert deal.expected_close_date is not None
+
+
+# =============================================================================
+# Activity-Specific Operations Tests
+# =============================================================================
+
+
+class TestActivitySpecificOperations:
+    """Additional tests for activity-specific operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_activity_with_all_options(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"success": True, "data": {"id": 1, "type": "meeting", "subject": "Full meeting"}}
+        )
+        due_date = datetime(2024, 8, 15, tzinfo=timezone.utc)
+        await pipedrive_client.create_activity(
+            type="meeting",
+            subject="Full meeting",
+            done=True,
+            due_date=due_date,
+            due_time="09:00",
+            duration="02:00",
+            deal_id=100,
+            person_id=1,
+            org_id=10,
+            user_id=5,
+            note="Important meeting notes",
+            location="Conference Room A",
+        )
+        call_kwargs = mock_httpx_client.request.call_args
+        body = call_kwargs.kwargs["json"]
+        assert body["type"] == "meeting"
+        assert body["subject"] == "Full meeting"
+        assert body["done"] == 1
+        assert body["due_date"] == "2024-08-15"
+        assert body["due_time"] == "09:00"
+        assert body["duration"] == "02:00"
+        assert body["deal_id"] == 100
+        assert body["person_id"] == 1
+        assert body["org_id"] == 10
+        assert body["user_id"] == 5
+        assert body["note"] == "Important meeting notes"
+        assert body["location"] == "Conference Room A"
+
+    def test_activity_to_api_formats_correctly(self):
+        activity = Activity(
+            id=1,
+            type="call",
+            subject="Sales call",
+            done=False,
+            due_date=datetime(2024, 7, 20, tzinfo=timezone.utc),
+            due_time="15:30",
+            duration="00:45",
+            deal_id=50,
+            person_id=2,
+            org_id=5,
+            owner_id=3,
+            note="Discuss pricing",
+            location="Remote",
+        )
+        result = activity.to_api()
+        assert result["done"] == 0
+        assert result["due_date"] == "2024-07-20"
+        assert result["due_time"] == "15:30"
+        assert result["user_id"] == 3
+
+    def test_all_activity_types_are_strings(self):
+        for activity_type in ActivityType:
+            assert isinstance(activity_type.value, str)
+
+
+# =============================================================================
+# Additional Model Serialization Tests
+# =============================================================================
+
+
+class TestModelSerializationEdgeCases:
+    """Additional tests for model serialization edge cases."""
+
+    def test_person_to_api_with_org_id_only(self):
+        person = Person(id=1, name="Org Person", org_id=10)
+        result = person.to_api()
+        assert result["org_id"] == 10
+        assert "email" not in result
+        assert "phone" not in result
+
+    def test_organization_to_api_with_address_only(self):
+        org = Organization(id=1, name="Address Org", address="123 Main St")
+        result = org.to_api()
+        assert result["address"] == "123 Main St"
+        assert "owner_id" not in result
+
+    def test_product_to_api_with_zero_tax(self):
+        product = Product(id=1, name="No Tax Product", tax=0.0)
+        result = product.to_api()
+        assert "tax" not in result
+
+    def test_product_to_api_with_nonzero_tax(self):
+        product = Product(id=1, name="Taxed Product", tax=8.5)
+        result = product.to_api()
+        assert result["tax"] == 8.5
+
+    def test_note_to_api_with_single_association(self):
+        note = Note(id=1, content="Deal note", deal_id=100)
+        result = note.to_api()
+        assert result["deal_id"] == 100
+        assert "person_id" not in result
+        assert "org_id" not in result
+
+    def test_deal_to_api_with_zero_value_excluded(self):
+        deal = Deal(id=1, title="Zero Value Deal", value=0.0)
+        result = deal.to_api()
+        assert "value" not in result
+
+    def test_deal_to_api_with_positive_value_included(self):
+        deal = Deal(id=1, title="Valued Deal", value=1000.0)
+        result = deal.to_api()
+        assert result["value"] == 1000.0
+
+
+# =============================================================================
+# Client State Tests
+# =============================================================================
+
+
+class TestClientState:
+    """Tests for client state management."""
+
+    def test_client_stores_credentials(self, credentials):
+        client = PipedriveClient(credentials)
+        assert client.credentials.api_token == "test-api-token-123"
+        assert client.credentials.base_url == "https://api.pipedrive.com/v1"
+
+    def test_client_initial_state(self, credentials):
+        client = PipedriveClient(credentials)
+        assert client._client is None
+
+    @pytest.mark.asyncio
+    async def test_request_method_validates_path(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": {}})
+        await pipedrive_client._request("GET", "/test/path")
+        call_kwargs = mock_httpx_client.request.call_args
+        assert call_kwargs.args[0] == "GET"
+        assert call_kwargs.args[1] == "/test/path"
+
+    @pytest.mark.asyncio
+    async def test_all_http_methods(self, pipedrive_client, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": {}})
+
+        await pipedrive_client._request("GET", "/test")
+        assert mock_httpx_client.request.call_args.args[0] == "GET"
+
+        await pipedrive_client._request("POST", "/test")
+        assert mock_httpx_client.request.call_args.args[0] == "POST"
+
+        await pipedrive_client._request("PUT", "/test")
+        assert mock_httpx_client.request.call_args.args[0] == "PUT"
+
+        await pipedrive_client._request("DELETE", "/test")
+        assert mock_httpx_client.request.call_args.args[0] == "DELETE"
+
+
+# =============================================================================
+# Datetime Parsing Edge Cases
+# =============================================================================
+
+
+class TestDatetimeParsingEdgeCases:
+    """Additional tests for datetime parsing edge cases."""
+
+    def test_parse_datetime_with_microseconds(self):
+        result = _parse_datetime("2023-06-15T10:30:00.123456Z")
+        assert result is not None
+        assert result.year == 2023
+
+    def test_parse_datetime_with_timezone_offset(self):
+        result = _parse_datetime("2023-06-15T10:30:00+05:00")
+        assert result is not None
+        assert result.year == 2023
+
+    def test_parse_date_returns_utc(self):
+        result = _parse_date("2023-06-15")
+        assert result is not None
+        assert result.tzinfo == timezone.utc
+
+    def test_parse_datetime_standard_returns_utc(self):
+        result = _parse_datetime("2023-06-15 10:30:00")
+        assert result is not None
+        assert result.tzinfo == timezone.utc
+
+
+# =============================================================================
+# Visibility Tests
+# =============================================================================
+
+
+class TestVisibilitySettings:
+    """Tests for visibility settings across models."""
+
+    def test_person_visibility_owner_only(self):
+        person = Person(id=1, name="Private", visible_to=PersonVisibility.OWNER.value)
+        assert person.visible_to == "1"
+
+    def test_person_visibility_followers(self):
+        person = Person(id=1, name="Shared", visible_to=PersonVisibility.OWNER_FOLLOWERS.value)
+        assert person.visible_to == "3"
+
+    def test_organization_visibility_owner_only(self):
+        org = Organization(id=1, name="Private Org", visible_to=PersonVisibility.OWNER.value)
+        result = org.to_api()
+        assert result["visible_to"] == "1"
+
+    def test_deal_visibility_settings(self):
+        deal = Deal(id=1, title="Private Deal", visible_to="1")
+        result = deal.to_api()
+        assert result["visible_to"] == "1"
+
+    def test_product_visibility_settings(self):
+        product = Product(id=1, name="Private Product", visible_to="1")
+        result = product.to_api()
+        assert result["visible_to"] == "1"

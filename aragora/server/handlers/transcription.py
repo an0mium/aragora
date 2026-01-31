@@ -25,7 +25,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
-from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +185,7 @@ class TranscriptionHandler(BaseHandler):
             return True
         return False
 
+    @rate_limit(requests_per_minute=60)
     @require_permission("transcription:read")
     def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
         """Handle GET requests."""
@@ -197,6 +198,7 @@ class TranscriptionHandler(BaseHandler):
 
         return None
 
+    @rate_limit(requests_per_minute=10)
     async def handle_post(
         self, path: str, query_params: dict, handler=None
     ) -> HandlerResult | None:

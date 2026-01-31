@@ -120,6 +120,15 @@ from .calibration_fusion_adapter import (
     CalibrationSearchResult,
     CalibrationSyncResult,
 )
+from .extraction_adapter import (
+    ExtractionAdapter,
+    ExtractionAdapterError,
+    ExtractionNotFoundError,
+    ExtractionSearchResult,
+    RelationshipSearchResult,
+    KnowledgeGraphNode,
+    BatchExtractionResult,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -212,6 +221,14 @@ __all__ = [
     "CalibrationFusionAdapter",
     "CalibrationSearchResult",
     "CalibrationSyncResult",
+    # Extraction adapter (Knowledge Extraction → Knowledge Mound)
+    "ExtractionAdapter",
+    "ExtractionAdapterError",
+    "ExtractionNotFoundError",
+    "ExtractionSearchResult",
+    "RelationshipSearchResult",
+    "KnowledgeGraphNode",
+    "BatchExtractionResult",
     # Factory for auto-creating adapters
     "AdapterFactory",
     "AdapterSpec",

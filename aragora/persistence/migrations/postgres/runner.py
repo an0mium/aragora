@@ -21,7 +21,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class PostgresMigrationRunner:
         """
         self._pool = pool
         self._dsn = dsn or os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
-        self._migrations: dict[int, Callable] = {}
+        self._migrations: dict[int, dict[str, Any]] = {}
 
     async def _get_pool(self) -> "Pool":
         """Get or create connection pool."""

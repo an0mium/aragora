@@ -124,6 +124,47 @@ class AccountManagementTestHandler(AccountManagementMixin):
             content_type="text/html",
         )
 
+    # Mock provider callback methods (needed for callback_map building)
+    def _handle_google_callback(self, handler, query_params):
+        return HandlerResult(
+            status_code=302,
+            headers={"Location": "https://example.com/success?access_token=test"},
+            body=b"",
+            content_type="text/html",
+        )
+
+    def _handle_github_callback(self, handler, query_params):
+        return HandlerResult(
+            status_code=302,
+            headers={"Location": "https://example.com/success?access_token=test"},
+            body=b"",
+            content_type="text/html",
+        )
+
+    def _handle_microsoft_callback(self, handler, query_params):
+        return HandlerResult(
+            status_code=302,
+            headers={"Location": "https://example.com/success?access_token=test"},
+            body=b"",
+            content_type="text/html",
+        )
+
+    def _handle_apple_callback(self, handler, query_params):
+        return HandlerResult(
+            status_code=302,
+            headers={"Location": "https://example.com/success?access_token=test"},
+            body=b"",
+            content_type="text/html",
+        )
+
+    def _handle_oidc_callback(self, handler, query_params):
+        return HandlerResult(
+            status_code=302,
+            headers={"Location": "https://example.com/success?access_token=test"},
+            body=b"",
+            content_type="text/html",
+        )
+
 
 @pytest.fixture
 def mock_user_store():
@@ -532,7 +573,7 @@ class TestLinkAccount:
 class TestUnlinkAccount:
     """Tests for unlinking OAuth account."""
 
-    @patch("aragora.audit.unified.audit_action")
+    @patch("aragora.server.handlers._oauth.account.audit_action")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_unlink_oauth_account(
         self, mock_extract, mock_audit, account_handler, mock_user_store, mock_request_handler
@@ -556,7 +597,7 @@ class TestUnlinkAccount:
         # Verify Google was unlinked
         assert "google" not in mock_user_store.oauth_links.get("user_1", {})
 
-        # Verify audit was called
+        # Verify audit was called (patched at import location)
         mock_audit.assert_called_once()
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")

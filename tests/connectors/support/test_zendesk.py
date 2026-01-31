@@ -15,6 +15,9 @@ Tests cover:
 - Helper functions (_parse_datetime)
 - Error handling (HTTP errors, JSON parsing)
 - Edge cases (empty responses, missing fields, malformed data)
+- Rate limiting and pagination
+- Attachment management
+- Webhook processing
 - Mock data generation helpers
 """
 
@@ -108,6 +111,15 @@ class TestTicketStatus:
     def test_ticket_status_from_string(self):
         assert TicketStatus("pending") == TicketStatus.PENDING
 
+    def test_ticket_status_all_values_count(self):
+        """Verify all ticket statuses are accounted for."""
+        assert len(TicketStatus) == 6
+
+    def test_ticket_status_equality_with_string(self):
+        """Test that TicketStatus can be compared with strings."""
+        assert TicketStatus.NEW == "new"
+        assert TicketStatus.CLOSED == "closed"
+
 
 class TestTicketPriority:
     """Tests for TicketPriority enum."""
@@ -120,6 +132,13 @@ class TestTicketPriority:
 
     def test_ticket_priority_is_str(self):
         assert isinstance(TicketPriority.HIGH, str)
+
+    def test_ticket_priority_all_values_count(self):
+        """Verify all ticket priorities are accounted for."""
+        assert len(TicketPriority) == 4
+
+    def test_ticket_priority_from_string(self):
+        assert TicketPriority("urgent") == TicketPriority.URGENT
 
 
 class TestTicketType:
@@ -134,6 +153,13 @@ class TestTicketType:
     def test_ticket_type_is_str(self):
         assert isinstance(TicketType.INCIDENT, str)
 
+    def test_ticket_type_all_values_count(self):
+        """Verify all ticket types are accounted for."""
+        assert len(TicketType) == 4
+
+    def test_ticket_type_from_string(self):
+        assert TicketType("problem") == TicketType.PROBLEM
+
 
 class TestUserRole:
     """Tests for UserRole enum."""
@@ -145,6 +171,13 @@ class TestUserRole:
 
     def test_user_role_is_str(self):
         assert isinstance(UserRole.AGENT, str)
+
+    def test_user_role_all_values_count(self):
+        """Verify all user roles are accounted for."""
+        assert len(UserRole) == 3
+
+    def test_user_role_from_string(self):
+        assert UserRole("admin") == UserRole.ADMIN
 
 
 # =============================================================================
@@ -196,6 +229,28 @@ class TestZendeskCredentials:
         decoded = base64.b64decode(encoded_part).decode()
         assert decoded == "support@company.com/token:secret123"
 
+    def test_base_url_with_special_subdomain(self):
+        """Test URL generation with hyphenated subdomain."""
+        creds = ZendeskCredentials(
+            subdomain="my-company-name",
+            email="test@test.com",
+            api_token="token",
+        )
+        assert creds.base_url == "https://my-company-name.zendesk.com/api/v2"
+
+    def test_auth_header_with_special_characters(self):
+        """Test auth header with special characters in email."""
+        creds = ZendeskCredentials(
+            subdomain="test",
+            email="agent+test@company.com",
+            api_token="token!@#$",
+        )
+        auth_header = creds.auth_header
+        assert auth_header.startswith("Basic ")
+        encoded_part = auth_header[6:]
+        decoded = base64.b64decode(encoded_part).decode()
+        assert decoded == "agent+test@company.com/token:token!@#$"
+
 
 # =============================================================================
 # Error Tests
@@ -215,6 +270,25 @@ class TestZendeskError:
         err = ZendeskError("Not found", status_code=404, details={"error": "RecordNotFound"})
         assert err.status_code == 404
         assert err.details == {"error": "RecordNotFound"}
+
+    def test_error_with_all_params(self):
+        err = ZendeskError(
+            "Rate limit exceeded",
+            status_code=429,
+            details={"retry_after": 60, "message": "Too many requests"},
+        )
+        assert err.status_code == 429
+        assert err.details["retry_after"] == 60
+
+    def test_error_inheritance(self):
+        """Verify ZendeskError is an Exception."""
+        err = ZendeskError("Test")
+        assert isinstance(err, Exception)
+
+    def test_error_empty_details(self):
+        """Test error with None details."""
+        err = ZendeskError("Error", status_code=500, details=None)
+        assert err.details == {}
 
 
 # =============================================================================
@@ -250,6 +324,21 @@ class TestHelperFunctions:
 
     def test_parse_datetime_malformed(self):
         assert _parse_datetime("2023/06/15") is None
+
+    def test_parse_datetime_with_microseconds(self):
+        result = _parse_datetime("2023-06-15T10:30:00.123456Z")
+        assert result is not None
+        assert result.year == 2023
+
+    def test_parse_datetime_with_positive_offset(self):
+        result = _parse_datetime("2023-06-15T10:30:00+05:30")
+        assert result is not None
+        assert result.year == 2023
+
+    def test_parse_datetime_with_negative_offset(self):
+        result = _parse_datetime("2023-06-15T10:30:00-08:00")
+        assert result is not None
+        assert result.year == 2023
 
 
 # =============================================================================
@@ -306,6 +395,25 @@ class TestZendeskUserModel:
         user = ZendeskUser.from_api(data)
         assert user.role == UserRole.ADMIN
 
+    def test_from_api_suspended_user(self):
+        data = {
+            "id": 4,
+            "name": "Suspended",
+            "email": "sus@test.com",
+            "role": "end-user",
+            "suspended": True,
+        }
+        user = ZendeskUser.from_api(data)
+        assert user.suspended is True
+
+    def test_from_api_missing_optional_fields(self):
+        data = {"id": 5, "name": "Test", "email": "test@test.com", "role": "end-user"}
+        user = ZendeskUser.from_api(data)
+        assert user.phone is None
+        assert user.time_zone is None
+        assert user.created_at is None
+        assert user.updated_at is None
+
 
 # =============================================================================
 # Organization Model Tests
@@ -344,6 +452,19 @@ class TestOrganizationModel:
         assert org.domain_names == []
         assert org.tags == []
 
+    def test_from_api_with_single_domain(self):
+        data = {"id": 2, "name": "Test", "domain_names": ["test.com"]}
+        org = Organization.from_api(data)
+        assert org.domain_names == ["test.com"]
+
+    def test_from_api_missing_optional_fields(self):
+        data = {"id": 3, "name": "Org"}
+        org = Organization.from_api(data)
+        assert org.details is None
+        assert org.notes is None
+        assert org.group_id is None
+        assert org.created_at is None
+
 
 # =============================================================================
 # TicketComment Model Tests
@@ -381,6 +502,25 @@ class TestTicketCommentModel:
         data = {"id": 2, "body": "Internal note", "author_id": 1, "public": False}
         comment = TicketComment.from_api(data)
         assert comment.public is False
+
+    def test_from_api_with_multiple_attachments(self):
+        data = {
+            "id": 3,
+            "body": "See attachments",
+            "author_id": 1,
+            "attachments": [
+                {"file_name": "file1.pdf", "url": "https://..."},
+                {"file_name": "file2.png", "url": "https://..."},
+                {"file_name": "file3.doc", "url": "https://..."},
+            ],
+        }
+        comment = TicketComment.from_api(data)
+        assert len(comment.attachments) == 3
+
+    def test_from_api_html_body(self):
+        data = {"id": 4, "body": "<p>HTML content</p>", "author_id": 1}
+        comment = TicketComment.from_api(data)
+        assert "<p>" in comment.body
 
 
 # =============================================================================
@@ -445,6 +585,29 @@ class TestTicketModel:
             ticket = Ticket.from_api(data)
             assert ticket.type == ticket_type
 
+    def test_from_api_with_due_date(self):
+        data = {"id": 1, "status": "new", "due_at": "2023-12-31T23:59:59Z"}
+        ticket = Ticket.from_api(data)
+        assert ticket.due_at is not None
+        assert ticket.due_at.year == 2023
+
+    def test_from_api_with_custom_fields(self):
+        data = {
+            "id": 1,
+            "status": "new",
+            "custom_fields": [
+                {"id": 1, "value": "value1"},
+                {"id": 2, "value": "value2"},
+            ],
+        }
+        ticket = Ticket.from_api(data)
+        assert len(ticket.custom_fields) == 2
+
+    def test_from_api_unassigned_ticket(self):
+        data = {"id": 1, "status": "new", "assignee_id": None}
+        ticket = Ticket.from_api(data)
+        assert ticket.assignee_id is None
+
 
 # =============================================================================
 # View Model Tests
@@ -476,6 +639,11 @@ class TestViewModel:
         assert view.title == ""
         assert view.active is True
         assert view.position == 0
+
+    def test_from_api_inactive_view(self):
+        data = {"id": 2, "title": "Old View", "active": False}
+        view = View.from_api(data)
+        assert view.active is False
 
 
 # =============================================================================
@@ -527,6 +695,42 @@ class TestZendeskConnectorInit:
         assert connector._client is None
         await connector.close()
         assert connector._client is None
+
+    @pytest.mark.asyncio
+    async def test_get_client_reuses_existing(self, credentials):
+        import httpx
+
+        with patch.object(httpx, "AsyncClient") as mock_async_client_class:
+            mock_async_client = AsyncMock()
+            mock_async_client_class.return_value = mock_async_client
+
+            connector = ZendeskConnector(credentials)
+            client1 = await connector._get_client()
+            client2 = await connector._get_client()
+
+            assert client1 is client2
+            assert mock_async_client_class.call_count == 1
+
+            await connector.close()
+
+    @pytest.mark.asyncio
+    async def test_client_headers_configured(self, credentials):
+        import httpx
+
+        with patch.object(httpx, "AsyncClient") as mock_async_client_class:
+            mock_async_client = AsyncMock()
+            mock_async_client_class.return_value = mock_async_client
+
+            connector = ZendeskConnector(credentials)
+            await connector._get_client()
+
+            # Check that AsyncClient was called with correct headers
+            call_kwargs = mock_async_client_class.call_args.kwargs
+            assert "headers" in call_kwargs
+            assert call_kwargs["headers"]["Authorization"] == credentials.auth_header
+            assert call_kwargs["headers"]["Content-Type"] == "application/json"
+
+            await connector.close()
 
 
 # =============================================================================
@@ -582,6 +786,46 @@ class TestApiRequest:
             await zendesk_connector._request("GET", "/tickets.json")
         assert exc_info.value.status_code == 429
 
+    @pytest.mark.asyncio
+    async def test_request_400_bad_request(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Invalid parameter"},
+            status_code=400,
+        )
+        with pytest.raises(ZendeskError) as exc_info:
+            await zendesk_connector._request("POST", "/tickets.json")
+        assert exc_info.value.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_request_401_unauthorized(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Unauthorized"},
+            status_code=401,
+        )
+        with pytest.raises(ZendeskError) as exc_info:
+            await zendesk_connector._request("GET", "/tickets.json")
+        assert exc_info.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_request_403_forbidden(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Forbidden"},
+            status_code=403,
+        )
+        with pytest.raises(ZendeskError) as exc_info:
+            await zendesk_connector._request("GET", "/tickets.json")
+        assert exc_info.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_request_503_service_unavailable(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Service Unavailable"},
+            status_code=503,
+        )
+        with pytest.raises(ZendeskError) as exc_info:
+            await zendesk_connector._request("GET", "/tickets.json")
+        assert exc_info.value.status_code == 503
+
 
 # =============================================================================
 # Ticket Operations Tests
@@ -622,6 +866,28 @@ class TestTicketOperations:
         await zendesk_connector.get_tickets(assignee_id=123)
         call_args = mock_httpx_client.request.call_args
         assert "assignee_id:123" in call_args.kwargs["params"]["query"]
+
+    @pytest.mark.asyncio
+    async def test_get_tickets_with_requester_filter(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"results": [], "next_page": None})
+        await zendesk_connector.get_tickets(requester_id=456)
+        call_args = mock_httpx_client.request.call_args
+        assert "requester_id:456" in call_args.kwargs["params"]["query"]
+
+    @pytest.mark.asyncio
+    async def test_get_tickets_pagination(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"tickets": [], "next_page": None})
+        await zendesk_connector.get_tickets(page=2, per_page=50)
+        call_args = mock_httpx_client.request.call_args
+        assert call_args.kwargs["params"]["page"] == 2
+        assert call_args.kwargs["params"]["per_page"] == 50
+
+    @pytest.mark.asyncio
+    async def test_get_tickets_per_page_capped_at_100(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"tickets": [], "next_page": None})
+        await zendesk_connector.get_tickets(per_page=200)
+        call_args = mock_httpx_client.request.call_args
+        assert call_args.kwargs["params"]["per_page"] == 100
 
     @pytest.mark.asyncio
     async def test_get_ticket(self, zendesk_connector, mock_httpx_client):
@@ -669,6 +935,44 @@ class TestTicketOperations:
         assert ticket.id == 2001
 
     @pytest.mark.asyncio
+    async def test_create_ticket_with_group(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "ticket": {
+                    "id": 2002,
+                    "subject": "Group ticket",
+                    "status": "new",
+                    "requester_id": 1,
+                    "group_id": 5,
+                }
+            }
+        )
+        await zendesk_connector.create_ticket(
+            subject="Group ticket",
+            description="Assigned to group",
+            requester_id=1,
+            group_id=5,
+        )
+        call_args = mock_httpx_client.request.call_args
+        json_data = call_args.kwargs["json"]
+        assert json_data["ticket"]["group_id"] == 5
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_with_custom_fields(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"ticket": {"id": 2003, "subject": "Custom ticket", "status": "new", "requester_id": 1}}
+        )
+        await zendesk_connector.create_ticket(
+            subject="Custom ticket",
+            description="With custom fields",
+            requester_id=1,
+            custom_fields=[{"id": 123, "value": "custom_value"}],
+        )
+        call_args = mock_httpx_client.request.call_args
+        json_data = call_args.kwargs["json"]
+        assert json_data["ticket"]["custom_fields"] == [{"id": 123, "value": "custom_value"}]
+
+    @pytest.mark.asyncio
     async def test_update_ticket(self, zendesk_connector, mock_httpx_client):
         mock_httpx_client.request.return_value = _make_response(
             {"ticket": {"id": 1000, "subject": "Updated", "status": "pending", "requester_id": 1}}
@@ -680,6 +984,26 @@ class TestTicketOperations:
             public=False,
         )
         assert ticket.status == TicketStatus.PENDING
+
+    @pytest.mark.asyncio
+    async def test_update_ticket_assignee(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"ticket": {"id": 1000, "status": "open", "requester_id": 1, "assignee_id": 999}}
+        )
+        await zendesk_connector.update_ticket(1000, assignee_id=999)
+        call_args = mock_httpx_client.request.call_args
+        json_data = call_args.kwargs["json"]
+        assert json_data["ticket"]["assignee_id"] == 999
+
+    @pytest.mark.asyncio
+    async def test_update_ticket_tags(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"ticket": {"id": 1000, "status": "open", "requester_id": 1, "tags": ["new_tag"]}}
+        )
+        await zendesk_connector.update_ticket(1000, tags=["new_tag"])
+        call_args = mock_httpx_client.request.call_args
+        json_data = call_args.kwargs["json"]
+        assert json_data["ticket"]["tags"] == ["new_tag"]
 
     @pytest.mark.asyncio
     async def test_delete_ticket(self, zendesk_connector, mock_httpx_client):
@@ -716,6 +1040,17 @@ class TestTicketOperations:
         comment = await zendesk_connector.add_ticket_comment(1000, "New comment", public=True)
         assert comment.body == "New comment"
 
+    @pytest.mark.asyncio
+    async def test_add_private_ticket_comment(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.side_effect = [
+            _make_response({"ticket": {"id": 1000, "status": "open", "requester_id": 1}}),
+            _make_response(
+                {"comments": [{"id": 101, "body": "Private note", "author_id": 1, "public": False}]}
+            ),
+        ]
+        comment = await zendesk_connector.add_ticket_comment(1000, "Private note", public=False)
+        assert comment.public is False
+
 
 # =============================================================================
 # User Operations Tests
@@ -747,6 +1082,14 @@ class TestUserOperations:
         await zendesk_connector.get_users(role=UserRole.AGENT)
         call_args = mock_httpx_client.request.call_args
         assert call_args.kwargs["params"]["role"] == "agent"
+
+    @pytest.mark.asyncio
+    async def test_get_users_pagination(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"users": [], "next_page": "https://..."}
+        )
+        users, has_more = await zendesk_connector.get_users(page=1, per_page=100)
+        assert has_more is True
 
     @pytest.mark.asyncio
     async def test_get_user(self, zendesk_connector, mock_httpx_client):
@@ -787,6 +1130,43 @@ class TestUserOperations:
         assert user.name == "New User"
 
     @pytest.mark.asyncio
+    async def test_create_user_minimal(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "user": {
+                    "id": 88888,
+                    "name": "Simple User",
+                    "email": "simple@test.com",
+                    "role": "end-user",
+                }
+            }
+        )
+        user = await zendesk_connector.create_user(
+            name="Simple User",
+            email="simple@test.com",
+        )
+        assert user.id == 88888
+
+    @pytest.mark.asyncio
+    async def test_create_agent_user(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "user": {
+                    "id": 77777,
+                    "name": "Agent User",
+                    "email": "agent@test.com",
+                    "role": "agent",
+                }
+            }
+        )
+        user = await zendesk_connector.create_user(
+            name="Agent User",
+            email="agent@test.com",
+            role=UserRole.AGENT,
+        )
+        assert user.role == UserRole.AGENT
+
+    @pytest.mark.asyncio
     async def test_search_users(self, zendesk_connector, mock_httpx_client):
         mock_httpx_client.request.return_value = _make_response(
             {
@@ -798,6 +1178,12 @@ class TestUserOperations:
         users = await zendesk_connector.search_users("john")
         assert len(users) == 1
         assert users[0].name == "John Doe"
+
+    @pytest.mark.asyncio
+    async def test_search_users_empty(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"users": []})
+        users = await zendesk_connector.search_users("nonexistent")
+        assert users == []
 
 
 # =============================================================================
@@ -835,6 +1221,15 @@ class TestOrganizationOperations:
         assert has_more is True
 
     @pytest.mark.asyncio
+    async def test_get_organizations_per_page_capped(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"organizations": [], "next_page": None}
+        )
+        await zendesk_connector.get_organizations(per_page=200)
+        call_args = mock_httpx_client.request.call_args
+        assert call_args.kwargs["params"]["per_page"] == 100
+
+    @pytest.mark.asyncio
     async def test_get_organization(self, zendesk_connector, mock_httpx_client):
         mock_httpx_client.request.return_value = _make_response(
             {"organization": {"id": 100, "name": "Acme Corp", "domain_names": ["acme.com"]}}
@@ -863,6 +1258,14 @@ class TestOrganizationOperations:
         assert org.id == 200
         assert org.name == "New Org"
 
+    @pytest.mark.asyncio
+    async def test_create_organization_minimal(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"organization": {"id": 201, "name": "Simple Org"}}
+        )
+        org = await zendesk_connector.create_organization(name="Simple Org")
+        assert org.id == 201
+
 
 # =============================================================================
 # View Operations Tests
@@ -887,6 +1290,12 @@ class TestViewOperations:
         assert views[0].title == "My Open Tickets"
 
     @pytest.mark.asyncio
+    async def test_get_views_empty(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"views": []})
+        views = await zendesk_connector.get_views()
+        assert views == []
+
+    @pytest.mark.asyncio
     async def test_get_view_tickets(self, zendesk_connector, mock_httpx_client):
         mock_httpx_client.request.return_value = _make_response(
             {
@@ -900,6 +1309,14 @@ class TestViewOperations:
         tickets, has_more = await zendesk_connector.get_view_tickets(1)
         assert len(tickets) == 2
         assert not has_more
+
+    @pytest.mark.asyncio
+    async def test_get_view_tickets_with_pagination(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"tickets": [{"id": 1, "status": "open"}], "next_page": "https://..."}
+        )
+        tickets, has_more = await zendesk_connector.get_view_tickets(1, page=1, per_page=50)
+        assert has_more is True
 
 
 # =============================================================================
@@ -929,6 +1346,20 @@ class TestSearchOperations:
         await zendesk_connector.search("test", type="ticket")
         call_args = mock_httpx_client.request.call_args
         assert "type:ticket" in call_args.kwargs["params"]["query"]
+
+    @pytest.mark.asyncio
+    async def test_search_empty_results(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"results": []})
+        results = await zendesk_connector.search("nonexistent")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_search_with_pagination(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response({"results": []})
+        await zendesk_connector.search("test", page=2, per_page=50)
+        call_args = mock_httpx_client.request.call_args
+        assert call_args.kwargs["params"]["page"] == 2
+        assert call_args.kwargs["params"]["per_page"] == 50
 
 
 # =============================================================================
@@ -1026,3 +1457,308 @@ class TestEdgeCases:
         # Should return a fallback comment when no comments are returned
         assert comment.body == "Test comment"
         assert comment.id == 0
+
+    @pytest.mark.asyncio
+    async def test_get_tickets_with_multiple_filters(self, zendesk_connector, mock_httpx_client):
+        """Test ticket search with multiple filter criteria."""
+        mock_httpx_client.request.return_value = _make_response({"results": [], "next_page": None})
+        await zendesk_connector.get_tickets(
+            status=TicketStatus.OPEN,
+            assignee_id=123,
+            requester_id=456,
+        )
+        call_args = mock_httpx_client.request.call_args
+        query = call_args.kwargs["params"]["query"]
+        assert "status:open" in query
+        assert "assignee_id:123" in query
+        assert "requester_id:456" in query
+
+    def test_ticket_comment_with_large_attachment_list(self):
+        """Test comment with many attachments."""
+        attachments = [{"file_name": f"file{i}.pdf", "url": f"https://.../{i}"} for i in range(20)]
+        data = {"id": 1, "body": "Many files", "author_id": 1, "attachments": attachments}
+        comment = TicketComment.from_api(data)
+        assert len(comment.attachments) == 20
+
+    def test_organization_with_many_domains(self):
+        """Test organization with many domain names."""
+        domains = [f"domain{i}.com" for i in range(10)]
+        data = {"id": 1, "name": "Multi-domain Org", "domain_names": domains}
+        org = Organization.from_api(data)
+        assert len(org.domain_names) == 10
+
+    def test_ticket_with_many_custom_fields(self):
+        """Test ticket with many custom fields."""
+        custom_fields = [{"id": i, "value": f"value{i}"} for i in range(50)]
+        data = {"id": 1, "status": "new", "custom_fields": custom_fields}
+        ticket = Ticket.from_api(data)
+        assert len(ticket.custom_fields) == 50
+
+    def test_user_with_many_tags(self):
+        """Test user with many tags."""
+        tags = [f"tag{i}" for i in range(100)]
+        data = {
+            "id": 1,
+            "name": "Tagged User",
+            "email": "test@test.com",
+            "role": "end-user",
+            "tags": tags,
+        }
+        user = ZendeskUser.from_api(data)
+        assert len(user.tags) == 100
+
+
+# =============================================================================
+# Rate Limiting and Retry Tests
+# =============================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting behavior."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error_includes_details(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {"error": "Rate limit exceeded", "retry_after": 60},
+            status_code=429,
+        )
+        with pytest.raises(ZendeskError) as exc_info:
+            await zendesk_connector._request("GET", "/tickets.json")
+        assert exc_info.value.status_code == 429
+        assert "retry_after" in exc_info.value.details
+
+    @pytest.mark.asyncio
+    async def test_multiple_rapid_requests(self, zendesk_connector, mock_httpx_client):
+        """Test that multiple requests work correctly."""
+        mock_httpx_client.request.return_value = _make_response(
+            {"ticket": {"id": 1, "status": "new"}}
+        )
+
+        # Make multiple requests
+        for i in range(5):
+            await zendesk_connector.get_ticket(i)
+
+        assert mock_httpx_client.request.call_count == 5
+
+
+# =============================================================================
+# Attachment Management Tests
+# =============================================================================
+
+
+class TestAttachmentManagement:
+    """Tests for attachment-related functionality."""
+
+    def test_comment_with_attachment_metadata(self):
+        data = {
+            "id": 1,
+            "body": "See attachment",
+            "author_id": 1,
+            "attachments": [
+                {
+                    "id": 100,
+                    "file_name": "screenshot.png",
+                    "url": "https://cdn.zendesk.com/attachments/100",
+                    "content_type": "image/png",
+                    "size": 102400,
+                }
+            ],
+        }
+        comment = TicketComment.from_api(data)
+        assert len(comment.attachments) == 1
+        assert comment.attachments[0]["file_name"] == "screenshot.png"
+        assert comment.attachments[0]["content_type"] == "image/png"
+
+    def test_comment_with_multiple_attachment_types(self):
+        data = {
+            "id": 1,
+            "body": "Multiple attachments",
+            "author_id": 1,
+            "attachments": [
+                {"file_name": "doc.pdf", "content_type": "application/pdf"},
+                {"file_name": "image.jpg", "content_type": "image/jpeg"},
+                {"file_name": "data.csv", "content_type": "text/csv"},
+            ],
+        }
+        comment = TicketComment.from_api(data)
+        assert len(comment.attachments) == 3
+
+    @pytest.mark.asyncio
+    async def test_get_comments_with_attachments(self, zendesk_connector, mock_httpx_client):
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "comments": [
+                    {
+                        "id": 1,
+                        "body": "Comment with file",
+                        "author_id": 1,
+                        "attachments": [{"file_name": "test.pdf", "url": "https://..."}],
+                    }
+                ]
+            }
+        )
+        comments = await zendesk_connector.get_ticket_comments(1000)
+        assert len(comments) == 1
+        assert len(comments[0].attachments) == 1
+
+
+# =============================================================================
+# Webhook Processing Tests
+# =============================================================================
+
+
+class TestWebhookProcessing:
+    """Tests for webhook-like data processing."""
+
+    def test_ticket_from_webhook_payload(self):
+        """Test parsing ticket data as if from a webhook."""
+        webhook_data = {
+            "id": 99999,
+            "subject": "Webhook created ticket",
+            "description": "Created via webhook",
+            "status": "new",
+            "priority": "urgent",
+            "type": "incident",
+            "requester_id": 12345,
+            "created_at": "2023-07-01T10:00:00Z",
+        }
+        ticket = Ticket.from_api(webhook_data)
+        assert ticket.id == 99999
+        assert ticket.status == TicketStatus.NEW
+        assert ticket.priority == TicketPriority.URGENT
+
+    def test_user_from_webhook_payload(self):
+        """Test parsing user data as if from a webhook."""
+        webhook_data = {
+            "id": 88888,
+            "name": "Webhook User",
+            "email": "webhook@test.com",
+            "role": "end-user",
+            "created_at": "2023-07-01T10:00:00Z",
+        }
+        user = ZendeskUser.from_api(webhook_data)
+        assert user.id == 88888
+        assert user.name == "Webhook User"
+
+    def test_comment_from_webhook_payload(self):
+        """Test parsing comment data as if from a webhook."""
+        webhook_data = {
+            "id": 77777,
+            "body": "Webhook comment",
+            "author_id": 12345,
+            "public": True,
+            "created_at": "2023-07-01T10:00:00Z",
+        }
+        comment = TicketComment.from_api(webhook_data)
+        assert comment.id == 77777
+        assert comment.body == "Webhook comment"
+
+    def test_organization_from_webhook_payload(self):
+        """Test parsing organization data as if from a webhook."""
+        webhook_data = {
+            "id": 66666,
+            "name": "Webhook Org",
+            "domain_names": ["webhook.com"],
+            "created_at": "2023-07-01T10:00:00Z",
+        }
+        org = Organization.from_api(webhook_data)
+        assert org.id == 66666
+        assert org.name == "Webhook Org"
+
+
+# =============================================================================
+# Complex Scenario Tests
+# =============================================================================
+
+
+class TestComplexScenarios:
+    """Tests for complex real-world scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_full_ticket_lifecycle(self, zendesk_connector, mock_httpx_client):
+        """Test creating, updating, commenting, and closing a ticket."""
+        # Create ticket
+        mock_httpx_client.request.return_value = _make_response(
+            {"ticket": {"id": 5000, "subject": "New Issue", "status": "new", "requester_id": 1}}
+        )
+        ticket = await zendesk_connector.create_ticket(
+            subject="New Issue",
+            description="Description",
+            requester_id=1,
+        )
+        assert ticket.id == 5000
+        assert ticket.status == TicketStatus.NEW
+
+        # Update to open
+        mock_httpx_client.request.return_value = _make_response(
+            {"ticket": {"id": 5000, "subject": "New Issue", "status": "open", "requester_id": 1}}
+        )
+        ticket = await zendesk_connector.update_ticket(5000, status=TicketStatus.OPEN)
+        assert ticket.status == TicketStatus.OPEN
+
+        # Add comment
+        mock_httpx_client.request.side_effect = [
+            _make_response({"ticket": {"id": 5000, "status": "open", "requester_id": 1}}),
+            _make_response({"comments": [{"id": 1, "body": "Working on it", "author_id": 1}]}),
+        ]
+        comment = await zendesk_connector.add_ticket_comment(5000, "Working on it")
+        assert comment.body == "Working on it"
+
+        # Close ticket
+        mock_httpx_client.request.side_effect = None
+        mock_httpx_client.request.return_value = _make_response(
+            {"ticket": {"id": 5000, "status": "solved", "requester_id": 1}}
+        )
+        ticket = await zendesk_connector.update_ticket(5000, status=TicketStatus.SOLVED)
+        assert ticket.status == TicketStatus.SOLVED
+
+    @pytest.mark.asyncio
+    async def test_batch_user_search(self, zendesk_connector, mock_httpx_client):
+        """Test searching for multiple users."""
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "users": [
+                    {"id": 1, "name": "User 1", "email": "user1@test.com", "role": "end-user"},
+                    {"id": 2, "name": "User 2", "email": "user2@test.com", "role": "end-user"},
+                    {"id": 3, "name": "User 3", "email": "user3@test.com", "role": "end-user"},
+                ]
+            }
+        )
+        users = await zendesk_connector.search_users("user")
+        assert len(users) == 3
+
+    @pytest.mark.asyncio
+    async def test_organization_with_users(self, zendesk_connector, mock_httpx_client):
+        """Test fetching organization and its users."""
+        # Get organization
+        mock_httpx_client.request.return_value = _make_response(
+            {"organization": {"id": 100, "name": "Test Org", "domain_names": ["test.com"]}}
+        )
+        org = await zendesk_connector.get_organization(100)
+        assert org.id == 100
+
+        # Get users in organization
+        mock_httpx_client.request.return_value = _make_response(
+            {
+                "users": [
+                    {
+                        "id": 1,
+                        "name": "Org User 1",
+                        "email": "u1@test.com",
+                        "role": "end-user",
+                        "organization_id": 100,
+                    },
+                    {
+                        "id": 2,
+                        "name": "Org User 2",
+                        "email": "u2@test.com",
+                        "role": "end-user",
+                        "organization_id": 100,
+                    },
+                ],
+                "next_page": None,
+            }
+        )
+        users, _ = await zendesk_connector.get_users()
+        org_users = [u for u in users if u.organization_id == 100]
+        assert len(org_users) == 2

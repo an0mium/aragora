@@ -82,9 +82,12 @@ def auto_select_agents(
     try:
         # Build task requirements from question and config
         # ROUTING_AVAILABLE check above guarantees these are not None
-        assert TaskRequirements is not None  # type guard
-        assert AgentSelector is not None  # type guard
-        assert AgentProfile is not None  # type guard
+        if TaskRequirements is None:
+            raise TypeError("TaskRequirements not available - routing module not loaded")
+        if AgentSelector is None:
+            raise TypeError("AgentSelector not available - routing module not loaded")
+        if AgentProfile is None:
+            raise TypeError("AgentProfile not available - routing module not loaded")
 
         requirements = TaskRequirements(
             task_id=f"debate-{uuid.uuid4().hex[:8]}",

@@ -6,6 +6,7 @@ Provides access to agent tournament management.
 
 from __future__ import annotations
 
+import builtins
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -138,7 +139,7 @@ class TournamentsAPI:
         status: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> list[TournamentSummary]:
+    ) -> builtins.list[TournamentSummary]:
         """
         List tournaments.
 
@@ -163,7 +164,7 @@ class TournamentsAPI:
         status: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> list[TournamentSummary]:
+    ) -> builtins.list[TournamentSummary]:
         """Async version of list."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -191,7 +192,7 @@ class TournamentsAPI:
         response = await self._client._get_async(f"/api/tournaments/{tournament_id}")
         return Tournament.from_dict(response)
 
-    def get_standings(self, tournament_id: str) -> list[TournamentStanding]:
+    def get_standings(self, tournament_id: str) -> builtins.list[TournamentStanding]:
         """
         Get tournament standings.
 
@@ -205,7 +206,7 @@ class TournamentsAPI:
         standings = response.get("standings", [])
         return [TournamentStanding.from_dict(s) for s in standings]
 
-    async def get_standings_async(self, tournament_id: str) -> list[TournamentStanding]:
+    async def get_standings_async(self, tournament_id: str) -> builtins.list[TournamentStanding]:
         """Async version of get_standings."""
         response = await self._client._get_async(f"/api/tournaments/{tournament_id}/standings")
         standings = response.get("standings", [])
@@ -214,7 +215,7 @@ class TournamentsAPI:
     def create(
         self,
         name: str,
-        agents: list[str],
+        agents: builtins.list[str],
         format: str = "round_robin",
         topic: str | None = None,
         rounds_per_match: int = 3,
@@ -251,7 +252,7 @@ class TournamentsAPI:
     async def create_async(
         self,
         name: str,
-        agents: list[str],
+        agents: builtins.list[str],
         format: str = "round_robin",
         topic: str | None = None,
         rounds_per_match: int = 3,

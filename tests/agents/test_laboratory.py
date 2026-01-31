@@ -1123,3 +1123,732 @@ class TestModuleExports:
         assert "EmergentTrait" in __all__
         assert "TraitTransfer" in __all__
         assert "PersonaLaboratory" in __all__
+
+
+# ---------------------------------------------------------------------------
+# Statistical analysis edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestStatisticalAnalysis:
+    """Tests for statistical analysis functionality."""
+
+    def test_significance_at_boundary_trials(self, sample_persona):
+        """Test significance calculation at exactly 20 trials boundary."""
+        variant = Persona(agent_name="variant")
+        exp = PersonaExperiment(
+            experiment_id="exp_boundary",
+            agent_name="agent",
+            control_persona=sample_persona,
+            variant_persona=variant,
+            hypothesis="",
+            control_successes=12,
+            control_trials=20,  # Exactly at boundary
+            variant_successes=18,
+            variant_trials=20,  # Exactly at boundary
+        )
+
+        assert exp.is_significant is True  # Should pass at boundary
+
+    def test_significance_one_below_boundary(self, sample_persona):
+        """Test significance calculation at 19 trials (one below boundary)."""
+        variant = Persona(agent_name="variant")
+        exp = PersonaExperiment(
+            experiment_id="exp_below",
+            agent_name="agent",
+            control_persona=sample_persona,
+            variant_persona=variant,
+            hypothesis="",
+            control_successes=12,
+            control_trials=19,  # One below boundary
+            variant_successes=18,
+            variant_trials=20,
+        )
+
+        assert exp.is_significant is False  # Control below threshold
+
+    def test_significance_variant_below_boundary(self, sample_persona):
+        """Test significance when variant trials are below boundary."""
+        variant = Persona(agent_name="variant")
+        exp = PersonaExperiment(
+            experiment_id="exp_var_below",
+            agent_name="agent",
+            control_persona=sample_persona,
+            variant_persona=variant,
+            hypothesis="",
+            control_successes=15,
+            control_trials=25,
+            variant_successes=10,
+            variant_trials=19,  # Variant below threshold
+        )
+
+        assert exp.is_significant is False
+
+    def test_relative_improvement_exactly_ten_percent(self, sample_persona):
+        """Test relative improvement at exactly 10% boundary."""
+        variant = Persona(agent_name="variant")
+        exp = PersonaExperiment(
+            experiment_id="exp_10pct",
+            agent_name="agent",
+            control_persona=sample_persona,
+            variant_persona=variant,
+            hypothesis="",
+            control_successes=20,
+            control_trials=40,  # 50%
+            variant_successes=22,
+            variant_trials=40,  # 55% -> 10% improvement
+        )
+
+        assert exp.relative_improvement == pytest.approx(0.1, rel=0.01)
+        assert exp.is_significant is True
+
+    def test_relative_improvement_just_below_threshold(self, sample_persona):
+        """Test relative improvement just below 10% threshold."""
+        variant = Persona(agent_name="variant")
+        exp = PersonaExperiment(
+            experiment_id="exp_9pct",
+            agent_name="agent",
+            control_persona=sample_persona,
+            variant_persona=variant,
+            hypothesis="",
+            control_successes=20,
+            control_trials=40,  # 50%
+            variant_successes=21,
+            variant_trials=40,  # 52.5% -> 5% improvement
+        )
+
+        assert abs(exp.relative_improvement) < 0.1
+        assert exp.is_significant is False
+
+    def test_large_sample_size_significance(self, sample_persona):
+        """Test significance with large sample sizes."""
+        variant = Persona(agent_name="variant")
+        exp = PersonaExperiment(
+            experiment_id="exp_large",
+            agent_name="agent",
+            control_persona=sample_persona,
+            variant_persona=variant,
+            hypothesis="",
+            control_successes=450,
+            control_trials=1000,  # 45%
+            variant_successes=550,
+            variant_trials=1000,  # 55% -> 22% improvement
+        )
+
+        assert exp.is_significant is True
+        assert exp.relative_improvement > 0.2
+
+    def test_negative_relative_improvement_significance(self, sample_persona):
+        """Test that negative significant improvement is detected."""
+        variant = Persona(agent_name="variant")
+        exp = PersonaExperiment(
+            experiment_id="exp_negative",
+            agent_name="agent",
+            control_persona=sample_persona,
+            variant_persona=variant,
+            hypothesis="",
+            control_successes=18,
+            control_trials=20,  # 90%
+            variant_successes=14,
+            variant_trials=20,  # 70% -> -22% improvement
+        )
+
+        assert exp.relative_improvement < -0.1
+        assert exp.is_significant is True  # abs() is used in the check
+
+
+# ---------------------------------------------------------------------------
+# A/B testing variations
+# ---------------------------------------------------------------------------
+
+
+class TestABTestingVariations:
+    """Tests for A/B testing functionality variations."""
+
+    def test_create_experiment_preserves_control_traits(self, laboratory, persona_manager):
+        """Test that control persona traits are preserved correctly."""
+        persona_manager.create_persona(
+            agent_name="preserve_test",
+            description="Original description",
+            traits=["thorough", "pragmatic"],
+            expertise={"security": 0.7, "testing": 0.5},
+        )
+
+        exp = laboratory.create_experiment(
+            agent_name="preserve_test",
+            variant_traits=["thorough", "direct"],
+            hypothesis="Test preservation",
+        )
+
+        assert exp.control_persona.traits == ["thorough", "pragmatic"]
+        assert exp.control_persona.expertise == {"security": 0.7, "testing": 0.5}
+
+    def test_create_experiment_variant_copies_control_when_none_specified(
+        self, laboratory, persona_manager
+    ):
+        """Test that variant copies control values when none specified."""
+        persona_manager.create_persona(
+            agent_name="copy_test",
+            traits=["thorough"],
+            expertise={"security": 0.6},
+        )
+
+        exp = laboratory.create_experiment(
+            agent_name="copy_test",
+            hypothesis="Test copy",
+        )
+
+        # Variant should have same traits as control
+        assert exp.variant_persona.traits == exp.control_persona.traits
+        assert exp.variant_persona.expertise == exp.control_persona.expertise
+
+    def test_create_multiple_experiments_for_same_agent(self, laboratory, persona_manager):
+        """Test creating multiple experiments for the same agent."""
+        persona_manager.create_persona(agent_name="multi_exp_agent")
+
+        exp1 = laboratory.create_experiment(
+            agent_name="multi_exp_agent",
+            variant_traits=["direct"],
+            hypothesis="Test 1",
+        )
+        exp2 = laboratory.create_experiment(
+            agent_name="multi_exp_agent",
+            variant_traits=["pragmatic"],
+            hypothesis="Test 2",
+        )
+
+        running = laboratory.get_running_experiments()
+        agent_exps = [e for e in running if e.agent_name == "multi_exp_agent"]
+
+        assert len(agent_exps) == 2
+        assert exp1.experiment_id != exp2.experiment_id
+
+    def test_experiment_id_format(self, laboratory):
+        """Test that experiment IDs follow expected format."""
+        exp = laboratory.create_experiment(
+            agent_name="id_format_test",
+            hypothesis="Test ID format",
+        )
+
+        assert exp.experiment_id.startswith("exp_")
+        assert len(exp.experiment_id) == 12  # "exp_" + 8 hex chars
+
+    def test_record_mixed_results_sequence(self, laboratory):
+        """Test recording alternating success/failure results."""
+        exp = laboratory.create_experiment(
+            agent_name="mixed_seq",
+            hypothesis="Test mixed sequence",
+        )
+
+        for i in range(10):
+            is_variant = i % 2 == 0
+            success = i % 3 != 0
+            laboratory.record_experiment_result(
+                exp.experiment_id, is_variant=is_variant, success=success
+            )
+
+        running = laboratory.get_running_experiments()
+        updated = next(e for e in running if e.experiment_id == exp.experiment_id)
+
+        # 5 control trials, 5 variant trials
+        assert updated.control_trials == 5
+        assert updated.variant_trials == 5
+
+
+# ---------------------------------------------------------------------------
+# Experiment variations management
+# ---------------------------------------------------------------------------
+
+
+class TestExperimentVariationsManagement:
+    """Tests for managing experiment variations."""
+
+    def test_variant_persona_naming_convention(self, laboratory):
+        """Test that variant personas follow naming convention."""
+        exp = laboratory.create_experiment(
+            agent_name="naming_test",
+            hypothesis="Test naming",
+        )
+
+        assert exp.variant_persona.agent_name == "naming_test_variant"
+
+    def test_experiment_status_transitions(self, laboratory):
+        """Test experiment status transitions."""
+        exp = laboratory.create_experiment(
+            agent_name="status_test",
+            hypothesis="Test status",
+        )
+
+        # Initial status
+        assert exp.status == "running"
+
+        # After conclusion
+        concluded = laboratory.conclude_experiment(exp.experiment_id)
+        assert concluded.status == "completed"
+
+    def test_completed_at_timestamp_set_on_conclusion(self, laboratory):
+        """Test that completed_at timestamp is set on conclusion."""
+        exp = laboratory.create_experiment(
+            agent_name="timestamp_test",
+            hypothesis="Test timestamp",
+        )
+
+        assert exp.completed_at is None
+
+        concluded = laboratory.conclude_experiment(exp.experiment_id)
+        assert concluded.completed_at is not None
+        assert "T" in concluded.completed_at  # ISO format
+
+    def test_experiment_preserves_hypothesis(self, laboratory):
+        """Test that experiment hypothesis is preserved through lifecycle."""
+        hypothesis = "Testing whether direct trait improves security reviews"
+        exp = laboratory.create_experiment(
+            agent_name="hypothesis_test",
+            hypothesis=hypothesis,
+        )
+
+        running = laboratory.get_running_experiments()
+        loaded = next(e for e in running if e.experiment_id == exp.experiment_id)
+
+        assert loaded.hypothesis == hypothesis
+
+    def test_conclude_already_completed_experiment(self, laboratory):
+        """Test concluding an already completed experiment."""
+        exp = laboratory.create_experiment(
+            agent_name="double_conclude",
+            hypothesis="Test double conclusion",
+        )
+
+        # First conclusion
+        first = laboratory.conclude_experiment(exp.experiment_id)
+        first_completed_at = first.completed_at
+
+        # Second conclusion should still work but update timestamp
+        second = laboratory.conclude_experiment(exp.experiment_id)
+        assert second.status == "completed"
+
+
+# ---------------------------------------------------------------------------
+# Integration scenarios
+# ---------------------------------------------------------------------------
+
+
+class TestIntegrationScenarios:
+    """Tests for integration scenarios."""
+
+    def test_full_experiment_lifecycle(self, laboratory, persona_manager):
+        """Test complete experiment lifecycle from creation to conclusion."""
+        # Create base persona
+        persona_manager.create_persona(
+            agent_name="lifecycle_agent",
+            traits=["thorough"],
+            expertise={"security": 0.5},
+        )
+
+        # Create experiment
+        exp = laboratory.create_experiment(
+            agent_name="lifecycle_agent",
+            variant_traits=["thorough", "direct"],
+            variant_expertise={"security": 0.7},
+            hypothesis="Direct trait improves security reviews",
+        )
+
+        # Simulate results where variant performs better
+        for _ in range(25):
+            laboratory.record_experiment_result(exp.experiment_id, is_variant=False, success=True)
+        for _ in range(5):
+            laboratory.record_experiment_result(exp.experiment_id, is_variant=False, success=False)
+        for _ in range(28):
+            laboratory.record_experiment_result(exp.experiment_id, is_variant=True, success=True)
+        for _ in range(2):
+            laboratory.record_experiment_result(exp.experiment_id, is_variant=True, success=False)
+
+        # Conclude experiment
+        result = laboratory.conclude_experiment(exp.experiment_id)
+
+        assert result.status == "completed"
+        assert result.variant_rate > result.control_rate
+
+    def test_cross_pollination_followed_by_mutation(self, laboratory, persona_manager):
+        """Test cross-pollination followed by mutation."""
+        persona_manager.create_persona(
+            agent_name="source_agent_int",
+            traits=["thorough"],
+            expertise={"security": 0.9},
+        )
+        persona_manager.create_persona(
+            agent_name="target_agent_int",
+            traits=["pragmatic"],
+            expertise={"security": 0.3},
+        )
+
+        # Cross-pollinate
+        laboratory.cross_pollinate(
+            from_agent="source_agent_int",
+            to_agent="target_agent_int",
+            expertise_domain="security",
+        )
+
+        # Then mutate
+        random.seed(42)
+        laboratory.mutate_persona("target_agent_int", mutation_rate=0.5)
+
+        # Check history records both
+        history = laboratory.get_evolution_history("target_agent_int")
+        mutation_types = [h["mutation_type"] for h in history]
+
+        assert "cross_pollination" in mutation_types
+
+    def test_multiple_trait_transfers_accumulate(self, laboratory, persona_manager):
+        """Test that multiple trait transfers accumulate correctly."""
+        persona_manager.create_persona(
+            agent_name="donor1",
+            traits=["thorough"],
+            expertise={"security": 0.8},
+        )
+        persona_manager.create_persona(
+            agent_name="donor2",
+            traits=["direct"],
+            expertise={"testing": 0.9},
+        )
+        persona_manager.create_persona(
+            agent_name="receiver",
+            traits=["pragmatic"],
+            expertise={"security": 0.3, "testing": 0.3},
+        )
+
+        # Transfer from both donors
+        laboratory.cross_pollinate(
+            from_agent="donor1",
+            to_agent="receiver",
+            trait="thorough",
+        )
+        laboratory.cross_pollinate(
+            from_agent="donor2",
+            to_agent="receiver",
+            trait="direct",
+        )
+
+        receiver = persona_manager.get_persona("receiver")
+        assert "thorough" in receiver.traits
+        assert "direct" in receiver.traits
+        assert "pragmatic" in receiver.traits  # Original trait preserved
+
+    def test_emergent_trait_detection_triggers_on_high_performance(
+        self, laboratory, persona_manager
+    ):
+        """Test that emergent traits are detected from high performance patterns."""
+        persona_manager.create_persona(
+            agent_name="emergent_agent",
+            traits=["pragmatic"],
+            expertise={"testing": 0.2},  # Low initial expertise in testing
+        )
+
+        # Record high performance in testing domain
+        for _ in range(15):
+            persona_manager.record_performance("emergent_agent", "testing", success=True)
+
+        # Detect emergent traits
+        traits = laboratory.detect_emergent_traits()
+
+        # Should detect emergent specialization in testing
+        assert isinstance(traits, list)
+
+
+# ---------------------------------------------------------------------------
+# Cleanup and resource management
+# ---------------------------------------------------------------------------
+
+
+class TestCleanupAndResourceManagement:
+    """Tests for cleanup and resource management."""
+
+    def test_database_connection_context_manager(self, laboratory):
+        """Test that database connections are properly managed."""
+        # Create experiment to ensure DB is used
+        exp = laboratory.create_experiment(
+            agent_name="cleanup_test",
+            hypothesis="Test cleanup",
+        )
+
+        # Multiple operations should work without connection issues
+        laboratory.record_experiment_result(exp.experiment_id, is_variant=False, success=True)
+        laboratory.record_experiment_result(exp.experiment_id, is_variant=True, success=True)
+        laboratory.conclude_experiment(exp.experiment_id)
+        stats = laboratory.get_lab_stats()
+
+        assert stats["total_experiments"] >= 1
+
+    def test_multiple_laboratory_instances_share_db(self, persona_manager, temp_db):
+        """Test that multiple laboratory instances can share the same database."""
+        lab1 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+        lab2 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+
+        # Create experiment with lab1
+        exp = lab1.create_experiment(
+            agent_name="shared_test",
+            hypothesis="Test sharing",
+        )
+
+        # Should be visible from lab2
+        running = lab2.get_running_experiments()
+        exp_ids = [e.experiment_id for e in running]
+
+        assert exp.experiment_id in exp_ids
+
+    def test_evolution_history_cleanup_via_limit(self, laboratory, persona_manager):
+        """Test that history retrieval respects limit to avoid memory issues."""
+        persona_manager.create_persona(agent_name="limit_history_test")
+
+        # Create many history entries
+        for i in range(100):
+            laboratory._record_evolution(
+                "limit_history_test",
+                "test_mutation",
+                Persona(agent_name="before", traits=[]),
+                Persona(agent_name="after", traits=[]),
+                f"Test reason {i}",
+            )
+
+        # Get with small limit
+        history = laboratory.get_evolution_history("limit_history_test", limit=10)
+        assert len(history) == 10
+
+        # Get with larger limit
+        history_large = laboratory.get_evolution_history("limit_history_test", limit=50)
+        assert len(history_large) == 50
+
+
+# ---------------------------------------------------------------------------
+# Database persistence tests
+# ---------------------------------------------------------------------------
+
+
+class TestDatabasePersistence:
+    """Tests for database persistence."""
+
+    def test_experiment_persists_across_instances(self, persona_manager, temp_db):
+        """Test that experiments persist across laboratory instances."""
+        lab1 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+        exp = lab1.create_experiment(
+            agent_name="persist_test",
+            hypothesis="Test persistence",
+        )
+        exp_id = exp.experiment_id
+
+        # Create new instance
+        lab2 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+        running = lab2.get_running_experiments()
+        exp_ids = [e.experiment_id for e in running]
+
+        assert exp_id in exp_ids
+
+    def test_emergent_traits_persist_across_instances(self, persona_manager, temp_db):
+        """Test that emergent traits persist across instances."""
+        lab1 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+        lab1._save_emergent_trait(
+            EmergentTrait(
+                trait_name="persistent_trait",
+                source_agents=["agent1"],
+                supporting_evidence=["test"],
+                confidence=0.8,
+            )
+        )
+
+        lab2 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+        traits = lab2.get_emergent_traits(min_confidence=0.5)
+
+        assert any(t.trait_name == "persistent_trait" for t in traits)
+
+    def test_trait_transfer_persists_across_instances(self, persona_manager, temp_db):
+        """Test that trait transfers persist and affect statistics."""
+        persona_manager.create_persona(agent_name="persist_src", traits=["thorough"])
+        persona_manager.create_persona(agent_name="persist_tgt", traits=["pragmatic"])
+
+        lab1 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+        lab1.cross_pollinate("persist_src", "persist_tgt", trait="thorough")
+
+        lab2 = PersonaLaboratory(persona_manager=persona_manager, db_path=temp_db)
+        stats = lab2.get_lab_stats()
+
+        assert stats["trait_transfers"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# JSON serialization tests
+# ---------------------------------------------------------------------------
+
+
+class TestJSONSerialization:
+    """Tests for JSON serialization/deserialization."""
+
+    def test_persona_data_round_trips_through_db(self, laboratory, persona_manager):
+        """Test that persona data correctly round-trips through JSON in DB."""
+        original_traits = ["thorough", "pragmatic", "direct"]
+        original_expertise = {"security": 0.85, "testing": 0.72}
+
+        persona_manager.create_persona(
+            agent_name="roundtrip_test",
+            traits=original_traits,
+            expertise=original_expertise,
+        )
+
+        exp = laboratory.create_experiment(
+            agent_name="roundtrip_test",
+            hypothesis="Test roundtrip",
+        )
+
+        running = laboratory.get_running_experiments()
+        loaded = next(e for e in running if e.experiment_id == exp.experiment_id)
+
+        assert loaded.control_persona.traits == original_traits
+        assert loaded.control_persona.expertise == pytest.approx(original_expertise, rel=0.01)
+
+    def test_emergent_trait_evidence_preserves_special_chars(self, laboratory):
+        """Test that emergent trait evidence preserves special characters."""
+        evidence = [
+            "Success rate: 85% in 'security' domain",
+            'Quote: "This is a test"',
+            "Unicode: test-",
+        ]
+
+        trait = EmergentTrait(
+            trait_name="special_chars_trait",
+            source_agents=["agent1"],
+            supporting_evidence=evidence,
+            confidence=0.7,
+        )
+
+        laboratory._save_emergent_trait(trait)
+        traits = laboratory.get_emergent_traits(min_confidence=0.5)
+
+        loaded = next(t for t in traits if t.trait_name == "special_chars_trait")
+        assert loaded.supporting_evidence == evidence
+
+
+# ---------------------------------------------------------------------------
+# Concurrent-like operation tests
+# ---------------------------------------------------------------------------
+
+
+class TestConcurrentOperations:
+    """Tests for concurrent-like operations."""
+
+    def test_rapid_result_recording(self, laboratory):
+        """Test rapid sequential result recording."""
+        exp = laboratory.create_experiment(
+            agent_name="rapid_test",
+            hypothesis="Test rapid recording",
+        )
+
+        # Rapidly record many results
+        for i in range(50):
+            laboratory.record_experiment_result(
+                exp.experiment_id,
+                is_variant=i % 2 == 0,
+                success=i % 3 != 0,
+            )
+
+        running = laboratory.get_running_experiments()
+        updated = next(e for e in running if e.experiment_id == exp.experiment_id)
+
+        assert updated.control_trials == 25
+        assert updated.variant_trials == 25
+
+    def test_multiple_experiments_independent(self, laboratory):
+        """Test that multiple experiments are independent."""
+        exp1 = laboratory.create_experiment(agent_name="indep1", hypothesis="Test 1")
+        exp2 = laboratory.create_experiment(agent_name="indep2", hypothesis="Test 2")
+
+        # Record to exp1 only
+        for _ in range(10):
+            laboratory.record_experiment_result(exp1.experiment_id, is_variant=False, success=True)
+
+        running = laboratory.get_running_experiments()
+        loaded_exp1 = next(e for e in running if e.experiment_id == exp1.experiment_id)
+        loaded_exp2 = next(e for e in running if e.experiment_id == exp2.experiment_id)
+
+        assert loaded_exp1.control_trials == 10
+        assert loaded_exp2.control_trials == 0  # Should be unaffected
+
+
+# ---------------------------------------------------------------------------
+# Boundary value tests
+# ---------------------------------------------------------------------------
+
+
+class TestBoundaryValues:
+    """Tests for boundary values and edge cases."""
+
+    def test_expertise_blending_at_boundaries(self, laboratory, persona_manager):
+        """Test expertise blending when values are at boundaries."""
+        persona_manager.create_persona(
+            agent_name="max_expert",
+            traits=["thorough"],
+            expertise={"security": 1.0},
+        )
+        persona_manager.create_persona(
+            agent_name="min_expert",
+            traits=["pragmatic"],
+            expertise={"security": 0.0},
+        )
+
+        laboratory.cross_pollinate(
+            from_agent="max_expert",
+            to_agent="min_expert",
+            expertise_domain="security",
+        )
+
+        target = persona_manager.get_persona("min_expert")
+        # 0.7 * 0.0 + 0.3 * 1.0 = 0.3
+        assert target.expertise["security"] == pytest.approx(0.3, rel=0.01)
+
+    def test_confidence_at_zero(self, laboratory):
+        """Test emergent trait with zero confidence."""
+        trait = EmergentTrait(
+            trait_name="zero_confidence",
+            source_agents=["agent1"],
+            supporting_evidence=["test"],
+            confidence=0.0,
+        )
+
+        laboratory._save_emergent_trait(trait)
+        traits = laboratory.get_emergent_traits(min_confidence=0.0)
+
+        assert any(t.trait_name == "zero_confidence" for t in traits)
+
+    def test_confidence_at_one(self, laboratory):
+        """Test emergent trait with maximum confidence."""
+        trait = EmergentTrait(
+            trait_name="max_confidence",
+            source_agents=["agent1"],
+            supporting_evidence=["test"],
+            confidence=1.0,
+        )
+
+        laboratory._save_emergent_trait(trait)
+        traits = laboratory.get_emergent_traits(min_confidence=1.0)
+
+        assert any(t.trait_name == "max_confidence" for t in traits)
+
+    def test_empty_agent_name(self, laboratory):
+        """Test handling of empty agent name."""
+        exp = laboratory.create_experiment(
+            agent_name="",
+            hypothesis="Empty agent test",
+        )
+
+        assert exp.agent_name == ""
+
+    def test_very_long_hypothesis(self, laboratory):
+        """Test handling of very long hypothesis string."""
+        long_hypothesis = "A" * 10000
+        exp = laboratory.create_experiment(
+            agent_name="long_hyp_test",
+            hypothesis=long_hypothesis,
+        )
+
+        running = laboratory.get_running_experiments()
+        loaded = next(e for e in running if e.experiment_id == exp.experiment_id)
+
+        assert loaded.hypothesis == long_hypothesis

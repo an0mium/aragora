@@ -259,7 +259,16 @@ class SlackThreadManager:
 
         all_messages: list[ChatMessage] = []
         cursor: str | None = None
+        max_pages = 1000
+        page = 0
         while True:
+            page += 1
+            if page > max_pages:
+                logger.warning(
+                    f"Pagination limit {max_pages} reached for thread stats "
+                    f"(thread_ts={thread_ts}), stopping with {len(all_messages)} messages"
+                )
+                break
             messages, next_cursor = await self.get_thread_messages(
                 thread_ts, channel_id, limit=200, cursor=cursor
             )
@@ -293,7 +302,16 @@ class SlackThreadManager:
 
         all_messages: list[ChatMessage] = []
         cursor: str | None = None
+        max_pages = 1000
+        page = 0
         while True:
+            page += 1
+            if page > max_pages:
+                logger.warning(
+                    f"Pagination limit {max_pages} reached for thread participants "
+                    f"(thread_ts={thread_ts}), stopping with {len(all_messages)} messages"
+                )
+                break
             messages, next_cursor = await self.get_thread_messages(
                 thread_ts, channel_id, limit=200, cursor=cursor
             )

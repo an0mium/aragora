@@ -458,7 +458,12 @@ class WooCommerceConnector(EnterpriseConnector):
         if status:
             params["status"] = status.value
 
+        max_pages = 1000
         while True:
+            if params["page"] > max_pages:
+                logger.warning(f"Pagination limit {max_pages} reached for orders, stopping")
+                break
+
             data = await self._request("GET", "orders", params=params)
 
             if not data:
@@ -722,7 +727,12 @@ class WooCommerceConnector(EnterpriseConnector):
         if status:
             params["status"] = status.value
 
+        max_pages = 1000
         while True:
+            if params["page"] > max_pages:
+                logger.warning(f"Pagination limit {max_pages} reached for products, stopping")
+                break
+
             data = await self._request("GET", "products", params=params)
 
             if not data:
@@ -839,7 +849,15 @@ class WooCommerceConnector(EnterpriseConnector):
         """
         params: dict[str, Any] = {"per_page": per_page, "page": 1}
 
+        max_pages = 1000
         while True:
+            if params["page"] > max_pages:
+                logger.warning(
+                    f"Pagination limit {max_pages} reached for variations "
+                    f"of product {product_id}, stopping"
+                )
+                break
+
             data = await self._request("GET", f"products/{product_id}/variations", params=params)
 
             if not data:

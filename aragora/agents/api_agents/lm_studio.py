@@ -25,6 +25,7 @@ from aragora.agents.api_agents.common import (
     _sanitize_error_message,
     create_client_session,
     handle_agent_errors,
+    iter_chunks_with_timeout,
 )
 from aragora.agents.registry import AgentRegistry
 
@@ -214,18 +215,24 @@ class LMStudioAgent(APIAgent):
                             status_code=response.status,
                         )
 
-                    async for line in response.content:
-                        line_str = line.decode().strip()
-                        if not line_str or line_str == "data: [DONE]":
-                            continue
-                        if line_str.startswith("data: "):
-                            try:
-                                data = json.loads(line_str[6:])
-                                delta = data.get("choices", [{}])[0].get("delta", {})
-                                if content := delta.get("content"):
-                                    yield content
-                            except json.JSONDecodeError:
+                    # Use per-chunk timeout to prevent hanging on stalled streams
+                    buffer = ""
+                    async for chunk in iter_chunks_with_timeout(response.content):
+                        buffer += chunk.decode("utf-8", errors="ignore")
+                        # Process complete lines from buffer
+                        while "\n" in buffer:
+                            line_str, buffer = buffer.split("\n", 1)
+                            line_str = line_str.strip()
+                            if not line_str or line_str == "data: [DONE]":
                                 continue
+                            if line_str.startswith("data: "):
+                                try:
+                                    data = json.loads(line_str[6:])
+                                    delta = data.get("choices", [{}])[0].get("delta", {})
+                                    if content := delta.get("content"):
+                                        yield content
+                                except json.JSONDecodeError:
+                                    continue
 
             except aiohttp.ClientConnectorError as e:
                 raise AgentConnectionError(

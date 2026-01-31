@@ -1531,3 +1531,775 @@ class TestIntegration:
         )
 
         assert result == "Fallback response"
+
+
+# =============================================================================
+# Additional Edge Case Tests for Higher Coverage
+# =============================================================================
+
+
+class TestEmptyCritiqueEdgeCases:
+    """Tests for empty critique detection edge cases."""
+
+    def test_is_empty_critique_whitespace_issues(self):
+        """Test critique with only whitespace issues is empty."""
+        critique = Critique(
+            agent="agent",
+            target_agent="target",
+            target_content="",
+            issues=["   ", "  \n  ", "\t"],
+            suggestions=[],
+            severity=0.0,
+            reasoning="",
+        )
+        assert AutonomicExecutor._is_empty_critique(critique) is True
+
+    def test_is_empty_critique_alternative_placeholder(self):
+        """Test critique with alternative placeholder content."""
+        critique = Critique(
+            agent="agent",
+            target_agent="target",
+            target_content="",
+            issues=["(agent produced empty output)"],
+            suggestions=[],
+            severity=0.0,
+            reasoning="",
+        )
+        assert AutonomicExecutor._is_empty_critique(critique) is True
+
+    def test_is_empty_critique_agent_produced_empty_output(self):
+        """Test critique with 'agent produced empty output' message."""
+        critique = Critique(
+            agent="agent",
+            target_agent="target",
+            target_content="",
+            issues=["agent produced empty output"],
+            suggestions=[],
+            severity=0.0,
+            reasoning="",
+        )
+        assert AutonomicExecutor._is_empty_critique(critique) is True
+
+    def test_is_empty_critique_placeholder_with_suggestions(self):
+        """Test critique with placeholder issue but real suggestions is NOT empty."""
+        critique = Critique(
+            agent="agent",
+            target_agent="target",
+            target_content="",
+            issues=["Agent response was empty"],
+            suggestions=["Real suggestion"],
+            severity=0.0,
+            reasoning="",
+        )
+        assert AutonomicExecutor._is_empty_critique(critique) is False
+
+    def test_is_empty_critique_non_string_issues(self):
+        """Test critique handles non-string issues gracefully."""
+        critique = Critique(
+            agent="agent",
+            target_agent="target",
+            target_content="",
+            issues=["Real issue", 123, None],  # type: ignore
+            suggestions=[],
+            severity=0.0,
+            reasoning="",
+        )
+        # Should not raise, real issue makes it non-empty
+        assert AutonomicExecutor._is_empty_critique(critique) is False
+
+
+class TestCritiqueRetryEdgeCases:
+    """Tests for critique retry edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_critique_none_after_retry(self):
+        """Test critique that returns None after non-empty retry still returns retry result."""
+
+        class NullReturnCritiqueAgent(MockAgent):
+            def __init__(self):
+                super().__init__(name="null-critique-agent")
+                self.attempt = 0
+
+            async def critique(
+                self, proposal: str, task: str, context: list = None, target_agent: str = None
+            ):
+                self.critique_calls += 1
+                self.attempt += 1
+                # First attempt returns empty, second returns valid
+                if self.attempt == 1:
+                    return Critique(
+                        agent=self.name,
+                        target_agent=target_agent or "unknown",
+                        target_content="",
+                        issues=[],
+                        suggestions=[],
+                        severity=0.0,
+                        reasoning="",
+                    )
+                return Critique(
+                    agent=self.name,
+                    target_agent=target_agent or "unknown",
+                    target_content=proposal[:100],
+                    issues=["Valid issue"],
+                    suggestions=["Valid suggestion"],
+                    severity=0.5,
+                    reasoning="Valid reasoning",
+                )
+
+        executor = AutonomicExecutor(default_timeout=5.0)
+        agent = NullReturnCritiqueAgent()
+        result = await executor.critique(agent, "Proposal", "Task", [])
+        assert result is not None
+        assert agent.critique_calls == 2
+
+    @pytest.mark.asyncio
+    async def test_critique_returns_none_directly(self):
+        """Test critique agent that returns None directly."""
+
+        class DirectNoneCritiqueAgent(MockAgent):
+            async def critique(
+                self, proposal: str, task: str, context: list = None, target_agent: str = None
+            ):
+                self.critique_calls += 1
+                return None
+
+        executor = AutonomicExecutor(default_timeout=5.0)
+        agent = DirectNoneCritiqueAgent(name="none-agent")
+        result = await executor.critique(agent, "Proposal", "Task", [])
+        assert result is None
+
+
+class TestWisdomFallbackEdgeCases:
+    """Tests for wisdom fallback edge cases."""
+
+    def test_get_wisdom_fallback_key_error(self):
+        """Test wisdom fallback handles KeyError gracefully."""
+        mock_store = MagicMock()
+        mock_store.get_relevant_wisdom.return_value = [
+            {"missing_id": 1, "text": "Wisdom", "submitter_id": "user"}
+        ]
+        executor = AutonomicExecutor(wisdom_store=mock_store, loop_id="test-loop")
+        result = executor._get_wisdom_fallback("agent")
+        # Should return None due to KeyError for 'id'
+        assert result is None
+
+    def test_get_wisdom_fallback_os_error(self):
+        """Test wisdom fallback handles OSError gracefully."""
+        mock_store = MagicMock()
+        mock_store.get_relevant_wisdom.side_effect = OSError("File not found")
+        executor = AutonomicExecutor(wisdom_store=mock_store, loop_id="test-loop")
+        result = executor._get_wisdom_fallback("agent")
+        assert result is None
+
+    def test_get_wisdom_fallback_io_error(self):
+        """Test wisdom fallback handles IOError gracefully."""
+        mock_store = MagicMock()
+        mock_store.get_relevant_wisdom.side_effect = IOError("Read error")
+        executor = AutonomicExecutor(wisdom_store=mock_store, loop_id="test-loop")
+        result = executor._get_wisdom_fallback("agent")
+        assert result is None
+
+
+class TestTelemetryEmissionEdgeCases:
+    """Tests for telemetry emission edge cases."""
+
+    def test_emit_agent_telemetry_type_error(self):
+        """Test telemetry emission handles TypeError gracefully."""
+        executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+
+        with patch("aragora.debate.autonomic_executor._ensure_telemetry_collectors"):
+            with patch(
+                "aragora.agents.telemetry.AgentTelemetry",
+                side_effect=TypeError("Type error"),
+            ):
+                # Should not raise
+                executor._emit_agent_telemetry(
+                    "agent", "generate", time.time(), True, None, "output", "input"
+                )
+
+    def test_emit_agent_telemetry_value_error(self):
+        """Test telemetry emission handles ValueError gracefully."""
+        executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+
+        with patch("aragora.debate.autonomic_executor._ensure_telemetry_collectors"):
+            with patch(
+                "aragora.agents.telemetry.AgentTelemetry",
+                side_effect=ValueError("Value error"),
+            ):
+                # Should not raise
+                executor._emit_agent_telemetry(
+                    "agent", "generate", time.time(), True, None, "output", "input"
+                )
+
+    def test_emit_agent_telemetry_os_error(self):
+        """Test telemetry emission handles OSError gracefully."""
+        executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+
+        with patch("aragora.debate.autonomic_executor._ensure_telemetry_collectors"):
+            with patch(
+                "aragora.agents.telemetry.AgentTelemetry",
+                side_effect=OSError("OS error"),
+            ):
+                # Should not raise
+                executor._emit_agent_telemetry(
+                    "agent", "generate", time.time(), True, None, "output", "input"
+                )
+
+
+class TestPerformanceMonitorFailureTracking:
+    """Tests for performance monitor failure tracking."""
+
+    @pytest.mark.asyncio
+    async def test_generate_empty_output_records_failure(self):
+        """Test empty output records failure in performance monitor."""
+        monitor = MagicMock()
+        monitor.track_agent_call = MagicMock(return_value="tracking-123")
+        monitor.record_completion = MagicMock()
+
+        executor = AutonomicExecutor(performance_monitor=monitor, default_timeout=5.0)
+        agent = EmptyOutputAgent(name="empty-agent")
+        await executor.generate(agent, "Test prompt", [])
+
+        # Should record failure for empty output
+        calls = monitor.record_completion.call_args_list
+        assert len(calls) >= 1
+        # Last call should indicate failure
+        last_call = calls[-1]
+        assert last_call[1].get("success") is False
+        assert "empty" in last_call[1].get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_vote_empty_choice_records_failure(self):
+        """Test empty vote choice records failure in performance monitor."""
+        monitor = MagicMock()
+        monitor.track_agent_call = MagicMock(return_value="tracking-456")
+        monitor.record_completion = MagicMock()
+
+        executor = AutonomicExecutor(performance_monitor=monitor, default_timeout=5.0)
+        agent = EmptyOutputAgent(name="empty-vote-agent")
+        proposals = {"agent1": "Proposal"}
+        await executor.vote(agent, proposals, "Task")
+
+        # Should record failure for empty vote
+        calls = monitor.record_completion.call_args_list
+        assert len(calls) >= 1
+        last_call = calls[-1]
+        assert last_call[1].get("success") is False
+
+
+class TestImmuneSystemEmptyOutput:
+    """Tests for immune system integration with empty output."""
+
+    @pytest.mark.asyncio
+    async def test_immune_system_empty_output_failure(self):
+        """Test immune system is notified of empty output as failure."""
+        immune = MagicMock()
+        immune.agent_started = MagicMock()
+        immune.agent_completed = MagicMock()
+        immune.agent_failed = MagicMock()
+
+        executor = AutonomicExecutor(immune_system=immune, default_timeout=5.0)
+        agent = EmptyOutputAgent(name="empty-agent")
+        await executor.generate(agent, "Test prompt", [])
+
+        immune.agent_started.assert_called_once()
+        # Should call agent_failed for empty output
+        immune.agent_failed.assert_called()
+        call_args = immune.agent_failed.call_args
+        assert call_args[0][0] == "empty-agent"
+        assert "empty" in call_args[0][1].lower()
+
+
+class TestCircuitBreakerRecordingEdgeCases:
+    """Tests for circuit breaker failure recording edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_not_recorded_for_connection_error_in_generate(self):
+        """Test circuit breaker does NOT record connection errors in generate()."""
+        # The generate() method only records circuit breaker failures for:
+        # - TimeoutError (line 372-373)
+        # - Empty output (line 447-448)
+        # Connection errors are handled gracefully without circuit breaker recording
+        cb = CircuitBreaker(name="test", failure_threshold=3, cooldown_seconds=60.0)
+        executor = AutonomicExecutor(circuit_breaker=cb, default_timeout=5.0)
+
+        agent = ConnectionErrorAgent(name="conn-error-agent")
+        await executor.generate(agent, "Test prompt", [])
+
+        # generate() doesn't record circuit breaker failures for connection errors
+        # This is by design - connection errors are considered recoverable
+        assert cb._failures.get("conn-error-agent", 0) == 0
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_not_recorded_for_general_exception(self):
+        """Test circuit breaker does NOT record general exceptions in generate()."""
+        cb = CircuitBreaker(name="test", failure_threshold=3, cooldown_seconds=60.0)
+        executor = AutonomicExecutor(circuit_breaker=cb, default_timeout=5.0)
+
+        agent = FailingAgent(name="failing-agent")
+        await executor.generate(agent, "Test prompt", [])
+
+        # Circuit breaker is only recorded for timeout/empty in generate
+        # General exceptions don't record to circuit breaker in generate method
+        # But in generate_with_fallback they do
+        assert cb._failures.get("failing-agent", 0) == 0
+
+
+class TestFallbackConnectionErrors:
+    """Tests for connection error handling in fallback scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_fallback_connection_error_records_circuit_breaker(self):
+        """Test connection error in fallback records circuit breaker failure."""
+        cb = CircuitBreaker(name="test", failure_threshold=3, cooldown_seconds=60.0)
+        executor = AutonomicExecutor(circuit_breaker=cb, default_timeout=5.0)
+
+        primary = ConnectionErrorAgent(name="primary")
+        fallback = MockAgent(name="fallback", response="Fallback response")
+
+        result = await executor.generate_with_fallback(
+            primary, "Test prompt", [], fallback_agents=[fallback]
+        )
+
+        assert result == "Fallback response"
+        assert cb._failures.get("primary", 0) >= 1
+
+    @pytest.mark.asyncio
+    async def test_fallback_all_connection_errors(self):
+        """Test all agents having connection errors."""
+        executor = AutonomicExecutor(default_timeout=5.0)
+
+        primary = ConnectionErrorAgent(name="primary")
+        fallback = ConnectionErrorAgent(name="fallback")
+
+        result = await executor.generate_with_fallback(
+            primary, "Test prompt", [], fallback_agents=[fallback], max_retries=1
+        )
+
+        assert "[System:" in result
+        assert "All agents failed" in result
+
+
+class TestValidationWarnings:
+    """Tests for response validation warnings."""
+
+    @pytest.mark.asyncio
+    async def test_generate_logs_validation_warnings(self):
+        """Test that validation warnings are logged but don't fail."""
+        executor = AutonomicExecutor(default_timeout=5.0)
+        # Very long response should trigger warnings
+        agent = MockAgent(name="long-agent", response="x" * 50000)
+
+        result = await executor.generate(agent, "Test prompt", [])
+        # Should succeed despite potential warnings
+        assert len(result) > 0
+
+
+class TestEventHooksEdgeCases:
+    """Tests for event hooks edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_event_hook_empty_output_error(self):
+        """Test event hook is called for empty output error."""
+        hook = MagicMock()
+        executor = AutonomicExecutor(event_hooks={"on_agent_error": hook}, default_timeout=5.0)
+
+        agent = EmptyOutputAgent(name="empty-agent")
+        await executor.generate(agent, "Test prompt", [])
+
+        hook.assert_called()
+        call_kwargs = hook.call_args[1]
+        assert call_kwargs["error_type"] == "empty"
+
+    @pytest.mark.asyncio
+    async def test_event_hook_timeout_error(self):
+        """Test event hook is called for timeout error."""
+        hook = MagicMock()
+        executor = AutonomicExecutor(event_hooks={"on_agent_error": hook}, default_timeout=5.0)
+
+        class TimeoutRaisingAgent(MockAgent):
+            async def generate(self, prompt: str, context: list = None) -> str:
+                raise asyncio.TimeoutError("Timeout")
+
+        agent = TimeoutRaisingAgent(name="timeout-agent")
+        await executor.generate(agent, "Test prompt", [])
+
+        hook.assert_called()
+        call_kwargs = hook.call_args[1]
+        assert call_kwargs["error_type"] == "timeout"
+
+    @pytest.mark.asyncio
+    async def test_event_hook_connection_error(self):
+        """Test event hook is called for connection error."""
+        hook = MagicMock()
+        executor = AutonomicExecutor(event_hooks={"on_agent_error": hook}, default_timeout=5.0)
+
+        agent = ConnectionErrorAgent(name="conn-agent")
+        await executor.generate(agent, "Test prompt", [])
+
+        hook.assert_called()
+        call_kwargs = hook.call_args[1]
+        assert call_kwargs["error_type"] == "connection"
+
+
+class TestCritiqueTelemetryEmission:
+    """Tests for critique telemetry emission."""
+
+    @pytest.mark.asyncio
+    async def test_critique_emits_telemetry_on_success(self):
+        """Test critique emits telemetry on success."""
+        executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+        agent = MockAgent(name="test-agent")
+
+        # Should not raise even with telemetry enabled
+        result = await executor.critique(agent, "Proposal", "Task", [])
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_critique_emits_telemetry_on_empty(self):
+        """Test critique emits telemetry on empty result."""
+        executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+        agent = EmptyOutputAgent(name="empty-agent")
+
+        result = await executor.critique(agent, "Proposal", "Task", [])
+        # Empty critique after retry should return None
+        assert result is None
+
+
+class TestVoteTelemetryEmission:
+    """Tests for vote telemetry emission."""
+
+    @pytest.mark.asyncio
+    async def test_vote_emits_telemetry_on_success(self):
+        """Test vote emits telemetry on success."""
+        executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+        agent = MockAgent(name="test-agent")
+        proposals = {"agent1": "Proposal 1"}
+
+        result = await executor.vote(agent, proposals, "Task")
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_vote_emits_telemetry_on_empty(self):
+        """Test vote emits telemetry on empty result."""
+        executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+        agent = EmptyOutputAgent(name="empty-agent")
+        proposals = {"agent1": "Proposal 1"}
+
+        result = await executor.vote(agent, proposals, "Task")
+        assert result is None
+
+
+class TestMultipleRetryScenarios:
+    """Tests for multiple retry scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_multiple_agents_retry_counts_independent(self):
+        """Test retry counts are tracked independently per agent."""
+        executor = AutonomicExecutor(default_timeout=5.0)
+
+        executor.record_retry("agent1")
+        executor.record_retry("agent1")
+        executor.record_retry("agent2")
+
+        assert executor._retry_counts["agent1"] == 2
+        assert executor._retry_counts["agent2"] == 1
+
+        executor.reset_retries("agent1")
+        assert executor._retry_counts.get("agent1", 0) == 0
+        assert executor._retry_counts["agent2"] == 1
+
+    def test_timeout_escalation_multiple_agents(self):
+        """Test timeout escalation works independently for multiple agents."""
+        executor = AutonomicExecutor(default_timeout=10.0, timeout_escalation_factor=2.0)
+
+        # Agent 1 has no retries
+        timeout1 = executor.get_escalated_timeout("agent1")
+        assert timeout1 == 10.0
+
+        # Agent 2 has 1 retry
+        executor.record_retry("agent2")
+        timeout2 = executor.get_escalated_timeout("agent2")
+        assert timeout2 == 20.0  # 10 * 2^1
+
+        # Agent 3 has 2 retries
+        executor.record_retry("agent3")
+        executor.record_retry("agent3")
+        timeout3 = executor.get_escalated_timeout("agent3")
+        assert timeout3 == 40.0  # 10 * 2^2
+
+
+class TestFallbackPartialContentThreshold:
+    """Tests for fallback partial content threshold."""
+
+    @pytest.mark.asyncio
+    async def test_partial_content_below_threshold_not_used(self):
+        """Test partial content below 200 chars is not used as fallback."""
+        executor = AutonomicExecutor(default_timeout=0.1)
+
+        class SmallPartialAgent(MockAgent):
+            def __init__(self, executor: AutonomicExecutor):
+                super().__init__(name="small-partial")
+                self.executor = executor
+
+            async def generate(self, prompt: str, context: list = None) -> str:
+                self.generate_calls += 1
+                # Only 100 chars - below threshold
+                self.executor.streaming_buffer._buffer[self.name] = "A" * 100
+                await asyncio.sleep(10.0)
+                return "Never reached"
+
+        primary = SmallPartialAgent(executor)
+
+        result = await executor.generate_with_fallback(primary, "Test prompt", [], max_retries=1)
+
+        # Should NOT use partial content since it's below 200 chars
+        # Should instead show "All agents failed"
+        assert "[System:" in result
+        assert "All agents failed" in result
+
+    @pytest.mark.asyncio
+    async def test_partial_content_at_threshold_used(self):
+        """Test partial content at exactly 201 chars is used as fallback."""
+        executor = AutonomicExecutor(default_timeout=0.1)
+
+        class ThresholdPartialAgent(MockAgent):
+            def __init__(self, executor: AutonomicExecutor):
+                super().__init__(name="threshold-partial")
+                self.executor = executor
+
+            async def generate(self, prompt: str, context: list = None) -> str:
+                self.generate_calls += 1
+                # 201 chars - at threshold
+                self.executor.streaming_buffer._buffer[self.name] = "B" * 201
+                await asyncio.sleep(10.0)
+                return "Never reached"
+
+        primary = ThresholdPartialAgent(executor)
+
+        result = await executor.generate_with_fallback(primary, "Test prompt", [], max_retries=1)
+
+        # Should use partial content since it's above 200 chars
+        assert "B" * 201 in result or "truncated" in result.lower()
+
+
+class TestStreamingBufferConcurrency:
+    """Tests for streaming buffer concurrency."""
+
+    @pytest.mark.asyncio
+    async def test_streaming_buffer_multiple_agents_concurrent(self):
+        """Test streaming buffer handles multiple agents concurrently."""
+        buffer = StreamingContentBuffer()
+
+        async def append_for_agent(agent_name: str, char: str, count: int):
+            for _ in range(count):
+                await buffer.append(agent_name, char)
+                await asyncio.sleep(0.001)
+
+        # Run concurrent appends for multiple agents
+        await asyncio.gather(
+            append_for_agent("agent1", "a", 50),
+            append_for_agent("agent2", "b", 50),
+            append_for_agent("agent3", "c", 50),
+        )
+
+        assert len(buffer.get_partial("agent1")) == 50
+        assert len(buffer.get_partial("agent2")) == 50
+        assert len(buffer.get_partial("agent3")) == 50
+        assert buffer.get_partial("agent1") == "a" * 50
+        assert buffer.get_partial("agent2") == "b" * 50
+        assert buffer.get_partial("agent3") == "c" * 50
+
+
+class TestOSErrorVariants:
+    """Tests for various OSError variants."""
+
+    @pytest.mark.asyncio
+    async def test_file_not_found_error(self):
+        """Test FileNotFoundError (subclass of OSError) handling."""
+
+        class FileNotFoundAgent(MockAgent):
+            async def generate(self, prompt: str, context: list = None) -> str:
+                raise FileNotFoundError("Config file not found")
+
+        executor = AutonomicExecutor(default_timeout=5.0)
+        agent = FileNotFoundAgent(name="fnf-agent")
+        result = await executor.generate(agent, "Test prompt", [])
+
+        assert "[System:" in result
+        # FileNotFoundError is a subclass of OSError, caught by connection error handler
+        assert "connection failed" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_permission_error(self):
+        """Test PermissionError (subclass of OSError) handling."""
+
+        class PermissionAgent(MockAgent):
+            async def generate(self, prompt: str, context: list = None) -> str:
+                raise PermissionError("Access denied")
+
+        executor = AutonomicExecutor(default_timeout=5.0)
+        agent = PermissionAgent(name="perm-agent")
+        result = await executor.generate(agent, "Test prompt", [])
+
+        assert "[System:" in result
+        assert "connection failed" in result.lower()
+
+
+class TestChaosDirectorInternalError:
+    """Tests for chaos director internal error responses."""
+
+    @pytest.mark.asyncio
+    async def test_chaos_director_os_error_response(self):
+        """Test chaos director provides response for OS errors."""
+
+        @dataclass
+        class MockChaosResponse:
+            message: str
+
+        chaos = MagicMock()
+        chaos.connection_response = MagicMock(
+            return_value=MockChaosResponse(message="[Theatrical OS error]")
+        )
+
+        executor = AutonomicExecutor(chaos_director=chaos, default_timeout=5.0)
+
+        class OSErrorAgent(MockAgent):
+            async def generate(self, prompt: str, context: list = None) -> str:
+                raise OSError("Network unreachable")
+
+        agent = OSErrorAgent(name="os-error-agent")
+        result = await executor.generate(agent, "Test prompt", [])
+
+        assert "[Theatrical OS error]" in result
+
+
+class TestPerformanceMonitorPhaseRoundTracking:
+    """Tests for performance monitor phase and round tracking."""
+
+    @pytest.mark.asyncio
+    async def test_generate_tracks_phase_and_round(self):
+        """Test generate correctly tracks phase and round."""
+        monitor = MagicMock()
+        monitor.track_agent_call = MagicMock(return_value="id-123")
+        monitor.record_completion = MagicMock()
+
+        executor = AutonomicExecutor(performance_monitor=monitor, default_timeout=5.0)
+        agent = MockAgent(name="test-agent")
+
+        await executor.generate(agent, "Prompt", [], phase="revision", round_num=3)
+
+        monitor.track_agent_call.assert_called_once_with(
+            "test-agent", "generate", phase="revision", round_num=3
+        )
+
+    @pytest.mark.asyncio
+    async def test_critique_tracks_phase_and_round(self):
+        """Test critique correctly tracks phase and round."""
+        monitor = MagicMock()
+        monitor.track_agent_call = MagicMock(return_value="id-456")
+        monitor.record_completion = MagicMock()
+
+        executor = AutonomicExecutor(performance_monitor=monitor, default_timeout=5.0)
+        agent = MockAgent(name="test-agent")
+
+        await executor.critique(agent, "Proposal", "Task", [], phase="critique", round_num=2)
+
+        monitor.track_agent_call.assert_called_once_with(
+            "test-agent", "critique", phase="critique", round_num=2
+        )
+
+    @pytest.mark.asyncio
+    async def test_vote_tracks_phase_and_round(self):
+        """Test vote correctly tracks phase and round."""
+        monitor = MagicMock()
+        monitor.track_agent_call = MagicMock(return_value="id-789")
+        monitor.record_completion = MagicMock()
+
+        executor = AutonomicExecutor(performance_monitor=monitor, default_timeout=5.0)
+        agent = MockAgent(name="test-agent")
+        proposals = {"agent1": "Proposal"}
+
+        await executor.vote(agent, proposals, "Task", phase="final_vote", round_num=5)
+
+        monitor.track_agent_call.assert_called_once_with(
+            "test-agent", "vote", phase="final_vote", round_num=5
+        )
+
+
+class TestTelemetryInitialization:
+    """Tests for telemetry initialization."""
+
+    def test_telemetry_initialization_on_construction(self):
+        """Test telemetry collectors are initialized when enable_telemetry is True."""
+        # Reset the global state
+        import aragora.debate.autonomic_executor as ae
+
+        ae._telemetry_initialized = False
+
+        with patch("aragora.debate.autonomic_executor._ensure_telemetry_collectors") as mock_init:
+            executor = AutonomicExecutor(enable_telemetry=True, default_timeout=5.0)
+            # Should have called the initialization
+            mock_init.assert_called_once()
+
+    def test_telemetry_not_initialized_when_disabled(self):
+        """Test telemetry collectors are NOT initialized when enable_telemetry is False."""
+        with patch("aragora.debate.autonomic_executor._ensure_telemetry_collectors") as mock_init:
+            executor = AutonomicExecutor(enable_telemetry=False, default_timeout=5.0)
+            mock_init.assert_not_called()
+
+
+class TestWisdomResponseFormat:
+    """Tests for wisdom response formatting."""
+
+    def test_get_wisdom_fallback_formats_correctly(self):
+        """Test wisdom fallback response is formatted correctly."""
+        mock_store = MagicMock()
+        mock_store.get_relevant_wisdom.return_value = [
+            {
+                "id": 42,
+                "text": "This is the audience wisdom text",
+                "submitter_id": "helpful-user-456",
+            }
+        ]
+        mock_store.mark_wisdom_used = MagicMock()
+
+        executor = AutonomicExecutor(wisdom_store=mock_store, loop_id="debate-123")
+        result = executor._get_wisdom_fallback("failed-agent")
+
+        assert result is not None
+        assert "[Audience Wisdom" in result
+        assert "helpful-user-456" in result
+        assert "This is the audience wisdom text" in result
+        assert "failed-agent" in result
+        mock_store.mark_wisdom_used.assert_called_once_with(42)
+
+
+class TestAllAgentsCircuitBroken:
+    """Tests for scenarios where all agents are circuit broken."""
+
+    @pytest.mark.asyncio
+    async def test_all_agents_circuit_broken(self):
+        """Test behavior when all agents are circuit broken."""
+        cb = CircuitBreaker(name="test", failure_threshold=1, cooldown_seconds=300.0)
+        executor = AutonomicExecutor(circuit_breaker=cb, default_timeout=5.0)
+
+        primary = MockAgent(name="primary", response="Primary")
+        fallback = MockAgent(name="fallback", response="Fallback")
+
+        # Open circuits for both
+        cb.record_failure("primary")
+        cb.record_failure("primary")
+        cb.record_failure("fallback")
+        cb.record_failure("fallback")
+
+        result = await executor.generate_with_fallback(
+            primary, "Test prompt", [], fallback_agents=[fallback]
+        )
+
+        # All agents are circuit broken, should fail
+        assert "[System:" in result
+        assert "All agents failed" in result
+        # Neither agent should have been called
+        assert primary.generate_calls == 0
+        assert fallback.generate_calls == 0

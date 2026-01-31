@@ -79,13 +79,23 @@ class MetricsHandler(BaseHandler):
         if path == "/metrics":
             metrics_token = os.environ.get("ARAGORA_METRICS_TOKEN")
             if metrics_token:
-                # Check query param first, then Authorization header
-                provided_token = query_params.get("token", [None])[0]
-                if not provided_token:
-                    # Check Authorization header
-                    auth_header = handler.headers.get("Authorization", "")
-                    if auth_header.startswith("Bearer "):
-                        provided_token = auth_header[7:]
+                # Security: Reject query parameter authentication to prevent token exposure in logs
+                if query_params.get("token"):
+                    logger.warning(
+                        f"Rejected query parameter authentication for /metrics from {client_ip}. "
+                        "Tokens in query parameters are logged and insecure."
+                    )
+                    return error_response(
+                        "Query parameter authentication is not supported for security reasons. "
+                        "Use the Authorization header with 'Bearer <token>' instead.",
+                        401,
+                    )
+
+                # Only accept tokens from Authorization header
+                provided_token = None
+                auth_header = handler.headers.get("Authorization", "")
+                if auth_header.startswith("Bearer "):
+                    provided_token = auth_header[7:]
 
                 if provided_token != metrics_token:
                     logger.warning(f"Unauthorized /metrics access attempt from {client_ip}")

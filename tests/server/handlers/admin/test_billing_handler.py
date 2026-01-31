@@ -252,6 +252,10 @@ def make_mock_handler(
     handler.headers = {}
     handler.client_address = ("127.0.0.1", 12345)
 
+    # Support dict-like .get() for query params (used by get_string_param)
+    _query_params = query_params or {}
+    handler.get = lambda key, default=None: _query_params.get(key, default)
+
     if body is not None:
         body_bytes = json.dumps(body).encode("utf-8")
         handler.headers["Content-Length"] = str(len(body_bytes))
@@ -268,6 +272,8 @@ def billing_handler():
     """Create BillingHandler with mock context."""
     user_store = MockUserStore()
     user_store.users["user-123"] = MockUser()
+    # Also add test_user for @require_permission decorator's auto-generated test user
+    user_store.users["test_user"] = MockUser(id="test_user", org_id="org-123")
     user_store.orgs["org-123"] = MockOrganization()
 
     ctx = {
@@ -767,7 +773,7 @@ class TestBillingStripeWebhook:
         handler.headers["Content-Length"] = "2"
         handler.rfile = BytesIO(b"{}")
 
-        with patch("aragora.server.handlers.admin.billing.parse_webhook_event") as mock_parse:
+        with patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse:
             mock_parse.return_value = None
 
             result = billing_handler._handle_stripe_webhook(handler)
@@ -789,7 +795,7 @@ class TestBillingStripeWebhook:
         mock_event.metadata = {"user_id": "user-123", "org_id": "org-123", "tier": "starter"}
 
         with (
-            patch("aragora.server.handlers.admin.billing.parse_webhook_event") as mock_parse,
+            patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse,
             patch.object(billing_module, "_is_duplicate_webhook", return_value=False),
             patch.object(billing_module, "_mark_webhook_processed"),
         ):

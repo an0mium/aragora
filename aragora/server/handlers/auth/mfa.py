@@ -22,7 +22,7 @@ from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import auth_rate_limit
 
 if TYPE_CHECKING:
     from .handler import AuthHandler
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
         "503": {"description": "MFA not available"},
     },
 )
-@rate_limit(requests_per_minute=5, limiter_name="mfa_setup")
+@auth_rate_limit(requests_per_minute=5, limiter_name="mfa_setup", endpoint_name="MFA setup")
 @handle_errors("MFA setup")
 @log_request("MFA setup")
 def handle_mfa_setup(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -111,7 +111,7 @@ def handle_mfa_setup(handler_instance: "AuthHandler", handler) -> HandlerResult:
         "503": {"description": "MFA not available"},
     },
 )
-@rate_limit(requests_per_minute=5, limiter_name="mfa_enable")
+@auth_rate_limit(requests_per_minute=5, limiter_name="mfa_enable", endpoint_name="MFA enable")
 @handle_errors("MFA enable")
 @log_request("MFA enable")
 def handle_mfa_enable(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -199,7 +199,7 @@ def handle_mfa_enable(handler_instance: "AuthHandler", handler) -> HandlerResult
         "503": {"description": "MFA not available"},
     },
 )
-@rate_limit(requests_per_minute=5, limiter_name="mfa_disable")
+@auth_rate_limit(requests_per_minute=5, limiter_name="mfa_disable", endpoint_name="MFA disable")
 @handle_errors("MFA disable")
 @log_request("MFA disable")
 def handle_mfa_disable(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -279,7 +279,9 @@ def handle_mfa_disable(handler_instance: "AuthHandler", handler) -> HandlerResul
         "503": {"description": "MFA not available"},
     },
 )
-@rate_limit(requests_per_minute=10, limiter_name="mfa_verify")
+@auth_rate_limit(
+    requests_per_minute=10, limiter_name="mfa_verify", endpoint_name="MFA verification"
+)
 @handle_errors("MFA verify")
 @log_request("MFA verify")
 def handle_mfa_verify(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -405,7 +407,7 @@ def handle_mfa_verify(handler_instance: "AuthHandler", handler) -> HandlerResult
         "503": {"description": "MFA not available"},
     },
 )
-@rate_limit(requests_per_minute=3, limiter_name="mfa_backup")
+@auth_rate_limit(requests_per_minute=5, limiter_name="mfa_backup", endpoint_name="MFA backup codes")
 @handle_errors("MFA backup codes")
 @log_request("MFA backup codes")
 def handle_mfa_backup_codes(handler_instance: "AuthHandler", handler) -> HandlerResult:

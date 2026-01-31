@@ -11,6 +11,8 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
+from aragora.server.handlers.utils.rate_limit import rate_limit
+
 from .storage import (
     _check_email_permission,
     get_gmail_connector,
@@ -20,6 +22,7 @@ from .storage import (
 logger = logging.getLogger(__name__)
 
 
+@rate_limit(requests_per_minute=10)  # SYNC operation
 async def handle_fetch_and_rank_inbox(
     user_id: str = "default",
     workspace_id: str = "default",

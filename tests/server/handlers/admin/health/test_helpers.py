@@ -266,7 +266,7 @@ class TestComponentHealthStatus:
         mock_registry.get_report.return_value = mock_report
 
         with patch(
-            "aragora.resilience_patterns.health.get_global_health_registry",
+            "aragora.resilience.health.get_global_health_registry",
             return_value=mock_registry,
         ):
             result = component_health_status(handler)
@@ -300,7 +300,7 @@ class TestComponentHealthStatus:
         mock_registry.get_report.return_value = mock_report
 
         with patch(
-            "aragora.resilience_patterns.health.get_global_health_registry",
+            "aragora.resilience.health.get_global_health_registry",
             return_value=mock_registry,
         ):
             result = component_health_status(handler)
@@ -316,7 +316,7 @@ class TestComponentHealthStatus:
         handler = MockHandler()
 
         with patch(
-            "aragora.resilience_patterns.health.get_global_health_registry",
+            "aragora.resilience.health.get_global_health_registry",
             side_effect=ImportError("Module not found"),
         ):
             result = component_health_status(handler)

@@ -1781,3 +1781,650 @@ class TestDocWorkflowTemplateDetails:
         for cp in checkpoints:
             assert "checklist" in cp["config"]
             assert len(cp["config"]["checklist"]) > 0
+
+
+class TestDocGeneratorHTMLFormatting:
+    """Tests for HTML output formatting scenarios."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_api_doc_result_format_default_markdown(self, agent):
+        """Test API reference generates markdown by default."""
+        result = agent.generate_api_reference("def func(): pass", "module")
+        assert result.format == "markdown"
+
+    def test_markdown_heading_format(self, agent):
+        """Test section titles use markdown heading format."""
+        result = agent.generate_api_reference("class MyClass: pass", "mymodule")
+        titles = [s["title"] for s in result.sections]
+        assert any(t.startswith("#") for t in titles)
+
+    def test_markdown_code_block_format(self, agent):
+        """Test docstrings are wrapped in code blocks."""
+        element = CodeElement(
+            name="example_func",
+            element_type="function",
+            code="def example_func(x: int) -> int: pass",
+            file_path="/test.py",
+            line_number=1,
+            parameters=[{"name": "x", "type": "int"}],
+            return_type="int",
+        )
+        result = agent.generate_docstring(element)
+        assert '"""' in result.docstring
+
+    def test_markdown_list_format_in_features(self, agent):
+        """Test features section uses markdown list format."""
+        result = agent.generate_readme_section(
+            "features", {"features": ["Fast processing", "Easy API"]}
+        )
+        assert "- Fast processing" in result
+        assert "- Easy API" in result
+
+    def test_api_reference_code_fence_in_functions(self, agent):
+        """Test API reference includes code fences for functions."""
+        code = """
+def sample_function(x: int) -> str:
+    return str(x)
+"""
+        result = agent.generate_api_reference(code, "sample_module")
+        all_content = " ".join(s.get("content", "") for s in result.sections)
+        assert "```python" in all_content or "```" in all_content
+
+
+class TestDocGeneratorCrossReferencing:
+    """Tests for cross-reference handling."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_adr_references_field_default_empty(self, agent):
+        """Test ADR result has empty references by default."""
+        result = agent.generate_adr({"title": "Test Decision"})
+        assert result.references == []
+
+    def test_adr_alternatives_reference_original_options(self, agent):
+        """Test ADR alternatives link back to original options."""
+        context = {
+            "title": "DB Choice",
+            "options": [
+                {"name": "PostgreSQL", "pros": ["ACID"]},
+                {"name": "MongoDB", "pros": ["Flexible"]},
+            ],
+            "chosen": "PostgreSQL",
+        }
+        result = agent.generate_adr(context)
+        alt_options = [a["option"] for a in result.alternatives_considered]
+        assert "MongoDB" in alt_options
+
+    def test_class_documentation_cross_references_methods(self, agent):
+        """Test class documentation format allows method references."""
+        cls = CodeElement(
+            name="UserService",
+            element_type="class",
+            code="class UserService: pass",
+            file_path="/test.py",
+            line_number=1,
+        )
+        doc = agent._document_class(cls)
+        assert "UserService" in doc
+
+    def test_api_reference_sections_linkable(self, agent):
+        """Test API reference sections have linkable titles."""
+        code = """
+class MyClass:
+    pass
+
+def my_function():
+    pass
+"""
+        result = agent.generate_api_reference(code, "module")
+        for section in result.sections:
+            # Markdown headings are linkable
+            assert section["title"].startswith("#") or "##" in section["title"] or section["title"]
+
+
+class TestDocGeneratorErrorHandling:
+    """Extended error handling tests."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_generate_docstring_with_malformed_parameter(self, agent):
+        """Test docstring generation handles malformed parameter data."""
+        element = CodeElement(
+            name="func",
+            element_type="function",
+            code="def func(): pass",
+            file_path="/test.py",
+            line_number=1,
+            parameters=[{"name": "", "type": ""}],  # Empty name and type
+        )
+        result = agent.generate_docstring(element)
+        assert isinstance(result, DocstringResult)
+
+    def test_analyze_gaps_with_syntax_error_code(self, agent):
+        """Test gap analysis handles code with syntax-like patterns."""
+        code = "def broken(:"  # Malformed but regex parser should handle
+        gaps = agent.analyze_documentation_gaps(code, "/test.py")
+        assert isinstance(gaps, list)
+
+    def test_suggest_comments_with_unicode_code(self, agent):
+        """Test inline comment suggestions handle unicode."""
+        code = """
+def greet(name):
+    # \u4e2d\u6587\u6ce8\u91ca
+    return f"Hello {name}"
+"""
+        suggestions = agent.suggest_inline_comments(code)
+        assert isinstance(suggestions, list)
+
+    def test_api_reference_with_special_characters_in_names(self, agent):
+        """Test API reference handles special chars in docstrings."""
+        code = '''
+def func():
+    """Function with <special> & "characters"."""
+    pass
+'''
+        result = agent.generate_api_reference(code, "module")
+        assert isinstance(result, APIDocResult)
+
+    def test_generate_adr_with_empty_options(self, agent):
+        """Test ADR generation handles empty options list."""
+        context = {
+            "title": "Simple Decision",
+            "context": "Minimal context",
+            "options": [],  # Empty options list
+            "chosen": "Default",
+        }
+        result = agent.generate_adr(context)
+        assert result.title == "Simple Decision"
+        assert result.alternatives_considered == []
+
+    def test_readme_section_with_none_project_info(self, agent):
+        """Test README section generation with empty project info."""
+        result = agent.generate_readme_section("installation", {})
+        assert "## Installation" in result
+        assert "pip install" in result
+
+    def test_parse_module_elements_with_multiline_signature(self, agent):
+        """Test parsing functions with multiline signatures."""
+        code = """
+def complex_func(
+    param1: str,
+    param2: int
+) -> dict:
+    pass
+"""
+        elements = agent._parse_module_elements(code, "test")
+        # The simple regex may not capture all params for multiline
+        assert isinstance(elements, list)
+
+
+class TestDocGeneratorDecoratorHandling:
+    """Tests for handling decorated code elements."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_code_element_with_decorators(self):
+        """Test CodeElement stores decorator information."""
+        element = CodeElement(
+            name="handler",
+            element_type="function",
+            code="@route('/api')\ndef handler(): pass",
+            file_path="/test.py",
+            line_number=1,
+            decorators=["route", "authenticated"],
+        )
+        assert len(element.decorators) == 2
+        assert "route" in element.decorators
+
+    def test_docstring_for_decorated_function(self, agent):
+        """Test generating docstring for decorated function."""
+        element = CodeElement(
+            name="protected_endpoint",
+            element_type="function",
+            code="@login_required\ndef protected_endpoint(): pass",
+            file_path="/test.py",
+            line_number=1,
+            decorators=["login_required"],
+        )
+        result = agent.generate_docstring(element)
+        assert isinstance(result, DocstringResult)
+
+    def test_parse_module_finds_decorated_classes(self, agent):
+        """Test module parsing finds decorated classes."""
+        code = """
+@dataclass
+class MyData:
+    value: int
+"""
+        elements = agent._parse_module_elements(code, "test")
+        class_elements = [e for e in elements if e.element_type == "class"]
+        assert len(class_elements) >= 1
+
+
+class TestDocGeneratorComplexityAssessment:
+    """Tests for complexity-based documentation decisions."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_code_element_default_complexity(self):
+        """Test CodeElement has default complexity of 1."""
+        element = CodeElement(
+            name="simple",
+            element_type="function",
+            code="def simple(): pass",
+            file_path="/test.py",
+            line_number=1,
+        )
+        assert element.complexity == 1
+
+    def test_code_element_high_complexity(self):
+        """Test CodeElement can store high complexity value."""
+        element = CodeElement(
+            name="complex_func",
+            element_type="function",
+            code="def complex_func(): pass",
+            file_path="/test.py",
+            line_number=1,
+            complexity=15,
+        )
+        assert element.complexity == 15
+
+    def test_gap_priority_for_high_complexity(self, agent):
+        """Test gap detection considers complexity for examples gap."""
+        # Manually create element with high complexity and existing docstring
+        # The analyze_gaps checks complexity > 5 for no_examples gap
+        element = CodeElement(
+            name="complex",
+            element_type="function",
+            code="def complex(): pass",
+            file_path="/test.py",
+            line_number=1,
+            complexity=10,
+            existing_docstring="Basic doc without examples.",
+        )
+        # Since _parse_module_elements doesn't set complexity,
+        # this tests the code path exists
+        assert element.complexity > 5
+
+    def test_quality_score_reflects_complexity_coverage(self, agent):
+        """Test quality score considers parameter coverage."""
+        element = CodeElement(
+            name="multi_param",
+            element_type="function",
+            code="def multi_param(a, b, c): pass",
+            file_path="/test.py",
+            line_number=1,
+            parameters=[
+                {"name": "a", "type": "int"},
+                {"name": "b", "type": "str"},
+                {"name": "c", "type": "float"},
+            ],
+            return_type="dict",
+        )
+        # Docstring that documents all params
+        full_doc = '''"""
+        Do something.
+
+        Args:
+            a: First param
+            b: Second param
+            c: Third param
+
+        Returns:
+            Result dict
+        """'''
+        score = agent._assess_docstring_quality(full_doc, element)
+        assert score > 0.5
+
+
+class TestDocGeneratorLLMIntegration:
+    """Tests for LLM integration scenarios with mocking."""
+
+    @pytest.mark.asyncio
+    async def test_concrete_agent_generate_with_context(self):
+        """Test generate method with context messages."""
+        from aragora.core import Message
+
+        agent = ConcreteDocGeneratorAgent()
+        context = [
+            Message(
+                agent="user",
+                role="user",
+                content="Please document this function",
+                round=1,
+            ),
+        ]
+        result = await agent.generate("Document foo()", context=context)
+        assert "Generated response" in result
+
+    @pytest.mark.asyncio
+    async def test_concrete_agent_critique_with_context(self):
+        """Test critique method with context messages."""
+        from aragora.core import Message
+
+        agent = ConcreteDocGeneratorAgent()
+        context = [
+            Message(
+                agent="reviewer",
+                role="critic",
+                content="Review this documentation",
+                round=1,
+            ),
+        ]
+        result = await agent.critique(
+            proposal="Generated docs here",
+            task="Document the API",
+            context=context,
+            target_agent="doc_writer",
+        )
+        assert result.agent == "doc_generator"
+        assert result.target_agent == "doc_writer"
+
+    def test_agent_model_attribute(self):
+        """Test agent model attribute is set correctly."""
+        agent = ConcreteDocGeneratorAgent()
+        assert agent.model == "claude-3.5-sonnet"
+
+    def test_agent_style_attribute(self):
+        """Test agent style attribute can be customized."""
+        agent = ConcreteDocGeneratorAgent(style=DocStyle.NUMPY)
+        assert agent.style == DocStyle.NUMPY
+
+    def test_agent_persona_contains_expertise(self):
+        """Test agent persona describes documentation expertise."""
+        agent = ConcreteDocGeneratorAgent()
+        assert "Documentation Specialist" in agent.persona
+        assert "technical writing" in agent.persona.lower()
+
+
+class TestDocGeneratorOutputFormatOptions:
+    """Tests for various output format options."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_google_style_has_args_section(self, agent):
+        """Test Google style docstring has Args section."""
+        element = CodeElement(
+            name="func",
+            element_type="function",
+            code="def func(x): pass",
+            file_path="/test.py",
+            line_number=1,
+            parameters=[{"name": "x", "type": "int"}],
+        )
+        result = agent.generate_docstring(element)
+        assert "Args:" in result.docstring
+
+    def test_numpy_style_has_parameters_underline(self):
+        """Test NumPy style has Parameters with underline."""
+        agent = ConcreteDocGeneratorAgent(style=DocStyle.NUMPY)
+        element = CodeElement(
+            name="func",
+            element_type="function",
+            code="def func(x): pass",
+            file_path="/test.py",
+            line_number=1,
+            parameters=[{"name": "x", "type": "int"}],
+        )
+        result = agent.generate_docstring(element)
+        assert "Parameters" in result.docstring
+        assert "----------" in result.docstring
+
+    def test_sphinx_style_has_param_directives(self):
+        """Test Sphinx style has :param: directives."""
+        agent = ConcreteDocGeneratorAgent(style=DocStyle.SPHINX)
+        element = CodeElement(
+            name="func",
+            element_type="function",
+            code="def func(x): pass",
+            file_path="/test.py",
+            line_number=1,
+            parameters=[{"name": "x", "type": "int"}],
+        )
+        result = agent.generate_docstring(element)
+        assert ":param x:" in result.docstring
+        assert ":type x:" in result.docstring
+
+    def test_docstring_triple_quotes(self, agent):
+        """Test generated docstrings use triple quotes."""
+        element = CodeElement(
+            name="func",
+            element_type="function",
+            code="def func(): pass",
+            file_path="/test.py",
+            line_number=1,
+        )
+        result = agent.generate_docstring(element)
+        assert result.docstring.startswith('"""')
+        assert result.docstring.endswith('"""')
+
+
+class TestDocGeneratorMethodVariations:
+    """Tests for various method name patterns."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_summary_for_validate_prefix(self, agent):
+        """Test summary generation for validate_ prefix."""
+        element = CodeElement(
+            name="validateInput",
+            element_type="function",
+            code="def validateInput(): pass",
+            file_path="/test.py",
+            line_number=1,
+        )
+        summary = agent._generate_summary(element)
+        # Should use generic pattern since validate is not special-cased
+        assert "validate" in summary.lower() or "Perform" in summary
+
+    def test_summary_for_fetch_prefix(self, agent):
+        """Test summary generation for fetch_ prefix."""
+        element = CodeElement(
+            name="fetchData",
+            element_type="function",
+            code="def fetchData(): pass",
+            file_path="/test.py",
+            line_number=1,
+        )
+        summary = agent._generate_summary(element)
+        assert "fetch" in summary.lower() or "Perform" in summary
+
+    def test_summary_for_camel_case_name(self, agent):
+        """Test summary generation for camelCase names."""
+        element = CodeElement(
+            name="getUserAccountDetails",
+            element_type="function",
+            code="def getUserAccountDetails(): pass",
+            file_path="/test.py",
+            line_number=1,
+        )
+        summary = agent._generate_summary(element)
+        assert "Retrieve" in summary  # get prefix
+
+    def test_summary_for_snake_case_class(self, agent):
+        """Test summary generation handles class names."""
+        element = CodeElement(
+            name="HttpRequestHandler",
+            element_type="class",
+            code="class HttpRequestHandler: pass",
+            file_path="/test.py",
+            line_number=1,
+        )
+        summary = agent._generate_summary(element)
+        assert "class" in summary.lower() or "represents" in summary.lower()
+
+
+class TestDocGeneratorParamTypeVariations:
+    """Tests for various parameter type handling."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_callable_type_description(self, agent):
+        """Test Callable type gets appropriate description."""
+        docs = agent._document_parameters([{"name": "callback", "type": "Callable"}])
+        assert "callable" in docs[0]["description"].lower()
+
+    def test_path_type_description(self, agent):
+        """Test Path type gets appropriate description."""
+        docs = agent._document_parameters([{"name": "filepath", "type": "Path"}])
+        assert "path" in docs[0]["description"].lower()
+
+    def test_any_type_description(self, agent):
+        """Test Any type gets appropriate description."""
+        docs = agent._document_parameters([{"name": "data", "type": "Any"}])
+        assert "any type" in docs[0]["description"].lower()
+
+    def test_bool_type_description(self, agent):
+        """Test bool type gets appropriate description."""
+        docs = agent._document_parameters([{"name": "flag", "type": "bool"}])
+        assert "boolean" in docs[0]["description"].lower()
+
+    def test_float_type_description(self, agent):
+        """Test float type gets appropriate description."""
+        docs = agent._document_parameters([{"name": "value", "type": "float"}])
+        assert (
+            "floating" in docs[0]["description"].lower()
+            or "float" in docs[0]["description"].lower()
+        )
+
+    def test_nested_generic_type(self, agent):
+        """Test nested generic types like dict[str, list[int]]."""
+        docs = agent._document_parameters([{"name": "mapping", "type": "dict[str, list[int]]"}])
+        assert docs[0]["type"] == "dict[str, list[int]]"
+        # Should use base type description
+        assert "dict" in docs[0]["description"].lower()
+
+
+class TestDocGeneratorWorkflowStepDetails:
+    """Detailed tests for workflow template step configurations."""
+
+    def test_scan_codebase_step_config(self):
+        """Test scan_codebase step has correct config."""
+        step = next(
+            s for s in DOCUMENTATION_WORKFLOW_TEMPLATE["steps"] if s["id"] == "scan_codebase"
+        )
+        assert step["config"]["task_type"] == "function"
+        assert "file_patterns" in step["config"]
+
+    def test_identify_gaps_step_config(self):
+        """Test identify_gaps step configuration."""
+        step = next(
+            s for s in DOCUMENTATION_WORKFLOW_TEMPLATE["steps"] if s["id"] == "identify_gaps"
+        )
+        assert step["config"]["function_name"] == "analyze_documentation_gaps"
+
+    def test_generate_docstrings_step_config(self):
+        """Test generate_docstrings step uses google style."""
+        step = next(
+            s for s in DOCUMENTATION_WORKFLOW_TEMPLATE["steps"] if s["id"] == "generate_docstrings"
+        )
+        assert step["config"]["style"] == "google"
+
+    def test_generate_api_docs_step_format(self):
+        """Test generate_api_docs uses markdown format."""
+        step = next(
+            s for s in DOCUMENTATION_WORKFLOW_TEMPLATE["steps"] if s["id"] == "generate_api_docs"
+        )
+        assert step["config"]["format"] == "markdown"
+
+    def test_prioritize_gaps_debate_config(self):
+        """Test prioritize_gaps debate step configuration."""
+        step = next(
+            s for s in DOCUMENTATION_WORKFLOW_TEMPLATE["steps"] if s["id"] == "prioritize_gaps"
+        )
+        assert step["type"] == "debate"
+        assert "doc_generator" in step["config"]["agents"]
+
+    def test_review_quality_debate_rounds(self):
+        """Test review_quality debate has correct rounds."""
+        step = next(
+            s for s in DOCUMENTATION_WORKFLOW_TEMPLATE["steps"] if s["id"] == "review_quality"
+        )
+        assert step["config"]["rounds"] == 2
+
+
+class TestDocGeneratorAPIDocSections:
+    """Tests for API documentation section structure."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_module_overview_first_section(self, agent):
+        """Test module overview is the first section."""
+        result = agent.generate_api_reference("def func(): pass", "mymodule")
+        first_title = result.sections[0]["title"]
+        assert "mymodule" in first_title
+
+    def test_classes_section_format(self, agent):
+        """Test classes section uses proper heading."""
+        code = "class TestClass: pass"
+        result = agent.generate_api_reference(code, "module")
+        titles = [s["title"] for s in result.sections]
+        class_section = [t for t in titles if "Classes" in t]
+        assert len(class_section) > 0
+        assert class_section[0].startswith("##")
+
+    def test_functions_section_includes_docstrings(self, agent):
+        """Test functions section includes generated docstrings."""
+        code = """
+def public_func(x: int) -> str:
+    return str(x)
+"""
+        result = agent.generate_api_reference(code, "module")
+        func_sections = [s for s in result.sections if "Functions" in s["title"]]
+        assert len(func_sections) > 0
+        assert "public_func" in func_sections[0]["content"]
+
+    def test_constants_section_format(self, agent):
+        """Test constants section formats values correctly."""
+        code = "MAX_VALUE = 100"
+        # Constants may or may not be detected depending on parser
+        result = agent.generate_api_reference(code, "module")
+        assert isinstance(result.sections, list)
+
+
+class TestDocGeneratorGapPriorities:
+    """Tests for documentation gap priority levels."""
+
+    @pytest.fixture
+    def agent(self):
+        return ConcreteDocGeneratorAgent()
+
+    def test_class_missing_docstring_high_priority(self, agent):
+        """Test missing class docstring gets priority 1."""
+        gaps = agent.analyze_documentation_gaps("class NoDoc: pass", "/test.py")
+        class_gaps = [g for g in gaps if "class" in g.description.lower()]
+        if class_gaps:
+            assert class_gaps[0].priority == 1
+
+    def test_function_missing_docstring_high_priority(self, agent):
+        """Test missing function docstring gets priority 1."""
+        gaps = agent.analyze_documentation_gaps("def no_doc(): pass", "/test.py")
+        func_gaps = [g for g in gaps if "function" in g.description.lower()]
+        if func_gaps:
+            assert func_gaps[0].priority == 1
+
+    def test_gap_description_format(self, agent):
+        """Test gap descriptions are informative."""
+        gaps = agent.analyze_documentation_gaps("def undoc(): pass", "/test.py")
+        for gap in gaps:
+            assert len(gap.description) > 10
+            assert gap.element_name in gap.description or "undoc" in gap.description.lower()

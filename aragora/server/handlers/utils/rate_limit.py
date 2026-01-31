@@ -378,13 +378,155 @@ def rate_limit(
     return decorator
 
 
+def auth_rate_limit(
+    rpm: int = 5,
+    key_func: Optional[Callable[[Any], str]] = None,
+    limiter_name: str | None = None,
+    *,
+    requests_per_minute: int | None = None,
+    endpoint_name: str | None = None,
+) -> Callable[[F], F]:
+    """Rate limit decorator for authentication endpoints with security audit logging.
+
+    This is a specialized version of rate_limit for authentication endpoints.
+    When rate limits are exceeded, it logs security audit events for monitoring
+    potential brute force attacks.
+
+    Args:
+        rpm: Maximum requests per minute (default: 5 for auth endpoints)
+        requests_per_minute: Alias for rpm (for consistency with middleware)
+        key_func: Optional function to extract rate limit key from handler
+        limiter_name: Optional name to share limiter across decorators
+        endpoint_name: Human-readable name for the endpoint (for logging)
+
+    Returns:
+        Decorated function
+
+    Example:
+        @auth_rate_limit(requests_per_minute=5, endpoint_name="SSO login")
+        async def handle_sso_login(...):
+            ...
+    """
+    import asyncio
+
+    # Support both rpm and requests_per_minute for compatibility
+    effective_rpm = requests_per_minute if requests_per_minute is not None else rpm
+
+    def decorator(func: F) -> F:
+        name = limiter_name or f"auth.{func.__module__}.{func.__qualname__}"
+        limiter = _get_limiter(name, effective_rpm)
+        display_name = endpoint_name or func.__qualname__
+
+        def _get_key_from_args(args, kwargs) -> str:
+            """Extract rate limit key from function arguments."""
+            if key_func:
+                if args and hasattr(args[0], "headers"):
+                    return key_func(args[0])
+                return key_func(kwargs)
+
+            # Handler object with headers attribute and client_address
+            if args and hasattr(args[0], "headers"):
+                return get_client_ip(args[0])
+
+            # New pattern: check for validated_client_ip
+            validated_ip = kwargs.get("validated_client_ip")
+            if validated_ip and isinstance(validated_ip, str):
+                return _normalize_ip(validated_ip)
+
+            # Fallback using headers hash
+            headers = kwargs.get("headers") or kwargs.get("data", {})
+            if isinstance(headers, dict):
+                ua = headers.get("User-Agent") or headers.get("user-agent") or ""
+                lang = headers.get("Accept-Language") or headers.get("accept-language") or ""
+                if ua or lang:
+                    import hashlib
+
+                    key_data = f"{ua}:{lang}".encode()
+                    return f"anon:{hashlib.sha256(key_data).hexdigest()[:16]}"
+
+            return "unknown"
+
+        def _log_security_event(client_ip: str) -> None:
+            """Log security audit event for rate limit hit on auth endpoint."""
+            try:
+                from aragora.audit.unified import audit_security
+
+                audit_security(
+                    event_type="anomaly",
+                    actor_id=client_ip,
+                    ip_address=client_ip,
+                    reason=f"auth_rate_limit_exceeded:{display_name}",
+                    details={
+                        "endpoint": display_name,
+                        "limiter": name,
+                        "limit_rpm": effective_rpm,
+                    },
+                )
+            except ImportError:
+                # Audit module not available - just log
+                pass
+            except Exception as e:
+                logger.debug(f"Failed to log security audit event: {e}")
+
+        def _check_rate_limit(key: str):
+            """Check rate limit and return error response if exceeded."""
+            if not limiter.is_allowed(key):
+                from aragora.server.handlers.base import error_response
+
+                remaining = limiter.get_remaining(key)
+                # Log warning with security context
+                logger.warning(
+                    "AUTH RATE LIMIT: %s exceeded on %s (ip=%s, remaining=%d, limit=%d/min)",
+                    display_name,
+                    func.__qualname__,
+                    key,
+                    remaining,
+                    effective_rpm,
+                )
+                # Log security audit event
+                _log_security_event(key)
+
+                return error_response(
+                    "Too many authentication attempts. Please try again later.",
+                    status=429,
+                )
+            return None
+
+        if asyncio.iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                key = _get_key_from_args(args, kwargs)
+                error = _check_rate_limit(key)
+                if error:
+                    return error
+                return await func(*args, **kwargs)
+
+            return cast(F, async_wrapper)
+        else:
+
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                key = _get_key_from_args(args, kwargs)
+                error = _check_rate_limit(key)
+                if error:
+                    return error
+                return func(*args, **kwargs)
+
+            return cast(F, sync_wrapper)
+
+    return decorator
+
+
 __all__ = [
     "RateLimiter",
     "rate_limit",
+    "auth_rate_limit",
     "user_rate_limit",
     "get_client_ip",
     "_get_limiter",
     "_limiters",
+    "clear_all_limiters",
     # Re-exports from middleware for convenience
     "middleware_rate_limit",
     "get_middleware_limiter",

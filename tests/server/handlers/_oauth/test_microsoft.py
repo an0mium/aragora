@@ -286,49 +286,53 @@ class TestMicrosoftAuthStart:
 class TestMicrosoftCallback:
     """Tests for Microsoft OAuth callback handling."""
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_missing_state(
+    async def test_callback_missing_state(
         self, mock_validate_state, microsoft_handler, mock_request_handler
     ):
         """Test callback fails without state parameter."""
-        result = microsoft_handler._handle_microsoft_callback(
+        result = await microsoft_handler._handle_microsoft_callback(
             mock_request_handler, {"code": "auth-code"}
         )
 
         assert result.status_code == 302
         assert "Missing state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_invalid_state(
+    async def test_callback_invalid_state(
         self, mock_validate_state, microsoft_handler, mock_request_handler
     ):
         """Test callback fails with invalid state."""
         mock_validate_state.return_value = None
 
-        result = microsoft_handler._handle_microsoft_callback(
+        result = await microsoft_handler._handle_microsoft_callback(
             mock_request_handler, {"code": "auth-code", "state": "invalid-state"}
         )
 
         assert result.status_code == 302
         assert "Invalid or expired state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_missing_code(
+    async def test_callback_missing_code(
         self, mock_validate_state, microsoft_handler, mock_request_handler
     ):
         """Test callback fails without authorization code."""
         mock_validate_state.return_value = {"redirect_url": "https://example.com"}
 
-        result = microsoft_handler._handle_microsoft_callback(
+        result = await microsoft_handler._handle_microsoft_callback(
             mock_request_handler, {"state": "valid-state"}
         )
 
         assert result.status_code == 302
         assert "Missing authorization code" in result.headers.get("Location", "")
 
-    def test_callback_with_oauth_error(self, microsoft_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_callback_with_oauth_error(self, microsoft_handler, mock_request_handler):
         """Test callback handles OAuth error from Microsoft."""
-        result = microsoft_handler._handle_microsoft_callback(
+        result = await microsoft_handler._handle_microsoft_callback(
             mock_request_handler,
             {
                 "error": "access_denied",
@@ -574,9 +578,10 @@ class TestMicrosoftUserInfo:
     ):
         """Test user info uses email prefix as name when displayName is missing."""
         mock_response = MagicMock()
+        # When displayName key is missing (not just None), the default is used
         mock_response.json.return_value = {
             "id": "user-guid",
-            "displayName": None,  # No display name
+            # No displayName key - .get() will use the default
             "mail": "user@example.com",
             "userPrincipalName": "user@example.onmicrosoft.com",
         }
@@ -589,7 +594,7 @@ class TestMicrosoftUserInfo:
 
         result = await microsoft_handler._get_microsoft_user_info("test-access-token")
 
-        # Should use email prefix as name
+        # Should use email prefix as name when displayName key is missing
         assert result.name == "user"
 
 
@@ -684,9 +689,10 @@ class TestMicrosoftTenantConfiguration:
 class TestMicrosoftErrorHandling:
     """Tests for Microsoft OAuth error handling."""
 
-    def test_aadsts_access_denied_error(self, microsoft_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_aadsts_access_denied_error(self, microsoft_handler, mock_request_handler):
         """Test handling of AADSTS access denied error."""
-        result = microsoft_handler._handle_microsoft_callback(
+        result = await microsoft_handler._handle_microsoft_callback(
             mock_request_handler,
             {
                 "error": "access_denied",
@@ -697,9 +703,10 @@ class TestMicrosoftErrorHandling:
         assert result.status_code == 302
         assert "error" in result.headers.get("Location", "")
 
-    def test_invalid_grant_error(self, microsoft_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_invalid_grant_error(self, microsoft_handler, mock_request_handler):
         """Test handling of invalid_grant error."""
-        result = microsoft_handler._handle_microsoft_callback(
+        result = await microsoft_handler._handle_microsoft_callback(
             mock_request_handler,
             {
                 "error": "invalid_grant",
@@ -710,9 +717,10 @@ class TestMicrosoftErrorHandling:
         assert result.status_code == 302
         assert "error" in result.headers.get("Location", "")
 
-    def test_tenant_not_found_error(self, microsoft_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_tenant_not_found_error(self, microsoft_handler, mock_request_handler):
         """Test handling of tenant not found error."""
-        result = microsoft_handler._handle_microsoft_callback(
+        result = await microsoft_handler._handle_microsoft_callback(
             mock_request_handler,
             {
                 "error": "tenant_not_found",

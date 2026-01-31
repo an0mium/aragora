@@ -32,9 +32,25 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict
 
 logger = logging.getLogger(__name__)
+
+
+class TableConfig(TypedDict, total=False):
+    """Configuration for a single table migration."""
+
+    target_table: str
+    columns: list[str]
+    transform: Callable[..., Any] | None
+
+
+class MigrationConfig(TypedDict):
+    """Configuration for a database migration."""
+
+    target: str
+    tables: dict[str, TableConfig]
+
 
 # Schema files
 SCHEMAS_DIR = Path(__file__).parent.parent / "schemas"
@@ -91,7 +107,7 @@ class ConsolidationResult:
 
 
 # Mapping of legacy databases to their tables and target consolidated database
-MIGRATION_MAP = {
+MIGRATION_MAP: dict[str, MigrationConfig] = {
     # =========================================================================
     # CORE.DB
     # =========================================================================

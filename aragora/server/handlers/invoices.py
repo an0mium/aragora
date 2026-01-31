@@ -44,6 +44,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ def get_invoice_processor():
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=5)  # Expensive: document processing
 @require_permission("finance:write")
 async def handle_upload_invoice(
     data: dict[str, Any],
@@ -129,6 +131,7 @@ async def handle_upload_invoice(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:write")
 async def handle_create_invoice(
     data: dict[str, Any],
@@ -201,6 +204,7 @@ async def handle_create_invoice(
         return error_response(f"Failed to create invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("finance:read")
 async def handle_list_invoices(
     query_params: dict[str, Any],
@@ -275,6 +279,7 @@ async def handle_list_invoices(
         return error_response(f"Failed to list invoices: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("finance:read")
 async def handle_get_invoice(
     invoice_id: str,
@@ -304,6 +309,7 @@ async def handle_get_invoice(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:approve")
 async def handle_approve_invoice(
     invoice_id: str,
@@ -339,6 +345,7 @@ async def handle_approve_invoice(
         return error_response(f"Failed to approve invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:approve")
 async def handle_reject_invoice(
     invoice_id: str,
@@ -374,6 +381,7 @@ async def handle_reject_invoice(
         return error_response(f"Failed to reject invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("finance:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
@@ -405,6 +413,7 @@ async def handle_get_pending_approvals(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:write")
 async def handle_match_to_po(
     invoice_id: str,
@@ -441,6 +450,7 @@ async def handle_match_to_po(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("finance:read")
 async def handle_get_anomalies(
     invoice_id: str,
@@ -477,6 +487,7 @@ async def handle_get_anomalies(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:approve")
 async def handle_schedule_payment(
     invoice_id: str,
@@ -530,6 +541,7 @@ async def handle_schedule_payment(
         return error_response(f"Failed to schedule payment: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("finance:read")
 async def handle_get_scheduled_payments(
     query_params: dict[str, Any],
@@ -587,6 +599,7 @@ async def handle_get_scheduled_payments(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:write")
 async def handle_create_purchase_order(
     data: dict[str, Any],
@@ -662,6 +675,7 @@ async def handle_create_purchase_order(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("finance:read")
 async def handle_get_invoice_stats(
     user_id: str = "default",
@@ -683,6 +697,7 @@ async def handle_get_invoice_stats(
         return error_response(f"Failed to get invoice stats: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("finance:read")
 async def handle_get_overdue_invoices(
     user_id: str = "default",

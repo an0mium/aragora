@@ -426,8 +426,15 @@ class AccountingConnectorBase(ABC, Generic[C]):
         results: list[dict[str, Any]] = []
         page = 0
         offset = 0
+        max_iterations = pagination.max_pages or 1000
 
         while True:
+            if page >= max_iterations:
+                logger.warning(
+                    f"[{self.PROVIDER_NAME}] Pagination limit {max_iterations} reached "
+                    f"for {entity_type}, stopping with {len(results)} results"
+                )
+                break
             # Build pagination params
             params = dict(filters or {})
             if pagination.style == "offset":

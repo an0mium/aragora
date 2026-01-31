@@ -9,6 +9,7 @@ Provides methods for compliance policy management:
 
 from __future__ import annotations
 
+import builtins
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -114,7 +115,7 @@ class PoliciesAPI:
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[list[Policy], int]:
+    ) -> tuple[builtins.list[Policy], int]:
         """
         List policies with optional filters.
 
@@ -151,7 +152,7 @@ class PoliciesAPI:
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[list[Policy], int]:
+    ) -> tuple[builtins.list[Policy], int]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workspace_id:
@@ -194,7 +195,7 @@ class PoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: Optional[list[dict[str, Any]]] = None,
+        rules: Optional[builtins.list[dict[str, Any]]] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """
@@ -240,7 +241,7 @@ class PoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: Optional[list[dict[str, Any]]] = None,
+        rules: Optional[builtins.list[dict[str, Any]]] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """Async version of create()."""
@@ -268,7 +269,7 @@ class PoliciesAPI:
         description: str | None = None,
         level: str | None = None,
         enabled: bool | None = None,
-        rules: Optional[list[dict[str, Any]]] = None,
+        rules: Optional[builtins.list[dict[str, Any]]] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """
@@ -310,7 +311,7 @@ class PoliciesAPI:
         description: str | None = None,
         level: str | None = None,
         enabled: bool | None = None,
-        rules: Optional[list[dict[str, Any]]] = None,
+        rules: Optional[builtins.list[dict[str, Any]]] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> Policy:
         """Async version of update()."""
@@ -388,7 +389,7 @@ class PoliciesAPI:
         severity: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[list[PolicyViolation], int]:
+    ) -> tuple[builtins.list[PolicyViolation], int]:
         """
         List policy violations.
 
@@ -425,7 +426,7 @@ class PoliciesAPI:
         severity: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> tuple[list[PolicyViolation], int]:
+    ) -> tuple[builtins.list[PolicyViolation], int]:
         """Async version of list_violations()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if policy_id:
@@ -506,7 +507,7 @@ class PoliciesAPI:
     def check(
         self,
         content: str,
-        frameworks: Optional[list[str]] = None,
+        frameworks: Optional[builtins.list[str]] = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",
@@ -539,7 +540,7 @@ class PoliciesAPI:
     async def check_async(
         self,
         content: str,
-        frameworks: Optional[list[str]] = None,
+        frameworks: Optional[builtins.list[str]] = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",

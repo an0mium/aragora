@@ -1946,3 +1946,1004 @@ class TestQuickBooksConnectorEdgeCases:
         with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
             with pytest.raises(ConnectorAPIError, match="Unknown error"):
                 await connector._request("GET", "customer/1")
+
+
+# =============================================================================
+# Additional Data Transformation Tests
+# =============================================================================
+
+
+class TestQBOCustomerFromDict:
+    """Tests for QBOCustomer deserialization."""
+
+    def test_from_dict_basic(self):
+        """Test basic from_dict deserialization."""
+        data = {
+            "id": "123",
+            "display_name": "Test Customer",
+            "balance": 1500.50,
+        }
+        customer = QBOCustomer.from_dict(data)
+        assert customer.id == "123"
+        assert customer.display_name == "Test Customer"
+        assert customer.balance == 1500.50
+
+    def test_from_dict_with_api_names(self):
+        """Test from_dict with API field names."""
+        data = {
+            "id": "123",
+            "displayName": "Test Customer",
+            "companyName": "Test Co",
+        }
+        customer = QBOCustomer.from_dict(data, from_api=True)
+        assert customer.display_name == "Test Customer"
+        assert customer.company_name == "Test Co"
+
+    def test_from_dict_with_datetime(self):
+        """Test from_dict handles datetime correctly."""
+        created = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        data = {
+            "id": "123",
+            "display_name": "Test Customer",
+            "created_at": created,
+        }
+        customer = QBOCustomer.from_dict(data)
+        assert customer.created_at is not None
+        assert customer.created_at.year == 2024
+
+
+class TestQBOTransactionFromDict:
+    """Tests for QBOTransaction deserialization."""
+
+    def test_from_dict_with_dates(self):
+        """Test transaction deserialization with dates."""
+        data = {
+            "id": "1001",
+            "type": "Invoice",
+            "txn_date": "2024-01-15T00:00:00+00:00",
+            "due_date": "2024-02-14T00:00:00+00:00",
+            "total_amount": 5000.00,
+        }
+        txn = QBOTransaction.from_dict(data)
+        assert txn.id == "1001"
+        assert txn.type == TransactionType.INVOICE
+        assert txn.txn_date is not None
+
+    def test_from_dict_with_line_items(self):
+        """Test transaction deserialization with line items."""
+        data = {
+            "id": "1001",
+            "type": "Invoice",
+            "line_items": [
+                {"Amount": 100.00, "Description": "Item 1"},
+                {"Amount": 200.00, "Description": "Item 2"},
+            ],
+        }
+        txn = QBOTransaction.from_dict(data)
+        assert len(txn.line_items) == 2
+
+
+class TestQBOAccountFromDict:
+    """Tests for QBOAccount deserialization."""
+
+    def test_from_dict_basic(self):
+        """Test account deserialization."""
+        data = {
+            "id": "1",
+            "name": "Checking",
+            "account_type": "Bank",
+            "current_balance": 50000.00,
+        }
+        account = QBOAccount.from_dict(data)
+        assert account.id == "1"
+        assert account.name == "Checking"
+        assert account.current_balance == 50000.00
+
+
+# =============================================================================
+# Environment Configuration Tests
+# =============================================================================
+
+
+class TestQuickBooksConnectorEnvironmentConfig:
+    """Tests for environment variable configuration."""
+
+    def test_environment_from_env_var_sandbox(self):
+        """Test environment detected from env var - sandbox."""
+        with patch.dict("os.environ", {"QBO_ENVIRONMENT": "sandbox"}):
+            connector = QuickBooksConnector(
+                client_id="client",
+                client_secret="secret",
+                redirect_uri="http://localhost/callback",
+            )
+            assert connector.environment == QBOEnvironment.SANDBOX
+
+    def test_environment_from_env_var_production(self):
+        """Test environment detected from env var - production."""
+        with patch.dict("os.environ", {"QBO_ENVIRONMENT": "production"}):
+            connector = QuickBooksConnector(
+                client_id="client",
+                client_secret="secret",
+                redirect_uri="http://localhost/callback",
+            )
+            assert connector.environment == QBOEnvironment.PRODUCTION
+
+    def test_credentials_from_env_vars(self):
+        """Test credentials loaded from environment variables."""
+        with patch.dict(
+            "os.environ",
+            {
+                "QBO_CLIENT_ID": "env_client_id",
+                "QBO_CLIENT_SECRET": "env_client_secret",
+                "QBO_REDIRECT_URI": "http://env.localhost/callback",
+            },
+        ):
+            connector = QuickBooksConnector()
+            assert connector.client_id == "env_client_id"
+            assert connector.client_secret == "env_client_secret"
+            assert connector.redirect_uri == "http://env.localhost/callback"
+
+    def test_explicit_config_overrides_env(self):
+        """Test explicit configuration overrides environment variables."""
+        with patch.dict(
+            "os.environ",
+            {
+                "QBO_CLIENT_ID": "env_client_id",
+            },
+        ):
+            connector = QuickBooksConnector(
+                client_id="explicit_client_id",
+                client_secret="secret",
+                redirect_uri="http://localhost/callback",
+            )
+            assert connector.client_id == "explicit_client_id"
+
+
+# =============================================================================
+# Query Builder Advanced Tests
+# =============================================================================
+
+
+class TestQBOQueryBuilderAdvanced:
+    """Advanced tests for query builder."""
+
+    def test_chained_conditions(self):
+        """Test multiple chained conditions."""
+        qb = QBOQueryBuilder("Invoice")
+        qb.select("Id", "DocNumber").where_eq("Active", True).where_gte(
+            "TxnDate", datetime(2024, 1, 1)
+        ).where_lte("TxnDate", datetime(2024, 12, 31))
+        query = qb.build()
+        assert "Active = true" in query
+        assert "TxnDate >= '2024-01-01'" in query
+        assert "TxnDate <= '2024-12-31'" in query
+
+    def test_all_entity_types(self):
+        """Test query builder accepts all valid entities."""
+        valid_entities = [
+            "Account",
+            "Bill",
+            "Customer",
+            "Invoice",
+            "Payment",
+            "Vendor",
+        ]
+        for entity in valid_entities:
+            qb = QBOQueryBuilder(entity)
+            assert qb._entity == entity
+
+    def test_multiple_select_calls(self):
+        """Test multiple select calls accumulate fields."""
+        qb = QBOQueryBuilder("Customer")
+        qb.select("Id", "DisplayName")
+        qb.select("Balance")
+        assert len(qb._select_fields) == 3
+
+    def test_where_eq_with_string(self):
+        """Test where equality with string value."""
+        qb = QBOQueryBuilder("Customer")
+        qb.where_eq("DisplayName", "Acme Corp")
+        assert "DisplayName = 'Acme Corp'" in qb._conditions
+
+    def test_where_eq_with_datetime(self):
+        """Test where equality with datetime value."""
+        qb = QBOQueryBuilder("Invoice")
+        date = datetime(2024, 6, 15)
+        qb.where_eq("TxnDate", date)
+        assert "TxnDate = '2024-06-15'" in qb._conditions
+
+    def test_format_value_with_int(self):
+        """Test value formatting for integers."""
+        qb = QBOQueryBuilder("Invoice")
+        result = qb._format_value(100)
+        assert result == "100"
+
+    def test_format_value_with_float(self):
+        """Test value formatting for floats."""
+        qb = QBOQueryBuilder("Invoice")
+        result = qb._format_value(99.99)
+        assert result == "99.99"
+
+
+# =============================================================================
+# Transaction Type Edge Cases
+# =============================================================================
+
+
+class TestTransactionTypeEdgeCases:
+    """Tests for transaction type edge cases."""
+
+    def test_all_transaction_types(self):
+        """Test all transaction types can be used."""
+        for txn_type in TransactionType:
+            txn = QBOTransaction(
+                id="1",
+                type=txn_type,
+                total_amount=100.00,
+            )
+            assert txn.type == txn_type
+
+    def test_transaction_type_serialization(self):
+        """Test transaction type serializes to string value."""
+        txn = QBOTransaction(
+            id="1",
+            type=TransactionType.CREDIT_MEMO,
+            total_amount=100.00,
+        )
+        data = txn.to_dict()
+        assert data["type"] == "CreditMemo"
+
+    def test_transaction_type_in_expense(self):
+        """Test expense transaction has correct type."""
+        txn = QBOTransaction(
+            id="2001",
+            type=TransactionType.PURCHASE,
+            vendor_id="10",
+            total_amount=500.00,
+        )
+        assert txn.type == TransactionType.PURCHASE
+        assert txn.vendor_id == "10"
+
+
+# =============================================================================
+# Invoice and Expense Date Filtering Tests
+# =============================================================================
+
+
+class TestDateFiltering:
+    """Tests for date-based filtering in list operations."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_list_expenses_with_date_range(self, connector):
+        """Test expense listing with date range filter."""
+        mock_response = {"QueryResponse": {"Purchase": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.list_expenses(
+                start_date=datetime(2024, 1, 1),
+                end_date=datetime(2024, 3, 31),
+            )
+
+            call_args = mock_request.call_args
+            assert "2024-01-01" in call_args[0][1]
+            assert "2024-03-31" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_list_invoices_no_filters(self, connector):
+        """Test invoice listing without filters uses 1=1."""
+        mock_response = {"QueryResponse": {"Invoice": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.list_invoices()
+
+            call_args = mock_request.call_args
+            assert "WHERE 1=1" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_list_invoices_pagination(self, connector):
+        """Test invoice listing with pagination."""
+        mock_response = {"QueryResponse": {"Invoice": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.list_invoices(limit=50, offset=100)
+
+            call_args = mock_request.call_args
+            assert "MAXRESULTS 50" in call_args[0][1]
+            assert "STARTPOSITION 101" in call_args[0][1]
+
+
+# =============================================================================
+# Vendor Operations Extended Tests
+# =============================================================================
+
+
+class TestVendorOperationsExtended:
+    """Extended tests for vendor operations."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_list_vendors_inactive(self, connector):
+        """Test listing inactive vendors."""
+        mock_response = {"QueryResponse": {"Vendor": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.list_vendors(active_only=False)
+
+            call_args = mock_request.call_args
+            assert "Active = false" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_list_vendors_with_pagination(self, connector):
+        """Test vendor listing with pagination."""
+        mock_response = {"QueryResponse": {"Vendor": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.list_vendors(limit=25, offset=50)
+
+            call_args = mock_request.call_args
+            assert "MAXRESULTS 25" in call_args[0][1]
+            assert "STARTPOSITION 51" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_create_vendor_minimal(self, connector):
+        """Test vendor creation with minimal fields."""
+        mock_response = {"Vendor": {"Id": "100", "DisplayName": "New Vendor"}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            vendor = await connector.create_vendor(display_name="New Vendor")
+
+            assert vendor["Id"] == "100"
+            # Verify no email/phone in request
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert "DisplayName" in data
+
+
+# =============================================================================
+# Bill and Expense Creation Tests
+# =============================================================================
+
+
+class TestBillAndExpenseCreation:
+    """Tests for bill and expense creation."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_create_bill_with_due_date(self, connector):
+        """Test bill creation with due date."""
+        mock_response = {"Bill": {"Id": "3001"}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.create_bill(
+                vendor_id="10",
+                account_id="1",
+                amount=1500.00,
+                due_date=datetime(2024, 2, 15),
+            )
+
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert data["DueDate"] == "2024-02-15"
+
+    @pytest.mark.asyncio
+    async def test_create_bill_with_line_items(self, connector):
+        """Test bill creation with custom line items."""
+        mock_response = {"Bill": {"Id": "3002"}}
+        custom_lines = [
+            {"Amount": 500.00, "Description": "Item 1"},
+            {"Amount": 1000.00, "Description": "Item 2"},
+        ]
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.create_bill(
+                vendor_id="10",
+                account_id="1",
+                amount=1500.00,
+                line_items=custom_lines,
+            )
+
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert len(data["Line"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_create_expense_with_all_fields(self, connector):
+        """Test expense creation with all optional fields."""
+        mock_response = {"Purchase": {"Id": "2003"}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.create_expense(
+                vendor_id="10",
+                account_id="1",
+                amount=250.00,
+                description="Office supplies purchase",
+                txn_date=datetime(2024, 1, 20),
+                payment_type="CreditCard",
+            )
+
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert data["PaymentType"] == "CreditCard"
+            assert data["PrivateNote"] == "Office supplies purchase"
+            assert data["TxnDate"] == "2024-01-20"
+
+
+# =============================================================================
+# Payment Operation Extended Tests
+# =============================================================================
+
+
+class TestPaymentOperationsExtended:
+    """Extended tests for payment operations."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_create_payment_without_invoices(self, connector):
+        """Test payment creation without linking to invoices."""
+        mock_response = {"Payment": {"Id": "5003", "TotalAmt": 500.00}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            payment = await connector.create_payment(
+                customer_id="1",
+                amount=500.00,
+            )
+
+            assert payment["Id"] == "5003"
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert "Line" not in data
+
+    @pytest.mark.asyncio
+    async def test_create_payment_with_multiple_invoices(self, connector):
+        """Test payment linking to multiple invoices."""
+        mock_response = {"Payment": {"Id": "5004"}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.create_payment(
+                customer_id="1",
+                amount=2000.00,
+                invoice_ids=["1001", "1002", "1003"],
+            )
+
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert len(data["Line"][0]["LinkedTxn"]) == 3
+
+    @pytest.mark.asyncio
+    async def test_create_bill_payment_with_bills(self, connector):
+        """Test bill payment linking to multiple bills."""
+        mock_response = {"BillPayment": {"Id": "5005"}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.create_bill_payment(
+                vendor_id="10",
+                amount=1000.00,
+                bank_account_id="1",
+                bill_ids=["2001", "2002"],
+            )
+
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert len(data["Line"][0]["LinkedTxn"]) == 2
+
+
+# =============================================================================
+# Report Operations Extended Tests
+# =============================================================================
+
+
+class TestReportOperationsExtended:
+    """Extended tests for report operations."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_get_balance_sheet_with_date(self, connector):
+        """Test balance sheet report with specific date."""
+        mock_response = {"Rows": {"Row": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.get_balance_sheet_report(
+                as_of_date=datetime(2024, 12, 31),
+            )
+
+            call_args = mock_request.call_args
+            assert "2024-12-31" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_profit_loss_report_date_format(self, connector):
+        """Test P&L report uses correct date format."""
+        mock_response = {"Rows": {"Row": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.get_profit_loss_report(
+                start_date=datetime(2024, 1, 1),
+                end_date=datetime(2024, 12, 31),
+            )
+
+            call_args = mock_request.call_args
+            endpoint = call_args[0][1]
+            assert "start_date=2024-01-01" in endpoint
+            assert "end_date=2024-12-31" in endpoint
+
+
+# =============================================================================
+# Retry and Resilience Extended Tests
+# =============================================================================
+
+
+class TestRetryResilienceExtended:
+    """Extended tests for retry and resilience."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_returns_last_error(self, connector):
+        """Test that retry exhaustion returns meaningful error."""
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+        mock_response.json.return_value = {"Fault": {"Error": [{"Message": "Service unavailable"}]}}
+
+        mock_session = AsyncMock()
+        mock_session.request.return_value = mock_response
+
+        mock_cm = AsyncMock()
+        mock_cm.__aenter__.return_value = mock_session
+        mock_cm.__aexit__.return_value = None
+
+        mock_pool = MagicMock()
+        mock_pool.get_session.return_value = mock_cm
+
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            with patch("asyncio.sleep", new=AsyncMock()):
+                with pytest.raises(ConnectorAPIError, match="Service unavailable"):
+                    await connector._request("GET", "test", max_retries=2)
+
+    @pytest.mark.asyncio
+    async def test_successful_request_after_retry(self, connector):
+        """Test successful request after initial failures."""
+        error_response = MagicMock()
+        error_response.status_code = 502
+
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = {"data": "success"}
+
+        mock_session = AsyncMock()
+        mock_session.request.side_effect = [
+            error_response,
+            error_response,
+            success_response,
+        ]
+
+        mock_pool = MagicMock()
+        mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_pool.get_session.return_value.__aexit__ = AsyncMock()
+
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            with patch("asyncio.sleep", new=AsyncMock()):
+                result = await connector._request("GET", "test", max_retries=3)
+                assert result["data"] == "success"
+
+
+# =============================================================================
+# Circuit Breaker Extended Tests
+# =============================================================================
+
+
+class TestCircuitBreakerExtended:
+    """Extended tests for circuit breaker behavior."""
+
+    def test_circuit_breaker_default_config(self):
+        """Test default circuit breaker configuration."""
+        connector = QuickBooksConnector(
+            client_id="client",
+            client_secret="secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=True,
+        )
+        cb = connector._circuit_breaker
+        assert cb.name == "qbo"
+        assert cb.failure_threshold == 3
+        assert cb.cooldown_seconds == 60.0
+
+    def test_circuit_breaker_records_success(self):
+        """Test circuit breaker records success correctly."""
+        connector = QuickBooksConnector(
+            client_id="client",
+            client_secret="secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=True,
+        )
+        cb = connector._circuit_breaker
+
+        # Record a failure first
+        cb.record_failure()
+        assert cb.failures > 0
+
+        # Success should reset
+        cb.record_success()
+        assert cb.can_proceed()
+
+
+# =============================================================================
+# Input Validation Extended Tests
+# =============================================================================
+
+
+class TestInputValidationExtended:
+    """Extended tests for input validation."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create connector for testing."""
+        return QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+        )
+
+    def test_sanitize_query_preserves_ampersand(self, connector):
+        """Test sanitization preserves ampersand for business names."""
+        result = connector._sanitize_query_value("Johnson & Johnson")
+        assert "&" in result
+
+    def test_sanitize_query_preserves_hash(self, connector):
+        """Test sanitization preserves hash for reference numbers."""
+        result = connector._sanitize_query_value("Order #12345")
+        assert "#" in result
+
+    def test_sanitize_query_preserves_parentheses(self, connector):
+        """Test sanitization preserves parentheses."""
+        result = connector._sanitize_query_value("Company (US)")
+        assert "(" in result
+        assert ")" in result
+
+    def test_validate_pagination_zero_limit_raises(self, connector):
+        """Test zero limit is rejected."""
+        with pytest.raises(ValueError, match="limit must be positive"):
+            connector._validate_pagination(0, 0)
+
+    def test_format_date_with_timezone(self, connector):
+        """Test date formatting with timezone-aware datetime."""
+        date = datetime(2024, 6, 15, 12, 30, 0, tzinfo=timezone.utc)
+        result = connector._format_date_for_query(date, "txn_date")
+        assert result == "2024-06-15"
+
+    def test_format_date_naive_datetime(self, connector):
+        """Test date formatting with naive datetime."""
+        date = datetime(2024, 6, 15, 12, 30, 0)
+        result = connector._format_date_for_query(date, "txn_date")
+        assert result == "2024-06-15"
+
+
+# =============================================================================
+# Invoice Creation Extended Tests
+# =============================================================================
+
+
+class TestInvoiceCreationExtended:
+    """Extended tests for invoice creation."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_create_invoice_with_memo(self, connector):
+        """Test invoice creation with memo."""
+        mock_response = {"Invoice": {"Id": "1003"}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.create_invoice(
+                customer_id="1",
+                line_items=[{"Amount": 100.00}],
+                memo="Thank you for your business!",
+            )
+
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert data["CustomerMemo"]["value"] == "Thank you for your business!"
+
+    @pytest.mark.asyncio
+    async def test_create_invoice_with_due_date(self, connector):
+        """Test invoice creation with due date."""
+        mock_response = {"Invoice": {"Id": "1004"}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.create_invoice(
+                customer_id="1",
+                line_items=[{"Amount": 100.00}],
+                due_date=datetime(2024, 3, 15),
+            )
+
+            call_args = mock_request.call_args
+            data = call_args[1]["data"] if "data" in call_args[1] else call_args[0][2]
+            assert data["DueDate"] == "2024-03-15"
+
+
+# =============================================================================
+# Customer Operations Extended Tests
+# =============================================================================
+
+
+class TestCustomerOperationsExtended:
+    """Extended tests for customer operations."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_list_customers_with_pagination(self, connector):
+        """Test customer listing with pagination."""
+        mock_response = {"QueryResponse": {"Customer": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.list_customers(limit=25, offset=50)
+
+            call_args = mock_request.call_args
+            assert "MAXRESULTS 25" in call_args[0][1]
+            assert "STARTPOSITION 51" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_get_customer_parses_all_fields(self, connector):
+        """Test customer retrieval parses all available fields."""
+        mock_response = {
+            "Customer": {
+                "Id": "1",
+                "DisplayName": "Full Customer",
+                "CompanyName": "Full Company LLC",
+                "PrimaryEmailAddr": {"Address": "email@example.com"},
+                "PrimaryPhone": {"FreeFormNumber": "555-1234"},
+                "Balance": 9999.99,
+                "Active": True,
+            }
+        }
+
+        with patch.object(connector, "_request", new=AsyncMock(return_value=mock_response)):
+            customer = await connector.get_customer("1")
+
+            assert customer.display_name == "Full Customer"
+            assert customer.company_name == "Full Company LLC"
+            assert customer.email == "email@example.com"
+            assert customer.phone == "555-1234"
+            assert customer.balance == 9999.99
+            assert customer.active is True
+
+
+# =============================================================================
+# Account Operations Extended Tests
+# =============================================================================
+
+
+class TestAccountOperationsExtended:
+    """Extended tests for account operations."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create authenticated connector."""
+        conn = QuickBooksConnector(
+            client_id="test_client",
+            client_secret="test_secret",
+            redirect_uri="http://localhost/callback",
+            enable_circuit_breaker=False,
+        )
+        conn.set_credentials(
+            QBOCredentials(
+                access_token="token",
+                refresh_token="refresh",
+                realm_id="123",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        return conn
+
+    @pytest.mark.asyncio
+    async def test_list_accounts_inactive(self, connector):
+        """Test listing inactive accounts."""
+        mock_response = {"QueryResponse": {"Account": []}}
+
+        with patch.object(
+            connector, "_request", new=AsyncMock(return_value=mock_response)
+        ) as mock_request:
+            await connector.list_accounts(active_only=False)
+
+            call_args = mock_request.call_args
+            assert "Active = false" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_list_accounts_parses_all_fields(self, connector):
+        """Test account listing parses all fields."""
+        mock_response = {
+            "QueryResponse": {
+                "Account": [
+                    {
+                        "Id": "10",
+                        "Name": "Savings Account",
+                        "AccountType": "Bank",
+                        "AccountSubType": "Savings",
+                        "CurrentBalance": 100000.00,
+                        "Active": True,
+                    }
+                ]
+            }
+        }
+
+        with patch.object(connector, "_request", new=AsyncMock(return_value=mock_response)):
+            accounts = await connector.list_accounts()
+
+            assert len(accounts) == 1
+            assert accounts[0].account_sub_type == "Savings"
+            assert accounts[0].current_balance == 100000.00

@@ -21,7 +21,7 @@ from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
-from ..utils.rate_limit import get_client_ip, rate_limit
+from ..utils.rate_limit import auth_rate_limit, get_client_ip
 from .validation import validate_email, validate_password
 
 if TYPE_CHECKING:
@@ -53,7 +53,9 @@ logger = logging.getLogger(__name__)
         "503": {"description": "Service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=3, limiter_name="auth_change_password")
+@auth_rate_limit(
+    requests_per_minute=3, limiter_name="auth_change_password", endpoint_name="password change"
+)
 @handle_errors("change password")
 def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerResult:
     """Change user password."""
@@ -129,7 +131,11 @@ def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerR
         "503": {"description": "Service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=3, limiter_name="auth_forgot_password")
+@auth_rate_limit(
+    requests_per_minute=3,
+    limiter_name="auth_forgot_password",
+    endpoint_name="password reset request",
+)
 @handle_errors("forgot password")
 @log_request("forgot password")
 def handle_forgot_password(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -337,7 +343,9 @@ This is an automated message. Please do not reply.
         "503": {"description": "Service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=5, limiter_name="auth_reset_password")
+@auth_rate_limit(
+    requests_per_minute=3, limiter_name="auth_reset_password", endpoint_name="password reset"
+)
 @handle_errors("reset password")
 @log_request("reset password")
 def handle_reset_password(handler_instance: "AuthHandler", handler) -> HandlerResult:

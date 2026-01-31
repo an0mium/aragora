@@ -2219,3 +2219,1181 @@ class TestUserHtmlUrl:
         }
         user = User.from_api(api_data)
         assert user.html_url is None
+
+
+# =============================================================================
+# Additional Error Handling Tests
+# =============================================================================
+
+
+class TestApiErrorHandling:
+    """Additional tests for API error handling."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create a connector for testing."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        return PagerDutyConnector(creds)
+
+    @pytest.mark.asyncio
+    async def test_request_raises_on_401_unauthorized(self, connector):
+        """Test that 401 unauthorized raises PagerDutyError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.json.return_value = {
+            "error": {"message": "Invalid API key", "code": "UNAUTHORIZED"}
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("GET", "/incidents")
+                assert exc_info.value.status_code == 401
+                assert exc_info.value.error_code == "UNAUTHORIZED"
+
+    @pytest.mark.asyncio
+    async def test_request_raises_on_403_forbidden(self, connector):
+        """Test that 403 forbidden raises PagerDutyError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.json.return_value = {
+            "error": {"message": "Access denied", "code": "FORBIDDEN"}
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("GET", "/incidents")
+                assert exc_info.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_request_raises_on_500_server_error(self, connector):
+        """Test that 500 server error raises PagerDutyError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.json.return_value = {"error": {"message": "Internal server error"}}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("GET", "/incidents")
+                assert exc_info.value.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_request_raises_on_502_bad_gateway(self, connector):
+        """Test that 502 bad gateway raises PagerDutyError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 502
+        mock_response.json.return_value = {"error": {"message": "Bad gateway"}}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("GET", "/incidents")
+                assert exc_info.value.status_code == 502
+
+    @pytest.mark.asyncio
+    async def test_request_raises_on_503_service_unavailable(self, connector):
+        """Test that 503 service unavailable raises PagerDutyError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+        mock_response.json.return_value = {"error": {"message": "Service temporarily unavailable"}}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("GET", "/incidents")
+                assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_request_raises_on_429_rate_limit(self, connector):
+        """Test that 429 rate limit raises PagerDutyError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.json.return_value = {
+            "error": {"message": "Rate limit exceeded", "code": "RATE_LIMIT"}
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("GET", "/incidents")
+                assert exc_info.value.status_code == 429
+
+    @pytest.mark.asyncio
+    async def test_request_handles_error_without_code(self, connector):
+        """Test error handling when error code is missing."""
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {
+            "error": {"message": "Bad request"}  # No code field
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("POST", "/incidents")
+                assert exc_info.value.error_code is None
+
+    @pytest.mark.asyncio
+    async def test_request_handles_empty_error_object(self, connector):
+        """Test error handling when error object is empty."""
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {"error": {}}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError) as exc_info:
+                    await connector._request("POST", "/incidents")
+                assert "Unknown error" in str(exc_info.value)
+
+
+# =============================================================================
+# Context Manager Tests
+# =============================================================================
+
+
+class TestContextManager:
+    """Tests for context manager behavior."""
+
+    @pytest.mark.asyncio
+    async def test_context_manager_cleanup_on_exception(self):
+        """Test that context manager cleans up even when exception occurs."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        connector = PagerDutyConnector(creds)
+
+        try:
+            async with connector:
+                assert connector._client is not None
+                raise ValueError("Simulated error")
+        except ValueError:
+            pass
+
+        # Client should be closed
+        assert connector._client is None
+
+    @pytest.mark.asyncio
+    async def test_context_manager_client_closed_after_exit(self):
+        """Test that HTTP client is properly closed after exiting context."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        connector = PagerDutyConnector(creds)
+
+        async with connector:
+            client = connector._client
+            assert client is not None
+
+        # After exit, client should be None
+        assert connector._client is None
+
+
+# =============================================================================
+# API Header Verification Tests
+# =============================================================================
+
+
+class TestApiHeaders:
+    """Tests for API header configuration."""
+
+    @pytest.mark.asyncio
+    async def test_connector_sets_correct_headers(self):
+        """Test that connector sets correct authorization headers."""
+        creds = PagerDutyCredentials(
+            api_key="my_api_key_123",
+            email="admin@company.com",
+        )
+
+        # Use a real httpx.AsyncClient to verify headers are set correctly
+        import httpx
+
+        with patch.object(httpx, "AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value = mock_client
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client.aclose = AsyncMock()
+
+            async with PagerDutyConnector(creds):
+                # Verify the AsyncClient was called with correct headers
+                mock_client_class.assert_called_once()
+                call_kwargs = mock_client_class.call_args[1]
+                assert call_kwargs["headers"]["Authorization"] == "Token token=my_api_key_123"
+                assert call_kwargs["headers"]["Content-Type"] == "application/json"
+                assert call_kwargs["headers"]["From"] == "admin@company.com"
+                assert call_kwargs["base_url"] == "https://api.pagerduty.com"
+                assert call_kwargs["timeout"] == 30.0
+
+    def test_base_url_constant(self):
+        """Test that base URL is correctly defined."""
+        assert PagerDutyConnector.BASE_URL == "https://api.pagerduty.com"
+
+
+# =============================================================================
+# Alert Deduplication Tests
+# =============================================================================
+
+
+class TestAlertDeduplication:
+    """Tests for alert deduplication functionality."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create a connector for testing."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        return PagerDutyConnector(creds)
+
+    @pytest.mark.asyncio
+    async def test_create_incident_with_dedup_key_in_body(self, connector):
+        """Test that incident key is properly set in request body."""
+        mock_response = {
+            "incident": {
+                "id": "PINC_DEDUP",
+                "incident_number": 300,
+                "title": "Dedup Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                request = IncidentCreateRequest(
+                    title="Dedup Test",
+                    service_id="PSVC1",
+                    incident_key="my-unique-dedup-key-12345",
+                )
+                await connector.create_incident(request)
+
+                # Verify the request body
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["incident_key"] == "my-unique-dedup-key-12345"
+
+    @pytest.mark.asyncio
+    async def test_finding_generates_dedup_key_from_source_and_id(self, connector):
+        """Test that create_incident_from_finding generates correct dedup key."""
+        mock_response = {
+            "incident": {
+                "id": "PINC_FINDING",
+                "incident_number": 301,
+                "title": "[HIGH] Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test Finding",
+                    service_id="PSVC1",
+                    severity="high",
+                    description="Description",
+                    source="security_scanner",
+                    finding_id="VULN-2024-001",
+                )
+
+                # Verify dedup key format is "source:finding_id"
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["incident_key"] == "security_scanner:VULN-2024-001"
+
+
+# =============================================================================
+# Webhook Event Type Tests
+# =============================================================================
+
+
+class TestWebhookEventTypes:
+    """Tests for various webhook event types."""
+
+    def test_parse_webhook_incident_resolved(self):
+        """Test parsing incident.resolved webhook."""
+        creds = PagerDutyCredentials(api_key="key", email="user@example.com")
+        connector = PagerDutyConnector(creds)
+
+        webhook_data = {
+            "event": {
+                "event_type": "incident.resolved",
+                "data": {
+                    "id": "PINC123",
+                    "type": "incident",
+                    "title": "Resolved Incident",
+                    "status": "resolved",
+                    "urgency": "high",
+                    "incident_number": 100,
+                    "created_at": "2024-01-15T10:00:00Z",
+                    "resolved_at": "2024-01-15T12:00:00Z",
+                },
+            }
+        }
+        payload = connector.parse_webhook(webhook_data)
+        assert payload.event_type == "incident.resolved"
+        assert payload.incident.status == IncidentStatus.RESOLVED
+
+    def test_parse_webhook_incident_reassigned(self):
+        """Test parsing incident.reassigned webhook."""
+        creds = PagerDutyCredentials(api_key="key", email="user@example.com")
+        connector = PagerDutyConnector(creds)
+
+        webhook_data = {
+            "event": {
+                "event_type": "incident.reassigned",
+                "data": {
+                    "id": "PINC456",
+                    "type": "incident",
+                    "title": "Reassigned Incident",
+                    "status": "triggered",
+                    "urgency": "high",
+                    "incident_number": 101,
+                    "created_at": "2024-01-15T10:00:00Z",
+                },
+            }
+        }
+        payload = connector.parse_webhook(webhook_data)
+        assert payload.event_type == "incident.reassigned"
+
+    def test_parse_webhook_incident_delegated(self):
+        """Test parsing incident.delegated webhook."""
+        creds = PagerDutyCredentials(api_key="key", email="user@example.com")
+        connector = PagerDutyConnector(creds)
+
+        webhook_data = {
+            "event": {
+                "event_type": "incident.delegated",
+                "data": {
+                    "id": "PINC789",
+                    "type": "incident",
+                    "title": "Delegated Incident",
+                    "status": "acknowledged",
+                    "urgency": "low",
+                    "incident_number": 102,
+                    "created_at": "2024-01-15T10:00:00Z",
+                },
+            }
+        }
+        payload = connector.parse_webhook(webhook_data)
+        assert payload.event_type == "incident.delegated"
+
+    def test_parse_webhook_incident_escalated(self):
+        """Test parsing incident.escalated webhook."""
+        creds = PagerDutyCredentials(api_key="key", email="user@example.com")
+        connector = PagerDutyConnector(creds)
+
+        webhook_data = {
+            "event": {
+                "event_type": "incident.escalated",
+                "data": {
+                    "id": "PINC_ESC",
+                    "type": "incident",
+                    "title": "Escalated Incident",
+                    "status": "triggered",
+                    "urgency": "high",
+                    "incident_number": 103,
+                    "created_at": "2024-01-15T10:00:00Z",
+                },
+            }
+        }
+        payload = connector.parse_webhook(webhook_data)
+        assert payload.event_type == "incident.escalated"
+
+    def test_parse_webhook_incident_priority_updated(self):
+        """Test parsing incident.priority_updated webhook."""
+        creds = PagerDutyCredentials(api_key="key", email="user@example.com")
+        connector = PagerDutyConnector(creds)
+
+        webhook_data = {
+            "event": {
+                "event_type": "incident.priority_updated",
+                "data": {
+                    "id": "PINC_PRIO",
+                    "type": "incident",
+                    "title": "Priority Updated",
+                    "status": "triggered",
+                    "urgency": "high",
+                    "priority": {"summary": "P1"},
+                    "incident_number": 104,
+                    "created_at": "2024-01-15T10:00:00Z",
+                },
+            }
+        }
+        payload = connector.parse_webhook(webhook_data)
+        assert payload.event_type == "incident.priority_updated"
+        assert payload.incident.priority == IncidentPriority.P1
+
+    def test_parse_webhook_preserves_raw_data(self):
+        """Test that raw_data is preserved in webhook payload."""
+        creds = PagerDutyCredentials(api_key="key", email="user@example.com")
+        connector = PagerDutyConnector(creds)
+
+        webhook_data = {
+            "event": {
+                "event_type": "incident.triggered",
+                "data": {
+                    "id": "PINC123",
+                    "type": "incident",
+                    "title": "Test",
+                    "status": "triggered",
+                    "urgency": "high",
+                    "incident_number": 1,
+                    "created_at": "2024-01-15T10:00:00Z",
+                },
+            },
+            "custom_field": "custom_value",
+        }
+        payload = connector.parse_webhook(webhook_data)
+        assert payload.raw_data == webhook_data
+        assert payload.raw_data["custom_field"] == "custom_value"
+
+
+# =============================================================================
+# Escalation Policy Tests
+# =============================================================================
+
+
+class TestEscalationPolicyHandling:
+    """Tests for escalation policy handling."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create a connector for testing."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        return PagerDutyConnector(creds)
+
+    @pytest.mark.asyncio
+    async def test_create_incident_with_escalation_policy_body(self, connector):
+        """Test that escalation policy is correctly included in request body."""
+        mock_response = {
+            "incident": {
+                "id": "PINC_ESC",
+                "incident_number": 400,
+                "title": "Escalated Alert",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                request = IncidentCreateRequest(
+                    title="Escalated Alert",
+                    service_id="PSVC1",
+                    escalation_policy_id="PESCAL_CUSTOM",
+                )
+                await connector.create_incident(request)
+
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["escalation_policy"]["id"] == "PESCAL_CUSTOM"
+                assert body["escalation_policy"]["type"] == "escalation_policy_reference"
+
+
+# =============================================================================
+# Service HTML URL Tests
+# =============================================================================
+
+
+class TestServiceHtmlUrl:
+    """Tests for Service html_url field."""
+
+    def test_service_with_html_url(self):
+        """Test service with html_url field."""
+        api_data = {
+            "id": "PSVC1",
+            "name": "Production API",
+            "status": "active",
+            "html_url": "https://example.pagerduty.com/services/PSVC1",
+        }
+        service = Service.from_api(api_data)
+        assert service.html_url == "https://example.pagerduty.com/services/PSVC1"
+
+    def test_service_without_html_url(self):
+        """Test service without html_url field."""
+        api_data = {
+            "id": "PSVC1",
+            "name": "Service",
+            "status": "active",
+        }
+        service = Service.from_api(api_data)
+        assert service.html_url is None
+
+
+# =============================================================================
+# Incident HTML URL Tests
+# =============================================================================
+
+
+class TestIncidentHtmlUrl:
+    """Tests for Incident html_url field."""
+
+    def test_incident_with_html_url(self):
+        """Test incident with html_url field."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Test",
+            "status": "triggered",
+            "urgency": "high",
+            "incident_number": 1,
+            "html_url": "https://example.pagerduty.com/incidents/PINC1",
+            "created_at": "2024-01-15T10:00:00Z",
+        }
+        incident = Incident.from_api(api_data)
+        assert incident.html_url == "https://example.pagerduty.com/incidents/PINC1"
+
+    def test_incident_without_html_url(self):
+        """Test incident without html_url field."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Test",
+            "status": "triggered",
+            "urgency": "high",
+            "incident_number": 1,
+            "created_at": "2024-01-15T10:00:00Z",
+        }
+        incident = Incident.from_api(api_data)
+        assert incident.html_url is None
+
+
+# =============================================================================
+# Incident Description Tests
+# =============================================================================
+
+
+class TestIncidentDescription:
+    """Tests for Incident description field."""
+
+    def test_incident_with_description(self):
+        """Test incident with description field."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Test",
+            "status": "triggered",
+            "urgency": "high",
+            "incident_number": 1,
+            "description": "Detailed incident description here",
+            "created_at": "2024-01-15T10:00:00Z",
+        }
+        incident = Incident.from_api(api_data)
+        assert incident.description == "Detailed incident description here"
+
+    def test_incident_without_description(self):
+        """Test incident without description field."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Test",
+            "status": "triggered",
+            "urgency": "high",
+            "incident_number": 1,
+            "created_at": "2024-01-15T10:00:00Z",
+        }
+        incident = Incident.from_api(api_data)
+        assert incident.description is None
+
+
+# =============================================================================
+# Multiple User Assignment Tests
+# =============================================================================
+
+
+class TestMultipleUserAssignments:
+    """Tests for incidents with multiple assignees."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create a connector for testing."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        return PagerDutyConnector(creds)
+
+    def test_incident_with_multiple_assignees(self):
+        """Test incident with multiple assigned users."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Multi-user Incident",
+            "status": "triggered",
+            "urgency": "high",
+            "incident_number": 1,
+            "created_at": "2024-01-15T10:00:00Z",
+            "assignments": [
+                {"assignee": {"id": "PUSER1", "name": "Alice", "email": "alice@example.com"}},
+                {"assignee": {"id": "PUSER2", "name": "Bob", "email": "bob@example.com"}},
+                {"assignee": {"id": "PUSER3", "name": "Charlie", "email": "charlie@example.com"}},
+            ],
+        }
+        incident = Incident.from_api(api_data)
+        assert len(incident.assigned_to) == 3
+        assert incident.assigned_to[0].name == "Alice"
+        assert incident.assigned_to[1].name == "Bob"
+        assert incident.assigned_to[2].name == "Charlie"
+
+    def test_incident_with_assignment_missing_assignee(self):
+        """Test incident with assignment entry missing assignee field."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Test",
+            "status": "triggered",
+            "urgency": "high",
+            "incident_number": 1,
+            "created_at": "2024-01-15T10:00:00Z",
+            "assignments": [
+                {"assignee": {"id": "PUSER1", "name": "Alice", "email": "alice@example.com"}},
+                {},  # Missing assignee
+                {"assignee": {"id": "PUSER2", "name": "Bob", "email": "bob@example.com"}},
+            ],
+        }
+        incident = Incident.from_api(api_data)
+        # Only 2 users should be included (the one without assignee is skipped)
+        assert len(incident.assigned_to) == 2
+
+    @pytest.mark.asyncio
+    async def test_reassign_to_multiple_users(self, connector):
+        """Test reassigning incident to multiple users."""
+        mock_response = {
+            "incident": {
+                "id": "PINC123",
+                "title": "Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "incident_number": 1,
+                "created_at": "2024-01-15T10:00:00Z",
+                "assignments": [
+                    {"assignee": {"id": "PUSER1", "name": "User1", "email": "u1@example.com"}},
+                    {"assignee": {"id": "PUSER2", "name": "User2", "email": "u2@example.com"}},
+                    {"assignee": {"id": "PUSER3", "name": "User3", "email": "u3@example.com"}},
+                ],
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                incident = await connector.reassign_incident(
+                    "PINC123", ["PUSER1", "PUSER2", "PUSER3"]
+                )
+                assert len(incident.assigned_to) == 3
+
+                # Verify request body format
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert len(body["assignments"]) == 3
+                assert body["assignments"][0]["assignee"]["id"] == "PUSER1"
+
+
+# =============================================================================
+# On-Call Schedule Escalation Level Tests
+# =============================================================================
+
+
+class TestOnCallEscalationLevels:
+    """Tests for on-call schedule escalation levels."""
+
+    def test_oncall_schedule_with_escalation_level(self):
+        """Test on-call schedule with specific escalation level."""
+        api_data = {
+            "schedule": {"id": "PSCHED1", "summary": "Primary"},
+            "user": {"id": "PUSER1", "name": "User", "email": "user@example.com"},
+            "start": "2024-01-15T00:00:00Z",
+            "end": "2024-01-22T00:00:00Z",
+            "escalation_level": 3,
+        }
+        schedule = OnCallSchedule.from_api(api_data)
+        assert schedule.escalation_level == 3
+
+    def test_oncall_schedule_default_escalation_level(self):
+        """Test on-call schedule with default escalation level."""
+        api_data = {
+            "schedule": {"id": "PSCHED1", "summary": "Primary"},
+            "user": {"id": "PUSER1", "name": "User", "email": "user@example.com"},
+            "start": "2024-01-15T00:00:00Z",
+            "end": "2024-01-22T00:00:00Z",
+            # No escalation_level provided
+        }
+        schedule = OnCallSchedule.from_api(api_data)
+        assert schedule.escalation_level == 1  # Default
+
+
+# =============================================================================
+# Service Created At Tests
+# =============================================================================
+
+
+class TestServiceCreatedAt:
+    """Tests for Service created_at field."""
+
+    def test_service_with_created_at(self):
+        """Test service with created_at field."""
+        api_data = {
+            "id": "PSVC1",
+            "name": "Service",
+            "status": "active",
+            "created_at": "2024-01-15T10:30:00Z",
+        }
+        service = Service.from_api(api_data)
+        assert service.created_at is not None
+        assert service.created_at.year == 2024
+        assert service.created_at.month == 1
+        assert service.created_at.day == 15
+
+    def test_service_without_created_at(self):
+        """Test service without created_at field."""
+        api_data = {
+            "id": "PSVC1",
+            "name": "Service",
+            "status": "active",
+        }
+        service = Service.from_api(api_data)
+        assert service.created_at is None
+
+
+# =============================================================================
+# Incident Created At Tests
+# =============================================================================
+
+
+class TestIncidentTimestamps:
+    """Tests for Incident timestamp fields."""
+
+    def test_incident_with_all_timestamps(self):
+        """Test incident with all timestamp fields."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Test",
+            "status": "resolved",
+            "urgency": "high",
+            "incident_number": 1,
+            "created_at": "2024-01-15T10:00:00Z",
+            "resolved_at": "2024-01-15T12:00:00Z",
+            "last_status_change_at": "2024-01-15T12:00:00Z",
+        }
+        incident = Incident.from_api(api_data)
+        assert incident.created_at is not None
+        assert incident.resolved_at is not None
+        assert incident.last_status_change_at is not None
+
+    def test_incident_without_resolved_at(self):
+        """Test incident without resolved_at field."""
+        api_data = {
+            "id": "PINC1",
+            "title": "Test",
+            "status": "triggered",
+            "urgency": "high",
+            "incident_number": 1,
+            "created_at": "2024-01-15T10:00:00Z",
+        }
+        incident = Incident.from_api(api_data)
+        assert incident.resolved_at is None
+
+
+# =============================================================================
+# Finding Severity Mapping Tests
+# =============================================================================
+
+
+class TestFindingSeverityMapping:
+    """Tests for severity to urgency mapping in create_incident_from_finding."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create a connector for testing."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        return PagerDutyConnector(creds)
+
+    @pytest.mark.asyncio
+    async def test_critical_severity_maps_to_high_urgency(self, connector):
+        """Test that critical severity maps to high urgency."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[CRITICAL] Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test",
+                    service_id="PSVC1",
+                    severity="critical",
+                    description="Desc",
+                    source="scanner",
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["urgency"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_high_severity_maps_to_high_urgency(self, connector):
+        """Test that high severity maps to high urgency."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[HIGH] Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test",
+                    service_id="PSVC1",
+                    severity="high",
+                    description="Desc",
+                    source="scanner",
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["urgency"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_medium_severity_maps_to_low_urgency(self, connector):
+        """Test that medium severity maps to low urgency."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[MEDIUM] Test",
+                "status": "triggered",
+                "urgency": "low",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test",
+                    service_id="PSVC1",
+                    severity="medium",
+                    description="Desc",
+                    source="scanner",
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["urgency"] == "low"
+
+    @pytest.mark.asyncio
+    async def test_low_severity_maps_to_low_urgency(self, connector):
+        """Test that low severity maps to low urgency."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[LOW] Test",
+                "status": "triggered",
+                "urgency": "low",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test",
+                    service_id="PSVC1",
+                    severity="low",
+                    description="Desc",
+                    source="scanner",
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["urgency"] == "low"
+
+
+# =============================================================================
+# Finding Description Format Tests
+# =============================================================================
+
+
+class TestFindingDescriptionFormat:
+    """Tests for description formatting in create_incident_from_finding."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create a connector for testing."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        return PagerDutyConnector(creds)
+
+    @pytest.mark.asyncio
+    async def test_finding_description_includes_source(self, connector):
+        """Test that finding description includes source."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[HIGH] Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test",
+                    service_id="PSVC1",
+                    severity="high",
+                    description="Issue found",
+                    source="sast_scanner",
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                description = body["body"]["details"]
+                assert "Source: sast_scanner" in description
+
+    @pytest.mark.asyncio
+    async def test_finding_description_includes_severity(self, connector):
+        """Test that finding description includes severity."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[CRITICAL] Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test",
+                    service_id="PSVC1",
+                    severity="critical",
+                    description="Issue found",
+                    source="scanner",
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                description = body["body"]["details"]
+                assert "Severity: critical" in description
+
+    @pytest.mark.asyncio
+    async def test_finding_description_includes_file_location(self, connector):
+        """Test that finding description includes file location."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[HIGH] Test",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="Test",
+                    service_id="PSVC1",
+                    severity="high",
+                    description="Issue found",
+                    source="scanner",
+                    file_path="/src/auth/login.py",
+                    line_number=42,
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                description = body["body"]["details"]
+                assert "File: /src/auth/login.py:42" in description
+
+    @pytest.mark.asyncio
+    async def test_finding_title_format(self, connector):
+        """Test that finding title is formatted correctly."""
+        mock_response = {
+            "incident": {
+                "id": "PINC1",
+                "incident_number": 1,
+                "title": "[CRITICAL] SQL Injection Vulnerability",
+                "status": "triggered",
+                "urgency": "high",
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "created_at": "2024-01-15T10:00:00Z",
+            }
+        }
+
+        with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = mock_response
+
+            async with connector:
+                await connector.create_incident_from_finding(
+                    title="SQL Injection Vulnerability",
+                    service_id="PSVC1",
+                    severity="critical",
+                    description="Found SQL injection",
+                    source="scanner",
+                )
+                call_args = mock_request.call_args
+                body = call_args[1]["json"]["incident"]
+                assert body["title"] == "[CRITICAL] SQL Injection Vulnerability"
+
+
+# =============================================================================
+# HTTP Connection Error Tests
+# =============================================================================
+
+
+class TestHttpConnectionErrors:
+    """Tests for HTTP connection errors."""
+
+    @pytest.fixture
+    def connector(self):
+        """Create a connector for testing."""
+        creds = PagerDutyCredentials(
+            api_key="test_key",
+            email="user@example.com",
+        )
+        return PagerDutyConnector(creds)
+
+    @pytest.mark.asyncio
+    async def test_request_handles_connection_error(self, connector):
+        """Test that connection errors are handled."""
+        import httpx
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.side_effect = httpx.ConnectError("Connection refused")
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError, match="HTTP error"):
+                    await connector._request("GET", "/incidents")
+
+    @pytest.mark.asyncio
+    async def test_request_handles_timeout_error(self, connector):
+        """Test that timeout errors are handled."""
+        import httpx
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.side_effect = httpx.TimeoutException("Request timed out")
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError, match="HTTP error"):
+                    await connector._request("GET", "/incidents")
+
+    @pytest.mark.asyncio
+    async def test_request_handles_network_error(self, connector):
+        """Test that network errors are handled."""
+        import httpx
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.request.side_effect = httpx.NetworkError("Network unreachable")
+            mock_client_class.return_value = mock_client
+
+            async with connector:
+                connector._client = mock_client
+                with pytest.raises(PagerDutyError, match="HTTP error"):
+                    await connector._request("GET", "/incidents")

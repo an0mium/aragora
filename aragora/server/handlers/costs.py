@@ -31,6 +31,7 @@ from aiohttp import web
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
@@ -364,6 +365,7 @@ def _generate_mock_summary(time_range: str) -> CostSummary:
 class CostHandler:
     """Handler for cost visibility API endpoints."""
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_costs(self, request: web.Request) -> web.Response:
         """
@@ -402,6 +404,7 @@ class CostHandler:
             logger.exception(f"Failed to get costs: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_breakdown(self, request: web.Request) -> web.Response:
         """
@@ -435,6 +438,7 @@ class CostHandler:
             logger.exception(f"Failed to get breakdown: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_timeline(self, request: web.Request) -> web.Response:
         """
@@ -462,6 +466,7 @@ class CostHandler:
             logger.exception(f"Failed to get timeline: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_alerts(self, request: web.Request) -> web.Response:
         """
@@ -502,6 +507,7 @@ class CostHandler:
             logger.exception(f"Failed to get alerts: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=20)  # Write operation
     @require_permission("budget:set")
     async def handle_set_budget(self, request: web.Request) -> web.Response:
         """
@@ -553,6 +559,7 @@ class CostHandler:
             logger.exception(f"Failed to set budget: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=20)  # Write operation
     @require_permission("costs:read")
     async def handle_dismiss_alert(self, request: web.Request) -> web.Response:
         """
@@ -580,6 +587,7 @@ class CostHandler:
             logger.exception(f"Failed to dismiss alert: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_recommendations(self, request: web.Request) -> web.Response:
         """
@@ -631,6 +639,7 @@ class CostHandler:
             logger.exception(f"Failed to get recommendations: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_recommendation(self, request: web.Request) -> web.Response:
         """
@@ -655,6 +664,7 @@ class CostHandler:
             logger.exception(f"Failed to get recommendation: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=20)  # Write operation
     @require_permission("costs:read")
     async def handle_apply_recommendation(self, request: web.Request) -> web.Response:
         """
@@ -690,6 +700,7 @@ class CostHandler:
             logger.exception(f"Failed to apply recommendation: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=20)  # Write operation
     @require_permission("costs:read")
     async def handle_dismiss_recommendation(self, request: web.Request) -> web.Response:
         """
@@ -714,6 +725,7 @@ class CostHandler:
             logger.exception(f"Failed to dismiss recommendation: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_efficiency(self, request: web.Request) -> web.Response:
         """
@@ -776,6 +788,7 @@ class CostHandler:
             logger.exception(f"Failed to get efficiency: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_forecast(self, request: web.Request) -> web.Response:
         """
@@ -807,6 +820,7 @@ class CostHandler:
             logger.exception(f"Failed to get forecast: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=5)  # Expensive: simulation
     @require_permission("costs:read")
     async def handle_simulate_forecast(self, request: web.Request) -> web.Response:
         """

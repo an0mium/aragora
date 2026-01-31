@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.handlers.utils.rate_limit import auth_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,11 @@ def _cleanup_expired_sessions():
 
 
 # NOTE: SSO login is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
+@auth_rate_limit(
+    requests_per_minute=20,
+    limiter_name="auth_sso_login",
+    endpoint_name="SSO login initiation",
+)
 async def handle_sso_login(
     data: dict[str, Any],
     user_id: str = "default",
@@ -217,6 +223,11 @@ async def handle_sso_login(
 
 
 # NOTE: SSO callback is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
+@auth_rate_limit(
+    requests_per_minute=20,
+    limiter_name="auth_sso_callback",
+    endpoint_name="SSO callback",
+)
 async def handle_sso_callback(
     data: dict[str, Any],
     user_id: str = "default",
@@ -293,6 +304,11 @@ async def handle_sso_callback(
 
 
 @require_permission("auth:read")
+@auth_rate_limit(
+    requests_per_minute=20,
+    limiter_name="auth_sso_refresh",
+    endpoint_name="SSO token refresh",
+)
 async def handle_sso_refresh(
     data: dict[str, Any],
     user_id: str = "default",
@@ -345,6 +361,11 @@ async def handle_sso_refresh(
 
 
 @require_permission("auth:read")
+@auth_rate_limit(
+    requests_per_minute=20,
+    limiter_name="auth_sso_logout",
+    endpoint_name="SSO logout",
+)
 async def handle_sso_logout(
     data: dict[str, Any],
     user_id: str = "default",
@@ -393,6 +414,11 @@ async def handle_sso_logout(
 
 
 # NOTE: List providers is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
+@auth_rate_limit(
+    requests_per_minute=30,
+    limiter_name="auth_sso_list_providers",
+    endpoint_name="SSO list providers",
+)
 async def handle_list_providers(
     data: dict[str, Any],
     user_id: str = "default",
@@ -452,6 +478,11 @@ async def handle_list_providers(
 
 
 @require_permission("admin:system")
+@auth_rate_limit(
+    requests_per_minute=20,
+    limiter_name="auth_sso_config",
+    endpoint_name="SSO config",
+)
 async def handle_get_sso_config(
     data: dict[str, Any],
     user_id: str = "default",

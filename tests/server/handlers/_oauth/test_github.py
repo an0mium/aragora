@@ -244,45 +244,53 @@ class TestGitHubAuthStart:
 class TestGitHubCallback:
     """Tests for GitHub OAuth callback handling."""
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_missing_state(
+    async def test_callback_missing_state(
         self, mock_validate_state, github_handler, mock_request_handler
     ):
         """Test callback fails without state parameter."""
-        result = github_handler._handle_github_callback(mock_request_handler, {"code": "auth-code"})
+        result = await github_handler._handle_github_callback(
+            mock_request_handler, {"code": "auth-code"}
+        )
 
         assert result.status_code == 302
         assert "Missing state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_invalid_state(
+    async def test_callback_invalid_state(
         self, mock_validate_state, github_handler, mock_request_handler
     ):
         """Test callback fails with invalid state."""
         mock_validate_state.return_value = None
 
-        result = github_handler._handle_github_callback(
+        result = await github_handler._handle_github_callback(
             mock_request_handler, {"code": "auth-code", "state": "invalid-state"}
         )
 
         assert result.status_code == 302
         assert "Invalid or expired state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_missing_code(self, mock_validate_state, github_handler, mock_request_handler):
+    async def test_callback_missing_code(
+        self, mock_validate_state, github_handler, mock_request_handler
+    ):
         """Test callback fails without authorization code."""
         mock_validate_state.return_value = {"redirect_url": "https://example.com"}
 
-        result = github_handler._handle_github_callback(
+        result = await github_handler._handle_github_callback(
             mock_request_handler, {"state": "valid-state"}
         )
 
         assert result.status_code == 302
         assert "Missing authorization code" in result.headers.get("Location", "")
 
-    def test_callback_with_oauth_error(self, github_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_callback_with_oauth_error(self, github_handler, mock_request_handler):
         """Test callback handles OAuth error from GitHub."""
-        result = github_handler._handle_github_callback(
+        result = await github_handler._handle_github_callback(
             mock_request_handler,
             {
                 "error": "access_denied",
@@ -633,24 +641,28 @@ class TestGitHubUserInfo:
 class TestGitHubCSRFProtection:
     """Tests for CSRF protection in GitHub OAuth."""
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_state_parameter_required(
+    async def test_state_parameter_required(
         self, mock_validate_state, github_handler, mock_request_handler
     ):
         """Test that state parameter is required for callback."""
-        result = github_handler._handle_github_callback(mock_request_handler, {"code": "auth-code"})
+        result = await github_handler._handle_github_callback(
+            mock_request_handler, {"code": "auth-code"}
+        )
 
         assert result.status_code == 302
         assert "Missing state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_expired_state_rejected(
+    async def test_expired_state_rejected(
         self, mock_validate_state, github_handler, mock_request_handler
     ):
         """Test that expired state tokens are rejected."""
         mock_validate_state.return_value = None
 
-        result = github_handler._handle_github_callback(
+        result = await github_handler._handle_github_callback(
             mock_request_handler, {"code": "auth-code", "state": "expired-state"}
         )
 
@@ -666,9 +678,10 @@ class TestGitHubCSRFProtection:
 class TestGitHubErrorHandling:
     """Tests for GitHub OAuth error handling."""
 
-    def test_access_denied_error(self, github_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_access_denied_error(self, github_handler, mock_request_handler):
         """Test handling of access_denied error."""
-        result = github_handler._handle_github_callback(
+        result = await github_handler._handle_github_callback(
             mock_request_handler,
             {"error": "access_denied", "error_description": "User denied access"},
         )
@@ -677,9 +690,10 @@ class TestGitHubErrorHandling:
         location = result.headers.get("Location", "")
         assert "OAuth error" in location or "error" in location
 
-    def test_application_suspended_error(self, github_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_application_suspended_error(self, github_handler, mock_request_handler):
         """Test handling of application_suspended error."""
-        result = github_handler._handle_github_callback(
+        result = await github_handler._handle_github_callback(
             mock_request_handler,
             {
                 "error": "application_suspended",
@@ -690,9 +704,10 @@ class TestGitHubErrorHandling:
         assert result.status_code == 302
         assert "error" in result.headers.get("Location", "")
 
-    def test_redirect_uri_mismatch_error(self, github_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    async def test_redirect_uri_mismatch_error(self, github_handler, mock_request_handler):
         """Test handling of redirect_uri_mismatch error."""
-        result = github_handler._handle_github_callback(
+        result = await github_handler._handle_github_callback(
             mock_request_handler,
             {
                 "error": "redirect_uri_mismatch",

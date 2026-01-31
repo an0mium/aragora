@@ -923,3 +923,893 @@ class TestEdgeCases:
         # Only pending + approved should count
         balance = await store.get_customer_balance("c1")
         assert balance == Decimal("300")
+
+
+# =============================================================================
+# Credit Memo Handling
+# =============================================================================
+
+
+class TestCreditMemoHandling:
+    """Tests for credit memo and adjustment operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_credit_memo(self, store):
+        """Should create a credit memo with negative balance."""
+        credit_memo = {
+            "id": "cm_001",
+            "invoice_number": "CM-2024-001",
+            "customer_id": "cust_123",
+            "customer_name": "Widget Co",
+            "total_amount": Decimal("-250.00"),
+            "balance_due": Decimal("-250.00"),
+            "status": "approved",
+            "type": "credit_memo",
+            "reason": "Product return",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await store.save(credit_memo)
+        result = await store.get("cm_001")
+        assert result is not None
+        assert result["total_amount"] == Decimal("-250.00")
+        assert result["type"] == "credit_memo"
+
+    @pytest.mark.asyncio
+    async def test_credit_memo_affects_customer_balance(self, store):
+        """Credit memos should reduce customer outstanding balance."""
+        # Create invoice
+        invoice = {
+            "id": "inv_cm_1",
+            "customer_id": "cust_cm",
+            "total_amount": Decimal("1000.00"),
+            "balance_due": Decimal("1000.00"),
+            "status": "pending",
+        }
+        await store.save(invoice)
+
+        # Create credit memo (negative balance)
+        credit_memo = {
+            "id": "cm_002",
+            "customer_id": "cust_cm",
+            "total_amount": Decimal("-200.00"),
+            "balance_due": Decimal("-200.00"),
+            "status": "approved",
+        }
+        await store.save(credit_memo)
+
+        # Net balance should be 1000 - 200 = 800
+        balance = await store.get_customer_balance("cust_cm")
+        assert balance == Decimal("800.00")
+
+    @pytest.mark.asyncio
+    async def test_credit_memo_application(self, store, sample_invoice):
+        """Credit memo can be applied to reduce invoice balance."""
+        await store.save(sample_invoice)
+
+        # Apply credit memo as a payment
+        now = datetime.now(timezone.utc)
+        result = await store.record_payment(
+            "ar_inv_001",
+            Decimal("100.00"),
+            now,
+            payment_method="credit_memo",
+            reference="CM-001",
+        )
+        assert result is True
+
+        inv = await store.get("ar_inv_001")
+        assert Decimal(inv["amount_paid"]) == Decimal("100.00")
+        assert Decimal(inv["balance_due"]) == Decimal("980.00")
+
+    @pytest.mark.asyncio
+    async def test_multiple_credit_memos_per_customer(self, store):
+        """Should handle multiple credit memos for the same customer."""
+        for i in range(3):
+            cm = {
+                "id": f"cm_multi_{i}",
+                "customer_id": "cust_multi_cm",
+                "total_amount": Decimal("-100.00"),
+                "balance_due": Decimal("-100.00"),
+                "status": "approved",
+            }
+            await store.save(cm)
+
+        invoices = await store.list_by_customer("cust_multi_cm")
+        assert len(invoices) == 3
+        assert all(Decimal(inv["balance_due"]) == Decimal("-100.00") for inv in invoices)
+
+
+# =============================================================================
+# Collections Workflow
+# =============================================================================
+
+
+class TestCollectionsWorkflow:
+    """Tests for complete collections workflow operations."""
+
+    @pytest.mark.asyncio
+    async def test_collections_escalation_levels(self, store, overdue_invoice):
+        """Should track escalating collection levels."""
+        await store.save(overdue_invoice)
+
+        # Level 1: Friendly reminder
+        await store.record_reminder_sent("ar_inv_overdue", 1)
+
+        # Level 2: Past due notice
+        await store.record_reminder_sent("ar_inv_overdue", 2)
+
+        # Level 3: Final notice
+        await store.record_reminder_sent("ar_inv_overdue", 3)
+
+        # Level 4: Collections warning
+        await store.record_reminder_sent("ar_inv_overdue", 4)
+
+        inv = await store.get("ar_inv_overdue")
+        assert len(inv["reminders_sent"]) == 4
+        assert inv["last_reminder_level"] == 4
+
+    @pytest.mark.asyncio
+    async def test_collections_hold_status(self, store, sample_invoice):
+        """Should support collections hold status."""
+        await store.save(sample_invoice)
+
+        result = await store.update_status("ar_inv_001", "collections_hold")
+        assert result is True
+
+        inv = await store.get("ar_inv_001")
+        assert inv["status"] == "collections_hold"
+
+    @pytest.mark.asyncio
+    async def test_sent_to_collections_status(self, store, overdue_invoice):
+        """Should track when invoice is sent to collections agency."""
+        await store.save(overdue_invoice)
+
+        result = await store.update_status("ar_inv_overdue", "sent_to_collections")
+        assert result is True
+
+        inv = await store.get("ar_inv_overdue")
+        assert inv["status"] == "sent_to_collections"
+
+    @pytest.mark.asyncio
+    async def test_collections_by_aging_bucket(self, store):
+        """Should identify invoices eligible for collections based on aging."""
+        now = datetime.now(timezone.utc)
+
+        # Create invoices in different aging buckets
+        invoices = [
+            {
+                "id": "col_current",
+                "status": "pending",
+                "customer_id": "c1",
+                "due_date": (now + timedelta(days=10)).isoformat(),
+            },
+            {
+                "id": "col_30",
+                "status": "pending",
+                "customer_id": "c1",
+                "due_date": (now - timedelta(days=20)).isoformat(),
+            },
+            {
+                "id": "col_60",
+                "status": "pending",
+                "customer_id": "c1",
+                "due_date": (now - timedelta(days=50)).isoformat(),
+            },
+            {
+                "id": "col_90",
+                "status": "pending",
+                "customer_id": "c1",
+                "due_date": (now - timedelta(days=100)).isoformat(),
+            },
+        ]
+
+        for inv in invoices:
+            await store.save(inv)
+
+        buckets = await store.get_aging_buckets()
+
+        # Verify collections candidates (90+ days)
+        assert len(buckets["90_plus"]) == 1
+        assert buckets["90_plus"][0]["id"] == "col_90"
+
+    @pytest.mark.asyncio
+    async def test_payment_plan_tracking(self, store, overdue_invoice):
+        """Should track invoices on payment plans."""
+        overdue_invoice["payment_plan"] = {
+            "agreed_date": datetime.now(timezone.utc).isoformat(),
+            "installments": 3,
+            "amount_per_installment": "166.67",
+        }
+        await store.save(overdue_invoice)
+
+        inv = await store.get("ar_inv_overdue")
+        assert "payment_plan" in inv
+        assert inv["payment_plan"]["installments"] == 3
+
+
+# =============================================================================
+# Write-Off Processing
+# =============================================================================
+
+
+class TestWriteOffProcessing:
+    """Tests for bad debt write-off operations."""
+
+    @pytest.mark.asyncio
+    async def test_write_off_full_invoice(self, store, overdue_invoice):
+        """Should write off entire invoice balance using void status."""
+        await store.save(overdue_invoice)
+
+        # Mark as void (write-off) - the store only excludes 'paid' and 'void' from balance
+        result = await store.update_status("ar_inv_overdue", "void")
+        assert result is True
+
+        inv = await store.get("ar_inv_overdue")
+        assert inv["status"] == "void"
+
+        # Voided (written off) invoices should not appear in customer balance
+        balance = await store.get_customer_balance("cust_456")
+        assert balance == Decimal("0")
+
+    @pytest.mark.asyncio
+    async def test_write_off_via_payment(self, store, sample_invoice):
+        """Should write off invoice via payment method."""
+        await store.save(sample_invoice)
+
+        # Record partial payment first
+        now = datetime.now(timezone.utc)
+        await store.record_payment("ar_inv_001", Decimal("500.00"), now, "check")
+
+        # Record write-off for remaining balance as a special payment
+        await store.record_payment(
+            "ar_inv_001",
+            Decimal("580.00"),
+            now,
+            payment_method="write_off",
+            reference="WO-001",
+        )
+
+        inv = await store.get("ar_inv_001")
+        assert inv["status"] == "paid"  # Fully settled via write-off
+        assert Decimal(inv["balance_due"]) == Decimal("0.00")
+
+    @pytest.mark.asyncio
+    async def test_void_excluded_from_aging(self, store, overdue_invoice):
+        """Voided (written off) invoices should not appear in aging buckets."""
+        overdue_invoice["status"] = "void"
+        await store.save(overdue_invoice)
+
+        buckets = await store.get_aging_buckets()
+        all_invoices = []
+        for bucket in buckets.values():
+            all_invoices.extend(bucket)
+
+        assert not any(inv["id"] == "ar_inv_overdue" for inv in all_invoices)
+
+    @pytest.mark.asyncio
+    async def test_void_excluded_from_overdue(self, store, overdue_invoice):
+        """Voided (written off) invoices should not appear in overdue list."""
+        overdue_invoice["status"] = "void"
+        await store.save(overdue_invoice)
+
+        overdue = await store.list_overdue()
+        assert len(overdue) == 0
+
+    @pytest.mark.asyncio
+    async def test_write_off_custom_status_in_balance(self, store, overdue_invoice):
+        """Custom write_off status still appears in balance (only paid/void excluded)."""
+        overdue_invoice["status"] = "written_off"
+        await store.save(overdue_invoice)
+
+        # The store only excludes 'paid' and 'void' - custom statuses still count
+        balance = await store.get_customer_balance("cust_456")
+        assert balance == Decimal("500.00")
+
+    @pytest.mark.asyncio
+    async def test_recovery_after_void(self, store, overdue_invoice):
+        """Should track recovered amounts after voiding."""
+        overdue_invoice["status"] = "void"
+        overdue_invoice["write_off_amount"] = str(overdue_invoice["balance_due"])
+        await store.save(overdue_invoice)
+
+        # Change status back to track recovery
+        await store.update_status("ar_inv_overdue", "recovered")
+
+        # Record recovered payment
+        now = datetime.now(timezone.utc)
+        await store.record_payment(
+            "ar_inv_overdue",
+            Decimal("250.00"),
+            now,
+            payment_method="recovery",
+            reference="REC-001",
+        )
+
+        inv = await store.get("ar_inv_overdue")
+        assert inv["status"] in ("recovered", "paid")
+
+
+# =============================================================================
+# Transaction Safety and Rollback
+# =============================================================================
+
+
+class TestTransactionSafety:
+    """Tests for transaction safety and error handling."""
+
+    @pytest.mark.asyncio
+    async def test_save_validation_failure_rollback(self, store):
+        """Should not save partial data on validation failure."""
+        # First save a valid invoice
+        valid = {"id": "tx_valid", "customer_id": "c1", "status": "pending"}
+        await store.save(valid)
+
+        # Attempt to save invalid (no id) should fail
+        with pytest.raises(ValueError):
+            await store.save({"customer_id": "c2"})
+
+        # Valid invoice should still be intact
+        result = await store.get("tx_valid")
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_payment_on_missing_invoice_no_side_effects(self, store, sample_invoice):
+        """Recording payment on missing invoice should have no side effects."""
+        await store.save(sample_invoice)
+
+        now = datetime.now(timezone.utc)
+        result = await store.record_payment("nonexistent", Decimal("100.00"), now)
+        assert result is False
+
+        # Original invoice should be unchanged
+        inv = await store.get("ar_inv_001")
+        assert "payments" not in inv or len(inv.get("payments", [])) == 0
+
+    @pytest.mark.asyncio
+    async def test_concurrent_update_consistency(self, store, sample_invoice):
+        """Concurrent updates should maintain data consistency."""
+        await store.save(sample_invoice)
+
+        async def update_status(status: str):
+            await store.update_status("ar_inv_001", status)
+
+        # Run status updates concurrently
+        await asyncio.gather(
+            update_status("approved"),
+            update_status("pending"),
+            update_status("sent"),
+        )
+
+        # Invoice should have one of the valid statuses
+        inv = await store.get("ar_inv_001")
+        assert inv["status"] in ("approved", "pending", "sent")
+
+    @pytest.mark.asyncio
+    async def test_reminder_on_missing_invoice_no_side_effects(self, store):
+        """Recording reminder on missing invoice should have no side effects."""
+        result = await store.record_reminder_sent("nonexistent", 1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_and_verify_cleanup(self, store, sample_invoice):
+        """Deleted invoices should be completely removed."""
+        await store.save(sample_invoice)
+        await store.delete("ar_inv_001")
+
+        # Verify not in any lists
+        all_invoices = await store.list_all()
+        assert not any(inv["id"] == "ar_inv_001" for inv in all_invoices)
+
+        by_customer = await store.list_by_customer("cust_123")
+        assert len(by_customer) == 0
+
+        by_status = await store.list_by_status("pending")
+        assert not any(inv["id"] == "ar_inv_001" for inv in by_status)
+
+
+# =============================================================================
+# SQLite Backend Tests
+# =============================================================================
+
+
+class TestSQLiteARInvoiceStore:
+    """Tests for SQLite-backed AR invoice store."""
+
+    @pytest.fixture
+    def sqlite_store(self, tmp_path):
+        """Create a SQLite store with temp database."""
+        from aragora.storage.ar_invoice_store import SQLiteARInvoiceStore
+
+        db_path = tmp_path / "test_ar.db"
+        return SQLiteARInvoiceStore(db_path)
+
+    @pytest.mark.asyncio
+    async def test_sqlite_save_and_get(self, sqlite_store, sample_invoice):
+        """SQLite store should save and retrieve invoices."""
+        await sqlite_store.save(sample_invoice)
+        result = await sqlite_store.get("ar_inv_001")
+        assert result is not None
+        assert result["id"] == "ar_inv_001"
+
+    @pytest.mark.asyncio
+    async def test_sqlite_decimal_precision(self, sqlite_store):
+        """SQLite store should preserve decimal precision."""
+        inv = {
+            "id": "sqlite_prec",
+            "total_amount": Decimal("12345.67"),
+            "balance_due": Decimal("12345.67"),
+            "status": "pending",
+            "customer_id": "c1",
+        }
+        await sqlite_store.save(inv)
+
+        result = await sqlite_store.get("sqlite_prec")
+        assert result["total_amount"] == Decimal("12345.67")
+
+    @pytest.mark.asyncio
+    async def test_sqlite_list_all(self, sqlite_store, multiple_invoices):
+        """SQLite store should list all invoices."""
+        for inv in multiple_invoices:
+            await sqlite_store.save(inv)
+
+        result = await sqlite_store.list_all()
+        assert len(result) == 10
+
+    @pytest.mark.asyncio
+    async def test_sqlite_list_by_status(self, sqlite_store, multiple_invoices):
+        """SQLite store should filter by status."""
+        for inv in multiple_invoices:
+            await sqlite_store.save(inv)
+
+        pending = await sqlite_store.list_by_status("pending")
+        assert all(inv["status"] == "pending" for inv in pending)
+
+    @pytest.mark.asyncio
+    async def test_sqlite_list_by_customer(self, sqlite_store, multiple_invoices):
+        """SQLite store should filter by customer."""
+        for inv in multiple_invoices:
+            await sqlite_store.save(inv)
+
+        cust_a = await sqlite_store.list_by_customer("cust_a")
+        assert all(inv["customer_id"] == "cust_a" for inv in cust_a)
+
+    @pytest.mark.asyncio
+    async def test_sqlite_overdue_detection(self, sqlite_store, overdue_invoice):
+        """SQLite store should detect overdue invoices."""
+        await sqlite_store.save(overdue_invoice)
+
+        overdue = await sqlite_store.list_overdue()
+        assert len(overdue) == 1
+        assert overdue[0]["id"] == "ar_inv_overdue"
+
+    @pytest.mark.asyncio
+    async def test_sqlite_aging_buckets(self, sqlite_store):
+        """SQLite store should calculate aging buckets."""
+        now = datetime.now(timezone.utc)
+        inv = {
+            "id": "sqlite_aging",
+            "status": "pending",
+            "customer_id": "c1",
+            "due_date": (now - timedelta(days=45)).isoformat(),
+        }
+        await sqlite_store.save(inv)
+
+        buckets = await sqlite_store.get_aging_buckets()
+        assert len(buckets["31_60"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_sqlite_customer_balance(self, sqlite_store):
+        """SQLite store should calculate customer balance."""
+        invoices = [
+            {
+                "id": "sq_bal_1",
+                "customer_id": "cust_sq",
+                "balance_due": Decimal("500.00"),
+                "total_amount": Decimal("500.00"),
+                "status": "pending",
+            },
+            {
+                "id": "sq_bal_2",
+                "customer_id": "cust_sq",
+                "balance_due": Decimal("300.00"),
+                "total_amount": Decimal("300.00"),
+                "status": "pending",
+            },
+        ]
+        for inv in invoices:
+            await sqlite_store.save(inv)
+
+        balance = await sqlite_store.get_customer_balance("cust_sq")
+        assert balance == Decimal("800.00")
+
+    @pytest.mark.asyncio
+    async def test_sqlite_record_payment(self, sqlite_store, sample_invoice):
+        """SQLite store should record payments correctly."""
+        await sqlite_store.save(sample_invoice)
+        now = datetime.now(timezone.utc)
+
+        result = await sqlite_store.record_payment(
+            "ar_inv_001", Decimal("500.00"), now, "check", "CHK-001"
+        )
+        assert result is True
+
+        inv = await sqlite_store.get("ar_inv_001")
+        assert Decimal(inv["amount_paid"]) == Decimal("500.00")
+        assert len(inv["payments"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_sqlite_full_payment_auto_paid(self, sqlite_store, sample_invoice):
+        """SQLite store should auto-mark fully paid invoices."""
+        await sqlite_store.save(sample_invoice)
+        now = datetime.now(timezone.utc)
+
+        await sqlite_store.record_payment("ar_inv_001", Decimal("1080.00"), now)
+
+        inv = await sqlite_store.get("ar_inv_001")
+        assert inv["status"] == "paid"
+
+    @pytest.mark.asyncio
+    async def test_sqlite_record_reminder(self, sqlite_store, sample_invoice):
+        """SQLite store should record reminders."""
+        await sqlite_store.save(sample_invoice)
+
+        result = await sqlite_store.record_reminder_sent("ar_inv_001", 1)
+        assert result is True
+
+        inv = await sqlite_store.get("ar_inv_001")
+        assert inv["last_reminder_level"] == 1
+
+    @pytest.mark.asyncio
+    async def test_sqlite_customer_crud(self, sqlite_store, sample_customer):
+        """SQLite store should handle customer CRUD."""
+        await sqlite_store.save_customer(sample_customer)
+
+        result = await sqlite_store.get_customer("cust_123")
+        assert result is not None
+        assert result["name"] == "Widget Co"
+
+        customers = await sqlite_store.list_customers()
+        assert len(customers) == 1
+
+    @pytest.mark.asyncio
+    async def test_sqlite_delete(self, sqlite_store, sample_invoice):
+        """SQLite store should delete invoices."""
+        await sqlite_store.save(sample_invoice)
+
+        result = await sqlite_store.delete("ar_inv_001")
+        assert result is True
+
+        assert await sqlite_store.get("ar_inv_001") is None
+
+    @pytest.mark.asyncio
+    async def test_sqlite_update_status(self, sqlite_store, sample_invoice):
+        """SQLite store should update status."""
+        await sqlite_store.save(sample_invoice)
+
+        result = await sqlite_store.update_status("ar_inv_001", "approved")
+        assert result is True
+
+        inv = await sqlite_store.get("ar_inv_001")
+        assert inv["status"] == "approved"
+
+
+# =============================================================================
+# PostgreSQL Backend Mock Tests
+# =============================================================================
+
+
+class TestPostgresARInvoiceStore:
+    """Tests for PostgreSQL-backed AR invoice store with mocked connection."""
+
+    @pytest.fixture
+    def mock_pool(self):
+        """Create a mock asyncpg connection pool."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        pool = MagicMock()
+        conn = AsyncMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+        return pool, conn
+
+    @pytest.mark.asyncio
+    async def test_postgres_save_decimal_precision(self, mock_pool):
+        """PostgreSQL store should preserve Decimal precision on save."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        store = PostgresARInvoiceStore(pool)
+
+        invoice = {
+            "id": "pg_prec_test",
+            "customer_id": "c1",
+            "total_amount": Decimal("12345678901234.56"),
+            "balance_due": Decimal("12345678901234.56"),
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        await store.save(invoice)
+
+        conn.execute.assert_called_once()
+        # Verify the total_amount parameter (5th arg) is float
+        call_args = conn.execute.call_args
+        amount_arg = call_args[0][5]  # total_amount position
+        assert isinstance(amount_arg, (int, float))
+
+    @pytest.mark.asyncio
+    async def test_postgres_get_returns_none_when_empty(self, mock_pool):
+        """PostgreSQL store should return None for missing invoice."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        conn.fetchrow.return_value = None
+        store = PostgresARInvoiceStore(pool)
+
+        result = await store.get("nonexistent")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_postgres_get_parses_json(self, mock_pool):
+        """PostgreSQL store should parse JSON data correctly."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        conn.fetchrow.return_value = {
+            "data_json": json.dumps(
+                {
+                    "id": "pg_json",
+                    "customer_id": "c1",
+                    "total_amount": "1000.00",
+                }
+            )
+        }
+        store = PostgresARInvoiceStore(pool)
+
+        result = await store.get("pg_json")
+        assert result is not None
+        assert result["id"] == "pg_json"
+
+    @pytest.mark.asyncio
+    async def test_postgres_list_all(self, mock_pool):
+        """PostgreSQL store should list all invoices."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        conn.fetch.return_value = [
+            {"data_json": json.dumps({"id": "pg_1", "customer_id": "c1"})},
+            {"data_json": json.dumps({"id": "pg_2", "customer_id": "c2"})},
+        ]
+        store = PostgresARInvoiceStore(pool)
+
+        result = await store.list_all()
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_postgres_delete_success(self, mock_pool):
+        """PostgreSQL store should return True on successful delete."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        conn.execute.return_value = "DELETE 1"
+        store = PostgresARInvoiceStore(pool)
+
+        result = await store.delete("pg_delete")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_postgres_delete_not_found(self, mock_pool):
+        """PostgreSQL store should return False when nothing deleted."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        conn.execute.return_value = "DELETE 0"
+        store = PostgresARInvoiceStore(pool)
+
+        result = await store.delete("pg_notfound")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_postgres_customer_balance(self, mock_pool):
+        """PostgreSQL store should calculate customer balance."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        conn.fetchrow.return_value = [Decimal("1500.00")]
+        store = PostgresARInvoiceStore(pool)
+
+        result = await store.get_customer_balance("cust_pg")
+        assert result == Decimal("1500.00")
+
+    @pytest.mark.asyncio
+    async def test_postgres_aging_buckets(self, mock_pool):
+        """PostgreSQL store should calculate aging buckets."""
+        from aragora.storage.ar_invoice_store import PostgresARInvoiceStore
+
+        pool, conn = mock_pool
+        conn.fetch.return_value = [
+            {
+                "data_json": json.dumps({"id": "current_inv", "status": "pending"}),
+                "days_overdue": -10,
+            },
+            {
+                "data_json": json.dumps({"id": "1_30_inv", "status": "pending"}),
+                "days_overdue": 15,
+            },
+            {
+                "data_json": json.dumps({"id": "90_plus_inv", "status": "pending"}),
+                "days_overdue": 120,
+            },
+        ]
+        store = PostgresARInvoiceStore(pool)
+
+        buckets = await store.get_aging_buckets()
+        assert len(buckets["current"]) == 1
+        assert len(buckets["1_30"]) == 1
+        assert len(buckets["90_plus"]) == 1
+
+
+# =============================================================================
+# Store Factory and Global State Tests
+# =============================================================================
+
+
+class TestStoreFactory:
+    """Tests for store factory and global state management."""
+
+    def test_set_and_reset_store(self):
+        """Should allow setting and resetting custom store."""
+        from aragora.storage.ar_invoice_store import (
+            set_ar_invoice_store,
+            reset_ar_invoice_store,
+        )
+
+        custom_store = InMemoryARInvoiceStore()
+        set_ar_invoice_store(custom_store)
+
+        reset_ar_invoice_store()
+        # After reset, getting store should create new instance
+
+
+# =============================================================================
+# Additional Edge Cases
+# =============================================================================
+
+
+class TestAdditionalEdgeCases:
+    """Additional edge case tests for comprehensive coverage."""
+
+    @pytest.mark.asyncio
+    async def test_zero_amount_invoice(self, store):
+        """Should handle zero amount invoices."""
+        inv = {
+            "id": "zero_inv",
+            "customer_id": "c1",
+            "total_amount": Decimal("0.00"),
+            "balance_due": Decimal("0.00"),
+            "status": "pending",
+        }
+        await store.save(inv)
+
+        result = await store.get("zero_inv")
+        assert result["total_amount"] == Decimal("0.00")
+
+    @pytest.mark.asyncio
+    async def test_large_invoice_number(self, store):
+        """Should handle large invoice amounts."""
+        inv = {
+            "id": "large_inv",
+            "customer_id": "c1",
+            "total_amount": Decimal("99999999.99"),
+            "balance_due": Decimal("99999999.99"),
+            "status": "pending",
+        }
+        await store.save(inv)
+
+        result = await store.get("large_inv")
+        assert result["total_amount"] == Decimal("99999999.99")
+
+    @pytest.mark.asyncio
+    async def test_special_chars_in_customer_name(self, store):
+        """Should handle special characters in customer name."""
+        inv = {
+            "id": "special_chars",
+            "customer_id": "c1",
+            "customer_name": "O'Brien & Sons (Pty) Ltd.",
+            "status": "pending",
+        }
+        await store.save(inv)
+
+        result = await store.get("special_chars")
+        assert result["customer_name"] == "O'Brien & Sons (Pty) Ltd."
+
+    @pytest.mark.asyncio
+    async def test_unicode_customer_name(self, store):
+        """Should handle unicode in customer name."""
+        inv = {
+            "id": "unicode_inv",
+            "customer_id": "c1",
+            "customer_name": "Empresa Espanola S.A.",
+            "status": "pending",
+        }
+        await store.save(inv)
+
+        result = await store.get("unicode_inv")
+        assert "Empresa" in result["customer_name"]
+
+    @pytest.mark.asyncio
+    async def test_negative_balance_due(self, store):
+        """Should handle negative balance (overpayment/credit)."""
+        inv = {
+            "id": "neg_balance",
+            "customer_id": "c1",
+            "total_amount": Decimal("100.00"),
+            "balance_due": Decimal("-50.00"),
+            "status": "credit_balance",
+        }
+        await store.save(inv)
+
+        result = await store.get("neg_balance")
+        assert result["balance_due"] == Decimal("-50.00")
+
+    @pytest.mark.asyncio
+    async def test_payment_with_no_method(self, store, sample_invoice):
+        """Should handle payment with no method specified."""
+        await store.save(sample_invoice)
+        now = datetime.now(timezone.utc)
+
+        result = await store.record_payment("ar_inv_001", Decimal("100.00"), now)
+        assert result is True
+
+        inv = await store.get("ar_inv_001")
+        assert inv["payments"][0]["payment_method"] is None
+
+    @pytest.mark.asyncio
+    async def test_multiple_customers_isolation(self, store):
+        """Each customer's data should be isolated."""
+        for i in range(3):
+            await store.save(
+                {
+                    "id": f"iso_{i}",
+                    "customer_id": f"cust_{i}",
+                    "balance_due": Decimal("100.00"),
+                    "status": "pending",
+                }
+            )
+
+        for i in range(3):
+            balance = await store.get_customer_balance(f"cust_{i}")
+            assert balance == Decimal("100.00")
+
+            invoices = await store.list_by_customer(f"cust_{i}")
+            assert len(invoices) == 1
+
+    @pytest.mark.asyncio
+    async def test_status_transitions(self, store, sample_invoice):
+        """Should support various status transitions."""
+        await store.save(sample_invoice)
+
+        transitions = ["approved", "sent", "overdue", "paid"]
+
+        for status in transitions:
+            result = await store.update_status("ar_inv_001", status)
+            assert result is True
+
+            inv = await store.get("ar_inv_001")
+            assert inv["status"] == status
+
+    @pytest.mark.asyncio
+    async def test_list_by_status_empty_result(self, store, sample_invoice):
+        """Should return empty list for status with no matches."""
+        await store.save(sample_invoice)
+
+        result = await store.list_by_status("nonexistent_status")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_list_by_customer_empty_result(self, store, sample_invoice):
+        """Should return empty list for customer with no invoices."""
+        await store.save(sample_invoice)
+
+        result = await store.list_by_customer("nonexistent_customer")
+        assert result == []

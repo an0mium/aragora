@@ -282,48 +282,58 @@ class TestGoogleAuthStart:
 class TestGoogleCallback:
     """Tests for Google OAuth callback handling."""
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_missing_state(
+    async def test_callback_missing_state(
         self, mock_validate_state, mock_success_url, google_handler, mock_request_handler
     ):
         """Test callback fails without state parameter."""
-        result = google_handler._handle_google_callback(mock_request_handler, {"code": "auth-code"})
+        result = await google_handler._handle_google_callback(
+            mock_request_handler, {"code": "auth-code"}
+        )
 
         assert result.status_code == 302
         assert "error=" in result.headers.get("Location", "")
         assert "Missing state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_invalid_state(
+    async def test_callback_invalid_state(
         self, mock_validate_state, google_handler, mock_request_handler
     ):
         """Test callback fails with invalid state."""
         mock_validate_state.return_value = None
 
-        result = google_handler._handle_google_callback(
+        result = await google_handler._handle_google_callback(
             mock_request_handler, {"code": "auth-code", "state": "invalid-state"}
         )
 
         assert result.status_code == 302
         assert "Invalid or expired state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_callback_missing_code(self, mock_validate_state, google_handler, mock_request_handler):
+    async def test_callback_missing_code(
+        self, mock_validate_state, google_handler, mock_request_handler
+    ):
         """Test callback fails without authorization code."""
         mock_validate_state.return_value = {"redirect_url": "https://example.com"}
 
-        result = google_handler._handle_google_callback(
+        result = await google_handler._handle_google_callback(
             mock_request_handler, {"state": "valid-state"}
         )
 
         assert result.status_code == 302
         assert "Missing authorization code" in result.headers.get("Location", "")
 
-    @patch("aragora.audit.unified.audit_security")
-    def test_callback_with_oauth_error(self, mock_audit, google_handler, mock_request_handler):
+    @pytest.mark.asyncio
+    @patch("aragora.server.handlers._oauth.google.audit_security")
+    async def test_callback_with_oauth_error(
+        self, mock_audit, google_handler, mock_request_handler
+    ):
         """Test callback handles OAuth error from Google."""
-        result = google_handler._handle_google_callback(
+        result = await google_handler._handle_google_callback(
             mock_request_handler,
             {
                 "error": "access_denied",
@@ -333,7 +343,7 @@ class TestGoogleCallback:
 
         assert result.status_code == 302
         assert "OAuth error" in result.headers.get("Location", "")
-        # Verify audit was called
+        # Verify audit was called (patched at import location)
         mock_audit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -607,39 +617,44 @@ class TestGoogleUserInfo:
 class TestGoogleCSRFProtection:
     """Tests for CSRF protection in Google OAuth."""
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_state_parameter_required(
+    async def test_state_parameter_required(
         self, mock_validate_state, google_handler, mock_request_handler
     ):
         """Test that state parameter is required for callback."""
         # No state parameter
-        result = google_handler._handle_google_callback(mock_request_handler, {"code": "auth-code"})
+        result = await google_handler._handle_google_callback(
+            mock_request_handler, {"code": "auth-code"}
+        )
 
         assert result.status_code == 302
         assert "Missing state" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_expired_state_rejected(
+    async def test_expired_state_rejected(
         self, mock_validate_state, google_handler, mock_request_handler
     ):
         """Test that expired state tokens are rejected."""
         mock_validate_state.return_value = None  # Indicates invalid/expired
 
-        result = google_handler._handle_google_callback(
+        result = await google_handler._handle_google_callback(
             mock_request_handler, {"code": "auth-code", "state": "expired-state"}
         )
 
         assert result.status_code == 302
         assert "Invalid or expired" in result.headers.get("Location", "")
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers._oauth_impl._validate_state")
-    def test_tampered_state_rejected(
+    async def test_tampered_state_rejected(
         self, mock_validate_state, google_handler, mock_request_handler
     ):
         """Test that tampered state tokens are rejected."""
         mock_validate_state.return_value = None  # Signature verification failed
 
-        result = google_handler._handle_google_callback(
+        result = await google_handler._handle_google_callback(
             mock_request_handler, {"code": "auth-code", "state": "tampered-state-value"}
         )
 

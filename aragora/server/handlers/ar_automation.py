@@ -36,6 +36,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ def get_ar_automation():
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:write")
 async def handle_create_invoice(
     data: dict[str, Any],
@@ -123,6 +125,7 @@ async def handle_create_invoice(
         return error_response(f"Failed to create invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("ar:read")
 async def handle_list_invoices(
     data: dict[str, Any],
@@ -182,6 +185,7 @@ async def handle_list_invoices(
         return error_response(f"Failed to list invoices: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("ar:read")
 async def handle_get_invoice(
     data: dict[str, Any],
@@ -207,6 +211,7 @@ async def handle_get_invoice(
         return error_response(f"Failed to get invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:write")
 async def handle_send_invoice(
     data: dict[str, Any],
@@ -242,6 +247,7 @@ async def handle_send_invoice(
         return error_response(f"Failed to send invoice: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=20)  # Write operation (sends email)
 @require_permission("ar:read")
 async def handle_send_reminder(
     data: dict[str, Any],
@@ -287,6 +293,7 @@ async def handle_send_reminder(
         return error_response(f"Failed to send reminder: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:write")
 async def handle_record_payment(
     data: dict[str, Any],
@@ -344,6 +351,7 @@ async def handle_record_payment(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("ar:read")
 async def handle_get_aging_report(
     data: dict[str, Any],
@@ -371,6 +379,7 @@ async def handle_get_aging_report(
         return error_response(f"Failed to generate aging report: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("ar:read")
 async def handle_get_collections(
     data: dict[str, Any],
@@ -403,6 +412,7 @@ async def handle_get_collections(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20)  # Write operation
 @require_permission("finance:write")
 async def handle_add_customer(
     data: dict[str, Any],
@@ -451,6 +461,7 @@ async def handle_add_customer(
         return error_response(f"Failed to add customer: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=60)  # Read operation
 @require_permission("ar:read")
 async def handle_get_customer_balance(
     data: dict[str, Any],

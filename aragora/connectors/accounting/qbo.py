@@ -804,12 +804,23 @@ class QuickBooksConnector:
         offset: int = 0,
     ) -> list[QBOCustomer]:
         """List customers."""
-        # Validate pagination parameters to prevent injection
-        limit, offset = self._validate_pagination(limit, offset)
-        # active_only is a bool - convert safely to QBO boolean literal
-        active_str = "true" if active_only else "false"
-
-        query = f"SELECT Id, DisplayName, CompanyName, PrimaryEmailAddr, PrimaryPhone, Balance, Active FROM Customer WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        # Use QBOQueryBuilder for safe query construction
+        query = (
+            QBOQueryBuilder("Customer")
+            .select(
+                "Id",
+                "DisplayName",
+                "CompanyName",
+                "PrimaryEmailAddr",
+                "PrimaryPhone",
+                "Balance",
+                "Active",
+            )
+            .where_eq("Active", active_only)
+            .limit(limit)
+            .offset(offset)
+            .build()
+        )
 
         response = await self._request("GET", f"query?query={query}")
 
@@ -862,26 +873,28 @@ class QuickBooksConnector:
         offset: int = 0,
     ) -> list[QBOTransaction]:
         """List invoices."""
-        # Validate pagination parameters to prevent injection
-        limit, offset = self._validate_pagination(limit, offset)
-
-        conditions = []
+        # Use QBOQueryBuilder for safe query construction
+        builder = QBOQueryBuilder("Invoice").select(
+            "Id",
+            "DocNumber",
+            "TxnDate",
+            "DueDate",
+            "TotalAmt",
+            "Balance",
+            "CustomerRef",
+            "VendorRef",
+            "PrivateNote",
+            "Line",
+        )
 
         if start_date:
-            # Validate and format date safely
-            safe_start = self._format_date_for_query(start_date, "start_date")
-            conditions.append(f"TxnDate >= '{safe_start}'")
+            builder = builder.where_gte("TxnDate", start_date)
         if end_date:
-            # Validate and format date safely
-            safe_end = self._format_date_for_query(end_date, "end_date")
-            conditions.append(f"TxnDate <= '{safe_end}'")
+            builder = builder.where_lte("TxnDate", end_date)
         if customer_id:
-            # Validate customer_id is numeric to prevent injection
-            safe_customer_id = self._validate_numeric_id(customer_id, "customer_id")
-            conditions.append(f"CustomerRef = '{safe_customer_id}'")
+            builder = builder.where_ref("CustomerRef", customer_id)
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-        query = f"SELECT Id, DocNumber, TxnDate, DueDate, TotalAmt, Balance, CustomerRef, VendorRef, PrivateNote, Line FROM Invoice WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        query = builder.limit(limit).offset(offset).build()
 
         response = await self._request("GET", f"query?query={query}")
 

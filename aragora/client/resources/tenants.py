@@ -9,6 +9,7 @@ Provides methods for tenant management in multi-tenant deployments:
 
 from __future__ import annotations
 
+import builtins
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -91,7 +92,7 @@ class TenantsAPI:
         tier: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[Tenant], int]:
+    ) -> tuple[builtins.list[Tenant], int]:
         """
         List all tenants (admin only).
 
@@ -120,7 +121,7 @@ class TenantsAPI:
         tier: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[Tenant], int]:
+    ) -> tuple[builtins.list[Tenant], int]:
         """Async version of list()."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:

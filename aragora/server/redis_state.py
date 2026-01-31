@@ -24,6 +24,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -439,8 +440,17 @@ class RedisStateManager:
         return result
 
 
-# Singleton instance
+# Singleton instance and lock for async-safe access
 _redis_state_manager: RedisStateManager | None = None
+_redis_state_lock: asyncio.Lock | None = None
+
+
+def _get_redis_state_lock() -> asyncio.Lock:
+    """Get or create the asyncio lock (lazy initialization)."""
+    global _redis_state_lock
+    if _redis_state_lock is None:
+        _redis_state_lock = asyncio.Lock()
+    return _redis_state_lock
 
 
 async def get_redis_state_manager(
@@ -458,11 +468,18 @@ async def get_redis_state_manager(
     """
     global _redis_state_manager
 
-    if _redis_state_manager is None:
-        _redis_state_manager = RedisStateManager(redis_url or REDIS_URL)
+    # Fast path: return existing instance without lock
+    if _redis_state_manager is not None:
+        return _redis_state_manager
 
-        if auto_connect:
-            await _redis_state_manager.connect()
+    # Slow path: acquire lock and create instance
+    async with _get_redis_state_lock():
+        # Double-check after acquiring lock
+        if _redis_state_manager is None:
+            _redis_state_manager = RedisStateManager(redis_url or REDIS_URL)
+
+            if auto_connect:
+                await _redis_state_manager.connect()
 
     return _redis_state_manager
 
@@ -471,9 +488,10 @@ async def reset_redis_state_manager() -> None:
     """Reset the global Redis state manager (for testing)."""
     global _redis_state_manager
 
-    if _redis_state_manager is not None:
-        await _redis_state_manager.disconnect()
-        _redis_state_manager = None
+    async with _get_redis_state_lock():
+        if _redis_state_manager is not None:
+            await _redis_state_manager.disconnect()
+            _redis_state_manager = None
 
 
 def is_redis_state_enabled() -> bool:

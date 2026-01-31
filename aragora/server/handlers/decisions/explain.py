@@ -15,6 +15,7 @@ from __future__ import annotations
 
 __all__ = ["DecisionExplainHandler"]
 
+import html as html_module
 import json
 import logging
 from datetime import datetime, timezone
@@ -595,6 +596,7 @@ class DecisionExplainHandler(SecureHandler):
 
     def _format_html(self, explanation: dict[str, Any]) -> HandlerResult:
         """Format explanation as HTML."""
+        esc = html_module.escape  # Shorthand for escaping user content
         summary = explanation.get("summary", {})
         reasoning = explanation.get("reasoning", {})
         votes = explanation.get("votes", [])
@@ -602,10 +604,14 @@ class DecisionExplainHandler(SecureHandler):
         tensions = explanation.get("tensions", [])
         audit = explanation.get("audit_trail", {})
 
+        request_id = esc(str(explanation.get("request_id", "")))
+        generated_at = esc(str(explanation.get("generated_at", "")))
+        answer = esc(str(summary.get("answer", "N/A")))
+
         html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Decision Explanation - {explanation["request_id"]}</title>
+    <title>Decision Explanation - {request_id}</title>
     <style>
         body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }}
         h1 {{ color: #1a1a1a; }}
@@ -631,12 +637,12 @@ class DecisionExplainHandler(SecureHandler):
 </head>
 <body>
     <h1>Decision Explanation</h1>
-    <p><strong>Request ID:</strong> {explanation["request_id"]}<br>
-    <strong>Generated:</strong> {explanation["generated_at"]}</p>
+    <p><strong>Request ID:</strong> {request_id}<br>
+    <strong>Generated:</strong> {generated_at}</p>
 
     <div class="summary">
         <h2>Summary</h2>
-        <p><strong>Answer:</strong> {summary.get("answer", "N/A")}</p>
+        <p><strong>Answer:</strong> {answer}</p>
         <p class="confidence">{summary.get("confidence", 0):.1%} Confidence</p>
         <p>Consensus: <span class="{"consensus-yes" if summary.get("consensus_reached") else "consensus-no"}">
             {"Reached" if summary.get("consensus_reached") else "Not Reached"}
@@ -648,55 +654,66 @@ class DecisionExplainHandler(SecureHandler):
 """
 
         for claim in reasoning.get("key_claims", [])[:5]:
+            author = esc(str(claim.get("author", "unknown")))
+            statement = esc(str(claim.get("statement", ""))[:300])
             html += f"""
     <div class="claim">
-        <span class="claim-author">{claim.get("author", "unknown")}:</span>
+        <span class="claim-author">{author}:</span>
         <span class="claim-strength">Strength: {claim.get("strength", 0.5):.2f}</span>
-        <p>{claim.get("statement", "")[:300]}</p>
+        <p>{statement}</p>
     </div>
 """
 
         html += "<h2>Vote Record</h2>"
         for vote in votes:
-            vote_type = vote.get("vote", "unknown")
-            vote_class = "vote-agree" if vote_type == "agree" else "vote-disagree"
+            vote_type = esc(str(vote.get("vote", "unknown")))
+            vote_class = "vote-agree" if vote.get("vote") == "agree" else "vote-disagree"
+            agent = esc(str(vote.get("agent", "unknown")))
+            reasoning_text = esc(str(vote.get("reasoning", ""))[:150])
             html += f"""
     <div class="vote">
-        <span class="vote-agent">{vote.get("agent", "unknown")}</span>
+        <span class="vote-agent">{agent}</span>
         <span class="vote-type {vote_class}">{vote_type}</span>
         ({vote.get("confidence", 0):.0%})
-        <p>{vote.get("reasoning", "")[:150]}</p>
+        <p>{reasoning_text}</p>
     </div>
 """
 
         if dissent.get("dissenting_agents"):
+            dissenting_agents = ", ".join(esc(str(a)) for a in dissent.get("dissenting_agents", []))
             html += f"""
     <div class="dissent">
         <h2>Dissenting Views</h2>
-        <p><strong>Dissenting Agents:</strong> {", ".join(dissent.get("dissenting_agents", []))}</p>
+        <p><strong>Dissenting Agents:</strong> {dissenting_agents}</p>
         <p><strong>Average Severity:</strong> {dissent.get("severity", 0):.1%}</p>
 """
             for alt in dissent.get("alternative_views", [])[:3]:
-                html += f"<p><strong>{alt.get('agent', 'unknown')}:</strong> {alt.get('view', '')[:200]}</p>"
+                alt_agent = esc(str(alt.get("agent", "unknown")))
+                alt_view = esc(str(alt.get("view", ""))[:200])
+                html += f"<p><strong>{alt_agent}:</strong> {alt_view}</p>"
             html += "</div>"
 
         if tensions:
             html += "<h2>Unresolved Tensions</h2>"
             for tension in tensions[:3]:
+                description = esc(str(tension.get("description", "")))
+                impact = esc(str(tension.get("impact", "Unknown")))
                 html += f"""
     <div class="tension">
-        <p>{tension.get("description", "")}</p>
-        <p><em>Impact: {tension.get("impact", "Unknown")}</em></p>
+        <p>{description}</p>
+        <p><em>Impact: {impact}</em></p>
     </div>
 """
 
+        agents_involved = ", ".join(esc(str(a)) for a in audit.get("agents_involved", []))
+        checksum = esc(str(audit.get("checksum", "N/A")))
         html += f"""
     <h2>Audit Trail</h2>
     <dl class="audit">
         <dt>Duration</dt><dd>{audit.get("duration_seconds", 0):.2f}s</dd>
         <dt>Rounds</dt><dd>{audit.get("rounds_completed", 0)}</dd>
-        <dt>Agents</dt><dd>{", ".join(audit.get("agents_involved", []))}</dd>
-        <dt>Checksum</dt><dd>{audit.get("checksum", "N/A")}</dd>
+        <dt>Agents</dt><dd>{agents_involved}</dd>
+        <dt>Checksum</dt><dd>{checksum}</dd>
     </dl>
 </body>
 </html>

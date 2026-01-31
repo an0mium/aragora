@@ -122,7 +122,7 @@ class SupabaseClient:
             _log_slow_query("save_cycle", elapsed, f"cycle={cycle.cycle_number}")
 
             if result.data:
-                return result.data[0].get("id")
+                return result.data[0].get("id")  # type: ignore[index]
             return None
         except Exception as e:
             logger.error(f"Failed to save cycle: {e}")
@@ -140,11 +140,11 @@ class SupabaseClient:
                 .eq("loop_id", loop_id)
                 .eq("cycle_number", cycle_number)
                 .single()
-                .execute()
+                .execute()  # type: ignore[attr-defined]
             )
 
             if result.data:
-                return self._dict_to_cycle(result.data)
+                return self._dict_to_cycle(result.data)  # type: ignore[arg-type]
             return None
         except Exception as e:
             logger.error(f"Failed to get cycle: {e}")
@@ -177,7 +177,7 @@ class SupabaseClient:
             elapsed = time.monotonic() - start
             _log_slow_query("list_cycles", elapsed, f"limit={limit}, loop_id={loop_id}")
 
-            return [self._dict_to_cycle(d) for d in result.data]
+            return [self._dict_to_cycle(d) for d in result.data]  # type: ignore[arg-type]
         except Exception as e:
             logger.error(f"Failed to list cycles: {e}")
             return []
@@ -229,7 +229,7 @@ class SupabaseClient:
             result = self.client.table("debate_artifacts").insert(data).execute()
 
             if result.data:
-                return result.data[0].get("id")
+                return result.data[0].get("id")  # type: ignore[index]
             return None
         except Exception as e:
             logger.error(f"Failed to save debate: {e}")
@@ -246,11 +246,11 @@ class SupabaseClient:
                 .select("*")
                 .eq("id", debate_id)
                 .single()
-                .execute()
+                .execute()  # type: ignore[attr-defined]
             )
 
             if result.data:
-                return self._dict_to_debate(result.data)
+                return self._dict_to_debate(result.data)  # type: ignore[arg-type]
             return None
         except Exception as e:
             logger.error(f"Failed to get debate: {e}")
@@ -284,7 +284,7 @@ class SupabaseClient:
             elapsed = time.monotonic() - start
             _log_slow_query("list_debates", elapsed, f"limit={limit}, loop_id={loop_id}")
 
-            return [self._dict_to_debate(d) for d in result.data]
+            return [self._dict_to_debate(d) for d in result.data]  # type: ignore[arg-type]
         except Exception as e:
             logger.error(f"Failed to list debates: {e}")
             return []
@@ -320,7 +320,7 @@ class SupabaseClient:
             result = self.client.table("stream_events").insert(data).execute()
 
             if result.data:
-                return result.data[0].get("id")
+                return result.data[0].get("id")  # type: ignore[index]
             return None
         except Exception as e:
             logger.error(f"Failed to save event: {e}")
@@ -368,7 +368,7 @@ class SupabaseClient:
                 query = query.gte("timestamp", since.isoformat())
 
             result = query.execute()
-            return [self._dict_to_event(d) for d in result.data]
+            return [self._dict_to_event(d) for d in result.data]  # type: ignore[arg-type]
         except Exception as e:
             logger.error(f"Failed to get events: {e}")
             return []
@@ -399,7 +399,7 @@ class SupabaseClient:
             result = self.client.table("agent_metrics").insert(data).execute()
 
             if result.data:
-                return result.data[0].get("id")
+                return result.data[0].get("id")  # type: ignore[index]
             return None
         except Exception as e:
             logger.error(f"Failed to save metrics: {e}")
@@ -424,7 +424,7 @@ class SupabaseClient:
                 .execute()
             )
 
-            return [self._dict_to_metrics(d) for d in result.data]
+            return [self._dict_to_metrics(d) for d in result.data]  # type: ignore[arg-type]
         except Exception as e:
             logger.error(f"Failed to get agent stats: {e}")
             return []
@@ -467,7 +467,8 @@ class SupabaseClient:
             return None
 
         try:
-            channel = self.client.channel(f"events:{loop_id}")
+            assert self.client is not None  # Guaranteed by is_configured check
+            channel = self.client.channel(f"events:{loop_id}")  # type: ignore[attr-defined]
 
             def handle_insert(payload):
                 event = self._dict_to_event(payload["new"])
