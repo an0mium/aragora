@@ -170,26 +170,26 @@ class LifecycleManagerProtocol(Protocol):
     """Protocol for arena lifecycle management.
 
     Implementations handle:
-    - Async context manager protocol
-    - Cleanup operations
+    - Task cancellation
+    - Cache cleanup
+    - Checkpoint manager lifecycle
     - Circuit breaker metrics
     """
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+        """Clean up resources (cancel tasks, clear caches, close managers)."""
         ...
 
-    async def __aenter__(self) -> "LifecycleManagerProtocol":
-        """Enter async context."""
+    async def cancel_arena_tasks(self) -> None:
+        """Cancel all pending arena-related asyncio tasks."""
         ...
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: Any,
-    ) -> bool | None:
-        """Exit async context."""
+    def clear_cache(self) -> None:
+        """Clear the state cache if it exists."""
+        ...
+
+    def track_circuit_breaker_metrics(self) -> None:
+        """Track circuit breaker state in metrics."""
         ...
 
 

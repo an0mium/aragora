@@ -432,6 +432,7 @@ class MigrationRunner:
         self,
         target_version: int | None = None,
         lock_timeout: float = 30.0,
+        use_stored_rollback: bool = False,
     ) -> list[Migration]:
         """
         Rollback migrations down to target version.
@@ -442,6 +443,9 @@ class MigrationRunner:
         Args:
             target_version: Minimum version to keep (None = rollback one).
             lock_timeout: Maximum seconds to wait for migration lock.
+            use_stored_rollback: If True, use stored rollback_sql from database
+                instead of the migration's down_sql (useful for disaster recovery
+                when migration files may have been modified).
 
         Returns:
             List of rolled back migrations.
@@ -467,20 +471,32 @@ class MigrationRunner:
                 if target_version and migration.version <= target_version:
                     break
 
-                if not migration.down_sql and not migration.down_fn:
+                # Determine which rollback SQL to use
+                rollback_sql = None
+                if use_stored_rollback:
+                    rollback_sql = self.get_stored_rollback_sql(migration.version)
+                    if rollback_sql:
+                        logger.debug(f"Using stored rollback SQL for migration {migration.version}")
+                if not rollback_sql:
+                    rollback_sql = migration.down_sql
+
+                if not rollback_sql and not migration.down_fn:
                     logger.warning(f"Migration {migration.version} has no rollback")
                     break
 
                 logger.info(f"Rolling back migration {migration.version}: {migration.name}")
 
                 try:
-                    if migration.down_fn:
+                    if migration.down_fn and not use_stored_rollback:
                         migration.down_fn(self._backend)
-                    elif migration.down_sql:
-                        for stmt in migration.down_sql.split(";"):
+                    elif rollback_sql:
+                        for stmt in rollback_sql.split(";"):
                             stmt = stmt.strip()
                             if stmt:
                                 self._backend.execute_write(stmt)
+                    else:
+                        logger.warning(f"No rollback available for migration {migration.version}")
+                        break
 
                     # Remove migration record
                     self._backend.execute_write(
@@ -503,17 +519,20 @@ class MigrationRunner:
 
         return rolled_back
 
-    def status(self) -> dict:
+    def status(self, include_checksums: bool = False) -> dict:
         """
         Get migration status.
 
+        Args:
+            include_checksums: If True, include checksum verification results.
+
         Returns:
-            Dict with applied, pending, and latest version info.
+            Dict with applied, pending, latest version info, and optionally checksums.
         """
         applied = self.get_applied_versions()
         pending = self.get_pending_migrations()
 
-        return {
+        status_dict = {
             "applied_count": len(applied),
             "pending_count": len(pending),
             "applied_versions": sorted(applied),
@@ -521,6 +540,16 @@ class MigrationRunner:
             "latest_applied": max(applied) if applied else None,
             "latest_available": self._migrations[-1].version if self._migrations else None,
         }
+
+        if include_checksums:
+            mismatches = self.verify_checksums()
+            status_dict["checksum_valid"] = len(mismatches) == 0
+            status_dict["checksum_mismatches"] = [
+                {"version": v, "stored": stored, "current": current}
+                for v, stored, current in mismatches
+            ]
+
+        return status_dict
 
     def close(self) -> None:
         """Close the database connection."""
