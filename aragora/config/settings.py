@@ -1270,5 +1270,8 @@ ALLOWED_AGENT_TYPES: frozenset[str] = frozenset(
         "command-r",
         "jamba",
         "openrouter",
+        # External framework proxy
+        "external-framework",
+        "openclaw",
     }
 )

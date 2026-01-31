@@ -1871,3 +1871,56 @@ PERM_EVOLUTION_READ = _permission(
     "View Evolution",
     "View prompt evolution history, patterns, and summaries",
 )
+
+# ============================================================================
+# GATEWAY PERMISSIONS (OpenClaw and external AI runtimes)
+# ============================================================================
+
+PERM_GATEWAY_EXECUTE = _permission(
+    ResourceType.GATEWAY,
+    Action.EXECUTE,
+    "Execute Gateway Tasks",
+    "Execute tasks via external AI gateways (OpenClaw)",
+)
+PERM_GATEWAY_READ = _permission(
+    ResourceType.GATEWAY,
+    Action.READ,
+    "View Gateway",
+    "View gateway status and task history",
+)
+PERM_GATEWAY_CONFIGURE = _permission(
+    ResourceType.GATEWAY,
+    Action.CONFIGURE,
+    "Configure Gateway",
+    "Configure gateway settings and policies",
+)
+PERM_GATEWAY_DEVICE_REGISTER = _permission(
+    ResourceType.GATEWAY,
+    Action.CREATE,
+    "Register Gateway Devices",
+    "Register devices with the gateway",
+)
+PERM_GATEWAY_DEVICE_UNREGISTER = _permission(
+    ResourceType.GATEWAY,
+    Action.DELETE,
+    "Unregister Gateway Devices",
+    "Remove devices from the gateway",
+)
+PERM_GATEWAY_PLUGIN_INSTALL = _permission(
+    ResourceType.GATEWAY,
+    Action.INSTALL,
+    "Install Gateway Plugins",
+    "Install plugins via the gateway",
+)
+PERM_GATEWAY_PLUGIN_UNINSTALL = _permission(
+    ResourceType.GATEWAY,
+    Action.UNINSTALL,
+    "Uninstall Gateway Plugins",
+    "Remove plugins from the gateway",
+)
+PERM_GATEWAY_ADMIN = _permission(
+    ResourceType.GATEWAY,
+    Action.ADMIN_OP,
+    "Administer Gateway",
+    "Full administrative access to gateway (allowlists, security policies)",
+)

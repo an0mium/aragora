@@ -44,6 +44,20 @@ from aragora.gateway.persistence import (
     RedisGatewayStore,
     get_gateway_store,
 )
+from aragora.gateway.credential_proxy import (
+    CredentialProxy,
+    CredentialUsage,
+    ExternalCredential,
+    CredentialProxyError,
+    CredentialNotFoundError,
+    CredentialExpiredError,
+    ScopeError,
+    RateLimitExceededError,
+    TenantIsolationError,
+    get_credential_proxy,
+    set_credential_proxy,
+    reset_credential_proxy,
+)
 
 __all__ = [
     # Server
@@ -79,4 +93,17 @@ __all__ = [
     "FileGatewayStore",
     "RedisGatewayStore",
     "get_gateway_store",
+    # Credential Proxy
+    "CredentialProxy",
+    "CredentialUsage",
+    "ExternalCredential",
+    "CredentialProxyError",
+    "CredentialNotFoundError",
+    "CredentialExpiredError",
+    "ScopeError",
+    "RateLimitExceededError",
+    "TenantIsolationError",
+    "get_credential_proxy",
+    "set_credential_proxy",
+    "reset_credential_proxy",
 ]

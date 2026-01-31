@@ -413,22 +413,28 @@ class TestMockS3Backend:
 
 
 class TestMockGCSBackend:
-    """Tests for Google Cloud Storage backend using mocks."""
+    """Tests for Google Cloud Storage backend using mocks.
+
+    These tests simulate GCS operations without requiring the actual
+    google-cloud-storage library to be installed. They demonstrate
+    how backup files would be uploaded/downloaded to/from GCS.
+    """
 
     @pytest.fixture
     def mock_gcs_client(self):
-        """Create a mock google-cloud-storage client."""
-        with patch("google.cloud.storage.Client") as mock_client_class:
-            client = MagicMock()
-            mock_client_class.return_value = client
+        """Create a mock google-cloud-storage client.
 
-            bucket = MagicMock()
-            client.bucket.return_value = bucket
+        Uses MagicMock directly without patching the google.cloud module,
+        since that module may be partially installed without storage.
+        """
+        client = MagicMock()
+        bucket = MagicMock()
+        blob = MagicMock()
 
-            blob = MagicMock()
-            bucket.blob.return_value = blob
+        client.bucket.return_value = bucket
+        bucket.blob.return_value = blob
 
-            yield {"client": client, "bucket": bucket, "blob": blob}
+        yield {"client": client, "bucket": bucket, "blob": blob}
 
     def test_gcs_upload_simulation(
         self, mock_gcs_client, backup_manager: BackupManager, sample_database: Path
@@ -482,13 +488,22 @@ class TestMockGCSBackend:
         blob.delete.assert_called_once()
 
     def test_gcs_error_handling(self, mock_gcs_client):
-        """Test GCS error handling simulation."""
-        from google.api_core.exceptions import NotFound
+        """Test GCS error handling simulation.
+
+        Creates a custom NotFound exception class since google-cloud-storage
+        may not be installed.
+        """
+
+        # Create a mock NotFound exception
+        class MockNotFound(Exception):
+            """Mock GCS NotFound exception."""
+
+            pass
 
         blob = mock_gcs_client["blob"]
-        blob.download_to_filename.side_effect = NotFound("Blob not found")
+        blob.download_to_filename.side_effect = MockNotFound("Blob not found")
 
-        with pytest.raises(NotFound):
+        with pytest.raises(MockNotFound):
             blob.download_to_filename("/tmp/nonexistent")
 
     def test_gcs_resumable_upload_simulation(
@@ -816,59 +831,71 @@ class TestBackupVerification:
 
 
 class TestRestoreOperations:
-    """Tests for restore operations including dry-run support."""
+    """Tests for restore operations including dry-run support.
 
-    def test_restore_backup_success(
-        self, backup_manager: BackupManager, sample_database: Path, temp_dir: Path
-    ):
-        """Should restore backup successfully."""
+    Note: The restore_backup method uses a dedicated restore directory
+    within the backup_dir for security (path traversal protection).
+    The actual restore location is: backup_dir / "restore" / filename
+    """
+
+    def test_restore_backup_success(self, backup_manager: BackupManager, sample_database: Path):
+        """Should restore backup successfully to the restore directory."""
         backup = backup_manager.create_backup(sample_database)
-        restore_path = temp_dir / "restored.db"
 
-        success = backup_manager.restore_backup(backup.id, restore_path)
+        # The restore will be placed in backup_dir/restore/restored.db
+        success = backup_manager.restore_backup(backup.id, Path("restored.db"))
 
         assert success is True
-        assert restore_path.exists()
 
-        conn = sqlite3.connect(str(restore_path))
+        # Check the actual restore location
+        restore_dir = backup_manager.backup_dir / "restore"
+        actual_restore_path = restore_dir / "restored.db"
+        assert actual_restore_path.exists()
+
+        conn = sqlite3.connect(str(actual_restore_path))
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM users")
         assert cursor.fetchone()[0] == 10
         conn.close()
 
-    def test_restore_dry_run(
-        self, backup_manager: BackupManager, sample_database: Path, temp_dir: Path
-    ):
+    def test_restore_dry_run(self, backup_manager: BackupManager, sample_database: Path):
         """Dry run should not create restore file."""
         backup = backup_manager.create_backup(sample_database)
-        restore_path = temp_dir / "restored.db"
 
-        success = backup_manager.restore_backup(backup.id, restore_path, dry_run=True)
+        success = backup_manager.restore_backup(backup.id, Path("restored.db"), dry_run=True)
 
         assert success is True
+
+        # Verify no file was created in restore directory
+        restore_dir = backup_manager.backup_dir / "restore"
+        restore_path = restore_dir / "restored.db"
         assert not restore_path.exists()
 
     def test_restore_creates_backup_of_existing_file(
-        self, backup_manager: BackupManager, sample_database: Path, temp_dir: Path
+        self, backup_manager: BackupManager, sample_database: Path
     ):
         """Should create backup of existing file before restore."""
         backup = backup_manager.create_backup(sample_database)
 
-        restore_path = temp_dir / "existing.db"
-        restore_path.write_text("existing content")
+        # Create the restore directory and an existing file
+        restore_dir = backup_manager.backup_dir / "restore"
+        restore_dir.mkdir(parents=True, exist_ok=True)
+        existing_path = restore_dir / "existing.db"
+        existing_path.write_text("existing content")
 
-        backup_manager.restore_backup(backup.id, restore_path)
+        backup_manager.restore_backup(backup.id, Path("existing.db"))
 
-        backup_files = list(temp_dir.glob("existing.backup_*"))
+        # Check backup was created in the restore directory
+        backup_files = list(restore_dir.glob("existing.backup_*"))
         assert len(backup_files) == 1
 
-    def test_restore_nonexistent_backup_raises(self, backup_manager: BackupManager, temp_dir: Path):
+    def test_restore_nonexistent_backup_raises(self, backup_manager: BackupManager):
         """Should raise error for nonexistent backup."""
         with pytest.raises(ValueError, match="not found"):
-            backup_manager.restore_backup("nonexistent-id", temp_dir / "restore.db")
+            backup_manager.restore_backup("nonexistent-id", Path("restore.db"))
 
     def test_restore_missing_backup_file_raises(
-        self, backup_manager: BackupManager, sample_database: Path, temp_dir: Path
+        self, backup_manager: BackupManager, sample_database: Path
     ):
         """Should raise error if backup file is missing."""
         backup = backup_manager.create_backup(sample_database)
@@ -876,7 +903,7 @@ class TestRestoreOperations:
         Path(backup.backup_path).unlink()
 
         with pytest.raises(FileNotFoundError):
-            backup_manager.restore_backup(backup.id, temp_dir / "restore.db")
+            backup_manager.restore_backup(backup.id, Path("restore.db"))
 
     def test_restore_path_traversal_protection(
         self, backup_manager: BackupManager, sample_database: Path
@@ -1383,19 +1410,21 @@ class TestEdgeCases:
 
         assert backup.status == BackupStatus.VERIFIED
 
-    def test_backup_large_database(
-        self, backup_manager: BackupManager, large_database: Path, temp_dir: Path
-    ):
+    def test_backup_large_database(self, backup_manager: BackupManager, large_database: Path):
         """Should handle larger databases efficiently."""
         backup = backup_manager.create_backup(large_database)
 
         assert backup.status == BackupStatus.VERIFIED
         assert backup.row_counts["records"] == 1000
 
-        restore_path = temp_dir / "restored_large.db"
-        backup_manager.restore_backup(backup.id, restore_path)
+        # Restore goes to backup_dir/restore/filename
+        backup_manager.restore_backup(backup.id, Path("restored_large.db"))
 
-        conn = sqlite3.connect(str(restore_path))
+        # Find the actual restore path
+        restore_dir = backup_manager.backup_dir / "restore"
+        actual_restore_path = restore_dir / "restored_large.db"
+
+        conn = sqlite3.connect(str(actual_restore_path))
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM records")
         count = cursor.fetchone()[0]

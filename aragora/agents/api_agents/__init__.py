@@ -11,6 +11,10 @@ from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
 # Re-export all agents for backward compatibility
 from aragora.agents.api_agents.base import APIAgent
+from aragora.agents.api_agents.external_framework import (
+    ExternalFrameworkAgent,
+    ExternalFrameworkConfig,
+)
 from aragora.agents.api_agents.common import MAX_STREAM_BUFFER_SIZE
 from aragora.agents.api_agents.gemini import GeminiAgent
 from aragora.agents.api_agents.grok import GrokAgent
@@ -84,6 +88,9 @@ __all__ = [
     "SonarAgent",
     "CommandRAgent",
     "JambaAgent",
+    # External framework proxy
+    "ExternalFrameworkAgent",
+    "ExternalFrameworkConfig",
     # Tinker (fine-tuned models)
     "TinkerAgent",
     "TinkerLlamaAgent",

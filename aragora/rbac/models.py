@@ -149,6 +149,9 @@ class ResourceType(str, Enum):
     DR = "dr"  # Disaster recovery (alias for handlers)
     EVOLUTION = "evolution"  # Prompt evolution operations
 
+    # External gateway integrations
+    GATEWAY = "gateway"  # External AI runtime gateways (OpenClaw, etc.)
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

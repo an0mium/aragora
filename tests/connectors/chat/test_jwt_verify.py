@@ -667,7 +667,8 @@ class TestJWKSCaching:
         verifier._microsoft_cache_time = 0
 
         with patch("aragora.connectors.chat.jwt_verify.PyJWKClient") as mock_client:
-            mock_client.side_effect = Exception("Network error")
+            # Use OSError which is caught by the exception handler in _get_microsoft_jwks_client
+            mock_client.side_effect = OSError("Network error")
 
             with patch.object(
                 verifier, "_resolve_microsoft_jwks_uri", return_value="https://test/keys"

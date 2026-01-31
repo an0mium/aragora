@@ -330,6 +330,8 @@ ALLOWED_AGENT_TYPES = frozenset(
         "command-r",
         "jamba",
         "openrouter",
+        # External framework proxy
+        "external-framework",
     }
 )
 

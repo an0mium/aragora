@@ -240,7 +240,25 @@ class UnifiedHandler(
     # - _init_handlers(), _log_resource_availability(), _try_modular_handler() (from HandlerRegistryMixin)
 
     def do_GET(self) -> None:
-        """Handle GET requests."""
+        """Handle HTTP GET requests.
+
+        Processes GET requests through the request lifecycle with:
+        - Query parameter validation for /api/* routes
+        - RBAC authorization checks
+        - Rate limiting (DoS protection)
+        - Modular handler routing for API endpoints
+        - Static file serving for non-API routes
+
+        Routes:
+            /api/*: Routed through modular handlers (see handler_registry.py)
+            /: Serves index.html
+            *.html, *.css, *.js, etc.: Static file serving
+
+        Security:
+            - Query params validated against whitelist
+            - RBAC checks before handler invocation
+            - Rate limiting applied to API routes
+        """
         lifecycle = create_lifecycle_manager(self)
         lifecycle.handle_request("GET", self._do_GET_internal, with_query=True)
 
@@ -291,7 +309,23 @@ class UnifiedHandler(
         self.end_headers()
 
     def do_POST(self) -> None:
-        """Handle POST requests."""
+        """Handle HTTP POST requests.
+
+        Processes POST requests for creating resources through:
+        - Request body parsing (JSON, multipart/form-data)
+        - RBAC authorization checks
+        - Modular handler routing
+
+        Common POST endpoints:
+            /api/debates: Create new debate
+            /api/auth/login: User authentication
+            /api/documents: Upload documents
+            /api/webhooks/*: Webhook receivers
+
+        Request body is parsed from Content-Type header:
+            application/json: Parsed as JSON
+            multipart/form-data: Parsed for file uploads
+        """
         lifecycle = create_lifecycle_manager(self)
         lifecycle.handle_request("POST", self._do_POST_internal)
 
@@ -318,7 +352,20 @@ class UnifiedHandler(
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
     def do_DELETE(self) -> None:
-        """Handle DELETE requests."""
+        """Handle HTTP DELETE requests.
+
+        Processes DELETE requests for removing resources through:
+        - RBAC authorization checks (requires appropriate permissions)
+        - Modular handler routing
+
+        DELETE operations are idempotent - multiple requests for the
+        same resource return success even if already deleted.
+
+        Common DELETE endpoints:
+            /api/debates/{id}: Delete debate
+            /api/documents/{id}: Delete document
+            /api/users/{id}: Delete user (admin only)
+        """
         lifecycle = create_lifecycle_manager(self)
         lifecycle.handle_request("DELETE", self._do_DELETE_internal)
 
@@ -337,7 +384,22 @@ class UnifiedHandler(
         self.send_error(404, f"Unknown DELETE endpoint: {path}")
 
     def do_PATCH(self) -> None:
-        """Handle PATCH requests."""
+        """Handle HTTP PATCH requests.
+
+        Processes PATCH requests for partial resource updates through:
+        - Request body parsing (JSON with partial fields)
+        - RBAC authorization checks
+        - Modular handler routing
+
+        PATCH applies partial modifications to a resource. Only fields
+        included in the request body are updated; omitted fields remain
+        unchanged.
+
+        Common PATCH endpoints:
+            /api/debates/{id}: Update debate metadata
+            /api/users/{id}: Update user profile
+            /api/settings: Update settings
+        """
         lifecycle = create_lifecycle_manager(self)
         lifecycle.handle_request("PATCH", self._do_PATCH_internal)
 
@@ -356,7 +418,21 @@ class UnifiedHandler(
         self.send_error(404, f"Unknown PATCH endpoint: {path}")
 
     def do_PUT(self) -> None:
-        """Handle PUT requests."""
+        """Handle HTTP PUT requests.
+
+        Processes PUT requests for full resource replacement through:
+        - Request body parsing (complete resource representation)
+        - RBAC authorization checks
+        - Modular handler routing
+
+        PUT replaces the entire resource with the provided representation.
+        All fields must be included; omitted fields are set to defaults
+        or null.
+
+        Common PUT endpoints:
+            /api/debates/{id}: Replace debate configuration
+            /api/documents/{id}: Replace document content
+        """
         lifecycle = create_lifecycle_manager(self)
         lifecycle.handle_request("PUT", self._do_PUT_internal)
 
