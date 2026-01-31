@@ -50,7 +50,7 @@ class SelectionPluginRegistry:
             print(name)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._scorers: dict[str, type[ScorerProtocol]] = {}
         self._team_selectors: dict[str, type[TeamSelectorProtocol]] = {}
         self._role_assigners: dict[str, type[RoleAssignerProtocol]] = {}

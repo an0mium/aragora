@@ -314,7 +314,7 @@ class SupabaseSyncService:
 
     def _get_batch(self) -> list[SyncItem]:
         """Get a batch of items from the queue."""
-        batch = []
+        batch: list[SyncItem] = []
         try:
             while len(batch) < self.batch_size:
                 item = self._queue.get_nowait()

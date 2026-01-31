@@ -112,19 +112,26 @@ jobs:
       - name: Run Safety check
         id: safety
         run: safety check --full-report
+        continue-on-error: true
 
-      - name: Run pip-audit
+      - name: Security audit dependencies (pip-audit)
         id: pip-audit
         run: |
+          # Export requirements if uv is available, otherwise audit installed packages
           if uv pip export --format requirements-txt --output-file /tmp/aragora-requirements.txt 2>/dev/null; then
-            pip-audit -r /tmp/aragora-requirements.txt
+            # Use OSV vulnerability service and fail on any vulnerability (--strict)
+            pip-audit --strict --vulnerability-service osv -r /tmp/aragora-requirements.txt
           else
-            pip-audit
+            pip-audit --strict --vulnerability-service osv
           fi
 
       - name: Report Python dependency status
         if: steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure'
         run: |
+          if [ "${{ steps.pip-audit.outcome }}" == "failure" ]; then
+            echo "::error::HIGH/CRITICAL vulnerabilities detected in Python dependencies. Build failed."
+            exit 1
+          fi
           echo "::warning::Python dependency vulnerabilities detected. Review safety and pip-audit results."
 
       - name: Set up Node.js

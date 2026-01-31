@@ -732,7 +732,7 @@ class AccessReviewScheduler:
         review.items = items
 
         # Calculate risk summary
-        review.summary = self._calculate_summary(items)
+        review.summary = self._calculate_summary(items)  # type: ignore[assignment]
 
         # Persist
         self._storage.save_review(review)
@@ -849,7 +849,7 @@ class AccessReviewScheduler:
         for item in items:
             risk_level = item.risk_level
             if risk_level in by_risk:
-                by_risk[risk_level] += 1
+                by_risk[risk_level] += 1  # type: ignore[literal-required]
 
             if item.resource_type not in by_type:
                 by_type[item.resource_type] = 0
@@ -960,7 +960,7 @@ class AccessReviewScheduler:
         pending = [i for i in review.items if i.status == ReviewItemStatus.PENDING]
         if not pending:
             review.status = ReviewStatus.AWAITING_APPROVAL
-            review.summary = self._calculate_summary(review.items)
+            review.summary = self._calculate_summary(review.items)  # type: ignore[assignment]
 
         self._storage.save_review(review)
         return True

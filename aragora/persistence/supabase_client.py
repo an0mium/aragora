@@ -13,12 +13,13 @@ from datetime import datetime
 from typing import Callable
 
 try:
-    from supabase import Client, create_client
+    from supabase import Client, create_client  # type: ignore[attr-defined]
 
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
-    Client = None
+    Client = None  # type: ignore[misc,assignment]
+    create_client = None  # type: ignore[misc,assignment]
 
 from aragora.persistence.models import (
     AgentMetrics,
@@ -74,9 +75,10 @@ class SupabaseClient:
             url: Supabase project URL (or SUPABASE_URL env var)
             key: Supabase service role key (or SUPABASE_KEY env var)
         """
+        self.client: Client | None = None
+
         if not SUPABASE_AVAILABLE:
             logger.warning("supabase-py not installed. Run: pip install supabase")
-            self.client = None
             return
 
         self.url = url or os.getenv("SUPABASE_URL")
@@ -87,10 +89,9 @@ class SupabaseClient:
                 "Supabase credentials not configured. "
                 "Set SUPABASE_URL and SUPABASE_KEY environment variables."
             )
-            self.client = None
             return
 
-        self.client: Client = create_client(self.url, self.key)
+        self.client = create_client(self.url, self.key)  # type: ignore[misc]
         logger.info(f"Supabase client initialized for {self.url}")
 
     @property
@@ -526,3 +527,15 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Failed to get loop summary: {e}")
             return {}
+
+
+# Global client instance
+_supabase_client: SupabaseClient | None = None
+
+
+def get_supabase_client() -> SupabaseClient:
+    """Get or create the global Supabase client instance."""
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = SupabaseClient()
+    return _supabase_client

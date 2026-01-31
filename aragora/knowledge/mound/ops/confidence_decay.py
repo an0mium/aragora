@@ -513,7 +513,7 @@ class ConfidenceDecayMixin:
         Returns:
             DecayReport with results
         """
-        manager = self._get_decay_manager()
+        manager = self._get_decay_manager()  # type: ignore[attr-defined]
         return await manager.apply_decay(self, workspace_id, force)
 
     async def record_confidence_event(
@@ -532,7 +532,7 @@ class ConfidenceDecayMixin:
         Returns:
             ConfidenceAdjustment if confidence changed
         """
-        manager = self._get_decay_manager()
+        manager = self._get_decay_manager()  # type: ignore[attr-defined]
         return await manager.record_event(self, item_id, event, reason)
 
     async def get_confidence_history(
@@ -542,12 +542,12 @@ class ConfidenceDecayMixin:
         limit: int = 100,
     ) -> list[ConfidenceAdjustment]:
         """Get confidence adjustment history."""
-        manager = self._get_decay_manager()
+        manager = self._get_decay_manager()  # type: ignore[attr-defined]
         return await manager.get_adjustment_history(item_id, event_type, limit)
 
     def get_decay_stats(self: KnowledgeMoundProtocol) -> dict[str, Any]:
         """Get confidence decay statistics."""
-        manager = self._get_decay_manager()
+        manager = self._get_decay_manager()  # type: ignore[attr-defined]
         return manager.get_stats()
 
 

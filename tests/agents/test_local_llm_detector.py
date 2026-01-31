@@ -15,6 +15,7 @@ Tests the LocalLLMDetector functionality including:
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -27,6 +28,52 @@ from aragora.agents.local_llm_detector import (
     detect_local_llms,
     detect_local_llms_sync,
 )
+
+
+# =============================================================================
+# Test Fixtures for httpx-based HTTP client pool mocking
+# =============================================================================
+
+
+def create_mock_response(status_code: int = 200, json_data: dict | None = None):
+    """Create a mock httpx response."""
+    mock_response = MagicMock()
+    mock_response.status_code = status_code
+    mock_response.json = MagicMock(return_value=json_data or {})
+    return mock_response
+
+
+def create_mock_pool(responses: dict[str, MagicMock] | None = None, error: Exception | None = None):
+    """Create a mock HTTP client pool.
+
+    Args:
+        responses: Dict mapping URL patterns to mock responses
+        error: Exception to raise on request (simulates connection failure)
+
+    Returns:
+        Mock pool configured for get_http_pool() patching
+    """
+    mock_pool = MagicMock()
+
+    @asynccontextmanager
+    async def mock_get_session(provider: str):
+        mock_client = MagicMock()
+
+        async def mock_get(url: str, timeout: float | None = None):
+            if error:
+                raise error
+            if responses:
+                for pattern, response in responses.items():
+                    if pattern in url:
+                        return response
+            # Default empty response
+            return create_mock_response(200, {})
+
+        mock_client.get = mock_get
+        yield mock_client
+
+    mock_pool.get_session = mock_get_session
+    return mock_pool
 
 
 # =============================================================================

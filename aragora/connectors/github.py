@@ -651,5 +651,6 @@ class GitHubConnector(BaseConnector):
         finally:
             try:
                 os.unlink(temp_path)
-            except OSError:
-                pass
+            except OSError as e:
+                logger.warning(f"Failed to remove temp file '{temp_path}': {e}")
+                # File cleanup is best-effort; continue normally

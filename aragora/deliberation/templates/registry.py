@@ -199,8 +199,9 @@ def list_templates(
     if category:
         try:
             cat = TemplateCategory(category)
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.warning(f"Failed to parse category filter '{category}': {e}")
+            # Keep cat as None to skip category filtering
     return _global_registry.list(category=cat, tags=tags, search=search, limit=limit, offset=offset)
 
 

@@ -540,8 +540,12 @@ class BaseConnector(ABC):
                     if "Retry-After" in e.response.headers:
                         try:
                             retry_after = float(e.response.headers["Retry-After"])
-                        except (ValueError, TypeError):
-                            pass
+                        except (ValueError, TypeError) as parse_err:
+                            logger.warning(
+                                f"[{self.name}] Failed to parse Retry-After header "
+                                f"'{e.response.headers['Retry-After']}': {parse_err}"
+                            )
+                            # Continue with retry_after=None, will use exponential backoff
 
                     last_error = ConnectorRateLimitError(
                         f"{operation} rate limited (HTTP 429)",

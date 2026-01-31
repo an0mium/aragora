@@ -713,7 +713,7 @@ class IsolatedResource:
             if validate:
                 isolation.validate_ownership(self, tenant_field)
 
-        cls.__init__ = cast(Any, new_init)
+        cls.__init__ = new_init  # type: ignore[method-assign]
         return cls
 
 

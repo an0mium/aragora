@@ -529,3 +529,586 @@ class TestOrchestrationResult:
         assert result.failed_subtasks == 1
         assert result.success is False
         assert result.error == "One task failed"
+
+
+class TestAgentAssignment:
+    """Tests for AgentAssignment dataclass."""
+
+    def test_assignment_creation(self):
+        """Should create assignment with required fields."""
+        subtask = SubTask(id="1", title="Test", description="Test task")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.QA,
+            agent_type="claude",
+        )
+
+        assert assignment.subtask == subtask
+        assert assignment.track == Track.QA
+        assert assignment.agent_type == "claude"
+        assert assignment.status == "pending"
+        assert assignment.attempt_count == 0
+        assert assignment.max_attempts == 3
+
+    def test_assignment_with_all_fields(self):
+        """Should accept all optional fields."""
+        subtask = SubTask(id="2", title="Full", description="Full task")
+        now = datetime.now(timezone.utc)
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.DEVELOPER,
+            agent_type="codex",
+            priority=5,
+            status="completed",
+            attempt_count=2,
+            max_attempts=5,
+            result={"success": True},
+            started_at=now,
+            completed_at=now,
+        )
+
+        assert assignment.priority == 5
+        assert assignment.status == "completed"
+        assert assignment.attempt_count == 2
+        assert assignment.result["success"] is True
+
+
+class TestAgentRouterExtended:
+    """Extended tests for AgentRouter."""
+
+    def test_file_to_track_caching(self):
+        """Should cache file to track mappings."""
+        router = AgentRouter()
+
+        # First call should populate cache
+        subtask = SubTask(
+            id="1",
+            title="Test",
+            description="Test",
+            file_scope=["aragora/live/test.py"],
+        )
+        track1 = router.determine_track(subtask)
+
+        # Check cache was populated
+        assert "aragora/live/test.py" in router._file_to_track_cache
+        assert router._file_to_track_cache["aragora/live/test.py"] == Track.SME
+
+    def test_select_agent_for_track_without_codex(self):
+        """Should handle tracks without codex agent."""
+        router = AgentRouter()
+
+        subtask = SubTask(
+            id="1",
+            title="Implement Something",
+            description="Code generation",
+            estimated_complexity="medium",
+        )
+
+        # Core track only has claude
+        agent = router.select_agent_type(subtask, Track.CORE)
+        assert agent == "claude"
+
+    def test_select_agent_empty_agent_types(self):
+        """Should default to claude when track has no agents."""
+        router = AgentRouter(
+            track_configs={
+                Track.QA: TrackConfig(
+                    name="QA",
+                    folders=["tests/"],
+                    agent_types=[],  # Empty
+                )
+            }
+        )
+
+        subtask = SubTask(id="1", title="Test", description="Test")
+        agent = router.select_agent_type(subtask, Track.QA)
+
+        assert agent == "claude"
+
+    def test_check_conflicts_with_non_running_tasks(self):
+        """Should only check running tasks for conflicts."""
+        router = AgentRouter()
+
+        completed_subtask = SubTask(
+            id="1",
+            title="Completed",
+            description="Done",
+            file_scope=["shared.py"],
+        )
+        completed = AgentAssignment(
+            subtask=completed_subtask,
+            track=Track.QA,
+            agent_type="claude",
+            status="completed",  # Not running
+        )
+
+        new_subtask = SubTask(
+            id="2",
+            title="New",
+            description="New task",
+            file_scope=["shared.py"],
+        )
+
+        conflicts = router.check_conflicts(new_subtask, [completed])
+        assert len(conflicts) == 0  # No conflict with completed tasks
+
+
+class TestAgentRouterKiloCode:
+    """Tests for KiloCode harness integration."""
+
+    def test_get_coding_harness_for_claude(self):
+        """Claude should not need KiloCode harness."""
+        router = AgentRouter()
+
+        harness = router.get_coding_harness("claude", Track.DEVELOPER)
+
+        assert harness is None  # Claude has native harness
+
+    def test_get_coding_harness_for_codex(self):
+        """Codex should not need KiloCode harness."""
+        router = AgentRouter()
+
+        harness = router.get_coding_harness("codex", Track.DEVELOPER)
+
+        assert harness is None  # Codex has native harness
+
+    def test_get_coding_harness_for_gemini(self):
+        """Gemini should get KiloCode harness."""
+        router = AgentRouter()
+
+        harness = router.get_coding_harness("gemini", Track.SME)
+
+        assert harness is not None
+        assert harness["harness"] == "kilocode"
+        assert "google" in harness["provider_id"]
+
+    def test_get_coding_harness_for_grok(self):
+        """Grok should get KiloCode harness."""
+        router = AgentRouter()
+
+        harness = router.get_coding_harness("grok", Track.DEVELOPER)
+
+        assert harness is not None
+        assert harness["harness"] == "kilocode"
+        assert "grok" in harness["provider_id"]
+
+    def test_get_coding_harness_disabled_for_track(self):
+        """Should not provide harness when disabled for track."""
+        router = AgentRouter(
+            track_configs={
+                Track.CORE: TrackConfig(
+                    name="Core",
+                    folders=["aragora/debate/"],
+                    agent_types=["gemini"],
+                    use_kilocode_harness=False,  # Disabled
+                )
+            }
+        )
+
+        harness = router.get_coding_harness("gemini", Track.CORE)
+
+        assert harness is None
+
+
+class TestFeedbackLoopExtended:
+    """Extended tests for FeedbackLoop."""
+
+    def test_analyze_type_error(self):
+        """Should recommend quick fix for type errors."""
+        loop = FeedbackLoop()
+
+        subtask = SubTask(id="1", title="Test", description="Test")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.QA,
+            agent_type="claude",
+        )
+
+        feedback = loop.analyze_failure(
+            assignment,
+            {"type": "type_error", "message": "Argument type mismatch"},
+        )
+
+        assert feedback["action"] == "quick_fix"
+
+    def test_analyze_unknown_error(self):
+        """Should escalate unknown error types."""
+        loop = FeedbackLoop()
+
+        subtask = SubTask(id="1", title="Test", description="Test")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.QA,
+            agent_type="claude",
+        )
+
+        feedback = loop.analyze_failure(
+            assignment,
+            {"type": "unknown_error", "message": "Something weird"},
+        )
+
+        assert feedback["action"] == "escalate"
+        assert feedback["require_human"] is True
+
+    def test_extract_test_hints_with_expected(self):
+        """Should extract Expected/Actual hints."""
+        loop = FeedbackLoop()
+
+        hints = loop._extract_test_hints("Error occurred\nExpected: 5\nActual: 3\nSome other line")
+
+        assert "Expected" in hints
+        assert "Actual" in hints
+
+    def test_extract_test_hints_empty(self):
+        """Should return default hint when no patterns match."""
+        loop = FeedbackLoop()
+
+        hints = loop._extract_test_hints("Generic error message")
+
+        assert hints == "Review test output"
+
+    def test_iteration_tracking_per_subtask(self):
+        """Should track iterations per subtask ID."""
+        loop = FeedbackLoop(max_iterations=5)
+
+        subtask1 = SubTask(id="task1", title="Task 1", description="First")
+        subtask2 = SubTask(id="task2", title="Task 2", description="Second")
+
+        assignment1 = AgentAssignment(subtask=subtask1, track=Track.QA, agent_type="claude")
+        assignment2 = AgentAssignment(subtask=subtask2, track=Track.QA, agent_type="claude")
+
+        # Iterate task1 twice
+        loop.analyze_failure(assignment1, {"type": "test_failure", "message": ""})
+        loop.analyze_failure(assignment1, {"type": "test_failure", "message": ""})
+
+        # task2 should start fresh
+        feedback = loop.analyze_failure(assignment2, {"type": "test_failure", "message": ""})
+
+        # task2 should not be at max yet
+        assert feedback["action"] != "escalate"
+
+
+class TestAutonomousOrchestratorExtended:
+    """Extended tests for AutonomousOrchestrator."""
+
+    @pytest.fixture
+    def mock_workflow_engine(self):
+        """Create a mock workflow engine."""
+        engine = MagicMock()
+        engine.execute = AsyncMock(
+            return_value=MagicMock(
+                success=True,
+                final_output={"status": "completed"},
+                error=None,
+            )
+        )
+        return engine
+
+    @pytest.fixture
+    def mock_task_decomposer(self):
+        """Create a mock task decomposer."""
+        decomposer = MagicMock()
+        decomposer.analyze = MagicMock(
+            return_value=TaskDecomposition(
+                original_task="Test goal",
+                complexity_score=5,
+                complexity_level="medium",
+                should_decompose=True,
+                subtasks=[
+                    SubTask(
+                        id="1",
+                        title="Task One",
+                        description="First task",
+                        file_scope=["tests/test.py"],
+                        estimated_complexity="low",
+                    ),
+                ],
+            )
+        )
+        return decomposer
+
+    def test_orchestrator_initialization(self):
+        """Should initialize with defaults."""
+        orchestrator = AutonomousOrchestrator()
+
+        assert orchestrator.aragora_path.exists()
+        assert orchestrator.track_configs == DEFAULT_TRACK_CONFIGS
+        assert orchestrator.max_parallel_tasks == 4
+        assert orchestrator.require_human_approval is False
+
+    def test_orchestrator_custom_config(self, mock_workflow_engine, mock_task_decomposer):
+        """Should accept custom configuration."""
+        custom_configs = {
+            Track.QA: TrackConfig(
+                name="CustomQA",
+                folders=["custom/tests/"],
+                agent_types=["claude"],
+            )
+        }
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+            track_configs=custom_configs,
+            require_human_approval=True,
+            max_parallel_tasks=2,
+        )
+
+        assert orchestrator.track_configs == custom_configs
+        assert orchestrator.require_human_approval is True
+        assert orchestrator.max_parallel_tasks == 2
+
+    @pytest.mark.asyncio
+    async def test_execute_goal_empty_decomposition(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
+        """Should handle empty decomposition gracefully."""
+        mock_task_decomposer.analyze.return_value = TaskDecomposition(
+            original_task="Empty",
+            complexity_score=0,
+            complexity_level="trivial",
+            should_decompose=False,
+            subtasks=[],
+        )
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+        )
+
+        result = await orchestrator.execute_goal(goal="Trivial task")
+
+        assert result.success is True
+        assert result.total_subtasks == 0
+        assert "trivial" in result.summary.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_goal_with_exception(self, mock_workflow_engine, mock_task_decomposer):
+        """Should handle exceptions during execution."""
+        mock_task_decomposer.analyze.side_effect = Exception("Decomposition failed")
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+        )
+
+        result = await orchestrator.execute_goal(goal="Will fail")
+
+        assert result.success is False
+        assert result.error is not None
+
+    @pytest.mark.asyncio
+    async def test_get_active_assignments(self, mock_workflow_engine, mock_task_decomposer):
+        """Should return copy of active assignments."""
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+        )
+
+        # Add a fake active assignment
+        subtask = SubTask(id="1", title="Active", description="Active task")
+        orchestrator._active_assignments.append(
+            AgentAssignment(subtask=subtask, track=Track.QA, agent_type="claude")
+        )
+
+        active = orchestrator.get_active_assignments()
+
+        assert len(active) == 1
+        # Should be a copy
+        assert active is not orchestrator._active_assignments
+
+    @pytest.mark.asyncio
+    async def test_get_completed_assignments(self, mock_workflow_engine, mock_task_decomposer):
+        """Should return copy of completed assignments."""
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+        )
+
+        subtask = SubTask(id="1", title="Done", description="Completed task")
+        orchestrator._completed_assignments.append(
+            AgentAssignment(
+                subtask=subtask,
+                track=Track.QA,
+                agent_type="claude",
+                status="completed",
+            )
+        )
+
+        completed = orchestrator.get_completed_assignments()
+
+        assert len(completed) == 1
+        assert completed[0].status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_debate_decomposition_mode(self, mock_workflow_engine, mock_task_decomposer):
+        """Should use debate decomposition when enabled."""
+        mock_task_decomposer.analyze_with_debate = AsyncMock(
+            return_value=TaskDecomposition(
+                original_task="Debate decomposed",
+                complexity_score=8,
+                complexity_level="high",
+                should_decompose=True,
+                subtasks=[
+                    SubTask(
+                        id="debate_1",
+                        title="Debated Task",
+                        description="From debate",
+                        estimated_complexity="high",
+                    )
+                ],
+            )
+        )
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+            use_debate_decomposition=True,
+        )
+
+        await orchestrator.execute_goal(goal="Complex goal")
+
+        # Should have used debate decomposition
+        mock_task_decomposer.analyze_with_debate.assert_called_once()
+        mock_task_decomposer.analyze.assert_not_called()
+
+
+class TestOrchestratorSingleton:
+    """Tests for singleton pattern."""
+
+    def test_get_orchestrator_creates_singleton(self):
+        """get_orchestrator should create singleton."""
+        from aragora.nomic.autonomous_orchestrator import get_orchestrator
+
+        orch1 = get_orchestrator()
+        orch2 = get_orchestrator()
+
+        assert orch1 is orch2
+
+    def test_reset_orchestrator_clears_singleton(self):
+        """reset_orchestrator should clear the singleton."""
+        from aragora.nomic.autonomous_orchestrator import (
+            get_orchestrator,
+            reset_orchestrator,
+        )
+
+        orch1 = get_orchestrator()
+        reset_orchestrator()
+        orch2 = get_orchestrator()
+
+        assert orch1 is not orch2
+
+
+class TestBuildSubtaskWorkflow:
+    """Tests for _build_subtask_workflow method."""
+
+    def test_workflow_has_correct_steps(self):
+        """Should create workflow with design, implement, verify steps."""
+        orchestrator = AutonomousOrchestrator()
+
+        subtask = SubTask(
+            id="test",
+            title="Test Task",
+            description="Description",
+            file_scope=["test.py"],
+        )
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.DEVELOPER,
+            agent_type="claude",
+        )
+
+        workflow = orchestrator._build_subtask_workflow(assignment)
+
+        assert workflow.id == "subtask_test"
+        assert len(workflow.steps) == 3
+
+        step_ids = [s.id for s in workflow.steps]
+        assert "design" in step_ids
+        assert "implement" in step_ids
+        assert "verify" in step_ids
+
+    def test_workflow_uses_correct_agent(self):
+        """Should use assigned agent for implementation."""
+        orchestrator = AutonomousOrchestrator()
+
+        subtask = SubTask(id="test", title="Test", description="Test")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.DEVELOPER,
+            agent_type="codex",
+        )
+
+        workflow = orchestrator._build_subtask_workflow(assignment)
+
+        # Find implement step
+        impl_step = next(s for s in workflow.steps if s.id == "implement")
+        assert impl_step.config["agent_type"] == "codex"
+
+    def test_workflow_verify_always_uses_claude(self):
+        """Verify step should always use Claude."""
+        orchestrator = AutonomousOrchestrator()
+
+        subtask = SubTask(id="test", title="Test", description="Test")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.QA,
+            agent_type="gemini",
+        )
+
+        workflow = orchestrator._build_subtask_workflow(assignment)
+
+        verify_step = next(s for s in workflow.steps if s.id == "verify")
+        assert verify_step.config["agent_type"] == "claude"
+
+
+class TestGenerateSummary:
+    """Tests for _generate_summary method."""
+
+    def test_summary_groups_by_track(self):
+        """Should group assignments by track."""
+        orchestrator = AutonomousOrchestrator()
+
+        assignments = [
+            AgentAssignment(
+                subtask=SubTask(id="1", title="SME Task", description="SME"),
+                track=Track.SME,
+                agent_type="claude",
+                status="completed",
+            ),
+            AgentAssignment(
+                subtask=SubTask(id="2", title="QA Task", description="QA"),
+                track=Track.QA,
+                agent_type="claude",
+                status="completed",
+            ),
+        ]
+
+        summary = orchestrator._generate_summary(assignments)
+
+        assert "SME" in summary
+        assert "QA" in summary
+
+    def test_summary_shows_status_icons(self):
+        """Should show status indicators."""
+        orchestrator = AutonomousOrchestrator()
+
+        assignments = [
+            AgentAssignment(
+                subtask=SubTask(id="1", title="Completed", description="Done"),
+                track=Track.QA,
+                agent_type="claude",
+                status="completed",
+            ),
+            AgentAssignment(
+                subtask=SubTask(id="2", title="Failed", description="Error"),
+                track=Track.QA,
+                agent_type="claude",
+                status="failed",
+            ),
+        ]
+
+        summary = orchestrator._generate_summary(assignments)
+
+        assert "+" in summary  # Completed indicator
+        assert "-" in summary  # Failed indicator

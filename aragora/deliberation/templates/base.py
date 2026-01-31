@@ -4,9 +4,12 @@ Base classes for deliberation templates.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class TeamStrategy(Enum):
@@ -136,22 +139,25 @@ class DeliberationTemplate:
         if "category" in data:
             try:
                 category = TemplateCategory(data["category"])
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.warning(f"Failed to parse category '{data['category']}': {e}")
+                # Keep default category
 
         team_strategy = TeamStrategy.BEST_FOR_DOMAIN
         if "team_strategy" in data:
             try:
                 team_strategy = TeamStrategy(data["team_strategy"])
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.warning(f"Failed to parse team_strategy '{data['team_strategy']}': {e}")
+                # Keep default team_strategy
 
         output_format = OutputFormat.STANDARD
         if "output_format" in data:
             try:
                 output_format = OutputFormat(data["output_format"])
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.warning(f"Failed to parse output_format '{data['output_format']}': {e}")
+                # Keep default output_format
 
         return cls(
             name=data.get("name", ""),

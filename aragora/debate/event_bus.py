@@ -166,8 +166,9 @@ class EventBus:
             try:
                 self._async_handlers[event_type].remove(handler)
                 return True
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug(f"Failed to remove async handler for event type '{event_type}': {e}")
+                # Handler was not in list, likely already removed
         return False
 
     def unsubscribe_sync(self, event_type: str, handler: SyncEventHandler) -> bool:
@@ -185,8 +186,9 @@ class EventBus:
             try:
                 self._sync_handlers[event_type].remove(handler)
                 return True
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug(f"Failed to remove sync handler for event type '{event_type}': {e}")
+                # Handler was not in list, likely already removed
         return False
 
     def clear_handlers(self, event_type: str | None = None) -> int:

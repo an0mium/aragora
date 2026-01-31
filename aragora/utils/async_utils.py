@@ -245,8 +245,8 @@ class TaskRegistry:
         await registry.cancel_all(timeout=5.0)
     """
 
-    def __init__(self):
-        self._tasks: dict[str, asyncio.Task] = {}
+    def __init__(self) -> None:
+        self._tasks: dict[str, asyncio.Task[Any]] = {}
         self._counter = 0
 
     def register(

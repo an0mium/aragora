@@ -876,8 +876,9 @@ Provide:
                         cat_str = cat_match.group(1).lower()
                         try:
                             txn.accounting_category = TransactionCategory(cat_str)
-                        except ValueError:
-                            pass
+                        except ValueError as e:
+                            logger.warning(f"[Plaid] Invalid category '{cat_str}' from agent: {e}")
+                            # Keep original category; agent-provided value was invalid
 
                     conf_match = re.search(r"CONFIDENCE:\s*([\d.]+)", answer, re.IGNORECASE)
                     if conf_match:

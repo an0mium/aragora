@@ -373,8 +373,9 @@ class EventBus:
                     self._subscribers[debate_id].remove(queue)
                     if not self._subscribers[debate_id]:
                         del self._subscribers[debate_id]
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    logger.debug(f"Failed to remove subscription for debate {debate_id}: {e}")
+                    # Queue was not in subscriber list, likely already removed
 
 
 # =============================================================================

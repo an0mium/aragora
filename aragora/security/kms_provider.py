@@ -572,13 +572,46 @@ class HashiCorpVaultProvider(KmsProvider):
 
 class LocalKmsProvider(KmsProvider):
     """
-    Local KMS provider for development and testing.
+    Local KMS provider for development and testing ONLY.
+
+    WARNING: INSECURE - DO NOT USE IN PRODUCTION!
+
+    This provider uses simple XOR encryption which provides NO real security.
+    It is intended ONLY for:
+    - Local development
+    - Unit testing
+    - CI/CD pipelines in non-production environments
+
+    For production deployments, use one of the secure cloud KMS providers:
+    - AwsKmsProvider (AWS KMS)
+    - AzureKeyVaultProvider (Azure Key Vault)
+    - GcpKmsProvider (GCP Cloud KMS)
+    - HashiCorpVaultProvider (HashiCorp Vault)
 
     Uses environment variable ARAGORA_ENCRYPTION_KEY directly.
-    NOT for production use.
+
+    Raises:
+        RuntimeError: If ARAGORA_ENV is set to 'production'
     """
 
     def __init__(self, master_key: bytes | None = None):
+        # Guard against production use
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        if env == "production":
+            raise RuntimeError(
+                "LocalKmsProvider cannot be used in production environments. "
+                "It uses insecure XOR encryption that provides no real security. "
+                "Configure a cloud KMS provider instead: AWS KMS, Azure Key Vault, "
+                "GCP Cloud KMS, or HashiCorp Vault. "
+                "Set ARAGORA_KMS_PROVIDER to 'aws', 'azure', 'gcp', or 'vault'."
+            )
+
+        # Warn even in non-production environments
+        logger.warning(
+            "LocalKmsProvider uses INSECURE XOR encryption - "
+            "for development and testing ONLY. Do not use in production."
+        )
+
         self._master_key = master_key
         if self._master_key is None:
             key_hex = os.environ.get("ARAGORA_ENCRYPTION_KEY")

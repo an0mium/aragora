@@ -53,6 +53,28 @@ updates:
           - "esbuild*"
           - "typescript*"
 
+  # npm dependencies for aragora-js SDK
+  - package-ecosystem: "npm"
+    directory: "/aragora-js"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "sdk"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # Group all minor/patch updates
+      sdk-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
