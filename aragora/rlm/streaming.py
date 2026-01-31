@@ -388,7 +388,12 @@ class StreamingContextIterator:
         self._iterator = self.query.stream_all()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         if self._iterator:
             await self._iterator.aclose()
 

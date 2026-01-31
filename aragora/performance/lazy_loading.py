@@ -328,7 +328,7 @@ class LazyValue(Generic[T]):
         if self._loaded:
             _lazy_load_stats.prefetch_hits += 1
             # _value is guaranteed to be T (not None) when _loaded is True
-            return cast(T, self._value)
+            return cast(T, self._value)  # type: ignore[redundant-cast]
 
         # Handle concurrent loads
         if self._loading:

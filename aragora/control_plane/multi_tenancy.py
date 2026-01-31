@@ -85,14 +85,24 @@ class TenantContext:
         self._token = _current_tenant.set(self.tenant_id)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         _current_tenant.reset(self._token)
 
     async def __aenter__(self) -> "TenantContext":
         self._token = _current_tenant.set(self.tenant_id)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         _current_tenant.reset(self._token)
 
 

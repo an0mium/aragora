@@ -44,7 +44,7 @@ try:
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
-    BaseModel: Any = object
+    BaseModel: Any = object  # type: ignore[no-redef]
 
 
 class ValidationSeverity(Enum):

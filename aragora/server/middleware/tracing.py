@@ -263,7 +263,8 @@ def trace_context(
     try:
         yield span
     except BaseException as e:
-        span.set_error(e)
+        if isinstance(e, Exception):
+            span.set_error(e)
         raise
     finally:
         span.finish()
