@@ -1025,10 +1025,10 @@ class TestSessionManagement:
                 mock_check.return_value = MagicMock(allowed=True)
 
                 with patch(
-                    "aragora.server.handlers.auth.sessions.extract_token",
+                    "aragora.server.middleware.auth.extract_token",
                     return_value=test_token,
                 ):
-                    with patch("aragora.server.handlers.auth.sessions.decode_jwt") as mock_decode:
+                    with patch("aragora.billing.jwt_auth.decode_jwt") as mock_decode:
                         mock_decode.return_value = MagicMock(jti="some-jti")
 
                         result = auth_handler._handle_revoke_session(request, current_session_id)
