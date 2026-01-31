@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 if TYPE_CHECKING:
@@ -124,7 +125,7 @@ class CruxSearchResult:
             self.debate_ids = []
 
 
-class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
+class BeliefAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
     Adapter that bridges BeliefNetwork to the Knowledge Mound.
 
@@ -161,8 +162,9 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     MIN_BELIEF_CONFIDENCE = 0.8  # Only store high-confidence beliefs
     MIN_CRUX_SCORE = 0.3  # Store cruxes above this threshold
 
-    # FusionMixin configuration
+    # Mixin configuration
     adapter_name = "belief"
+    source_type = "belief"
 
     # FusionMixin abstract method implementations
     def _get_fusion_sources(self) -> list[str]:

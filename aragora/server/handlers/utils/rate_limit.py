@@ -65,7 +65,7 @@ def _normalize_ip(ip_value: str) -> str:
         return ip_value
 
 
-def get_client_ip(handler) -> str:
+def get_client_ip(handler: Any) -> str:
     """Extract client IP from request handler.
 
     Only trusts X-Forwarded-For when the direct IP is a trusted proxy.
@@ -288,7 +288,7 @@ def rate_limit(
         name = limiter_name or f"{func.__module__}.{func.__qualname__}"
         limiter = _get_limiter(name, effective_rpm)
 
-        def _get_key_from_args(args, kwargs) -> str:
+        def _get_key_from_args(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
             """Extract rate limit key from function arguments.
 
             Supports both old pattern (handler object) and new pattern (headers dict).

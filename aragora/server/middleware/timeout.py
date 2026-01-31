@@ -36,6 +36,7 @@ import functools
 import logging
 import os
 import signal
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextlib import contextmanager
@@ -97,15 +98,18 @@ class RequestTimeoutConfig:
         return min(self.default_timeout, self.max_timeout)
 
 
-# Global config instance
+# Global config instance with thread-safe initialization
 _timeout_config: RequestTimeoutConfig | None = None
+_timeout_config_lock = threading.Lock()
 
 
 def get_timeout_config() -> RequestTimeoutConfig:
     """Get or create the global timeout configuration."""
     global _timeout_config
     if _timeout_config is None:
-        _timeout_config = RequestTimeoutConfig()
+        with _timeout_config_lock:
+            if _timeout_config is None:
+                _timeout_config = RequestTimeoutConfig()
     return _timeout_config
 
 
@@ -167,25 +171,29 @@ class RequestTimeoutError(Exception):
 
 # Thread pool for running sync functions with timeout
 _executor: ThreadPoolExecutor | None = None
+_executor_lock = threading.Lock()
 
 
 def get_executor() -> ThreadPoolExecutor:
     """Get or create thread pool executor for timeout handling."""
     global _executor
     if _executor is None:
-        _executor = ThreadPoolExecutor(
-            max_workers=int(os.environ.get("ARAGORA_TIMEOUT_WORKERS", "10")),
-            thread_name_prefix="timeout-",
-        )
+        with _executor_lock:
+            if _executor is None:
+                _executor = ThreadPoolExecutor(
+                    max_workers=int(os.environ.get("ARAGORA_TIMEOUT_WORKERS", "10")),
+                    thread_name_prefix="timeout-",
+                )
     return _executor
 
 
 def shutdown_executor() -> None:
     """Shutdown the timeout executor gracefully."""
     global _executor
-    if _executor is not None:
-        _executor.shutdown(wait=False)
-        _executor = None
+    with _executor_lock:
+        if _executor is not None:
+            _executor.shutdown(wait=False)
+            _executor = None
 
 
 F = TypeVar("F", bound=Callable[..., Any])

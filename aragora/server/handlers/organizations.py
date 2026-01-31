@@ -119,7 +119,7 @@ class OrganizationsHandler(SecureHandler):
         )
 
     def handle(
-        self, path: str, query_params: dict, handler, method: str = "GET"
+        self, path: str, query_params: dict, handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
         """Route organization requests to appropriate methods."""
         # Rate limit check
@@ -238,11 +238,11 @@ class OrganizationsHandler(SecureHandler):
 
         return None
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_current_user(self, handler):
+    def _get_current_user(self, handler: Any) -> tuple[Any, Any]:
         """Get authenticated user from request."""
         user_store = self._get_user_store()
         if not user_store:
@@ -259,7 +259,7 @@ class OrganizationsHandler(SecureHandler):
         return user, auth_ctx
 
     @require_permission("org:read")
-    def _list_user_organizations(self, handler) -> HandlerResult:
+    def _list_user_organizations(self, handler: Any) -> HandlerResult:
         """List organizations for the current user (single-org fallback)."""
         user_store = self._get_user_store()
         if not user_store:
@@ -294,7 +294,7 @@ class OrganizationsHandler(SecureHandler):
         )
 
     @require_permission("org:settings")
-    def _switch_user_organization(self, handler) -> HandlerResult:
+    def _switch_user_organization(self, handler: Any) -> HandlerResult:
         """Switch the active organization for the current user."""
         user_store = self._get_user_store()
         if not user_store:
@@ -322,7 +322,7 @@ class OrganizationsHandler(SecureHandler):
         return json_response({"organization": org.to_dict()})
 
     @require_permission("org:settings")
-    def _set_default_organization(self, handler) -> HandlerResult:
+    def _set_default_organization(self, handler: Any) -> HandlerResult:
         """Set the default organization for the current user."""
         user_store = self._get_user_store()
         if not user_store:
@@ -346,7 +346,7 @@ class OrganizationsHandler(SecureHandler):
         return json_response({"success": True})
 
     @require_permission("org:members")
-    def _leave_organization(self, handler, org_id: str) -> HandlerResult:
+    def _leave_organization(self, handler: Any, org_id: str) -> HandlerResult:
         """Leave an organization (single-org fallback)."""
         user_store = self._get_user_store()
         if not user_store:

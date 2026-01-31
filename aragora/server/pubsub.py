@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine
 
@@ -305,8 +306,9 @@ class RedisPubSub:
         )
 
 
-# Module-level singleton
+# Module-level singleton with thread-safe initialization
 _pubsub: RedisPubSub | None = None
+_pubsub_lock = threading.Lock()
 
 
 def get_pubsub() -> RedisPubSub:
@@ -317,14 +319,17 @@ def get_pubsub() -> RedisPubSub:
     """
     global _pubsub
     if _pubsub is None:
-        _pubsub = RedisPubSub()
+        with _pubsub_lock:
+            if _pubsub is None:
+                _pubsub = RedisPubSub()
     return _pubsub
 
 
 def reset_pubsub() -> None:
     """Reset pub/sub state for testing."""
     global _pubsub
-    _pubsub = None
+    with _pubsub_lock:
+        _pubsub = None
 
 
 __all__ = [

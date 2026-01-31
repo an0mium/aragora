@@ -141,7 +141,7 @@ def validate_params(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Find query_params in kwargs or positional args
             params = kwargs.get(query_params_arg)
             if params is None:
@@ -220,7 +220,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             trace_id = generate_trace_id()
             try:
                 return func(*args, **kwargs)
@@ -264,7 +264,7 @@ def auto_error_response(
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> HandlerResult:
+        def wrapper(*args: Any, **kwargs: Any) -> HandlerResult:
             try:
                 return func(*args, **kwargs)
             except sqlite3.OperationalError as e:
@@ -309,7 +309,7 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             trace_id = generate_trace_id()
             start_time = time.time()
             logger.info(f"[{trace_id}] {context}: started")
@@ -563,7 +563,7 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
     """
 
     def decorator(func: Callable) -> Callable:
-        def _check_permission(*args, **kwargs):
+        def _check_permission(*args: Any, **kwargs: Any) -> tuple[Any, HandlerResult | None]:
             """Common permission checking logic, returns (user_ctx, error_response) tuple."""
             import os
 
@@ -624,7 +624,7 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
         )
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             user_ctx, err = _check_permission(*args, **kwargs)
             if err is not None:
                 return err
@@ -633,7 +633,7 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
             return func(*args, **kwargs)
 
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             user_ctx, err = _check_permission(*args, **kwargs)
             if err is not None:
                 return err

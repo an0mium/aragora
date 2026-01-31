@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 _notifications_limiter = RateLimiter(requests_per_minute=30)
 
 
-def _run_async_in_thread(coro):
+def _run_async_in_thread(coro: Any) -> Any:
     """Run an async coroutine in a thread-safe manner.
 
     Creates a new event loop for the thread to avoid RuntimeError when
@@ -450,7 +450,7 @@ class NotificationsHandler(SecureHandler):
         import asyncio
 
         # Get org-specific integrations (async)
-        async def get_integrations():
+        async def get_integrations() -> tuple[EmailIntegration | None, TelegramIntegration | None]:
             email = await get_email_integration_for_org(org_id)
             telegram = await get_telegram_integration_for_org(org_id)
             return email, telegram
@@ -543,7 +543,7 @@ class NotificationsHandler(SecureHandler):
             )
 
         # Get org-specific recipients from store
-        async def get_org_recipients():
+        async def get_org_recipients() -> list[StoredEmailRecipient]:
             store = get_notification_config_store()
             return await store.get_recipients(org_id)
 
@@ -616,7 +616,7 @@ class NotificationsHandler(SecureHandler):
                     max_emails_per_hour=body.get("max_emails_per_hour", 50),
                 )
 
-                async def save_config():
+                async def save_config() -> None:
                     store = get_notification_config_store()
                     await store.save_email_config(stored_config)
                     invalidate_org_integration_cache(org_id)
@@ -709,7 +709,7 @@ class NotificationsHandler(SecureHandler):
                     max_messages_per_minute=body.get("max_messages_per_minute", 20),
                 )
 
-                async def save_config():
+                async def save_config() -> None:
                     store = get_notification_config_store()
                     await store.save_telegram_config(stored_config)
                     invalidate_org_integration_cache(org_id)
@@ -785,7 +785,7 @@ class NotificationsHandler(SecureHandler):
                 preferences=body.get("preferences", {}),
             )
 
-            async def save_recipient():
+            async def save_recipient() -> list[StoredEmailRecipient]:
                 store = get_notification_config_store()
                 await store.add_recipient(stored_recipient)
                 # Also add to cached integration if it exists
@@ -860,7 +860,7 @@ class NotificationsHandler(SecureHandler):
         # Remove from per-org store if org_id provided
         if org_id:
 
-            async def remove_recipient():
+            async def remove_recipient() -> tuple[bool, list[StoredEmailRecipient]]:
                 store = get_notification_config_store()
                 removed = await store.remove_recipient(org_id, recipient_email)
                 # Also remove from cached integration if it exists
@@ -935,7 +935,7 @@ class NotificationsHandler(SecureHandler):
                     # Import asyncio for running async in sync context
                     import asyncio
 
-                    async def send_test_email():
+                    async def send_test_email() -> bool:
                         return await email._send_email(
                             email.recipients[0],
                             "Aragora Test Notification",
@@ -979,7 +979,7 @@ class NotificationsHandler(SecureHandler):
 
                 from aragora.integrations.telegram import TelegramMessage
 
-                async def send_test_telegram():
+                async def send_test_telegram() -> bool:
                     msg = TelegramMessage(
                         text="<b>Test Notification</b>\n\nYour Telegram integration is working correctly! 🎉",
                     )
@@ -1040,7 +1040,7 @@ class NotificationsHandler(SecureHandler):
             email = get_email_integration()
             if email and email.recipients:
 
-                async def send_emails():
+                async def send_emails() -> int:
                     sent = 0
                     for recipient in email.recipients:
                         success = await email._send_email(recipient, subject, html_message, message)
@@ -1085,7 +1085,7 @@ class NotificationsHandler(SecureHandler):
                 # Convert to Telegram HTML format
                 telegram_text = f"<b>{subject}</b>\n\n{message}"
 
-                async def send_telegram():
+                async def send_telegram() -> bool:
                     msg = TelegramMessage(text=telegram_text)
                     return await telegram._send_message(msg)
 

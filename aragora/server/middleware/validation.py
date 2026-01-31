@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Pattern, cast
 
@@ -300,7 +301,8 @@ class ValidationMiddleware:
         self.config = config or ValidationConfig()
         self.registry = registry or VALIDATION_REGISTRY
 
-        # Metrics
+        # Metrics (protected by _metrics_lock for thread safety)
+        self._metrics_lock = threading.Lock()
         self._validation_count = 0
         self._validation_failures = 0
         self._unvalidated_routes: set[str] = set()
@@ -328,7 +330,8 @@ class ValidationMiddleware:
         if not self.config.enabled:
             return ValidationResult(valid=True)
 
-        self._validation_count += 1
+        with self._metrics_lock:
+            self._validation_count += 1
         result = ValidationResult(valid=True)
         query_params = query_params or {}
 
@@ -387,7 +390,8 @@ class ValidationMiddleware:
 
         # Log result
         if not result.valid:
-            self._validation_failures += 1
+            with self._metrics_lock:
+                self._validation_failures += 1
             log_level = logging.WARNING if not self.config.blocking else logging.ERROR
             logger.log(
                 log_level,
@@ -425,17 +429,18 @@ class ValidationMiddleware:
 
     def get_metrics(self) -> dict[str, Any]:
         """Get validation metrics."""
-        return {
-            "total_validations": self._validation_count,
-            "failures": self._validation_failures,
-            "failure_rate": (
-                self._validation_failures / self._validation_count
-                if self._validation_count > 0
-                else 0
-            ),
-            "unvalidated_route_count": len(self._unvalidated_routes),
-            "blocking_mode": self.config.blocking,
-        }
+        with self._metrics_lock:
+            return {
+                "total_validations": self._validation_count,
+                "failures": self._validation_failures,
+                "failure_rate": (
+                    self._validation_failures / self._validation_count
+                    if self._validation_count > 0
+                    else 0
+                ),
+                "unvalidated_route_count": len(self._unvalidated_routes),
+                "blocking_mode": self.config.blocking,
+            }
 
     def get_unvalidated_routes(self) -> list[str]:
         """Get list of routes that have no validation rules."""
