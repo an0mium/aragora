@@ -22,8 +22,11 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional, TYPE_CHECKING
 
+from aragora.resilience import get_circuit_breaker
+
 if TYPE_CHECKING:
     import httpx
+    from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -553,11 +556,26 @@ class PayPalClient:
             capture = await client.capture_order(order.id)
     """
 
-    def __init__(self, credentials: PayPalCredentials):
+    def __init__(
+        self,
+        credentials: PayPalCredentials,
+        circuit_breaker: Optional["CircuitBreaker"] = None,
+        enable_circuit_breaker: bool = True,
+    ):
         self.credentials = credentials
         self._client: Optional["httpx.AsyncClient"] = None
         self._access_token: str | None = None
         self._token_expires_at: datetime | None = None
+        self._circuit_breaker = circuit_breaker
+        self._enable_circuit_breaker = enable_circuit_breaker
+
+        # Initialize circuit breaker with payment-appropriate settings
+        if self._circuit_breaker is None and self._enable_circuit_breaker:
+            self._circuit_breaker = get_circuit_breaker(
+                "paypal_client",
+                failure_threshold=3,  # Fail fast for payment operations
+                cooldown_seconds=120,  # Longer recovery for payment APIs
+            )
 
     async def __aenter__(self) -> "PayPalClient":
         import httpx
@@ -624,6 +642,15 @@ class PayPalClient:
         headers: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """Make authenticated API request."""
+        # Check circuit breaker before making request
+        if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            cooldown = self._circuit_breaker.cooldown_remaining()
+            raise PayPalError(
+                message=f"Circuit breaker open. Retry after {cooldown:.1f}s",
+                status_code=503,
+                error_name="CIRCUIT_BREAKER_OPEN",
+            )
+
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
@@ -636,16 +663,26 @@ class PayPalClient:
         if headers:
             request_headers.update(headers)
 
-        response = await self._client.request(
-            method,
-            endpoint,
-            json=json,
-            params=params,
-            headers=request_headers,
-        )
+        try:
+            response = await self._client.request(
+                method,
+                endpoint,
+                json=json,
+                params=params,
+                headers=request_headers,
+            )
+        except Exception as e:
+            # Record failure for network errors
+            if self._circuit_breaker is not None:
+                self._circuit_breaker.record_failure()
+            raise PayPalError(message=f"HTTP error: {e}", status_code=503) from e
 
         if response.status_code >= 400:
             error_data = response.json() if response.content else {}
+            # Record failure for server errors (5xx) or rate limits
+            if response.status_code >= 500 or response.status_code == 429:
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
             raise PayPalError(
                 message=error_data.get("message", f"HTTP {response.status_code}"),
                 status_code=response.status_code,
@@ -653,6 +690,10 @@ class PayPalClient:
                 debug_id=error_data.get("debug_id"),
                 details=error_data.get("details", []),
             )
+
+        # Record success
+        if self._circuit_breaker is not None:
+            self._circuit_breaker.record_success()
 
         if response.status_code == 204 or not response.content:
             return {}

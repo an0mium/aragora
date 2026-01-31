@@ -18,9 +18,14 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+from aragora.resilience import get_circuit_breaker
+
+if TYPE_CHECKING:
+    from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -373,9 +378,24 @@ class StripeConnector:
 
     BASE_URL = "https://api.stripe.com/v1"
 
-    def __init__(self, credentials: StripeCredentials):
+    def __init__(
+        self,
+        credentials: StripeCredentials,
+        circuit_breaker: "CircuitBreaker | None" = None,
+        enable_circuit_breaker: bool = True,
+    ):
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
+        self._circuit_breaker = circuit_breaker
+        self._enable_circuit_breaker = enable_circuit_breaker
+
+        # Initialize circuit breaker with payment-appropriate settings
+        if self._circuit_breaker is None and self._enable_circuit_breaker:
+            self._circuit_breaker = get_circuit_breaker(
+                "stripe_connector",
+                failure_threshold=3,  # Fail fast for payment operations
+                cooldown_seconds=120,  # Longer recovery for payment APIs
+            )
 
     async def __aenter__(self) -> StripeConnector:
         self._client = httpx.AsyncClient(
@@ -404,6 +424,15 @@ class StripeConnector:
         data: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        # Check circuit breaker before making request
+        if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            cooldown = self._circuit_breaker.cooldown_remaining()
+            raise StripeError(
+                message=f"Circuit breaker open. Retry after {cooldown:.1f}s",
+                code="circuit_breaker_open",
+                status_code=503,
+            )
+
         url = f"{self.BASE_URL}{endpoint}"
         try:
             response = await self.client.request(
@@ -417,14 +446,25 @@ class StripeConnector:
 
             if response.status_code >= 400:
                 error = result.get("error", {})
+                # Record failure for server errors (5xx) or rate limits
+                if response.status_code >= 500 or response.status_code == 429:
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
                 raise StripeError(
                     message=error.get("message", "Unknown error"),
                     code=error.get("code"),
                     status_code=response.status_code,
                 )
 
+            # Record success
+            if self._circuit_breaker is not None:
+                self._circuit_breaker.record_success()
+
             return result
         except httpx.HTTPError as e:
+            # Record failure for network errors
+            if self._circuit_breaker is not None:
+                self._circuit_breaker.record_failure()
             raise StripeError(f"HTTP error: {e}") from e
 
     # -------------------------------------------------------------------------
