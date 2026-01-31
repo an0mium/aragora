@@ -511,6 +511,10 @@ class TestOllamaGenerateStream:
                 self._index += 1
                 return chunk
 
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
+
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.content = MockContent(stream_chunks)
@@ -560,6 +564,10 @@ class TestOllamaGenerateStream:
                 chunk = self._chunks[self._index]
                 self._index += 1
                 return chunk
+
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -617,6 +625,10 @@ class TestOllamaGenerateStream:
                 chunk = self._chunks[self._index]
                 self._index += 1
                 return chunk
+
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -814,6 +826,10 @@ class TestOllamaPullModel:
                 chunk = self._chunks[self._index]
                 self._index += 1
                 return chunk
+
+            def iter_any(self):
+                """Return async iterator for iter_chunks_with_timeout compatibility."""
+                return self
 
         mock_response = MagicMock()
         mock_response.status = 200

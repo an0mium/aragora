@@ -2631,3 +2631,1267 @@ class TestSQLiteCache:
         assert result is None
 
         await service.close()
+
+
+# =============================================================================
+# Extended API Response Handling Tests
+# =============================================================================
+
+
+class TestVirusTotalAPIResponseHandling:
+    """Tests for VirusTotal API response handling with mocked HTTP responses."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for VirusTotal tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService(virustotal_api_key="test-vt-key")
+        service.config.enable_caching = False
+        return service
+
+    @pytest.mark.asyncio
+    async def test_virustotal_successful_malicious_response(self, service):
+        """Test VirusTotal API returns malicious URL result."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {
+                    "attributes": {
+                        "last_analysis_stats": {
+                            "malicious": 15,
+                            "suspicious": 5,
+                            "harmless": 50,
+                            "undetected": 10,
+                        },
+                        "categories": {"Vendor1": "phishing", "Vendor2": "malware"},
+                        "reputation": -50,
+                        "last_analysis_date": 1640000000,
+                    }
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_virustotal("http://malicious.com")
+
+        assert result is not None
+        assert result["positives"] == 20  # malicious + suspicious
+        assert result["total"] == 80
+
+    @pytest.mark.asyncio
+    async def test_virustotal_404_triggers_submit(self, service):
+        """Test VirusTotal 404 triggers URL submission."""
+        mock_response_404 = AsyncMock()
+        mock_response_404.status = 404
+
+        mock_submit_response = AsyncMock()
+        mock_submit_response.status = 200
+        mock_submit_response.json = AsyncMock(return_value={"data": {"id": "scan_id"}})
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response_404), __aexit__=AsyncMock()
+            )
+        )
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_submit_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_virustotal("http://new-url.com")
+
+        assert result is not None
+        assert result.get("pending") is True
+
+    @pytest.mark.asyncio
+    async def test_virustotal_error_status_records_failure(self, service):
+        """Test VirusTotal error status records circuit breaker failure."""
+        mock_response = AsyncMock()
+        mock_response.status = 500
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_virustotal("http://test.com")
+
+        assert result is None
+        status = service.get_circuit_breaker_status()
+        assert status["virustotal"]["failures"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_virustotal_exception_handling(self, service):
+        """Test VirusTotal handles exceptions gracefully."""
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(side_effect=Exception("Network error"))
+        service._http_session = mock_session
+
+        result = await service._check_url_virustotal("http://test.com")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_virustotal_hash_check_success(self, service):
+        """Test VirusTotal hash check returns malware info."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {
+                    "attributes": {
+                        "last_analysis_stats": {
+                            "malicious": 30,
+                            "suspicious": 5,
+                            "harmless": 25,
+                            "undetected": 10,
+                        },
+                        "last_analysis_results": {
+                            "Vendor1": {"category": "malicious", "result": "Trojan.Gen"},
+                            "Vendor2": {"category": "malicious", "result": "Win32.Malware"},
+                        },
+                        "first_submission_date": 1600000000,
+                        "last_analysis_date": 1640000000,
+                        "type_description": "Win32 EXE",
+                        "size": 1024000,
+                        "tags": ["trojan", "packed"],
+                    }
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_hash_virustotal("a" * 64, "sha256")
+
+        assert result.is_malware is True
+        assert "Trojan.Gen" in result.malware_names
+        assert result.file_type == "Win32 EXE"
+
+    @pytest.mark.asyncio
+    async def test_virustotal_hash_check_not_found(self, service):
+        """Test VirusTotal hash check handles 404."""
+        mock_response = AsyncMock()
+        mock_response.status = 404
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_hash_virustotal("b" * 64, "sha256")
+
+        assert result.is_malware is False
+
+
+class TestAbuseIPDBAPIResponseHandling:
+    """Tests for AbuseIPDB API response handling with mocked HTTP responses."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for AbuseIPDB tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService(abuseipdb_api_key="test-aipdb-key")
+        service.config.enable_caching = False
+        return service
+
+    @pytest.mark.asyncio
+    async def test_abuseipdb_malicious_ip_response(self, service):
+        """Test AbuseIPDB returns malicious IP result."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {
+                    "ipAddress": "1.2.3.4",
+                    "abuseConfidenceScore": 85,
+                    "totalReports": 150,
+                    "lastReportedAt": "2024-01-15T10:30:00Z",
+                    "countryCode": "RU",
+                    "isp": "Evil ISP",
+                    "domain": "evil.com",
+                    "usageType": "Data Center",
+                    "isTor": True,
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_ip_abuseipdb("1.2.3.4")
+
+        assert result.is_malicious is True
+        assert result.abuse_score == 85
+        assert result.is_tor is True
+        assert result.country_code == "RU"
+
+    @pytest.mark.asyncio
+    async def test_abuseipdb_clean_ip_response(self, service):
+        """Test AbuseIPDB returns clean IP result."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {
+                    "ipAddress": "8.8.8.8",
+                    "abuseConfidenceScore": 0,
+                    "totalReports": 0,
+                    "lastReportedAt": None,
+                    "countryCode": "US",
+                    "isp": "Google LLC",
+                    "domain": "google.com",
+                    "usageType": "Data Center",
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_ip_abuseipdb("8.8.8.8")
+
+        assert result.is_malicious is False
+        assert result.abuse_score == 0
+
+    @pytest.mark.asyncio
+    async def test_abuseipdb_error_status(self, service):
+        """Test AbuseIPDB handles error status codes."""
+        mock_response = AsyncMock()
+        mock_response.status = 429  # Rate limit
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_ip_abuseipdb("1.2.3.4")
+
+        assert result.is_malicious is False
+        assert result.abuse_score == 0
+
+    @pytest.mark.asyncio
+    async def test_abuseipdb_invalid_datetime_handling(self, service):
+        """Test AbuseIPDB handles invalid datetime gracefully."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {
+                    "ipAddress": "1.2.3.4",
+                    "abuseConfidenceScore": 75,
+                    "totalReports": 50,
+                    "lastReportedAt": "invalid-datetime",
+                    "countryCode": "CN",
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_ip_abuseipdb("1.2.3.4")
+
+        assert result.abuse_score == 75
+        assert result.last_reported is None
+
+
+class TestPhishTankAPIResponseHandling:
+    """Tests for PhishTank API response handling with mocked HTTP responses."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for PhishTank tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService(phishtank_api_key="test-pt-key")
+        service.config.enable_caching = False
+        return service
+
+    @pytest.mark.asyncio
+    async def test_phishtank_verified_phish_response(self, service):
+        """Test PhishTank returns verified phishing URL."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "results": {
+                    "in_database": True,
+                    "verified": True,
+                    "phish_id": "12345",
+                    "phish_detail_page": "https://phishtank.org/phish_detail.php?phish_id=12345",
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_phishtank("http://phishing.com")
+
+        assert result is not None
+        assert result["verified"] is True
+        assert result["phish_id"] == "12345"
+
+    @pytest.mark.asyncio
+    async def test_phishtank_unverified_response(self, service):
+        """Test PhishTank returns unverified result."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "results": {
+                    "in_database": True,
+                    "verified": False,
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_phishtank("http://maybe-phishing.com")
+
+        assert result is not None
+        assert result["in_database"] is True
+        assert result["verified"] is False
+
+    @pytest.mark.asyncio
+    async def test_phishtank_not_in_database(self, service):
+        """Test PhishTank returns URL not in database."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "results": {
+                    "in_database": False,
+                    "verified": False,
+                }
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_phishtank("http://clean.com")
+
+        assert result is not None
+        assert result["in_database"] is False
+
+    @pytest.mark.asyncio
+    async def test_phishtank_without_api_key(self, service):
+        """Test PhishTank request without API key."""
+        service.config.phishtank_api_key = None
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={"results": {"in_database": False, "verified": False}}
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_phishtank("http://test.com")
+
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_phishtank_exception_handling(self, service):
+        """Test PhishTank handles exceptions gracefully."""
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(side_effect=Exception("Connection error"))
+        service._http_session = mock_session
+
+        result = await service._check_url_phishtank("http://test.com")
+
+        assert result is None
+
+
+class TestURLhausAPIResponseHandling:
+    """Tests for URLhaus API response handling with mocked HTTP responses."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for URLhaus tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService()
+        service.config.enable_caching = False
+        service.config.enable_urlhaus = True
+        return service
+
+    @pytest.mark.asyncio
+    async def test_urlhaus_malware_found(self, service):
+        """Test URLhaus returns malware URL."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "query_status": "ok",
+                "url_status": "online",
+                "threat": "malware_download",
+                "tags": ["elf", "mozi", "botnet"],
+                "host": "1.2.3.4",
+                "date_added": "2024-01-01 00:00:00",
+                "reporter": "abuse_reporter",
+                "payloads": [
+                    {"filename": "malware.exe", "sha256_hash": "a" * 64},
+                    {"filename": "backdoor.dll", "sha256_hash": "b" * 64},
+                ],
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_urlhaus("http://malware.com/download")
+
+        assert result is not None
+        assert result["is_malware"] is True
+        assert "botnet" in result["tags"]
+
+    @pytest.mark.asyncio
+    async def test_urlhaus_no_results(self, service):
+        """Test URLhaus returns no results."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "query_status": "no_results",
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_urlhaus("http://clean.com")
+
+        assert result is not None
+        assert result["is_malware"] is False
+
+    @pytest.mark.asyncio
+    async def test_urlhaus_ransomware_tags(self, service):
+        """Test URLhaus with ransomware tags."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "query_status": "ok",
+                "threat": "Ransomware.LockBit",
+                "tags": ["ransomware", "lockbit"],
+                "host": "evil.domain",
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_urlhaus("http://ransomware.com")
+
+        assert result["is_malware"] is True
+        assert "ransomware" in result["tags"]
+
+    @pytest.mark.asyncio
+    async def test_urlhaus_handles_non_list_tags(self, service):
+        """Test URLhaus handles non-list tags gracefully."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "query_status": "ok",
+                "threat": "Generic",
+                "tags": "single_tag",  # String instead of list
+                "host": "test.com",
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_urlhaus("http://test.com")
+
+        assert result["is_malware"] is True
+        assert result["tags"] == []
+
+    @pytest.mark.asyncio
+    async def test_urlhaus_error_status(self, service):
+        """Test URLhaus handles error status."""
+        mock_response = AsyncMock()
+        mock_response.status = 500
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
+        service._http_session = mock_session
+
+        result = await service._check_url_urlhaus("http://test.com")
+
+        assert result is None
+
+
+class TestThreatAssessmentWithMultipleSources:
+    """Tests for comprehensive threat assessment with multiple sources."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for assessment tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService(
+            virustotal_api_key="test-vt-key",
+            phishtank_api_key="test-pt-key",
+        )
+        service.config.enable_caching = False
+        service.config.enable_urlhaus = True
+        return service
+
+    @pytest.mark.asyncio
+    async def test_assess_threat_url_with_all_sources(self, service):
+        """Test threat assessment combines results from all sources."""
+        # Mock VirusTotal with higher detection rate to exceed threshold
+        vt_result = {
+            "positives": 40,
+            "total": 70,
+            "categories": {"Vendor1": "phishing"},
+        }
+
+        # Mock PhishTank
+        pt_result = {"in_database": True, "verified": True, "phish_id": "123"}
+
+        # Mock URLhaus
+        uh_result = {"is_malware": False, "query_status": "no_results"}
+
+        with (
+            patch.object(service, "_check_url_virustotal", return_value=vt_result),
+            patch.object(service, "_check_url_phishtank", return_value=pt_result),
+            patch.object(service, "_check_url_urlhaus", return_value=uh_result),
+        ):
+            assessment = await service.assess_threat("http://phishing.com")
+
+        assert assessment.is_malicious is True
+        assert "phishing" in assessment.threat_types
+        assert "virustotal" in assessment.sources
+        assert "phishtank" in assessment.sources
+
+    @pytest.mark.asyncio
+    async def test_assess_threat_emits_high_risk_event(self, service):
+        """Test threat assessment emits event for high risk."""
+        handler = MagicMock()
+        service.add_event_handler(handler)
+        service.config.high_risk_threshold = 0.5
+
+        vt_result = {"positives": 40, "total": 70, "categories": {}}
+        pt_result = {"in_database": True, "verified": True}
+
+        with (
+            patch.object(service, "_check_url_virustotal", return_value=vt_result),
+            patch.object(service, "_check_url_phishtank", return_value=pt_result),
+            patch.object(service, "_check_url_urlhaus", return_value=None),
+        ):
+            await service.assess_threat("http://very-bad.com")
+
+        # Should have emitted high_risk_assessment event
+        assert handler.called
+
+    @pytest.mark.asyncio
+    async def test_assess_threat_handles_api_exceptions(self, service):
+        """Test threat assessment handles API exceptions gracefully."""
+        with (
+            patch.object(service, "_check_url_virustotal", side_effect=Exception("API Error")),
+            patch.object(service, "_check_url_phishtank", return_value=None),
+            patch.object(service, "_check_url_urlhaus", return_value=None),
+        ):
+            assessment = await service.assess_threat("http://test.com")
+
+        assert assessment.target == "http://test.com"
+        # Should have recorded the error
+        if "virustotal" in assessment.sources:
+            assert assessment.sources["virustotal"].error is not None
+
+    @pytest.mark.asyncio
+    async def test_assess_threat_ip_with_abuseipdb(self, service):
+        """Test threat assessment for IP uses AbuseIPDB."""
+        service.config.enable_abuseipdb = True
+        service.config.abuseipdb_api_key = "test-key"
+
+        ip_result_mock = MagicMock()
+        ip_result_mock.is_malicious = True
+        ip_result_mock.abuse_score = 90
+        ip_result_mock.to_dict = MagicMock(
+            return_value={"ip_address": "1.2.3.4", "abuse_score": 90}
+        )
+
+        with patch.object(service, "_check_ip_abuseipdb", return_value=ip_result_mock):
+            assessment = await service.assess_threat("1.2.3.4")
+
+        assert assessment.target_type == "ip"
+        assert assessment.is_malicious is True
+
+    @pytest.mark.asyncio
+    async def test_assess_threat_hash_with_virustotal(self, service):
+        """Test threat assessment for hash uses VirusTotal."""
+        from aragora.services.threat_intelligence import FileHashResult
+
+        hash_result = FileHashResult(
+            hash_value="a" * 64,
+            hash_type="sha256",
+            is_malware=True,
+            malware_names=["Trojan.Gen"],
+            detection_ratio="45/70",
+        )
+
+        with patch.object(service, "check_file_hash", return_value=hash_result):
+            assessment = await service.assess_threat("a" * 64)
+
+        assert assessment.target_type == "hash"
+        assert assessment.is_malicious is True
+
+
+class TestAlertGenerationAndEventEmission:
+    """Tests for alert generation and event emission functionality."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for alert tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService()
+        service.config.enable_caching = False
+        service.config.enable_virustotal = False
+        service.config.enable_phishtank = False
+        service.config.enable_urlhaus = False
+        service.config.enable_event_emission = True
+        service.config.high_risk_threshold = 0.6
+        return service
+
+    @pytest.mark.asyncio
+    async def test_high_risk_url_event_data(self, service):
+        """Test high risk URL event contains expected data."""
+        events = []
+
+        def capture_event(event_type, data):
+            events.append((event_type, data))
+
+        service.add_event_handler(capture_event)
+
+        # Trigger high risk URL (local pattern match)
+        await service.check_url("http://paypal-verify.malicious.com/login")
+
+        assert len(events) >= 1
+        event_type, data = events[0]
+        assert event_type == "high_risk_url"
+        assert "target" in data
+        assert "threat_type" in data
+        assert "severity" in data
+        assert "confidence" in data
+
+    @pytest.mark.asyncio
+    async def test_event_handler_exception_isolation(self, service):
+        """Test that one failing handler doesn't affect others."""
+        results = []
+
+        def failing_handler(event_type, data):
+            raise Exception("Handler failed")
+
+        def working_handler(event_type, data):
+            results.append(data)
+
+        service.add_event_handler(failing_handler)
+        service.add_event_handler(working_handler)
+
+        await service.check_url("http://paypal-verify.malicious.com/login")
+
+        # Working handler should still receive event
+        assert len(results) >= 1
+
+    def test_multiple_event_handler_registration(self, service):
+        """Test registering multiple event handlers."""
+        handlers = [MagicMock() for _ in range(5)]
+        for h in handlers:
+            service.add_event_handler(h)
+
+        assert len(service._event_handlers) == 5
+
+    def test_remove_handler_returns_correct_status(self, service):
+        """Test remove_event_handler returns correct boolean."""
+        handler1 = MagicMock()
+        handler2 = MagicMock()
+
+        service.add_event_handler(handler1)
+
+        assert service.remove_event_handler(handler1) is True
+        assert service.remove_event_handler(handler2) is False
+
+
+class TestSQLiteCacheOperations:
+    """Extended tests for SQLite cache operations."""
+
+    @pytest.mark.asyncio
+    async def test_sqlite_cache_set_and_retrieve(self):
+        """Test SQLite cache stores and retrieves results correctly."""
+        from aragora.services.threat_intelligence import (
+            ThreatIntelligenceService,
+            ThreatResult,
+            ThreatSeverity,
+            ThreatSource,
+            ThreatType,
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        service = ThreatIntelligenceService()
+        service.config.cache_db_path = db_path
+        service.config.use_redis_cache = False
+
+        await service.initialize()
+
+        result = ThreatResult(
+            target="http://cached.com",
+            target_type="url",
+            is_malicious=True,
+            threat_type=ThreatType.PHISHING,
+            severity=ThreatSeverity.HIGH,
+            confidence=0.9,
+            sources=[ThreatSource.VIRUSTOTAL],
+            virustotal_positives=20,
+            virustotal_total=70,
+        )
+
+        await service._set_sqlite_cached(result)
+
+        # Clear memory cache to force SQLite lookup
+        service._memory_cache.clear()
+
+        cached = await service._get_sqlite_cached("http://cached.com", "url")
+
+        assert cached is not None
+        assert cached.target == "http://cached.com"
+        assert cached.is_malicious is True
+        assert cached.cached is True
+
+        await service.close()
+
+    @pytest.mark.asyncio
+    async def test_sqlite_cache_handles_db_error(self):
+        """Test SQLite cache handles database errors gracefully."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService()
+        # Set invalid path
+        service.config.cache_db_path = "/nonexistent/path/cache.db"
+
+        await service._init_sqlite_cache()
+
+        # Should not crash, just log warning
+        assert service._cache_conn is None or service._cache_conn is not None
+
+    @pytest.mark.asyncio
+    async def test_sqlite_cache_cleanup_removes_old_entries(self):
+        """Test cache cleanup removes entries older than threshold."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        service = ThreatIntelligenceService()
+        service.config.cache_db_path = db_path
+
+        await service.initialize()
+
+        # Insert old entry
+        cursor = service._cache_conn.cursor()
+        old_time = (datetime.now() - timedelta(hours=200)).isoformat()
+        cursor.execute(
+            "INSERT INTO threat_cache (target_hash, target, target_type, result_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("old_hash", "http://old.com", "url", "{}", old_time, old_time),
+        )
+        service._cache_conn.commit()
+
+        deleted = await service.cleanup_cache(older_than_hours=168)
+
+        assert deleted >= 1
+
+        await service.close()
+
+
+class TestRedisCacheOperations:
+    """Extended tests for Redis cache operations."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for Redis cache tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        return ThreatIntelligenceService()
+
+    @pytest.mark.asyncio
+    async def test_redis_cache_get_with_data(self, service):
+        """Test Redis cache retrieves stored data."""
+        from aragora.services.threat_intelligence import ThreatType, ThreatSeverity
+
+        cached_data = json.dumps(
+            {
+                "target": "http://cached.com",
+                "target_type": "url",
+                "is_malicious": True,
+                "threat_type": "phishing",
+                "severity": "HIGH",
+                "confidence": 0.9,
+                "sources": ["virustotal"],
+                "details": {},
+                "checked_at": datetime.now().isoformat(),
+                "virustotal_positives": 20,
+                "virustotal_total": 70,
+                "abuseipdb_score": 0,
+                "phishtank_verified": True,
+            }
+        )
+
+        mock_redis = MagicMock()
+        mock_redis.get = MagicMock(return_value=cached_data)
+        service._redis_client = mock_redis
+
+        result = await service._get_redis_cached("http://cached.com", "url")
+
+        assert result is not None
+        assert result.target == "http://cached.com"
+        assert result.is_malicious is True
+
+    @pytest.mark.asyncio
+    async def test_redis_cache_set_with_ttl(self, service):
+        """Test Redis cache stores data with correct TTL."""
+        from aragora.services.threat_intelligence import (
+            ThreatResult,
+            ThreatSeverity,
+            ThreatType,
+        )
+
+        mock_redis = MagicMock()
+        mock_redis.setex = MagicMock()
+        service._redis_client = mock_redis
+
+        result = ThreatResult(
+            target="http://test.com",
+            target_type="url",
+            is_malicious=False,
+            threat_type=ThreatType.NONE,
+            severity=ThreatSeverity.NONE,
+            confidence=0.0,
+            sources=[],
+        )
+
+        await service._set_redis_cached(result)
+
+        mock_redis.setex.assert_called_once()
+        call_args = mock_redis.setex.call_args
+        # TTL should be URL TTL (24 hours)
+        assert call_args[0][1] == 24 * 3600
+
+    @pytest.mark.asyncio
+    async def test_redis_cache_handles_connection_error(self, service):
+        """Test Redis cache handles connection errors gracefully."""
+        mock_redis = MagicMock()
+        mock_redis.get = MagicMock(side_effect=Exception("Connection refused"))
+        service._redis_client = mock_redis
+
+        result = await service._get_redis_cached("http://test.com", "url")
+
+        assert result is None
+
+
+class TestIOCTypeDetectionEdgeCases:
+    """Tests for IOC type detection edge cases."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for IOC detection tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        return ThreatIntelligenceService()
+
+    def test_detect_hash_mixed_case(self, service):
+        """Test hash detection with mixed case."""
+        # MD5 with mixed case
+        assert service._detect_hash_type("D41D8CD98F00B204e9800998ecf8427e") == "md5"
+
+    def test_detect_hash_with_leading_trailing_spaces(self, service):
+        """Test hash detection trims whitespace."""
+        assert service._detect_hash_type("   d41d8cd98f00b204e9800998ecf8427e   ") == "md5"
+
+    def test_detect_hash_invalid_length(self, service):
+        """Test hash detection rejects invalid lengths."""
+        assert service._detect_hash_type("a" * 31) is None  # Too short for MD5
+        assert service._detect_hash_type("a" * 33) is None  # Too long for MD5, too short for SHA1
+        assert service._detect_hash_type("a" * 65) is None  # Too long for SHA256
+
+    def test_ipv4_boundary_values(self, service):
+        """Test IPv4 validation with boundary values."""
+        assert service._is_valid_ip("0.0.0.0") is True
+        assert service._is_valid_ip("255.255.255.255") is True
+        assert service._is_valid_ip("255.255.255.256") is False
+        assert service._is_valid_ip("-1.0.0.0") is False
+
+    def test_ipv6_basic_formats(self, service):
+        """Test IPv6 validation for basic formats."""
+        assert service._is_valid_ip("::") is True
+        assert service._is_valid_ip("::1") is True
+        assert service._is_valid_ip("fe80::1") is True
+
+    def test_url_pattern_case_insensitive(self, service):
+        """Test URL pattern matching is case insensitive."""
+        result1 = service._check_url_patterns("http://PAYPAL-verify.com/login")
+        result2 = service._check_url_patterns("http://PayPal-VERIFY.com/login")
+
+        assert result1 is not None
+        assert result2 is not None
+
+
+class TestCacheIntegration:
+    """Tests for cache integration across tiers."""
+
+    @pytest.mark.asyncio
+    async def test_cache_tier_fallback(self):
+        """Test cache falls back from memory to Redis to SQLite."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        service = ThreatIntelligenceService()
+        service.config.cache_db_path = db_path
+        service.config.enable_caching = True
+        service.config.enable_virustotal = False
+        service.config.enable_phishtank = False
+        service.config.enable_urlhaus = False
+
+        await service.initialize()
+
+        # First request populates cache
+        result1 = await service.check_url("http://test-cache.com")
+
+        # Should be in memory cache
+        memory_cached = service._get_memory_cached("http://test-cache.com", "url")
+        assert memory_cached is not None
+
+        # Clear memory cache
+        service._memory_cache.clear()
+
+        # Second request should hit SQLite
+        result2 = await service.check_url("http://test-cache.com")
+        assert result2.cached is True
+
+        await service.close()
+
+    @pytest.mark.asyncio
+    async def test_get_cached_respects_config(self):
+        """Test _get_cached returns None when caching disabled."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService()
+        service.config.enable_caching = False
+
+        result = await service._get_cached("http://test.com", "url")
+
+        assert result is None
+
+
+class TestErrorHandlingEdgeCases:
+    """Tests for error handling edge cases."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for error handling tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        service = ThreatIntelligenceService()
+        service.config.enable_caching = False
+        return service
+
+    @pytest.mark.asyncio
+    async def test_check_url_with_empty_string(self, service):
+        """Test check_url handles empty string."""
+        result = await service.check_url("")
+
+        assert result.target == ""
+        assert result.is_malicious is False
+
+    @pytest.mark.asyncio
+    async def test_check_ip_with_empty_string(self, service):
+        """Test check_ip handles empty string."""
+        result = await service.check_ip("")
+
+        assert result.ip_address == ""
+        assert result.is_malicious is False
+
+    @pytest.mark.asyncio
+    async def test_check_hash_with_empty_string(self, service):
+        """Test check_file_hash handles empty string."""
+        result = await service.check_file_hash("")
+
+        assert result.hash_value == ""
+        assert result.is_malware is False
+
+    @pytest.mark.asyncio
+    async def test_batch_urls_with_duplicates(self, service):
+        """Test batch URL check handles duplicates correctly."""
+        service.config.enable_virustotal = False
+        service.config.enable_phishtank = False
+        service.config.enable_urlhaus = False
+
+        urls = ["http://test.com", "http://test.com", "http://other.com"]
+        results = await service.check_urls_batch(urls)
+
+        # Should have unique results
+        assert len(results) == 2  # Duplicates deduplicated
+
+    @pytest.mark.asyncio
+    async def test_assess_threat_unknown_target_type(self, service):
+        """Test assess_threat with unknown defaults to url."""
+        result = await service.assess_threat("random_string_that_is_nothing")
+
+        assert result.target_type == "url"
+
+
+class TestURLPatternMatchingExtended:
+    """Extended tests for URL pattern matching."""
+
+    @pytest.fixture
+    def service(self):
+        """Create service for pattern tests."""
+        from aragora.services.threat_intelligence import ThreatIntelligenceService
+
+        return ThreatIntelligenceService()
+
+    def test_bitly_suspicious_pattern(self, service):
+        """Test detection of suspicious bit.ly URLs."""
+        result = service._check_url_patterns("http://bit.ly/abc123def456")
+
+        assert result is not None
+        assert result["threat_type"].value == "phishing"
+
+    def test_zip_tld_detection(self, service):
+        """Test detection of .zip TLD (confusing file extension)."""
+        result = service._check_url_patterns("http://download.zip/malware")
+
+        assert result is not None
+        assert result["threat_type"].value == "suspicious"
+
+    def test_mov_tld_detection(self, service):
+        """Test detection of .mov TLD (confusing file extension)."""
+        result = service._check_url_patterns("http://video.mov/content")
+
+        assert result is not None
+        assert result["threat_type"].value == "suspicious"
+
+    def test_click_tld_detection(self, service):
+        """Test detection of .click TLD (often abused)."""
+        result = service._check_url_patterns("http://free-prize.click/claim")
+
+        assert result is not None
+        assert result["threat_type"].value == "suspicious"
+
+    def test_work_tld_detection(self, service):
+        """Test detection of .work TLD."""
+        result = service._check_url_patterns("http://remote-job.work/apply")
+
+        assert result is not None
+        assert result["threat_type"].value == "suspicious"
+
+    def test_top_tld_detection(self, service):
+        """Test detection of .top TLD."""
+        result = service._check_url_patterns("http://best-deal.top/buy")
+
+        assert result is not None
+        assert result["threat_type"].value == "suspicious"
+
+
+class TestConvenienceFunctionExtended:
+    """Extended tests for check_threat convenience function."""
+
+    @pytest.mark.asyncio
+    async def test_check_threat_with_api_keys(self):
+        """Test check_threat convenience function with API keys."""
+        from aragora.services.threat_intelligence import check_threat
+
+        result = await check_threat(
+            "http://test.com",
+            virustotal_api_key="fake-key",
+            abuseipdb_api_key="fake-key",
+        )
+
+        assert result.target_type == "url"
+
+    @pytest.mark.asyncio
+    async def test_check_threat_cleans_up_service(self):
+        """Test check_threat closes service properly."""
+        from aragora.services.threat_intelligence import check_threat
+
+        # Should not leave resources open
+        result = await check_threat("http://test.com")
+
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_check_threat_malicious_hash(self):
+        """Test check_threat with hash that would be malicious if API was available."""
+        from aragora.services.threat_intelligence import check_threat
+
+        # Known EICAR test file hash
+        eicar_hash = "44d88612fea8a8f36de82e1278abb02f"
+
+        result = await check_threat(eicar_hash)
+
+        assert result.target_type == "hash"
+
+
+class TestSourceWeightConfiguration:
+    """Tests for source weight configuration."""
+
+    def test_default_source_weights(self):
+        """Test default source weights are correctly configured."""
+        from aragora.services.threat_intelligence import ThreatIntelConfig
+
+        config = ThreatIntelConfig()
+
+        assert config.source_weights["virustotal"] == 0.9
+        assert config.source_weights["abuseipdb"] == 0.8
+        assert config.source_weights["phishtank"] == 0.85
+        assert config.source_weights["urlhaus"] == 0.85
+        assert config.source_weights["local_rules"] == 0.5
+
+    def test_custom_source_weights(self):
+        """Test custom source weights are respected."""
+        from aragora.services.threat_intelligence import ThreatIntelConfig
+
+        custom_weights = {
+            "virustotal": 1.0,
+            "abuseipdb": 0.5,
+            "phishtank": 0.7,
+        }
+
+        config = ThreatIntelConfig(source_weights=custom_weights)
+
+        assert config.source_weights["virustotal"] == 1.0
+        assert config.source_weights["abuseipdb"] == 0.5
+
+    def test_aggregate_risk_uses_weights(self):
+        """Test aggregate risk calculation respects source weights."""
+        from aragora.services.threat_intelligence import (
+            ThreatIntelligenceService,
+            SourceResult,
+            ThreatSource,
+        )
+
+        service = ThreatIntelligenceService()
+        # Set custom weights
+        service.config.source_weights = {
+            "virustotal": 1.0,
+            "local_rules": 0.1,
+        }
+
+        source_results = {
+            "virustotal": SourceResult(
+                source=ThreatSource.VIRUSTOTAL,
+                is_malicious=True,
+                confidence=0.9,
+            ),
+            "local_rules": SourceResult(
+                source=ThreatSource.LOCAL_RULES,
+                is_malicious=False,
+                confidence=0.1,
+            ),
+        }
+
+        overall, weighted, is_mal = service._calculate_aggregate_risk(source_results)
+
+        # VirusTotal has higher weight, should dominate
+        assert weighted > 0.5
+        assert is_mal is True

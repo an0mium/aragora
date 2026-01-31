@@ -30,6 +30,16 @@ from aragora.connectors.enterprise.database.cdc import (
     CallbackHandler,
     CompositeHandler,
     CDCStreamManager,
+    # CDC Handlers
+    CDCConfig,
+    BaseCDCHandler,
+    PostgresCDCHandler,
+    MySQLCDCHandler,
+    MongoDBCDCHandler,
+    # Factory functions
+    create_postgres_cdc,
+    create_mysql_cdc,
+    create_mongodb_cdc,
 )
 
 __all__ = [
@@ -39,15 +49,26 @@ __all__ = [
     "MySQLConnector",
     "SQLServerConnector",
     "SnowflakeConnector",
-    # CDC
+    # CDC Models
     "ChangeEvent",
     "ChangeOperation",
     "CDCSourceType",
     "ResumeToken",
     "ResumeTokenStore",
+    # CDC Handlers
     "ChangeEventHandler",
     "KnowledgeMoundHandler",
     "CallbackHandler",
     "CompositeHandler",
     "CDCStreamManager",
+    # Database CDC Handlers
+    "CDCConfig",
+    "BaseCDCHandler",
+    "PostgresCDCHandler",
+    "MySQLCDCHandler",
+    "MongoDBCDCHandler",
+    # Factory functions
+    "create_postgres_cdc",
+    "create_mysql_cdc",
+    "create_mongodb_cdc",
 ]
