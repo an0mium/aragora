@@ -461,16 +461,9 @@ class TestDetectLMStudio:
 
         mock_response = create_mock_response(200, lm_studio_response)
         mock_pool = create_mock_pool({"/models": mock_response})
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
-
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
         with patch.dict("os.environ", {"LM_STUDIO_HOST": "http://192.168.1.100:5000/v1"}):
-            with patch("aiohttp.ClientSession", return_value=mock_session):
+            with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
                 server = await detector.detect_lm_studio()
 
                 assert server.base_url == "http://192.168.1.100:5000/v1"
@@ -492,30 +485,14 @@ class TestDetectAll:
         ollama_response = {"models": [{"name": "llama3.2:latest"}]}
         lm_studio_response = {"data": [{"id": "mistral-7b"}]}
 
-        # Track which URL was called
-        responses = {
-            "/api/tags": ollama_response,
-            "/models": lm_studio_response,
-        }
+        mock_pool = create_mock_pool(
+            {
+                "/api/tags": create_mock_response(200, ollama_response),
+                "/models": create_mock_response(200, lm_studio_response),
+            }
+        )
 
-        def mock_get(url, **kwargs):
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            # Determine response based on URL
-            for endpoint, data in responses.items():
-                if endpoint in url:
-                    mock_response.json = AsyncMock(return_value=data)
-                    break
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
-            return mock_response
-
-        mock_session = MagicMock()
-        mock_session.get = mock_get
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             status = await detector.detect_all()
 
             assert len(status.servers) == 2
@@ -529,16 +506,9 @@ class TestDetectAll:
         """Test detecting all servers when none are available."""
         detector = LocalLLMDetector()
 
-        mock_session = MagicMock()
-        mock_session.get = MagicMock(
-            side_effect=aiohttp.ClientConnectorError(
-                connection_key=MagicMock(), os_error=OSError("Connection refused")
-            )
-        )
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = create_mock_pool(error=ConnectionError("Connection refused"))
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             status = await detector.detect_all()
 
             assert len(status.servers) == 2
@@ -554,25 +524,24 @@ class TestDetectAll:
 
         ollama_response = {"models": [{"name": "llama3.2:latest"}]}
 
-        def mock_get(url, **kwargs):
-            mock_response = AsyncMock()
-            if "/api/tags" in url:
-                mock_response.status = 200
-                mock_response.json = AsyncMock(return_value=ollama_response)
-            else:
-                raise aiohttp.ClientConnectorError(
-                    connection_key=MagicMock(), os_error=OSError("Connection refused")
-                )
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
-            return mock_response
+        # Custom pool that returns success for Ollama, error for LM Studio
+        mock_pool = MagicMock()
 
-        mock_session = MagicMock()
-        mock_session.get = mock_get
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
+        @asynccontextmanager
+        async def mock_get_session(provider: str):
+            mock_client = MagicMock()
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+            async def mock_get(url: str, timeout: float | None = None):
+                if "/api/tags" in url:
+                    return create_mock_response(200, ollama_response)
+                raise ConnectionError("Connection refused")
+
+            mock_client.get = mock_get
+            yield mock_client
+
+        mock_pool.get_session = mock_get_session
+
+        with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             status = await detector.detect_all()
 
             assert status.any_available is True
