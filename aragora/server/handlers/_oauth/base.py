@@ -239,7 +239,9 @@ class OAuthHandler(
     # Common OAuth Flow Completion
     # =========================================================================
 
-    def _complete_oauth_flow(self, user_info: OAuthUserInfo, state_data: dict) -> HandlerResult:
+    async def _complete_oauth_flow(
+        self, user_info: OAuthUserInfo, state_data: dict
+    ) -> HandlerResult:
         """Complete OAuth flow - create/login user and redirect with tokens."""
         user_store = self._get_user_store()
         if not user_store:
@@ -248,18 +250,20 @@ class OAuthHandler(
         # Check if this is account linking
         linking_user_id = state_data.get("user_id")
         if linking_user_id:
-            return self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
+            return await self._handle_account_linking(
+                user_store, linking_user_id, user_info, state_data
+            )
 
         # Check if user exists by OAuth provider ID
-        user = self._find_user_by_oauth(user_store, user_info)
+        user = await self._find_user_by_oauth(user_store, user_info)
 
         if not user:
             # Check if email already registered
             user = user_store.get_user_by_email(user_info.email)
             if user:
-                self._link_oauth_to_user(user_store, user.id, user_info)
+                await self._link_oauth_to_user(user_store, user.id, user_info)
             else:
-                user = self._create_oauth_user(user_store, user_info)
+                user = await self._create_oauth_user(user_store, user_info)
 
         if not user:
             return self._redirect_with_error("Failed to create user account")

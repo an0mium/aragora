@@ -385,7 +385,7 @@ def _setup_propagators(propagator_names: list[str]) -> Any:
     except ImportError:
         return None
 
-    propagators = []
+    propagators: list[Any] = []
 
     if "tracecontext" in propagator_names:
         try:
@@ -476,15 +476,15 @@ def get_tracer(
         try:
             from opentelemetry import trace
 
-            tracer = trace.get_tracer(instrumentation_name, version)
-            _tracers[cache_key] = tracer
-            return tracer
+            otel_tracer = trace.get_tracer(instrumentation_name, version)
+            _tracers[cache_key] = otel_tracer
+            return otel_tracer
         except Exception as e:
             logger.debug("Failed to get OTel tracer: %s", e)
 
-    tracer = _NoOpTracer()
-    _tracers[cache_key] = tracer
-    return tracer
+    noop_tracer: Any = _NoOpTracer()
+    _tracers[cache_key] = noop_tracer
+    return noop_tracer
 
 
 # =============================================================================

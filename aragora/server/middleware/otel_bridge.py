@@ -307,8 +307,8 @@ def init_otel_bridge(config: OTelBridgeConfig | None = None) -> bool:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-        # Try to import propagators
-        propagators = []
+        # Try to import propagators (Any type for mixed propagator types)
+        propagators: list[Any] = []
         if "tracecontext" in config.propagator_format:
             try:
                 from opentelemetry.trace.propagation.tracecontext import (

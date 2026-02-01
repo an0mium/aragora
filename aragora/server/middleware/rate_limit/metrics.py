@@ -285,17 +285,21 @@ def get_rate_limit_metrics() -> dict[str, Any]:
         }
 
         # Get backend status by instance
-        for sample in RATE_LIMIT_BACKEND_STATUS.collect()[0].samples:
-            instance_id = sample.labels.get("instance_id", "unknown")
-            metrics["backend_status"][instance_id] = "redis" if sample.value == 1 else "memory"
+        backend_status_metrics = list(RATE_LIMIT_BACKEND_STATUS.collect())
+        if backend_status_metrics:
+            for sample in backend_status_metrics[0].samples:
+                instance_id = sample.labels.get("instance_id", "unknown")
+                metrics["backend_status"][instance_id] = "redis" if sample.value == 1 else "memory"
 
         # Get circuit breaker states
-        for sample in RATE_LIMIT_CIRCUIT_BREAKER_STATE.collect()[0].samples:
-            instance_id = sample.labels.get("instance_id", "unknown")
-            state_map = {0: "closed", 1: "open", 2: "half_open"}
-            metrics["circuit_breaker_states"][instance_id] = state_map.get(
-                int(sample.value), "unknown"
-            )
+        circuit_breaker_metrics = list(RATE_LIMIT_CIRCUIT_BREAKER_STATE.collect())
+        if circuit_breaker_metrics:
+            for sample in circuit_breaker_metrics[0].samples:
+                instance_id = sample.labels.get("instance_id", "unknown")
+                state_map = {0: "closed", 1: "open", 2: "half_open"}
+                metrics["circuit_breaker_states"][instance_id] = state_map.get(
+                    int(sample.value), "unknown"
+                )
 
         return metrics
 

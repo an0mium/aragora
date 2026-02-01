@@ -328,6 +328,14 @@ class DistributedRateLimiter:
             if used_redis:
                 record_redis_operation("check", success=True, latency_seconds=latency)
 
+        # Also record tenant-specific rejection if applicable
+        if not result.allowed and tenant_id:
+            with self._lock:
+                if not hasattr(self, "_tenant_rejections"):
+                    self._tenant_rejections: dict[str, int] = {}
+                key = f"{endpoint or 'unknown'}:{tenant_id}"
+                self._tenant_rejections[key] = self._tenant_rejections.get(key, 0) + 1
+
         return result
 
     def get_client_key(self, handler: Any) -> str:
@@ -372,6 +380,7 @@ class DistributedRateLimiter:
             "total_requests": self._total_requests,
             "redis_requests": self._redis_requests,
             "fallback_requests": self._fallback_requests,
+            "tenant_rejections": getattr(self, "_tenant_rejections", {}),
         }
 
         if self._redis_limiter:

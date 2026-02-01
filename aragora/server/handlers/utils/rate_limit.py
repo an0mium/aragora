@@ -52,11 +52,23 @@ from aragora.server.middleware.rate_limit import (
 from aragora.server.middleware.rate_limit import (
     get_rate_limiter as get_middleware_limiter,
 )
+from aragora.server.middleware.rate_limit.distributed import (
+    get_distributed_limiter,
+    DistributedRateLimiter,
+)
 
 # Re-export the middleware rate_limit decorator for handlers that want
 # the full-featured version with burst support and rate limit headers
 from aragora.server.middleware.rate_limit import (
     rate_limit as middleware_rate_limit,
+)
+
+# Environment variable to control whether to use distributed limiter
+# Default is True - uses Redis when available for multi-instance deployments
+USE_DISTRIBUTED_LIMITER = os.environ.get("ARAGORA_USE_DISTRIBUTED_RATE_LIMIT", "true").lower() in (
+    "1",
+    "true",
+    "yes",
 )
 
 logger = logging.getLogger(__name__)
@@ -419,17 +431,25 @@ def rate_limit(
     limiter_name: str | None = None,
     *,
     requests_per_minute: int | None = None,
+    use_distributed: bool | None = None,
+    tenant_aware: bool = False,
 ) -> Callable[[F], F]:
     """Decorator to rate limit handler methods.
 
     Applies token bucket rate limiting based on client IP (or custom key).
     Returns 429 Too Many Requests when limit is exceeded.
 
+    By default, uses the distributed rate limiter which coordinates across
+    server instances via Redis when available. Set ARAGORA_USE_DISTRIBUTED_RATE_LIMIT=false
+    or use_distributed=False to use local in-memory limiting instead.
+
     Args:
         rpm: Maximum requests per minute (default: 60)
         requests_per_minute: Alias for rpm (for consistency with middleware)
         key_func: Optional function to extract rate limit key from handler
         limiter_name: Optional name to share limiter across decorators
+        use_distributed: Whether to use distributed rate limiting (default: True)
+        tenant_aware: If True, extracts tenant_id from request for per-tenant limits
 
     Returns:
         Decorated function
@@ -443,15 +463,33 @@ def rate_limit(
             @rate_limit(requests_per_minute=10, limiter_name="auth")
             def _login(self, handler) -> HandlerResult:
                 ...
+
+            @rate_limit(requests_per_minute=100, tenant_aware=True)
+            def _tenant_operation(self, handler) -> HandlerResult:
+                ...
     """
     import asyncio
 
     # Support both rpm and requests_per_minute for compatibility
     effective_rpm = requests_per_minute if requests_per_minute is not None else rpm
 
+    # Determine whether to use distributed limiter
+    should_use_distributed = (
+        use_distributed if use_distributed is not None else USE_DISTRIBUTED_LIMITER
+    )
+
     def decorator(func: F) -> F:
         name = limiter_name or f"{func.__module__}.{func.__qualname__}"
-        limiter = _get_limiter(name, effective_rpm)
+
+        # Get appropriate limiter based on configuration
+        if should_use_distributed:
+            distributed_limiter = get_distributed_limiter()
+            # Configure endpoint on distributed limiter
+            endpoint_key = f"/{name.replace('.', '/')}"
+            distributed_limiter.configure_endpoint(endpoint_key, effective_rpm, key_type="ip")
+            limiter = distributed_limiter
+        else:
+            limiter = _get_limiter(name, effective_rpm)
 
         def _get_key_from_args(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
             """Extract rate limit key from function arguments.
@@ -499,30 +537,97 @@ def rate_limit(
 
             return "unknown"
 
-        def _check_rate_limit(key: str) -> Any:
-            """Check rate limit and return error response if exceeded."""
-            if not limiter.is_allowed(key):
-                from aragora.server.handlers.base import error_response
+        def _extract_tenant_id_from_request(
+            args: tuple[Any, ...], kwargs: dict[str, Any]
+        ) -> str | None:
+            """Extract tenant ID from request if tenant_aware is enabled."""
+            if not tenant_aware:
+                return None
 
-                remaining = limiter.get_remaining(key)
-                logger.warning(
-                    "Rate limit exceeded for %s on %s (remaining: %d)",
-                    key,
-                    func.__qualname__,
-                    remaining,
-                )
-                return error_response(
-                    "Rate limit exceeded. Please try again later.",
-                    status=429,
-                )
+            # Check kwargs first
+            if "tenant_id" in kwargs:
+                return str(kwargs["tenant_id"])
+
+            # Check handler attributes
+            handler = None
+            if args and hasattr(args[0], "headers"):
+                handler = args[0]
+            elif "handler" in kwargs:
+                handler = kwargs["handler"]
+
+            if handler:
+                # Check handler attribute
+                if hasattr(handler, "tenant_id") and handler.tenant_id:
+                    return str(handler.tenant_id)
+                # Check headers
+                if hasattr(handler, "headers"):
+                    tenant_header = handler.headers.get("X-Tenant-ID") or handler.headers.get(
+                        "x-tenant-id"
+                    )
+                    if tenant_header:
+                        return str(tenant_header)
+
             return None
+
+        def _check_rate_limit(
+            key: str,
+            args: tuple[Any, ...],
+            kwargs: dict[str, Any],
+        ) -> Any:
+            """Check rate limit and return error response if exceeded."""
+            from aragora.server.handlers.base import error_response
+
+            if should_use_distributed:
+                # Use distributed limiter's allow() method
+                tenant_id = _extract_tenant_id_from_request(args, kwargs)
+                result = limiter.allow(
+                    client_ip=key,
+                    endpoint=endpoint_key,
+                    tenant_id=tenant_id,
+                )
+                if not result.allowed:
+                    logger.warning(
+                        "Rate limit exceeded for %s on %s (remaining: %d, limit: %d)",
+                        key,
+                        func.__qualname__,
+                        result.remaining,
+                        result.limit,
+                    )
+                    # Include rate limit headers in response
+                    headers = {
+                        "X-RateLimit-Limit": str(result.limit),
+                        "X-RateLimit-Remaining": str(result.remaining),
+                    }
+                    if result.retry_after > 0:
+                        headers["Retry-After"] = str(int(result.retry_after) + 1)
+                    return error_response(
+                        "Rate limit exceeded. Please try again later.",
+                        status=429,
+                        headers=headers,
+                    )
+                return None
+            else:
+                # Use local limiter's is_allowed() method
+                if not limiter.is_allowed(key):
+                    remaining = limiter.get_remaining(key)
+                    logger.warning(
+                        "Rate limit exceeded for %s on %s (remaining: %d)",
+                        key,
+                        func.__qualname__,
+                        remaining,
+                    )
+                    return error_response(
+                        "Rate limit exceeded. Please try again later.",
+                        status=429,
+                    )
+                return None
 
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
             async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
                 key = _get_key_from_args(args, kwargs)
-                error = _check_rate_limit(key)
+                error = _check_rate_limit(key, args, kwargs)
                 if error:
                     return error
                 return await func(self, *args, **kwargs)
@@ -530,6 +635,7 @@ def rate_limit(
             # Mark wrapper as rate limited for detection by default_limiter
             async_wrapper._rate_limited = True  # type: ignore[attr-defined]
             async_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+            async_wrapper._rate_limit_distributed = should_use_distributed  # type: ignore[attr-defined]
 
             return cast(F, async_wrapper)
         else:
@@ -537,7 +643,7 @@ def rate_limit(
             @wraps(func)
             def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
                 key = _get_key_from_args(args, kwargs)
-                error = _check_rate_limit(key)
+                error = _check_rate_limit(key, args, kwargs)
                 if error:
                     return error
                 return func(self, *args, **kwargs)
@@ -545,6 +651,7 @@ def rate_limit(
             # Mark wrapper as rate limited for detection by default_limiter
             sync_wrapper._rate_limited = True  # type: ignore[attr-defined]
             sync_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+            sync_wrapper._rate_limit_distributed = should_use_distributed  # type: ignore[attr-defined]
 
             return cast(F, sync_wrapper)
 
@@ -734,4 +841,8 @@ __all__ = [
     "get_middleware_limiter",
     "RateLimitResult",
     "rate_limit_headers",
+    # Distributed rate limiting
+    "get_distributed_limiter",
+    "DistributedRateLimiter",
+    "USE_DISTRIBUTED_LIMITER",
 ]

@@ -151,7 +151,7 @@ def init_agent_provider_metrics() -> None:
             """Get existing counter or create a new one."""
             for collector in REGISTRY._names_to_collectors.values():
                 if hasattr(collector, "_name") and collector._name == name:
-                    return collector
+                    return collector  # type: ignore[return-value]
             return Counter(name, doc, labels)
 
         def get_or_create_histogram(
@@ -160,14 +160,14 @@ def init_agent_provider_metrics() -> None:
             """Get existing histogram or create a new one."""
             for collector in REGISTRY._names_to_collectors.values():
                 if hasattr(collector, "_name") and collector._name == name:
-                    return collector
+                    return collector  # type: ignore[return-value]
             return Histogram(name, doc, labels, buckets=buckets)
 
         def get_or_create_gauge(name: str, doc: str, labels: list[str]) -> Gauge:
             """Get existing gauge or create a new one."""
             for collector in REGISTRY._names_to_collectors.values():
                 if hasattr(collector, "_name") and collector._name == name:
-                    return collector
+                    return collector  # type: ignore[return-value]
             return Gauge(name, doc, labels)
 
         # --- Call Metrics ---

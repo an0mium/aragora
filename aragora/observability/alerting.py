@@ -284,7 +284,7 @@ class SlackNotificationChannel(NotificationChannel):
 
     def _build_slack_blocks(self, alert: Alert, rule: AlertRule) -> list[dict[str, Any]]:
         """Build Slack Block Kit message."""
-        blocks = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {
@@ -615,11 +615,11 @@ class MetricsCollector:
 
         # Try to get circuit breaker states
         try:
-            from aragora.resilience import get_circuit_breaker_registry
+            from aragora.resilience import get_circuit_breakers
 
-            registry = get_circuit_breaker_registry()
-            if registry:
-                for name, breaker in registry.get_all().items():
+            breakers = get_circuit_breakers()
+            if breakers:
+                for name, breaker in breakers.items():
                     snapshot.circuit_breaker_states[name] = breaker.state
         except (ImportError, AttributeError):
             pass
@@ -627,7 +627,7 @@ class MetricsCollector:
     async def _collect_debate_metrics(self, snapshot: MetricsSnapshot) -> None:
         """Collect debate-related metrics."""
         try:
-            from aragora.observability.metrics import ACTIVE_DEBATES
+            from aragora.observability.metrics.debate import ACTIVE_DEBATES
 
             if ACTIVE_DEBATES is not None:
                 # Prometheus Gauge value
@@ -641,32 +641,31 @@ class MetricsCollector:
     async def _collect_queue_metrics(self, snapshot: MetricsSnapshot) -> None:
         """Collect queue-related metrics."""
         try:
-            from aragora.observability.metrics.task_queue import (
-                TASK_QUEUE_SIZE,
-                TASK_QUEUE_CAPACITY,
-            )
+            from aragora.observability.metrics.task_queue import TASK_QUEUE_SIZE
 
             if TASK_QUEUE_SIZE is not None:
-                snapshot.queue_size = int(TASK_QUEUE_SIZE._value.get())
-            if TASK_QUEUE_CAPACITY is not None:
-                snapshot.queue_capacity = int(TASK_QUEUE_CAPACITY._value.get())
+                # Sum pending, ready, running queue sizes
+                total = 0
+                for status in ("pending", "ready", "running"):
+                    try:
+                        total += int(TASK_QUEUE_SIZE.labels(status=status)._value.get())
+                    except (AttributeError, KeyError):
+                        pass
+                snapshot.queue_size = total
         except (ImportError, AttributeError):
             # Use defaults
             pass
 
     async def _collect_memory_metrics(self, snapshot: MetricsSnapshot) -> None:
         """Collect memory-related metrics."""
-        try:
-            from aragora.observability.metrics.memory import get_eviction_rate
-
-            snapshot.memory_eviction_rate = get_eviction_rate()
-        except (ImportError, AttributeError):
-            pass
+        # Memory eviction rate is not currently tracked via metrics.
+        # The snapshot uses the default value (0.0) from MetricsSnapshot.
+        pass
 
     async def _collect_api_metrics(self, snapshot: MetricsSnapshot) -> None:
         """Collect API latency metrics."""
         try:
-            from aragora.observability.metrics import REQUEST_LATENCY
+            from aragora.observability.metrics.request import REQUEST_LATENCY
 
             if REQUEST_LATENCY is not None:
                 # This would need histogram quantile calculation
