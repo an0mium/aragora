@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from aragora.config.legacy import resolve_db_path
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -164,9 +165,10 @@ class GauntletStorage:
             logger.info("GauntletStorage using PostgreSQL backend")
         else:
             # SQLite backend
-            self.db_path = Path(db_path)
-            self._backend = SQLiteBackend(db_path)
-            logger.info(f"GauntletStorage using SQLite backend: {db_path}")
+            resolved_path = resolve_db_path(db_path)
+            self.db_path = Path(resolved_path)
+            self._backend = SQLiteBackend(resolved_path)
+            logger.info(f"GauntletStorage using SQLite backend: {resolved_path}")
 
         self._init_db()
 

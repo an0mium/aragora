@@ -17,6 +17,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from aragora.config.legacy import resolve_db_path
 from aragora.migrations.runner import (
     get_migration_runner,
     reset_runner,
@@ -216,8 +217,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     """Add common database arguments to a parser."""
     parser.add_argument(
         "--db-path",
-        default="aragora.db",
-        help="SQLite database path (default: aragora.db)",
+        default=resolve_db_path("aragora.db"),
+        help="SQLite database path (default: ARAGORA_DATA_DIR/aragora.db)",
     )
     parser.add_argument(
         "--database-url",

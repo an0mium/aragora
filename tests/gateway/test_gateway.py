@@ -24,6 +24,18 @@ from aragora.gateway.server import AgentResponse, GatewayConfig, LocalGateway
 
 
 # =============================================================================
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _gateway_store_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("ARAGORA_GATEWAY_STORE", "file")
+    monkeypatch.setenv("ARAGORA_GATEWAY_STORE_PATH", str(tmp_path / "gateway.json"))
+    yield
+
+
+# =============================================================================
 # InboxMessage Tests
 # =============================================================================
 

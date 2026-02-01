@@ -14,6 +14,8 @@ import sqlite3
 import sys
 from typing import Any
 
+from aragora.config.legacy import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -443,8 +445,8 @@ def main():
     )
     parser.add_argument(
         "--sqlite-path",
-        default="aragora.db",
-        help="Path to SQLite database",
+        default=resolve_db_path("aragora.db"),
+        help="Path to SQLite database (default: ARAGORA_DATA_DIR/aragora.db)",
     )
     parser.add_argument(
         "--pg-host",

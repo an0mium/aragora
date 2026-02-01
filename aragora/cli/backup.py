@@ -17,11 +17,13 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from aragora.config.legacy import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Default paths
 DEFAULT_BACKUP_DIR = ".aragora/backups"
-DEFAULT_DB_PATH = "aragora.db"
+DEFAULT_DB_PATH = resolve_db_path("aragora.db")
 
 
 def _format_size(size_bytes: int | float) -> str:
@@ -50,7 +52,7 @@ def cmd_backup_create(args: argparse.Namespace) -> int:
     from aragora.backup.manager import BackupManager, BackupType, RetentionPolicy
 
     backup_dir = Path(args.output or DEFAULT_BACKUP_DIR)
-    db_path = Path(args.database or DEFAULT_DB_PATH)
+    db_path = Path(resolve_db_path(args.database or DEFAULT_DB_PATH))
 
     if not db_path.exists():
         print(f"Error: Database not found: {db_path}")

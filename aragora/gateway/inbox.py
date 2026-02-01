@@ -12,7 +12,10 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.gateway.persistence import GatewayStore
 
 
 class MessagePriority(Enum):
@@ -65,18 +68,27 @@ class InboxAggregator:
     - Size limits with oldest-first eviction
     """
 
-    def __init__(self, max_size: int = 10000) -> None:
+    def __init__(self, max_size: int = 10000, store: "GatewayStore | None" = None) -> None:
         self._max_size = max_size
+        self._store = store
         self._messages: deque[InboxMessage] = deque(maxlen=max_size)
         self._threads: dict[str, InboxThread] = {}
         self._by_id: dict[str, InboxMessage] = {}
 
-    async def add_message(self, message: InboxMessage) -> None:
-        """Add a message to the inbox."""
+    async def hydrate(self) -> None:
+        """Load persisted messages into the in-memory index."""
+        if not self._store:
+            return
+        messages = await self._store.load_messages(limit=self._max_size)
+        self._messages.clear()
+        self._threads.clear()
+        self._by_id.clear()
+        for message in reversed(messages):
+            self._track_message(message)
+
+    def _track_message(self, message: InboxMessage) -> None:
         self._messages.append(message)
         self._by_id[message.message_id] = message
-
-        # Track threading
         if message.thread_id:
             if message.thread_id not in self._threads:
                 self._threads[message.thread_id] = InboxThread(
@@ -89,6 +101,23 @@ class InboxAggregator:
             thread.last_activity = message.timestamp
             if message.sender not in thread.participants:
                 thread.participants.append(message.sender)
+
+    async def add_message(self, message: InboxMessage) -> None:
+        """Add a message to the inbox."""
+        if self._store:
+            await self._store.save_message(message)
+        existing = self._by_id.get(message.message_id)
+        if existing:
+            existing.content = message.content
+            existing.timestamp = message.timestamp
+            existing.thread_id = message.thread_id
+            existing.priority = message.priority
+            existing.metadata = dict(message.metadata)
+            existing.attachments = list(message.attachments)
+            existing.is_read = message.is_read
+            existing.is_replied = message.is_replied
+            return
+        self._track_message(message)
 
     async def get_messages(
         self,
@@ -125,6 +154,8 @@ class InboxAggregator:
             msg = self._by_id.get(msg_id)
             if msg and not msg.is_read:
                 msg.is_read = True
+                if self._store:
+                    await self._store.save_message(msg)
                 count += 1
         return count
 
@@ -133,6 +164,8 @@ class InboxAggregator:
         msg = self._by_id.get(message_id)
         if msg:
             msg.is_replied = True
+            if self._store:
+                await self._store.save_message(msg)
             return True
         return False
 
@@ -169,6 +202,8 @@ class InboxAggregator:
             self._messages.clear()
             self._by_id.clear()
             self._threads.clear()
+            if self._store:
+                await self._store.clear_messages()
             return count
 
         to_keep: deque[Any] = deque(maxlen=self._max_size)
@@ -176,6 +211,8 @@ class InboxAggregator:
         for msg in self._messages:
             if msg.channel == channel:
                 self._by_id.pop(msg.message_id, None)
+                if self._store:
+                    await self._store.delete_message(msg.message_id)
                 removed += 1
             else:
                 to_keep.append(msg)

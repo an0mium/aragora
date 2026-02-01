@@ -24,6 +24,7 @@ import threading
 import time
 from typing import Any
 
+from aragora.config.legacy import resolve_db_path
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -72,7 +73,7 @@ def _get_sso_state_store():
         with _sso_state_store_lock:
             if _sso_state_store is None:
                 _sso_state_store = get_oauth_state_store(
-                    sqlite_path="aragora_sso_state.db",
+                    sqlite_path=resolve_db_path("aragora_sso_state.db"),
                     use_sqlite=True,
                     use_jwt=True,
                 )

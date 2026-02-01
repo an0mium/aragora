@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from aragora.config.legacy import resolve_db_path
 from aragora.exceptions import RedisUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -184,7 +185,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
     """
 
     def __init__(self, db_path: str = "aragora_oauth.db", max_size: int = MAX_OAUTH_STATES):
-        self._db_path = Path(db_path)
+        self._db_path = Path(resolve_db_path(db_path))
         self._max_size = max_size
         self._local = threading.local()
         self._init_lock = threading.Lock()

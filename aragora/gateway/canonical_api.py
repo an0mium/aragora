@@ -8,7 +8,10 @@ API instead of reimplementing gateway primitives.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from aragora.gateway.persistence import GatewayStore
 
 from aragora.gateway.capability_router import CapabilityRouter, RoutingResult
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry, DeviceStatus
@@ -50,15 +53,22 @@ class GatewayRuntime(GatewayAPI):
 
     default_agent: str = "default"
     max_inbox_size: int = 10000
-    registry: DeviceRegistry = field(default_factory=DeviceRegistry)
+    store: "GatewayStore | None" = None
+    registry: DeviceRegistry = field(init=False)
     inbox: InboxAggregator = field(init=False)
     router: CapabilityRouter = field(init=False)
 
     def __post_init__(self) -> None:
-        self.inbox = InboxAggregator(max_size=self.max_inbox_size)
+        self.registry = DeviceRegistry(store=self.store)
+        self.inbox = InboxAggregator(max_size=self.max_inbox_size, store=self.store)
         self.router = CapabilityRouter(
             default_agent=self.default_agent, device_registry=self.registry
         )
+
+    async def hydrate(self) -> None:
+        """Load persisted gateway state into memory."""
+        await self.registry.hydrate()
+        await self.inbox.hydrate()
 
     async def register_device(self, device: DeviceNode) -> DeviceNode:
         await self.registry.register(device)

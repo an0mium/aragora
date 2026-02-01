@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generator, Protocol
 
+from aragora.config.legacy import resolve_db_path
 from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,9 @@ class DatabaseConfig:
 
     # Raw connection URL (takes precedence over individual settings)
     database_url: str | None = None
+
+    def __post_init__(self) -> None:
+        self.sqlite_path = resolve_db_path(self.sqlite_path)
 
     @classmethod
     def from_env(cls) -> "DatabaseConfig":

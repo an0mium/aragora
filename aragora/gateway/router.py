@@ -11,6 +11,10 @@ from __future__ import annotations
 import fnmatch
 import logging
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.gateway.persistence import GatewayStore
 
 from aragora.gateway.inbox import InboxMessage
 
@@ -43,18 +47,34 @@ class AgentRouter:
     - Default agent fallback
     """
 
-    def __init__(self, default_agent: str = "default") -> None:
+    def __init__(
+        self,
+        default_agent: str = "default",
+        store: "GatewayStore | None" = None,
+    ) -> None:
         self._rules: dict[str, RoutingRule] = {}
         self._default_agent = default_agent
+        self._store = store
+
+    async def hydrate(self) -> None:
+        """Load persisted routing rules into memory."""
+        if not self._store:
+            return
+        rules = await self._store.load_rules()
+        self._rules = {rule.rule_id: rule for rule in rules}
 
     async def add_rule(self, rule: RoutingRule) -> None:
         """Add a routing rule."""
         self._rules[rule.rule_id] = rule
+        if self._store:
+            await self._store.save_rule(rule)
 
     async def remove_rule(self, rule_id: str) -> bool:
         """Remove a routing rule."""
         if rule_id in self._rules:
             del self._rules[rule_id]
+            if self._store:
+                await self._store.delete_rule(rule_id)
             return True
         return False
 

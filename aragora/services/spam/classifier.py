@@ -16,6 +16,7 @@ import sqlite3
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.config.legacy import resolve_db_path
 from aragora.services.spam.features import SpamFeatures
 from aragora.services.spam.model import NaiveBayesClassifier
 from aragora.services.spam.models import (
@@ -110,8 +111,9 @@ class SpamClassifier:
     async def _init_feedback_db(self) -> None:
         """Initialize feedback storage database."""
         try:
+            db_path = resolve_db_path(self.config.feedback_db_path)
             self._db_conn = sqlite3.connect(
-                self.config.feedback_db_path,
+                db_path,
                 check_same_thread=False,
             )
             cursor = self._db_conn.cursor()

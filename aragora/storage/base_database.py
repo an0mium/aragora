@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Generator
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config.legacy import resolve_db_path
 from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)
@@ -69,9 +70,10 @@ class BaseDatabase:
             db_path: Path to the SQLite database file
             timeout: Connection timeout in seconds
         """
-        self.db_path = Path(db_path)
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
         self._timeout = timeout
-        self._manager = DatabaseManager.get_instance(db_path, timeout)
+        self._manager = DatabaseManager.get_instance(resolved_path, timeout)
 
     @contextmanager
     def connection(self) -> Generator[sqlite3.Connection, None, None]:

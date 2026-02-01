@@ -87,19 +87,45 @@ class LocalGateway:
 
     def __init__(self, config: GatewayConfig | None = None) -> None:
         self._config = config or GatewayConfig()
-        self._inbox = InboxAggregator(max_size=self._config.max_inbox_size)
-        self._devices = DeviceRegistry()
-        self._router = AgentRouter()
+        self._store = None
         self._session_store = None
+        store = self._get_gateway_store()
+        self._inbox = InboxAggregator(max_size=self._config.max_inbox_size, store=store)
+        self._devices = DeviceRegistry(store=store)
+        self._router = AgentRouter(store=store)
         self._running = False
         self._started_at: float | None = None
         self._messages_routed = 0
         self._messages_failed = 0
 
+    def _get_gateway_store(self):
+        if self._store is not None:
+            return self._store
+        backend = os.getenv("ARAGORA_GATEWAY_STORE", "")
+        if not backend:
+            backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "")
+        if not backend and os.getenv("PYTEST_CURRENT_TEST"):
+            backend = "memory"
+        if not backend:
+            backend = "auto"
+        backend = backend.strip().lower()
+        if backend in {"none", "off", "disabled"}:
+            return None
+        path = os.getenv("ARAGORA_GATEWAY_STORE_PATH") or os.getenv("ARAGORA_GATEWAY_SESSION_PATH")
+        redis_url = (
+            os.getenv("ARAGORA_GATEWAY_STORE_REDIS_URL")
+            or os.getenv("ARAGORA_GATEWAY_SESSION_REDIS_URL")
+            or os.getenv("REDIS_URL")
+        )
+        self._store = get_gateway_store(backend, path=path, redis_url=redis_url)
+        return self._store
+
     def _get_session_store(self):
         if self._session_store is not None:
             return self._session_store
-        backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "auto")
+        backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "")
+        if not backend:
+            backend = os.getenv("ARAGORA_GATEWAY_STORE", "auto")
         backend = backend.strip().lower() if backend else "memory"
         if backend in {"none", "off", "disabled"}:
             return None
@@ -135,13 +161,29 @@ class LocalGateway:
         self._running = True
         self._started_at = time.time()
         logger.info(f"Local gateway started on {actual_host}:{actual_port}")
+        await self._hydrate_state()
 
     async def stop(self) -> None:
         """Stop the gateway server."""
         if not self._running:
             return
+        store = self._store
+        session_store = self._session_store
+        if store:
+            await store.close()
+        if session_store and session_store is not store:
+            await session_store.close()
+        self._store = None
+        self._session_store = None
         self._running = False
         logger.info("Local gateway stopped")
+
+    async def _hydrate_state(self) -> None:
+        if self._store is None:
+            return
+        await self._inbox.hydrate()
+        await self._devices.hydrate()
+        await self._router.hydrate()
 
     async def route_message(
         self,

@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config.legacy import resolve_db_path
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -178,9 +179,10 @@ class ImpersonationStore:
             self._backend: DatabaseBackend = PostgreSQLBackend(actual_url)
             logger.info("ImpersonationStore using PostgreSQL backend")
         else:
-            self.db_path = Path(db_path)
-            self._backend = SQLiteBackend(db_path)
-            logger.info(f"ImpersonationStore using SQLite backend: {db_path}")
+            resolved_path = resolve_db_path(db_path)
+            self.db_path = Path(resolved_path)
+            self._backend = SQLiteBackend(resolved_path)
+            logger.info(f"ImpersonationStore using SQLite backend: {resolved_path}")
 
         self._init_db()
 

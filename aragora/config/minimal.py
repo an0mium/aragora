@@ -22,6 +22,8 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+from aragora.config.legacy import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Environment variable to enable minimal mode
@@ -86,8 +88,9 @@ def apply_minimal_mode(config: MinimalModeConfig | None = None) -> dict[str, Any
 
     if config.db_backend == "sqlite":
         # Use SQLite file path
-        os.environ.setdefault("ARAGORA_DB_PATH", config.db_path)
-        applied["ARAGORA_DB_PATH"] = config.db_path
+        resolved_db_path = resolve_db_path(config.db_path)
+        os.environ.setdefault("ARAGORA_DB_PATH", resolved_db_path)
+        applied["ARAGORA_DB_PATH"] = resolved_db_path
 
     # Disable Redis
     if not config.redis_enabled:

@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
+from aragora.config.legacy import resolve_db_path
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -196,7 +197,8 @@ class MigrationRunner:
                     )
                 self._backend = PostgreSQLBackend(actual_url)
             else:
-                self._backend = SQLiteBackend(db_path)
+                resolved_path = resolve_db_path(db_path)
+                self._backend = SQLiteBackend(resolved_path)
 
         self._migrations: list[Migration] = []
         self._verify_checksums = verify_checksums

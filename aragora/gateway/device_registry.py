@@ -11,7 +11,10 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.gateway.persistence import GatewayStore
 
 
 class DeviceStatus(Enum):
@@ -49,8 +52,16 @@ class DeviceRegistry:
     - Online/offline status tracking
     """
 
-    def __init__(self) -> None:
+    def __init__(self, store: "GatewayStore | None" = None) -> None:
         self._devices: dict[str, DeviceNode] = {}
+        self._store = store
+
+    async def hydrate(self) -> None:
+        """Load persisted devices into memory."""
+        if not self._store:
+            return
+        devices = await self._store.load_devices()
+        self._devices = {device.device_id: device for device in devices if device.device_id}
 
     async def register(self, device: DeviceNode) -> str:
         """
@@ -67,12 +78,16 @@ class DeviceRegistry:
         device.paired_at = time.time()
         device.last_seen = time.time()
         self._devices[device.device_id] = device
+        if self._store:
+            await self._store.save_device(device)
         return device.device_id
 
     async def unregister(self, device_id: str) -> bool:
         """Unregister a device."""
         if device_id in self._devices:
             del self._devices[device_id]
+            if self._store:
+                await self._store.delete_device(device_id)
             return True
         return False
 
@@ -101,6 +116,8 @@ class DeviceRegistry:
         if device:
             device.last_seen = time.time()
             device.status = DeviceStatus.ONLINE
+            if self._store:
+                await self._store.save_device(device)
             return True
         return False
 
@@ -109,6 +126,8 @@ class DeviceRegistry:
         device = self._devices.get(device_id)
         if device:
             device.status = DeviceStatus.BLOCKED
+            if self._store:
+                await self._store.save_device(device)
             return True
         return False
 

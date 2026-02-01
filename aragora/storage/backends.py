@@ -30,6 +30,8 @@ from pathlib import Path
 from queue import Empty, Full, Queue
 from typing import Any, ContextManager, Generator, cast
 
+from aragora.config.legacy import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Configurable pool sizes via environment variables
@@ -144,11 +146,12 @@ class SQLiteBackend(DatabaseBackend):
                        Note: For :memory: databases, pool_size is forced to 1
                        since each connection creates a separate database.
         """
-        self.db_path = Path(db_path)
+        resolved_path = resolve_db_path(db_path)
+        self.db_path = Path(resolved_path)
         self.timeout = timeout
         # In-memory SQLite databases are unique per connection, so we must
         # use pool_size=1 to ensure all operations share the same database
-        self._is_memory_db = str(db_path) == ":memory:"
+        self._is_memory_db = str(resolved_path) == ":memory:"
         self.pool_size = 1 if self._is_memory_db else pool_size
 
         # Connection pool
