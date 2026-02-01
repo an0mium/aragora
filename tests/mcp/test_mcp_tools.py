@@ -1,8 +1,24 @@
-"""Tests for MCP tools."""
+"""Tests for MCP tools.
+
+Comprehensive tests covering:
+- Tool registration and metadata
+- Individual tool execution
+- Error handling
+- Server lifecycle
+- Control plane tools
+- Canvas tools
+- Checkpoint tools
+"""
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from datetime import datetime
+import json
+
+
+# =============================================================================
+# Tool Metadata Tests
+# =============================================================================
 
 
 class TestToolsMetadata:
@@ -30,8 +46,36 @@ class TestToolsMetadata:
         """Test expected number of tools."""
         from aragora.mcp.tools import TOOLS_METADATA
 
-        # We have 45 tools now
+        # We have 45+ tools now
         assert len(TOOLS_METADATA) >= 45
+
+    def test_tool_names_are_unique(self):
+        """Test that all tool names are unique."""
+        from aragora.mcp.tools import TOOLS_METADATA
+
+        names = [tool["name"] for tool in TOOLS_METADATA]
+        assert len(names) == len(set(names)), "Duplicate tool names found"
+
+    def test_tool_descriptions_not_empty(self):
+        """Test that all tools have non-empty descriptions."""
+        from aragora.mcp.tools import TOOLS_METADATA
+
+        for tool in TOOLS_METADATA:
+            assert tool["description"].strip(), f"Tool {tool['name']} has empty description"
+
+    def test_tool_parameters_are_dicts(self):
+        """Test that all tool parameters are dictionaries."""
+        from aragora.mcp.tools import TOOLS_METADATA
+
+        for tool in TOOLS_METADATA:
+            assert isinstance(tool["parameters"], dict), (
+                f"Tool {tool['name']} parameters not a dict"
+            )
+
+
+# =============================================================================
+# Knowledge Tools Tests
+# =============================================================================
 
 
 class TestKnowledgeTools:
@@ -104,6 +148,11 @@ class TestKnowledgeTools:
         assert "error" in result
 
 
+# =============================================================================
+# Workflow Tools Tests
+# =============================================================================
+
+
 class TestWorkflowTools:
     """Test workflow-related MCP tools."""
 
@@ -160,6 +209,11 @@ class TestWorkflowTools:
 
         # Without engine, should return error
         assert "error" in result
+
+
+# =============================================================================
+# Integration Tools Tests
+# =============================================================================
 
 
 class TestIntegrationTools:
@@ -265,6 +319,11 @@ class TestIntegrationTools:
             assert "platform" in result or "error" in result
 
 
+# =============================================================================
+# Tool Exports Tests
+# =============================================================================
+
+
 class TestToolExports:
     """Test tool exports from various modules."""
 
@@ -353,19 +412,52 @@ class TestToolExports:
         assert callable(trigger_external_webhook_tool)
 
 
+# =============================================================================
+# Debate Tools Tests
+# =============================================================================
+
+
 class TestDebateTools:
     """Test debate-related MCP tools."""
 
     @pytest.mark.asyncio
     async def test_run_debate_tool(self):
-        """Test run_debate_tool basic invocation."""
+        """Test run_debate_tool basic invocation with mocked dependencies."""
         from aragora.mcp.tools_module.debate import run_debate_tool
 
-        # Without proper setup, this will fail gracefully
-        result = await run_debate_tool(question="Test question")
+        # Mock the create_agent to avoid API calls
+        mock_agent = MagicMock()
+        mock_agent.name = "mock_agent"
 
-        # Either returns a result or an error
-        assert isinstance(result, dict)
+        # Mock DebateResult
+        mock_result = MagicMock()
+        mock_result.final_answer = "Test answer"
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.9
+        mock_result.rounds_used = 2
+
+        with patch("aragora.agents.base.create_agent", return_value=mock_agent):
+            with patch("aragora.debate.orchestrator.Arena") as mock_arena_class:
+                mock_arena = AsyncMock()
+                mock_arena.run.return_value = mock_result
+                mock_arena_class.return_value = mock_arena
+
+                result = await run_debate_tool(question="Test question")
+
+                # Should return a valid result
+                assert isinstance(result, dict)
+                # With mocked dependencies, should have debate_id
+                assert "debate_id" in result or "error" in result
+
+    @pytest.mark.asyncio
+    async def test_run_debate_tool_empty_question(self):
+        """Test run_debate_tool with empty question returns error."""
+        from aragora.mcp.tools_module.debate import run_debate_tool
+
+        result = await run_debate_tool(question="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_get_debate_tool_not_found(self):
@@ -378,6 +470,16 @@ class TestDebateTools:
         assert "error" in result or "debate_id" in result
 
     @pytest.mark.asyncio
+    async def test_get_debate_tool_empty_id(self):
+        """Test get_debate_tool with empty debate_id returns error."""
+        from aragora.mcp.tools_module.debate import get_debate_tool
+
+        result = await get_debate_tool(debate_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
     async def test_search_debates_tool(self):
         """Test search_debates_tool."""
         from aragora.mcp.tools_module.debate import search_debates_tool
@@ -385,6 +487,48 @@ class TestDebateTools:
         result = await search_debates_tool(query="test")
 
         assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_search_debates_tool_with_filters(self):
+        """Test search_debates_tool with all filters."""
+        from aragora.mcp.tools_module.debate import search_debates_tool
+
+        result = await search_debates_tool(
+            query="test",
+            agent="anthropic",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            consensus_only=True,
+            limit=5,
+        )
+
+        assert isinstance(result, dict)
+        assert "filters" in result
+
+    @pytest.mark.asyncio
+    async def test_fork_debate_tool_empty_id(self):
+        """Test fork_debate_tool with empty debate_id returns error."""
+        from aragora.mcp.tools_module.debate import fork_debate_tool
+
+        result = await fork_debate_tool(debate_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_get_forks_tool_empty_id(self):
+        """Test get_forks_tool with empty debate_id returns error."""
+        from aragora.mcp.tools_module.debate import get_forks_tool
+
+        result = await get_forks_tool(debate_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+
+# =============================================================================
+# Memory Tools Tests
+# =============================================================================
 
 
 class TestMemoryTools:
@@ -400,6 +544,26 @@ class TestMemoryTools:
         assert isinstance(result, dict)
 
     @pytest.mark.asyncio
+    async def test_query_memory_tool_with_tier(self):
+        """Test query_memory_tool with tier filter."""
+        from aragora.mcp.tools_module.memory import query_memory_tool
+
+        result = await query_memory_tool(query="test", tier="fast")
+
+        assert isinstance(result, dict)
+        assert result.get("tier") == "fast"
+
+    @pytest.mark.asyncio
+    async def test_store_memory_tool_empty_content(self):
+        """Test store_memory_tool with empty content returns error."""
+        from aragora.mcp.tools_module.memory import store_memory_tool
+
+        result = await store_memory_tool(content="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
     async def test_get_memory_pressure_tool(self):
         """Test get_memory_pressure_tool."""
         from aragora.mcp.tools_module.memory import get_memory_pressure_tool
@@ -407,6 +571,59 @@ class TestMemoryTools:
         result = await get_memory_pressure_tool()
 
         assert isinstance(result, dict)
+
+
+# =============================================================================
+# Checkpoint Tools Tests
+# =============================================================================
+
+
+class TestCheckpointTools:
+    """Test checkpoint-related MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_create_checkpoint_tool_empty_id(self):
+        """Test create_checkpoint_tool with empty debate_id returns error."""
+        from aragora.mcp.tools_module.checkpoint import create_checkpoint_tool
+
+        result = await create_checkpoint_tool(debate_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_list_checkpoints_tool(self):
+        """Test list_checkpoints_tool."""
+        from aragora.mcp.tools_module.checkpoint import list_checkpoints_tool
+
+        result = await list_checkpoints_tool()
+
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_resume_checkpoint_tool_empty_id(self):
+        """Test resume_checkpoint_tool with empty checkpoint_id returns error."""
+        from aragora.mcp.tools_module.checkpoint import resume_checkpoint_tool
+
+        result = await resume_checkpoint_tool(checkpoint_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_delete_checkpoint_tool_empty_id(self):
+        """Test delete_checkpoint_tool with empty checkpoint_id returns error."""
+        from aragora.mcp.tools_module.checkpoint import delete_checkpoint_tool
+
+        result = await delete_checkpoint_tool(checkpoint_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+
+# =============================================================================
+# Audit Tools Tests
+# =============================================================================
 
 
 class TestAuditTools:
@@ -433,9 +650,51 @@ class TestAuditTools:
         # The actual key is 'audit_types'
         assert "audit_types" in result or "types" in result
 
+    @pytest.mark.asyncio
+    async def test_get_audit_preset_tool_missing_name(self):
+        """Test get_audit_preset_tool with missing preset_name returns error."""
+        from aragora.mcp.tools_module.audit import get_audit_preset_tool
+
+        result = await get_audit_preset_tool(preset_name="")
+
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_create_audit_session_missing_documents(self):
+        """Test create_audit_session_tool with empty document_ids returns error."""
+        from aragora.mcp.tools_module.audit import create_audit_session_tool
+
+        result = await create_audit_session_tool(document_ids="")
+
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_run_audit_tool_missing_session(self):
+        """Test run_audit_tool with missing session_id returns error."""
+        from aragora.mcp.tools_module.audit import run_audit_tool
+
+        result = await run_audit_tool(session_id="")
+
+        assert "error" in result
+
+
+# =============================================================================
+# Verification Tools Tests
+# =============================================================================
+
 
 class TestVerificationTools:
     """Test verification-related MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_verify_consensus_tool_empty_id(self):
+        """Test verify_consensus_tool with empty debate_id returns error."""
+        from aragora.mcp.tools_module.verification import verify_consensus_tool
+
+        result = await verify_consensus_tool(debate_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_verify_consensus_tool(self):
@@ -446,6 +705,32 @@ class TestVerificationTools:
 
         # Either error (no debate) or verification result
         assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_generate_proof_tool_empty_claim(self):
+        """Test generate_proof_tool with empty claim returns error."""
+        from aragora.mcp.tools_module.verification import generate_proof_tool
+
+        result = await generate_proof_tool(claim="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_get_consensus_proofs_tool(self):
+        """Test get_consensus_proofs_tool."""
+        from aragora.mcp.tools_module.verification import get_consensus_proofs_tool
+
+        result = await get_consensus_proofs_tool()
+
+        assert isinstance(result, dict)
+        assert "proofs" in result
+        assert "count" in result
+
+
+# =============================================================================
+# Evidence Tools Tests
+# =============================================================================
 
 
 class TestEvidenceTools:
@@ -466,5 +751,325 @@ class TestEvidenceTools:
         from aragora.mcp.tools_module.evidence import verify_citation_tool
 
         result = await verify_citation_tool(url="https://example.com")
+
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_cite_evidence_tool_missing_params(self):
+        """Test cite_evidence_tool with missing required parameters."""
+        from aragora.mcp.tools_module.evidence import cite_evidence_tool
+
+        result = await cite_evidence_tool(debate_id="", evidence_id="", message_index=0)
+
+        assert "error" in result
+
+
+# =============================================================================
+# Control Plane Tools Tests
+# =============================================================================
+
+
+class TestControlPlaneTools:
+    """Test control plane MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_register_agent_tool_empty_id(self):
+        """Test register_agent_tool with empty agent_id returns error."""
+        from aragora.mcp.tools_module.control_plane import register_agent_tool
+
+        result = await register_agent_tool(agent_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_unregister_agent_tool_empty_id(self):
+        """Test unregister_agent_tool with empty agent_id returns error."""
+        from aragora.mcp.tools_module.control_plane import unregister_agent_tool
+
+        result = await unregister_agent_tool(agent_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_list_registered_agents_tool(self):
+        """Test list_registered_agents_tool returns valid structure."""
+        from aragora.mcp.tools_module.control_plane import list_registered_agents_tool
+
+        result = await list_registered_agents_tool()
+
+        assert isinstance(result, dict)
+        # Should have agents list (fallback or real)
+        assert "agents" in result
+        assert isinstance(result["agents"], list)
+
+    @pytest.mark.asyncio
+    async def test_get_agent_health_tool_empty_id(self):
+        """Test get_agent_health_tool with empty agent_id returns error."""
+        from aragora.mcp.tools_module.control_plane import get_agent_health_tool
+
+        result = await get_agent_health_tool(agent_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_submit_task_tool_empty_type(self):
+        """Test submit_task_tool with empty task_type returns error."""
+        from aragora.mcp.tools_module.control_plane import submit_task_tool
+
+        result = await submit_task_tool(task_type="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_submit_task_tool_invalid_json(self):
+        """Test submit_task_tool with invalid JSON payload returns error."""
+        from aragora.mcp.tools_module.control_plane import submit_task_tool
+
+        result = await submit_task_tool(task_type="debate", payload="invalid json {")
+
+        assert "error" in result
+        assert "JSON" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_submit_task_tool_invalid_payload_type(self):
+        """Test submit_task_tool with non-object payload returns error."""
+        from aragora.mcp.tools_module.control_plane import submit_task_tool
+
+        result = await submit_task_tool(task_type="debate", payload='"string_payload"')
+
+        assert "error" in result
+        assert "object" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_get_task_status_tool_empty_id(self):
+        """Test get_task_status_tool with empty task_id returns error."""
+        from aragora.mcp.tools_module.control_plane import get_task_status_tool
+
+        result = await get_task_status_tool(task_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_cancel_task_tool_empty_id(self):
+        """Test cancel_task_tool with empty task_id returns error."""
+        from aragora.mcp.tools_module.control_plane import cancel_task_tool
+
+        result = await cancel_task_tool(task_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_get_control_plane_status_tool(self):
+        """Test get_control_plane_status_tool returns valid structure."""
+        from aragora.mcp.tools_module.control_plane import get_control_plane_status_tool
+
+        result = await get_control_plane_status_tool()
+
+        assert isinstance(result, dict)
+        # Should have status field
+        assert "status" in result or "error" in result
+
+    @pytest.mark.asyncio
+    async def test_trigger_health_check_tool(self):
+        """Test trigger_health_check_tool."""
+        from aragora.mcp.tools_module.control_plane import trigger_health_check_tool
+
+        result = await trigger_health_check_tool()
+
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_get_resource_utilization_tool(self):
+        """Test get_resource_utilization_tool."""
+        from aragora.mcp.tools_module.control_plane import get_resource_utilization_tool
+
+        result = await get_resource_utilization_tool()
+
+        assert isinstance(result, dict)
+
+
+# =============================================================================
+# Canvas Tools Tests
+# =============================================================================
+
+
+class TestCanvasTools:
+    """Test canvas MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_canvas_create_tool(self):
+        """Test canvas_create_tool creates canvas successfully."""
+        from aragora.mcp.tools_module.canvas import canvas_create_tool
+
+        result = await canvas_create_tool(name="Test Canvas")
+
+        assert isinstance(result, dict)
+        # Either success or module not available
+        assert "success" in result or "error" in result
+
+    @pytest.mark.asyncio
+    async def test_canvas_get_tool_empty_id(self):
+        """Test canvas_get_tool with empty canvas_id returns error."""
+        from aragora.mcp.tools_module.canvas import canvas_get_tool
+
+        result = await canvas_get_tool(canvas_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_canvas_add_node_tool_empty_canvas_id(self):
+        """Test canvas_add_node_tool with empty canvas_id returns error."""
+        from aragora.mcp.tools_module.canvas import canvas_add_node_tool
+
+        result = await canvas_add_node_tool(canvas_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_canvas_add_edge_tool_missing_params(self):
+        """Test canvas_add_edge_tool with missing required parameters."""
+        from aragora.mcp.tools_module.canvas import canvas_add_edge_tool
+
+        result = await canvas_add_edge_tool(canvas_id="", source_id="", target_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_canvas_execute_action_tool_missing_params(self):
+        """Test canvas_execute_action_tool with missing required parameters."""
+        from aragora.mcp.tools_module.canvas import canvas_execute_action_tool
+
+        result = await canvas_execute_action_tool(canvas_id="", action="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_canvas_list_tool(self):
+        """Test canvas_list_tool returns valid structure."""
+        from aragora.mcp.tools_module.canvas import canvas_list_tool
+
+        result = await canvas_list_tool()
+
+        assert isinstance(result, dict)
+        assert "canvases" in result
+        assert "count" in result
+
+    @pytest.mark.asyncio
+    async def test_canvas_delete_node_tool_missing_params(self):
+        """Test canvas_delete_node_tool with missing required parameters."""
+        from aragora.mcp.tools_module.canvas import canvas_delete_node_tool
+
+        result = await canvas_delete_node_tool(canvas_id="", node_id="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+
+# =============================================================================
+# Agent Tools Tests
+# =============================================================================
+
+
+class TestAgentTools:
+    """Test agent-related MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_list_agents_tool(self):
+        """Test list_agents_tool returns valid structure."""
+        from aragora.mcp.tools_module.agent import list_agents_tool
+
+        result = await list_agents_tool()
+
+        assert isinstance(result, dict)
+        assert "agents" in result
+        assert "count" in result
+        assert isinstance(result["agents"], list)
+
+    @pytest.mark.asyncio
+    async def test_get_agent_history_tool_empty_name(self):
+        """Test get_agent_history_tool with empty agent_name returns error."""
+        from aragora.mcp.tools_module.agent import get_agent_history_tool
+
+        result = await get_agent_history_tool(agent_name="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_get_agent_lineage_tool_empty_name(self):
+        """Test get_agent_lineage_tool with empty agent_name returns error."""
+        from aragora.mcp.tools_module.agent import get_agent_lineage_tool
+
+        result = await get_agent_lineage_tool(agent_name="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_breed_agents_tool_missing_parents(self):
+        """Test breed_agents_tool with missing parent names returns error."""
+        from aragora.mcp.tools_module.agent import breed_agents_tool
+
+        result = await breed_agents_tool(parent_a="", parent_b="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+
+# =============================================================================
+# Trending Tools Tests
+# =============================================================================
+
+
+class TestTrendingTools:
+    """Test trending-related MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_list_trending_topics_tool(self):
+        """Test list_trending_topics_tool returns valid structure."""
+        from aragora.mcp.tools_module.trending import list_trending_topics_tool
+
+        result = await list_trending_topics_tool()
+
+        assert isinstance(result, dict)
+        assert "topics" in result
+        assert "count" in result
+
+
+# =============================================================================
+# Gauntlet Tools Tests
+# =============================================================================
+
+
+class TestGauntletTools:
+    """Test gauntlet-related MCP tools."""
+
+    @pytest.mark.asyncio
+    async def test_run_gauntlet_tool_empty_content(self):
+        """Test run_gauntlet_tool with empty content returns error."""
+        from aragora.mcp.tools_module.gauntlet import run_gauntlet_tool
+
+        result = await run_gauntlet_tool(content="")
+
+        assert "error" in result
+        assert "required" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_run_gauntlet_tool_with_profile(self):
+        """Test run_gauntlet_tool with different profiles."""
+        from aragora.mcp.tools_module.gauntlet import run_gauntlet_tool
+
+        # Test with quick profile
+        result = await run_gauntlet_tool(content="Test document content", profile="quick")
 
         assert isinstance(result, dict)

@@ -7,6 +7,30 @@ aragora.server.middleware.rate_limit.
 
 The simplified interface here is optimized for handler decorators with
 a simple `is_allowed(key)` API.
+
+Multi-Instance Deployment Warning
+---------------------------------
+When running multiple server instances (e.g., behind a load balancer), the
+in-memory rate limiter in this module does NOT share state across instances.
+This means:
+
+- Each instance maintains its own rate limit counters
+- A user could make N requests per instance instead of N total
+- Rate limits are effectively multiplied by the number of instances
+
+For multi-instance deployments, you MUST use Redis-backed rate limiting:
+
+1. Set REDIS_URL or ARAGORA_REDIS_URL environment variable
+2. The middleware rate limiter (aragora.server.middleware.rate_limit) will
+   automatically use Redis when configured
+3. See docs/RATE_LIMITING.md for full configuration details
+
+To enforce Redis requirement in multi-instance mode, set:
+- ARAGORA_RATE_LIMIT_STRICT=true (raises error if Redis not configured)
+
+Detection is automatic via:
+- ARAGORA_MULTI_INSTANCE=true
+- ARAGORA_REPLICA_COUNT > 1
 """
 
 from __future__ import annotations
@@ -38,6 +62,147 @@ from aragora.server.middleware.rate_limit import (
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+# =============================================================================
+# Multi-Instance Detection and Validation
+# =============================================================================
+
+
+def _is_multi_instance_mode() -> bool:
+    """Detect if running in multi-instance deployment mode.
+
+    Checks for:
+    - ARAGORA_MULTI_INSTANCE=true environment variable
+    - ARAGORA_REPLICA_COUNT > 1 environment variable
+
+    Returns:
+        True if multi-instance mode is detected, False otherwise.
+    """
+    # Check explicit multi-instance flag
+    multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower()
+    if multi_instance in ("1", "true", "yes"):
+        return True
+
+    # Check replica count
+    try:
+        replica_count = int(os.environ.get("ARAGORA_REPLICA_COUNT", "1"))
+        if replica_count > 1:
+            return True
+    except (ValueError, TypeError):
+        pass
+
+    return False
+
+
+def _is_redis_configured() -> bool:
+    """Check if Redis is configured for rate limiting.
+
+    Checks for:
+    - REDIS_URL environment variable
+    - ARAGORA_REDIS_URL environment variable
+
+    Returns:
+        True if Redis URL is configured, False otherwise.
+    """
+    redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+    return bool(redis_url and redis_url.strip())
+
+
+def _is_production_mode() -> bool:
+    """Check if running in production mode.
+
+    Checks for common production environment indicators.
+
+    Returns:
+        True if production mode is detected, False otherwise.
+    """
+    env = os.environ.get("ARAGORA_ENV", "").lower()
+    if env in ("production", "prod"):
+        return True
+
+    node_env = os.environ.get("NODE_ENV", "").lower()
+    if node_env == "production":
+        return True
+
+    # Also check for ENVIRONMENT variable
+    environment = os.environ.get("ENVIRONMENT", "").lower()
+    if environment in ("production", "prod"):
+        return True
+
+    return False
+
+
+def validate_rate_limit_configuration() -> None:
+    """Validate rate limit configuration for the current deployment mode.
+
+    Checks if Redis is properly configured when running in multi-instance mode.
+    Logs warnings or raises errors based on configuration.
+
+    Raises:
+        RuntimeError: If ARAGORA_RATE_LIMIT_STRICT=true and Redis is not
+            configured in multi-instance mode.
+
+    Warning Logged:
+        CRITICAL level warning if in multi-instance mode without Redis,
+        explaining the security implications.
+    """
+    is_multi_instance = _is_multi_instance_mode()
+    is_redis_configured = _is_redis_configured()
+    is_strict_mode = os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    is_production = _is_production_mode()
+
+    if not is_multi_instance:
+        # Single instance mode - no Redis requirement
+        return
+
+    if is_redis_configured:
+        # Redis is configured - all good
+        logger.info(
+            "Multi-instance mode detected with Redis configured. "
+            "Rate limits will be shared across instances."
+        )
+        return
+
+    # Multi-instance mode WITHOUT Redis configured
+    warning_message = (
+        "CRITICAL: Multi-instance deployment detected but Redis is NOT configured "
+        "for rate limiting. This means:\n"
+        "  - Each server instance has its own rate limit counters\n"
+        "  - Users can make N requests per instance instead of N total\n"
+        "  - Rate limits are effectively multiplied by the number of instances\n"
+        "  - This undermines rate limiting security protections\n"
+        "\n"
+        "To fix this, configure Redis for rate limiting:\n"
+        "  1. Set REDIS_URL or ARAGORA_REDIS_URL environment variable\n"
+        "  2. Ensure Redis is accessible from all server instances\n"
+        "  3. See docs/RATE_LIMITING.md for full configuration details\n"
+        "\n"
+        "To enforce this requirement, set ARAGORA_RATE_LIMIT_STRICT=true"
+    )
+
+    if is_strict_mode:
+        logger.critical(warning_message)
+        raise RuntimeError(
+            "Redis is required for rate limiting in multi-instance mode. "
+            "Set REDIS_URL or ARAGORA_REDIS_URL, or disable strict mode by "
+            "removing ARAGORA_RATE_LIMIT_STRICT=true."
+        )
+
+    # Log CRITICAL warning
+    logger.critical(warning_message)
+
+    # Additional context for production
+    if is_production:
+        logger.critical(
+            "PRODUCTION DEPLOYMENT: This configuration is a security risk. "
+            "Rate limiting is NOT effective in this multi-instance deployment."
+        )
+
 
 # Global rate limit disable for testing/load tests
 # When set, ALL rate limiters (both local and Redis-based) are bypassed
@@ -534,6 +699,22 @@ def auth_rate_limit(
     return decorator
 
 
+# =============================================================================
+# Module-level Configuration Validation
+# =============================================================================
+
+# Validate configuration on module import (with graceful degradation)
+# This ensures warnings are logged early during server startup
+try:
+    validate_rate_limit_configuration()
+except RuntimeError:
+    # Re-raise RuntimeError from strict mode - this should halt startup
+    raise
+except Exception as e:
+    # Log but don't fail on unexpected errors during validation
+    logger.warning(f"Rate limit configuration validation failed: {e}")
+
+
 __all__ = [
     "RateLimiter",
     "rate_limit",
@@ -543,6 +724,11 @@ __all__ = [
     "_get_limiter",
     "_limiters",
     "clear_all_limiters",
+    # Multi-instance detection and validation
+    "_is_multi_instance_mode",
+    "_is_redis_configured",
+    "_is_production_mode",
+    "validate_rate_limit_configuration",
     # Re-exports from middleware for convenience
     "middleware_rate_limit",
     "get_middleware_limiter",

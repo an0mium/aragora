@@ -604,6 +604,7 @@ from aragora.agents.api_agents import (
     QwenAgent,
     KimiK2Agent,
     OpenAIAPIAgent,
+    OpenRouterAgent,
 )
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
 from aragora.agents.api_agents import GrokAgent
@@ -2968,12 +2969,21 @@ CRITICAL: You are part of a self-improving system. You MUST:
 - Preserve backward compatibility in all changes
 - If unsure whether to keep functionality, KEEP IT"""
 
-        self.gemini = GeminiAgent(
-            name="gemini-visionary",
-            model="gemini-3-pro-preview",  # Gemini 3 Pro
-            role="proposer",
-            timeout=720,  # Doubled to 12 min for thorough codebase exploration
-        )
+        use_openrouter_gemini = os.environ.get("NOMIC_GEMINI_USE_OPENROUTER", "0") == "1"
+        if use_openrouter_gemini:
+            self.gemini = OpenRouterAgent(
+                name="gemini-visionary",
+                model="google/gemini-3-pro-preview",
+                role="proposer",
+                timeout=720,  # Doubled to 12 min for thorough codebase exploration
+            )
+        else:
+            self.gemini = GeminiAgent(
+                name="gemini-visionary",
+                model="gemini-3-pro-preview",  # Gemini 3 Pro
+                role="proposer",
+                timeout=720,  # Doubled to 12 min for thorough codebase exploration
+            )
         self.gemini.system_prompt = (
             """You are a visionary product strategist for aragora.
 Focus on: viral growth, developer excitement, novel capabilities, bold ideas.
@@ -3489,6 +3499,8 @@ The most valuable proposals combine deep analysis with actionable implementation
             aragora_path=self.aragora_path,
             claude_agent=getattr(self, "claude", None),
             codex_agent=getattr(self, "codex", None),
+            gemini_agent=getattr(self, "gemini", None),
+            grok_agent=getattr(self, "grok", None),
             kilocode_available=self._resolve_kilocode_available(),
             skip_kilocode=self._resolve_kilocode_skip(),
             kilocode_agent_factory=KiloCodeAgent,

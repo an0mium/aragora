@@ -53,6 +53,8 @@ class ContextPhase:
         aragora_path: Path,
         claude_agent: Any,
         codex_agent: Any,
+        gemini_agent: Any = None,
+        grok_agent: Any = None,
         kilocode_available: bool = False,
         skip_kilocode: bool = False,
         kilocode_agent_factory: Optional[Callable[..., Any]] = None,
@@ -81,6 +83,8 @@ class ContextPhase:
         self.aragora_path = aragora_path
         self.claude = claude_agent
         self.codex = codex_agent
+        self.gemini = gemini_agent
+        self.grok = grok_agent
         self.kilocode_available = kilocode_available
         self.skip_kilocode = skip_kilocode
         self.kilocode_agent_factory = kilocode_agent_factory
@@ -101,6 +105,8 @@ class ContextPhase:
         # Determine how many agents will participate
         skip_codex = os.environ.get("NOMIC_CONTEXT_SKIP_CODEX", "0") == "1"
         skip_claude = os.environ.get("NOMIC_CONTEXT_SKIP_CLAUDE", "0") == "1"
+        skip_gemini = os.environ.get("NOMIC_CONTEXT_SKIP_GEMINI", "0") == "1"
+        skip_grok = os.environ.get("NOMIC_CONTEXT_SKIP_GROK", "0") == "1"
         use_kilocode = self.kilocode_available and not self.skip_kilocode
         self._log(
             "  [context] kilocode_available="
@@ -120,8 +126,18 @@ class ContextPhase:
             self._log("  Gemini → Kilo Code  | Grok → Kilo Code")
             self._log("=" * 70)
         else:
+            if self.gemini and not skip_gemini:
+                agents_count += 1
+            if self.grok and not skip_grok:
+                agents_count += 1
             self._log("\n" + "=" * 70)
-            self._log("PHASE 0: CONTEXT GATHERING (Claude + Codex)")
+            extra = []
+            if self.gemini and not skip_gemini:
+                extra.append("Gemini API")
+            if self.grok and not skip_grok:
+                extra.append("Grok API")
+            extra_label = f" + {', '.join(extra)}" if extra else ""
+            self._log(f"PHASE 0: CONTEXT GATHERING (Claude + Codex{extra_label})")
             if self.kilocode_available and self.skip_kilocode:
                 self._log("  Note: KiloCode skipped (timeouts); Gemini/Grok join in debates")
             else:
@@ -161,6 +177,14 @@ class ContextPhase:
                     self._gather_with_agent(grok_explorer, "grok", "Kilo Code"),
                 ]
             )
+        elif not use_kilocode:
+            # Fall back to direct API agents when Kilo Code is unavailable or disabled.
+            if self.gemini and not skip_gemini:
+                exploration_tasks.append(
+                    self._gather_with_agent(self.gemini, "gemini", "Gemini API")
+                )
+            if self.grok and not skip_grok:
+                exploration_tasks.append(self._gather_with_agent(self.grok, "grok", "Grok API"))
 
         # Run all agents in parallel
         results = await asyncio.gather(*exploration_tasks, return_exceptions=True)

@@ -46,6 +46,7 @@ from ..base import (
 )
 from ..openapi_decorator import api_endpoint
 from ..utils.sanitization import sanitize_user_response
+from ..utils.rate_limit import RateLimiter, get_client_ip
 from ..secure import (
     SecureHandler,
     UnauthorizedError,
@@ -56,6 +57,9 @@ logger = logging.getLogger(__name__)
 
 # Admin roles that can access admin endpoints
 ADMIN_ROLES = {"admin", "owner"}
+
+# Rate limiter for admin endpoints (10 requests per minute - sensitive operations)
+_admin_limiter = RateLimiter(requests_per_minute=10)
 
 # RBAC imports (optional - graceful degradation if not available)
 try:
@@ -342,6 +346,12 @@ class AdminHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
         """Route admin requests to appropriate methods."""
+        # Rate limit check for admin endpoints
+        client_ip = get_client_ip(handler)
+        if not _admin_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for admin endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # Determine HTTP method from handler if not provided
         if hasattr(handler, "command"):
             method = handler.command

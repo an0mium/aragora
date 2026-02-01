@@ -142,7 +142,6 @@ class ChannelSubscriptionStore:
     Thread-safe implementation with connection pooling.
     """
 
-    _local = threading.local()
     _instances: dict[str, "ChannelSubscriptionStore"] = {}
 
     def __init__(self, db_path: str | None = None):

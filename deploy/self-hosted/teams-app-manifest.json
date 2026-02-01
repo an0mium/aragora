@@ -1,0 +1,166 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "{{YOUR_APP_ID}}",
+  "packageName": "ai.aragora.teams",
+  "developer": {
+    "name": "Aragora",
+    "websiteUrl": "{{YOUR_DOMAIN}}",
+    "privacyUrl": "{{YOUR_DOMAIN}}/privacy",
+    "termsOfUseUrl": "{{YOUR_DOMAIN}}/terms"
+  },
+  "name": {
+    "short": "Aragora",
+    "full": "Aragora - Multi-Agent Decision Platform"
+  },
+  "description": {
+    "short": "Multi-agent vetted decisionmaking for your organization",
+    "full": "Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. It orchestrates 15+ AI models to debate your organization's knowledge and deliver defensible decisions to any channel.\n\nFeatures:\n- Start debates from Teams with @Aragora mentions\n- Receive consensus notifications in channels\n- View decision receipts with full audit trail\n- Integrate with your existing knowledge bases\n\nCommands:\n- @Aragora debate [topic] - Start a new debate\n- @Aragora status - Check debate status\n- @Aragora help - Get help"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#00FF00",
+  "configurableTabs": [],
+  "staticTabs": [
+    {
+      "entityId": "home",
+      "name": "Home",
+      "contentUrl": "{{YOUR_DOMAIN}}/teams/home?theme={theme}",
+      "websiteUrl": "{{YOUR_DOMAIN}}/dashboard",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "debates",
+      "name": "Debates",
+      "contentUrl": "{{YOUR_DOMAIN}}/teams/debates?theme={theme}",
+      "websiteUrl": "{{YOUR_DOMAIN}}/debates",
+      "scopes": ["personal"]
+    }
+  ],
+  "bots": [
+    {
+      "botId": "{{YOUR_BOT_ID}}",
+      "scopes": ["personal", "team", "groupchat"],
+      "supportsFiles": true,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupchat"],
+          "commands": [
+            {
+              "title": "debate",
+              "description": "Start a new debate on a topic"
+            },
+            {
+              "title": "status",
+              "description": "Check the status of recent debates"
+            },
+            {
+              "title": "help",
+              "description": "Get help with Aragora commands"
+            },
+            {
+              "title": "recent",
+              "description": "View recent debate decisions"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "connectors": [
+    {
+      "connectorId": "{{YOUR_CONNECTOR_ID}}",
+      "configurationUrl": "{{YOUR_DOMAIN}}/teams/connector-config",
+      "scopes": ["team"]
+    }
+  ],
+  "composeExtensions": [
+    {
+      "botId": "{{YOUR_BOT_ID}}",
+      "commands": [
+        {
+          "id": "quickDebate",
+          "type": "action",
+          "title": "Quick Debate",
+          "description": "Start a quick debate on a topic",
+          "initialRun": false,
+          "fetchTask": true,
+          "context": ["compose", "commandBox"],
+          "parameters": [
+            {
+              "name": "topic",
+              "title": "Topic",
+              "description": "What decision do you need help with?",
+              "inputType": "text"
+            }
+          ]
+        },
+        {
+          "id": "searchDebates",
+          "type": "query",
+          "title": "Search Debates",
+          "description": "Search past debates and decisions",
+          "initialRun": true,
+          "parameters": [
+            {
+              "name": "query",
+              "title": "Search",
+              "description": "Search term",
+              "inputType": "text"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{YOUR_DOMAIN_HOST}}"
+  ],
+  "webApplicationInfo": {
+    "id": "{{YOUR_AAD_APP_ID}}",
+    "resource": "api://{{YOUR_DOMAIN_HOST}}/{{YOUR_AAD_APP_ID}}"
+  },
+  "_instructions": {
+    "azure_ad_setup": [
+      "1. Go to Azure Portal > Azure Active Directory > App registrations",
+      "2. Click 'New registration'",
+      "3. Name: 'Aragora Teams App'",
+      "4. Supported account types: 'Accounts in any organizational directory'",
+      "5. Redirect URI: Web - {{YOUR_DOMAIN}}/api/integrations/teams/callback",
+      "6. After creation, note the Application (client) ID",
+      "7. Go to 'Certificates & secrets' > 'New client secret'",
+      "8. Copy the secret value immediately (it won't show again)"
+    ],
+    "bot_framework_setup": [
+      "1. Go to https://dev.botframework.com/bots/new",
+      "2. Create a new bot registration",
+      "3. Use the Azure AD App ID as the Microsoft App ID",
+      "4. Set messaging endpoint to {{YOUR_DOMAIN}}/api/integrations/teams/messages",
+      "5. Add the Teams channel"
+    ],
+    "teams_app_setup": [
+      "1. Replace all {{YOUR_*}} placeholders in this manifest",
+      "2. Create color.png (192x192) and outline.png (32x32) icons",
+      "3. Zip the manifest.json and icons into a .zip file",
+      "4. Go to Teams Admin Center > Teams apps > Manage apps",
+      "5. Click 'Upload new app' and select your zip file",
+      "6. Or use Teams App Studio to test the app first"
+    ],
+    "environment_variables": [
+      "TEAMS_APP_ID=<Azure AD Application (client) ID>",
+      "TEAMS_APP_SECRET=<Azure AD Client secret>",
+      "TEAMS_BOT_ID=<Bot Framework Bot ID (same as App ID)>",
+      "TEAMS_TENANT_ID=<Azure AD Directory (tenant) ID, or 'common' for multi-tenant>",
+      "TEAMS_REDIRECT_URI={{YOUR_DOMAIN}}/api/integrations/teams/callback"
+    ],
+    "verification": "After setup, visit {{YOUR_DOMAIN}}/api/integrations/teams/test to verify the connection"
+  }
+}

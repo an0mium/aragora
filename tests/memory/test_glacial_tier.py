@@ -445,3 +445,178 @@ class TestGlacialTierIntegration:
         # get_glacial_tier_stats should only count glacial
         stats = cms.get_glacial_tier_stats()
         assert stats["count"] == 1
+
+
+# =============================================================================
+# TestGlacialBackend - New Backend Implementation Tests
+# =============================================================================
+
+
+class TestGlacialBackend:
+    """Tests for the glacial tier backend implementation."""
+
+    def test_glacial_connection_context_manager(self, cms):
+        """Test _glacial_connection() provides working SQLite connection."""
+        # The mixin's _glacial_connection should work standalone
+        with cms._glacial_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            result = cursor.fetchone()
+            assert result[0] == 1
+
+    def test_glacial_retrieve_returns_only_glacial_tier(self, populated_glacial_cms):
+        """Test _glacial_retrieve() returns only glacial tier entries."""
+        entries = populated_glacial_cms._glacial_retrieve(limit=10)
+
+        assert len(entries) > 0
+        for entry in entries:
+            assert entry.tier == MemoryTier.GLACIAL
+
+    def test_glacial_retrieve_filters_by_query(self, populated_glacial_cms):
+        """Test _glacial_retrieve() filters by keyword query."""
+        entries = populated_glacial_cms._glacial_retrieve(query="error", limit=10)
+
+        assert len(entries) >= 1
+        for entry in entries:
+            assert "error" in entry.content.lower()
+
+    def test_glacial_retrieve_respects_min_importance(self, populated_glacial_cms):
+        """Test _glacial_retrieve() filters by minimum importance."""
+        entries = populated_glacial_cms._glacial_retrieve(min_importance=0.8, limit=10)
+
+        for entry in entries:
+            assert entry.importance >= 0.8
+
+    def test_glacial_retrieve_respects_limit(self, populated_glacial_cms):
+        """Test _glacial_retrieve() respects limit parameter."""
+        entries = populated_glacial_cms._glacial_retrieve(limit=2)
+
+        assert len(entries) <= 2
+
+    def test_glacial_retrieve_applies_decay_scoring(self, cms):
+        """Test _glacial_retrieve() applies 30-day half-life decay to scoring."""
+        # Add a glacial entry
+        cms.add(
+            "decay_test",
+            "Test entry for decay",
+            tier=MemoryTier.GLACIAL,
+            importance=0.9,
+        )
+
+        # Retrieve with decay scoring
+        entries = cms._glacial_retrieve(limit=10)
+
+        # Entry should be returned (decay is applied in scoring, not filtering)
+        assert len(entries) == 1
+        assert entries[0].id == "decay_test"
+
+
+class TestGlacialConfidenceDecay:
+    """Tests for calculate_glacial_decay() method."""
+
+    def test_decay_factor_is_one_for_just_updated(self, cms):
+        """Test decay factor is 1.0 for entries updated now."""
+        from datetime import datetime
+
+        now = datetime.now()
+        decay = cms.calculate_glacial_decay(now)
+
+        assert abs(decay - 1.0) < 0.01
+
+    def test_decay_factor_is_half_at_30_days(self, cms):
+        """Test decay factor is 0.5 at exactly 30 days old."""
+        from datetime import datetime, timedelta
+
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        decay = cms.calculate_glacial_decay(thirty_days_ago)
+
+        assert abs(decay - 0.5) < 0.01
+
+    def test_decay_factor_is_quarter_at_60_days(self, cms):
+        """Test decay factor is 0.25 at 60 days old (two half-lives)."""
+        from datetime import datetime, timedelta
+
+        sixty_days_ago = datetime.now() - timedelta(days=60)
+        decay = cms.calculate_glacial_decay(sixty_days_ago)
+
+        assert abs(decay - 0.25) < 0.01
+
+    def test_decay_handles_string_timestamp(self, cms):
+        """Test decay calculation handles ISO string timestamps."""
+        from datetime import datetime, timedelta
+
+        thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+        decay = cms.calculate_glacial_decay(thirty_days_ago)
+
+        assert abs(decay - 0.5) < 0.01
+
+    def test_decay_clamps_to_one_for_future_timestamps(self, cms):
+        """Test decay factor is clamped to 1.0 for future timestamps."""
+        from datetime import datetime, timedelta
+
+        future = datetime.now() + timedelta(days=1)
+        decay = cms.calculate_glacial_decay(future)
+
+        assert decay == 1.0
+
+
+class TestGlacialBackendStandalone:
+    """Tests for standalone glacial backend usage (without full ContinuumMemory)."""
+
+    def test_standalone_glacial_db_path_environment(self, tmp_path):
+        """Test standalone glacial connection uses environment variable."""
+        import os
+        from aragora.memory.continuum_glacial import ContinuumGlacialMixin
+
+        # Create a standalone mixin instance
+        class StandaloneGlacialStore(ContinuumGlacialMixin):
+            hyperparams: dict = {"max_entries_per_tier": {"glacial": 50000}}
+
+        store = StandaloneGlacialStore()
+        db_path = str(tmp_path / "glacial_standalone.db")
+        store._glacial_db_path = db_path
+
+        # Test connection works
+        with store._glacial_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT sqlite_version()")
+            version = cursor.fetchone()
+            assert version is not None
+
+        # Verify database was created
+        assert os.path.exists(db_path)
+
+    def test_glacial_retrieve_empty_database(self, tmp_path):
+        """Test _glacial_retrieve() on empty database returns empty list."""
+        from aragora.memory.continuum_glacial import ContinuumGlacialMixin
+
+        class StandaloneGlacialStore(ContinuumGlacialMixin):
+            hyperparams: dict = {"max_entries_per_tier": {"glacial": 50000}}
+
+        store = StandaloneGlacialStore()
+        store._glacial_db_path = str(tmp_path / "empty_glacial.db")
+
+        # Create schema manually for standalone test
+        with store._glacial_connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS continuum_memory (
+                    id TEXT PRIMARY KEY,
+                    tier TEXT NOT NULL DEFAULT 'slow',
+                    content TEXT NOT NULL,
+                    importance REAL DEFAULT 0.5,
+                    surprise_score REAL DEFAULT 0.0,
+                    consolidation_score REAL DEFAULT 0.0,
+                    update_count INTEGER DEFAULT 0,
+                    success_count INTEGER DEFAULT 0,
+                    failure_count INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    metadata TEXT DEFAULT '{}',
+                    red_line INTEGER DEFAULT 0,
+                    red_line_reason TEXT DEFAULT ''
+                )
+            """)
+            conn.commit()
+
+        entries = store._glacial_retrieve(limit=10)
+        assert entries == []

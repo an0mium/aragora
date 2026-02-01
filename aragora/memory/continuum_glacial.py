@@ -3,19 +3,34 @@ Continuum Memory Glacial Operations.
 
 Extracted from continuum.py for maintainability.
 Provides glacial tier access for cross-session learning patterns.
+
+The glacial tier is designed for long-term pattern retention with:
+- 30-day half-life for confidence decay
+- Cross-session learning persistence
+- Foundational knowledge that informs debates
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+import math
+import os
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Generator, Optional
 
 if TYPE_CHECKING:
     from aragora.memory.continuum import ContinuumMemoryEntry
     from aragora.memory.tier_manager import MemoryTier
 
 logger = logging.getLogger(__name__)
+
+# Glacial tier constants
+GLACIAL_HALF_LIFE_DAYS = 30
+GLACIAL_HALF_LIFE_HOURS = GLACIAL_HALF_LIFE_DAYS * 24
 
 
 class ContinuumGlacialMixin:
@@ -25,7 +40,11 @@ class ContinuumGlacialMixin:
     Enables cross-session learning by retrieving long-term patterns
     from the glacial tier (30-day half-life foundational knowledge).
 
-    Requirements:
+    The mixin provides two modes of operation:
+    1. As a mixin to ContinuumMemory: Uses host class's connection() and retrieve()
+    2. Standalone: Uses its own _glacial_connection() and _glacial_retrieve()
+
+    Requirements when used as mixin:
         The host class must provide:
         - connection(): Context manager returning sqlite3.Connection
         - retrieve(): Memory retrieval with tier filtering
@@ -35,13 +54,52 @@ class ContinuumGlacialMixin:
     # These must be provided by the main class
     hyperparams: dict[str, Any]
 
+    # Optional standalone database path for glacial tier
+    _glacial_db_path: str | Path | None = None
+
     def connection(self) -> Any:
         """Get database connection context manager.
 
-        Must be provided by the host class (e.g., SQLiteStore.connection()).
+        When used as a mixin with ContinuumMemory, this is provided by SQLiteStore.
+        When used standalone, delegates to _glacial_connection().
+
         Returns a context manager yielding sqlite3.Connection.
         """
-        ...  # Provided by SQLiteStore via MRO
+        # Check if we have a host class providing connection (via MRO)
+        # If not, use standalone glacial connection
+        if hasattr(super(), "connection"):
+            return super().connection()  # type: ignore[misc]
+        return self._glacial_connection()
+
+    @contextmanager
+    def _glacial_connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Get a standalone SQLite connection for glacial tier storage.
+
+        Supports both SQLite (local development) and can be extended
+        for PostgreSQL (production) via environment configuration.
+
+        Yields:
+            sqlite3.Connection configured for glacial tier storage
+        """
+        # Get database path from instance, environment, or default
+        db_path = self._glacial_db_path
+        if db_path is None:
+            db_path = os.environ.get("ARAGORA_GLACIAL_DB_PATH")
+        if db_path is None:
+            from aragora.persistence.db_config import get_db_path, DatabaseType
+
+            db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
+
+        db_path = Path(db_path)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        conn = sqlite3.connect(str(db_path), timeout=30.0)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def retrieve(
         self,
@@ -54,7 +112,8 @@ class ContinuumGlacialMixin:
     ) -> list["ContinuumMemoryEntry"]:
         """Retrieve memories matching criteria.
 
-        Must be provided by the host class (e.g., ContinuumMemory.retrieve()).
+        When used as a mixin, delegates to ContinuumMemory.retrieve().
+        When used standalone, uses _glacial_retrieve() for glacial-only access.
 
         Args:
             query: Optional keyword filter
@@ -67,7 +126,133 @@ class ContinuumGlacialMixin:
         Returns:
             List of matching ContinuumMemoryEntry objects
         """
-        ...
+        # Check if we have a host class providing retrieve (via MRO)
+        if hasattr(super(), "retrieve"):
+            return super().retrieve(  # type: ignore[misc]
+                query=query,
+                tiers=tiers,
+                limit=limit,
+                min_importance=min_importance,
+                include_glacial=include_glacial,
+                tier=tier,
+            )
+        # Standalone mode: only glacial tier access
+        return self._glacial_retrieve(
+            query=query,
+            limit=limit,
+            min_importance=min_importance,
+        )
+
+    def _glacial_retrieve(
+        self,
+        query: str | None = None,
+        limit: int = 10,
+        min_importance: float = 0.0,
+    ) -> list["ContinuumMemoryEntry"]:
+        """Retrieve memories from glacial tier with 30-day confidence decay.
+
+        This method applies time-based confidence decay specific to the
+        glacial tier's 30-day half-life. Older memories have reduced
+        effective importance, simulating natural forgetting while
+        preserving foundational knowledge.
+
+        Args:
+            query: Optional keyword filter for content
+            limit: Maximum entries to return
+            min_importance: Minimum importance threshold (before decay)
+
+        Returns:
+            List of ContinuumMemoryEntry objects with decay-adjusted scoring
+        """
+        from aragora.memory.continuum import ContinuumMemoryEntry
+        from aragora.memory.tier_manager import MemoryTier
+        from aragora.utils.json_helpers import safe_json_loads
+
+        # Use self.connection() to ensure we use the same database as host class
+        with self.connection() as conn:
+            cursor = conn.cursor()
+
+            # Build query with keyword filter if provided
+            keyword_clause = ""
+            keyword_params: list[str] = []
+            if query:
+                keywords = [kw.strip().lower() for kw in query.split()[:50] if kw.strip()]
+                if keywords:
+                    keyword_conditions = ["INSTR(LOWER(content), ?) > 0" for _ in keywords]
+                    keyword_clause = f" AND ({' OR '.join(keyword_conditions)})"
+                    keyword_params = keywords
+
+            # Query glacial tier entries
+            # Score includes: importance * (1 + surprise) * decay_factor
+            # decay_factor = 0.5^(days_elapsed / 30)
+            cursor.execute(
+                f"""
+                SELECT id, tier, content, importance, surprise_score, consolidation_score,
+                       update_count, success_count, failure_count, created_at, updated_at, metadata,
+                       COALESCE(red_line, 0), COALESCE(red_line_reason, ''),
+                       (importance * (1 + surprise_score) *
+                        POWER(0.5, (julianday('now') - julianday(updated_at)) / {GLACIAL_HALF_LIFE_DAYS})) as score
+                FROM continuum_memory
+                WHERE tier = 'glacial'
+                  AND importance >= ?
+                  {keyword_clause}
+                ORDER BY score DESC
+                LIMIT ?
+                """,
+                (min_importance, *keyword_params, limit),
+            )
+
+            rows = cursor.fetchall()
+
+        entries: list[ContinuumMemoryEntry] = []
+        for row in rows:
+            entry = ContinuumMemoryEntry(
+                id=row[0],
+                tier=MemoryTier(row[1]),
+                content=row[2],
+                importance=row[3],
+                surprise_score=row[4] or 0.0,
+                consolidation_score=row[5] or 0.0,
+                update_count=row[6] or 1,
+                success_count=row[7] or 0,
+                failure_count=row[8] or 0,
+                created_at=row[9],
+                updated_at=row[10],
+                metadata=safe_json_loads(row[11], {}),
+                red_line=bool(row[12]),
+                red_line_reason=row[13],
+            )
+            entries.append(entry)
+
+        return entries
+
+    def calculate_glacial_decay(self, updated_at: str | datetime) -> float:
+        """Calculate the confidence decay factor for a glacial tier memory.
+
+        Uses exponential decay with 30-day half-life:
+        decay_factor = 0.5^(days_elapsed / 30)
+
+        Args:
+            updated_at: Timestamp of last update (ISO string or datetime)
+
+        Returns:
+            Decay factor between 0 and 1 (1 = no decay, 0.5 = 30 days old)
+        """
+        if isinstance(updated_at, str):
+            updated_dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+        else:
+            updated_dt = updated_at
+
+        now = datetime.now()
+        if updated_dt.tzinfo is not None and now.tzinfo is None:
+            # Make both naive for comparison
+            updated_dt = updated_dt.replace(tzinfo=None)
+
+        days_elapsed = (now - updated_dt).total_seconds() / 86400
+        if days_elapsed <= 0:
+            return 1.0
+
+        return math.pow(0.5, days_elapsed / GLACIAL_HALF_LIFE_DAYS)
 
     def get_glacial_insights(
         self,

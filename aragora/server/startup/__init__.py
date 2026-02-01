@@ -95,6 +95,11 @@ from aragora.server.startup.parallel import (  # noqa: F401
     parallel_init,
     run_phase,
 )
+from aragora.server.startup.validation_runner import (  # noqa: F401
+    StartupValidationError,
+    run_startup_validation,
+    run_startup_validation_sync,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -536,4 +541,8 @@ __all__ = [
     "InitTask",
     "run_phase",
     "cleanup_on_failure",
+    # Startup validation
+    "StartupValidationError",
+    "run_startup_validation",
+    "run_startup_validation_sync",
 ]

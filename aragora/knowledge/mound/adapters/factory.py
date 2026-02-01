@@ -637,7 +637,7 @@ class AdapterFactory:
                 )
             elif spec.name == "calibration_fusion":
                 adapter = adapter_class(
-                    mound=deps.get("mound"),
+                    event_callback=self._event_callback,
                 )
             elif spec.name == "control_plane":
                 adapter = adapter_class(
@@ -703,7 +703,7 @@ class AdapterFactory:
                 elif spec.name == "gateway":
                     return adapter_class(gateway=deps.get("gateway"))
                 elif spec.name == "calibration_fusion":
-                    return adapter_class(mound=deps.get("mound"))
+                    return adapter_class()
                 elif spec.name == "control_plane":
                     return adapter_class(control_plane=deps.get("control_plane"))
                 elif spec.name == "culture":

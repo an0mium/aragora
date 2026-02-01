@@ -25,9 +25,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
-from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -123,7 +123,7 @@ class TopicSearchResult:
     relevance_score: float = 0.0
 
 
-class PulseAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
+class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     """
     Adapter that bridges Pulse system to the Knowledge Mound.
 
@@ -274,9 +274,14 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             event_callback: Optional callback for emitting events (event_type, data)
             enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._debate_store = debate_store
-        self._enable_dual_write = enable_dual_write
-        self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._topics: dict[str, dict[str, Any]] = {}
@@ -288,21 +293,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         self._category_topics: dict[str, list[str]] = {}  # category -> [topic_ids]
         self._topic_hash_map: dict[str, str] = {}  # topic_hash -> topic_id
 
-        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
-        if enable_resilience:
-            self._init_resilience(adapter_name=self.adapter_name)
-
-    def set_event_callback(self, callback: EventCallback) -> None:
-        """Set the event callback for WebSocket notifications."""
-        self._event_callback = callback
-
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event if callback is configured."""
-        if self._event_callback:
-            try:
-                self._event_callback(event_type, data)
-            except Exception as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+    # set_event_callback, _emit_event inherited from KnowledgeMoundAdapter
 
     @property
     def debate_store(self) -> Any | None:

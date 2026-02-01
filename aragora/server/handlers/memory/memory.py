@@ -54,8 +54,8 @@ try:
     CONTINUUM_AVAILABLE = True
 except ImportError:
     CONTINUUM_AVAILABLE = False
-    ContinuumMemory = None  # type: Any
-    MemoryTier = None  # type: Any
+    ContinuumMemory = None  # type: ignore[misc, no-redef]
+    MemoryTier = None  # type: ignore[misc, no-redef]
 
 # Optional import for critique store
 try:
@@ -64,7 +64,7 @@ try:
     CRITIQUE_STORE_AVAILABLE = True
 except ImportError:
     CRITIQUE_STORE_AVAILABLE = False
-    CritiqueStore = None  # type: Any
+    CritiqueStore = None  # type: ignore[misc, no-redef]
 
 
 class MemoryHandler(SecureHandler):

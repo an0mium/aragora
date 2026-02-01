@@ -30,7 +30,8 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.server.handlers.utils.rate_limit import rate_limit, RateLimiter, get_client_ip
+from aragora.server.handlers.utils.tenant_validation import validate_tenant_access
 from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.decorators import require_permission
 
@@ -38,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 # Supported integration types
 SUPPORTED_INTEGRATIONS = {"slack", "teams", "discord", "email"}
+
+# Rate limiter for stats endpoint (30 requests per minute per user)
+_stats_limiter = RateLimiter(requests_per_minute=30)
 
 
 class IntegrationsHandler(BaseHandler):
@@ -86,6 +90,11 @@ class IntegrationsHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
+        # Require authentication for all integration management endpoints
+        user, auth_err = self.require_auth_or_error(handler)
+        if auth_err:
+            return auth_err
+
         # Extract method, body, and headers from the request handler
         method: str = getattr(handler, "command", "GET") if handler else "GET"
         body: dict[str, Any] = (self.read_json_body(handler) or {}) if handler else {}
@@ -98,10 +107,21 @@ class IntegrationsHandler(BaseHandler):
             "tenant_id"
         )
 
+        # SECURITY: Validate user has access to requested tenant
+        tenant_access_err = await validate_tenant_access(
+            user=user,
+            requested_tenant_id=tenant_id,
+            endpoint=path,
+            ip_address=get_client_ip(handler),
+            allow_none=True,  # Allow None tenant_id (defaults to user's tenant)
+        )
+        if tenant_access_err:
+            return tenant_access_err
+
         try:
-            # Stats endpoint
+            # Stats endpoint (stricter rate limit: 30/min)
             if path == "/api/v2/integrations/stats" and method == "GET":
-                return await self._get_stats(tenant_id)
+                return await self._get_stats(tenant_id, handler)
 
             # List all integrations
             if path == "/api/v2/integrations" and method == "GET":
@@ -646,8 +666,29 @@ class IntegrationsHandler(BaseHandler):
         )
 
     @require_permission("integrations.read")
-    async def _get_stats(self, tenant_id: str | None) -> HandlerResult:
-        """Get integration statistics."""
+    async def _get_stats(self, tenant_id: str | None, handler: Any = None) -> HandlerResult:
+        """Get integration statistics.
+
+        Rate limited to 30 requests per minute per user/tenant.
+        """
+        # Apply stricter rate limit for stats endpoint (30/min vs 60/min for other endpoints)
+        rate_key = tenant_id if tenant_id else (get_client_ip(handler) if handler else "unknown")
+
+        if not _stats_limiter.is_allowed(rate_key):
+            remaining = _stats_limiter.get_remaining(rate_key)
+            logger.warning(f"Rate limit exceeded for stats endpoint: {rate_key}")
+            headers = {
+                "X-RateLimit-Limit": "30",
+                "X-RateLimit-Remaining": str(remaining),
+                "Retry-After": "60",
+            }
+            return error_response(
+                "Rate limit exceeded. Please try again later.",
+                429,
+                code="RATE_LIMIT_EXCEEDED",
+                headers=headers,
+            )
+
         slack_store = self._get_slack_store()
         teams_store = self._get_teams_store()
 

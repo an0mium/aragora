@@ -21,9 +21,13 @@ from ..base import (
     json_response,
 )
 from ..secure import SecureHandler
+from ..utils.rate_limit import RateLimiter, get_client_ip
 from .admin import admin_secure_endpoint
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for security admin endpoints (10 requests per minute)
+_security_limiter = RateLimiter(requests_per_minute=10)
 
 
 class SecurityHandler(SecureHandler):
@@ -48,6 +52,12 @@ class SecurityHandler(SecureHandler):
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route security endpoint requests."""
+        # Rate limit check for security admin endpoints
+        client_ip = get_client_ip(handler)
+        if not _security_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for security endpoint: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         handlers = {
             "/api/v1/admin/security/status": self._get_status,
             "/api/v1/admin/security/health": self._get_health,

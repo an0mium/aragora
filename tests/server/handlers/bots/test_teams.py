@@ -590,81 +590,53 @@ class TestBotLazyInit:
         assert result == "cached_bot"
 
     @pytest.mark.asyncio
-    async def test_ensure_bot_sdk_not_available(self):
-        """Should return None when SDK not available."""
+    async def test_ensure_bot_creates_bot_with_credentials(self):
+        """Should create TeamsBot when credentials are configured."""
         handler = TeamsHandler({})
 
         with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-id"):
             with patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "password"):
-                with patch(
-                    "aragora.server.handlers.bots.teams._check_botframework_available",
-                    return_value=(False, "not installed"),
-                ):
-                    result = await handler._ensure_bot()
+                result = await handler._ensure_bot()
 
-        assert result is None
+        # The handler creates a TeamsBot directly when credentials are configured
+        assert result is not None
+        assert handler._bot_initialized is True
+        assert handler._bot is not None
+
+    @pytest.mark.asyncio
+    async def test_ensure_bot_only_initializes_once(self):
+        """Should only initialize bot once even when called multiple times."""
+        handler = TeamsHandler({})
+
+        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-id"):
+            with patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "password"):
+                result1 = await handler._ensure_bot()
+                result2 = await handler._ensure_bot()
+
+        # Both calls should return the same bot instance
+        assert result1 is result2
         assert handler._bot_initialized is True
 
     @pytest.mark.asyncio
-    async def test_ensure_bot_import_error(self):
-        """Should handle import error for bot module."""
+    async def test_ensure_bot_returns_cached_bot(self):
+        """Should return cached bot after first initialization."""
         handler = TeamsHandler({})
+        handler._bot_initialized = True
+        mock_bot = MagicMock()
+        handler._bot = mock_bot
 
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-id"):
-            with patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "password"):
-                with patch(
-                    "aragora.server.handlers.bots.teams._check_botframework_available",
-                    return_value=(True, None),
-                ):
-                    with patch(
-                        "aragora.bots.teams_bot.create_teams_bot",
-                        side_effect=ImportError("Module not found"),
-                    ):
-                        result = await handler._ensure_bot()
+        result = await handler._ensure_bot()
 
-        assert result is None
-        assert handler._bot_initialized is True
+        assert result is mock_bot
 
     @pytest.mark.asyncio
-    async def test_ensure_bot_config_error(self):
-        """Should handle configuration errors gracefully."""
+    async def test_ensure_bot_returns_none_without_app_id_only(self):
+        """Should return None when only app ID is missing."""
         handler = TeamsHandler({})
 
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-id"):
+        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", None):
             with patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "password"):
-                with patch(
-                    "aragora.server.handlers.bots.teams._check_botframework_available",
-                    return_value=(True, None),
-                ):
-                    mock_bot = MagicMock()
-                    mock_bot.setup = AsyncMock(side_effect=ValueError("Bad config"))
-                    with patch(
-                        "aragora.bots.teams_bot.create_teams_bot",
-                        return_value=mock_bot,
-                    ):
-                        result = await handler._ensure_bot()
-
-        assert result is None
-        assert handler._bot_initialized is True
-
-    @pytest.mark.asyncio
-    async def test_ensure_bot_unexpected_error(self):
-        """Should handle unexpected errors gracefully."""
-        handler = TeamsHandler({})
-
-        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "app-id"):
-            with patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "password"):
-                with patch(
-                    "aragora.server.handlers.bots.teams._check_botframework_available",
-                    return_value=(True, None),
-                ):
-                    mock_bot = MagicMock()
-                    mock_bot.setup = AsyncMock(side_effect=RuntimeError("Unexpected"))
-                    with patch(
-                        "aragora.bots.teams_bot.create_teams_bot",
-                        return_value=mock_bot,
-                    ):
-                        result = await handler._ensure_bot()
+                result = await handler._ensure_bot()
 
         assert result is None
         assert handler._bot_initialized is True
@@ -798,3 +770,727 @@ class TestErrorHandling:
                     await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
                     mock_audit.assert_called_once_with("auth_token", "invalid_token")
+
+
+# =============================================================================
+# Test TeamsBot Class
+# =============================================================================
+
+
+class TestTeamsBot:
+    """Tests for TeamsBot class methods."""
+
+    def test_teams_bot_initialization(self):
+        """Should initialize with app credentials."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        assert bot.app_id == "test-app-id"
+        assert bot.app_password == "test-password"
+        assert bot._connector is None
+
+    def test_teams_bot_defaults_from_env(self):
+        """Should use environment variables as defaults."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", "env-app-id"):
+            with patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", "env-password"):
+                bot = TeamsBot()
+
+                assert bot.app_id == "env-app-id"
+                assert bot.app_password == "env-password"
+
+
+class TestTeamsBotActivityProcessing:
+    """Tests for TeamsBot activity processing methods."""
+
+    @pytest.mark.asyncio
+    async def test_process_activity_message(self):
+        """Should process message activity."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "type": "message",
+            "id": "activity-123",
+            "text": "<at>Bot</at> help",
+            "from": {"id": "user-123", "name": "Test User"},
+            "conversation": {"id": "conv-123", "conversationType": "channel"},
+            "serviceUrl": "https://smba.trafficmanager.net/test/",
+            "entities": [{"type": "mention"}],
+        }
+
+        with patch.object(bot, "_handle_message", new_callable=AsyncMock) as mock_handle:
+            mock_handle.return_value = {}
+            with patch(
+                "aragora.server.handlers.bots.teams._verify_teams_token",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                result = await bot.process_activity(activity, "Bearer test-token")
+
+        mock_handle.assert_called_once_with(activity)
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_process_activity_invoke(self):
+        """Should process invoke activity."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "type": "invoke",
+            "name": "adaptiveCard/action",
+            "value": {"action": "vote", "debate_id": "debate-123", "agent": "Claude"},
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://smba.trafficmanager.net/test/",
+        }
+
+        with patch.object(bot, "_handle_invoke", new_callable=AsyncMock) as mock_handle:
+            mock_handle.return_value = {"status": 200, "body": {}}
+            with patch(
+                "aragora.server.handlers.bots.teams._verify_teams_token",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                result = await bot.process_activity(activity, "Bearer test-token")
+
+        mock_handle.assert_called_once_with(activity)
+
+    @pytest.mark.asyncio
+    async def test_process_activity_conversation_update(self):
+        """Should process conversation update activity."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "type": "conversationUpdate",
+            "membersAdded": [{"id": "bot-123"}],
+            "recipient": {"id": "bot-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://smba.trafficmanager.net/test/",
+        }
+
+        with patch.object(
+            bot, "_handle_conversation_update", new_callable=AsyncMock
+        ) as mock_handle:
+            mock_handle.return_value = {}
+            with patch(
+                "aragora.server.handlers.bots.teams._verify_teams_token",
+                new_callable=AsyncMock,
+                return_value=True,
+            ):
+                result = await bot.process_activity(activity, "Bearer test-token")
+
+        mock_handle.assert_called_once_with(activity)
+
+    @pytest.mark.asyncio
+    async def test_process_activity_invalid_token(self):
+        """Should raise ValueError for invalid token."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "type": "message",
+            "text": "test",
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+        }
+
+        with patch(
+            "aragora.server.handlers.bots.teams._verify_teams_token",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            with pytest.raises(ValueError, match="Invalid authentication token"):
+                await bot.process_activity(activity, "Bearer invalid-token")
+
+
+class TestTeamsBotCommands:
+    """Tests for TeamsBot command handling."""
+
+    @pytest.mark.asyncio
+    async def test_handle_command_debate(self):
+        """Should handle debate command."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        with patch.object(bot, "_cmd_debate", new_callable=AsyncMock) as mock_cmd:
+            mock_cmd.return_value = {}
+            activity = {
+                "conversation": {"id": "conv-123"},
+                "serviceUrl": "https://test/",
+            }
+            await bot._handle_command(
+                command="debate",
+                args="Should we use microservices?",
+                conversation_id="conv-123",
+                user_id="user-123",
+                service_url="https://test/",
+                activity=activity,
+            )
+
+        mock_cmd.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_command_status(self):
+        """Should handle status command."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        with patch.object(bot, "_cmd_status", new_callable=AsyncMock) as mock_cmd:
+            mock_cmd.return_value = {}
+            activity = {}
+            await bot._handle_command(
+                command="status",
+                args="",
+                conversation_id="conv-123",
+                user_id="user-123",
+                service_url="https://test/",
+                activity=activity,
+            )
+
+        mock_cmd.assert_called_once_with(activity)
+
+    @pytest.mark.asyncio
+    async def test_handle_command_help(self):
+        """Should handle help command."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        with patch.object(bot, "_cmd_help", new_callable=AsyncMock) as mock_cmd:
+            mock_cmd.return_value = {}
+            activity = {}
+            await bot._handle_command(
+                command="help",
+                args="",
+                conversation_id="conv-123",
+                user_id="user-123",
+                service_url="https://test/",
+                activity=activity,
+            )
+
+        mock_cmd.assert_called_once_with(activity)
+
+    @pytest.mark.asyncio
+    async def test_handle_command_leaderboard(self):
+        """Should handle leaderboard command."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        with patch.object(bot, "_cmd_leaderboard", new_callable=AsyncMock) as mock_cmd:
+            mock_cmd.return_value = {}
+            activity = {}
+            await bot._handle_command(
+                command="leaderboard",
+                args="",
+                conversation_id="conv-123",
+                user_id="user-123",
+                service_url="https://test/",
+                activity=activity,
+            )
+
+        mock_cmd.assert_called_once_with(activity)
+
+    @pytest.mark.asyncio
+    async def test_handle_command_unknown(self):
+        """Should handle unknown command."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        with patch.object(bot, "_cmd_unknown", new_callable=AsyncMock) as mock_cmd:
+            mock_cmd.return_value = {}
+            activity = {}
+            await bot._handle_command(
+                command="foobar",
+                args="",
+                conversation_id="conv-123",
+                user_id="user-123",
+                service_url="https://test/",
+                activity=activity,
+            )
+
+        mock_cmd.assert_called_once_with("foobar", activity)
+
+
+class TestTeamsBotCardActions:
+    """Tests for TeamsBot card action handling."""
+
+    @pytest.mark.asyncio
+    async def test_handle_vote_action(self):
+        """Should handle vote card action."""
+        from aragora.server.handlers.bots.teams import TeamsBot, _user_votes
+
+        # Clear votes before test
+        _user_votes.clear()
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://test/",
+        }
+
+        with patch("aragora.server.handlers.bots.teams.audit_data"):
+            result = await bot._handle_vote(
+                debate_id="debate-456",
+                agent="Claude",
+                user_id="user-123",
+                activity=activity,
+            )
+
+        assert result["status"] == 200
+        assert "debate-456" in _user_votes
+        assert _user_votes["debate-456"]["user-123"] == "Claude"
+
+        # Clean up
+        _user_votes.clear()
+
+    @pytest.mark.asyncio
+    async def test_handle_vote_action_invalid_data(self):
+        """Should return error for invalid vote data."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {}
+
+        result = await bot._handle_vote(
+            debate_id="",
+            agent="",
+            user_id="user-123",
+            activity=activity,
+        )
+
+        assert result["status"] == 400
+        assert "Invalid vote data" in result["body"]["value"]
+
+    @pytest.mark.asyncio
+    async def test_handle_summary_action(self):
+        """Should handle summary card action."""
+        from aragora.server.handlers.bots.teams import TeamsBot, _active_debates
+
+        # Set up active debate
+        _active_debates["debate-789"] = {
+            "topic": "Test topic",
+            "started_at": 1000,
+        }
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {}
+
+        result = await bot._handle_summary(
+            debate_id="debate-789",
+            activity=activity,
+        )
+
+        assert result["status"] == 200
+        assert result["body"]["type"] == "application/vnd.microsoft.card.adaptive"
+
+        # Clean up
+        _active_debates.clear()
+
+    @pytest.mark.asyncio
+    async def test_handle_summary_debate_not_found(self):
+        """Should return message when debate not found."""
+        from aragora.server.handlers.bots.teams import TeamsBot, _active_debates
+
+        _active_debates.clear()
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {}
+
+        result = await bot._handle_summary(
+            debate_id="nonexistent",
+            activity=activity,
+        )
+
+        assert result["status"] == 200
+        assert "not found" in result["body"]["value"]
+
+
+class TestTeamsBotInvokeHandling:
+    """Tests for TeamsBot invoke handling."""
+
+    @pytest.mark.asyncio
+    async def test_handle_invoke_card_action(self):
+        """Should route card action invokes correctly."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "name": "adaptiveCard/action",
+            "value": {"action": "help"},
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://test/",
+        }
+
+        with patch.object(bot, "_handle_card_action", new_callable=AsyncMock) as mock_handle:
+            mock_handle.return_value = {"status": 200, "body": {}}
+            await bot._handle_invoke(activity)
+
+        mock_handle.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_invoke_compose_extension_query(self):
+        """Should handle compose extension query."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "name": "composeExtension/query",
+            "value": {"parameters": [{"name": "query", "value": "test"}]},
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://test/",
+        }
+
+        with patch.object(
+            bot, "_handle_compose_extension_query", new_callable=AsyncMock
+        ) as mock_handle:
+            mock_handle.return_value = {"status": 200, "body": {}}
+            await bot._handle_invoke(activity)
+
+        mock_handle.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_invoke_task_fetch(self):
+        """Should handle task module fetch."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "name": "task/fetch",
+            "value": {"commandId": "startDebate"},
+            "from": {"id": "user-123"},
+            "conversation": {"id": "conv-123"},
+            "serviceUrl": "https://test/",
+        }
+
+        with patch.object(bot, "_handle_task_module_fetch", new_callable=AsyncMock) as mock_handle:
+            mock_handle.return_value = {"status": 200, "body": {"task": {}}}
+            await bot._handle_invoke(activity)
+
+        mock_handle.assert_called_once()
+
+
+class TestTeamsBotHelperFunctions:
+    """Tests for TeamsBot helper functions and card builders."""
+
+    def test_build_debate_card(self):
+        """Should build valid debate card."""
+        from aragora.server.handlers.bots.teams import build_debate_card
+
+        card = build_debate_card(
+            debate_id="debate-123",
+            topic="Should we use AI for decisions?",
+            agents=["Claude", "GPT-4", "Gemini"],
+            current_round=2,
+            total_rounds=5,
+            include_vote_buttons=True,
+        )
+
+        assert card["type"] == "AdaptiveCard"
+        assert card["version"] == "1.4"
+        assert len(card["body"]) > 0
+        assert len(card["actions"]) > 0
+
+    def test_build_debate_card_without_vote_buttons(self):
+        """Should build card without vote buttons."""
+        from aragora.server.handlers.bots.teams import build_debate_card
+
+        card = build_debate_card(
+            debate_id="debate-123",
+            topic="Test topic",
+            agents=["Claude"],
+            current_round=1,
+            total_rounds=3,
+            include_vote_buttons=False,
+        )
+
+        # Actions should be None or empty when no vote buttons
+        assert card.get("actions") is None or len(card["actions"]) == 0
+
+    def test_build_consensus_card(self):
+        """Should build valid consensus card."""
+        from aragora.server.handlers.bots.teams import build_consensus_card
+
+        card = build_consensus_card(
+            debate_id="debate-123",
+            topic="Important decision",
+            consensus_reached=True,
+            confidence=0.85,
+            winner="Claude",
+            final_answer="The decision is to proceed with option A.",
+            vote_counts={"Claude": 5, "GPT-4": 2},
+        )
+
+        assert card["type"] == "AdaptiveCard"
+        assert len(card["body"]) > 0
+        assert len(card["actions"]) > 0
+
+    def test_build_consensus_card_no_consensus(self):
+        """Should build card for no consensus case."""
+        from aragora.server.handlers.bots.teams import build_consensus_card
+
+        card = build_consensus_card(
+            debate_id="debate-456",
+            topic="Contentious issue",
+            consensus_reached=False,
+            confidence=0.45,
+            winner=None,
+            final_answer=None,
+            vote_counts={},
+        )
+
+        assert card["type"] == "AdaptiveCard"
+        # Check header shows no consensus
+        header = card["body"][0]
+        assert "No Consensus" in header["text"]
+
+    def test_get_debate_vote_counts(self):
+        """Should calculate vote counts correctly."""
+        from aragora.server.handlers.bots.teams import get_debate_vote_counts, _user_votes
+
+        _user_votes.clear()
+        _user_votes["debate-test"] = {
+            "user-1": "Claude",
+            "user-2": "Claude",
+            "user-3": "GPT-4",
+        }
+
+        counts = get_debate_vote_counts("debate-test")
+
+        assert counts["Claude"] == 2
+        assert counts["GPT-4"] == 1
+
+        # Clean up
+        _user_votes.clear()
+
+    def test_get_debate_vote_counts_empty(self):
+        """Should return empty dict for unknown debate."""
+        from aragora.server.handlers.bots.teams import get_debate_vote_counts, _user_votes
+
+        _user_votes.clear()
+
+        counts = get_debate_vote_counts("nonexistent-debate")
+
+        assert counts == {}
+
+    def test_get_conversation_reference(self):
+        """Should retrieve stored conversation reference."""
+        from aragora.server.handlers.bots.teams import (
+            get_conversation_reference,
+            _conversation_references,
+        )
+
+        _conversation_references.clear()
+        _conversation_references["conv-test"] = {
+            "service_url": "https://test/",
+            "conversation": {"id": "conv-test"},
+            "bot": {"id": "bot-123"},
+        }
+
+        ref = get_conversation_reference("conv-test")
+
+        assert ref is not None
+        assert ref["service_url"] == "https://test/"
+
+        # Clean up
+        _conversation_references.clear()
+
+    def test_get_conversation_reference_not_found(self):
+        """Should return None for unknown conversation."""
+        from aragora.server.handlers.bots.teams import (
+            get_conversation_reference,
+            _conversation_references,
+        )
+
+        _conversation_references.clear()
+
+        ref = get_conversation_reference("unknown-conv")
+
+        assert ref is None
+
+
+class TestTeamsBotProactiveMessaging:
+    """Tests for TeamsBot proactive messaging."""
+
+    @pytest.mark.asyncio
+    async def test_send_proactive_message_with_text(self):
+        """Should send proactive text message."""
+        from aragora.server.handlers.bots.teams import TeamsBot, _conversation_references
+
+        _conversation_references.clear()
+        _conversation_references["conv-proactive"] = {
+            "service_url": "https://test/",
+            "conversation": {"id": "conv-proactive"},
+        }
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        mock_connector = MagicMock()
+        mock_connector.send_message = AsyncMock()
+
+        with patch.object(bot, "_get_connector", new_callable=AsyncMock) as mock_get_conn:
+            mock_get_conn.return_value = mock_connector
+
+            result = await bot.send_proactive_message(
+                conversation_id="conv-proactive",
+                text="Hello from bot!",
+            )
+
+        assert result is True
+        mock_connector.send_message.assert_called_once()
+
+        # Clean up
+        _conversation_references.clear()
+
+    @pytest.mark.asyncio
+    async def test_send_proactive_message_no_reference(self):
+        """Should return False when no conversation reference."""
+        from aragora.server.handlers.bots.teams import TeamsBot, _conversation_references
+
+        _conversation_references.clear()
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        result = await bot.send_proactive_message(
+            conversation_id="unknown-conv",
+            text="Test message",
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_proactive_message_no_connector(self):
+        """Should return False when connector unavailable."""
+        from aragora.server.handlers.bots.teams import TeamsBot, _conversation_references
+
+        _conversation_references.clear()
+        _conversation_references["conv-test"] = {
+            "service_url": "https://test/",
+        }
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        with patch.object(bot, "_get_connector", new_callable=AsyncMock) as mock_get_conn:
+            mock_get_conn.return_value = None
+
+            result = await bot.send_proactive_message(
+                conversation_id="conv-test",
+                text="Test message",
+            )
+
+        assert result is False
+
+        # Clean up
+        _conversation_references.clear()
+
+
+class TestTeamsBotMessageHandling:
+    """Tests for TeamsBot message handling."""
+
+    @pytest.mark.asyncio
+    async def test_handle_message_with_mention(self):
+        """Should handle message with @mention."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "text": "<at>Aragora</at> help",
+            "conversation": {"id": "conv-123", "conversationType": "channel"},
+            "from": {"id": "user-123", "name": "Test User"},
+            "serviceUrl": "https://test/",
+            "entities": [{"type": "mention"}],
+        }
+
+        with patch.object(bot, "_send_typing", new_callable=AsyncMock):
+            with patch.object(bot, "_handle_command", new_callable=AsyncMock) as mock_cmd:
+                mock_cmd.return_value = {}
+                await bot._handle_message(activity)
+
+        mock_cmd.assert_called_once()
+        call_args = mock_cmd.call_args
+        assert call_args[1]["command"] == "help"
+
+    @pytest.mark.asyncio
+    async def test_handle_message_personal_conversation(self):
+        """Should treat all messages as commands in personal conversation."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "text": "What is the best programming language?",
+            "conversation": {"id": "conv-123", "conversationType": "personal"},
+            "from": {"id": "user-123", "name": "Test User"},
+            "serviceUrl": "https://test/",
+            "entities": [],
+        }
+
+        with patch.object(bot, "_send_typing", new_callable=AsyncMock):
+            with patch.object(bot, "_handle_command", new_callable=AsyncMock) as mock_cmd:
+                mock_cmd.return_value = {}
+                await bot._handle_message(activity)
+
+        mock_cmd.assert_called_once()
+        # In personal scope, unknown commands default to debate
+        call_args = mock_cmd.call_args
+        assert call_args[1]["command"] == "debate"
+
+    @pytest.mark.asyncio
+    async def test_handle_message_no_mention_in_group(self):
+        """Should prompt for @mention in group chat without mention."""
+        from aragora.server.handlers.bots.teams import TeamsBot
+
+        bot = TeamsBot(app_id="test-app-id", app_password="test-password")
+
+        activity = {
+            "text": "Hello there",
+            "conversation": {"id": "conv-123", "conversationType": "channel"},
+            "from": {"id": "user-123", "name": "Test User"},
+            "serviceUrl": "https://test/",
+            "entities": [],
+        }
+
+        with patch.object(bot, "_send_typing", new_callable=AsyncMock):
+            with patch.object(bot, "_send_reply", new_callable=AsyncMock) as mock_reply:
+                await bot._handle_message(activity)
+
+        mock_reply.assert_called_once()
+        reply_text = mock_reply.call_args[0][1]
+        assert "@Aragora" in reply_text
+
+
+class TestAgentDisplayNames:
+    """Tests for agent display names mapping."""
+
+    def test_agent_display_names(self):
+        """Should map agent IDs to display names."""
+        from aragora.server.handlers.bots.teams import AGENT_DISPLAY_NAMES
+
+        assert AGENT_DISPLAY_NAMES["claude"] == "Claude"
+        assert AGENT_DISPLAY_NAMES["gpt4"] == "GPT-4"
+        assert AGENT_DISPLAY_NAMES["gemini"] == "Gemini"
+        assert AGENT_DISPLAY_NAMES["anthropic-api"] == "Claude"
+        assert AGENT_DISPLAY_NAMES["openai-api"] == "GPT-4"

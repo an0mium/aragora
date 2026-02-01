@@ -318,7 +318,7 @@ try:
     HAS_REDIS = True
 
 except ImportError:
-    RedisBlacklist = None  # type: Any
+    RedisBlacklist = None  # type: ignore[misc, no-redef]
     HAS_REDIS = False
 
 

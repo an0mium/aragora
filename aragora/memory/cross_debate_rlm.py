@@ -49,8 +49,8 @@ try:
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None  # type: Any
-    get_compressor = None  # type: Any
+    get_rlm = None  # type: ignore[misc, no-redef]
+    get_compressor = None  # type: ignore[misc, no-redef]
 
 logger = logging.getLogger(__name__)
 

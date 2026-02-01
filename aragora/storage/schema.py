@@ -486,7 +486,6 @@ class DatabaseManager:
         self.timeout = timeout
         self._conn: sqlite3.Connection | None = None
         self._lock = threading.Lock()
-        self._thread_local = threading.local()
 
         # Connection pool for fresh_connection()
         self._pool: list[sqlite3.Connection] = []

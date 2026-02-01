@@ -63,10 +63,10 @@ try:
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
-    check_permission = None  # type: Any
-    extract_user_from_request = None  # type: Any
-    AuthorizationContext = None  # type: Any
-    UserAuthContext = None  # type: Any
+    check_permission = None  # type: ignore[misc, no-redef]
+    extract_user_from_request = None  # type: ignore[misc, no-redef]
+    AuthorizationContext = None  # type: ignore[misc, no-redef]
+    UserAuthContext = None  # type: ignore[misc, no-redef]
 
 # Environment configuration
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID")

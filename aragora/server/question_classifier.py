@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 try:
     from anthropic import AsyncAnthropic
 except ImportError:
-    AsyncAnthropic = None  # type: Any
+    AsyncAnthropic = None  # type: ignore[misc, no-redef]
 
 logger = logging.getLogger(__name__)
 

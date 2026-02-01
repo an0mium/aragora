@@ -127,11 +127,16 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
         return None
 
-    @rate_limit(requests_per_minute=120)
+    @rate_limit(requests_per_minute=1000, limiter_name="whatsapp_webhook")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Handle POST requests (webhook messages)."""
+        """Handle POST requests (webhook messages).
+
+        Rate limited to 1000 requests per minute per IP to allow for legitimate
+        platform traffic while protecting against abuse. WhatsApp webhooks are
+        authenticated via signature verification, so the higher limit is safe.
+        """
         if path == "/api/v1/bots/whatsapp/webhook":
             return self._handle_webhook(handler)
 

@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 try:
     from aragora.agents.base import create_agent
 except ImportError:
-    create_agent = None  # type: Any
+    create_agent = None  # type: ignore[misc, no-redef]
 
 if TYPE_CHECKING:
     from aragora.agents.base import AgentType

@@ -78,8 +78,16 @@ def _init_tracer() -> Any:
             return _tracer
     except ImportError:
         logger.debug("Unified OTel setup not available, falling back to direct init")
-    except Exception as e:
-        logger.debug("Unified OTel setup failed, falling back to direct init: %s", e)
+    except (RuntimeError, ValueError, TypeError) as e:
+        logger.debug(
+            "Unified OTel setup failed, falling back to direct init",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
+    except OSError as e:
+        logger.warning(
+            "Unified OTel setup failed due to resource error, falling back to direct init",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
 
     # Fallback: direct initialization (legacy path)
     try:
@@ -140,8 +148,19 @@ def _init_tracer() -> Any:
             e,
         )
         return _NoOpTracer()
-    except Exception as e:
-        logger.error("Failed to initialize OpenTelemetry: %s", e)
+    except (ValueError, TypeError, RuntimeError) as e:
+        # Configuration or initialization errors
+        logger.error(
+            "Failed to initialize OpenTelemetry due to configuration error",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
+        return _NoOpTracer()
+    except OSError as e:
+        # Network or resource errors (e.g., cannot connect to OTLP endpoint)
+        logger.error(
+            "Failed to initialize OpenTelemetry due to resource error",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
         return _NoOpTracer()
 
 
@@ -395,8 +414,18 @@ def shutdown() -> None:
         try:
             _tracer_provider.shutdown()
             logger.info("OpenTelemetry tracer shutdown complete")
-        except Exception as e:
-            logger.error(f"Error shutting down tracer: {e}")
+        except (RuntimeError, TimeoutError) as e:
+            # Shutdown may fail if already shutdown or timeout during flush
+            logger.error(
+                "Error shutting down tracer",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+        except OSError as e:
+            # Network error during final flush
+            logger.error(
+                "Network error during tracer shutdown",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
 
 
 # =============================================================================
@@ -687,8 +716,12 @@ def _redact_url(url: str) -> str:
         parsed = urlparse(url)
         # Keep scheme, host, and path; remove query and fragment
         return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-    except Exception as e:
-        logger.debug(f"URL sanitization failed: {type(e).__name__}: {e}")
+    except (ValueError, AttributeError) as e:
+        # Invalid URL format or None passed
+        logger.debug(
+            "URL sanitization failed",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
         return "[redacted]"
 
 
@@ -1052,8 +1085,9 @@ def _record_function_args(
                 span.set_attribute(f"{attr_key}.keys", str(list(value.keys())[:10]))
             else:
                 span.set_attribute(f"{attr_key}.type", type(value).__name__)
-    except Exception:
+    except (TypeError, ValueError, AttributeError, KeyError):
         # Don't fail tracing due to arg recording issues
+        # These are expected when arguments don't match signature or have unusual types
         pass
 
 
@@ -1068,8 +1102,9 @@ def _record_result(span: Any, result: Any) -> None:
             span.set_attribute("result.keys", str(list(result.keys())[:10]))
         elif hasattr(result, "__dict__"):
             span.set_attribute("result.type", type(result).__name__)
-    except Exception:
+    except (TypeError, ValueError, AttributeError):
         # Don't fail tracing due to result recording issues
+        # These are expected when results have unusual types or span is invalid
         pass
 
 

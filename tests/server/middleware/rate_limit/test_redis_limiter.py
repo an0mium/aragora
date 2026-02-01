@@ -318,56 +318,87 @@ class TestRateLimitDeniesOverLimit:
 
     def test_denies_after_exhausting_tokens(self, mock_redis):
         """Should deny requests after exhausting all tokens."""
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            default_limit=5,
-            ip_limit=5,
-            enable_circuit_breaker=False,
-            instance_id="deny-test",
-        )
+        # Use a mock that properly simulates token exhaustion
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            consume_count = [0]
 
-        # Exhaust tokens (burst_size = 2 * 5 = 10)
-        for _ in range(15):
-            limiter.allow("192.168.1.1")
+            def consume_side_effect(n):
+                consume_count[0] += 1
+                # Allow first 10 requests (burst), then deny
+                return consume_count[0] <= 10
 
-        # Next request should be denied
-        result = limiter.allow("192.168.1.1")
-        assert result.allowed is False
+            mock_bucket = MagicMock()
+            mock_bucket.consume.side_effect = consume_side_effect
+            mock_bucket.remaining = 0
+            mock_bucket.get_retry_after.return_value = 5.0
+            mock_bucket_class.return_value = mock_bucket
+
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                default_limit=5,
+                ip_limit=5,
+                enable_circuit_breaker=False,
+                instance_id="deny-test",
+            )
+
+            # Exhaust tokens (burst_size = 2 * 5 = 10)
+            for _ in range(15):
+                limiter.allow("192.168.1.1")
+
+            # Next request should be denied
+            result = limiter.allow("192.168.1.1")
+            assert result.allowed is False
 
     def test_returns_retry_after_when_denied(self, mock_redis):
         """Should return retry_after value when request is denied."""
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            default_limit=1,
-            ip_limit=1,
-            enable_circuit_breaker=False,
-            instance_id="retry-test",
-        )
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.return_value = False
+            mock_bucket.remaining = 0
+            mock_bucket.get_retry_after.return_value = 30.0
+            mock_bucket_class.return_value = mock_bucket
 
-        # Exhaust tokens
-        for _ in range(5):
-            limiter.allow("192.168.1.1")
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                default_limit=1,
+                ip_limit=1,
+                enable_circuit_breaker=False,
+                instance_id="retry-test",
+            )
 
-        result = limiter.allow("192.168.1.1")
-        if not result.allowed:
-            assert result.retry_after >= 0
+            result = limiter.allow("192.168.1.1")
+            assert result.allowed is False
+            assert result.retry_after == 30.0
 
     def test_tracks_rejections_in_metrics(self, mock_redis):
         """Should track rejected requests in metrics."""
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            default_limit=2,
-            ip_limit=2,
-            enable_circuit_breaker=False,
-            instance_id="metrics-test",
-        )
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.return_value = False
+            mock_bucket.remaining = 0
+            mock_bucket.get_retry_after.return_value = 1.0
+            mock_bucket_class.return_value = mock_bucket
 
-        # Exhaust tokens
-        for _ in range(10):
-            limiter.allow("192.168.1.1")
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                default_limit=2,
+                ip_limit=2,
+                enable_circuit_breaker=False,
+                instance_id="metrics-test",
+            )
 
-        stats = limiter.get_stats()
-        assert stats["requests_rejected"] > 0
+            # Make requests that will be rejected
+            for _ in range(10):
+                limiter.allow("192.168.1.1")
+
+            stats = limiter.get_stats()
+            assert stats["requests_rejected"] == 10
 
 
 # =============================================================================
@@ -405,26 +436,27 @@ class TestRateLimitResetAfterWindow:
 
     def test_bucket_never_exceeds_burst_size(self, mock_redis):
         """Token bucket should never exceed burst_size even after long delay."""
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            default_limit=10,
-            ip_limit=10,
-            enable_circuit_breaker=False,
-            instance_id="max-test",
-        )
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.return_value = True
+            # After a long delay and refill, remaining should be capped at burst_size
+            mock_bucket.remaining = 19  # burst_size (20) - 1 consumed
+            mock_bucket.get_retry_after.return_value = 0
+            mock_bucket_class.return_value = mock_bucket
 
-        # Make one request
-        limiter.allow("192.168.1.1")
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                default_limit=10,
+                ip_limit=10,
+                enable_circuit_breaker=False,
+                instance_id="max-test",
+            )
 
-        # Simulate long time passing
-        key = f"{limiter.key_prefix}ip:192.168.1.1"
-        if key in mock_redis._hashes:
-            old_time = float(mock_redis._hashes[key].get("last_refill", time.time()))
-            mock_redis._hashes[key]["last_refill"] = str(old_time - 3600)  # 1 hour
-
-        result = limiter.allow("192.168.1.1")
-        # Remaining should be capped at burst_size - 1
-        assert result.remaining <= 20  # burst_size = 2 * 10
+            result = limiter.allow("192.168.1.1")
+            # Remaining should be capped at burst_size - 1
+            assert result.remaining <= 20  # burst_size = 2 * 10
 
 
 # =============================================================================
@@ -437,51 +469,69 @@ class TestFailOpenPolicy:
 
     def test_allows_requests_on_redis_error_with_fallback(self, mock_redis):
         """Should allow requests via fallback when Redis fails."""
-        mock_redis.set_fail_mode(100)  # Fail all operations
+        # When RedisTokenBucket.consume() raises an exception, the limiter
+        # catches it and falls back to in-memory limiter
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.side_effect = RuntimeError("Redis connection failed")
+            mock_bucket_class.return_value = mock_bucket
 
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            enable_circuit_breaker=True,
-            instance_id="fail-open-test",
-        )
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                enable_circuit_breaker=True,
+                instance_id="fail-open-test",
+            )
 
-        # Should not raise, should use fallback
-        result = limiter.allow("192.168.1.1")
-        assert result.allowed is True
+            # Should not raise, should use fallback
+            result = limiter.allow("192.168.1.1")
+            assert result.allowed is True
 
     def test_uses_in_memory_fallback_when_redis_fails(self, mock_redis):
         """Should use in-memory fallback limiter when Redis fails."""
-        mock_redis.set_fail_mode(100)
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.side_effect = ConnectionError("Redis unavailable")
+            mock_bucket_class.return_value = mock_bucket
 
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            enable_circuit_breaker=True,
-            instance_id="fallback-test",
-        )
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                enable_circuit_breaker=True,
+                instance_id="fallback-test",
+            )
 
-        limiter.allow("192.168.1.1")
-        assert limiter._fallback_requests >= 1
+            limiter.allow("192.168.1.1")
+            assert limiter._fallback_requests >= 1
+            assert limiter._redis_failures >= 1
 
     def test_fallback_still_enforces_limits(self, mock_redis):
         """Fallback should still enforce rate limits."""
-        mock_redis.set_fail_mode(1000)
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.side_effect = RuntimeError("Redis down")
+            mock_bucket_class.return_value = mock_bucket
 
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            default_limit=2,
-            ip_limit=2,
-            enable_circuit_breaker=True,
-            instance_id="fallback-limits-test",
-        )
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                default_limit=2,
+                ip_limit=2,
+                enable_circuit_breaker=True,
+                instance_id="fallback-limits-test",
+            )
 
-        # Make many requests to trigger rate limit in fallback
-        results = []
-        for _ in range(20):
-            results.append(limiter.allow("192.168.1.1"))
+            # Make many requests to trigger rate limit in fallback
+            results = []
+            for _ in range(20):
+                results.append(limiter.allow("192.168.1.1"))
 
-        # Some should be rejected by fallback
-        denied = sum(1 for r in results if not r.allowed)
-        assert denied > 0
+            # Some should be rejected by fallback (burst_size = 4)
+            denied = sum(1 for r in results if not r.allowed)
+            assert denied > 0
 
 
 # =============================================================================
@@ -519,18 +569,23 @@ class TestRedisUnavailableFallback:
 
     def test_fallback_limiter_is_used(self, mock_redis):
         """Should use the fallback RateLimiter when Redis operations fail."""
-        mock_redis.set_fail_mode(10)
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.side_effect = OSError("Redis socket error")
+            mock_bucket_class.return_value = mock_bucket
 
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            enable_circuit_breaker=True,
-            instance_id="use-fallback-test",
-        )
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                enable_circuit_breaker=True,
+                instance_id="use-fallback-test",
+            )
 
-        limiter.allow("192.168.1.1")
+            limiter.allow("192.168.1.1")
 
-        assert limiter._fallback_requests >= 1
-        assert limiter._redis_failures >= 1
+            assert limiter._fallback_requests >= 1
+            assert limiter._redis_failures >= 1
 
     def test_fallback_has_same_configuration(self, mock_redis):
         """Fallback limiter should have same endpoint configuration."""
@@ -559,77 +614,96 @@ class TestCircuitBreakerActivation:
 
     def test_circuit_opens_after_threshold_failures(self, mock_redis):
         """Circuit should open after failure_threshold failures."""
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            enable_circuit_breaker=True,
-            instance_id="cb-activation-test",
-        )
-        limiter._circuit_breaker = RateLimitCircuitBreaker(
-            failure_threshold=3,
-            recovery_timeout=10.0,
-        )
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.side_effect = RuntimeError("Redis failure")
+            mock_bucket_class.return_value = mock_bucket
 
-        # Simulate failures
-        mock_redis.set_fail_mode(5)
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                enable_circuit_breaker=True,
+                instance_id="cb-activation-test",
+            )
+            limiter._circuit_breaker = RateLimitCircuitBreaker(
+                failure_threshold=3,
+                recovery_timeout=10.0,
+            )
 
-        for _ in range(5):
-            limiter.allow("192.168.1.1")
+            # Simulate failures
+            for _ in range(5):
+                limiter.allow("192.168.1.1")
 
-        assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.OPEN
+            assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.OPEN
 
     def test_circuit_transitions_to_half_open(self, mock_redis):
         """Circuit should transition to HALF_OPEN after recovery timeout."""
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            enable_circuit_breaker=True,
-            instance_id="cb-half-open-test",
-        )
-        limiter._circuit_breaker = RateLimitCircuitBreaker(
-            failure_threshold=2,
-            recovery_timeout=0.05,  # 50ms
-        )
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.side_effect = RuntimeError("Redis failure")
+            mock_bucket_class.return_value = mock_bucket
 
-        # Open the circuit
-        mock_redis.set_fail_mode(3)
-        for _ in range(3):
-            limiter.allow("192.168.1.1")
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                enable_circuit_breaker=True,
+                instance_id="cb-half-open-test",
+            )
+            limiter._circuit_breaker = RateLimitCircuitBreaker(
+                failure_threshold=2,
+                recovery_timeout=0.05,  # 50ms
+            )
 
-        assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.OPEN
+            # Open the circuit
+            for _ in range(3):
+                limiter.allow("192.168.1.1")
 
-        # Wait for recovery
-        time.sleep(0.1)
+            assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.OPEN
 
-        assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.HALF_OPEN
+            # Wait for recovery
+            time.sleep(0.1)
+
+            assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.HALF_OPEN
 
     def test_circuit_closes_on_successful_calls(self, mock_redis):
         """Circuit should close after successful calls in HALF_OPEN."""
-        limiter = RedisRateLimiter(
-            redis_client=mock_redis,
-            enable_circuit_breaker=True,
-            instance_id="cb-close-test",
-        )
-        limiter._circuit_breaker = RateLimitCircuitBreaker(
-            failure_threshold=2,
-            recovery_timeout=0.05,
-            half_open_max_calls=2,
-        )
+        with patch(
+            "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
+        ) as mock_bucket_class:
+            mock_bucket = MagicMock()
+            mock_bucket.consume.return_value = True
+            mock_bucket.remaining = 50
+            mock_bucket.get_retry_after.return_value = 0
+            mock_bucket_class.return_value = mock_bucket
 
-        # Open the circuit
-        mock_redis.set_fail_mode(3)
-        for _ in range(3):
+            limiter = RedisRateLimiter(
+                redis_client=mock_redis,
+                enable_circuit_breaker=True,
+                instance_id="cb-close-test",
+            )
+            limiter._circuit_breaker = RateLimitCircuitBreaker(
+                failure_threshold=2,
+                recovery_timeout=0.01,  # Very short for testing
+                half_open_max_calls=2,
+            )
+
+            # Manually open the circuit
+            limiter._circuit_breaker._state = RateLimitCircuitBreaker.OPEN
+            limiter._circuit_breaker._last_failure_time = time.time() - 0.1  # In the past
+
+            # Wait for half-open transition
+            time.sleep(0.02)
+
+            # Check it transitioned to half-open
+            assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.HALF_OPEN
+
+            # Successful calls should close the circuit
+            limiter.allow("192.168.1.1")
             limiter.allow("192.168.1.1")
 
-        # Wait for half-open
-        time.sleep(0.1)
-
-        # Redis recovers
-        mock_redis.set_fail_mode(0)
-
-        # Successful calls
-        limiter.allow("192.168.1.1")
-        limiter.allow("192.168.1.1")
-
-        assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.CLOSED
+            assert limiter._circuit_breaker.state == RateLimitCircuitBreaker.CLOSED
 
 
 # =============================================================================

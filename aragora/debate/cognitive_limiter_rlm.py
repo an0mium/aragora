@@ -44,10 +44,10 @@ try:
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None  # type: Any
-    get_compressor = None  # type: Any
-    DebateContextAdapter = None  # type: Any
-    RLMBackendConfig = None  # type: Any
+    get_rlm = None  # type: ignore[misc, no-redef]
+    get_compressor = None  # type: ignore[misc, no-redef]
+    DebateContextAdapter = None  # type: ignore[misc, no-redef]
+    RLMBackendConfig = None  # type: ignore[misc, no-redef]
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor

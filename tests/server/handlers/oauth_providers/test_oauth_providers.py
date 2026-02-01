@@ -1492,3 +1492,710 @@ class TestTokenRevocation:
         assert result is True
         call_args = mock_http_client.post.call_args
         assert call_args[1]["data"]["token_type_hint"] == "refresh_token"
+
+
+# =============================================================================
+# MicrosoftOAuthProvider Tests
+# =============================================================================
+
+
+@pytest.fixture
+def microsoft_config() -> OAuthProviderConfig:
+    """Create Microsoft OAuth provider configuration."""
+    from aragora.server.handlers.oauth_providers.microsoft import (
+        MICROSOFT_AUTH_URL_TEMPLATE,
+        MICROSOFT_TOKEN_URL_TEMPLATE,
+        MICROSOFT_USERINFO_URL,
+    )
+
+    return OAuthProviderConfig(
+        client_id="microsoft_client_id",
+        client_secret="microsoft_client_secret",
+        redirect_uri="http://localhost:8080/api/auth/oauth/microsoft/callback",
+        scopes=["openid", "email", "profile", "User.Read"],
+        authorization_endpoint=MICROSOFT_AUTH_URL_TEMPLATE.format(tenant="common"),
+        token_endpoint=MICROSOFT_TOKEN_URL_TEMPLATE.format(tenant="common"),
+        userinfo_endpoint=MICROSOFT_USERINFO_URL,
+        tenant="common",
+    )
+
+
+class TestMicrosoftOAuthProviderInit:
+    """Tests for MicrosoftOAuthProvider initialization."""
+
+    def test_provider_name(self, microsoft_config):
+        """Should have correct provider name."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        assert provider.PROVIDER_NAME == "microsoft"
+        provider.close()
+
+    def test_is_configured(self, microsoft_config):
+        """Should be configured with client_id and secret."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        assert provider.is_configured is True
+        provider.close()
+
+    def test_default_tenant(self, microsoft_config):
+        """Should use configured tenant."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        assert provider.tenant == "common"
+        provider.close()
+
+
+class TestMicrosoftAuthorizationUrl:
+    """Tests for Microsoft authorization URL generation."""
+
+    def test_authorization_url_basic(self, microsoft_config):
+        """Should generate correct authorization URL."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        url = provider.get_authorization_url("test_state")
+
+        assert url.startswith("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?")
+        assert "client_id=microsoft_client_id" in url
+        assert "state=test_state" in url
+        assert "response_type=code" in url
+        provider.close()
+
+    def test_authorization_url_custom_redirect(self, microsoft_config):
+        """Should use custom redirect URI."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        custom_uri = "https://custom.example.com/callback"
+        url = provider.get_authorization_url("state", redirect_uri=custom_uri)
+
+        assert "redirect_uri=https%3A%2F%2Fcustom.example.com%2Fcallback" in url
+        provider.close()
+
+    def test_authorization_url_with_prompt(self, microsoft_config):
+        """Should include prompt parameter."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        url = provider.get_authorization_url("state", prompt="select_account")
+
+        assert "prompt=select_account" in url
+        provider.close()
+
+    def test_authorization_url_with_login_hint(self, microsoft_config):
+        """Should include login hint parameter."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        url = provider.get_authorization_url("state", login_hint="user@example.com")
+
+        assert "login_hint=user%40example.com" in url
+        provider.close()
+
+    def test_authorization_url_with_domain_hint(self, microsoft_config):
+        """Should include domain hint parameter."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        url = provider.get_authorization_url("state", domain_hint="example.com")
+
+        assert "domain_hint=example.com" in url
+        provider.close()
+
+
+class TestMicrosoftCodeExchange:
+    """Tests for Microsoft code exchange."""
+
+    def test_exchange_code_calls_token_endpoint(self, microsoft_config, mock_http_client):
+        """Should call Microsoft token endpoint with correct data."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        provider._http_client = mock_http_client
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "microsoft_access_token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": "microsoft_refresh_token",
+            "id_token": "microsoft_id_token",
+        }
+        mock_response.raise_for_status = Mock()
+        mock_http_client.post.return_value = mock_response
+
+        tokens = provider.exchange_code("auth_code_123")
+
+        mock_http_client.post.assert_called_once()
+        call_args = mock_http_client.post.call_args
+        assert "oauth2/v2.0/token" in call_args[0][0]
+        assert call_args[1]["data"]["code"] == "auth_code_123"
+        assert call_args[1]["data"]["grant_type"] == "authorization_code"
+        assert call_args[1]["data"]["client_id"] == "microsoft_client_id"
+        assert call_args[1]["data"]["client_secret"] == "microsoft_client_secret"
+
+        assert tokens.access_token == "microsoft_access_token"
+        assert tokens.refresh_token == "microsoft_refresh_token"
+        provider.close()
+
+
+class TestMicrosoftUserInfo:
+    """Tests for Microsoft user info retrieval."""
+
+    def test_get_user_info_with_mail(self, microsoft_config, mock_http_client):
+        """Should get user info with mail field."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "id": "microsoft_user_123",
+            "mail": "user@example.com",
+            "displayName": "Test User",
+            "givenName": "Test",
+            "surname": "User",
+        }
+        mock_http_client.get.return_value = mock_response
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        provider._http_client = mock_http_client
+
+        user_info = provider.get_user_info("access_token")
+
+        assert user_info.provider == "microsoft"
+        assert user_info.provider_user_id == "microsoft_user_123"
+        assert user_info.email == "user@example.com"
+        assert user_info.name == "Test User"
+        assert user_info.given_name == "Test"
+        assert user_info.family_name == "User"
+        provider.close()
+
+    def test_get_user_info_uses_upn_fallback(self, microsoft_config, mock_http_client):
+        """Should fall back to userPrincipalName when mail is missing."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "id": "microsoft_user_456",
+            "userPrincipalName": "user@contoso.onmicrosoft.com",
+            "displayName": "Contoso User",
+        }
+        mock_http_client.get.return_value = mock_response
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        provider._http_client = mock_http_client
+
+        user_info = provider.get_user_info("access_token")
+
+        assert user_info.email == "user@contoso.onmicrosoft.com"
+        provider.close()
+
+    def test_get_user_info_raises_without_email(self, microsoft_config, mock_http_client):
+        """Should raise ValueError when no email can be found."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "id": "microsoft_user_789",
+            "displayName": "No Email User",
+            # No mail or userPrincipalName with @
+        }
+        mock_http_client.get.return_value = mock_response
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(ValueError) as exc_info:
+            provider.get_user_info("access_token")
+        assert "Could not retrieve email from Microsoft" in str(exc_info.value)
+        provider.close()
+
+
+class TestMicrosoftTokenRefresh:
+    """Tests for Microsoft token refresh."""
+
+    def test_refresh_access_token(self, microsoft_config, mock_http_client):
+        """Should refresh access token correctly."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        provider._http_client = mock_http_client
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "new_microsoft_access_token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": "new_microsoft_refresh_token",
+        }
+        mock_response.raise_for_status = Mock()
+        mock_http_client.post.return_value = mock_response
+
+        tokens = provider.refresh_access_token("refresh_token_123")
+
+        call_args = mock_http_client.post.call_args
+        assert call_args[1]["data"]["refresh_token"] == "refresh_token_123"
+        assert call_args[1]["data"]["grant_type"] == "refresh_token"
+        assert tokens.access_token == "new_microsoft_access_token"
+        provider.close()
+
+
+class TestMicrosoftLogout:
+    """Tests for Microsoft logout URL."""
+
+    def test_get_logout_url_basic(self, microsoft_config):
+        """Should generate basic logout URL."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        url = provider.get_logout_url()
+
+        assert "https://login.microsoftonline.com/common/oauth2/v2.0/logout" in url
+        provider.close()
+
+    def test_get_logout_url_with_redirect(self, microsoft_config):
+        """Should include post_logout_redirect_uri."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        url = provider.get_logout_url(post_logout_redirect_uri="https://example.com/logged-out")
+
+        assert "post_logout_redirect_uri=" in url
+        provider.close()
+
+
+# =============================================================================
+# GoogleOAuthProvider Tests
+# =============================================================================
+
+
+@pytest.fixture
+def google_config() -> OAuthProviderConfig:
+    """Create Google OAuth provider configuration."""
+    return OAuthProviderConfig(
+        client_id="google_client_id",
+        client_secret="google_client_secret",
+        redirect_uri="http://localhost:8080/api/auth/oauth/google/callback",
+        scopes=["openid", "email", "profile"],
+        authorization_endpoint="https://accounts.google.com/o/oauth2/v2/auth",
+        token_endpoint="https://oauth2.googleapis.com/token",
+        userinfo_endpoint="https://www.googleapis.com/oauth2/v2/userinfo",
+        revocation_endpoint="https://oauth2.googleapis.com/revoke",
+    )
+
+
+class TestGoogleOAuthProviderInit:
+    """Tests for GoogleOAuthProvider initialization."""
+
+    def test_provider_name(self, google_config):
+        """Should have correct provider name."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        assert provider.PROVIDER_NAME == "google"
+        provider.close()
+
+    def test_is_configured(self, google_config):
+        """Should be configured with client_id and secret."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        assert provider.is_configured is True
+        provider.close()
+
+
+class TestGoogleAuthorizationUrl:
+    """Tests for Google authorization URL generation."""
+
+    def test_authorization_url_basic(self, google_config):
+        """Should generate correct authorization URL."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        url = provider.get_authorization_url("test_state")
+
+        assert url.startswith("https://accounts.google.com/o/oauth2/v2/auth?")
+        assert "client_id=google_client_id" in url
+        assert "state=test_state" in url
+        assert "response_type=code" in url
+        assert "access_type=offline" in url
+        assert "prompt=consent" in url
+        provider.close()
+
+    def test_authorization_url_custom_scopes(self, google_config):
+        """Should use custom scopes."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        url = provider.get_authorization_url("state", scopes=["email"])
+
+        assert "scope=email" in url
+        provider.close()
+
+    def test_authorization_url_with_login_hint(self, google_config):
+        """Should include login hint parameter."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        url = provider.get_authorization_url("state", login_hint="user@gmail.com")
+
+        assert "login_hint=user%40gmail.com" in url
+        provider.close()
+
+    def test_authorization_url_with_hd_domain(self, google_config):
+        """Should include hd parameter for domain restriction."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        url = provider.get_authorization_url("state", hd="example.com")
+
+        assert "hd=example.com" in url
+        provider.close()
+
+
+class TestGoogleCodeExchange:
+    """Tests for Google code exchange."""
+
+    def test_exchange_code_calls_token_endpoint(self, google_config, mock_http_client):
+        """Should call Google token endpoint with correct data."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "google_access_token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": "google_refresh_token",
+            "id_token": "google_id_token",
+        }
+        mock_response.raise_for_status = Mock()
+        mock_http_client.post.return_value = mock_response
+
+        tokens = provider.exchange_code("auth_code_123")
+
+        mock_http_client.post.assert_called_once()
+        call_args = mock_http_client.post.call_args
+        assert call_args[0][0] == "https://oauth2.googleapis.com/token"
+        assert call_args[1]["data"]["code"] == "auth_code_123"
+        assert call_args[1]["data"]["grant_type"] == "authorization_code"
+
+        assert tokens.access_token == "google_access_token"
+        assert tokens.refresh_token == "google_refresh_token"
+        provider.close()
+
+
+class TestGoogleUserInfo:
+    """Tests for Google user info retrieval."""
+
+    def test_get_user_info(self, google_config, mock_http_client):
+        """Should get user info from Google API."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "id": "google_user_123",
+            "email": "user@gmail.com",
+            "verified_email": True,
+            "name": "Google User",
+            "given_name": "Google",
+            "family_name": "User",
+            "picture": "https://lh3.googleusercontent.com/photo.jpg",
+            "locale": "en",
+        }
+        mock_http_client.get.return_value = mock_response
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        user_info = provider.get_user_info("access_token")
+
+        assert user_info.provider == "google"
+        assert user_info.provider_user_id == "google_user_123"
+        assert user_info.email == "user@gmail.com"
+        assert user_info.email_verified is True
+        assert user_info.name == "Google User"
+        assert user_info.picture == "https://lh3.googleusercontent.com/photo.jpg"
+        provider.close()
+
+
+class TestGoogleTokenRefresh:
+    """Tests for Google token refresh."""
+
+    def test_refresh_access_token(self, google_config, mock_http_client):
+        """Should refresh access token correctly."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "access_token": "new_google_access_token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+        mock_response.raise_for_status = Mock()
+        mock_http_client.post.return_value = mock_response
+
+        tokens = provider.refresh_access_token("refresh_token_123")
+
+        call_args = mock_http_client.post.call_args
+        assert call_args[1]["data"]["refresh_token"] == "refresh_token_123"
+        assert call_args[1]["data"]["grant_type"] == "refresh_token"
+        assert tokens.access_token == "new_google_access_token"
+        provider.close()
+
+
+class TestGoogleTokenRevocation:
+    """Tests for Google token revocation."""
+
+    def test_revoke_token_success(self, google_config, mock_http_client):
+        """Should revoke token successfully."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_http_client.post.return_value = mock_response
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        result = provider.revoke_token("token_to_revoke")
+
+        assert result is True
+        call_args = mock_http_client.post.call_args
+        assert call_args[0][0] == "https://oauth2.googleapis.com/revoke"
+        provider.close()
+
+    def test_revoke_token_failure(self, google_config, mock_http_client):
+        """Should return False on revocation failure."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        mock_http_client.post.side_effect = httpx.ConnectError("Network error")
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        result = provider.revoke_token("token_to_revoke")
+
+        assert result is False
+        provider.close()
+
+
+class TestGoogleIdToken:
+    """Tests for Google ID token parsing."""
+
+    def test_get_id_token_info(self, google_config):
+        """Should parse ID token claims."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        claims = {
+            "sub": "google_user_123",
+            "email": "user@gmail.com",
+            "email_verified": True,
+            "iss": "https://accounts.google.com",
+            "aud": "google_client_id",
+        }
+        id_token = create_mock_jwt(claims)
+
+        provider = GoogleOAuthProvider(google_config)
+        parsed = provider.get_id_token_info(id_token)
+
+        assert parsed["sub"] == "google_user_123"
+        assert parsed["email"] == "user@gmail.com"
+        provider.close()
+
+    def test_get_id_token_info_invalid_format(self, google_config):
+        """Should raise ValueError for invalid token format."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        provider = GoogleOAuthProvider(google_config)
+
+        with pytest.raises(ValueError) as exc_info:
+            provider.get_id_token_info("invalid.token")
+        assert "Invalid ID token format" in str(exc_info.value)
+        provider.close()
+
+
+# =============================================================================
+# Additional Error Handling Tests
+# =============================================================================
+
+
+class TestHTTPStatusErrors:
+    """Tests for HTTP status code error handling."""
+
+    def test_token_exchange_401_unauthorized(self, github_config, mock_http_client):
+        """Should handle 401 unauthorized response on token exchange."""
+        mock_response = Mock()
+        mock_response.status_code = 401
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Unauthorized",
+            request=Mock(),
+            response=mock_response,
+        )
+        mock_http_client.post.return_value = mock_response
+
+        provider = GitHubOAuthProvider(github_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(httpx.HTTPStatusError):
+            provider.exchange_code("invalid_code")
+
+    def test_user_info_403_forbidden(self, google_config, mock_http_client):
+        """Should handle 403 forbidden response on user info."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        mock_response = Mock()
+        mock_response.status_code = 403
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Forbidden",
+            request=Mock(),
+            response=mock_response,
+        )
+        mock_http_client.get.return_value = mock_response
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(httpx.HTTPStatusError):
+            provider.get_user_info("expired_token")
+        provider.close()
+
+    def test_token_exchange_500_server_error(self, microsoft_config, mock_http_client):
+        """Should handle 500 server error on token exchange."""
+        from aragora.server.handlers.oauth_providers.microsoft import MicrosoftOAuthProvider
+
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Internal Server Error",
+            request=Mock(),
+            response=mock_response,
+        )
+        mock_http_client.post.return_value = mock_response
+
+        provider = MicrosoftOAuthProvider(microsoft_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(httpx.HTTPStatusError):
+            provider.exchange_code("valid_code")
+        provider.close()
+
+
+class TestTimeoutErrors:
+    """Tests for timeout error handling."""
+
+    def test_token_exchange_timeout(self, github_config, mock_http_client):
+        """Should handle timeout on token exchange."""
+        mock_http_client.post.side_effect = httpx.TimeoutException("Request timed out")
+
+        provider = GitHubOAuthProvider(github_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(httpx.TimeoutException):
+            provider.exchange_code("code")
+
+    def test_user_info_timeout(self, oidc_config, mock_http_client):
+        """Should handle timeout on user info retrieval."""
+        mock_http_client.get.side_effect = httpx.TimeoutException("Request timed out")
+
+        provider = OIDCProvider(oidc_config)
+        provider._discovery = {"userinfo_endpoint": "https://idp.example.com/userinfo"}
+        provider._http_client = mock_http_client
+
+        with pytest.raises(httpx.TimeoutException):
+            provider.get_user_info("access_token")
+
+
+class TestInvalidResponseFormat:
+    """Tests for invalid response format handling."""
+
+    def test_token_exchange_invalid_json(self, github_config, mock_http_client):
+        """Should handle invalid JSON in token response."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+        mock_http_client.post.return_value = mock_response
+
+        provider = GitHubOAuthProvider(github_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(ValueError):
+            provider.exchange_code("code")
+
+    def test_user_info_missing_required_fields(self, google_config, mock_http_client):
+        """Should handle missing required fields in user info."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            # Missing 'id' field
+            "email": "user@gmail.com",
+        }
+        mock_http_client.get.return_value = mock_response
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(KeyError):
+            provider.get_user_info("access_token")
+        provider.close()
+
+
+class TestExchangeAndGetUser:
+    """Tests for combined exchange_and_get_user method."""
+
+    def test_exchange_and_get_user_success(self, google_config, mock_http_client):
+        """Should exchange code and get user info in one call."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        # Mock token exchange response
+        token_response = Mock()
+        token_response.json.return_value = {
+            "access_token": "test_access_token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+        token_response.raise_for_status = Mock()
+
+        # Mock user info response
+        user_response = Mock()
+        user_response.json.return_value = {
+            "id": "user_123",
+            "email": "user@example.com",
+            "verified_email": True,
+            "name": "Test User",
+        }
+
+        mock_http_client.post.return_value = token_response
+        mock_http_client.get.return_value = user_response
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        user_info = provider.exchange_and_get_user("auth_code")
+
+        assert user_info.email == "user@example.com"
+        mock_http_client.post.assert_called_once()
+        mock_http_client.get.assert_called_once()
+        provider.close()
+
+    def test_exchange_and_get_user_fails_on_exchange(self, google_config, mock_http_client):
+        """Should propagate error from exchange step."""
+        from aragora.server.handlers.oauth_providers.google import GoogleOAuthProvider
+
+        mock_http_client.post.side_effect = httpx.ConnectError("Network error")
+
+        provider = GoogleOAuthProvider(google_config)
+        provider._http_client = mock_http_client
+
+        with pytest.raises(httpx.ConnectError):
+            provider.exchange_and_get_user("auth_code")
+        provider.close()

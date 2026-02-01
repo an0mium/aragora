@@ -137,13 +137,32 @@ class GatewayHealthHandler(BaseHandler):
                     "last_check": now,
                     "latency_ms": elapsed_ms,
                 }
-            except Exception:
+            except (AttributeError, TypeError, ValueError) as e:
+                # Agent configuration or interface issues
                 unhealthy_count += 1
                 agents_health[name] = {
                     "status": "unknown",
                     "framework": getattr(agent, "agent_type", "unknown"),
                     "last_check": now,
+                    "error": type(e).__name__,
                 }
+                logger.debug(
+                    "Agent health check failed due to configuration error",
+                    extra={"agent": name, "error_type": type(e).__name__, "error": str(e)},
+                )
+            except (RuntimeError, TimeoutError, OSError) as e:
+                # Network or runtime issues - agent may be temporarily unavailable
+                unhealthy_count += 1
+                agents_health[name] = {
+                    "status": "unavailable",
+                    "framework": getattr(agent, "agent_type", "unknown"),
+                    "last_check": now,
+                    "error": type(e).__name__,
+                }
+                logger.warning(
+                    "Agent health check failed due to runtime error",
+                    extra={"agent": name, "error_type": type(e).__name__, "error": str(e)},
+                )
 
         # Determine overall status
         if total_count == 0:
@@ -193,9 +212,22 @@ class GatewayHealthHandler(BaseHandler):
             available = self._check_agent_available(agent)
             elapsed_ms = round((time.monotonic() - start) * 1000, 1)
             agent_status = "healthy" if available else "unhealthy"
-        except Exception:
+        except (AttributeError, TypeError, ValueError) as e:
+            # Agent configuration or interface issues
             elapsed_ms = round((time.monotonic() - start) * 1000, 1)
             agent_status = "unknown"
+            logger.debug(
+                "Agent health check failed due to configuration error",
+                extra={"agent": agent_name, "error_type": type(e).__name__, "error": str(e)},
+            )
+        except (RuntimeError, TimeoutError, OSError) as e:
+            # Network or runtime issues
+            elapsed_ms = round((time.monotonic() - start) * 1000, 1)
+            agent_status = "unavailable"
+            logger.warning(
+                "Agent health check failed due to runtime error",
+                extra={"agent": agent_name, "error_type": type(e).__name__, "error": str(e)},
+            )
 
         framework = getattr(agent, "agent_type", "unknown")
         base_url = getattr(agent, "base_url", None)

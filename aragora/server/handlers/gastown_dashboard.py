@@ -69,7 +69,15 @@ def _get_gastown_state() -> Any | None:
         from aragora.server.extensions import get_extension_state
 
         return get_extension_state()
-    except Exception:
+    except ImportError:
+        # Extensions module not available
+        return None
+    except (RuntimeError, AttributeError) as e:
+        # Extension state not initialized or misconfigured
+        logger.debug(
+            "Could not get Gas Town extension state",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
         return None
 
 
@@ -200,8 +208,16 @@ class GasTownDashboardHandler(SecureHandler):
                         overview["convoys"]["failed"] += 1
         except ImportError:
             logger.debug("Convoy module not available")
-        except Exception as e:
-            logger.debug(f"Could not get convoy stats: {e}")
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug(
+                "Could not get convoy stats due to data error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+        except (RuntimeError, OSError) as e:
+            logger.warning(
+                "Could not get convoy stats due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
 
         # Get bead stats
         try:
@@ -215,8 +231,16 @@ class GasTownDashboardHandler(SecureHandler):
                 overview["beads"]["total"] += count
         except ImportError:
             logger.debug("Bead module not available")
-        except Exception as e:
-            logger.debug(f"Could not get bead stats: {e}")
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug(
+                "Could not get bead stats due to data error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+        except (RuntimeError, OSError) as e:
+            logger.warning(
+                "Could not get bead stats due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
 
         # Get agent stats
         try:
@@ -230,8 +254,16 @@ class GasTownDashboardHandler(SecureHandler):
                 overview["agents"]["total"] += count
         except ImportError:
             logger.debug("Agent roles module not available")
-        except Exception as e:
-            logger.debug(f"Could not get agent stats: {e}")
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug(
+                "Could not get agent stats due to data error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+        except (RuntimeError, OSError) as e:
+            logger.warning(
+                "Could not get agent stats due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
 
         # Get witness patrol status
         try:
@@ -242,8 +274,17 @@ class GasTownDashboardHandler(SecureHandler):
                 overview["witness_patrol"]["active"] = witness._running
         except ImportError:
             pass
-        except Exception as e:
-            logger.debug(f"Could not get witness status: {e}")
+        except AttributeError as e:
+            # Witness behavior object not fully initialized
+            logger.debug(
+                "Could not get witness status: attribute missing",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+        except (RuntimeError, OSError) as e:
+            logger.warning(
+                "Could not get witness status due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
 
         # Get mayor status
         try:
@@ -255,8 +296,17 @@ class GasTownDashboardHandler(SecureHandler):
                 overview["mayor"]["node_id"] = coordinator.get_current_mayor_node()
         except ImportError:
             pass
-        except Exception as e:
-            logger.debug(f"Could not get mayor status: {e}")
+        except AttributeError as e:
+            # Mayor coordinator object not fully initialized
+            logger.debug(
+                "Could not get mayor status: attribute missing",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+        except (RuntimeError, OSError) as e:
+            logger.warning(
+                "Could not get mayor status due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
 
         _set_cached_data("overview", overview)
         return json_response(overview)
@@ -374,9 +424,20 @@ class GasTownDashboardHandler(SecureHandler):
         except ImportError as e:
             logger.debug(f"Convoy module not available: {e}")
             return json_response({"convoys": [], "total": 0, "showing": 0})
-        except Exception as e:
-            logger.error(f"Error getting convoys: {e}")
-            return error_response(f"Error getting convoys: {e}", 500)
+        except (AttributeError, TypeError, KeyError) as e:
+            # Data structure issues - return empty but log warning
+            logger.warning(
+                "Error getting convoys due to data error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+            return json_response({"convoys": [], "total": 0, "showing": 0, "error": "data_error"})
+        except (RuntimeError, OSError) as e:
+            # Runtime errors - return 500 with context
+            logger.error(
+                "Error getting convoys due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+            return error_response(f"Error getting convoys: {type(e).__name__}", 500)
 
     async def _get_agents(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get agent workload distribution.
@@ -428,9 +489,26 @@ class GasTownDashboardHandler(SecureHandler):
                     "totals": {"total": 0},
                 }
             )
-        except Exception as e:
-            logger.error(f"Error getting agents: {e}")
-            return error_response(f"Error getting agents: {e}", 500)
+        except (AttributeError, TypeError, KeyError) as e:
+            # Data structure issues
+            logger.warning(
+                "Error getting agents due to data error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+            return json_response(
+                {
+                    "agents_by_role": {},
+                    "totals": {"total": 0},
+                    "error": "data_error",
+                }
+            )
+        except (RuntimeError, OSError) as e:
+            # Runtime errors
+            logger.error(
+                "Error getting agents due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+            return error_response(f"Error getting agents: {type(e).__name__}", 500)
 
     async def _get_beads(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get bead queue stats.
@@ -482,9 +560,28 @@ class GasTownDashboardHandler(SecureHandler):
                     "total": 0,
                 }
             )
-        except Exception as e:
-            logger.error(f"Error getting beads: {e}")
-            return error_response(f"Error getting beads: {e}", 500)
+        except (AttributeError, TypeError, KeyError) as e:
+            # Data structure issues
+            logger.warning(
+                "Error getting beads due to data error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+            return json_response(
+                {
+                    "by_status": {},
+                    "queue_depth": 0,
+                    "processing": 0,
+                    "total": 0,
+                    "error": "data_error",
+                }
+            )
+        except (RuntimeError, OSError) as e:
+            # Runtime errors
+            logger.error(
+                "Error getting beads due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+            return error_response(f"Error getting beads: {type(e).__name__}", 500)
 
     async def _get_metrics(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get throughput metrics.
@@ -541,9 +638,20 @@ class GasTownDashboardHandler(SecureHandler):
                     total = len(convoys)
                     if total > 0:
                         metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
-            except Exception as e:
-                logger.debug(f"Could not get convoy metrics: {e}")
-        except Exception as e:
-            logger.debug(f"Could not get detailed metrics: {e}")
+            except (ImportError, AttributeError, TypeError, RuntimeError, OSError) as e:
+                logger.debug(
+                    "Could not get convoy metrics",
+                    extra={"error_type": type(e).__name__, "error": str(e)},
+                )
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug(
+                "Could not get detailed metrics due to data error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
+        except (RuntimeError, OSError) as e:
+            logger.warning(
+                "Could not get detailed metrics due to runtime error",
+                extra={"error_type": type(e).__name__, "error": str(e)},
+            )
 
         return json_response(metrics)

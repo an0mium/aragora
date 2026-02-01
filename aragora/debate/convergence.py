@@ -190,7 +190,12 @@ class PairwiseSimilarityCache:
 
 # Global cache manager for similarity caches
 _similarity_cache_manager: dict[str, PairwiseSimilarityCache] = {}
+_similarity_cache_timestamps: dict[str, float] = {}  # Track when each cache was created/accessed
 _similarity_cache_lock = threading.Lock()
+
+# Cache manager limits
+MAX_SIMILARITY_CACHES = 100  # Maximum concurrent debate caches
+CACHE_MANAGER_TTL_SECONDS = 3600  # 1 hour - cleanup idle caches
 
 
 def get_pairwise_similarity_cache(
@@ -201,21 +206,65 @@ def get_pairwise_similarity_cache(
     """
     Get or create a pairwise similarity cache for a debate session.
 
+    This function manages the global cache manager with automatic cleanup:
+    - Tracks creation/access timestamps for TTL-based eviction
+    - Enforces MAX_SIMILARITY_CACHES limit to prevent unbounded growth
+    - Runs periodic cleanup when cache count reaches limit
+
     Args:
         session_id: Unique debate session identifier
-        max_size: Maximum cache entries
-        ttl_seconds: Cache TTL in seconds
+        max_size: Maximum cache entries per session
+        ttl_seconds: Cache TTL in seconds for individual entries
 
     Returns:
         PairwiseSimilarityCache instance for this session
     """
+    now = time.time()
+
     with _similarity_cache_lock:
-        if session_id not in _similarity_cache_manager:
-            _similarity_cache_manager[session_id] = PairwiseSimilarityCache(
-                session_id=session_id,
-                max_size=max_size,
-                ttl_seconds=ttl_seconds,
-            )
+        # Check if cache already exists - update timestamp and return
+        if session_id in _similarity_cache_manager:
+            _similarity_cache_timestamps[session_id] = now
+            return _similarity_cache_manager[session_id]
+
+        # At capacity - run cleanup to remove stale caches
+        if len(_similarity_cache_manager) >= MAX_SIMILARITY_CACHES:
+            # Release lock temporarily for cleanup (avoid holding lock too long)
+            # We'll re-acquire and re-check after cleanup
+            pass
+
+    # Run cleanup outside the lock to avoid blocking other threads
+    if len(_similarity_cache_manager) >= MAX_SIMILARITY_CACHES:
+        cleanup_stale_similarity_caches()
+
+    with _similarity_cache_lock:
+        # Re-check if session was created while we were cleaning up
+        if session_id in _similarity_cache_manager:
+            _similarity_cache_timestamps[session_id] = now
+            return _similarity_cache_manager[session_id]
+
+        # Still at limit after cleanup? Remove oldest cache
+        if len(_similarity_cache_manager) >= MAX_SIMILARITY_CACHES:
+            if _similarity_cache_timestamps:
+                oldest_session = min(
+                    _similarity_cache_timestamps.items(),
+                    key=lambda x: x[1],
+                )[0]
+                if oldest_session in _similarity_cache_manager:
+                    _similarity_cache_manager[oldest_session].clear()
+                    del _similarity_cache_manager[oldest_session]
+                if oldest_session in _similarity_cache_timestamps:
+                    del _similarity_cache_timestamps[oldest_session]
+                logger.debug(f"Evicted oldest similarity cache {oldest_session} to make room")
+
+        # Create new cache
+        _similarity_cache_manager[session_id] = PairwiseSimilarityCache(
+            session_id=session_id,
+            max_size=max_size,
+            ttl_seconds=ttl_seconds,
+        )
+        _similarity_cache_timestamps[session_id] = now
+
         return _similarity_cache_manager[session_id]
 
 
@@ -230,7 +279,49 @@ def cleanup_similarity_cache(session_id: str) -> None:
         if session_id in _similarity_cache_manager:
             _similarity_cache_manager[session_id].clear()
             del _similarity_cache_manager[session_id]
-            logger.debug(f"Cleaned up similarity cache for session {session_id}")
+        if session_id in _similarity_cache_timestamps:
+            del _similarity_cache_timestamps[session_id]
+        logger.debug(f"Cleaned up similarity cache for session {session_id}")
+
+
+def cleanup_stale_similarity_caches(
+    max_age_seconds: float = CACHE_MANAGER_TTL_SECONDS,
+) -> int:
+    """
+    Remove similarity caches that haven't been used recently.
+
+    This function provides automatic TTL-based eviction for the global
+    cache manager, preventing unbounded memory growth from abandoned
+    debate sessions.
+
+    Args:
+        max_age_seconds: Maximum age in seconds before a cache is considered stale.
+            Defaults to CACHE_MANAGER_TTL_SECONDS (1 hour).
+
+    Returns:
+        Number of caches cleaned up.
+    """
+    now = time.time()
+    cleaned = 0
+
+    with _similarity_cache_lock:
+        stale_sessions = [
+            session_id
+            for session_id, timestamp in _similarity_cache_timestamps.items()
+            if now - timestamp > max_age_seconds
+        ]
+        for session_id in stale_sessions:
+            if session_id in _similarity_cache_manager:
+                _similarity_cache_manager[session_id].clear()
+                del _similarity_cache_manager[session_id]
+            if session_id in _similarity_cache_timestamps:
+                del _similarity_cache_timestamps[session_id]
+            cleaned += 1
+
+    if cleaned > 0:
+        logger.debug(f"Cleaned up {cleaned} stale similarity caches")
+
+    return cleaned
 
 
 # Re-export cache utilities

@@ -39,7 +39,7 @@ from aragora.reasoning.provenance import SourceType
 try:
     import aiomysql
 except ImportError:
-    aiomysql = None  # type: Any
+    aiomysql = None  # type: ignore[misc, no-redef]
 
 logger = logging.getLogger(__name__)
 
@@ -343,6 +343,9 @@ class MySQLConnector(EnterpriseConnector):
             async with conn.cursor(aiomysql.DictCursor) as cursor:
                 for table in tables[:5]:  # Limit to first 5 tables
                     try:
+                        # Validate table name to prevent SQL injection
+                        safe_table = _validate_sql_identifier(table, "table")
+
                         columns = await self._get_table_columns(table)
                         text_columns = [
                             c["column_name"]
@@ -351,15 +354,17 @@ class MySQLConnector(EnterpriseConnector):
                         ]
 
                         if text_columns:
-                            conditions = " OR ".join(
-                                [f"`{col}` LIKE %s" for col in text_columns[:3]]
-                            )
+                            # Validate column names to prevent SQL injection
+                            safe_columns = [
+                                _validate_sql_identifier(col, "column") for col in text_columns[:3]
+                            ]
+                            conditions = " OR ".join([f"`{col}` LIKE %s" for col in safe_columns])
                             search_query = f"""
-                                SELECT * FROM `{table}`
+                                SELECT * FROM `{safe_table}`
                                 WHERE {conditions}
                                 LIMIT %s
                             """
-                            params = [f"%{query}%"] * min(len(text_columns), 3) + [limit]
+                            params = [f"%{query}%"] * len(safe_columns) + [limit]
                             await cursor.execute(search_query, params)
                             rows = await cursor.fetchall()
 
@@ -401,11 +406,15 @@ class MySQLConnector(EnterpriseConnector):
             return None
 
         try:
+            # Validate identifiers to prevent SQL injection
+            safe_table = _validate_sql_identifier(table, "table")
+            safe_pk_column = _validate_sql_identifier(self.primary_key_column, "column")
+
             pool = await self._get_pool()
 
             async with pool.acquire() as conn:
                 async with conn.cursor() as cursor:
-                    query = f"SELECT * FROM `{table}` WHERE `{self.primary_key_column}` = %s"
+                    query = f"SELECT * FROM `{safe_table}` WHERE `{safe_pk_column}` = %s"
                     await cursor.execute(query, (pk_value,))
                     columns = [desc[0] for desc in cursor.description]
                     row = await cursor.fetchone()

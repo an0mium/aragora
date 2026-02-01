@@ -37,10 +37,10 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm = None  # type: ignore[no-redef]
-    RLMConfig = None  # type: ignore[no-redef]
-    RLMMode = None  # type: ignore[no-redef]
-    AbstractionLevel = None  # type: ignore[no-redef]
+    get_rlm = None  # type: ignore[misc, no-redef]
+    RLMConfig = None  # type: ignore[misc, no-redef]
+    RLMMode = None  # type: ignore[misc, no-redef]
+    AbstractionLevel = None  # type: ignore[misc, no-redef]
 
 logger = logging.getLogger(__name__)
 

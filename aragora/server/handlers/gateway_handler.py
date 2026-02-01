@@ -45,7 +45,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: Any
+    AuthorizationContext = None  # type: ignore[misc, no-redef]
 
 # Gateway imports
 try:
@@ -59,7 +59,7 @@ try:
     GATEWAY_AVAILABLE = True
 except ImportError:
     GATEWAY_AVAILABLE = False
-    DeviceRegistry = None  # type: Any
+    DeviceRegistry = None  # type: ignore[misc, no-redef]
 
 logger = logging.getLogger(__name__)
 

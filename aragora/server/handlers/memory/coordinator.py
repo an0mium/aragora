@@ -39,8 +39,8 @@ try:
     COORDINATOR_AVAILABLE = True
 except ImportError:
     COORDINATOR_AVAILABLE = False
-    MemoryCoordinator = None
-    CoordinatorOptions = None
+    MemoryCoordinator = None  # type: ignore[misc, no-redef]
+    CoordinatorOptions = None  # type: ignore[misc, no-redef]
 
 
 class CoordinatorHandler(SecureHandler):

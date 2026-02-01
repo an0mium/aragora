@@ -533,22 +533,7 @@ class Arena(ArenaDelegatesMixin):
         post_debate_workflow_threshold = cfg.post_debate_workflow_threshold
 
         # Handle fabric integration - get agents from fabric pool if configured
-        if fabric is not None and fabric_config is not None:
-            if agents:
-                raise ValueError(
-                    "Cannot specify both 'agents' and 'fabric'/'fabric_config'. "
-                    "Use either direct agents or fabric-managed agents."
-                )
-            agents = self._get_fabric_agents_sync(fabric, fabric_config)
-            self._fabric = fabric
-            self._fabric_config = fabric_config
-            logger.info(
-                f"[fabric] Arena using fabric pool {fabric_config.pool_id} "
-                f"with {len(agents)} agents"
-            )
-        else:
-            self._fabric = None
-            self._fabric_config = None
+        agents = self._init_fabric_integration(fabric, fabric_config, agents)
 
         if not agents:
             raise ValueError("Must specify either 'agents' or both 'fabric' and 'fabric_config'")
@@ -681,42 +666,18 @@ class Arena(ArenaDelegatesMixin):
         self.revalidation_scheduler = revalidation_scheduler
 
         # Adaptive rounds (memory-based debate strategy)
-        self.enable_adaptive_rounds = enable_adaptive_rounds
-        self.debate_strategy = debate_strategy
-        if self.enable_adaptive_rounds and self.debate_strategy is None:
-            try:
-                from aragora.debate.strategy import DebateStrategy
-
-                self.debate_strategy = DebateStrategy(
-                    continuum_memory=self.continuum_memory,
-                )
-                logger.info("debate_strategy auto-initialized for adaptive rounds")
-            except ImportError:
-                logger.debug("DebateStrategy not available")
-                self.debate_strategy = None
-            except (TypeError, ValueError) as e:
-                logger.warning(f"Failed to initialize DebateStrategy: {e}")
-                self.debate_strategy = None
-            except Exception as e:
-                logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
-                self.debate_strategy = None
+        self._init_debate_strategy(enable_adaptive_rounds, debate_strategy)
 
         # Cross-debate institutional memory
         self.cross_debate_memory = cross_debate_memory
         self.enable_cross_debate_memory = enable_cross_debate_memory
 
         # Post-debate workflow automation
-        if enable_post_debate_workflow and post_debate_workflow is None:
-            try:
-                from aragora.workflow.patterns.post_debate import get_default_post_debate_workflow
-
-                post_debate_workflow = get_default_post_debate_workflow()
-                logger.debug("[arena] Auto-created default post-debate workflow")
-            except ImportError:
-                logger.warning("[arena] Post-debate workflow enabled but pattern not available")
-        self.post_debate_workflow = post_debate_workflow
-        self.enable_post_debate_workflow = enable_post_debate_workflow
-        self.post_debate_workflow_threshold = post_debate_workflow_threshold
+        self._init_post_debate_workflow(
+            enable_post_debate_workflow,
+            post_debate_workflow,
+            post_debate_workflow_threshold,
+        )
 
         # Initialize user participation and roles
         self._init_user_participation()
@@ -1148,6 +1109,89 @@ class Arena(ArenaDelegatesMixin):
         self.rlm_max_recent_messages = state["rlm_max_recent_messages"]
         self.rlm_summary_level = state["rlm_summary_level"]
         self.rlm_limiter = state["rlm_limiter"]
+
+    def _init_fabric_integration(
+        self,
+        fabric: Optional[Any],
+        fabric_config: Optional[Any],
+        agents: list["Agent"],
+    ) -> list["Agent"]:
+        """Initialize fabric integration for agent pool management.
+
+        Returns the agents list (possibly from fabric pool if configured).
+        """
+        if fabric is not None and fabric_config is not None:
+            if agents:
+                raise ValueError(
+                    "Cannot specify both 'agents' and 'fabric'/'fabric_config'. "
+                    "Use either direct agents or fabric-managed agents."
+                )
+            agents = self._get_fabric_agents_sync(fabric, fabric_config)
+            self._fabric = fabric
+            self._fabric_config = fabric_config
+            logger.info(
+                f"[fabric] Arena using fabric pool {fabric_config.pool_id} "
+                f"with {len(agents)} agents"
+            )
+        else:
+            self._fabric = None
+            self._fabric_config = None
+        return agents
+
+    def _init_debate_strategy(
+        self,
+        enable_adaptive_rounds: bool,
+        debate_strategy: Optional[Any],
+    ) -> Optional[Any]:
+        """Initialize debate strategy for adaptive rounds.
+
+        Auto-creates DebateStrategy if adaptive rounds enabled but no strategy provided.
+        """
+        self.enable_adaptive_rounds = enable_adaptive_rounds
+        self.debate_strategy = debate_strategy
+
+        if self.enable_adaptive_rounds and self.debate_strategy is None:
+            try:
+                from aragora.debate.strategy import DebateStrategy
+
+                self.debate_strategy = DebateStrategy(
+                    continuum_memory=self.continuum_memory,
+                )
+                logger.info("debate_strategy auto-initialized for adaptive rounds")
+            except ImportError:
+                logger.debug("DebateStrategy not available")
+                self.debate_strategy = None
+            except (TypeError, ValueError) as e:
+                logger.warning(f"Failed to initialize DebateStrategy: {e}")
+                self.debate_strategy = None
+            except Exception as e:
+                logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
+                self.debate_strategy = None
+
+        return self.debate_strategy
+
+    def _init_post_debate_workflow(
+        self,
+        enable_post_debate_workflow: bool,
+        post_debate_workflow: Optional[Any],
+        post_debate_workflow_threshold: float,
+    ) -> None:
+        """Initialize post-debate workflow automation.
+
+        Auto-creates default post-debate workflow if enabled but not provided.
+        """
+        if enable_post_debate_workflow and post_debate_workflow is None:
+            try:
+                from aragora.workflow.patterns.post_debate import get_default_post_debate_workflow
+
+                post_debate_workflow = get_default_post_debate_workflow()
+                logger.debug("[arena] Auto-created default post-debate workflow")
+            except ImportError:
+                logger.warning("[arena] Post-debate workflow enabled but pattern not available")
+
+        self.post_debate_workflow = post_debate_workflow
+        self.enable_post_debate_workflow = enable_post_debate_workflow
+        self.post_debate_workflow_threshold = post_debate_workflow_threshold
 
     async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
         """Select judge based on protocol.judge_selection setting. Delegates to JudgeSelector."""

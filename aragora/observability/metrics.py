@@ -665,14 +665,28 @@ def _init_metrics() -> bool:
 
     except ImportError as e:
         logger.warning(
-            f"prometheus-client not installed, metrics disabled: {e}. "
-            "Install with: pip install prometheus-client"
+            "prometheus-client not installed, metrics disabled: %s. "
+            "Install with: pip install prometheus-client",
+            e,
         )
         _init_noop_metrics()
         _initialized = True
         return False
-    except Exception as e:
-        logger.error(f"Failed to initialize metrics: {e}")
+    except (TypeError, ValueError, RuntimeError) as e:
+        # Configuration or initialization errors - recoverable
+        logger.error(
+            "Failed to initialize metrics due to configuration error",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
+        _init_noop_metrics()
+        _initialized = True
+        return False
+    except OSError as e:
+        # Resource errors (e.g., port in use, file access) - recoverable
+        logger.error(
+            "Failed to initialize metrics due to resource error",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
         _init_noop_metrics()
         _initialized = True
         return False
@@ -1059,8 +1073,25 @@ def start_metrics_server(port: int = 9090) -> bool:
         _metrics_server = port
         logger.info(f"Metrics server started on port {port}")
         return True
-    except Exception as e:
-        logger.error(f"Failed to start metrics server: {e}")
+    except ImportError as e:
+        logger.error(
+            "Failed to start metrics server: prometheus-client not installed",
+            extra={"error": str(e)},
+        )
+        return False
+    except OSError as e:
+        # Port already in use or permission denied
+        logger.error(
+            "Failed to start metrics server due to OS error",
+            extra={"port": port, "error_type": type(e).__name__, "error": str(e)},
+        )
+        return False
+    except (ValueError, TypeError, RuntimeError) as e:
+        # Invalid configuration or runtime issues
+        logger.error(
+            "Failed to start metrics server due to configuration error",
+            extra={"port": port, "error_type": type(e).__name__, "error": str(e)},
+        )
         return False
 
 
@@ -1080,14 +1111,10 @@ def stop_metrics_server() -> bool:
     if _metrics_server is None:
         return False
 
-    try:
-        port = _metrics_server
-        _metrics_server = None
-        logger.info(f"Metrics server on port {port} marked for shutdown")
-        return True
-    except Exception as e:
-        logger.warning(f"Error stopping metrics server: {e}")
-        return False
+    port = _metrics_server
+    _metrics_server = None
+    logger.info(f"Metrics server on port {port} marked for shutdown")
+    return True
 
 
 # Endpoint normalization regex

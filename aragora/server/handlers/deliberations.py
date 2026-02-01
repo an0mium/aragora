@@ -32,7 +32,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: Any
+    AuthorizationContext = None  # type: ignore[misc, no-redef]
     check_permission = None
 
 # JWT auth import for extracting user context
@@ -42,7 +42,7 @@ try:
     JWT_AUTH_AVAILABLE = True
 except ImportError:
     JWT_AUTH_AVAILABLE = False
-    extract_user_from_request = None  # type: Any
+    extract_user_from_request = None  # type: ignore[misc, no-redef]
 
 logger = logging.getLogger(__name__)
 

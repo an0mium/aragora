@@ -34,6 +34,37 @@ logger = logging.getLogger(__name__)
 # Default columns to use for change tracking
 DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "timestamp"]
 
+# SQL identifier validation pattern (alphanumeric, underscores, and hyphens only)
+import re
+
+_SAFE_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
+
+
+def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> str:
+    """
+    Validate a SQL identifier to prevent SQL injection.
+
+    Args:
+        name: The identifier to validate (table name, schema, column)
+        identifier_type: Description for error messages
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        ValueError: If the identifier contains invalid characters
+    """
+    if not name:
+        raise ValueError(f"SQL {identifier_type} cannot be empty")
+    if len(name) > 63:
+        raise ValueError(f"SQL {identifier_type} too long (max 63 chars for PostgreSQL)")
+    if not _SAFE_IDENTIFIER_PATTERN.match(name):
+        raise ValueError(
+            f"Invalid SQL {identifier_type}: '{name}'. "
+            "Only alphanumeric characters, underscores, and hyphens are allowed."
+        )
+    return name
+
 
 class PostgreSQLConnector(EnterpriseConnector):
     """
@@ -238,19 +269,25 @@ class PostgreSQLConnector(EnterpriseConnector):
 
         for table in tables:
             try:
+                # Validate identifiers to prevent SQL injection
+                safe_schema = _validate_sql_identifier(self.schema, "schema")
+                safe_table = _validate_sql_identifier(table, "table")
+                safe_pk_column = _validate_sql_identifier(self.primary_key_column, "column")
+
                 columns = await self._get_table_columns(table)
                 ts_column = self._find_timestamp_column(columns)
 
                 async with pool.acquire() as conn:
-                    # Build query
-                    qualified_table = f'"{self.schema}"."{table}"'
+                    # Build query with validated identifiers
+                    qualified_table = f'"{safe_schema}"."{safe_table}"'
 
                     if ts_column and state.last_item_timestamp:
                         # Incremental sync
+                        safe_ts_column = _validate_sql_identifier(ts_column, "column")
                         query = f"""
                             SELECT * FROM {qualified_table}
-                            WHERE "{ts_column}" > $1
-                            ORDER BY "{ts_column}" ASC
+                            WHERE "{safe_ts_column}" > $1
+                            ORDER BY "{safe_ts_column}" ASC
                             LIMIT $2
                         """
                         rows = await conn.fetch(query, state.last_item_timestamp, batch_size)
@@ -260,15 +297,15 @@ class PostgreSQLConnector(EnterpriseConnector):
                             last_id = state.cursor.split(":", 1)[1]
                             query = f"""
                                 SELECT * FROM {qualified_table}
-                                WHERE "{self.primary_key_column}" > $1
-                                ORDER BY "{self.primary_key_column}" ASC
+                                WHERE "{safe_pk_column}" > $1
+                                ORDER BY "{safe_pk_column}" ASC
                                 LIMIT $2
                             """
                             rows = await conn.fetch(query, last_id, batch_size)
                         else:
                             query = f"""
                                 SELECT * FROM {qualified_table}
-                                ORDER BY "{self.primary_key_column}" ASC
+                                ORDER BY "{safe_pk_column}" ASC
                                 LIMIT $1
                             """
                             rows = await conn.fetch(query, batch_size)
@@ -344,7 +381,10 @@ class PostgreSQLConnector(EnterpriseConnector):
         async with pool.acquire() as conn:
             for table in tables[:5]:  # Limit to first 5 tables
                 try:
-                    qualified_table = f'"{self.schema}"."{table}"'
+                    # Validate identifiers to prevent SQL injection
+                    safe_schema = _validate_sql_identifier(self.schema, "schema")
+                    safe_table = _validate_sql_identifier(table, "table")
+                    qualified_table = f'"{safe_schema}"."{safe_table}"'
 
                     # Try full-text search if available
                     fts_query = f"""
@@ -376,8 +416,12 @@ class PostgreSQLConnector(EnterpriseConnector):
                         ]
 
                         if text_columns:
+                            # Validate column names to prevent SQL injection
+                            safe_columns = [
+                                _validate_sql_identifier(col, "column") for col in text_columns[:3]
+                            ]
                             conditions = " OR ".join(
-                                [f'"{col}"::text ILIKE $1' for col in text_columns[:3]]
+                                [f'"{col}"::text ILIKE $1' for col in safe_columns]
                             )
                             fallback_query = f"""
                                 SELECT * FROM {qualified_table}
@@ -423,10 +467,17 @@ class PostgreSQLConnector(EnterpriseConnector):
             return None
 
         try:
+            # Validate identifiers to prevent SQL injection
+            safe_schema = _validate_sql_identifier(self.schema, "schema")
+            safe_table = _validate_sql_identifier(table, "table")
+            safe_pk_column = _validate_sql_identifier(self.primary_key_column, "column")
+
             pool = await self._get_pool()
 
             async with pool.acquire() as conn:
-                query = f'SELECT * FROM "{self.schema}"."{table}" WHERE "{self.primary_key_column}" = $1'
+                query = (
+                    f'SELECT * FROM "{safe_schema}"."{safe_table}" WHERE "{safe_pk_column}" = $1'
+                )
                 row = await conn.fetchrow(query, pk_value)
 
                 if row:

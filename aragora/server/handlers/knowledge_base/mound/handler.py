@@ -121,6 +121,7 @@ from ...base import (
     error_response,
 )
 from ...utils.rate_limit import RateLimiter, get_client_ip
+from ...utils.tenant_validation import validate_workspace_access_sync
 
 from .analytics import AnalyticsOperationsMixin
 from .confidence_decay import ConfidenceDecayOperationsMixin
@@ -148,8 +149,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Rate limiter for knowledge endpoints (60 requests per minute)
-_knowledge_limiter = RateLimiter(requests_per_minute=60)
+# Rate limiter for knowledge endpoints (100 requests per minute per user)
+_knowledge_limiter = RateLimiter(requests_per_minute=100)
 
 
 class _KnowledgeMoundMixins(
@@ -299,11 +300,27 @@ class KnowledgeMoundHandler(
     @require_permission("knowledge:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route knowledge mound requests to appropriate methods."""
-        # Rate limit check
-        client_ip = get_client_ip(handler)
-        if not _knowledge_limiter.is_allowed(client_ip):
-            logger.warning(f"Rate limit exceeded for mound endpoint: {client_ip}")
-            return error_response("Rate limit exceeded. Please try again later.", 429)
+        # Rate limit check using user ID if authenticated, otherwise client IP
+        # Try to get user ID from auth context first
+        auth_ctx = getattr(handler, "_auth_context", None)
+        user_id = None
+        if auth_ctx:
+            user_id = getattr(auth_ctx, "user_id", None) or getattr(auth_ctx, "sub", None)
+
+        # Use user ID if available, otherwise fall back to client IP
+        rate_key = user_id if user_id else get_client_ip(handler)
+
+        if not _knowledge_limiter.is_allowed(rate_key):
+            remaining = _knowledge_limiter.get_remaining(rate_key)
+            logger.warning(f"Rate limit exceeded for mound endpoint: {rate_key}")
+            headers = {
+                "X-RateLimit-Limit": "100",
+                "X-RateLimit-Remaining": str(remaining),
+                "Retry-After": "60",
+            }
+            return error_response(
+                "Rate limit exceeded. Please try again later.", 429, headers=headers
+            )
 
         # Require authentication for all knowledge mound endpoints
         try:
@@ -657,6 +674,18 @@ class KnowledgeMoundHandler(
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
+
+        # SECURITY: Validate user has access to requested workspace
+        user = self.get_current_user(handler)
+        workspace_err = validate_workspace_access_sync(
+            user=user,
+            workspace_id=workspace_id,
+            endpoint="/api/v1/knowledge/mound/dedup/merge",
+            ip_address=get_client_ip(handler),
+        )
+        if workspace_err:
+            return workspace_err
+
         cluster_id = body.get("cluster_id")
         primary_node_id = body.get("primary_node_id")
         archive = body.get("archive", True)
@@ -684,6 +713,18 @@ class KnowledgeMoundHandler(
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
+
+        # SECURITY: Validate user has access to requested workspace
+        user = self.get_current_user(handler)
+        workspace_err = validate_workspace_access_sync(
+            user=user,
+            workspace_id=workspace_id,
+            endpoint="/api/v1/knowledge/mound/dedup/auto-merge",
+            ip_address=get_client_ip(handler),
+        )
+        if workspace_err:
+            return workspace_err
+
         dry_run = body.get("dry_run", True)
 
         return _run_async(
@@ -723,6 +764,18 @@ class KnowledgeMoundHandler(
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
+
+        # SECURITY: Validate user has access to requested workspace
+        user = self.get_current_user(handler)
+        workspace_err = validate_workspace_access_sync(
+            user=user,
+            workspace_id=workspace_id,
+            endpoint="/api/v1/knowledge/mound/pruning/execute",
+            ip_address=get_client_ip(handler),
+        )
+        if workspace_err:
+            return workspace_err
+
         item_ids = body.get("item_ids", [])
         action = body.get("action", "archive")
         reason = body.get("reason", "manual_prune")

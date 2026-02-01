@@ -22,9 +22,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
-from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -76,7 +76,7 @@ class EvidenceSearchResult:
             self.matched_topics = []
 
 
-class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
+class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     """
     Adapter that bridges EvidenceStore to the Knowledge Mound.
 
@@ -202,21 +202,16 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
                           Used for WebSocket updates when adapter is in server context
             enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._store = store
-        self._enable_dual_write = enable_dual_write
-        self._event_callback = event_callback
 
-        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
-        if enable_resilience:
-            self._init_resilience(adapter_name=self.adapter_name)
-
-    def set_event_callback(self, callback: EventCallback) -> None:
-        """Set the event callback for WebSocket notifications.
-
-        Args:
-            callback: Function taking (event_type: str, data: Dict)
-        """
-        self._event_callback = callback
+    # set_event_callback inherited from KnowledgeMoundAdapter
 
     # SemanticSearchMixin required methods
     def _get_record_by_id(self, record_id: str) -> Any | None:
@@ -250,47 +245,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             return source_id[len(self.ID_PREFIX) :]
         return source_id
 
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event if callback is configured.
-
-        Args:
-            event_type: Type of event (e.g., 'knowledge_indexed')
-            data: Event data payload
-        """
-        if self._event_callback:
-            try:
-                self._event_callback(event_type, data)
-            except Exception as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
-
-    def _record_metric(
-        self,
-        operation: str,
-        success: bool,
-        latency: float,
-        extra_labels: Optional[dict[str, str]] = None,
-    ) -> None:
-        """Record Prometheus metric for adapter operation.
-
-        Args:
-            operation: Operation name (search, store, sync)
-            success: Whether operation succeeded
-            latency: Operation latency in seconds
-            extra_labels: Additional labels for the metric.
-        """
-        try:
-            from aragora.observability.metrics.km import (
-                record_km_operation,
-                record_km_adapter_sync,
-            )
-
-            record_km_operation(operation, success, latency)
-            if operation in ("store", "sync"):
-                record_km_adapter_sync("evidence", "forward", success)
-        except ImportError:
-            logger.debug("Metrics module not available for evidence adapter")
-        except (RuntimeError, ValueError, TypeError) as e:
-            logger.debug(f"Failed to record metric: {e}")
+    # _emit_event, _record_metric inherited from KnowledgeMoundAdapter
 
     @property
     def evidence_store(self) -> Optional["EvidenceStore"]:

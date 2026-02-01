@@ -42,7 +42,7 @@ try:
     AB_TESTING_AVAILABLE = True
 except ImportError as e:
     AB_TESTING_AVAILABLE = False
-    ABTestManager = None  # type: Any
+    ABTestManager = None  # type: ignore[misc, no-redef]
     logger.debug(f"A/B testing module not available: {e}")
 
 

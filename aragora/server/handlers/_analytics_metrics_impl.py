@@ -131,6 +131,43 @@ class AnalyticsMetricsHandler(SecureHandler):
     Requires authentication and analytics:read permission (RBAC).
     """
 
+    def _validate_org_access(
+        self,
+        auth_context: Any,
+        requested_org_id: str | None,
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate user has access to the requested organization.
+
+        Args:
+            auth_context: The user's authorization context
+            requested_org_id: The org_id requested in query params
+
+        Returns:
+            Tuple of (validated_org_id, error_response or None)
+            If error_response is not None, return it immediately.
+            If requested_org_id is None, returns user's org_id.
+        """
+        user_org_id = getattr(auth_context, "org_id", None)
+        user_roles = getattr(auth_context, "roles", []) or []
+
+        # Platform admins can access any org
+        if "platform_admin" in user_roles or "admin" in user_roles:
+            return requested_org_id, None
+
+        # If no org requested, use user's org
+        if not requested_org_id:
+            return user_org_id, None
+
+        # User can only access their own org
+        if user_org_id and requested_org_id != user_org_id:
+            return None, error_response(
+                "Access denied to organization",
+                403,
+                code="ORG_ACCESS_DENIED",
+            )
+
+        return requested_org_id, None
+
     ROUTES = [
         # Debate Analytics
         "/api/analytics/debates/overview",
@@ -186,13 +223,13 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         # Debate Analytics
         if normalized == "/api/analytics/debates/overview":
-            return self._get_debates_overview(query_params)
+            return self._get_debates_overview(query_params, auth_context)
         elif normalized == "/api/analytics/debates/trends":
-            return self._get_debates_trends(query_params)
+            return self._get_debates_trends(query_params, auth_context)
         elif normalized == "/api/analytics/debates/topics":
-            return self._get_debates_topics(query_params)
+            return self._get_debates_topics(query_params, auth_context)
         elif normalized == "/api/analytics/debates/outcomes":
-            return self._get_debates_outcomes(query_params)
+            return self._get_debates_outcomes(query_params, auth_context)
 
         # Agent Performance
         elif normalized == "/api/analytics/agents/leaderboard":
@@ -210,11 +247,11 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         # Usage Analytics
         if normalized == "/api/analytics/usage/tokens":
-            return self._get_usage_tokens(query_params)
+            return self._get_usage_tokens(query_params, auth_context)
         elif normalized == "/api/analytics/usage/costs":
-            return self._get_usage_costs(query_params)
+            return self._get_usage_costs(query_params, auth_context)
         elif normalized == "/api/analytics/usage/active_users":
-            return self._get_active_users(query_params)
+            return self._get_active_users(query_params, auth_context)
 
         return None
 
@@ -224,7 +261,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_overview")
     @handle_errors("get debates overview")
-    def _get_debates_overview(self, query_params: dict) -> HandlerResult:
+    def _get_debates_overview(self, query_params: dict, auth_context: Any) -> HandlerResult:
         """
         Get debate overview statistics.
 
@@ -232,7 +269,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         Query params:
         - time_range: Time range filter (7d, 30d, 90d, 365d, all) - default 30d
-        - org_id: Filter by organization (optional)
+        - org_id: Filter by organization (optional, defaults to user's org)
 
         Response:
         {
@@ -253,7 +290,11 @@ class AnalyticsMetricsHandler(SecureHandler):
         if time_range not in VALID_TIME_RANGES:
             time_range = "30d"
 
-        org_id = query_params.get("org_id")
+        # Validate org access
+        requested_org_id = query_params.get("org_id")
+        org_id, err = self._validate_org_access(auth_context, requested_org_id)
+        if err:
+            return err
 
         storage = self.get_storage()
         if not storage:
@@ -377,7 +418,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_trends")
     @handle_errors("get debates trends")
-    def _get_debates_trends(self, query_params: dict) -> HandlerResult:
+    def _get_debates_trends(self, query_params: dict, auth_context: Any) -> HandlerResult:
         """
         Get debate trends over time.
 
@@ -386,7 +427,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         Query params:
         - time_range: Time range filter (7d, 30d, 90d, 365d, all) - default 30d
         - granularity: Aggregation granularity (daily, weekly, monthly) - default daily
-        - org_id: Filter by organization (optional)
+        - org_id: Filter by organization (optional, defaults to user's org)
 
         Response:
         {
@@ -413,7 +454,11 @@ class AnalyticsMetricsHandler(SecureHandler):
         if granularity not in VALID_GRANULARITIES:
             granularity = "daily"
 
-        org_id = query_params.get("org_id")
+        # Validate org access
+        requested_org_id = query_params.get("org_id")
+        org_id, err = self._validate_org_access(auth_context, requested_org_id)
+        if err:
+            return err
 
         storage = self.get_storage()
         if not storage:
@@ -491,7 +536,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_topics")
     @handle_errors("get debates topics")
-    def _get_debates_topics(self, query_params: dict) -> HandlerResult:
+    def _get_debates_topics(self, query_params: dict, auth_context: Any) -> HandlerResult:
         """
         Get topic distribution for debates.
 
@@ -500,7 +545,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         Query params:
         - time_range: Time range filter (7d, 30d, 90d, 365d, all) - default 30d
         - limit: Maximum topics to return (default 20)
-        - org_id: Filter by organization (optional)
+        - org_id: Filter by organization (optional, defaults to user's org)
 
         Response:
         {
@@ -524,7 +569,11 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         limit = safe_query_int(query_params, "limit", default=20, max_val=100)
 
-        org_id = query_params.get("org_id")
+        # Validate org access
+        requested_org_id = query_params.get("org_id")
+        org_id, err = self._validate_org_access(auth_context, requested_org_id)
+        if err:
+            return err
 
         storage = self.get_storage()
         if not storage:
@@ -621,7 +670,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_debates_outcomes")
     @handle_errors("get debates outcomes")
-    def _get_debates_outcomes(self, query_params: dict) -> HandlerResult:
+    def _get_debates_outcomes(self, query_params: dict, auth_context: Any) -> HandlerResult:
         """
         Get debate outcome distribution (win/loss/draw).
 
@@ -629,7 +678,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         Query params:
         - time_range: Time range filter (7d, 30d, 90d, 365d, all) - default 30d
-        - org_id: Filter by organization (optional)
+        - org_id: Filter by organization (optional, defaults to user's org)
 
         Response:
         {
@@ -653,7 +702,11 @@ class AnalyticsMetricsHandler(SecureHandler):
         if time_range not in VALID_TIME_RANGES:
             time_range = "30d"
 
-        org_id = query_params.get("org_id")
+        # Validate org access
+        requested_org_id = query_params.get("org_id")
+        org_id, err = self._validate_org_access(auth_context, requested_org_id)
+        if err:
+            return err
 
         storage = self.get_storage()
         if not storage:
@@ -1174,14 +1227,14 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_usage_tokens")
     @handle_errors("get usage tokens")
-    def _get_usage_tokens(self, query_params: dict) -> HandlerResult:
+    def _get_usage_tokens(self, query_params: dict, auth_context: Any) -> HandlerResult:
         """
         Get token consumption trends.
 
         GET /api/v1/analytics/usage/tokens
 
         Query params:
-        - org_id: Organization ID (required)
+        - org_id: Organization ID (required, must be user's org unless admin)
         - time_range: Time range filter (7d, 30d, 90d, 365d, all) - default 30d
         - granularity: Aggregation granularity (daily, weekly, monthly) - default daily
 
@@ -1203,9 +1256,14 @@ class AnalyticsMetricsHandler(SecureHandler):
             "generated_at": "2026-01-23T12:00:00Z"
         }
         """
-        org_id = query_params.get("org_id")
-        if not org_id:
+        requested_org_id = query_params.get("org_id")
+        if not requested_org_id:
             return error_response("org_id is required", 400, code="MISSING_ORG_ID")
+
+        # Validate org access
+        org_id, err = self._validate_org_access(auth_context, requested_org_id)
+        if err:
+            return err
 
         time_range = query_params.get("time_range", "30d")
         if time_range not in VALID_TIME_RANGES:
@@ -1268,14 +1326,14 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_usage_costs")
     @handle_errors("get usage costs")
-    def _get_usage_costs(self, query_params: dict) -> HandlerResult:
+    def _get_usage_costs(self, query_params: dict, auth_context: Any) -> HandlerResult:
         """
         Get cost breakdown by provider and model.
 
         GET /api/v1/analytics/usage/costs
 
         Query params:
-        - org_id: Organization ID (required)
+        - org_id: Organization ID (required, must be user's org unless admin)
         - time_range: Time range filter (7d, 30d, 90d, 365d, all) - default 30d
 
         Response:
@@ -1298,9 +1356,14 @@ class AnalyticsMetricsHandler(SecureHandler):
             "generated_at": "2026-01-23T12:00:00Z"
         }
         """
-        org_id = query_params.get("org_id")
-        if not org_id:
+        requested_org_id = query_params.get("org_id")
+        if not requested_org_id:
             return error_response("org_id is required", 400, code="MISSING_ORG_ID")
+
+        # Validate org access
+        org_id, err = self._validate_org_access(auth_context, requested_org_id)
+        if err:
+            return err
 
         time_range = query_params.get("time_range", "30d")
         if time_range not in VALID_TIME_RANGES:
@@ -1374,14 +1437,14 @@ class AnalyticsMetricsHandler(SecureHandler):
 
     @ttl_cache(ttl_seconds=CACHE_TTL_ANALYTICS, key_prefix="analytics_active_users")
     @handle_errors("get active users")
-    def _get_active_users(self, query_params: dict) -> HandlerResult:
+    def _get_active_users(self, query_params: dict, auth_context: Any) -> HandlerResult:
         """
         Get active user counts.
 
         GET /api/v1/analytics/usage/active_users
 
         Query params:
-        - org_id: Organization ID (optional, returns global stats if not provided)
+        - org_id: Organization ID (optional, defaults to user's org)
         - time_range: Time range filter (7d, 30d, 90d) - default 30d
 
         Response:
@@ -1406,7 +1469,12 @@ class AnalyticsMetricsHandler(SecureHandler):
             "generated_at": "2026-01-23T12:00:00Z"
         }
         """
-        org_id = query_params.get("org_id")
+        # Validate org access
+        requested_org_id = query_params.get("org_id")
+        org_id, err = self._validate_org_access(auth_context, requested_org_id)
+        if err:
+            return err
+
         time_range = query_params.get("time_range", "30d")
         if time_range not in {"7d", "30d", "90d"}:
             time_range = "30d"

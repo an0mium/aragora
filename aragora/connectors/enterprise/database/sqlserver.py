@@ -337,6 +337,10 @@ class SQLServerConnector(EnterpriseConnector):
             async with conn.cursor() as cursor:
                 for table in tables[:5]:  # Limit to first 5 tables
                     try:
+                        # Validate identifiers to prevent SQL injection
+                        safe_schema = _validate_sql_identifier(self.schema, "schema")
+                        safe_table = _validate_sql_identifier(table, "table")
+
                         columns = await self._get_table_columns(table)
                         text_columns = [
                             c["column_name"]
@@ -345,15 +349,17 @@ class SQLServerConnector(EnterpriseConnector):
                         ]
 
                         if text_columns:
-                            qualified_table = f"[{self.schema}].[{table}]"
-                            conditions = " OR ".join(
-                                [f"[{col}] LIKE ?" for col in text_columns[:3]]
-                            )
+                            # Validate column names to prevent SQL injection
+                            safe_columns = [
+                                _validate_sql_identifier(col, "column") for col in text_columns[:3]
+                            ]
+                            qualified_table = f"[{safe_schema}].[{safe_table}]"
+                            conditions = " OR ".join([f"[{col}] LIKE ?" for col in safe_columns])
                             search_query = f"""
                                 SELECT TOP (?) * FROM {qualified_table}
                                 WHERE {conditions}
                             """
-                            params = [limit] + [f"%{query}%"] * min(len(text_columns), 3)
+                            params = [limit] + [f"%{query}%"] * len(safe_columns)
                             await cursor.execute(search_query, *params)
                             rows = await cursor.fetchall()
 
@@ -403,11 +409,18 @@ class SQLServerConnector(EnterpriseConnector):
             return None
 
         try:
+            # Validate identifiers to prevent SQL injection
+            safe_schema = _validate_sql_identifier(self.schema, "schema")
+            safe_table = _validate_sql_identifier(table, "table")
+            safe_pk_column = _validate_sql_identifier(self.primary_key_column, "column")
+
             pool = await self._get_pool()
 
             async with pool.acquire() as conn:
                 async with conn.cursor() as cursor:
-                    query = f"SELECT * FROM [{self.schema}].[{table}] WHERE [{self.primary_key_column}] = ?"
+                    query = (
+                        f"SELECT * FROM [{safe_schema}].[{safe_table}] WHERE [{safe_pk_column}] = ?"
+                    )
                     await cursor.execute(query, pk_value)
                     col_names = [desc[0] for desc in cursor.description]
                     row = await cursor.fetchone()
@@ -601,12 +614,17 @@ class SQLServerConnector(EnterpriseConnector):
 
     async def _process_table_ct_changes(self, pool: Any, table: str) -> None:
         """Process Change Tracking changes for a single table."""
+        # Validate identifiers to prevent SQL injection
+        safe_schema = _validate_sql_identifier(self.schema, "schema")
+        safe_table = _validate_sql_identifier(table, "table")
+        safe_pk_column = _validate_sql_identifier(self.primary_key_column, "column")
+
         async with pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 # Get minimum valid version
                 await cursor.execute(
                     "SELECT CHANGE_TRACKING_MIN_VALID_VERSION(OBJECT_ID(?))",
-                    f"{self.schema}.{table}",
+                    f"{safe_schema}.{safe_table}",
                 )
                 min_version_row = await cursor.fetchone()
                 min_version = min_version_row[0] if min_version_row else None
@@ -627,10 +645,10 @@ class SQLServerConnector(EnterpriseConnector):
                 last_version = getattr(self, f"_ct_version_{table}", min_version)
 
                 ct_query = f"""
-                    SELECT ct.SYS_CHANGE_OPERATION, ct.{self.primary_key_column}, t.*
-                    FROM CHANGETABLE(CHANGES [{self.schema}].[{table}], ?) AS ct
-                    LEFT JOIN [{self.schema}].[{table}] t
-                        ON ct.{self.primary_key_column} = t.{self.primary_key_column}
+                    SELECT ct.SYS_CHANGE_OPERATION, ct.[{safe_pk_column}], t.*
+                    FROM CHANGETABLE(CHANGES [{safe_schema}].[{safe_table}], ?) AS ct
+                    LEFT JOIN [{safe_schema}].[{safe_table}] t
+                        ON ct.[{safe_pk_column}] = t.[{safe_pk_column}]
                 """
 
                 try:

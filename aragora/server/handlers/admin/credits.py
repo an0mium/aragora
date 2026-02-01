@@ -27,6 +27,7 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import SecureHandler
+from aragora.server.handlers.utils.rate_limit import auth_rate_limit
 from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.decorators import require_permission
 
@@ -42,6 +43,9 @@ class CreditsAdminHandler(SecureHandler):
 
     RESOURCE_TYPE = "credits"
 
+    @auth_rate_limit(
+        requests_per_minute=10, limiter_name="admin_credits_issue", endpoint_name="credit issuance"
+    )
     @require_permission("admin:credits:issue")
     async def issue_credit(
         self,
@@ -105,6 +109,11 @@ class CreditsAdminHandler(SecureHandler):
             status=201,
         )
 
+    @auth_rate_limit(
+        requests_per_minute=20,
+        limiter_name="admin_credits_view",
+        endpoint_name="credit account view",
+    )
     @require_permission("admin:credits:view")
     async def get_credit_account(self, org_id: str) -> HandlerResult:
         """Get credit account details for an organization.
@@ -120,6 +129,11 @@ class CreditsAdminHandler(SecureHandler):
 
         return json_response({"account": account.to_dict()})
 
+    @auth_rate_limit(
+        requests_per_minute=20,
+        limiter_name="admin_credits_transactions",
+        endpoint_name="credit transactions",
+    )
     @require_permission("admin:credits:view")
     async def list_transactions(
         self,
@@ -165,6 +179,11 @@ class CreditsAdminHandler(SecureHandler):
             }
         )
 
+    @auth_rate_limit(
+        requests_per_minute=10,
+        limiter_name="admin_credits_adjust",
+        endpoint_name="credit adjustment",
+    )
     @require_permission("admin:credits:adjust")
     async def adjust_balance(
         self,
