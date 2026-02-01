@@ -329,7 +329,11 @@ class RedisClusterClient:
     def _execute_with_retry(
         self, operation: Callable[[], Any], max_retries: int | None = None
     ) -> Any:
-        """Execute operation with retry logic."""
+        """Execute operation with retry logic.
+
+        Note: This is a synchronous method. If called from an async context,
+        use _execute_with_retry_async() instead to avoid blocking the event loop.
+        """
         retries = max_retries or self.config.max_retries
         last_error: Exception | None = None
 
@@ -353,17 +357,54 @@ class RedisClusterClient:
                         f"Redis operation failed (attempt {attempt + 1}/{retries + 1}): {e}. "
                         f"Retrying in {wait_time:.1f}s"
                     )
-                    # Use executor to avoid blocking the event loop if called from async context
-                    try:
-                        asyncio.get_running_loop()
-                        # We're in an async context - run sleep in executor
-                        import concurrent.futures
+                    # Sync method - use blocking sleep
+                    # For async contexts, use _execute_with_retry_async() instead
+                    time.sleep(wait_time)
 
-                        with concurrent.futures.ThreadPoolExecutor() as pool:
-                            pool.submit(time.sleep, wait_time).result()
-                    except RuntimeError:
-                        # No running event loop - safe to use blocking sleep
-                        time.sleep(wait_time)
+                    # Try to reconnect on cluster errors
+                    if "MOVED" in str(e) or "CLUSTERDOWN" in str(e):
+                        self._reconnect()
+
+        logger.error(f"Redis operation failed after {retries + 1} attempts: {last_error}")
+        if last_error is None:
+            raise RuntimeError("Redis operation failed with unknown error")
+        raise last_error
+
+    async def _execute_with_retry_async(
+        self, operation: Callable[[], Any], max_retries: int | None = None
+    ) -> Any:
+        """Execute operation with retry logic (async version).
+
+        Use this method when calling from async contexts to avoid blocking
+        the event loop during retry delays.
+        """
+        retries = max_retries or self.config.max_retries
+        last_error: Exception | None = None
+
+        for attempt in range(retries + 1):
+            try:
+                client = self.get_client()
+                if client is None:
+                    raise RuntimeError("Redis client not available")
+
+                # Run sync operation in executor to not block event loop
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(None, operation)
+                self._health_monitor.mark_success()
+                return result
+
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+                last_error = e
+                self._health_monitor.mark_failure()
+
+                if attempt < retries:
+                    wait_time = min(2**attempt * 0.1, 2.0)
+                    logger.warning(
+                        f"Redis operation failed (attempt {attempt + 1}/{retries + 1}): {e}. "
+                        f"Retrying in {wait_time:.1f}s"
+                    )
+                    # Use asyncio.sleep to not block the event loop
+                    await asyncio.sleep(wait_time)
 
                     # Try to reconnect on cluster errors
                     if "MOVED" in str(e) or "CLUSTERDOWN" in str(e):
