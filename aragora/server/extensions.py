@@ -291,7 +291,7 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
         moltbot_path = storage_path / "moltbot" if storage_path else None
 
         canonical_gateway = None
-        if os.getenv("MOLTBOT_CANONICAL_GATEWAY", "0") == "1":
+        if os.getenv("MOLTBOT_CANONICAL_GATEWAY", "1") == "1":
             from aragora.gateway.canonical_api import GatewayRuntime
 
             canonical_gateway = GatewayRuntime()

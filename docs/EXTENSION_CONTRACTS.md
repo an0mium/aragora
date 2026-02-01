@@ -77,6 +77,10 @@ ID contract:
 Session fields:
 - `session_id`, `user_id`, `device_id`, `status`, `created_at`, `last_seen`, `metadata`, `end_reason`.
 
+Canonical gateway runtime:
+- The Moltbot/OpenClaw extension now prefers the canonical gateway runtime by default.
+- Set `MOLTBOT_CANONICAL_GATEWAY=0` to disable canonical gateway wiring.
+
 ### Gateway HTTP surface (current)
 
 These are the current Local Gateway endpoints (see `aragora.gateway.server`).
