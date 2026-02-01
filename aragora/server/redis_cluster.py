@@ -35,6 +35,7 @@ Requirements:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import threading
@@ -352,7 +353,17 @@ class RedisClusterClient:
                         f"Redis operation failed (attempt {attempt + 1}/{retries + 1}): {e}. "
                         f"Retrying in {wait_time:.1f}s"
                     )
-                    time.sleep(wait_time)
+                    # Use executor to avoid blocking the event loop if called from async context
+                    try:
+                        asyncio.get_running_loop()
+                        # We're in an async context - run sleep in executor
+                        import concurrent.futures
+
+                        with concurrent.futures.ThreadPoolExecutor() as pool:
+                            pool.submit(time.sleep, wait_time).result()
+                    except RuntimeError:
+                        # No running event loop - safe to use blocking sleep
+                        time.sleep(wait_time)
 
                     # Try to reconnect on cluster errors
                     if "MOVED" in str(e) or "CLUSTERDOWN" in str(e):

@@ -81,10 +81,42 @@ class _TeamsConnectorProtocol(Protocol):
 
 
 class TeamsMessagingMixin:
-    """Mixin providing messaging operations for TeamsConnector."""
+    """Mixin providing messaging operations for TeamsConnector.
+
+    Expected from the main connector class (e.g., TeamsConnector):
+    - _check_circuit_breaker(): Check circuit breaker state
+    - _get_access_token(): Get OAuth access token
+    - _http_request(): Make HTTP request with retry/circuit breaker
+    - _record_failure(): Record failure for circuit breaker
+    """
+
+    # Stub declarations for methods expected from the main connector class.
+    # These are overridden by the actual implementations in TeamsConnector.
+    def _check_circuit_breaker(self) -> tuple[bool, str | None]:
+        """Check circuit breaker state. Overridden by TeamsConnector."""
+        return True, None
+
+    async def _get_access_token(self) -> str:
+        """Get OAuth access token. Overridden by TeamsConnector."""
+        raise NotImplementedError
+
+    async def _http_request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        operation: str = "",
+    ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]:
+        """Make HTTP request with retry/circuit breaker. Overridden by TeamsConnector."""
+        raise NotImplementedError
+
+    def _record_failure(self, error: Exception | None = None) -> None:
+        """Record failure for circuit breaker. Overridden by TeamsConnector."""
+        pass
 
     async def send_message(
-        self: _TeamsConnectorProtocol,
+        self,
         channel_id: str,
         text: str,
         blocks: list[dict[str, Any]] | None = None,
@@ -189,7 +221,7 @@ class TeamsMessagingMixin:
             )
 
     async def update_message(
-        self: _TeamsConnectorProtocol,
+        self,
         channel_id: str,
         message_id: str,
         text: str,
@@ -280,7 +312,7 @@ class TeamsMessagingMixin:
             return SendMessageResponse(success=False, error=str(e))
 
     async def delete_message(
-        self: _TeamsConnectorProtocol,
+        self,
         channel_id: str,
         message_id: str,
         service_url: str | None = None,
@@ -322,7 +354,7 @@ class TeamsMessagingMixin:
             return False
 
     async def send_typing_indicator(
-        self: _TeamsConnectorProtocol,
+        self,
         channel_id: str,
         service_url: str | None = None,
         **kwargs: Any,
@@ -366,7 +398,7 @@ class TeamsMessagingMixin:
             return False
 
     async def respond_to_command(
-        self: _TeamsConnectorProtocol,
+        self,
         command: BotCommand,
         text: str,
         blocks: list[dict[str, Any]] | None = None,
@@ -397,7 +429,7 @@ class TeamsMessagingMixin:
         )
 
     async def respond_to_interaction(
-        self: _TeamsConnectorProtocol,
+        self,
         interaction: UserInteraction,
         text: str,
         blocks: list[dict[str, Any]] | None = None,
@@ -432,7 +464,7 @@ class TeamsMessagingMixin:
         return SendMessageResponse(success=False, error="No response target available")
 
     async def _send_to_response_url(
-        self: _TeamsConnectorProtocol,
+        self,
         response_url: str,
         text: str,
         blocks: list[dict[str, Any]] | None = None,
