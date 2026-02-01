@@ -315,7 +315,11 @@ class TestHandleGitHubWebhook:
             payload={"zen": "Speak like a human."},
         )
 
-        with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": ""}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"GITHUB_WEBHOOK_SECRET": "", "ARAGORA_ENV": "test"},
+            clear=False,
+        ):
             result = await handle_github_webhook(ctx)
 
         body = json.loads(result.body.decode("utf-8"))
@@ -354,7 +358,11 @@ class TestHandleGitHubWebhook:
         """Unknown event types default to PING handler for graceful handling."""
         ctx = self.create_mock_context(event_type="unknown_event")
 
-        with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": ""}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"GITHUB_WEBHOOK_SECRET": "", "ARAGORA_ENV": "test"},
+            clear=False,
+        ):
             result = await handle_github_webhook(ctx)
 
         body = json.loads(result.body.decode("utf-8"))
@@ -376,7 +384,11 @@ class TestHandleGitHubWebhook:
         )
 
         with (
-            patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": ""}, clear=False),
+            patch.dict(
+                "os.environ",
+                {"GITHUB_WEBHOOK_SECRET": "", "ARAGORA_ENV": "test"},
+                clear=False,
+            ),
             patch(
                 "aragora.server.handlers.webhooks.github_app.queue_code_review_debate",
                 return_value="test-debate-123",
