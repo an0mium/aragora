@@ -196,7 +196,7 @@ class MixedAgentConsensus:
             vote_type: VoteType,
             confidence: float,
             delay: float = 0.0,
-        ):
+        ) -> Vote:
             await asyncio.sleep(delay)
             return self.cast_vote(agent_name, proposal, vote_type, confidence)
 
@@ -205,20 +205,28 @@ class MixedAgentConsensus:
         for agent_name, vote_type, confidence in voting_agents:
             agent = self.agents.get(agent_name, {})
             delay = agent.get("delay", 0.0)
-            tasks.append(cast_with_delay(agent_name, vote_type, confidence, delay))
+            task = asyncio.create_task(cast_with_delay(agent_name, vote_type, confidence, delay))
+            tasks.append(task)
 
-        # Collect with timeout
-        try:
-            results = await asyncio.wait_for(
-                asyncio.gather(*tasks, return_exceptions=True),
-                timeout=timeout,
-            )
-            for result in results:
+        # Wait for tasks with timeout, collecting completed ones
+        done, pending = await asyncio.wait(
+            tasks,
+            timeout=timeout,
+            return_when=asyncio.ALL_COMPLETED,
+        )
+
+        # Cancel pending tasks
+        for task in pending:
+            task.cancel()
+
+        # Collect completed votes
+        for task in done:
+            try:
+                result = task.result()
                 if isinstance(result, Vote):
                     collected_votes.append(result)
-        except asyncio.TimeoutError:
-            # Return whatever votes we collected before timeout
-            pass
+            except Exception:
+                pass
 
         return collected_votes
 

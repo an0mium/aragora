@@ -479,17 +479,40 @@ class TestSupabaseAuthValidator:
                 assert user is None
 
     def test_validate_jwt_development_fallback(self, sample_jwt_payload):
-        """Should use unsafe decode in development without PyJWT."""
+        """Should use unsafe decode in development with explicit opt-in."""
         validator = SupabaseAuthValidator(jwt_secret=None)
         token = create_unsigned_jwt(sample_jwt_payload)
 
+        # Insecure mode now requires explicit opt-in via ARAGORA_ALLOW_INSECURE_JWT
         with patch("aragora.server.middleware.user_auth.HAS_JWT", False):
-            with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "development"}):
+            with patch.dict(
+                "os.environ",
+                {"ARAGORA_ENVIRONMENT": "development", "ARAGORA_ALLOW_INSECURE_JWT": "1"},
+            ):
                 user = validator.validate_jwt(token)
 
                 assert user is not None
                 assert user.id == "user-123"
                 assert user.email == "test@example.com"
+
+    def test_validate_jwt_development_no_opt_in_rejects(self, sample_jwt_payload):
+        """Should reject tokens in development without explicit opt-in."""
+        validator = SupabaseAuthValidator(jwt_secret=None)
+        token = create_unsigned_jwt(sample_jwt_payload)
+
+        # Without ARAGORA_ALLOW_INSECURE_JWT, insecure decode should be disabled
+        with patch("aragora.server.middleware.user_auth.HAS_JWT", False):
+            with patch.dict(
+                "os.environ",
+                {"ARAGORA_ENVIRONMENT": "development"},
+                clear=False,
+            ):
+                # Ensure ARAGORA_ALLOW_INSECURE_JWT is not set
+                import os
+
+                os.environ.pop("ARAGORA_ALLOW_INSECURE_JWT", None)
+                user = validator.validate_jwt(token)
+                assert user is None  # Should reject without explicit opt-in
 
     def test_decode_jwt_unsafe_expired(self, expired_jwt_payload):
         """Unsafe decode should still check expiration."""

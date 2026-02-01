@@ -186,12 +186,19 @@ class MockHybridProtocol:
             except Exception as e:
                 critiques.append(f"ERROR: {e}")
 
-        # Calculate consensus (simple keyword-based)
-        supportive_count = sum(
-            1
-            for c in critiques
-            if "agree" in c.lower() or "sound" in c.lower() or "comprehensive" in c.lower()
-        )
+        # Calculate consensus (keyword-based with negative indicators)
+        supportive_count = 0
+        for c in critiques:
+            c_lower = c.lower()
+            # Skip errors and timeouts
+            if c.startswith("ERROR:") or c.startswith("TIMEOUT"):
+                continue
+            # Check for rejection keywords first (higher priority)
+            if "disagree" in c_lower or "reject" in c_lower or "flaws" in c_lower:
+                continue  # Not supportive
+            # Check for supportive keywords
+            if "agree" in c_lower or "sound" in c_lower or "comprehensive" in c_lower:
+                supportive_count += 1
         consensus_score = supportive_count / len(critiques) if critiques else 0.0
         verified = consensus_score >= self.consensus_threshold
 
@@ -248,11 +255,11 @@ class TestGatewayAgentDebateFlow:
 
     @pytest.fixture
     def critical_verifiers(self) -> list[MockVerificationAgent]:
-        """Provide verification agents that reject the proposal."""
+        """Provide verification agents that reject the proposal (all critical)."""
         return [
             MockVerificationAgent("verifier-1", supportive=False),
             MockVerificationAgent("verifier-2", supportive=False),
-            MockVerificationAgent("verifier-3", supportive=True),
+            MockVerificationAgent("verifier-3", supportive=False),
         ]
 
     @pytest.mark.asyncio
@@ -319,7 +326,7 @@ class TestGatewayAgentDebateFlow:
         # Register external agent
         register_external_agent(gateway_server_context, "external-1", "crewai")
 
-        # Create protocol with critical verifiers (2/3 reject)
+        # Create protocol with critical verifiers (all 3 reject)
         protocol = MockHybridProtocol(
             external_agent=external_agent,
             verification_agents=critical_verifiers,

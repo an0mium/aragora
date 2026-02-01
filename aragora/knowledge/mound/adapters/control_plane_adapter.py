@@ -535,11 +535,12 @@ class ControlPlaneAdapter:
 
         try:
             # Query for organization-wide insights
-            results = await self._knowledge_mound.query(
+            query_result = await self._knowledge_mound.query(
                 query=f"cross workspace insight {task_type}",
                 limit=limit,
                 workspace_id="__organization__",  # Query across workspaces
             )
+            results = query_result.items if hasattr(query_result, "items") else []
 
             insights = []
             for result in results:

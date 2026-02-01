@@ -61,12 +61,12 @@ try:
     DECISION_ROUTER_AVAILABLE = True
 except ImportError:
     DECISION_ROUTER_AVAILABLE = False
-    DecisionRequest = None  # type: Any
-    DecisionRouter = None  # type: Any
-    DecisionType = None  # type: Any
-    InputSource = None  # type: Any
-    ResponseChannel = None  # type: Any
-    RequestContext = None  # type: Any
+    DecisionRequest = None  # type: ignore[no-redef]
+    DecisionRouter = None  # type: ignore[no-redef]
+    DecisionType = None  # type: ignore[no-redef]
+    InputSource = None  # type: ignore[no-redef]
+    ResponseChannel = None  # type: ignore[no-redef]
+    RequestContext = None  # type: ignore[no-redef]
     get_decision_router = None
 
 logger = logging.getLogger(__name__)

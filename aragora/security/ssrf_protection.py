@@ -313,10 +313,18 @@ def validate_url(
 
     hostname_lower = hostname.lower()
 
+    # Check if localhost is allowed for testing
+    localhost_allowed = os.environ.get("ARAGORA_SSRF_ALLOW_LOCALHOST", "").lower() == "true"
+    is_localhost = hostname_lower in LOCALHOST_HOSTNAMES
+
     # Check for suspicious hostname patterns
     is_suspicious, reason = _is_hostname_suspicious(hostname)
     if is_suspicious:
         return SSRFValidationResult.unsafe(url, reason)
+
+    # Allow private IPs for localhost in test mode
+    if localhost_allowed and is_localhost:
+        allow_private_ips = True
 
     # Check domain whitelist
     if allowed_domains:

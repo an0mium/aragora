@@ -47,11 +47,11 @@ try:
 
     HAS_SCIM = True
 except ImportError:
-    SCIMConfig = None  # type: Any
-    SCIMServer = None  # type: Any
-    SCIMUser = None  # type: Any
-    SCIMGroup = None  # type: Any
-    SCIMError = None  # type: Any
+    SCIMConfig = None  # type: ignore[no-redef]
+    SCIMServer = None  # type: ignore[no-redef]
+    SCIMUser = None  # type: ignore[no-redef]
+    SCIMGroup = None  # type: ignore[no-redef]
+    SCIMError = None  # type: ignore[no-redef]
     HAS_SCIM = False
 
 # SAML requires python3-saml optional dependency
@@ -65,9 +65,9 @@ try:
     HAS_SAML = True
 except ImportError:
     # SAML unavailable - define placeholders
-    SAMLConfig = None  # type: Any
-    SAMLError = None  # type: Any
-    SAMLProvider = None  # type: Any
+    SAMLConfig = None  # type: ignore[no-redef]
+    SAMLError = None  # type: ignore[no-redef]
+    SAMLProvider = None  # type: ignore[no-redef]
     HAS_SAML = False
 
 from .sso import (

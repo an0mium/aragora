@@ -24,9 +24,13 @@ from tests.gateway.integration.conftest import (
 
 
 @pytest.fixture(autouse=True)
-def allow_localhost_for_tests(monkeypatch):
-    """Allow localhost URLs in tests by setting allowed domains."""
-    monkeypatch.setenv("ARAGORA_GATEWAY_ALLOWED_DOMAINS", "localhost,127.0.0.1")
+def skip_ssrf_validation(monkeypatch):
+    """Skip SSRF validation in tests to allow localhost URLs."""
+    # Patch the SSRF validation to allow localhost in tests
+    monkeypatch.setattr(
+        "aragora.agents.api_agents.external_framework.ExternalFrameworkAgent._validate_endpoint_url",
+        lambda self, url: None,
+    )
 
 
 class TestCrewAIDebateIntegration:

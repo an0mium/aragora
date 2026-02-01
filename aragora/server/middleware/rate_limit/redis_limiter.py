@@ -42,7 +42,7 @@ try:
 
     REDIS_AVAILABLE = True
 except ImportError:
-    redis_lib = None  # type: Any
+    redis_lib = None  # type: ignore[no-redef]
     REDIS_AVAILABLE = False
 
 # Redis rate limiter fail-open policy (SECURITY: default to fail-closed)
