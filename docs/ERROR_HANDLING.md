@@ -1,7 +1,7 @@
-# Error Handling Guide
+# Error Handling Patterns
 
 Comprehensive guide to error handling patterns in Aragora, covering the exception hierarchy,
-circuit breakers, retry strategies, fallback chains, and middleware-level error processing.
+circuit breakers, retry strategies, fallback chains, graceful degradation, and SDK error handling.
 
 ## Table of Contents
 
@@ -9,9 +9,12 @@ circuit breakers, retry strategies, fallback chains, and middleware-level error 
 - [Error Categories and HTTP Mapping](#error-categories-and-http-mapping)
 - [Circuit Breakers](#circuit-breakers)
 - [Retry Strategies](#retry-strategies)
+- [OpenRouter Fallback](#openrouter-fallback)
 - [Fallback Chains](#fallback-chains)
 - [Agent Error Handling](#agent-error-handling)
 - [Server Middleware](#server-middleware)
+- [Graceful Degradation](#graceful-degradation)
+- [SDK Error Handling](#sdk-error-handling)
 - [Custom Error Types](#custom-error-types)
 - [Best Practices](#best-practices)
 
@@ -313,6 +316,20 @@ class MyAPIAgent:
 | `AgentResponseError` | No | Response parsing failed, won't change on retry |
 | `AgentCircuitOpenError` | Yes | Wait for cooldown, then retry |
 
+### When to Retry vs Fail Fast
+
+**Retry these errors:**
+- 429 Too Many Requests (rate limit)
+- 500, 502, 503, 504 (server errors)
+- Connection timeouts
+- Network errors
+
+**Fail fast on these errors:**
+- 400 Bad Request (client error)
+- 401/403 (authentication/authorization)
+- 404 Not Found
+- Business logic errors
+
 ### Rate Limit Handling with Retry-After
 
 When a provider returns HTTP 429 with a `Retry-After` header, the system
@@ -324,6 +341,73 @@ respects the provider's requested wait time:
 # 2. Cap at max_delay
 # 3. Add 10% jitter to prevent synchronized retries
 # 4. Use as override delay instead of exponential backoff
+```
+
+---
+
+## OpenRouter Fallback
+
+Aragora automatically falls back to OpenRouter when primary providers hit quota or rate limits.
+This provides seamless failover without requiring code changes.
+
+### Automatic Fallback via Mixin
+
+The `QuotaFallbackMixin` provides automatic fallback for API agents:
+
+```python
+from aragora.agents.fallback import QuotaFallbackMixin
+
+class MyAPIAgent(APIAgent, QuotaFallbackMixin):
+    OPENROUTER_MODEL_MAP = {
+        "gpt-4o": "openai/gpt-4o",
+        "claude-3-opus": "anthropic/claude-3-opus",
+    }
+    DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+
+    async def generate(self, prompt, context):
+        try:
+            return await self._call_primary_api(prompt)
+        except RateLimitError as e:
+            if self.is_quota_error(e.status_code, str(e)):
+                result = await self.fallback_generate(prompt, context)
+                if result is not None:
+                    return result
+            raise
+```
+
+### Quota Error Detection
+
+The `is_quota_error` method detects these conditions:
+
+| HTTP Status | Condition |
+|:-----------:|-----------|
+| 429 | Rate limit (all providers) |
+| 403 | Quota exceeded (with keyword match) |
+| 400 | Billing/credit exhaustion (with keyword match) |
+| 408, 504, 524 | Timeout errors |
+
+Keywords that indicate quota/billing issues:
+- `rate limit`, `rate_limit`, `ratelimit`, `too many requests`
+- `quota`, `exceeded`, `limit exceeded`, `resource exhausted`
+- `billing`, `credit balance`, `insufficient`, `purchase credits`
+
+### Cost Implications
+
+Fallback to OpenRouter incurs additional costs:
+
+| Provider | Approximate Cost Multiplier |
+|----------|----------------------------|
+| Direct API | 1.0x (baseline) |
+| OpenRouter | 1.0x - 1.3x (varies by model) |
+| Local LLM | 0x (self-hosted) |
+
+### Enabling Fallback
+
+Fallback is opt-in by default to prevent unexpected billing:
+
+```bash
+export ARAGORA_OPENROUTER_FALLBACK_ENABLED=true
+export OPENROUTER_API_KEY=your_api_key
 ```
 
 ---
@@ -539,6 +623,286 @@ The `X-Trace-Id` header is also set in the HTTP response for correlation.
 
 ---
 
+## Graceful Degradation
+
+Graceful degradation ensures the system continues to function (perhaps with reduced
+capabilities) when some components fail.
+
+### Feature Flags
+
+Use feature flags to disable non-critical functionality during outages:
+
+```python
+from aragora.config import get_feature_flag
+
+async def process_debate(debate):
+    result = await core_debate_logic(debate)
+
+    # Optional: Add evidence collection if available
+    if get_feature_flag("evidence_collection_enabled"):
+        try:
+            result.evidence = await collect_evidence(debate)
+        except ServiceUnavailableError:
+            logger.warning("Evidence collection unavailable, continuing without")
+            result.evidence = None
+
+    return result
+```
+
+### Partial Response Handling
+
+Return partial results when some components fail:
+
+```python
+from dataclasses import dataclass, field
+from typing import Optional
+
+@dataclass
+class DebateResult:
+    verdict: str
+    confidence: float
+    agent_responses: list[str]
+    # Optional enrichments
+    evidence: Optional[list] = None
+    explanations: Optional[dict] = None
+    errors: list[str] = field(default_factory=list)
+
+async def run_enriched_debate(debate):
+    result = await run_core_debate(debate)
+
+    # Attempt enrichments with graceful degradation
+    enrichment_tasks = [
+        ("evidence", collect_evidence(debate)),
+        ("explanations", generate_explanations(debate)),
+    ]
+
+    for name, task in enrichment_tasks:
+        try:
+            setattr(result, name, await asyncio.wait_for(task, timeout=5.0))
+        except asyncio.TimeoutError:
+            result.errors.append(f"{name}: timeout")
+        except Exception as e:
+            result.errors.append(f"{name}: {e}")
+
+    return result
+```
+
+### Timeout Handling
+
+```python
+from aragora.resilience import with_timeout, asyncio_timeout
+
+# Decorator-based
+@with_timeout(30.0)  # 30 second timeout
+async def bounded_operation():
+    return await slow_service.call()
+
+# Context manager with fallback
+async def with_timeout_fallback():
+    try:
+        async with asyncio_timeout(10.0):
+            return await primary_service.call()
+    except asyncio.TimeoutError:
+        return await fallback_service.call()
+```
+
+### Cache Fallbacks
+
+Use cached data when live data is unavailable:
+
+```python
+from aragora.cache import get_cache
+
+cache = get_cache("debate_results")
+
+async def get_debate_result(debate_id: str):
+    # Try live data first
+    try:
+        result = await fetch_live_result(debate_id)
+        await cache.set(debate_id, result, ttl=3600)
+        return result
+    except ServiceUnavailableError:
+        # Fall back to cached data
+        cached = await cache.get(debate_id)
+        if cached:
+            cached.is_stale = True
+            return cached
+        raise
+```
+
+### Health-Based Routing
+
+Route requests based on service health:
+
+```python
+from aragora.resilience import HealthChecker, get_global_health_registry
+
+# Register health checkers
+primary_health = HealthChecker("primary-api")
+backup_health = HealthChecker("backup-api")
+
+async def resilient_api_call(request):
+    if primary_health.get_status().is_healthy:
+        try:
+            result = await primary_api.call(request)
+            primary_health.record_success()
+            return result
+        except Exception as e:
+            primary_health.record_failure(str(e))
+
+    if backup_health.get_status().is_healthy:
+        result = await backup_api.call(request)
+        backup_health.record_success()
+        return result
+
+    raise ServiceUnavailableError("All APIs unhealthy")
+```
+
+---
+
+## SDK Error Handling
+
+Error types and handling patterns for SDK clients.
+
+### Error Response Format
+
+All API errors return consistent JSON:
+
+```json
+{
+  "error": "Human-readable error message",
+  "code": "ERROR_CODE",
+  "details": "Additional context",
+  "suggestion": "How to fix the issue",
+  "trace_id": "abc123"
+}
+```
+
+### Error Codes Summary
+
+See [ERROR_CODES.md](ERROR_CODES.md) for complete reference. Key categories:
+
+| Category | Status | Example Codes |
+|----------|--------|---------------|
+| Authentication | 401 | `AUTH_REQUIRED`, `TOKEN_EXPIRED` |
+| Authorization | 403 | `FORBIDDEN`, `QUOTA_EXCEEDED` |
+| Validation | 400 | `VALIDATION_ERROR`, `INVALID_AGENT` |
+| Not Found | 404 | `DEBATE_NOT_FOUND`, `AGENT_NOT_FOUND` |
+| Rate Limit | 429 | `RATE_LIMITED`, `API_RATE_LIMITED` |
+| Server | 500 | `INTERNAL_ERROR`, `DATABASE_ERROR` |
+| Unavailable | 503 | `SERVICE_UNAVAILABLE`, `AGENT_UNAVAILABLE` |
+
+### Python SDK Error Handling
+
+```python
+from aragora import AragoraClient
+from aragora.exceptions import (
+    AragoraError,
+    RateLimitExceededError,
+    AuthorizationError,
+    ValidationError,
+)
+
+client = AragoraClient()
+
+try:
+    debate = await client.debates.create(task="Analyze this proposal")
+except RateLimitExceededError as e:
+    # Retry with exponential backoff
+    if hasattr(e, 'retry_after') and e.retry_after:
+        await asyncio.sleep(e.retry_after)
+        debate = await client.debates.create(task="Analyze this proposal")
+except AuthorizationError as e:
+    if "quota" in str(e).lower():
+        # Upgrade plan or wait for quota reset
+        raise UserFacingError("Monthly quota exceeded. Please upgrade your plan.")
+    raise
+except ValidationError as e:
+    # Fix input and retry
+    logger.error(f"Invalid input: {e.details}")
+    raise
+except AragoraError as e:
+    # Generic error handling
+    logger.error(f"API Error: {e.message}", extra=e.details)
+    raise
+```
+
+### TypeScript SDK Error Handling
+
+```typescript
+import { AragoraClient, AragoraError } from '@aragora/sdk';
+
+const client = new AragoraClient();
+
+try {
+  const debate = await client.debates.create({ task: '...' });
+} catch (error) {
+  if (error instanceof AragoraError) {
+    switch (error.code) {
+      case 'RATE_LIMITED':
+        await delay(error.retryAfter * 1000);
+        return retry();
+      case 'QUOTA_EXCEEDED':
+        showUpgradePrompt();
+        break;
+      case 'VALIDATION_ERROR':
+        showValidationErrors(error.details);
+        break;
+      case 'TOKEN_EXPIRED':
+        await refreshToken();
+        return retry();
+      default:
+        logError(error);
+        showGenericError();
+    }
+  }
+}
+```
+
+### SDK Best Practices
+
+1. **Always include trace_id in error reports**
+   ```python
+   except AragoraError as e:
+       logger.error(f"Error: {e.message}", trace_id=e.details.get("trace_id"))
+   ```
+
+2. **Implement exponential backoff for rate limits**
+   ```python
+   async def retry_with_backoff(func, max_retries=3):
+       for attempt in range(max_retries):
+           try:
+               return await func()
+           except RateLimitExceededError as e:
+               if attempt == max_retries - 1:
+                   raise
+               delay = getattr(e, 'retry_after', None) or (2 ** attempt + random.random())
+               await asyncio.sleep(delay)
+   ```
+
+3. **Handle partial failures gracefully**
+   ```python
+   result = await client.debates.create(task=task)
+   if hasattr(result, 'warnings') and result.warnings:
+       for warning in result.warnings:
+           logger.warning(f"Partial failure: {warning}")
+   ```
+
+4. **Cache responses where appropriate**
+   - Debate results after completion
+   - Agent rankings (refresh hourly)
+   - Static configuration
+
+5. **Use webhooks instead of polling**
+   ```python
+   await client.webhooks.create(
+       url="https://your-app.com/webhook",
+       events=["debate.completed", "debate.verdict"]
+   )
+   ```
+
+---
+
 ## Custom Error Types
 
 When creating new error types, follow these conventions:
@@ -615,3 +979,44 @@ EXCEPTION_STATUS_MAP["MyDomainError"] = 422  # Unprocessable Entity
 
 10. **Test error paths.** Use `CircuitBreaker.from_dict()` and `CircuitBreaker.to_dict()`
     to simulate and verify circuit breaker state transitions in tests.
+
+---
+
+## Prometheus Metrics
+
+The resilience patterns export Prometheus metrics automatically:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `aragora_circuit_breaker_state` | Gauge | Current circuit state (0=closed, 1=open, 2=half-open) |
+| `aragora_circuit_breaker_failures_total` | Counter | Total failure count per circuit |
+| `aragora_circuit_breaker_state_changes_total` | Counter | State transition count |
+| `aragora_retry_attempts_total` | Counter | Total retry attempts |
+| `aragora_retry_exhausted_total` | Counter | Retries that exhausted all attempts |
+| `aragora_timeout_total` | Counter | Operations that timed out |
+| `aragora_fallback_activations_total` | Counter | Fallback chain activations |
+| `aragora_fallback_success_total` | Counter | Successful fallback completions |
+| `aragora_health_status` | Gauge | Component health (0=unhealthy, 1=healthy) |
+
+### Monitoring Circuit Breaker Status
+
+```python
+from aragora.resilience import get_circuit_breaker_status, get_all_circuit_breakers_status
+
+# Single circuit status
+status = get_circuit_breaker_status("my-service")
+# {"status": "closed", "failures": 0, "half_open_successes": 0}
+
+# All circuits
+all_status = get_all_circuit_breakers_status()
+```
+
+---
+
+## Related Documentation
+
+- [API Rate Limits](API_RATE_LIMITS.md) - Rate limiting details
+- [Error Codes](ERROR_CODES.md) - Complete error code reference
+- [Resilience Patterns](RESILIENCE_PATTERNS.md) - Module overview
+- [Agent Development](AGENT_DEVELOPMENT.md) - Building resilient agents
+- [Observability](OBSERVABILITY.md) - Metrics and monitoring
