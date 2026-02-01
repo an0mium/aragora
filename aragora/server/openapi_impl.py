@@ -692,6 +692,20 @@ def _autogenerate_missing_paths(paths: dict[str, Any]) -> dict[str, Any]:
     return paths
 
 
+def _apply_stability_markers(paths: dict[str, Any]) -> dict[str, Any]:
+    from aragora.server.openapi.stability import resolve_stability
+
+    methods = {"get", "post", "put", "patch", "delete", "head", "options"}
+    for path, spec in paths.items():
+        if not isinstance(spec, dict):
+            continue
+        for method, operation in spec.items():
+            if method.lower() not in methods or not isinstance(operation, dict):
+                continue
+            operation["x-aragora-stability"] = resolve_stability(method, path, operation)
+    return paths
+
+
 def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.1 schema."""
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(ALL_ENDPOINTS))
@@ -700,6 +714,7 @@ def generate_openapi_schema() -> dict[str, Any]:
     paths = _align_legacy_paths_with_versioned(paths)
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(paths))
     paths = _ensure_path_parameters(paths)  # Auto-inject missing path parameters
+    paths = _apply_stability_markers(paths)
     return {
         "openapi": "3.1.0",
         "info": {

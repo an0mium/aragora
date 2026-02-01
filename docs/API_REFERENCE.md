@@ -57,6 +57,10 @@ The canonical spec is produced by `aragora/server/openapi` and the endpoint
 definitions under `aragora/server/openapi/endpoints/`. If you add or change endpoints, update the
 OpenAPI endpoint definitions and re-export the docs.
 
+Each OpenAPI operation includes `x-aragora-stability` to indicate whether it is
+stable, beta, experimental, internal, or deprecated. See `docs/API_STABILITY.md`
+for the promotion workflow.
+
 ## Auth Signup & SSO API
 
 Self-service signup and SSO/OIDC endpoints live under `/api/v1/auth`.

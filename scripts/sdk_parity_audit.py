@@ -297,6 +297,22 @@ def render_report(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_stability_manifest(
+    stable: set[Endpoint],
+    *,
+    criteria: str,
+) -> dict[str, object]:
+    entries = sorted(
+        (ep.normalized().display() for ep in stable),
+        key=lambda item: (item.split(" ", 1)[0], item.split(" ", 1)[1]),
+    )
+    return {
+        "generated_at": date.today().isoformat(),
+        "criteria": criteria,
+        "stable": entries,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate SDK parity report")
     parser.add_argument("--openapi", default="docs/api/openapi.json")
@@ -304,6 +320,16 @@ def main() -> None:
     parser.add_argument("--py-sdk", default="sdk/python/aragora/namespaces")
     parser.add_argument("--ts-client", default="aragora-js/src")
     parser.add_argument("--output", help="Write report to file")
+    parser.add_argument(
+        "--stable-out",
+        help="Write a stability manifest (OpenAPI endpoints covered by SDKs) to file",
+    )
+    parser.add_argument(
+        "--stable-require",
+        choices=("both", "either", "ts", "py"),
+        default="both",
+        help="SDK coverage requirement for stable endpoints (default: both)",
+    )
     args = parser.parse_args()
 
     openapi_path = Path(args.openapi)
@@ -323,6 +349,23 @@ def main() -> None:
         print(f"Wrote {args.output}")
     else:
         print(report)
+
+    if args.stable_out:
+        if args.stable_require == "both":
+            stable = openapi & ts_sdk & py_sdk
+            criteria = "OpenAPI endpoints covered by both TypeScript and Python SDKs"
+        elif args.stable_require == "either":
+            stable = openapi & (ts_sdk | py_sdk)
+            criteria = "OpenAPI endpoints covered by either TypeScript or Python SDK"
+        elif args.stable_require == "ts":
+            stable = openapi & ts_sdk
+            criteria = "OpenAPI endpoints covered by TypeScript SDK"
+        else:
+            stable = openapi & py_sdk
+            criteria = "OpenAPI endpoints covered by Python SDK"
+        manifest = render_stability_manifest(stable, criteria=criteria)
+        Path(args.stable_out).write_text(json.dumps(manifest, indent=2))
+        print(f"Wrote {args.stable_out}")
 
 
 if __name__ == "__main__":
