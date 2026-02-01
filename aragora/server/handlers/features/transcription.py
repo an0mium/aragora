@@ -582,7 +582,8 @@ class TranscriptionHandler(BaseHandler):
                 ),
             )
 
-        for part in body_parts:
+        for part_raw in body_parts:
+            part: bytes = part_raw
             if b"Content-Disposition" not in part:
                 continue
 

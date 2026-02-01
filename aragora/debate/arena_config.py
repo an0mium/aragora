@@ -1204,7 +1204,7 @@ class DebateConfig:
         protocol.convergence_threshold = self.convergence_threshold
         protocol.divergence_threshold = self.divergence_threshold
         protocol.timeout_seconds = self.timeout_seconds
-        protocol.judge_selection = self.judge_selection
+        protocol.judge_selection = self.judge_selection  # type: ignore[assignment]
         return protocol
 
 

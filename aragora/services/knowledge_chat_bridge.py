@@ -364,7 +364,7 @@ class KnowledgeChatBridge:
                 "consensus",
                 "entity",
             }
-            actual_node_type: NodeType = node_type if node_type in valid_node_types else "memory"
+            actual_node_type: NodeType = node_type if node_type in valid_node_types else "memory"  # type: ignore[assignment]
 
             node = KnowledgeNode(
                 content=content[:5000],  # Limit content size

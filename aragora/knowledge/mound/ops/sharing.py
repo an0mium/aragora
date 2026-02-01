@@ -44,6 +44,10 @@ class SharingProtocol(Protocol):
         self, node_id: str, workspace_id: str | None = None
     ) -> Optional["KnowledgeItem"]: ...
 
+    async def get_share_grants(
+        self, item_id: str | None = None, workspace_id: str | None = None
+    ) -> list[Any]: ...
+
 
 class KnowledgeSharingMixin:
     """Mixin providing cross-workspace sharing for KnowledgeMound."""
