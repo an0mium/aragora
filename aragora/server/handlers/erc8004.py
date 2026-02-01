@@ -128,7 +128,7 @@ async def handle_blockchain_config() -> HandlerResult:
 )
 @require_permission("blockchain:read")
 @with_timeout(15.0)
-async def handle_get_agent(token_id: int) -> dict[str, Any]:
+async def handle_get_agent(token_id: int) -> HandlerResult:
     """Get agent identity by token ID."""
     try:
         from aragora.blockchain.contracts.identity import IdentityRegistryContract
@@ -176,7 +176,7 @@ async def handle_get_reputation(
     token_id: int,
     tag1: str = "",
     tag2: str = "",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """Get reputation summary for an agent."""
     try:
         from aragora.blockchain.contracts.reputation import ReputationRegistryContract
@@ -220,7 +220,7 @@ async def handle_get_reputation(
 async def handle_get_validations(
     token_id: int,
     tag: str = "",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """Get validation summary for an agent."""
     try:
         from aragora.blockchain.contracts.validation import ValidationRegistryContract
@@ -262,7 +262,7 @@ async def handle_blockchain_sync(
     sync_reputation: bool = True,
     sync_validations: bool = True,
     agent_ids: Optional[list[int]] = None,
-) -> dict[str, Any]:
+) -> HandlerResult:
     """Trigger manual blockchain sync to Knowledge Mound."""
     try:
         adapter = _get_adapter()
@@ -300,7 +300,7 @@ async def handle_blockchain_sync(
     },
 )
 @require_permission("blockchain:read")
-async def handle_blockchain_health() -> dict[str, Any]:
+async def handle_blockchain_health() -> HandlerResult:
     """Get blockchain connector health status."""
     try:
         connector = _get_connector()
@@ -398,10 +398,10 @@ class ERC8004Handler(BaseHandler):
 
         if path == "/api/v1/blockchain/agents":
             if method == "GET":
-                return error_response("Agent listing not implemented", status_code=501)
+                return error_response("Agent listing not implemented", status=501)
             if method == "POST":
-                return error_response("Agent registration not implemented", status_code=501)
-            return error_response(f"Method {method} not allowed", status_code=405)
+                return error_response("Agent registration not implemented", status=501)
+            return error_response(f"Method {method} not allowed", status=405)
 
         if path.startswith("/api/v1/blockchain/agents/"):
             suffix = path[len("/api/v1/blockchain/agents/") :]

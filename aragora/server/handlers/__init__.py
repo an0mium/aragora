@@ -39,6 +39,32 @@ from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
 from . import utils as utils  # Expose utils submodule for tests (redundant alias for ruff)
 
+# Handler mixins (extracted to separate module)
+from .mixins import (
+    PaginatedHandlerMixin,
+    CachedHandlerMixin,
+    AuthenticatedHandlerMixin,
+)
+
+# API decorators (extracted to separate module)
+from .api_decorators import (
+    api_endpoint,
+    rate_limit,
+    validate_body,
+    require_quota,
+)
+
+# Typed handler base classes (extracted to separate module)
+from .typed_handlers import (
+    TypedHandler,
+    AuthenticatedHandler as TypedAuthenticatedHandler,
+    PermissionHandler,
+    AdminHandler as TypedAdminHandler,
+    AsyncTypedHandler,
+    ResourceHandler,
+    MaybeAsyncHandlerResult,
+)
+
 # Handler interfaces for type checking and contract definition
 from .interface import (
     HandlerInterface,
@@ -709,6 +735,23 @@ __all__ = [
     "BaseHandler",
     "json_response",
     "error_response",
+    # Handler mixins (from mixins.py)
+    "PaginatedHandlerMixin",
+    "CachedHandlerMixin",
+    "AuthenticatedHandlerMixin",
+    # API decorators (from api_decorators.py)
+    "api_endpoint",
+    "rate_limit",
+    "validate_body",
+    "require_quota",
+    # Typed handler base classes (from typed_handlers.py)
+    "TypedHandler",
+    "TypedAuthenticatedHandler",
+    "PermissionHandler",
+    "TypedAdminHandler",
+    "AsyncTypedHandler",
+    "ResourceHandler",
+    "MaybeAsyncHandlerResult",
     # Handler interfaces (from interface.py)
     "HandlerInterface",
     "AuthenticatedHandlerInterface",

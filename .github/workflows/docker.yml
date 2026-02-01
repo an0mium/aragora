@@ -33,6 +33,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
 
     steps:
       - name: Checkout
@@ -78,11 +79,29 @@ jobs:
           docker build -f deploy/Dockerfile.backend -t test-backend:latest .
           docker run --rm test-backend:latest python -c "import aragora; print('Aragora imported successfully')"
 
+      - name: Run Trivy vulnerability scanner (backend)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'test-backend:latest'
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-backend-results.sarif'
+          category: 'trivy-backend'
+
   build-frontend:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      security-events: write
 
     steps:
       - name: Checkout
@@ -122,6 +141,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+
+      - name: Build frontend for scanning
+        run: |
+          docker build -f deploy/Dockerfile.frontend -t test-frontend:latest .
+
+      - name: Run Trivy vulnerability scanner (frontend)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'test-frontend:latest'
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-frontend-results.sarif'
+          category: 'trivy-frontend'
 
   integration-test:
     needs: [build-backend, build-frontend]

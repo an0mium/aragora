@@ -4,8 +4,13 @@ Base handler utilities for modular endpoint handlers.
 Provides common response formatting, error handling, and utilities
 shared across all endpoint modules.
 
-Note: Some utilities have been extracted to handlers/utils/ for better
-organization. They are re-exported here for backwards compatibility.
+Note: Many utilities have been extracted to submodules for better organization.
+They are re-exported here for backwards compatibility:
+- mixins.py: PaginatedHandlerMixin, CachedHandlerMixin, AuthenticatedHandlerMixin
+- api_decorators.py: api_endpoint, rate_limit, validate_body, require_quota
+- typed_handlers.py: TypedHandler, AuthenticatedHandler, PermissionHandler, etc.
+- utils/responses.py: HandlerResult, json_response, error_response
+- utils/decorators.py: handle_errors, require_auth, require_permission, etc.
 
 Authentication Requirements
 ---------------------------
@@ -37,17 +42,15 @@ Rate limiting is applied via the @rate_limit decorator from utils.rate_limit.
 
 from __future__ import annotations
 
-import inspect
 import json
 import logging
 import os
 import re
-from functools import wraps
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict
 
-from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
+from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.protocols import AgentRating, HTTPRequestHandler
 
 if TYPE_CHECKING:
@@ -146,8 +149,14 @@ class ServerContext(TypedDict, total=False):
     query: dict[str, str]  # Query string parameters
 
 
-# Import from extracted utility modules (re-exported for backwards compatibility)
+# =============================================================================
+# Imports from extracted modules (re-exported for backward compatibility)
+# =============================================================================
+
+# Error handling
 from aragora.server.errors import safe_error_message
+
+# Cache utilities
 from aragora.server.handlers.admin.cache import (
     CACHE_INVALIDATION_MAP,
     BoundedTTLCache,
@@ -155,7 +164,6 @@ from aragora.server.handlers.admin.cache import (
     async_ttl_cache,
     clear_cache,
     get_cache_stats,
-    get_handler_cache,
     invalidate_agent_cache,
     invalidate_cache,
     invalidate_debate_cache,
@@ -163,11 +171,17 @@ from aragora.server.handlers.admin.cache import (
     invalidate_on_event,
     ttl_cache,
 )
+
+# Database utilities
 from aragora.server.handlers.utils.database import (
     get_db_connection,
     table_exists,
 )
+
+# RBAC decorators
 from aragora.rbac.decorators import require_permission
+
+# Handler decorators
 from aragora.server.handlers.utils.decorators import (
     PERMISSION_MATRIX,
     auto_error_response,
@@ -184,6 +198,8 @@ from aragora.server.handlers.utils.decorators import (
     validate_params,
     with_error_recovery,
 )
+
+# Parameter extraction
 from aragora.server.handlers.utils.params import (
     get_bool_param,
     get_bounded_float_param,
@@ -194,15 +210,21 @@ from aragora.server.handlers.utils.params import (
     get_string_param,
     parse_query_params,
 )
+
+# Routing utilities
 from aragora.server.handlers.utils.routing import (
     PathMatcher,
     RouteDispatcher,
 )
+
+# Safe data access
 from aragora.server.handlers.utils.safe_data import (
     safe_get,
     safe_get_nested,
     safe_json_parse,
 )
+
+# Validation
 from aragora.server.validation import (
     SAFE_AGENT_PATTERN,
     SAFE_ID_PATTERN,
@@ -213,8 +235,48 @@ from aragora.server.validation import (
     validate_string,
 )
 
-# Rate limiting is available from aragora.server.middleware.rate_limit
-# or aragora.server.rate_limit for backward compatibility
+# Response builders
+from aragora.server.handlers.utils.responses import (
+    HandlerResult,
+    error_response,
+    json_response,
+    success_response,
+)
+
+# API decorators (from new module)
+from aragora.server.handlers.api_decorators import (
+    api_endpoint,
+    rate_limit,
+    require_quota,
+    validate_body,
+)
+
+# Handler mixins (from new module)
+from aragora.server.handlers.mixins import (
+    AuthenticatedHandlerMixin,
+    CachedHandlerMixin,
+    PaginatedHandlerMixin,
+)
+
+# Typed handler classes (from new module)
+from aragora.server.handlers.typed_handlers import (
+    AdminHandler,
+    AsyncTypedHandler,
+    AuthenticatedHandler,
+    MaybeAsyncHandlerResult,
+    PermissionHandler,
+    ResourceHandler,
+    TypedHandler,
+)
+
+# =============================================================================
+# Module-level exports
+# =============================================================================
+
+logger = logging.getLogger(__name__)
+
+# Default host from environment (used when Host header is missing)
+_DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
 
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
 __all__ = [
@@ -286,7 +348,7 @@ __all__ = [
     "CachedHandlerMixin",
     "AuthenticatedHandlerMixin",
     "BaseHandler",
-    # Typed handler base classes (new)
+    # Typed handler base classes
     "TypedHandler",
     "AuthenticatedHandler",
     "PermissionHandler",
@@ -297,14 +359,18 @@ __all__ = [
     "ServerContext",
     # Response type alias
     "MaybeAsyncHandlerResult",
-    # Note: validate_json_content_type and read_json_body_validated are BaseHandler methods
 ]
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
 
 
 def feature_unavailable_response(
     feature_id: str,
     message: str | None = None,
-) -> "HandlerResult":
+) -> HandlerResult:
     """
     Create a standardized response for unavailable features.
 
@@ -328,24 +394,6 @@ def feature_unavailable_response(
     )
 
     return _feature_unavailable(feature_id, message)
-
-
-logger = logging.getLogger(__name__)
-
-# =============================================================================
-# Database Connection Helper (imported from utils/database.py)
-# =============================================================================
-# get_db_connection and table_exists are now in aragora.server.handlers.utils.database
-# and re-exported above for backwards compatibility
-
-# =============================================================================
-# Dict Access Helpers (imported from utils/safe_data.py)
-# =============================================================================
-# safe_get, safe_get_nested, safe_json_parse are now in
-# aragora.server.handlers.utils.safe_data and re-exported above
-
-# Default host from environment (used when Host header is missing)
-_DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
 
 
 def get_host_header(handler: HTTPRequestHandler | None, default: str | None = None) -> str:
@@ -454,25 +502,6 @@ def agent_to_dict(
     return result
 
 
-# =============================================================================
-# Response Builders (imported from utils/responses.py)
-# =============================================================================
-# Core response utilities are now in aragora.server.handlers.utils.responses
-# and re-exported here for backwards compatibility
-
-from aragora.server.handlers.utils.responses import (
-    HandlerResult,
-    error_response,
-    json_response,
-    success_response,
-)
-
-# Type alias for handlers that may be sync or async.
-# This allows child classes to override with async methods while maintaining
-# type safety. The registry dynamically awaits coroutines at runtime.
-MaybeAsyncHandlerResult: TypeAlias = HandlerResult | None | Awaitable[HandlerResult | None]
-
-
 def safe_error_response(
     exception: Exception,
     context: str,
@@ -519,466 +548,9 @@ def safe_error_response(
     return json_response(error_dict, status=status)
 
 
-# Note: Exception handling, tracing, decorators, and RBAC are all imported from
-# utils/decorators.py. See that module for: generate_trace_id, map_exception_to_status,
-# validate_params, handle_errors, auto_error_response, log_request, PERMISSION_MATRIX,
-# has_permission, require_permission, require_user_auth, require_auth, require_storage,
-# require_feature, safe_fetch, with_error_recovery
-
-
-def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """
-    Decorator that enforces organization debate quota limits.
-
-    Checks if the user's organization has remaining debate quota before allowing
-    the operation. If at limit, returns 429 with upgrade information.
-    On successful operation, increments the organization's usage counter.
-
-    This decorator requires authentication - use after @require_user_auth or
-    with handlers that already have user context.
-
-    Args:
-        debate_count: Number of debates this operation will create (default: 1).
-                     For batch operations, pass the batch size.
-
-    Returns:
-        Decorator that enforces quota and increments usage on success.
-
-    Usage:
-        @require_quota()
-        def _create_debate(self, handler, user: UserAuthContext) -> HandlerResult:
-            # User's org quota is verified before this runs
-            ...
-
-        @require_quota(debate_count=10)
-        def _submit_batch(self, handler, user: UserAuthContext, batch_size: int) -> HandlerResult:
-            # Checks if org has capacity for 10 debates
-            ...
-    """
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            from aragora.billing.jwt_auth import extract_user_from_request
-
-            # Extract handler from kwargs or args
-            handler = kwargs.get("handler")
-            if handler is None and args:
-                for arg in args:
-                    if hasattr(arg, "headers"):
-                        handler = arg
-                        break
-
-            # Get user context - may already be in kwargs from @require_user_auth
-            user_ctx = kwargs.get("user")
-
-            if user_ctx is None:
-                # Authenticate if not already done
-                if handler is None:
-                    logger.warning("require_quota: No handler provided")
-                    return error_response("Authentication required", 401)
-
-                user_store = None
-                if hasattr(handler, "user_store"):
-                    user_store = handler.user_store
-                elif hasattr(handler.__class__, "user_store"):
-                    user_store = handler.__class__.user_store
-
-                user_ctx = extract_user_from_request(handler, user_store)
-
-                if not user_ctx.is_authenticated:
-                    error_msg = user_ctx.error_reason or "Authentication required"
-                    return error_response(error_msg, 401)
-
-                kwargs["user"] = user_ctx
-
-            # Check organization quota
-            if user_ctx.org_id:
-                try:
-                    # Get organization from user store
-                    user_store = None
-                    if handler and hasattr(handler, "user_store"):
-                        user_store = handler.user_store
-                    elif handler and hasattr(handler.__class__, "user_store"):
-                        user_store = handler.__class__.user_store
-
-                    if user_store and hasattr(user_store, "get_organization_by_id"):
-                        org = user_store.get_organization_by_id(user_ctx.org_id)
-                        if org:
-                            # Check if at limit
-                            if org.is_at_limit:
-                                logger.info(
-                                    f"Quota exceeded for org {user_ctx.org_id}: "
-                                    f"{org.debates_used_this_month}/{org.limits.debates_per_month}"
-                                )
-                                return json_response(
-                                    {
-                                        "error": "Monthly debate quota exceeded",
-                                        "code": "quota_exceeded",
-                                        "limit": org.limits.debates_per_month,
-                                        "used": org.debates_used_this_month,
-                                        "remaining": 0,
-                                        "tier": org.tier.value,
-                                        "upgrade_url": "/pricing",
-                                        "message": f"Your {org.tier.value} plan allows {org.limits.debates_per_month} debates per month. Upgrade to increase your limit.",
-                                    },
-                                    status=429,
-                                )
-
-                            # Check if this operation would exceed quota
-                            if (
-                                org.debates_used_this_month + debate_count
-                                > org.limits.debates_per_month
-                            ):
-                                remaining = (
-                                    org.limits.debates_per_month - org.debates_used_this_month
-                                )
-                                logger.info(
-                                    f"Quota insufficient for org {user_ctx.org_id}: "
-                                    f"requested {debate_count}, remaining {remaining}"
-                                )
-                                return json_response(
-                                    {
-                                        "error": f"Insufficient quota: requested {debate_count} debates but only {remaining} remaining",
-                                        "code": "quota_insufficient",
-                                        "limit": org.limits.debates_per_month,
-                                        "used": org.debates_used_this_month,
-                                        "remaining": remaining,
-                                        "requested": debate_count,
-                                        "tier": org.tier.value,
-                                        "upgrade_url": "/pricing",
-                                    },
-                                    status=429,
-                                )
-
-                except Exception as e:
-                    # Log but don't block on quota check failure
-                    logger.warning(f"Quota check failed for org {user_ctx.org_id}: {e}")
-
-            # Execute the handler
-            result = func(*args, **kwargs)
-
-            # Increment usage on success (status < 400)
-            if user_ctx.org_id:
-                status_code = getattr(result, "status_code", 200) if result else 200
-                if status_code < 400:
-                    try:
-                        user_store = None
-                        if handler and hasattr(handler, "user_store"):
-                            user_store = handler.user_store
-                        elif handler and hasattr(handler.__class__, "user_store"):
-                            user_store = handler.__class__.user_store
-
-                        if user_store and hasattr(user_store, "increment_usage"):
-                            user_store.increment_usage(user_ctx.org_id, debate_count)
-                            logger.debug(
-                                f"Incremented usage for org {user_ctx.org_id} by {debate_count}"
-                            )
-                    except Exception as e:
-                        logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {e}")
-
-            return result
-
-        return wrapper
-
-    return decorator
-
-
-def api_endpoint(
-    *,
-    method: str,
-    path: str,
-    summary: str = "",
-    description: str = "",
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Attach API metadata to a handler method."""
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        setattr(
-            func,
-            "_api_metadata",
-            {
-                "method": method,
-                "path": path,
-                "summary": summary,
-                "description": description,
-            },
-        )
-        return func
-
-    return decorator
-
-
-def rate_limit(*args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Async-friendly wrapper around middleware rate limiting."""
-    from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
-
-    decorator = _rate_limit(*args, **kwargs)
-
-    def wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
-        decorated: Callable[..., Any] = decorator(func)
-        if inspect.iscoroutinefunction(func):
-
-            @wraps(func)
-            async def async_wrapper(*wrapper_args: Any, **wrapper_kwargs: Any) -> Any:
-                result = decorated(*wrapper_args, **wrapper_kwargs)
-                if inspect.isawaitable(result):
-                    return await result
-                return result
-
-            return async_wrapper
-        return decorated
-
-    return wrapper
-
-
-def validate_body(required_fields: list[str]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Validate JSON request body has required fields for async handlers."""
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        if inspect.iscoroutinefunction(func):
-
-            @wraps(func)
-            async def async_wrapper(self: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
-                try:
-                    body = await request.json()
-                except (json.JSONDecodeError, ValueError, TypeError) as e:
-                    logger.debug(f"JSON parse error in request body: {e}")
-                    if hasattr(self, "error_response"):
-                        return self.error_response("Invalid JSON body", status=400)
-                    return error_response("Invalid JSON body", status=400)
-
-                missing = [field for field in required_fields if field not in body]
-                if missing:
-                    message = f"Missing required fields: {', '.join(missing)}"
-                    if hasattr(self, "error_response"):
-                        return self.error_response(message, status=400)
-                    return error_response(message, status=400)
-
-                return await func(self, request, *args, **kwargs)
-
-            return async_wrapper
-
-        @wraps(func)
-        def sync_wrapper(self: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
-            try:
-                body = request.json() if callable(getattr(request, "json", None)) else None
-            except (json.JSONDecodeError, ValueError, TypeError) as e:
-                logger.debug(f"JSON parse error in request body: {e}")
-                if hasattr(self, "error_response"):
-                    return self.error_response("Invalid JSON body", status=400)
-                return error_response("Invalid JSON body", status=400)
-
-            missing = [field for field in required_fields if field not in (body or {})]
-            if missing:
-                message = f"Missing required fields: {', '.join(missing)}"
-                if hasattr(self, "error_response"):
-                    return self.error_response(message, status=400)
-                return error_response(message, status=400)
-
-            return func(self, request, *args, **kwargs)
-
-        return sync_wrapper
-
-    return decorator
-
-
 # =============================================================================
-# Handler Mixins
+# BaseHandler Class
 # =============================================================================
-# These mixins provide reusable patterns for common handler operations.
-# Handlers can inherit from these in addition to BaseHandler to get
-# standardized implementations of common operations.
-
-
-class PaginatedHandlerMixin:
-    """Mixin for standardized pagination handling.
-
-    Provides consistent limit/offset extraction with validation and defaults.
-
-    Usage:
-        class MyHandler(BaseHandler, PaginatedHandlerMixin):
-            def handle(self, path, query_params, handler):
-                limit, offset = self.get_pagination(query_params)
-                results = self.get_data(limit=limit, offset=offset)
-                return self.paginated_response(results, total=100, limit=limit, offset=offset)
-    """
-
-    DEFAULT_LIMIT = 20
-    MAX_LIMIT = 100
-    DEFAULT_OFFSET = 0
-
-    def get_pagination(
-        self,
-        query_params: dict[str, Any],
-        default_limit: int | None = None,
-        max_limit: int | None = None,
-    ) -> tuple[int, int]:
-        """Extract and validate pagination parameters.
-
-        Args:
-            query_params: Query parameters dict
-            default_limit: Override default limit (default: DEFAULT_LIMIT)
-            max_limit: Override max limit (default: MAX_LIMIT)
-
-        Returns:
-            Tuple of (limit, offset) with validated bounds
-        """
-        default_limit = default_limit or self.DEFAULT_LIMIT
-        max_limit = max_limit or self.MAX_LIMIT
-
-        limit = get_int_param(query_params, "limit", default_limit)
-        offset = get_int_param(query_params, "offset", self.DEFAULT_OFFSET)
-
-        # Clamp values
-        limit = max(1, min(limit, max_limit))
-        offset = max(0, offset)
-
-        return limit, offset
-
-    def paginated_response(
-        self,
-        items: list[Any],
-        total: int,
-        limit: int,
-        offset: int,
-        items_key: str = "items",
-    ) -> "HandlerResult":
-        """Create a standardized paginated response.
-
-        Args:
-            items: List of items for this page
-            total: Total count of all items
-            limit: Page size used
-            offset: Starting offset
-            items_key: Key name for items in response (default: "items")
-
-        Returns:
-            JSON response with pagination metadata
-        """
-        return json_response(
-            {
-                items_key: items,
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-                "has_more": offset + len(items) < total,
-            }
-        )
-
-
-class CachedHandlerMixin:
-    """Mixin for cached response generation.
-
-    Provides a simple interface for caching handler responses with TTL.
-
-    Usage:
-        class MyHandler(BaseHandler, CachedHandlerMixin):
-            def _get_data(self, key: str):
-                return self.cached_response(
-                    cache_key=f"mydata:{key}",
-                    ttl_seconds=300,
-                    generator=lambda: expensive_computation(key),
-                )
-    """
-
-    def cached_response(
-        self,
-        cache_key: str,
-        ttl_seconds: float,
-        generator: Callable[[], Any],
-    ) -> Any:
-        """Get or generate a cached response.
-
-        Args:
-            cache_key: Unique key for this cached item
-            ttl_seconds: How long to cache the result
-            generator: Callable that generates the value if not cached
-
-        Returns:
-            Cached or freshly generated value
-        """
-        cache = get_handler_cache()
-        hit, cached_value = cache.get(cache_key, ttl_seconds)
-
-        if hit:
-            return cached_value
-
-        value = generator()
-        cache.set(cache_key, value)
-        return value
-
-    async def async_cached_response(
-        self,
-        cache_key: str,
-        ttl_seconds: float,
-        generator: Callable[[], Any],
-    ) -> Any:
-        """Async version of cached_response.
-
-        Args:
-            cache_key: Unique key for this cached item
-            ttl_seconds: How long to cache the result
-            generator: Async callable that generates the value if not cached
-
-        Returns:
-            Cached or freshly generated value
-        """
-        cache = get_handler_cache()
-        hit, cached_value = cache.get(cache_key, ttl_seconds)
-
-        if hit:
-            return cached_value
-
-        value = await generator()
-        cache.set(cache_key, value)
-        return value
-
-
-class AuthenticatedHandlerMixin:
-    """Mixin for requiring authenticated access.
-
-    Provides standardized authentication extraction and error handling.
-
-    Usage:
-        class MyHandler(BaseHandler, AuthenticatedHandlerMixin):
-            def handle_post(self, path, query_params, handler):
-                user = self.require_auth(handler)
-                if isinstance(user, tuple):  # Error response
-                    return user
-                # user is now the authenticated context
-                return json_response({"user_id": user.user_id})
-    """
-
-    def require_auth(self, handler: Any) -> Any:
-        """Require authentication and return user context or error.
-
-        Args:
-            handler: HTTP request handler with headers
-
-        Returns:
-            UserAuthContext if authenticated,
-            or HandlerResult with 401 error if not
-        """
-        # This method is typically overridden or uses BaseHandler's method
-        # When used with BaseHandler, call require_auth_or_error instead
-        if hasattr(self, "require_auth_or_error"):
-            user, err = self.require_auth_or_error(handler)
-            if err:
-                return err
-            return user
-
-        # Fallback implementation
-        from aragora.billing.jwt_auth import extract_user_from_request
-
-        user_store = getattr(self, "ctx", {}).get("user_store")
-        if hasattr(self.__class__, "user_store"):
-            user_store = self.__class__.user_store
-
-        user_ctx = extract_user_from_request(handler, user_store)
-        if not user_ctx.is_authenticated:
-            return error_response("Authentication required", 401)
-        return user_ctx
 
 
 class BaseHandler:
@@ -1282,7 +854,7 @@ class BaseHandler:
 
     def require_auth_or_error(
         self, handler: HTTPRequestHandler
-    ) -> tuple[UserAuthContext | None, Optional["HandlerResult"]]:
+    ) -> tuple[UserAuthContext | None, Optional[HandlerResult]]:
         """Require authentication and return user or error response.
 
         Alternative to @require_user_auth decorator for cases where you need
@@ -1310,7 +882,7 @@ class BaseHandler:
 
     def require_admin_or_error(
         self, handler: HTTPRequestHandler
-    ) -> tuple[UserAuthContext | None, Optional["HandlerResult"]]:
+    ) -> tuple[UserAuthContext | None, Optional[HandlerResult]]:
         """Require admin authentication and return user or error response.
 
         Checks that the user is authenticated and has admin privileges
@@ -1348,7 +920,7 @@ class BaseHandler:
 
     def require_permission_or_error(
         self, handler: HTTPRequestHandler, permission: str
-    ) -> tuple[UserAuthContext, None] | tuple[None, "HandlerResult"]:
+    ) -> tuple[UserAuthContext, None] | tuple[None, HandlerResult]:
         """Require authentication and specific permission.
 
         Checks that the user is authenticated and has the required permission.
@@ -1590,576 +1162,3 @@ class BaseHandler:
             HandlerResult if handled, None if not handled by this handler
         """
         return None
-
-
-# =============================================================================
-# Typed Handler Base Classes
-# =============================================================================
-# These classes provide proper type annotations and enforce consistent signatures
-# across all handlers. They are designed for better IDE support, static analysis,
-# and dependency injection for testing.
-
-
-class TypedHandler(BaseHandler):
-    """
-    Typed base handler with explicit type annotations for all methods.
-
-    This class extends BaseHandler with:
-    - Explicit HTTPRequestHandler type for handler parameters
-    - Generic type support for response types
-    - Better IDE autocomplete and type checking
-    - Consistent method signatures across all handlers
-
-    Usage:
-        class MyHandler(TypedHandler):
-            def handle(
-                self, path: str, query_params: QueryParams, handler: HTTPRequestHandler
-            ) -> HandlerResult | None:
-                # IDE knows handler.headers, handler.path, etc.
-                return self.json_response({"status": "ok"})
-
-    Note: This is a drop-in replacement for BaseHandler that adds type safety.
-    Existing handlers can be gradually migrated to use TypedHandler.
-    """
-
-    # Class-level dependency injection points for testing
-    # These can be overridden in test fixtures
-    _user_store_factory: Callable[[], Any] | None = None
-    _storage_factory: Callable[[], Any] | None = None
-
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """
-        Handle a GET request with proper typing.
-
-        Args:
-            path: The request path (e.g., "/api/v1/debates/123")
-            query_params: Parsed query parameters as dict
-            handler: HTTP request handler with typed access to headers, path, etc.
-
-        Returns:
-            HandlerResult if handled, None if not handled by this handler
-        """
-        return None
-
-    def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Handle a POST request with proper typing."""
-        return None
-
-    def handle_delete(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Handle a DELETE request with proper typing."""
-        return None
-
-    def handle_patch(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Handle a PATCH request with proper typing."""
-        return None
-
-    def handle_put(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Handle a PUT request with proper typing."""
-        return None
-
-    # Type-safe dependency access
-
-    def get_user_store(self) -> Optional["UserStore"]:
-        """Get user store instance with type safety.
-
-        Returns:
-            UserStore instance if available, None otherwise
-        """
-        if self._user_store_factory:
-            return self._user_store_factory()
-        return self.ctx.get("user_store")
-
-    @classmethod
-    def with_dependencies(
-        cls,
-        server_context: ServerContext,
-        user_store: Optional["UserStore"] = None,
-        storage: Optional["DebateStorage"] = None,
-    ) -> "TypedHandler":
-        """
-        Factory method for creating handlers with injected dependencies.
-
-        This is primarily useful for testing, allowing mock dependencies
-        to be injected without modifying the server context.
-
-        Args:
-            server_context: Server context dict
-            user_store: Optional user store to inject
-            storage: Optional debate storage to inject
-
-        Returns:
-            Handler instance with injected dependencies
-
-        Example:
-            # In tests:
-            mock_store = Mock(spec=UserStore)
-            handler = MyHandler.with_dependencies(ctx, user_store=mock_store)
-            result = handler.handle("/api/test", {}, mock_request)
-        """
-        instance = cls(server_context)
-        if user_store:
-            instance._user_store_factory = lambda: user_store
-        if storage:
-            instance._storage_factory = lambda: storage
-        return instance
-
-
-class AuthenticatedHandler(TypedHandler):
-    """
-    Handler base class that requires authentication for all endpoints.
-
-    All handler methods automatically verify authentication before
-    proceeding. Use this for handlers where every endpoint requires
-    a logged-in user.
-
-    The authenticated user context is available via self.current_user
-    after calling _ensure_authenticated().
-
-    Usage:
-        class UserSettingsHandler(AuthenticatedHandler):
-            def handle(self, path, query_params, handler):
-                user, err = self._ensure_authenticated(handler)
-                if err:
-                    return err
-                # user is guaranteed to be authenticated here
-                return self.json_response({"user_id": user.user_id})
-    """
-
-    _current_user: UserAuthContext | None = None
-
-    @property
-    def current_user(self) -> UserAuthContext | None:
-        """Get the current authenticated user context.
-
-        Returns None if _ensure_authenticated() hasn't been called yet
-        or if authentication failed.
-        """
-        return self._current_user
-
-    def _ensure_authenticated(
-        self, handler: HTTPRequestHandler
-    ) -> tuple[UserAuthContext, None] | tuple[None, HandlerResult]:
-        """
-        Ensure the request is authenticated.
-
-        This method verifies authentication and caches the result in
-        self._current_user for subsequent access.
-
-        Args:
-            handler: HTTP request handler
-
-        Returns:
-            Tuple of (UserAuthContext, None) if authenticated,
-            or (None, error_response) if not authenticated
-
-        Example:
-            def handle(self, path, query_params, handler):
-                user, err = self._ensure_authenticated(handler)
-                if err:
-                    return err
-                # Use user.user_id, user.email, etc.
-        """
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            self._current_user = None
-            return None, err
-        self._current_user = user
-        return user, None
-
-    def _ensure_admin(
-        self, handler: HTTPRequestHandler
-    ) -> tuple[UserAuthContext, None] | tuple[None, HandlerResult]:
-        """
-        Ensure the request is authenticated with admin privileges.
-
-        Args:
-            handler: HTTP request handler
-
-        Returns:
-            Tuple of (UserAuthContext, None) if authenticated as admin,
-            or (None, error_response) if not authenticated or not admin
-        """
-        user, err = self.require_admin_or_error(handler)
-        if err:
-            self._current_user = None
-            return None, err
-        self._current_user = user
-        return user, None
-
-
-class PermissionHandler(AuthenticatedHandler):
-    """
-    Handler base class with fine-grained permission checking.
-
-    Extends AuthenticatedHandler with RBAC permission enforcement.
-    Use this for handlers that need to check specific permissions
-    beyond simple authentication.
-
-    Class Attributes:
-        REQUIRED_PERMISSIONS: Dict mapping HTTP methods to required permissions.
-                             Override in subclasses to define permissions.
-
-    Usage:
-        class KnowledgeHandler(PermissionHandler):
-            REQUIRED_PERMISSIONS = {
-                "GET": "knowledge:read",
-                "POST": "knowledge:write",
-                "DELETE": "knowledge:delete",
-            }
-
-            def handle(self, path, query_params, handler):
-                user, err = self._ensure_permission(handler, "GET")
-                if err:
-                    return err
-                # User has knowledge:read permission
-                return self.json_response({"data": "..."})
-    """
-
-    # Override in subclasses to define method -> permission mapping
-    REQUIRED_PERMISSIONS: dict[str, str | None] = {
-        "GET": None,  # None means no permission required (just auth)
-        "POST": None,
-        "PUT": None,
-        "PATCH": None,
-        "DELETE": None,
-    }
-
-    def _ensure_permission(
-        self, handler: HTTPRequestHandler, method: str | None = None
-    ) -> tuple[UserAuthContext, None] | tuple[None, HandlerResult]:
-        """
-        Ensure the request has the required permission for the given method.
-
-        Args:
-            handler: HTTP request handler
-            method: HTTP method (GET, POST, etc.). If None, extracted from handler.
-
-        Returns:
-            Tuple of (UserAuthContext, None) if permission granted,
-            or (None, error_response) if permission denied
-        """
-        # First ensure authentication
-        user, err = self._ensure_authenticated(handler)
-        if err:
-            return None, err
-
-        # Determine the required permission
-        if method is None:
-            method = getattr(handler, "command", "GET")
-
-        permission = self.REQUIRED_PERMISSIONS.get(method)
-        if permission is None:
-            # No specific permission required for this method
-            return user, None
-
-        # Check the permission
-        user_with_perm, perm_err = self.require_permission_or_error(handler, permission)
-        if perm_err:
-            return None, perm_err
-
-        return user_with_perm, None
-
-    def _check_custom_permission(
-        self, handler: HTTPRequestHandler, permission: str
-    ) -> tuple[UserAuthContext, None] | tuple[None, HandlerResult]:
-        """
-        Check a specific custom permission (not from REQUIRED_PERMISSIONS).
-
-        Use this when the permission depends on the specific endpoint
-        or resource being accessed, not just the HTTP method.
-
-        Args:
-            handler: HTTP request handler
-            permission: Permission string to check (e.g., "debates:fork")
-
-        Returns:
-            Tuple of (UserAuthContext, None) if permission granted,
-            or (None, error_response) if permission denied
-        """
-        # First ensure authentication
-        user, err = self._ensure_authenticated(handler)
-        if err:
-            return None, err
-
-        # Check the specific permission
-        return self.require_permission_or_error(handler, permission)
-
-
-class AdminHandler(AuthenticatedHandler):
-    """
-    Handler base class that requires admin privileges for all endpoints.
-
-    All handler methods automatically verify the user has admin role
-    before proceeding. Use this for administrative endpoints.
-
-    Usage:
-        class SystemConfigHandler(AdminHandler):
-            def handle(self, path, query_params, handler):
-                user, err = self._ensure_admin(handler)
-                if err:
-                    return err
-                # User is guaranteed to be admin here
-                return self.json_response({"config": system_config})
-    """
-
-    # Admin handlers should always audit sensitive actions
-    AUDIT_ACTIONS: bool = True
-
-    def _log_admin_action(
-        self,
-        action: str,
-        resource_id: str | None = None,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        """
-        Log an admin action for audit trail.
-
-        Args:
-            action: Action performed (e.g., "update_config", "delete_user")
-            resource_id: ID of the affected resource
-            details: Additional details to log
-        """
-        if not self.AUDIT_ACTIONS:
-            return
-
-        user = self.current_user
-        user_id = user.user_id if user else "unknown"
-
-        logger.info(
-            f"Admin action: user={user_id} action={action} resource={resource_id} details={details}"
-        )
-
-        # Try to use unified audit logging if available
-        try:
-            from aragora.audit.unified import audit_admin
-
-            if audit_admin:
-                audit_admin(
-                    admin_id=user_id,
-                    action=action,
-                    resource_id=resource_id,
-                    details=details or {},
-                )
-        except ImportError:
-            pass  # Audit module not available
-
-
-class AsyncTypedHandler(TypedHandler):
-    """
-    Typed handler base class for async handler methods.
-
-    Use this when your handler methods need to be async (e.g., for
-    database operations, external API calls, or other I/O operations).
-
-    All handle methods are defined as async and should be awaited.
-
-    Usage:
-        class AsyncDataHandler(AsyncTypedHandler):
-            async def handle(self, path, query_params, handler):
-                data = await self._fetch_data_async()
-                return self.json_response({"data": data})
-    """
-
-    async def handle(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> HandlerResult | None:
-        """Handle a GET request asynchronously."""
-        return None
-
-    async def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> HandlerResult | None:
-        """Handle a POST request asynchronously."""
-        return None
-
-    async def handle_delete(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> HandlerResult | None:
-        """Handle a DELETE request asynchronously."""
-        return None
-
-    async def handle_patch(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> HandlerResult | None:
-        """Handle a PATCH request asynchronously."""
-        return None
-
-    async def handle_put(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> HandlerResult | None:
-        """Handle a PUT request asynchronously."""
-        return None
-
-
-class ResourceHandler(PermissionHandler):
-    """
-    Handler base class for RESTful resource endpoints.
-
-    Provides a structured approach to handling CRUD operations on a
-    single resource type. Subclasses define the resource name and
-    implement the standard operations.
-
-    Class Attributes:
-        RESOURCE_NAME: Name of the resource (e.g., "debate", "user")
-        RESOURCE_ID_PARAM: URL parameter name for resource ID (default: "id")
-        ROUTES: List of route patterns handled by this handler
-
-    Automatically generates REQUIRED_PERMISSIONS from RESOURCE_NAME:
-        - GET -> {resource}:read
-        - POST -> {resource}:create
-        - PUT/PATCH -> {resource}:update
-        - DELETE -> {resource}:delete
-
-    Usage:
-        class DocumentHandler(ResourceHandler):
-            RESOURCE_NAME = "document"
-            ROUTES = ["/api/v1/documents", "/api/v1/documents/*"]
-
-            def _get_resource(self, resource_id: str, handler) -> HandlerResult:
-                doc = self.storage.get_document(resource_id)
-                return self.json_response(doc)
-
-            def _create_resource(self, handler) -> HandlerResult:
-                body = self.read_json_body(handler)
-                doc = self.storage.create_document(body)
-                return self.json_response(doc, status=201)
-    """
-
-    RESOURCE_NAME: str = "resource"
-    RESOURCE_ID_PARAM: str = "id"
-    ROUTES: list[str] = []
-
-    @classmethod
-    def _get_resource_permissions(cls) -> dict[str, str | None]:
-        """Generate permission mapping from resource name."""
-        name = cls.RESOURCE_NAME
-        return {
-            "GET": f"{name}:read",
-            "POST": f"{name}:create",
-            "PUT": f"{name}:update",
-            "PATCH": f"{name}:update",
-            "DELETE": f"{name}:delete",
-        }
-
-    def __init__(self, server_context: ServerContext):
-        super().__init__(server_context)
-        # Override REQUIRED_PERMISSIONS with resource-specific ones
-        self.__class__.REQUIRED_PERMISSIONS = self._get_resource_permissions()
-
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Route GET requests to list or get operations."""
-        user, err = self._ensure_permission(handler, "GET")
-        if err:
-            return err
-
-        resource_id = self._extract_resource_id(path)
-        if resource_id:
-            return self._get_resource(resource_id, handler)
-        return self._list_resources(query_params, handler)
-
-    def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Route POST requests to create operation."""
-        user, err = self._ensure_permission(handler, "POST")
-        if err:
-            return err
-        return self._create_resource(handler)
-
-    def handle_put(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Route PUT requests to update operation."""
-        user, err = self._ensure_permission(handler, "PUT")
-        if err:
-            return err
-
-        resource_id = self._extract_resource_id(path)
-        if not resource_id:
-            return error_response(f"{self.RESOURCE_NAME} ID required", 400)
-        return self._update_resource(resource_id, handler)
-
-    def handle_patch(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Route PATCH requests to partial update operation."""
-        user, err = self._ensure_permission(handler, "PATCH")
-        if err:
-            return err
-
-        resource_id = self._extract_resource_id(path)
-        if not resource_id:
-            return error_response(f"{self.RESOURCE_NAME} ID required", 400)
-        return self._patch_resource(resource_id, handler)
-
-    def handle_delete(
-        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> MaybeAsyncHandlerResult:
-        """Route DELETE requests to delete operation."""
-        user, err = self._ensure_permission(handler, "DELETE")
-        if err:
-            return err
-
-        resource_id = self._extract_resource_id(path)
-        if not resource_id:
-            return error_response(f"{self.RESOURCE_NAME} ID required", 400)
-        return self._delete_resource(resource_id, handler)
-
-    def _extract_resource_id(self, path: str) -> str | None:
-        """Extract resource ID from path.
-
-        Override this method if your URL structure is different.
-        Default assumes /{resource}s/{id} pattern.
-        """
-        parts = path.rstrip("/").split("/")
-        # Check if last segment looks like an ID (not the resource name plural)
-        if len(parts) >= 2:
-            last = parts[-1]
-            # Skip if it's the resource collection endpoint
-            if last == f"{self.RESOURCE_NAME}s" or last == self.RESOURCE_NAME:
-                return None
-            # Return the ID
-            if last and last not in ("", "list", "search"):
-                return last
-        return None
-
-    # Override these methods in subclasses
-
-    def _list_resources(
-        self, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> HandlerResult:
-        """List resources. Override in subclass."""
-        return error_response("Not implemented", 501)
-
-    def _get_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
-        """Get a single resource. Override in subclass."""
-        return error_response("Not implemented", 501)
-
-    def _create_resource(self, handler: HTTPRequestHandler) -> HandlerResult:
-        """Create a new resource. Override in subclass."""
-        return error_response("Not implemented", 501)
-
-    def _update_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
-        """Update a resource (full replacement). Override in subclass."""
-        return error_response("Not implemented", 501)
-
-    def _patch_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
-        """Partially update a resource. Override in subclass."""
-        # Default to full update if not overridden
-        return self._update_resource(resource_id, handler)
-
-    def _delete_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
-        """Delete a resource. Override in subclass."""
-        return error_response("Not implemented", 501)
