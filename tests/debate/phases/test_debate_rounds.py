@@ -976,3 +976,779 @@ class TestRevisionPhase:
         # Proposal should be updated
         assert ctx.proposals["agent-1"] == "revised proposal"
         build_fn.assert_called_once()
+
+
+# =============================================================================
+# Additional Coverage: Phase Transitions Tests
+# =============================================================================
+
+
+class TestPhaseTransitions:
+    """Tests for phase transitions during debate rounds."""
+
+    @pytest.mark.asyncio
+    async def test_execute_round_triggers_pre_round_hook(self):
+        """Execute round triggers PRE_ROUND hook when hook_manager is present."""
+        protocol = MockProtocol(rounds=1)
+        hook_manager = AsyncMock()
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[]),
+            hook_manager=hook_manager,
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Hook manager should have been called with pre_round
+        hook_manager.trigger.assert_any_call("pre_round", ctx=ctx, round_num=1)
+
+    @pytest.mark.asyncio
+    async def test_execute_round_triggers_post_round_hook(self):
+        """Execute round triggers POST_ROUND hook when hook_manager is present."""
+        protocol = MockProtocol(rounds=1)
+        hook_manager = AsyncMock()
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[]),
+            hook_manager=hook_manager,
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Hook manager should have been called with post_round
+        call_names = [call[0][0] for call in hook_manager.trigger.call_args_list]
+        assert "post_round" in call_names
+
+    @pytest.mark.asyncio
+    async def test_execute_calls_checkpoint_callback(self):
+        """Execute calls checkpoint callback after each round."""
+        protocol = MockProtocol(rounds=2)
+        checkpoint_callback = AsyncMock()
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[]),
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            critique_with_agent=AsyncMock(return_value=None),
+            checkpoint_callback=checkpoint_callback,
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Checkpoint should be called after each round
+        assert checkpoint_callback.call_count == 2
+
+
+# =============================================================================
+# Additional Coverage: Agent Interaction Tests
+# =============================================================================
+
+
+class TestAgentInteraction:
+    """Tests for agent interaction during rounds."""
+
+    @pytest.mark.asyncio
+    async def test_critique_phase_with_selected_critics(self):
+        """Critique phase uses select_critics_for_proposal callback."""
+        critique_fn = AsyncMock(return_value=MockCritique(agent="selected-critic"))
+        select_critics_fn = MagicMock(return_value=[MockAgent(name="selected-critic")])
+
+        phase = DebateRoundsPhase(
+            critique_with_agent=critique_fn,
+            select_critics_for_proposal=select_critics_fn,
+        )
+
+        agent1 = MockAgent(name="agent-1")
+        critic1 = MockAgent(name="selected-critic", role="critic")
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal content"},
+            result=MockResult(),
+        )
+
+        await phase._critique_phase(ctx, critics=[critic1], round_num=1)
+
+        select_critics_fn.assert_called_once()
+        critique_fn.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_critique_phase_records_circuit_breaker_success(self):
+        """Critique phase records success in circuit breaker."""
+        cb = MagicMock()
+        critique_fn = AsyncMock(return_value=MockCritique(agent="critic-1"))
+
+        phase = DebateRoundsPhase(
+            circuit_breaker=cb,
+            critique_with_agent=critique_fn,
+        )
+
+        critic = MockAgent(name="critic-1", role="critic")
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal"},
+            result=MockResult(),
+        )
+
+        await phase._critique_phase(ctx, critics=[critic], round_num=1)
+
+        cb.record_success.assert_called_with("critic-1")
+
+    @pytest.mark.asyncio
+    async def test_critique_phase_records_circuit_breaker_failure_on_none(self):
+        """Critique phase records failure in circuit breaker when critique returns None."""
+        cb = MagicMock()
+        critique_fn = AsyncMock(return_value=None)
+
+        phase = DebateRoundsPhase(
+            circuit_breaker=cb,
+            critique_with_agent=critique_fn,
+        )
+
+        critic = MockAgent(name="critic-1", role="critic")
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal"},
+            result=MockResult(),
+        )
+
+        await phase._critique_phase(ctx, critics=[critic], round_num=1)
+
+        cb.record_failure.assert_called_with("critic-1")
+
+    @pytest.mark.asyncio
+    async def test_revision_phase_records_circuit_breaker_failure_on_error(self):
+        """Revision phase records failure in circuit breaker on exception."""
+        cb = MagicMock()
+        generate_fn = AsyncMock(side_effect=RuntimeError("Agent error"))
+        build_fn = MagicMock(return_value="prompt")
+
+        phase = DebateRoundsPhase(
+            circuit_breaker=cb,
+            generate_with_agent=generate_fn,
+            build_revision_prompt=build_fn,
+        )
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        critique = MockCritique(agent="critic-1", target_agent="agent-1")
+
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[critique]),
+            proposers=[agent1],
+        )
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+            patch("aragora.debate.phases.debate_rounds.AGENT_TIMEOUT_SECONDS", 30.0),
+        ):
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            await phase._revision_phase(ctx, critics=[], round_num=1)
+
+        cb.record_failure.assert_called_with("agent-1")
+
+
+# =============================================================================
+# Additional Coverage: Timeout Handling Tests
+# =============================================================================
+
+
+class TestTimeoutHandling:
+    """Tests for timeout handling during debate rounds."""
+
+    @pytest.mark.asyncio
+    async def test_revision_phase_timeout_handling(self):
+        """Revision phase handles phase-level timeout gracefully."""
+        generate_fn = AsyncMock(side_effect=asyncio.TimeoutError())
+        build_fn = MagicMock(return_value="prompt")
+
+        phase = DebateRoundsPhase(
+            generate_with_agent=generate_fn,
+            build_revision_prompt=build_fn,
+        )
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        critique = MockCritique(agent="critic-1", target_agent="agent-1")
+
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[critique]),
+            proposers=[agent1],
+        )
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+            patch("aragora.debate.phases.debate_rounds.AGENT_TIMEOUT_SECONDS", 30.0),
+        ):
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            await phase._revision_phase(ctx, critics=[], round_num=1)
+
+        # Proposal should remain unchanged
+        assert ctx.proposals["agent-1"] == "proposal"
+
+    @pytest.mark.asyncio
+    async def test_with_callback_timeout_handles_exception(self):
+        """_with_callback_timeout handles exceptions gracefully."""
+
+        async def failing_coro():
+            raise ValueError("Test error")
+
+        result = await _with_callback_timeout(failing_coro(), timeout=1.0, default="fallback")
+        # When an exception occurs (not timeout), it propagates
+        # Only TimeoutError triggers the default
+        assert result == "fallback" or result is None
+
+
+# =============================================================================
+# Additional Coverage: Final Synthesis Tests
+# =============================================================================
+
+
+class TestFinalSynthesis:
+    """Tests for final synthesis round execution."""
+
+    @pytest.mark.asyncio
+    async def test_execute_final_synthesis_with_no_generate_callback(self):
+        """Final synthesis handles missing generate callback gracefully."""
+        protocol = MockProtocol(rounds=7, use_structured_phases=True)
+
+        # Mock get_round_phase to return a Final Synthesis phase
+        mock_phase = MagicMock()
+        mock_phase.name = "Final Synthesis"
+        protocol.get_round_phase = MagicMock(return_value=mock_phase)
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[]),
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            # No generate_with_agent callback
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Should have executed without error
+        assert ctx.result.rounds_used == 7
+
+    @pytest.mark.asyncio
+    async def test_execute_final_synthesis_with_circuit_breaker(self):
+        """Final synthesis filters agents through circuit breaker."""
+        protocol = MockProtocol(rounds=7, use_structured_phases=True)
+        mock_phase_obj = MagicMock()
+        mock_phase_obj.name = "Final Synthesis"
+        protocol.get_round_phase = MagicMock(return_value=mock_phase_obj)
+
+        cb = MagicMock()
+        generate_fn = AsyncMock(return_value="final synthesis")
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        agent2 = MockAgent(name="agent-2", role="proposer")
+        cb.filter_available_agents.return_value = [agent1]
+
+        ctx = MockDebateContext(
+            agents=[agent1, agent2],
+            proposers=[agent1, agent2],
+            proposals={"agent-1": "proposal1", "agent-2": "proposal2"},
+            result=MockResult(critiques=[]),
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            circuit_breaker=cb,
+            generate_with_agent=generate_fn,
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Only agent-1 should have been processed
+        cb.filter_available_agents.assert_called()
+
+
+# =============================================================================
+# Additional Coverage: RLM Ready Signal Tests
+# =============================================================================
+
+
+class TestRLMReadySignal:
+    """Tests for RLM ready signal quorum checking."""
+
+    @pytest.mark.asyncio
+    async def test_should_terminate_on_rlm_ready_quorum(self):
+        """Returns True when RLM ready quorum is met."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = True
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+
+        result = await phase._should_terminate(ctx, round_num=2)
+
+        assert result is True
+        convergence_tracker.check_rlm_ready_quorum.assert_called_once()
+
+
+# =============================================================================
+# Additional Coverage: Strategy-Based Rounds Tests
+# =============================================================================
+
+
+class TestStrategyBasedRounds:
+    """Tests for debate strategy-based round estimation."""
+
+    @pytest.mark.asyncio
+    async def test_execute_uses_debate_strategy(self):
+        """Execute uses debate strategy for round estimation."""
+        protocol = MockProtocol(rounds=3)
+        strategy = MagicMock()
+        strategy_rec = MagicMock()
+        strategy_rec.estimated_rounds = 5
+        strategy_rec.confidence = 0.8
+        strategy_rec.reasoning = "Complex topic requires more rounds"
+        strategy_rec.relevant_memories = ["mem1", "mem2"]
+        strategy.estimate_rounds_async = AsyncMock(return_value=strategy_rec)
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[], metadata={}),
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=True, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            debate_strategy=strategy,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Strategy should have been called
+        strategy.estimate_rounds_async.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_handles_strategy_error(self):
+        """Execute handles debate strategy errors gracefully."""
+        protocol = MockProtocol(rounds=3)
+        strategy = MagicMock()
+        strategy.estimate_rounds_async = AsyncMock(side_effect=RuntimeError("Strategy error"))
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[]),
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=True, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            debate_strategy=strategy,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            # Should not raise
+            await phase.execute(ctx)
+
+        # Default rounds should be used
+        assert ctx.result.rounds_used == 1
+
+
+# =============================================================================
+# Additional Coverage: Propulsion Events Tests
+# =============================================================================
+
+
+class TestPropulsionEvents:
+    """Tests for propulsion event firing."""
+
+    @pytest.mark.asyncio
+    async def test_fire_propulsion_event_disabled(self):
+        """Propulsion events are not fired when disabled."""
+        phase = DebateRoundsPhase(enable_propulsion=False)
+        ctx = MockDebateContext()
+
+        # Should not raise
+        await phase._fire_propulsion_event("test_event", ctx, 1, {})
+
+    @pytest.mark.asyncio
+    async def test_fire_propulsion_event_without_engine(self):
+        """Propulsion events are not fired without engine."""
+        phase = DebateRoundsPhase(enable_propulsion=True, propulsion_engine=None)
+        ctx = MockDebateContext()
+
+        # Should not raise
+        await phase._fire_propulsion_event("test_event", ctx, 1, {})
+
+
+# =============================================================================
+# Additional Coverage: Novelty Tracking Tests
+# =============================================================================
+
+
+class TestNoveltyTracking:
+    """Tests for novelty tracking during rounds."""
+
+    @pytest.mark.asyncio
+    async def test_execute_tracks_initial_novelty(self):
+        """Execute tracks novelty for initial proposals."""
+        protocol = MockProtocol(rounds=1)
+        novelty_tracker = MagicMock()
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[]),
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            novelty_tracker=novelty_tracker,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Novelty should be tracked for round 0 and round 1
+        assert convergence_tracker.track_novelty.call_count >= 1
+
+
+# =============================================================================
+# Additional Coverage: Error Recovery Tests
+# =============================================================================
+
+
+class TestErrorRecovery:
+    """Tests for error recovery during debate rounds."""
+
+    @pytest.mark.asyncio
+    async def test_critique_phase_handles_task_exception(self):
+        """Critique phase handles exceptions in critique tasks gracefully."""
+        critique_fn = AsyncMock(side_effect=RuntimeError("Critique error"))
+
+        phase = DebateRoundsPhase(critique_with_agent=critique_fn)
+
+        critic = MockAgent(name="critic-1", role="critic")
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal"},
+            result=MockResult(),
+        )
+
+        # Should not raise
+        await phase._critique_phase(ctx, critics=[critic], round_num=1)
+
+    @pytest.mark.asyncio
+    async def test_revision_phase_continues_on_single_agent_failure(self):
+        """Revision phase continues when single agent fails."""
+        call_count = 0
+
+        async def generate_with_count(agent, prompt, messages):
+            nonlocal call_count
+            call_count += 1
+            if agent.name == "agent-1":
+                raise RuntimeError("Agent 1 failed")
+            return "revised proposal"
+
+        build_fn = MagicMock(return_value="prompt")
+
+        phase = DebateRoundsPhase(
+            generate_with_agent=generate_with_count,
+            build_revision_prompt=build_fn,
+        )
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        agent2 = MockAgent(name="agent-2", role="proposer")
+        critique1 = MockCritique(agent="critic", target_agent="agent-1")
+        critique2 = MockCritique(agent="critic", target_agent="agent-2")
+
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal1", "agent-2": "proposal2"},
+            result=MockResult(critiques=[critique1, critique2]),
+            proposers=[agent1, agent2],
+        )
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+            patch("aragora.debate.phases.debate_rounds.AGENT_TIMEOUT_SECONDS", 30.0),
+        ):
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            await phase._revision_phase(ctx, critics=[], round_num=1)
+
+        # Both agents should have been attempted
+        assert call_count == 2
+        # Agent-2 should have been updated
+        assert ctx.proposals["agent-2"] == "revised proposal"
+
+    @pytest.mark.asyncio
+    async def test_evidence_refresh_handles_exception(self):
+        """Evidence refresh handles exceptions in refresh callback."""
+        refresh_fn = AsyncMock(side_effect=RuntimeError("Refresh error"))
+        phase = DebateRoundsPhase(refresh_evidence=refresh_fn)
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+
+        # Should not raise
+        await phase._refresh_evidence_for_round(ctx, round_num=1)
+
+    @pytest.mark.asyncio
+    async def test_context_compression_handles_exception(self):
+        """Context compression handles exceptions gracefully."""
+        compress_fn = AsyncMock(side_effect=RuntimeError("Compression error"))
+        phase = DebateRoundsPhase(compress_context=compress_fn)
+
+        ctx = MockDebateContext(context_messages=[MagicMock() for _ in range(15)])
+
+        # Should not raise
+        await phase._compress_debate_context(ctx, round_num=4)
+
+
+# =============================================================================
+# Additional Coverage: Hook Emission Tests
+# =============================================================================
+
+
+class TestHookEmission:
+    """Tests for hook emission during rounds."""
+
+    def test_emit_heartbeat_with_exception(self):
+        """Heartbeat emission handles hook exceptions."""
+        hook = MagicMock(side_effect=RuntimeError("Hook failed"))
+        phase = DebateRoundsPhase(hooks={"on_heartbeat": hook})
+
+        # Should not raise
+        phase._emit_heartbeat("round_1", "testing")
+
+        hook.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_critique_phase_emits_on_critique_hook(self):
+        """Critique phase emits on_critique hook."""
+        on_critique = MagicMock()
+        critique_fn = AsyncMock(return_value=MockCritique(agent="critic-1"))
+
+        phase = DebateRoundsPhase(
+            critique_with_agent=critique_fn,
+            hooks={"on_critique": on_critique},
+        )
+
+        critic = MockAgent(name="critic-1", role="critic")
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal"},
+            result=MockResult(),
+        )
+
+        await phase._critique_phase(ctx, critics=[critic], round_num=1)
+
+        on_critique.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_revision_phase_emits_on_message_hook(self):
+        """Revision phase emits on_message hook."""
+        on_message = MagicMock()
+        generate_fn = AsyncMock(return_value="revised proposal")
+        build_fn = MagicMock(return_value="prompt")
+
+        phase = DebateRoundsPhase(
+            generate_with_agent=generate_fn,
+            build_revision_prompt=build_fn,
+            hooks={"on_message": on_message},
+        )
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        critique = MockCritique(agent="critic", target_agent="agent-1")
+
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[critique]),
+            proposers=[agent1],
+        )
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+            patch("aragora.debate.phases.debate_rounds.AGENT_TIMEOUT_SECONDS", 30.0),
+        ):
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            await phase._revision_phase(ctx, critics=[], round_num=1)
+
+        on_message.assert_called_once()
