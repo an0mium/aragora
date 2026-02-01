@@ -1521,6 +1521,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error executing workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflows/{workflow_id}/simulate",
+        summary="Simulate a workflow dry-run",
+        tags=["Workflows"],
+    )
     def _handle_simulate(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1582,6 +1588,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error simulating workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflows/{workflow_id}/status",
+        summary="Get workflow execution status",
+        tags=["Workflows"],
+    )
     def _handle_get_status(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1608,6 +1620,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error getting workflow status: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflows/{workflow_id}/versions",
+        summary="Get workflow version history",
+        tags=["Workflows"],
+    )
     def _handle_get_versions(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1633,6 +1651,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error getting workflow versions: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflows/{workflow_id}/versions/{version}/restore",
+        summary="Restore workflow to a previous version",
+        tags=["Workflows"],
+    )
     def _handle_restore_version(
         self, workflow_id: str, version: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1659,6 +1683,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error restoring workflow version: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/workflow-executions/{execution_id}",
+        summary="Terminate a running workflow execution",
+        tags=["Workflows"],
+    )
     def _handle_terminate_execution(
         self, execution_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1684,6 +1714,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error terminating execution: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflow-templates",
+        summary="List workflow templates",
+        tags=["Workflows"],
+    )
     def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
         # RBAC check - templates require read permission
@@ -1704,6 +1740,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing templates: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflow-approvals",
+        summary="List pending workflow approvals",
+        tags=["Workflows"],
+    )
     def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
         # RBAC check - approvals require read permission
@@ -1726,6 +1768,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing approvals: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflow-executions",
+        summary="List workflow executions",
+        tags=["Workflows"],
+    )
     def _handle_list_executions(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-executions.
 
@@ -1767,6 +1815,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing executions: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflow-executions/{execution_id}",
+        summary="Get workflow execution details",
+        tags=["Workflows"],
+    )
     def _handle_get_execution(
         self, execution_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1792,6 +1846,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error getting execution: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflow-approvals/{request_id}/resolve",
+        summary="Resolve a workflow approval request",
+        tags=["Workflows"],
+    )
     def _handle_resolve_approval(
         self, request_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
