@@ -286,8 +286,8 @@ class TestUserUpdate:
         )
 
         updates = [
-            {"id": user1.id, "name": "Updated 1"},
-            {"id": user2.id, "name": "Updated 2"},
+            {"user_id": user1.id, "name": "Updated 1"},
+            {"user_id": user2.id, "name": "Updated 2"},
         ]
         count = user_store.update_users_batch(updates)
 

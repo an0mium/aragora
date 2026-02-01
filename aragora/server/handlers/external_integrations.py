@@ -1046,6 +1046,12 @@ class ExternalIntegrationsHandler(SecureHandler):
     # Test Handler
     # =========================================================================
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/integrations/{platform}/test",
+        summary="Test integration connection",
+        tags=["Integrations"],
+    )
     def _handle_test_integration(self, platform: str, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/:platform/test - test integration."""
         # Check RBAC permission - testing requires read access

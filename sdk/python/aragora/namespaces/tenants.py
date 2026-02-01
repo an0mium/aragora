@@ -27,7 +27,7 @@ class TenantsAPI:
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> _List[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         List tenants.
 

@@ -341,10 +341,11 @@ class UnifiedInboxAPI:
         """List messages (alias for list_messages)."""
         return self.list_messages(**kwargs)
 
-    def get(self, message_id: str) -> UnifiedMessage:
+    def get(self, message_id: str) -> dict[str, Any]:
         """Get message by ID."""
         result = self.get_message(message_id)
-        return result.get("message", result)
+        msg: dict[str, Any] = result.get("message", result)
+        return msg
 
     def send(
         self,
