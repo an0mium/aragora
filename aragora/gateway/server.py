@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -34,7 +33,7 @@ from aiohttp import web, WSMsgType
 from aragora.gateway.inbox import InboxAggregator, InboxMessage
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry
 from aragora.gateway.router import AgentRouter
-from aragora.gateway.persistence import get_gateway_store
+from aragora.gateway.persistence import get_gateway_store_from_env
 
 logger = logging.getLogger(__name__)
 
@@ -101,37 +100,29 @@ class LocalGateway:
     def _get_gateway_store(self):
         if self._store is not None:
             return self._store
-        backend = os.getenv("ARAGORA_GATEWAY_STORE", "")
-        if not backend:
-            backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "")
-        if not backend and os.getenv("PYTEST_CURRENT_TEST"):
-            backend = "memory"
-        if not backend:
-            backend = "auto"
-        backend = backend.strip().lower()
-        if backend in {"none", "off", "disabled"}:
-            return None
-        path = os.getenv("ARAGORA_GATEWAY_STORE_PATH") or os.getenv("ARAGORA_GATEWAY_SESSION_PATH")
-        redis_url = (
-            os.getenv("ARAGORA_GATEWAY_STORE_REDIS_URL")
-            or os.getenv("ARAGORA_GATEWAY_SESSION_REDIS_URL")
-            or os.getenv("REDIS_URL")
+        self._store = get_gateway_store_from_env(
+            backend_env="ARAGORA_GATEWAY_STORE",
+            fallback_backend_env="ARAGORA_GATEWAY_SESSION_STORE",
+            path_env="ARAGORA_GATEWAY_STORE_PATH",
+            fallback_path_env="ARAGORA_GATEWAY_SESSION_PATH",
+            redis_env="ARAGORA_GATEWAY_STORE_REDIS_URL",
+            fallback_redis_env="ARAGORA_GATEWAY_SESSION_REDIS_URL",
+            default_backend="auto",
+            allow_disabled=True,
         )
-        self._store = get_gateway_store(backend, path=path, redis_url=redis_url)
         return self._store
 
     def _get_session_store(self):
         if self._session_store is not None:
             return self._session_store
-        backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "")
-        if not backend:
-            backend = os.getenv("ARAGORA_GATEWAY_STORE", "auto")
-        backend = backend.strip().lower() if backend else "memory"
-        if backend in {"none", "off", "disabled"}:
-            return None
-        path = os.getenv("ARAGORA_GATEWAY_SESSION_PATH")
-        redis_url = os.getenv("ARAGORA_GATEWAY_SESSION_REDIS_URL") or os.getenv("REDIS_URL")
-        self._session_store = get_gateway_store(backend, path=path, redis_url=redis_url)
+        self._session_store = get_gateway_store_from_env(
+            backend_env="ARAGORA_GATEWAY_SESSION_STORE",
+            fallback_backend_env="ARAGORA_GATEWAY_STORE",
+            path_env="ARAGORA_GATEWAY_SESSION_PATH",
+            redis_env="ARAGORA_GATEWAY_SESSION_REDIS_URL",
+            default_backend="memory",
+            allow_disabled=True,
+        )
         return self._session_store
 
     @property

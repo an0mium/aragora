@@ -119,7 +119,7 @@ class CapabilityProber:
             if not strategy_class:
                 continue
 
-            strategy = strategy_class()
+            strategy = strategy_class() # type: ignore[abstract]
             type_results = []
 
             for _ in range(probes_per_type):

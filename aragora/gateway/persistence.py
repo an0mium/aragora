@@ -991,6 +991,72 @@ class RedisGatewayStore:
 # =============================================================================
 
 
+def resolve_gateway_store_config(
+    *,
+    backend_env: str,
+    path_env: str,
+    redis_env: str,
+    fallback_backend_env: str | None = None,
+    fallback_path_env: str | None = None,
+    fallback_redis_env: str | None = None,
+    default_backend: str = "auto",
+    pytest_default_memory: bool = True,
+    allow_disabled: bool = False,
+) -> tuple[str | None, str | None, str | None]:
+    """Resolve gateway store config from environment variables."""
+    backend = os.getenv(backend_env, "")
+    if not backend and fallback_backend_env:
+        backend = os.getenv(fallback_backend_env, "")
+    if not backend and pytest_default_memory and os.getenv("PYTEST_CURRENT_TEST"):
+        backend = "memory"
+    if not backend:
+        backend = default_backend
+    backend = backend.strip().lower() if isinstance(backend, str) else ""
+    if backend in {"none", "off", "disabled"}:
+        return (None if allow_disabled else "memory", None, None)
+
+    path = os.getenv(path_env)
+    if not path and fallback_path_env:
+        path = os.getenv(fallback_path_env)
+
+    redis_url = os.getenv(redis_env)
+    if not redis_url and fallback_redis_env:
+        redis_url = os.getenv(fallback_redis_env)
+    if not redis_url:
+        redis_url = os.getenv("REDIS_URL")
+
+    return backend, path, redis_url
+
+
+def get_gateway_store_from_env(
+    *,
+    backend_env: str,
+    path_env: str,
+    redis_env: str,
+    fallback_backend_env: str | None = None,
+    fallback_path_env: str | None = None,
+    fallback_redis_env: str | None = None,
+    default_backend: str = "auto",
+    pytest_default_memory: bool = True,
+    allow_disabled: bool = False,
+) -> GatewayStore | None:
+    """Return a gateway store configured from environment variables."""
+    backend, path, redis_url = resolve_gateway_store_config(
+        backend_env=backend_env,
+        path_env=path_env,
+        redis_env=redis_env,
+        fallback_backend_env=fallback_backend_env,
+        fallback_path_env=fallback_path_env,
+        fallback_redis_env=fallback_redis_env,
+        default_backend=default_backend,
+        pytest_default_memory=pytest_default_memory,
+        allow_disabled=allow_disabled,
+    )
+    if backend is None:
+        return None
+    return get_gateway_store(backend, path=path, redis_url=redis_url)
+
+
 def get_gateway_store(
     backend: str = "auto",
     **kwargs: Any,

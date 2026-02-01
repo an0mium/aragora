@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.gateway.persistence import GatewayStore
+    from aragora.memory.store import CritiqueStore
     from aragora.nomic.beads import BeadStore
     from aragora.nomic.convoys import ConvoyManager
     from aragora.storage.unified_inbox_store import UnifiedInboxStoreBackend
@@ -125,6 +126,59 @@ def get_canonical_gateway_stores() -> CanonicalGatewayStores:
     return CanonicalGatewayStores()
 
 
+def get_critique_store(nomic_dir: Path | str | None = None) -> "CritiqueStore | None":
+    """
+    Get a CritiqueStore instance using the canonical path resolution.
+
+    This helper centralizes CritiqueStore instantiation with proper path handling:
+    - Uses DatabaseType.AGORA_MEMORY for path resolution
+    - Handles missing nomic_dir gracefully
+    - Returns None if the database doesn't exist or CritiqueStore is unavailable
+
+    Args:
+        nomic_dir: Base directory for databases. If None, uses get_nomic_dir().
+
+    Returns:
+        CritiqueStore instance or None if unavailable.
+    """
+    try:
+        from aragora.memory.store import CritiqueStore
+    except ImportError:
+        return None
+
+    try:
+        from aragora.persistence.db_config import DatabaseType, get_db_path, get_nomic_dir
+    except ImportError:
+        # Fallback if db_config not available
+        if nomic_dir is None:
+            return None
+        db_path = Path(nomic_dir) / "agora_memory.db"
+        if not db_path.exists():
+            return None
+        return CritiqueStore(str(db_path))
+
+    if nomic_dir is None:
+        nomic_dir = get_nomic_dir()
+    elif isinstance(nomic_dir, str):
+        nomic_dir = Path(nomic_dir)
+
+    db_path = get_db_path(DatabaseType.AGORA_MEMORY, nomic_dir)
+    if not db_path.exists():
+        return None
+
+    return CritiqueStore(str(db_path))
+
+
+def is_critique_store_available() -> bool:
+    """Check if CritiqueStore is available for import."""
+    try:
+        from aragora.memory.store import CritiqueStore  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 __all__ = [
     "CanonicalGatewayStores",
     "CanonicalWorkspaceStores",
@@ -132,4 +186,6 @@ __all__ = [
     "WorkspaceStores",
     "get_canonical_gateway_stores",
     "get_canonical_workspace_stores",
+    "get_critique_store",
+    "is_critique_store_available",
 ]
