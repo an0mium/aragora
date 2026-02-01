@@ -1291,7 +1291,7 @@ class OpenClawAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         Returns:
             Learning results with patterns and recommendations.
         """
-        results = {
+        results: dict[str, Any] = {
             "debate_id": debate_id,
             "actions_analyzed": len(action_outcomes),
             "patterns_updated": 0,

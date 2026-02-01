@@ -171,11 +171,11 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
         try:
             # Create Aragora request from task
             request = AragoraRequest(
-                request_id=task.task_id,
                 content=task.prompt,
                 capabilities=self._translate_capabilities(task.required_capabilities),
                 plugins=task.metadata.get("plugins", []) if task.metadata else [],
                 request_type=task.task_type,
+                metadata={"request_id": task.task_id},
             )
 
             # Create auth context
@@ -208,16 +208,15 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
                     agent_name=self.name,
                     agent_version=self.version,
                     success=True,
-                    output=result.response.content,
+                    output=result.response.result,
                     error=None,
                     execution_time_ms=execution_time_ms,
-                    tokens_used=result.metadata.get("tokens_used"),
+                    tokens_used=result.metadata.get("tokens_used", 0),
                     capabilities_used=task.required_capabilities,
                     was_sandboxed=True,  # OpenClaw always sandboxed
                     isolation_level=self._isolation_level,
                     output_redacted=False,  # Redaction handled by output filter
                     redaction_count=0,
-                    raw_response=result.metadata,
                 )
             else:
                 return ExternalAgentResult(
@@ -231,7 +230,6 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
                     capabilities_used=task.required_capabilities,
                     was_sandboxed=True,
                     isolation_level=self._isolation_level,
-                    raw_response=result.metadata,
                 )
 
         except Exception as e:

@@ -712,9 +712,14 @@ class GatewayWebSocketProtocol:
             "error": {"code": code, "message": message},
         }
 
-    def _serialize_session(self, session: GatewaySession | None) -> dict[str, Any] | None:
+    def _serialize_session(
+        self, session: GatewaySession | PolicyInterceptResult | None
+    ) -> dict[str, Any] | None:
         if session is None:
             return None
+        # Handle PolicyInterceptResult - it doesn't have GatewaySession fields
+        if isinstance(session, PolicyInterceptResult):
+            return {"blocked": True, "reason": session.reason}
         return {
             "session_id": session.session_id,
             "user_id": session.user_id,
