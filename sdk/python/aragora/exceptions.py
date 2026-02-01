@@ -4,27 +4,47 @@ Aragora SDK Exceptions
 Custom exception classes for handling API errors.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 
 class AragoraError(Exception):
-    """Base exception for all Aragora SDK errors."""
+    """Base exception for all Aragora SDK errors.
+
+    Attributes:
+        message: Human-readable error description.
+        status_code: HTTP status code, if applicable.
+        error_code: Machine-readable error code from the API (e.g. ``"RATE_LIMITED"``).
+        trace_id: Unique request trace ID for debugging and support.
+        response_body: Raw parsed response body, if available.
+    """
 
     def __init__(
         self,
         message: str,
         status_code: int | None = None,
+        error_code: str | None = None,
+        trace_id: str | None = None,
         response_body: Any = None,
     ):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        self.error_code = error_code
+        self.trace_id = trace_id
         self.response_body = response_body
 
     def __str__(self) -> str:
+        parts = ["AragoraError"]
         if self.status_code:
-            return f"AragoraError ({self.status_code}): {self.message}"
-        return f"AragoraError: {self.message}"
+            parts[0] += f" ({self.status_code})"
+        if self.error_code:
+            parts[0] += f" [{self.error_code}]"
+        parts.append(self.message)
+        if self.trace_id:
+            parts.append(f"(trace: {self.trace_id})")
+        return ": ".join(parts[:2]) + (f" {parts[2]}" if len(parts) > 2 else "")
 
 
 class AuthenticationError(AragoraError):
