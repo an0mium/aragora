@@ -38,6 +38,10 @@ def set_alert_analyzer(analyzer: AlertAnalyzer) -> None:
 class AlertHandler:
     """HTTP handlers for alert operations."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize AlertHandler with optional context."""
+        self.ctx = ctx or {}
+
     @staticmethod
     async def list_active(request: web.Request) -> web.Response:
         """
