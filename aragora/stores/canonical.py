@@ -78,6 +78,7 @@ class CanonicalWorkspaceStores(WorkspaceStores):
 class CanonicalGatewayStores(GatewayStores):
     """Canonical stores for gateway/inbox persistence."""
 
+    allow_disabled: bool = False
     _gateway_store: GatewayStore | None = None
     _inbox_store: UnifiedInboxStoreBackend | None = None
 
@@ -93,7 +94,8 @@ class CanonicalGatewayStores(GatewayStores):
                 redis_env="ARAGORA_GATEWAY_STORE_REDIS_URL",
                 fallback_redis_env="ARAGORA_GATEWAY_SESSION_REDIS_URL",
                 default_backend="auto",
-                allow_disabled=False,
+                allow_disabled=self.allow_disabled,
+                emit_warning=False,
             )
         return self._gateway_store
 
@@ -125,9 +127,9 @@ def get_canonical_workspace_stores(
     return stores
 
 
-def get_canonical_gateway_stores() -> CanonicalGatewayStores:
+def get_canonical_gateway_stores(*, allow_disabled: bool = False) -> CanonicalGatewayStores:
     """Return a canonical gateway stores accessor."""
-    return CanonicalGatewayStores()
+    return CanonicalGatewayStores(allow_disabled=allow_disabled)
 
 
 def get_critique_store(nomic_dir: Path | str | None = None) -> "CritiqueStore | None":

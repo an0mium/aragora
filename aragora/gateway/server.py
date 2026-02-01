@@ -34,6 +34,7 @@ from aragora.gateway.inbox import InboxAggregator, InboxMessage
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry
 from aragora.gateway.router import AgentRouter
 from aragora.gateway.persistence import get_gateway_store_from_env
+from aragora.stores import get_canonical_gateway_stores
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ class LocalGateway:
         self._config = config or GatewayConfig()
         self._store = None
         self._session_store = None
+        self._canonical_stores = None
         store = self._get_gateway_store()
         self._inbox = InboxAggregator(max_size=self._config.max_inbox_size, store=store)
         self._devices = DeviceRegistry(store=store)
@@ -100,16 +102,9 @@ class LocalGateway:
     def _get_gateway_store(self):
         if self._store is not None:
             return self._store
-        self._store = get_gateway_store_from_env(
-            backend_env="ARAGORA_GATEWAY_STORE",
-            fallback_backend_env="ARAGORA_GATEWAY_SESSION_STORE",
-            path_env="ARAGORA_GATEWAY_STORE_PATH",
-            fallback_path_env="ARAGORA_GATEWAY_SESSION_PATH",
-            redis_env="ARAGORA_GATEWAY_STORE_REDIS_URL",
-            fallback_redis_env="ARAGORA_GATEWAY_SESSION_REDIS_URL",
-            default_backend="auto",
-            allow_disabled=True,
-        )
+        if self._canonical_stores is None:
+            self._canonical_stores = get_canonical_gateway_stores(allow_disabled=True)
+        self._store = self._canonical_stores.gateway_store()
         return self._store
 
     def _get_session_store(self):

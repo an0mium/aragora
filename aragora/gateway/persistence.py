@@ -32,6 +32,7 @@ from aragora.gateway.device_registry import DeviceNode, DeviceStatus
 from aragora.gateway.router import RoutingRule
 
 logger = logging.getLogger(__name__)
+_WARNED_DIRECT_USAGE = False
 
 
 # =============================================================================
@@ -1039,8 +1040,16 @@ def get_gateway_store_from_env(
     default_backend: str = "auto",
     pytest_default_memory: bool = True,
     allow_disabled: bool = False,
+    emit_warning: bool = True,
 ) -> GatewayStore | None:
     """Return a gateway store configured from environment variables."""
+    global _WARNED_DIRECT_USAGE
+    if emit_warning and not _WARNED_DIRECT_USAGE:
+        logger.warning(
+            "Direct get_gateway_store_from_env usage is deprecated; "
+            "prefer get_canonical_gateway_stores()."
+        )
+        _WARNED_DIRECT_USAGE = True
     backend, path, redis_url = resolve_gateway_store_config(
         backend_env=backend_env,
         path_env=path_env,
@@ -1072,12 +1081,26 @@ def get_gateway_store(
     Returns:
         A GatewayStore instance.
     """
+
+    def _filtered(keys: set[str]) -> dict[str, Any]:
+        return {key: value for key, value in kwargs.items() if key in keys and value is not None}
+
     if backend == "memory":
         return InMemoryGatewayStore()
     elif backend == "file":
-        return FileGatewayStore(**kwargs)
+        return FileGatewayStore(**_filtered({"path", "auto_save", "auto_save_interval"}))
     elif backend == "redis":
-        return RedisGatewayStore(**kwargs)
+        return RedisGatewayStore(
+            **_filtered(
+                {
+                    "redis_url",
+                    "key_prefix",
+                    "message_ttl_seconds",
+                    "device_ttl_seconds",
+                    "session_ttl_seconds",
+                }
+            )
+        )
     elif backend == "auto":
         # Try Redis if URL is provided or env var is set
         redis_url = kwargs.get("redis_url") or os.environ.get("REDIS_URL")
@@ -1085,11 +1108,21 @@ def get_gateway_store(
             try:
                 import redis.asyncio as aioredis  # noqa: F401
 
-                return RedisGatewayStore(redis_url=redis_url, **kwargs)
+                redis_kwargs = _filtered(
+                    {
+                        "redis_url",
+                        "key_prefix",
+                        "message_ttl_seconds",
+                        "device_ttl_seconds",
+                        "session_ttl_seconds",
+                    }
+                )
+                redis_kwargs.setdefault("redis_url", redis_url)
+                return RedisGatewayStore(**redis_kwargs)
             except ImportError:
                 logger.info("Redis not available, falling back to file store")
 
         # Fall back to file store
-        return FileGatewayStore(**kwargs)
+        return FileGatewayStore(**_filtered({"path", "auto_save", "auto_save_interval"}))
     else:
         raise ValueError(f"Unknown backend: {backend}")
