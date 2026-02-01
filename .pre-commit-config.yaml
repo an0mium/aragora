@@ -56,6 +56,17 @@ repos:
         name: Detect secrets with gitleaks
         description: Prevent secrets from being committed
 
+  # RBAC coverage check - prevent regression in permission coverage
+  - repo: local
+    hooks:
+      - id: rbac-coverage
+        name: Check RBAC decorator coverage
+        entry: python scripts/audit_rbac_coverage.py --summary --min-coverage 55
+        language: python
+        pass_filenames: false
+        files: ^aragora/server/handlers/
+        stages: [pre-push]
+
   # Security checks
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.8

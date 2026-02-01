@@ -254,6 +254,15 @@ import {
   OpenApiAPI,
   ProbesAPI,
   FactsAPI,
+  // New namespaces (SDK Parity Sprint - Phase 4)
+  ComputerUseAPI,
+  GatewayAPI,
+  InboxCommandAPI,
+  KnowledgeChatAPI,
+  MLAPI,
+  OrchestrationAPI,
+  PartnerAPI,
+  SCIMAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -778,6 +787,30 @@ export class AragoraClient {
    */
   readonly facts: FactsAPI;
 
+  /** Computer Use API - Safe computer control orchestration. */
+  readonly computerUse: ComputerUseAPI;
+
+  /** Gateway API - Device and message routing management. */
+  readonly gateway: GatewayAPI;
+
+  /** Inbox Command API - Email prioritization and inbox management. */
+  readonly inboxCommand: InboxCommandAPI;
+
+  /** Knowledge Chat API - Chat and knowledge bridge integration. */
+  readonly knowledgeChat: KnowledgeChatAPI;
+
+  /** ML API - Machine learning routing, scoring, and embeddings. */
+  readonly ml: MLAPI;
+
+  /** Orchestration API - Multi-agent deliberation orchestration. */
+  readonly orchestration: OrchestrationAPI;
+
+  /** Partner API - Partner registration and API key management. */
+  readonly partner: PartnerAPI;
+
+  /** SCIM API - SCIM 2.0 user and group provisioning. */
+  readonly scim: SCIMAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -901,6 +934,16 @@ export class AragoraClient {
     this.openapi = new OpenApiAPI(this);
     this.probes = new ProbesAPI(this);
     this.facts = new FactsAPI(this);
+
+    // New namespaces (SDK Parity Sprint - Phase 4)
+    this.computerUse = new ComputerUseAPI(this);
+    this.gateway = new GatewayAPI(this);
+    this.inboxCommand = new InboxCommandAPI(this);
+    this.knowledgeChat = new KnowledgeChatAPI(this);
+    this.ml = new MLAPI(this);
+    this.orchestration = new OrchestrationAPI(this);
+    this.partner = new PartnerAPI(this);
+    this.scim = new SCIMAPI(this);
   }
 
   // ===========================================================================

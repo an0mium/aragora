@@ -1254,3 +1254,120 @@ export {
   type TeamMember,
   type SelectTeamResponse,
 } from './agent-selection';
+
+// Computer Use (Safe Computer Control)
+export {
+  ComputerUseAPI,
+  type TaskStatus as ComputerUseTaskStatus,
+  type ComputerUseTask,
+  type ComputerUseStep,
+  type ActionStats,
+  type ComputerUsePolicy,
+  type CreateTaskOptions,
+  type ListTasksOptions,
+  type CreatePolicyOptions,
+} from './computer-use';
+
+// Gateway (Device & Message Routing)
+export {
+  GatewayAPI,
+  type DeviceStatus,
+  type GatewayDevice,
+  type GatewayChannel,
+  type RoutingRule as GatewayRoutingRule,
+  type RoutingStats,
+  type ListDevicesOptions,
+  type RegisterDeviceOptions,
+  type RouteMessageOptions,
+} from './gateway';
+
+// Inbox Command (Email Prioritization)
+export {
+  InboxCommandAPI,
+  type Priority as InboxPriority,
+  type Action as InboxAction,
+  type BulkFilter,
+  type ForceTier,
+  type InboxEmail,
+  type InboxStats as InboxCommandStats,
+  type SenderProfile,
+  type DailyDigest,
+  type GetInboxOptions,
+  type QuickActionOptions,
+  type BulkActionOptions,
+  type ReprioritizeOptions,
+} from './inbox-command';
+
+// Knowledge Chat (Chat + Knowledge Bridge)
+export {
+  KnowledgeChatAPI,
+  type SearchScope as KnowledgeChatSearchScope,
+  type SearchStrategy as KnowledgeChatSearchStrategy,
+  type ChatMessage as KnowledgeChatMessage,
+  type KnowledgeSearchResult as KnowledgeChatSearchResult,
+  type KnowledgeContextItem as KnowledgeChatContextItem,
+  type ChannelKnowledgeSummary,
+  type KnowledgeSearchOptions as KnowledgeChatSearchOptions,
+  type KnowledgeInjectOptions,
+  type KnowledgeStoreOptions,
+  type ChannelSummaryOptions,
+} from './knowledge-chat';
+
+// ML (Machine Learning)
+export {
+  MLAPI,
+  type ExportFormat as MLExportFormat,
+  type QualityScore,
+  type RoutingResult,
+  type ConsensusPrediction,
+  type EmbeddingResult,
+  type SearchResult as MLSearchResult,
+  type MLModel,
+  type MLStats,
+  type TrainingDebate,
+  type RouteOptions,
+  type ScoreOptions,
+  type ScoreBatchOptions,
+  type PredictConsensusOptions,
+  type EmbedOptions,
+  type SearchOptions as MLSearchOptions,
+  type ExportTrainingOptions,
+} from './ml';
+
+// Orchestration (Multi-Agent Deliberation)
+export {
+  OrchestrationAPI,
+  type TeamStrategy,
+  type OutputFormat as OrchestrationOutputFormat,
+  type DeliberationStatus as OrchestrationDeliberationStatus,
+  type KnowledgeSource,
+  type OutputChannel,
+  type DeliberationTemplate,
+  type DeliberationResult,
+  type DeliberateOptions,
+} from './orchestration';
+
+// Partner (Partner Management)
+export {
+  PartnerAPI,
+  type PartnerProfile,
+  type PartnerApiKey,
+  type PartnerUsage,
+  type PartnerLimits,
+  type RegisterPartnerOptions,
+  type CreateApiKeyOptions,
+} from './partner';
+
+// SCIM 2.0 (Identity Provisioning)
+export {
+  SCIMAPI,
+  type ScimUserName,
+  type ScimEmail,
+  type ScimPhoneNumber,
+  type ScimUser,
+  type ScimGroupMember,
+  type ScimGroup,
+  type ScimListResponse,
+  type ScimPatchOp,
+  type ScimListOptions,
+} from './scim';
