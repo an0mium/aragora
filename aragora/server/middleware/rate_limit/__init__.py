@@ -114,6 +114,27 @@ from .tenant_limiter import (
     reset_tenant_rate_limiter,
 )
 
+# Re-export from distributed module
+from .distributed import (
+    STRICT_MODE,
+    DistributedRateLimiter,
+    get_distributed_limiter,
+    reset_distributed_limiter,
+    configure_distributed_endpoint,
+)
+
+# Re-export from metrics module
+from .metrics import (
+    PROMETHEUS_AVAILABLE as RATE_LIMIT_PROMETHEUS_AVAILABLE,
+    record_rate_limit_decision,
+    record_redis_operation,
+    record_backend_status,
+    record_circuit_breaker_state,
+    record_fallback_request,
+    record_distributed_metrics,
+    get_rate_limit_metrics,
+)
+
 __all__ = [
     # Base types
     "RateLimitConfig",
@@ -181,4 +202,19 @@ __all__ = [
     "get_tenant_rate_limiter",
     "reset_tenant_rate_limiter",
     "check_tenant_rate_limit",
+    # Distributed rate limiting
+    "STRICT_MODE",
+    "DistributedRateLimiter",
+    "get_distributed_limiter",
+    "reset_distributed_limiter",
+    "configure_distributed_endpoint",
+    # Rate limit metrics
+    "RATE_LIMIT_PROMETHEUS_AVAILABLE",
+    "record_rate_limit_decision",
+    "record_redis_operation",
+    "record_backend_status",
+    "record_circuit_breaker_state",
+    "record_fallback_request",
+    "record_distributed_metrics",
+    "get_rate_limit_metrics",
 ]
