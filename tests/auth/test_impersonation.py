@@ -492,7 +492,7 @@ class TestImpersonationTokenGeneration:
             user_agent="TestAgent/1.0",
         )
         assert session is not None
-        assert len(session.session_id) == 16
+        assert len(session.session_id) == 64  # SHA-256 hex digest
         # Should be valid hex
         int(session.session_id, 16)
 

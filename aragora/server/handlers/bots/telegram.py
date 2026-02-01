@@ -189,22 +189,22 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             token = path.split("/")[-1]
             if not _verify_webhook_token(token):
                 return self.handle_webhook_auth_failed("token_path")
-            return self._handle_webhook(handler, skip_secret_check=True)
+            # URL token is an ADDITIONAL check, not a replacement for secret header
+            return self._handle_webhook(handler)
 
         return None
 
-    def _handle_webhook(self, handler: Any, skip_secret_check: bool = False) -> HandlerResult:
+    def _handle_webhook(self, handler: Any) -> HandlerResult:
         """Handle Telegram webhook updates.
 
         Telegram sends updates as JSON to this endpoint when messages are received.
         See: https://core.telegram.org/bots/api#update
         """
         try:
-            # Verify secret token header if configured
-            if not skip_secret_check:
-                secret_token = handler.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-                if not _verify_telegram_secret(secret_token):
-                    return self.handle_webhook_auth_failed("secret_header")
+            # Always verify secret token header
+            secret_token = handler.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+            if not _verify_telegram_secret(secret_token):
+                return self.handle_webhook_auth_failed("secret_header")
 
             # Read body
             content_length = int(handler.headers.get("Content-Length", 0))

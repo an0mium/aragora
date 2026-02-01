@@ -140,6 +140,18 @@ class WorkflowEngine:
         except ImportError as e:
             logger.debug(f"Some Phase 2 step types not available: {e}")
 
+        # OpenClaw Enterprise Gateway steps
+        try:
+            from aragora.workflow.nodes.openclaw import (
+                OpenClawActionStep,
+                OpenClawSessionStep,
+            )
+
+            self._step_types["openclaw_action"] = OpenClawActionStep
+            self._step_types["openclaw_session"] = OpenClawSessionStep
+        except ImportError as e:
+            logger.debug(f"OpenClaw step types not available: {e}")
+
     def register_step_type(self, type_name: str, step_class: type[WorkflowStep]) -> None:
         """
         Register a custom step type.

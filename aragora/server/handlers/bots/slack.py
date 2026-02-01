@@ -1089,7 +1089,12 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
             "SLACK_SIGNING_SECRET", ""
         )
         if not signing_secret:
-            return True  # Skip verification if not configured
+            env = os.environ.get("ARAGORA_ENV", "").lower()
+            if env in ("development", "dev", "local", "test"):
+                logger.warning("SLACK_SIGNING_SECRET not configured - skipping in dev mode")
+                return True
+            logger.error("SECURITY: SLACK_SIGNING_SECRET not configured in production")
+            return False
 
         try:
             timestamp = handler.headers.get("X-Slack-Request-Timestamp", "")

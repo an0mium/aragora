@@ -83,13 +83,23 @@ class VoiceHandler:
             logger.warning("Twilio validator not available, skipping signature check")
             # In production, you should fail closed - return False
             # For development, we allow requests through
-            return os.environ.get("ARAGORA_ENV", "development") == "development"
+            return os.environ.get("ARAGORA_ENV", "").lower() in (
+                "development",
+                "dev",
+                "local",
+                "test",
+            )
 
         # Get auth token from environment
         auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
         if not auth_token:
             logger.warning("TWILIO_AUTH_TOKEN not configured, skipping signature check")
-            return os.environ.get("ARAGORA_ENV", "development") == "development"
+            return os.environ.get("ARAGORA_ENV", "").lower() in (
+                "development",
+                "dev",
+                "local",
+                "test",
+            )
 
         # Get signature from header
         signature = request.headers.get("X-Twilio-Signature", "")

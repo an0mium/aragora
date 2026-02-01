@@ -2,7 +2,8 @@
 Credential Proxy - Secure credential mediation for external systems.
 
 Provides:
-- Per-external-system rate limiting
+- Per-external-system rate limiting (token bucket)
+- TTL-cached credential lookups
 - Scope validation before calls
 - Credential usage audit logging
 - Data lineage tracking
@@ -11,11 +12,10 @@ Provides:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
-
-from collections import defaultdict
 
 if TYPE_CHECKING:
     from aragora.rbac.checker import PermissionChecker
@@ -129,6 +129,42 @@ class TenantIsolationError(CredentialProxyError):
     pass
 
 
+class _TokenBucket:
+    """Simple token bucket rate limiter for per-service rate limiting."""
+
+    def __init__(self, rate: float, capacity: int):
+        """
+        Initialize token bucket.
+
+        Args:
+            rate: Token refill rate (tokens per second)
+            capacity: Maximum number of tokens (burst size)
+        """
+        self._rate = rate
+        self._capacity = capacity
+        self._tokens = float(capacity)
+        self._last_refill = time.monotonic()
+        self._acquired_count: int = 0
+
+    def try_acquire(self) -> bool:
+        """Try to acquire a token. Returns True if allowed."""
+        now = time.monotonic()
+        elapsed = now - self._last_refill
+        self._tokens = min(self._capacity, self._tokens + elapsed * self._rate)
+        self._last_refill = now
+
+        if self._tokens >= 1.0:
+            self._tokens -= 1.0
+            self._acquired_count += 1
+            return True
+        return False
+
+    @property
+    def acquired_count(self) -> int:
+        """Total number of tokens successfully acquired."""
+        return self._acquired_count
+
+
 class CredentialProxy:
     """
     Mediate all external system credential access.
@@ -146,6 +182,7 @@ class CredentialProxy:
         permission_checker: Optional["PermissionChecker"] = None,
         default_rate_limit: int = 60,  # requests per minute
         audit_enabled: bool = True,
+        cache_ttl: float = 60.0,  # seconds
     ):
         """
         Initialize the credential proxy.
@@ -154,6 +191,7 @@ class CredentialProxy:
             permission_checker: Optional RBAC permission checker
             default_rate_limit: Default requests per minute for external services
             audit_enabled: Whether to enable audit logging
+            cache_ttl: TTL in seconds for credential lookup cache entries
         """
         self.permission_checker = permission_checker
         self.default_rate_limit = default_rate_limit
@@ -161,16 +199,49 @@ class CredentialProxy:
 
         # Rate limiting state
         self._rate_limits: dict[str, int] = {}  # service -> requests/min
-        self._request_counts: dict[str, list[datetime]] = defaultdict(list)
+        self._rate_limiters: dict[str, _TokenBucket] = {}  # service -> token bucket
 
-        # Credential cache
+        # Credential store
         self._credentials: dict[str, ExternalCredential] = {}
+
+        # Credential lookup cache: credential_id -> (cached_time, credential)
+        self._lookup_cache: dict[str, tuple[float, ExternalCredential]] = {}
+        self._cache_ttl: float = cache_ttl
 
         # Usage history for audit
         self._usage_history: list[CredentialUsage] = []
 
         # Audit callbacks
         self._audit_callbacks: list[Callable[[CredentialUsage], Awaitable[None]]] = []
+
+    # -------------------------------------------------------------------------
+    # Credential Lookup Cache
+    # -------------------------------------------------------------------------
+
+    def _get_cached_credential(self, credential_id: str) -> ExternalCredential | None:
+        """Get credential from cache if not expired."""
+        entry = self._lookup_cache.get(credential_id)
+        if entry is not None:
+            cached_time, credential = entry
+            if time.monotonic() - cached_time < self._cache_ttl:
+                return credential
+            del self._lookup_cache[credential_id]
+        return None
+
+    def _cache_credential(self, credential_id: str, credential: ExternalCredential) -> None:
+        """Cache a credential lookup result."""
+        self._lookup_cache[credential_id] = (time.monotonic(), credential)
+
+    def _invalidate_cache(self, credential_id: str | None = None) -> None:
+        """Invalidate cache entry or entire cache."""
+        if credential_id:
+            self._lookup_cache.pop(credential_id, None)
+        else:
+            self._lookup_cache.clear()
+
+    # -------------------------------------------------------------------------
+    # Rate Limiting
+    # -------------------------------------------------------------------------
 
     def set_rate_limit(self, external_service: str, requests_per_minute: int) -> None:
         """
@@ -183,6 +254,8 @@ class CredentialProxy:
         if requests_per_minute <= 0:
             raise ValueError("Rate limit must be positive")
         self._rate_limits[external_service] = requests_per_minute
+        # Reset the token bucket so it picks up the new limit
+        self._rate_limiters.pop(external_service, None)
         logger.debug(f"Set rate limit for {external_service}: {requests_per_minute}/min")
 
     def get_rate_limit(self, external_service: str) -> int:
@@ -197,6 +270,7 @@ class CredentialProxy:
             credential: The credential to register
         """
         self._credentials[credential.credential_id] = credential
+        self._invalidate_cache(credential.credential_id)
         logger.info(
             f"Registered credential {credential.credential_id} "
             f"for {credential.external_service} (tenant: {credential.tenant_id})"
@@ -214,6 +288,7 @@ class CredentialProxy:
         """
         if credential_id in self._credentials:
             del self._credentials[credential_id]
+            self._invalidate_cache(credential_id)
             logger.info(f"Unregistered credential {credential_id}")
             return True
         return False
@@ -222,13 +297,23 @@ class CredentialProxy:
         """
         Get a credential by ID (without executing).
 
+        Uses a TTL cache to avoid repeated dictionary lookups for the same
+        credential within the cache window.
+
         Args:
             credential_id: ID of the credential
 
         Returns:
             The credential or None if not found
         """
-        return self._credentials.get(credential_id)
+        cached = self._get_cached_credential(credential_id)
+        if cached is not None:
+            return cached
+
+        credential = self._credentials.get(credential_id)
+        if credential is not None:
+            self._cache_credential(credential_id, credential)
+        return credential
 
     def list_credentials(
         self,
@@ -355,7 +440,7 @@ class CredentialProxy:
 
     def _check_rate_limit(self, external_service: str, limit: int) -> bool:
         """
-        Check if request is within rate limit.
+        Check if request is within rate limit using a token bucket.
 
         Args:
             external_service: Name of the external service
@@ -364,27 +449,28 @@ class CredentialProxy:
         Returns:
             True if within limit, False if exceeded
         """
-        now = datetime.utcnow()
-        window_start = now - timedelta(minutes=1)
-
-        # Clean old entries
-        self._request_counts[external_service] = [
-            ts for ts in self._request_counts[external_service] if ts > window_start
-        ]
-
-        # Check limit
-        if len(self._request_counts[external_service]) >= limit:
-            return False
-
-        # Record this request
-        self._request_counts[external_service].append(now)
-        return True
+        if external_service not in self._rate_limiters:
+            self._rate_limiters[external_service] = _TokenBucket(
+                rate=limit / 60.0,  # convert per-minute to per-second
+                capacity=limit,
+            )
+        return self._rate_limiters[external_service].try_acquire()
 
     def get_current_request_count(self, external_service: str) -> int:
-        """Get the current request count within the rate limit window."""
-        now = datetime.utcnow()
-        window_start = now - timedelta(minutes=1)
-        return len([ts for ts in self._request_counts[external_service] if ts > window_start])
+        """Get the approximate number of consumed tokens for a service.
+
+        With a token bucket, the exact sliding-window count is not tracked.
+        This returns ``capacity - available_tokens`` (rounded), which reflects
+        how many tokens have been consumed since the bucket was last full.
+        """
+        bucket = self._rate_limiters.get(external_service)
+        if bucket is None:
+            return 0
+        # Refill first so the value reflects elapsed time
+        now = time.monotonic()
+        elapsed = now - bucket._last_refill
+        tokens = min(bucket._capacity, bucket._tokens + elapsed * bucket._rate)
+        return max(0, round(bucket._capacity - tokens))
 
     def add_audit_callback(self, callback: Callable[[CredentialUsage], Awaitable[None]]) -> None:
         """

@@ -261,6 +261,19 @@ class AutomationConnector(ABC):
         if unsupported:
             raise ValueError(f"Unsupported events for {self.PLATFORM_NAME}: {unsupported}")
 
+        # SECURITY: Validate webhook URL to prevent SSRF attacks
+        try:
+            from aragora.security.ssrf_protection import validate_webhook_url
+
+            validate_webhook_url(webhook_url)
+        except ImportError:
+            logger.warning("SSRF protection module not available, validating URL scheme only")
+            from urllib.parse import urlparse
+
+            parsed = urlparse(webhook_url)
+            if parsed.scheme not in ("http", "https"):
+                raise ValueError(f"Webhook URL must use http/https scheme, got: {parsed.scheme}")
+
         subscription = WebhookSubscription(
             webhook_url=webhook_url,
             events=set(events),
@@ -353,6 +366,29 @@ class AutomationConnector(ABC):
         start_time = time.time()
 
         try:
+            # SECURITY: Defense-in-depth SSRF check at delivery time
+            # (subscriptions may be deserialized from storage, bypassing subscribe())
+            try:
+                from aragora.security.ssrf_protection import validate_webhook_url
+
+                validate_webhook_url(subscription.webhook_url)
+            except ImportError:
+                pass  # Best-effort; primary check is in subscribe()
+            except Exception as ssrf_err:
+                duration_ms = (time.time() - start_time) * 1000
+                logger.warning(
+                    f"[{self.PLATFORM_NAME}] Blocked SSRF attempt to "
+                    f"{subscription.webhook_url}: {ssrf_err}"
+                )
+                return WebhookDeliveryResult(
+                    subscription_id=subscription.id,
+                    event_type=event_type,
+                    success=False,
+                    status_code=0,
+                    response_body=f"SSRF validation failed: {ssrf_err}",
+                    duration_ms=duration_ms,
+                )
+
             # Format payload
             formatted = await self.format_payload(event_type, payload, subscription)
             payload_bytes = json.dumps(formatted).encode()

@@ -143,6 +143,44 @@ class HybridDebateProtocol:
         ...     print(f"Receipt: {result.receipt_hash}")
     """
 
+    # Pre-compiled consensus keyword sets for efficient lookup in _calculate_consensus
+    _SUPPORTIVE_KEYWORDS: frozenset[str] = frozenset(
+        {
+            "agree",
+            "correct",
+            "good",
+            "valid",
+            "approve",
+            "sound",
+            "solid",
+            "excellent",
+            "well-reasoned",
+            "comprehensive",
+            "thorough",
+            "effective",
+            "appropriate",
+        }
+    )
+
+    _CRITICAL_KEYWORDS: frozenset[str] = frozenset(
+        {
+            "disagree",
+            "incorrect",
+            "wrong",
+            "invalid",
+            "reject",
+            "flawed",
+            "missing",
+            "inadequate",
+            "problematic",
+            "concern",
+            "issue",
+            "error",
+            "weakness",
+            "overlook",
+        }
+    )
+
     def __init__(self, config: HybridDebateConfig) -> None:
         """Initialize hybrid debate protocol.
 
@@ -450,46 +488,11 @@ class HybridDebateProtocol:
             logger.warning("No critiques received - defaulting to zero consensus (fail-safe)")
             return 0.0  # Fail-safe: no verification means no consensus
 
-        # Keywords indicating support
-        supportive_keywords = [
-            "agree",
-            "correct",
-            "good",
-            "valid",
-            "approve",
-            "sound",
-            "solid",
-            "excellent",
-            "well-reasoned",
-            "comprehensive",
-            "thorough",
-            "effective",
-            "appropriate",
-        ]
-
-        # Keywords indicating criticism
-        critical_keywords = [
-            "disagree",
-            "incorrect",
-            "wrong",
-            "invalid",
-            "reject",
-            "flawed",
-            "missing",
-            "inadequate",
-            "problematic",
-            "concern",
-            "issue",
-            "error",
-            "weakness",
-            "overlook",
-        ]
-
         supportive_count = 0
         for critique in critiques:
             critique_lower = critique.lower()
-            support_score = sum(1 for k in supportive_keywords if k in critique_lower)
-            critical_score = sum(1 for k in critical_keywords if k in critique_lower)
+            support_score = sum(1 for k in self._SUPPORTIVE_KEYWORDS if k in critique_lower)
+            critical_score = sum(1 for k in self._CRITICAL_KEYWORDS if k in critique_lower)
 
             # Net positive sentiment counts as supportive
             if support_score > critical_score:

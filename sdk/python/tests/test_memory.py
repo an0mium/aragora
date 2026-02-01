@@ -2,234 +2,248 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from aragora.client import AragoraAsyncClient, AragoraClient
 
 
-class TestMemoryRetrieve:
-    """Tests for memory continuum retrieval."""
+class TestMemoryContinuum:
+    """Tests for continuum retrieval."""
 
-    def test_retrieve_continuum_default(self, client: AragoraClient, mock_request) -> None:
-        """Retrieve memories with default parameters."""
-        mock_request.return_value = {"memories": [], "total": 0}
+    def test_retrieve_continuum_defaults(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"memories": [], "total": 0}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.retrieve_continuum()
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/continuum/retrieve",
+                params={"query": "", "limit": 10, "min_importance": 0.0},
+            )
+            assert result["total"] == 0
+            client.close()
 
-        client.memory.retrieve_continuum()
+    def test_retrieve_continuum_with_query_and_tiers(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"memories": [{"id": "m1", "tier": "fast"}]}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.retrieve_continuum(
+                query="rate limiter",
+                tiers=["fast", "medium"],
+                limit=5,
+                min_importance=0.5,
+            )
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/continuum/retrieve",
+                params={
+                    "query": "rate limiter",
+                    "limit": 5,
+                    "min_importance": 0.5,
+                    "tiers": "fast,medium",
+                },
+            )
+            assert result["memories"][0]["tier"] == "fast"
+            client.close()
 
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/memory/continuum/retrieve",
-            params={"query": "", "limit": 10, "min_importance": 0.0},
-        )
-
-    def test_retrieve_continuum_with_query(self, client: AragoraClient, mock_request) -> None:
-        """Retrieve memories matching a query."""
-        mock_request.return_value = {
-            "memories": [{"content": "Previous debate about APIs", "importance": 0.8}]
-        }
-
-        result = client.memory.retrieve_continuum(query="API design", limit=5)
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["query"] == "API design"
-        assert call_params["limit"] == 5
-        assert len(result["memories"]) == 1
-
-    def test_retrieve_continuum_with_tiers(self, client: AragoraClient, mock_request) -> None:
-        """Retrieve memories from specific tiers."""
-        mock_request.return_value = {"memories": []}
-
-        client.memory.retrieve_continuum(tiers=["fast", "medium"])
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["tiers"] == "fast,medium"
-
-    def test_retrieve_continuum_with_min_importance(
-        self, client: AragoraClient, mock_request
-    ) -> None:
-        """Retrieve memories above a minimum importance threshold."""
-        mock_request.return_value = {"memories": []}
-
-        client.memory.retrieve_continuum(min_importance=0.7)
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["min_importance"] == 0.7
+    def test_retrieve_continuum_without_tiers_omits_param(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"memories": []}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.memory.retrieve_continuum(query="test")
+            call_params = mock_request.call_args[1]["params"]
+            assert "tiers" not in call_params
+            client.close()
 
 
 class TestMemorySearch:
-    """Tests for memory search."""
+    """Tests for memory search operations."""
 
-    def test_search_default(self, client: AragoraClient, mock_request) -> None:
-        """Search memories with default parameters."""
-        mock_request.return_value = {"results": [], "total": 0}
-
-        client.memory.search("microservices debate")
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/memory/search",
-            params={
-                "q": "microservices debate",
-                "limit": 20,
-                "min_importance": 0.0,
-                "sort": "relevance",
-            },
-        )
-
-    def test_search_with_tier_filter(self, client: AragoraClient, mock_request) -> None:
-        """Search memories filtered by tier."""
-        mock_request.return_value = {"results": []}
-
-        client.memory.search("query", tier=["slow", "glacial"])
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["tier"] == "slow,glacial"
-
-    def test_search_custom_sort(self, client: AragoraClient, mock_request) -> None:
-        """Search memories with custom sort order."""
-        mock_request.return_value = {"results": []}
-
-        client.memory.search("query", sort="timestamp", limit=5)
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["sort"] == "timestamp"
-        assert call_params["limit"] == 5
-
-
-class TestMemoryStats:
-    """Tests for memory statistics."""
-
-    def test_get_tier_stats(self, client: AragoraClient, mock_request) -> None:
-        """Get tier statistics."""
-        mock_request.return_value = {
-            "fast": {"count": 100, "size_mb": 2.5},
-            "medium": {"count": 500, "size_mb": 15.0},
-            "slow": {"count": 2000, "size_mb": 80.0},
-            "glacial": {"count": 10000, "size_mb": 500.0},
-        }
-
-        result = client.memory.get_tier_stats()
-
-        mock_request.assert_called_once_with("GET", "/api/v1/memory/tier-stats")
-        assert result["fast"]["count"] == 100
-
-    def test_get_archive_stats(self, client: AragoraClient, mock_request) -> None:
-        """Get archive statistics."""
-        mock_request.return_value = {"total_archived": 5000, "size_gb": 1.2}
-
-        result = client.memory.get_archive_stats()
-
-        mock_request.assert_called_once_with("GET", "/api/v1/memory/archive-stats")
-        assert result["total_archived"] == 5000
-
-    def test_get_pressure(self, client: AragoraClient, mock_request) -> None:
-        """Get memory pressure metrics."""
-        mock_request.return_value = {
-            "utilization": 0.65,
-            "eviction_rate": 0.02,
-            "pressure_level": "normal",
-        }
-
-        result = client.memory.get_pressure()
-
-        mock_request.assert_called_once_with("GET", "/api/v1/memory/pressure")
-        assert result["pressure_level"] == "normal"
-
-    def test_list_tiers(self, client: AragoraClient, mock_request) -> None:
-        """List all memory tiers with detailed stats."""
-        mock_request.return_value = {
-            "tiers": [
-                {"name": "fast", "ttl": 60, "count": 100},
-                {"name": "medium", "ttl": 3600, "count": 500},
-            ]
-        }
-
-        result = client.memory.list_tiers()
-
-        mock_request.assert_called_once_with("GET", "/api/v1/memory/tiers")
-        assert len(result["tiers"]) == 2
-
-
-class TestMemoryCritiques:
-    """Tests for critique store browsing."""
-
-    def test_list_critiques_default(self, client: AragoraClient, mock_request) -> None:
-        """List critiques with default pagination."""
-        mock_request.return_value = {"critiques": [], "total": 0}
-
-        client.memory.list_critiques()
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/memory/critiques",
-            params={"limit": 20, "offset": 0},
-        )
-
-    def test_list_critiques_filtered(self, client: AragoraClient, mock_request) -> None:
-        """List critiques filtered by agent."""
-        mock_request.return_value = {"critiques": [{"agent": "claude", "content": "Good point"}]}
-
-        result = client.memory.list_critiques(agent="claude", limit=10, offset=5)
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["agent"] == "claude"
-        assert call_params["limit"] == 10
-        assert call_params["offset"] == 5
-        assert result["critiques"][0]["agent"] == "claude"
-
-
-class TestAsyncMemory:
-    """Tests for async memory API."""
-
-    @pytest.mark.asyncio
-    async def test_async_retrieve_continuum(self, mock_async_request) -> None:
-        """Retrieve memories asynchronously."""
-        mock_async_request.return_value = {"memories": []}
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            await client.memory.retrieve_continuum(query="test")
-
-            call_params = mock_async_request.call_args[1]["params"]
-            assert call_params["query"] == "test"
-
-    @pytest.mark.asyncio
-    async def test_async_search(self, mock_async_request) -> None:
-        """Search memories asynchronously."""
-        mock_async_request.return_value = {"results": [{"content": "found"}]}
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            result = await client.memory.search("test query")
-
-            mock_async_request.assert_called_once_with(
+    def test_search_with_defaults(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"results": [{"id": "r1"}], "total": 1}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.search("consensus algorithm")
+            mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/search",
                 params={
-                    "q": "test query",
+                    "q": "consensus algorithm",
                     "limit": 20,
                     "min_importance": 0.0,
                     "sort": "relevance",
                 },
             )
-            assert len(result["results"]) == 1
+            assert result["total"] == 1
+            client.close()
+
+    def test_search_with_tier_filter_and_sort(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"results": []}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.memory.search(
+                "debate outcomes",
+                tier=["slow", "glacial"],
+                limit=10,
+                min_importance=0.8,
+                sort="timestamp",
+            )
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/search",
+                params={
+                    "q": "debate outcomes",
+                    "limit": 10,
+                    "min_importance": 0.8,
+                    "sort": "timestamp",
+                    "tier": "slow,glacial",
+                },
+            )
+            client.close()
+
+
+class TestMemoryStats:
+    """Tests for tier stats, archive stats, pressure, and tier listing."""
+
+    def test_get_tier_stats(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"fast": {"count": 120}, "medium": {"count": 45}}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.get_tier_stats()
+            mock_request.assert_called_once_with("GET", "/api/v1/memory/tier-stats")
+            assert result["fast"]["count"] == 120
+            client.close()
+
+    def test_get_archive_stats(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"total_archived": 500, "size_mb": 12.3}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.get_archive_stats()
+            mock_request.assert_called_once_with("GET", "/api/v1/memory/archive-stats")
+            assert result["total_archived"] == 500
+            client.close()
+
+    def test_get_pressure(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"utilization": 0.72, "pressure": "moderate"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.get_pressure()
+            mock_request.assert_called_once_with("GET", "/api/v1/memory/pressure")
+            assert result["pressure"] == "moderate"
+            client.close()
+
+    def test_list_tiers(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "tiers": [
+                    {"name": "fast", "ttl": 60},
+                    {"name": "glacial", "ttl": 604800},
+                ],
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.list_tiers()
+            mock_request.assert_called_once_with("GET", "/api/v1/memory/tiers")
+            assert len(result["tiers"]) == 2
+            client.close()
+
+
+class TestMemoryCritiques:
+    """Tests for critique store browsing."""
+
+    def test_list_critiques_defaults(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"critiques": [], "total": 0}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.list_critiques()
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/critiques",
+                params={"limit": 20, "offset": 0},
+            )
+            assert result["total"] == 0
+            client.close()
+
+    def test_list_critiques_with_agent_filter(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"critiques": [{"id": "c1", "agent": "claude"}]}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.memory.list_critiques(agent="claude", limit=5, offset=10)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/critiques",
+                params={"limit": 5, "offset": 10, "agent": "claude"},
+            )
+            assert result["critiques"][0]["agent"] == "claude"
+            client.close()
+
+
+class TestAsyncMemory:
+    """Tests for async memory methods."""
 
     @pytest.mark.asyncio
-    async def test_async_get_pressure(self, mock_async_request) -> None:
-        """Get memory pressure asynchronously."""
-        mock_async_request.return_value = {"pressure_level": "high"}
+    async def test_retrieve_continuum(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"memories": [{"id": "m1"}]}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.retrieve_continuum(
+                query="design patterns",
+                tiers=["fast"],
+                limit=3,
+            )
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/continuum/retrieve",
+                params={
+                    "query": "design patterns",
+                    "limit": 3,
+                    "min_importance": 0.0,
+                    "tiers": "fast",
+                },
+            )
+            assert len(result["memories"]) == 1
+            await client.close()
 
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+    @pytest.mark.asyncio
+    async def test_search(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"results": [], "total": 0}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.search("fallback strategy", sort="timestamp")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/search",
+                params={
+                    "q": "fallback strategy",
+                    "limit": 20,
+                    "min_importance": 0.0,
+                    "sort": "timestamp",
+                },
+            )
+            assert result["total"] == 0
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_get_pressure(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"utilization": 0.95, "pressure": "high"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
             result = await client.memory.get_pressure()
-
-            mock_async_request.assert_called_once_with("GET", "/api/v1/memory/pressure")
-            assert result["pressure_level"] == "high"
+            mock_request.assert_called_once_with("GET", "/api/v1/memory/pressure")
+            assert result["pressure"] == "high"
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_async_list_critiques(self, mock_async_request) -> None:
-        """List critiques asynchronously."""
-        mock_async_request.return_value = {"critiques": []}
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            await client.memory.list_critiques(agent="gpt-4")
-
-            call_params = mock_async_request.call_args[1]["params"]
-            assert call_params["agent"] == "gpt-4"
+    async def test_list_critiques(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"critiques": [{"id": "c1"}], "total": 1}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.memory.list_critiques(agent="gemini", limit=10)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/memory/critiques",
+                params={"limit": 10, "offset": 0, "agent": "gemini"},
+            )
+            assert result["total"] == 1
+            await client.close()

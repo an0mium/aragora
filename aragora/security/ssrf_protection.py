@@ -244,7 +244,7 @@ def _resolve_hostname(hostname: str, timeout: float = 2.0) -> list[str]:
         try:
             # Get all IP addresses for the hostname
             results = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
-            ips = list({result[4][0] for result in results})
+            ips: list[str] = list({str(result[4][0]) for result in results})
             return ips
         finally:
             socket.setdefaulttimeout(old_timeout)
@@ -344,10 +344,10 @@ def validate_url(
             # In strict mode, we might want to block this
             logger.warning(f"DNS resolution failed for {hostname}")
         else:
-            for ip in resolved_ips:
-                if not allow_private_ips and _is_ip_private(ip):
+            for resolved_addr in resolved_ips:
+                if not allow_private_ips and _is_ip_private(resolved_addr):
                     return SSRFValidationResult.unsafe(
-                        url, f"Hostname resolves to private IP: {ip}"
+                        url, f"Hostname resolves to private IP: {resolved_addr}"
                     )
             resolved_ip = resolved_ips[0]
 
@@ -375,7 +375,7 @@ def is_url_safe(
 
 def validate_webhook_url(
     url: str,
-    allowed_domains: Optional[set[str]] = None,
+    allowed_domains: Optional[set[str] | frozenset[str]] = None,
     service_name: str = "webhook",
 ) -> SSRFValidationResult:
     """Validate a webhook URL with strict settings.

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any, Awaitable, Optional, cast
 from urllib.parse import parse_qs
 
@@ -90,8 +91,14 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             else _cfg.SLACK_SIGNING_SECRET
         )
 
-        # Verify Slack signature for security
-        if signing_secret and not self._verify_signature(handler, body, signing_secret):
+        # Verify Slack signature for security - fail closed if secret missing in production
+        if not signing_secret:
+            env = os.environ.get("ARAGORA_ENV", "").lower()
+            if env not in ("development", "dev", "local", "test"):
+                logger.error("SECURITY: Slack signing secret not configured in production")
+                return error_response("Webhook verification not configured", 503)
+            logger.warning("Slack signing secret not configured - skipping in dev mode")
+        elif not self._verify_signature(handler, body, signing_secret):
             logger.warning(f"Slack signature verification failed for team_id={team_id}")
             # Audit log signature failure (potential attack)
             audit = _cfg._get_audit_logger()

@@ -113,6 +113,16 @@ from .knowledge_mound import (
     track_federation_sync,
     track_federation_regions,
 )
+from .gateway import (
+    GATEWAY_OPERATION_LATENCY,
+    GATEWAY_EXTERNAL_CALLS,
+    CREDENTIAL_CACHE_HITS,
+    CREDENTIAL_CACHE_MISSES,
+    HYBRID_VERIFICATION_TIME,
+    track_gateway_operation,
+    track_credential_cache,
+    track_hybrid_verification,
+)
 from .export import generate_metrics, _format_labels
 
 __all__ = [
@@ -200,6 +210,16 @@ __all__ = [
     "track_global_query",
     "track_federation_sync",
     "track_federation_regions",
+    # Gateway metrics
+    "GATEWAY_OPERATION_LATENCY",
+    "GATEWAY_EXTERNAL_CALLS",
+    "CREDENTIAL_CACHE_HITS",
+    "CREDENTIAL_CACHE_MISSES",
+    "HYBRID_VERIFICATION_TIME",
+    # Gateway helpers
+    "track_gateway_operation",
+    "track_credential_cache",
+    "track_hybrid_verification",
     # Export
     "generate_metrics",
     "_format_labels",

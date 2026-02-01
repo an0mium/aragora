@@ -495,8 +495,14 @@ async def handle_github_webhook(ctx: ServerContext) -> HandlerResult:
     # Get webhook secret from environment
     webhook_secret = os.getenv("GITHUB_WEBHOOK_SECRET", "")
 
-    # Verify signature if secret is configured
-    if webhook_secret:
+    # Verify signature - fail closed if secret not configured in production
+    if not webhook_secret:
+        env = os.environ.get("ARAGORA_ENV", "").lower()
+        if env not in ("development", "dev", "local", "test"):
+            logger.error("SECURITY: GITHUB_WEBHOOK_SECRET not configured in production")
+            return error_response("Webhook verification not configured", status=503)
+        logger.warning("GITHUB_WEBHOOK_SECRET not configured - skipping verification in dev mode")
+    else:
         raw_body = ctx.get("raw_body", b"")
         if not verify_signature(raw_body, signature, webhook_secret):
             logger.warning(f"Invalid webhook signature for delivery {delivery_id}")

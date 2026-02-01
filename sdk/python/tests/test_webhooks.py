@@ -2,304 +2,320 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from aragora.client import AragoraAsyncClient, AragoraClient
 
 
-class TestWebhooksList:
-    """Tests for listing webhooks."""
-
-    def test_list_webhooks_default(self, client: AragoraClient, mock_request) -> None:
-        """List webhooks with default parameters."""
-        mock_request.return_value = {"webhooks": [], "total": 0}
-
-        client.webhooks.list()
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/webhooks",
-            params={"active_only": True, "limit": 20, "offset": 0},
-        )
-
-    def test_list_webhooks_all(self, client: AragoraClient, mock_request) -> None:
-        """List all webhooks including inactive."""
-        mock_request.return_value = {"webhooks": []}
-
-        client.webhooks.list(active_only=False, limit=50)
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["active_only"] is False
-        assert call_params["limit"] == 50
-
-
-class TestWebhooksGet:
-    """Tests for getting webhook details."""
-
-    def test_get_webhook(self, client: AragoraClient, mock_request) -> None:
-        """Get a webhook by ID."""
-        mock_request.return_value = {
-            "webhook_id": "wh_123",
-            "url": "https://example.com/hook",
-            "events": ["debate.completed"],
-        }
-
-        result = client.webhooks.get("wh_123")
-
-        mock_request.assert_called_once_with("GET", "/api/v1/webhooks/wh_123")
-        assert result["url"] == "https://example.com/hook"
-
-
-class TestWebhooksCreate:
-    """Tests for webhook creation."""
-
-    def test_create_webhook_minimal(self, client: AragoraClient, mock_request) -> None:
-        """Create a webhook with required fields only."""
-        mock_request.return_value = {"webhook_id": "wh_new", "secret": "sec_xxx"}
-
-        result = client.webhooks.create(
-            url="https://example.com/hook",
-            events=["debate.completed"],
-        )
-
-        mock_request.assert_called_once_with(
-            "POST",
-            "/api/v1/webhooks",
-            json={
-                "url": "https://example.com/hook",
-                "events": ["debate.completed"],
-            },
-        )
-        assert "secret" in result
-
-    def test_create_webhook_full(self, client: AragoraClient, mock_request) -> None:
-        """Create a webhook with all optional fields."""
-        mock_request.return_value = {"webhook_id": "wh_new"}
-
-        client.webhooks.create(
-            url="https://example.com/hook",
-            events=["debate.completed", "receipt.created"],
-            secret="my-secret-key",
-            description="Production webhook",
-            headers={"X-Custom": "value"},
-        )
-
-        call_json = mock_request.call_args[1]["json"]
-        assert call_json["secret"] == "my-secret-key"
-        assert call_json["description"] == "Production webhook"
-        assert call_json["headers"] == {"X-Custom": "value"}
-        assert len(call_json["events"]) == 2
-
-
-class TestWebhooksUpdate:
-    """Tests for webhook updates."""
-
-    def test_update_webhook_url(self, client: AragoraClient, mock_request) -> None:
-        """Update webhook URL."""
-        mock_request.return_value = {"webhook_id": "wh_123"}
-
-        client.webhooks.update("wh_123", url="https://new.example.com/hook")
-
-        mock_request.assert_called_once_with(
-            "PUT",
-            "/api/v1/webhooks/wh_123",
-            json={"url": "https://new.example.com/hook"},
-        )
-
-    def test_update_webhook_deactivate(self, client: AragoraClient, mock_request) -> None:
-        """Deactivate a webhook."""
-        mock_request.return_value = {"webhook_id": "wh_123", "active": False}
-
-        client.webhooks.update("wh_123", active=False)
-
-        mock_request.assert_called_once_with(
-            "PUT",
-            "/api/v1/webhooks/wh_123",
-            json={"active": False},
-        )
-
-    def test_update_webhook_events(self, client: AragoraClient, mock_request) -> None:
-        """Update webhook subscribed events."""
-        mock_request.return_value = {"webhook_id": "wh_123"}
-
-        client.webhooks.update("wh_123", events=["debate.completed", "debate.started"])
-
-        call_json = mock_request.call_args[1]["json"]
-        assert call_json["events"] == ["debate.completed", "debate.started"]
-
-
-class TestWebhooksDelete:
-    """Tests for webhook deletion."""
-
-    def test_delete_webhook(self, client: AragoraClient, mock_request) -> None:
-        """Delete a webhook."""
-        mock_request.return_value = {"deleted": True}
-
-        result = client.webhooks.delete("wh_123")
-
-        mock_request.assert_called_once_with("DELETE", "/api/v1/webhooks/wh_123")
-        assert result["deleted"] is True
-
-
-class TestWebhooksSecrets:
-    """Tests for webhook secret operations."""
-
-    def test_rotate_secret(self, client: AragoraClient, mock_request) -> None:
-        """Rotate webhook signing secret."""
-        mock_request.return_value = {"secret": "new_secret_xxx"}
-
-        result = client.webhooks.rotate_secret("wh_123")
-
-        mock_request.assert_called_once_with("POST", "/api/v1/webhooks/wh_123/rotate-secret")
-        assert "secret" in result
-
-
-class TestWebhooksDeliveries:
-    """Tests for webhook delivery operations."""
-
-    def test_get_deliveries_default(self, client: AragoraClient, mock_request) -> None:
-        """Get delivery history with defaults."""
-        mock_request.return_value = {"deliveries": [], "total": 0}
-
-        client.webhooks.get_deliveries("wh_123")
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/webhooks/wh_123/deliveries",
-            params={"limit": 20, "offset": 0},
-        )
-
-    def test_get_deliveries_filtered(self, client: AragoraClient, mock_request) -> None:
-        """Get delivery history filtered by status."""
-        mock_request.return_value = {"deliveries": []}
-
-        client.webhooks.get_deliveries("wh_123", status="failed", limit=10)
-
-        call_params = mock_request.call_args[1]["params"]
-        assert call_params["status"] == "failed"
-        assert call_params["limit"] == 10
-
-    def test_get_specific_delivery(self, client: AragoraClient, mock_request) -> None:
-        """Get a specific delivery by ID."""
-        mock_request.return_value = {
-            "delivery_id": "del_1",
-            "status": "success",
-            "response_code": 200,
-        }
-
-        result = client.webhooks.get_delivery("wh_123", "del_1")
-
-        mock_request.assert_called_once_with("GET", "/api/v1/webhooks/wh_123/deliveries/del_1")
-        assert result["status"] == "success"
-
-    def test_retry_delivery(self, client: AragoraClient, mock_request) -> None:
-        """Retry a failed delivery."""
-        mock_request.return_value = {"retried": True}
-
-        result = client.webhooks.retry_delivery("wh_123", "del_1")
-
-        mock_request.assert_called_once_with(
-            "POST", "/api/v1/webhooks/wh_123/deliveries/del_1/retry"
-        )
-        assert result["retried"] is True
-
-
-class TestWebhooksTest:
-    """Tests for webhook testing."""
-
-    def test_send_test_event(self, client: AragoraClient, mock_request) -> None:
-        """Send a test event to webhook."""
-        mock_request.return_value = {"success": True, "response_code": 200}
-
-        result = client.webhooks.test("wh_123")
-
-        mock_request.assert_called_once_with(
-            "POST",
-            "/api/v1/webhooks/wh_123/test",
-            json={},
-        )
-        assert result["success"] is True
-
-    def test_send_test_event_specific_type(self, client: AragoraClient, mock_request) -> None:
-        """Send a test event with specific event type."""
-        mock_request.return_value = {"success": True}
-
-        client.webhooks.test("wh_123", event_type="debate.completed")
-
-        mock_request.assert_called_once_with(
-            "POST",
-            "/api/v1/webhooks/wh_123/test",
-            json={"event_type": "debate.completed"},
-        )
-
-
-class TestWebhooksEvents:
-    """Tests for webhook event types."""
-
-    def test_get_events(self, client: AragoraClient, mock_request) -> None:
-        """Get available webhook event types."""
-        mock_request.return_value = {
-            "events": [
-                {"type": "debate.completed", "description": "Debate finished"},
-                {"type": "receipt.created", "description": "Receipt generated"},
-            ]
-        }
-
-        result = client.webhooks.get_events()
-
-        mock_request.assert_called_once_with("GET", "/api/v1/webhooks/events")
-        assert len(result["events"]) == 2
-
-
-class TestAsyncWebhooks:
-    """Tests for async webhooks API."""
-
-    @pytest.mark.asyncio
-    async def test_async_list_webhooks(self, mock_async_request) -> None:
-        """List webhooks asynchronously."""
-        mock_async_request.return_value = {"webhooks": []}
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            await client.webhooks.list()
-
-            mock_async_request.assert_called_once_with(
+class TestWebhookCRUD:
+    """Tests for webhook create, read, update, delete operations."""
+
+    def test_create_webhook_minimal(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"webhook_id": "wh_1", "secret": "sec_abc"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.create(
+                url="https://example.com/webhook",
+                events=["debate.completed", "receipt.created"],
+            )
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/webhooks",
+                json={
+                    "url": "https://example.com/webhook",
+                    "events": ["debate.completed", "receipt.created"],
+                },
+            )
+            assert result["webhook_id"] == "wh_1"
+            assert result["secret"] == "sec_abc"
+            client.close()
+
+    def test_create_webhook_with_all_options(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"webhook_id": "wh_2"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.webhooks.create(
+                url="https://example.com/hook",
+                events=["debate.completed"],
+                secret="my-secret",
+                description="Production webhook",
+                headers={"X-Custom": "value"},
+            )
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/webhooks",
+                json={
+                    "url": "https://example.com/hook",
+                    "events": ["debate.completed"],
+                    "secret": "my-secret",
+                    "description": "Production webhook",
+                    "headers": {"X-Custom": "value"},
+                },
+            )
+            client.close()
+
+    def test_get_webhook(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "webhook_id": "wh_1",
+                "url": "https://example.com/webhook",
+                "active": True,
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.get("wh_1")
+            mock_request.assert_called_once_with("GET", "/api/v1/webhooks/wh_1")
+            assert result["active"] is True
+            client.close()
+
+    def test_list_webhooks_defaults(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"webhooks": [], "total": 0}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.list()
+            mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/webhooks",
                 params={"active_only": True, "limit": 20, "offset": 0},
             )
+            assert result["total"] == 0
+            client.close()
+
+    def test_list_webhooks_with_params(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"webhooks": [{"webhook_id": "wh_1"}]}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.webhooks.list(active_only=False, limit=50, offset=10)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/webhooks",
+                params={"active_only": False, "limit": 50, "offset": 10},
+            )
+            client.close()
+
+    def test_update_webhook(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"webhook_id": "wh_1", "active": False}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.update(
+                "wh_1",
+                url="https://new-url.com/hook",
+                events=["debate.completed"],
+                active=False,
+                description="Updated",
+                headers={"Authorization": "Bearer tok"},
+            )
+            mock_request.assert_called_once_with(
+                "PUT",
+                "/api/v1/webhooks/wh_1",
+                json={
+                    "url": "https://new-url.com/hook",
+                    "events": ["debate.completed"],
+                    "active": False,
+                    "description": "Updated",
+                    "headers": {"Authorization": "Bearer tok"},
+                },
+            )
+            assert result["active"] is False
+            client.close()
+
+    def test_delete_webhook(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"deleted": True}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.delete("wh_1")
+            mock_request.assert_called_once_with("DELETE", "/api/v1/webhooks/wh_1")
+            assert result["deleted"] is True
+            client.close()
+
+
+class TestWebhookDeliveries:
+    """Tests for webhook delivery history and retry."""
+
+    def test_get_deliveries_defaults(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"deliveries": [], "total": 0}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.get_deliveries("wh_1")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/webhooks/wh_1/deliveries",
+                params={"limit": 20, "offset": 0},
+            )
+            assert result["total"] == 0
+            client.close()
+
+    def test_get_deliveries_with_status_filter(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"deliveries": [{"id": "del_1"}]}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.webhooks.get_deliveries("wh_1", status="failed", limit=5, offset=0)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/webhooks/wh_1/deliveries",
+                params={"limit": 5, "offset": 0, "status": "failed"},
+            )
+            client.close()
+
+    def test_get_single_delivery(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "delivery_id": "del_1",
+                "status": "success",
+                "response_code": 200,
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.get_delivery("wh_1", "del_1")
+            mock_request.assert_called_once_with("GET", "/api/v1/webhooks/wh_1/deliveries/del_1")
+            assert result["response_code"] == 200
+            client.close()
+
+    def test_retry_delivery(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"retried": True, "new_delivery_id": "del_2"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.retry_delivery("wh_1", "del_1")
+            mock_request.assert_called_once_with(
+                "POST", "/api/v1/webhooks/wh_1/deliveries/del_1/retry"
+            )
+            assert result["retried"] is True
+            client.close()
+
+
+class TestWebhookActions:
+    """Tests for rotate secret, test, and get events."""
+
+    def test_rotate_secret(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"new_secret": "sec_new_123"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.rotate_secret("wh_1")
+            mock_request.assert_called_once_with("POST", "/api/v1/webhooks/wh_1/rotate-secret")
+            assert result["new_secret"] == "sec_new_123"
+            client.close()
+
+    def test_test_webhook_no_event_type(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True, "response_code": 200}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.test("wh_1")
+            mock_request.assert_called_once_with("POST", "/api/v1/webhooks/wh_1/test", json={})
+            assert result["success"] is True
+            client.close()
+
+    def test_test_webhook_with_event_type(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.webhooks.test("wh_1", event_type="debate.completed")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/webhooks/wh_1/test",
+                json={"event_type": "debate.completed"},
+            )
+            client.close()
+
+    def test_get_events(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "events": [
+                    {"type": "debate.completed", "description": "Debate finished"},
+                    {"type": "receipt.created", "description": "Receipt generated"},
+                ]
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.webhooks.get_events()
+            mock_request.assert_called_once_with("GET", "/api/v1/webhooks/events")
+            assert len(result["events"]) == 2
+            client.close()
+
+
+class TestAsyncWebhooks:
+    """Tests for async webhook methods."""
 
     @pytest.mark.asyncio
-    async def test_async_create_webhook(self, mock_async_request) -> None:
-        """Create a webhook asynchronously."""
-        mock_async_request.return_value = {"webhook_id": "wh_async"}
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+    async def test_async_create_webhook(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"webhook_id": "wh_1", "secret": "sec_abc"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
             result = await client.webhooks.create(
-                url="https://example.com/hook",
+                url="https://example.com/webhook",
                 events=["debate.completed"],
             )
-
-            assert result["webhook_id"] == "wh_async"
-
-    @pytest.mark.asyncio
-    async def test_async_rotate_secret(self, mock_async_request) -> None:
-        """Rotate secret asynchronously."""
-        mock_async_request.return_value = {"secret": "new_sec"}
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            result = await client.webhooks.rotate_secret("wh_123")
-
-            mock_async_request.assert_called_once_with(
-                "POST", "/api/v1/webhooks/wh_123/rotate-secret"
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/webhooks",
+                json={
+                    "url": "https://example.com/webhook",
+                    "events": ["debate.completed"],
+                },
             )
-            assert result["secret"] == "new_sec"
+            assert result["webhook_id"] == "wh_1"
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_async_retry_delivery(self, mock_async_request) -> None:
-        """Retry a delivery asynchronously."""
-        mock_async_request.return_value = {"retried": True}
+    async def test_async_list_webhooks(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"webhooks": [{"webhook_id": "wh_1"}], "total": 1}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.webhooks.list(active_only=False, limit=10, offset=0)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/webhooks",
+                params={"active_only": False, "limit": 10, "offset": 0},
+            )
+            assert result["total"] == 1
+            await client.close()
 
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            result = await client.webhooks.retry_delivery("wh_123", "del_1")
+    @pytest.mark.asyncio
+    async def test_async_update_webhook(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"webhook_id": "wh_1", "active": False}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.webhooks.update("wh_1", active=False)
+            mock_request.assert_called_once_with(
+                "PUT",
+                "/api/v1/webhooks/wh_1",
+                json={"active": False},
+            )
+            assert result["active"] is False
+            await client.close()
 
-            assert result["retried"] is True
+    @pytest.mark.asyncio
+    async def test_async_delete_webhook(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"deleted": True}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.webhooks.delete("wh_1")
+            mock_request.assert_called_once_with("DELETE", "/api/v1/webhooks/wh_1")
+            assert result["deleted"] is True
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_get_deliveries_with_status(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"deliveries": [{"id": "del_1", "status": "failed"}]}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.webhooks.get_deliveries("wh_1", status="failed")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/webhooks/wh_1/deliveries",
+                params={"limit": 20, "offset": 0, "status": "failed"},
+            )
+            assert result["deliveries"][0]["status"] == "failed"
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_test_webhook(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"success": True}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.webhooks.test("wh_1", event_type="receipt.created")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/webhooks/wh_1/test",
+                json={"event_type": "receipt.created"},
+            )
+            assert result["success"] is True
+            await client.close()

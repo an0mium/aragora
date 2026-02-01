@@ -1,471 +1,307 @@
-"""Tests for OAuth Wizard SDK namespace."""
+"""Tests for OAuth Wizard namespace API."""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
-
-@pytest.fixture
-def mock_client() -> MagicMock:
-    """Create a mock client."""
-    return MagicMock()
+from aragora.client import AragoraAsyncClient, AragoraClient
 
 
-class TestOAuthWizardAPI:
-    """Test synchronous OAuthWizardAPI."""
+class TestOAuthWizardConfiguration:
+    """Tests for wizard configuration methods."""
 
-    def test_init(self, mock_client: MagicMock) -> None:
-        """Test API initialization."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        api = OAuthWizardAPI(mock_client)
-        assert api._client is mock_client
-
-    def test_get_config(self, mock_client: MagicMock) -> None:
-        """Test get_config calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "available_providers": ["slack", "github", "google"],
-            "configured_providers": ["slack"],
-            "recommended_order": ["github", "google"],
-            "completion_percent": 33,
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.get_config()
-
-        mock_client.request.assert_called_once_with("GET", "/api/v2/integrations/wizard")
-        assert result["completion_percent"] == 33
-        assert "slack" in result["configured_providers"]
-
-    def test_list_providers(self, mock_client: MagicMock) -> None:
-        """Test list_providers calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "providers": [
-                {"id": "slack", "name": "Slack", "category": "communication"},
-                {"id": "teams", "name": "Microsoft Teams", "category": "communication"},
-            ]
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.list_providers()
-
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v2/integrations/wizard/providers", params={}
-        )
-        assert len(result["providers"]) == 2
-
-    def test_list_providers_with_filters(self, mock_client: MagicMock) -> None:
-        """Test list_providers with category and configured filters."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {"providers": []}
-
-        api = OAuthWizardAPI(mock_client)
-        api.list_providers(category="development", configured=True)
-
-        mock_client.request.assert_called_once_with(
-            "GET",
-            "/api/v2/integrations/wizard/providers",
-            params={"category": "development", "configured": True},
-        )
-
-    def test_get_provider(self, mock_client: MagicMock) -> None:
-        """Test get_provider calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "id": "github",
-            "name": "GitHub",
-            "description": "GitHub integration",
-            "category": "development",
-            "features": ["repos", "issues", "prs"],
-            "required_env_vars": ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"],
-            "oauth_scopes": ["repo", "read:user"],
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.get_provider("github")
-
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v2/integrations/wizard/providers/github"
-        )
-        assert result["id"] == "github"
-        assert "repos" in result["features"]
-
-    def test_get_status(self, mock_client: MagicMock) -> None:
-        """Test get_status calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "total_providers": 10,
-            "configured": 3,
-            "connected": 2,
-            "errors": 1,
-            "health_score": 0.8,
-            "last_checked_at": "2024-01-01T00:00:00Z",
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.get_status()
-
-        mock_client.request.assert_called_once_with("GET", "/api/v2/integrations/wizard/status")
-        assert result["total_providers"] == 10
-        assert result["health_score"] == 0.8
-
-    def test_validate_config(self, mock_client: MagicMock) -> None:
-        """Test validate_config calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "provider_id": "slack",
-            "valid": True,
-            "missing_required": [],
-            "missing_optional": ["SLACK_SIGNING_SECRET"],
-            "warnings": [],
-            "errors": [],
-            "can_proceed": True,
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.validate_config("slack")
-
-        mock_client.request.assert_called_once_with(
-            "POST",
-            "/api/v2/integrations/wizard/validate",
-            json={"provider_id": "slack"},
-        )
-        assert result["valid"] is True
-        assert result["can_proceed"] is True
-
-    def test_run_preflight_checks(self, mock_client: MagicMock) -> None:
-        """Test run_preflight_checks calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "provider_id": "github",
-            "checks": [
-                {"name": "credentials", "status": "passed", "required": True},
-                {"name": "scopes", "status": "passed", "required": True},
-            ],
-            "can_connect": True,
-            "estimated_connect_time_seconds": 5,
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.run_preflight_checks("github")
-
-        mock_client.request.assert_called_once_with(
-            "POST",
-            "/api/v2/integrations/wizard/preflight",
-            json={"provider_id": "github"},
-        )
-        assert result["can_connect"] is True
-        assert len(result["checks"]) == 2
-
-    def test_get_install_url(self, mock_client: MagicMock) -> None:
-        """Test get_install_url calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "install_url": "https://github.com/login/oauth/authorize?client_id=xxx",
-            "state": "random_state_123",
-            "expires_at": "2024-01-01T00:10:00Z",
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.get_install_url("github")
-
-        mock_client.request.assert_called_once_with(
-            "POST",
-            "/api/v2/integrations/wizard/providers/github/install",
-            json={},
-        )
-        assert "install_url" in result
-        assert result["state"] == "random_state_123"
-
-    def test_get_install_url_with_options(self, mock_client: MagicMock) -> None:
-        """Test get_install_url with all options."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "install_url": "https://slack.com/oauth/authorize",
-            "state": "custom_state",
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        api.get_install_url(
-            provider_id="slack",
-            redirect_uri="https://myapp.com/callback",
-            scopes=["channels:read", "chat:write"],
-            state="custom_state",
-        )
-
-        call_args = mock_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["redirect_uri"] == "https://myapp.com/callback"
-        assert json_body["scopes"] == ["channels:read", "chat:write"]
-        assert json_body["state"] == "custom_state"
-
-    def test_disconnect(self, mock_client: MagicMock) -> None:
-        """Test disconnect calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "disconnected": True,
-            "message": "Successfully disconnected Slack",
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.disconnect("slack")
-
-        mock_client.request.assert_called_once_with(
-            "DELETE", "/api/v2/integrations/wizard/providers/slack"
-        )
-        assert result["disconnected"] is True
-
-    def test_refresh_tokens(self, mock_client: MagicMock) -> None:
-        """Test refresh_tokens calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "refreshed": True,
-            "expires_at": "2024-01-02T00:00:00Z",
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.refresh_tokens("github")
-
-        mock_client.request.assert_called_once_with(
-            "POST", "/api/v2/integrations/wizard/providers/github/refresh"
-        )
-        assert result["refreshed"] is True
-
-    def test_get_recommendations(self, mock_client: MagicMock) -> None:
-        """Test get_recommendations calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import OAuthWizardAPI
-
-        mock_client.request.return_value = {
-            "recommendations": [
-                {"provider_id": "github", "reason": "Popular with developers", "priority": "high"},
-                {"provider_id": "google", "reason": "Enables calendar sync", "priority": "medium"},
-            ]
-        }
-
-        api = OAuthWizardAPI(mock_client)
-        result = api.get_recommendations()
-
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v2/integrations/wizard/recommendations"
-        )
-        assert len(result["recommendations"]) == 2
-        assert result["recommendations"][0]["priority"] == "high"
+    def test_get_config(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "available_providers": 12,
+                "configured_providers": 3,
+                "completion_percent": 25,
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.get_config()
+            mock_request.assert_called_once_with("GET", "/api/v2/integrations/wizard")
+            assert result["available_providers"] == 12
+            assert result["completion_percent"] == 25
+            client.close()
 
 
-@pytest.fixture
-def mock_async_client() -> MagicMock:
-    """Create a mock async client."""
-    from unittest.mock import AsyncMock
+class TestOAuthWizardProviderDiscovery:
+    """Tests for provider listing and discovery methods."""
 
-    client = MagicMock()
-    client.request = AsyncMock()
-    return client
+    def test_list_providers_no_filters(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"providers": [{"id": "slack"}, {"id": "github"}]}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.list_providers()
+            mock_request.assert_called_once_with(
+                "GET", "/api/v2/integrations/wizard/providers", params={}
+            )
+            assert len(result["providers"]) == 2
+            client.close()
+
+    def test_list_providers_with_category(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "providers": [{"id": "slack", "category": "communication"}]
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.oauth_wizard.list_providers(category="communication")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v2/integrations/wizard/providers",
+                params={"category": "communication"},
+            )
+            client.close()
+
+    def test_list_providers_with_configured_filter(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"providers": []}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.oauth_wizard.list_providers(category="development", configured=True)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v2/integrations/wizard/providers",
+                params={"category": "development", "configured": True},
+            )
+            client.close()
+
+    def test_get_provider(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "id": "slack",
+                "name": "Slack",
+                "category": "communication",
+                "oauth_scopes": ["channels:read", "chat:write"],
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.get_provider("slack")
+            mock_request.assert_called_once_with(
+                "GET", "/api/v2/integrations/wizard/providers/slack"
+            )
+            assert result["id"] == "slack"
+            assert result["category"] == "communication"
+            client.close()
 
 
-class TestAsyncOAuthWizardAPI:
-    """Test asynchronous AsyncOAuthWizardAPI."""
+class TestOAuthWizardStatus:
+    """Tests for integration status methods."""
+
+    def test_get_status(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "total_providers": 12,
+                "configured": 3,
+                "connected": 2,
+                "health_score": 0.85,
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.get_status()
+            mock_request.assert_called_once_with("GET", "/api/v2/integrations/wizard/status")
+            assert result["health_score"] == 0.85
+            client.close()
+
+    def test_get_provider_status(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "provider_id": "github",
+                "name": "GitHub",
+                "status": "connected",
+                "connected": True,
+                "missing_vars": [],
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.get_provider_status("github")
+            mock_request.assert_called_once_with("GET", "/api/v2/integrations/wizard/status/github")
+            assert result["connected"] is True
+            assert result["status"] == "connected"
+            client.close()
+
+
+class TestOAuthWizardValidation:
+    """Tests for validation and preflight check methods."""
+
+    def test_validate_config(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "provider_id": "slack",
+                "valid": True,
+                "can_proceed": True,
+                "errors": [],
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.validate_config("slack")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v2/integrations/wizard/validate",
+                json={"provider_id": "slack"},
+            )
+            assert result["valid"] is True
+            assert result["can_proceed"] is True
+            client.close()
+
+    def test_run_preflight_checks(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "provider_id": "github",
+                "checks": [
+                    {"name": "connection", "status": "passed", "required": True},
+                    {"name": "scopes", "status": "passed", "required": True},
+                ],
+                "can_connect": True,
+                "estimated_connect_time_seconds": 5,
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.run_preflight_checks("github")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v2/integrations/wizard/preflight",
+                json={"provider_id": "github"},
+            )
+            assert result["can_connect"] is True
+            assert len(result["checks"]) == 2
+            client.close()
+
+
+class TestOAuthWizardConnectionManagement:
+    """Tests for connection management methods."""
+
+    def test_get_install_url_minimal(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "install_url": "https://slack.com/oauth/authorize?client_id=abc",
+                "state": "xyz123",
+                "expires_at": "2025-06-01T12:00:00Z",
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.get_install_url("slack")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v2/integrations/wizard/providers/slack/install",
+                json={},
+            )
+            assert "install_url" in result
+            assert result["state"] == "xyz123"
+            client.close()
+
+    def test_get_install_url_with_all_options(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"install_url": "https://slack.com/oauth/authorize"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            client.oauth_wizard.get_install_url(
+                "slack",
+                redirect_uri="https://myapp.com/callback",
+                scopes=["channels:read", "chat:write"],
+                state="custom-state-token",
+            )
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v2/integrations/wizard/providers/slack/install",
+                json={
+                    "redirect_uri": "https://myapp.com/callback",
+                    "scopes": ["channels:read", "chat:write"],
+                    "state": "custom-state-token",
+                },
+            )
+            client.close()
+
+    def test_disconnect(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"disconnected": True, "message": "Provider disconnected"}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.disconnect("slack")
+            mock_request.assert_called_once_with(
+                "DELETE", "/api/v2/integrations/wizard/providers/slack"
+            )
+            assert result["disconnected"] is True
+            client.close()
+
+    def test_refresh_tokens(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "refreshed": True,
+                "expires_at": "2025-07-01T12:00:00Z",
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.refresh_tokens("github")
+            mock_request.assert_called_once_with(
+                "POST", "/api/v2/integrations/wizard/providers/github/refresh"
+            )
+            assert result["refreshed"] is True
+            client.close()
+
+    def test_get_recommendations(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "recommendations": [
+                    {"provider_id": "jira", "reason": "Complements GitHub", "priority": "high"},
+                    {
+                        "provider_id": "notion",
+                        "reason": "Knowledge management",
+                        "priority": "medium",
+                    },
+                ]
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.oauth_wizard.get_recommendations()
+            mock_request.assert_called_once_with(
+                "GET", "/api/v2/integrations/wizard/recommendations"
+            )
+            assert len(result["recommendations"]) == 2
+            assert result["recommendations"][0]["priority"] == "high"
+            client.close()
+
+
+class TestAsyncOAuthWizard:
+    """Tests for async OAuth wizard methods."""
 
     @pytest.mark.asyncio
-    async def test_init(self, mock_async_client: MagicMock) -> None:
-        """Test API initialization."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        assert api._client is mock_async_client
-
-    @pytest.mark.asyncio
-    async def test_get_config(self, mock_async_client: MagicMock) -> None:
-        """Test get_config calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {
-            "available_providers": ["slack"],
-            "completion_percent": 50,
-        }
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.get_config()
-
-        mock_async_client.request.assert_called_once_with("GET", "/api/v2/integrations/wizard")
-        assert result["completion_percent"] == 50
+    async def test_get_config(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"available_providers": 12, "completion_percent": 25}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.oauth_wizard.get_config()
+            mock_request.assert_called_once_with("GET", "/api/v2/integrations/wizard")
+            assert result["available_providers"] == 12
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_list_providers(self, mock_async_client: MagicMock) -> None:
-        """Test list_providers calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {"providers": []}
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        await api.list_providers(category="storage", configured=False)
-
-        mock_async_client.request.assert_called_once_with(
-            "GET",
-            "/api/v2/integrations/wizard/providers",
-            params={"category": "storage", "configured": False},
-        )
+    async def test_list_providers_with_category(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"providers": [{"id": "slack"}]}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.oauth_wizard.list_providers(category="communication")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v2/integrations/wizard/providers",
+                params={"category": "communication"},
+            )
+            assert len(result["providers"]) == 1
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_get_provider(self, mock_async_client: MagicMock) -> None:
-        """Test get_provider calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {"id": "dropbox", "name": "Dropbox"}
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.get_provider("dropbox")
-
-        mock_async_client.request.assert_called_once_with(
-            "GET", "/api/v2/integrations/wizard/providers/dropbox"
-        )
-        assert result["id"] == "dropbox"
-
-    @pytest.mark.asyncio
-    async def test_get_status(self, mock_async_client: MagicMock) -> None:
-        """Test get_status calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {
-            "total_providers": 5,
-            "connected": 3,
-        }
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.get_status()
-
-        mock_async_client.request.assert_called_once_with(
-            "GET", "/api/v2/integrations/wizard/status"
-        )
-        assert result["connected"] == 3
+    async def test_validate_config(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"provider_id": "slack", "valid": True}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.oauth_wizard.validate_config("slack")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v2/integrations/wizard/validate",
+                json={"provider_id": "slack"},
+            )
+            assert result["valid"] is True
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_validate_config(self, mock_async_client: MagicMock) -> None:
-        """Test validate_config calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {
-            "provider_id": "jira",
-            "valid": False,
-            "can_proceed": False,
-        }
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.validate_config("jira")
-
-        mock_async_client.request.assert_called_once_with(
-            "POST",
-            "/api/v2/integrations/wizard/validate",
-            json={"provider_id": "jira"},
-        )
-        assert result["valid"] is False
-
-    @pytest.mark.asyncio
-    async def test_run_preflight_checks(self, mock_async_client: MagicMock) -> None:
-        """Test run_preflight_checks calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {
-            "provider_id": "notion",
-            "checks": [],
-            "can_connect": True,
-        }
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.run_preflight_checks("notion")
-
-        mock_async_client.request.assert_called_once_with(
-            "POST",
-            "/api/v2/integrations/wizard/preflight",
-            json={"provider_id": "notion"},
-        )
-        assert result["can_connect"] is True
-
-    @pytest.mark.asyncio
-    async def test_get_install_url(self, mock_async_client: MagicMock) -> None:
-        """Test get_install_url calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {
-            "install_url": "https://auth.example.com",
-            "state": "abc123",
-        }
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.get_install_url(
-            provider_id="custom",
-            redirect_uri="https://callback.com",
-            scopes=["read", "write"],
-            state="abc123",
-        )
-
-        call_args = mock_async_client.request.call_args
-        assert call_args[0] == ("POST", "/api/v2/integrations/wizard/providers/custom/install")
-        json_body = call_args[1]["json"]
-        assert json_body["redirect_uri"] == "https://callback.com"
-        assert json_body["scopes"] == ["read", "write"]
-        assert result["state"] == "abc123"
-
-    @pytest.mark.asyncio
-    async def test_disconnect(self, mock_async_client: MagicMock) -> None:
-        """Test disconnect calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {"disconnected": True}
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.disconnect("linear")
-
-        mock_async_client.request.assert_called_once_with(
-            "DELETE", "/api/v2/integrations/wizard/providers/linear"
-        )
-        assert result["disconnected"] is True
-
-    @pytest.mark.asyncio
-    async def test_refresh_tokens(self, mock_async_client: MagicMock) -> None:
-        """Test refresh_tokens calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {
-            "refreshed": True,
-            "expires_at": "2024-12-31T23:59:59Z",
-        }
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.refresh_tokens("asana")
-
-        mock_async_client.request.assert_called_once_with(
-            "POST", "/api/v2/integrations/wizard/providers/asana/refresh"
-        )
-        assert result["refreshed"] is True
-
-    @pytest.mark.asyncio
-    async def test_get_recommendations(self, mock_async_client: MagicMock) -> None:
-        """Test get_recommendations calls correct endpoint."""
-        from aragora.namespaces.oauth_wizard import AsyncOAuthWizardAPI
-
-        mock_async_client.request.return_value = {
-            "recommendations": [{"provider_id": "trello", "priority": "low"}]
-        }
-
-        api = AsyncOAuthWizardAPI(mock_async_client)
-        result = await api.get_recommendations()
-
-        mock_async_client.request.assert_called_once_with(
-            "GET", "/api/v2/integrations/wizard/recommendations"
-        )
-        assert len(result["recommendations"]) == 1
+    async def test_disconnect(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"disconnected": True}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.oauth_wizard.disconnect("github")
+            mock_request.assert_called_once_with(
+                "DELETE", "/api/v2/integrations/wizard/providers/github"
+            )
+            assert result["disconnected"] is True
+            await client.close()

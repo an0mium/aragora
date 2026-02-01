@@ -326,6 +326,24 @@ class SAMLProvider(SSOProvider):
         if HAS_SAML_LIB:
             return await self._authenticate_with_library(saml_response, relay_state)
         else:
+            # SECURITY: The simplified parser does NOT validate XML signatures.
+            # Only allow it in development with explicit opt-in.
+            env = os.environ.get("ARAGORA_ENV", "").lower()
+            is_dev = env in ("development", "dev", "local", "test")
+            allow_unsafe = (
+                os.environ.get("ARAGORA_ALLOW_UNSAFE_SAML", "").lower() == "true"
+                and os.environ.get("ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED", "").lower() == "true"
+            )
+            if not is_dev or not allow_unsafe:
+                raise SSOConfigurationError(
+                    "python3-saml library required for SAML authentication. "
+                    "The simplified parser cannot validate XML signatures and is "
+                    "unsafe for production. Install with: pip install python3-saml"
+                )
+            logger.warning(
+                "SECURITY: Using simplified SAML parser WITHOUT signature validation. "
+                "This is only acceptable in development/testing environments."
+            )
             return await self._authenticate_simple(saml_response, relay_state)
 
     async def _authenticate_simple(
@@ -344,7 +362,7 @@ class SAMLProvider(SSOProvider):
             decoded = base64.b64decode(saml_response)
             xml_str = decoded.decode("utf-8")
 
-            # Parse XML
+            # Parse XML (defusedxml prevents XXE attacks)
             root = ET.fromstring(xml_str)
 
             # Define namespaces
@@ -352,6 +370,32 @@ class SAMLProvider(SSOProvider):
                 "samlp": "urn:oasis:names:tc:SAML:2.0:protocol",
                 "saml": "urn:oasis:names:tc:SAML:2.0:assertion",
             }
+
+            # SECURITY: Validate root element is a SAML Response (XML wrapping protection)
+            expected_tag = "{urn:oasis:names:tc:SAML:2.0:protocol}Response"
+            if root.tag != expected_tag:
+                raise SSOAuthenticationError(
+                    f"Invalid SAML response: unexpected root element {root.tag}"
+                )
+
+            # SECURITY: Validate Destination matches our ACS URL
+            destination = root.get("Destination", "")
+            if destination and hasattr(self.config, "callback_url") and self.config.callback_url:
+                if destination != self.config.callback_url:
+                    raise SSOAuthenticationError(
+                        "SAML Destination mismatch: response not intended for this SP",
+                        {"destination": destination, "expected": self.config.callback_url},
+                    )
+
+            # SECURITY: Validate Issuer at Response level
+            issuer = root.find("saml:Issuer", namespaces)
+            if issuer is not None and issuer.text:
+                if hasattr(self.config, "idp_entity_id") and self.config.idp_entity_id:
+                    if issuer.text != self.config.idp_entity_id:
+                        raise SSOAuthenticationError(
+                            "SAML Issuer mismatch: response from unexpected IdP",
+                            {"issuer": issuer.text, "expected": self.config.idp_entity_id},
+                        )
 
             # Check status
             status = root.find(".//samlp:StatusCode", namespaces)
@@ -362,16 +406,51 @@ class SAMLProvider(SSOProvider):
                         f"SAML authentication failed: {status_value}", {"status": status_value}
                     )
 
-            # Extract NameID
-            name_id = root.find(".//saml:NameID", namespaces)
+            # SECURITY: Only process direct-child Assertions (prevents XML wrapping attacks)
+            assertions = root.findall("saml:Assertion", namespaces)
+            if not assertions:
+                raise SSOAuthenticationError("No Assertion in SAML response")
+            assertion = assertions[0]
+
+            # SECURITY: Validate Conditions (NotBefore/NotOnOrAfter)
+            conditions = assertion.find("saml:Conditions", namespaces)
+            if conditions is not None:
+                now = time.time()
+                clock_skew = 60  # 60 second tolerance
+
+                not_before = conditions.get("NotBefore")
+                if not_before:
+                    from datetime import datetime
+
+                    nb_time = datetime.fromisoformat(not_before.replace("Z", "+00:00")).timestamp()
+                    if now < nb_time - clock_skew:
+                        raise SSOAuthenticationError("SAML assertion not yet valid (NotBefore)")
+
+                not_on_or_after = conditions.get("NotOnOrAfter")
+                if not_on_or_after:
+                    from datetime import datetime
+
+                    noa_time = datetime.fromisoformat(
+                        not_on_or_after.replace("Z", "+00:00")
+                    ).timestamp()
+                    if now >= noa_time + clock_skew:
+                        raise SSOAuthenticationError("SAML assertion expired (NotOnOrAfter)")
+
+            # Extract NameID from direct-child assertion (not deep search)
+            name_id = assertion.find("saml:Subject/saml:NameID", namespaces)
+            if name_id is None or not name_id.text:
+                # Fall back to deep search within assertion only
+                name_id = assertion.find(".//saml:NameID", namespaces)
             if name_id is None or not name_id.text:
                 raise SSOAuthenticationError("No NameID in SAML response")
 
             user_id = name_id.text
 
-            # Extract attributes
+            # Extract attributes from assertion only (not deep search from root)
             attributes: dict[str, list[str]] = {}
-            attr_statements = root.findall(".//saml:AttributeStatement/saml:Attribute", namespaces)
+            attr_statements = assertion.findall(
+                "saml:AttributeStatement/saml:Attribute", namespaces
+            )
 
             for attr in attr_statements:
                 attr_name = attr.get("Name", "")
@@ -559,6 +638,10 @@ class SAMLProvider(SSOProvider):
                 "authnRequestsSigned": self.config.authn_request_signed,
                 "wantAssertionsSigned": self.config.want_assertions_signed,
                 "wantAssertionsEncrypted": self.config.want_assertions_encrypted,
+                "wantMessagesSigned": True,  # Require signed Response messages
+                "wantNameId": True,  # Require NameID in assertions
+                "wantXMLValidation": True,  # Validate XML schema
+                "rejectDeprecatedAlgorithm": True,  # Reject weak SHA-1 signatures
             },
         }
 

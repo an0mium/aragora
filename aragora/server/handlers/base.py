@@ -44,7 +44,7 @@ import os
 import re
 from functools import wraps
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias, TypedDict, cast
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
@@ -373,7 +373,7 @@ def get_host_header(handler: HTTPRequestHandler | None, default: str | None = No
     return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
 
 
-def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
+def get_agent_name(agent: dict[str, Any] | AgentRating | Any | None) -> str | None:
     """Extract agent name from dict or object.
 
     Handles the common pattern where agent data might be either
@@ -395,11 +395,15 @@ def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
     if agent is None:
         return None
     if isinstance(agent, dict):
-        return agent.get("agent_name") or agent.get("name")
-    return getattr(agent, "agent_name", None) or getattr(agent, "name", None)
+        result = agent.get("agent_name") or agent.get("name")
+        return str(result) if result else None
+    result = getattr(agent, "agent_name", None) or getattr(agent, "name", None)
+    return str(result) if result else None
 
 
-def agent_to_dict(agent: dict | AgentRating | Any | None, include_name: bool = True) -> dict:
+def agent_to_dict(
+    agent: dict[str, Any] | AgentRating | Any | None, include_name: bool = True
+) -> dict[str, Any]:
     """Convert agent object or dict to standardized dict with ELO fields.
 
     Handles the common pattern where agent data might be either a dict
@@ -522,7 +526,7 @@ def safe_error_response(
 # require_feature, safe_fetch, with_error_recovery
 
 
-def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
+def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator that enforces organization debate quota limits.
 
@@ -552,7 +556,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
             ...
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             from aragora.billing.jwt_auth import extract_user_from_request
@@ -686,10 +690,10 @@ def api_endpoint(
     path: str,
     summary: str = "",
     description: str = "",
-) -> Callable[[Callable], Callable]:
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Attach API metadata to a handler method."""
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         setattr(
             func,
             "_api_metadata",
@@ -705,13 +709,13 @@ def api_endpoint(
     return decorator
 
 
-def rate_limit(*args: Any, **kwargs: Any) -> Callable[[Callable], Callable]:
+def rate_limit(*args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Async-friendly wrapper around middleware rate limiting."""
     from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
 
     decorator = _rate_limit(*args, **kwargs)
 
-    def wrapper(func: Callable) -> Callable:
+    def wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
         decorated = decorator(func)
         if inspect.iscoroutinefunction(func):
 
@@ -728,10 +732,10 @@ def rate_limit(*args: Any, **kwargs: Any) -> Callable[[Callable], Callable]:
     return wrapper
 
 
-def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
+def validate_body(required_fields: list[str]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Validate JSON request body has required fields for async handlers."""
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if inspect.iscoroutinefunction(func):
 
             @wraps(func)
@@ -806,7 +810,7 @@ class PaginatedHandlerMixin:
 
     def get_pagination(
         self,
-        query_params: dict,
+        query_params: dict[str, Any],
         default_limit: int | None = None,
         max_limit: int | None = None,
     ) -> tuple[int, int]:
@@ -834,7 +838,7 @@ class PaginatedHandlerMixin:
 
     def paginated_response(
         self,
-        items: list,
+        items: list[Any],
         total: int,
         limit: int,
         offset: int,
@@ -1128,7 +1132,7 @@ class BaseHandler:
         path: str,
         segment_index: int,
         param_name: str,
-        pattern: re.Pattern = None,
+        pattern: re.Pattern[str] | None = None,
     ) -> tuple[str | None, HandlerResult | None]:
         """Extract and validate a path segment parameter.
 
@@ -1185,8 +1189,8 @@ class BaseHandler:
     def extract_path_params(
         self,
         path: str,
-        param_specs: list[tuple[int, str, re.Pattern | None]],
-    ) -> tuple[dict | None, HandlerResult | None]:
+        param_specs: list[tuple[int, str, re.Pattern[str] | None]],
+    ) -> tuple[dict[str, str] | None, HandlerResult | None]:
         """Extract and validate multiple path parameters at once.
 
         Args:
@@ -1225,8 +1229,8 @@ class BaseHandler:
         """Get ELO system instance."""
         # Check class attribute first (set by unified_server), then ctx
         if hasattr(self.__class__, "elo_system") and self.__class__.elo_system is not None:
-            return self.__class__.elo_system
-        return self.ctx.get("elo_system")
+            return cast(Optional["EloSystem"], self.__class__.elo_system)
+        return cast(Optional["EloSystem"], self.ctx.get("elo_system"))
 
     def get_debate_embeddings(self) -> Optional["DebateEmbeddingsDatabase"]:
         """Get debate embeddings database."""
@@ -1406,7 +1410,7 @@ class BaseHandler:
     # Maximum request body size (10MB default)
     MAX_BODY_SIZE = 10 * 1024 * 1024
 
-    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict | None:
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
         """Read and parse JSON body from request handler.
 
         Args:
@@ -1481,7 +1485,7 @@ class BaseHandler:
 
     def read_json_body_validated(
         self, handler: Any, max_size: int | None = None
-    ) -> tuple[dict | None, HandlerResult | None]:
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Read and parse JSON body with Content-Type validation.
 
         Combines Content-Type validation and body parsing into a single call.

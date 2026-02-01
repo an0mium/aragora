@@ -1,828 +1,473 @@
-"""Tests for Facts SDK namespace."""
+"""Tests for Facts namespace API."""
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import patch
 
 import pytest
 
-
-@pytest.fixture
-def mock_client() -> MagicMock:
-    """Create a mock client."""
-    return MagicMock()
-
-
-@pytest.fixture
-def mock_async_client() -> MagicMock:
-    """Create a mock async client."""
-    client = MagicMock()
-    client.request = AsyncMock()
-    return client
-
-
-class TestFactsAPI:
-    """Test synchronous FactsAPI."""
-
-    def test_init(self, mock_client: MagicMock) -> None:
-        """Test API initialization."""
-        from aragora.namespaces.facts import FactsAPI
-
-        api = FactsAPI(mock_client)
-        assert api._client is mock_client
-
-    # ===========================================================================
-    # Fact CRUD Operations
-    # ===========================================================================
-
-    def test_create_fact(self, mock_client: MagicMock) -> None:
-        """Test create_fact calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "id": "fact-123",
-            "content": "Python is a programming language",
-            "source": "docs",
-            "confidence": 0.95,
-            "created_at": "2024-01-01T00:00:00Z",
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.create_fact(
-            content="Python is a programming language",
-            source="docs",
-            confidence=0.95,
-        )
-
-        mock_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts",
-            json={
-                "content": "Python is a programming language",
-                "source": "docs",
-                "confidence": 0.95,
-            },
-        )
-        assert result["id"] == "fact-123"
-        assert result["content"] == "Python is a programming language"
-
-    def test_create_fact_with_tags_and_metadata(self, mock_client: MagicMock) -> None:
-        """Test create_fact with optional tags and metadata."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {"id": "fact-123"}
-
-        api = FactsAPI(mock_client)
-        api.create_fact(
-            content="Test fact",
-            source="test-source",
-            confidence=0.8,
-            tags=["python", "programming"],
-            metadata={"author": "test", "version": 1},
-        )
-
-        call_args = mock_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["content"] == "Test fact"
-        assert json_body["source"] == "test-source"
-        assert json_body["confidence"] == 0.8
-        assert json_body["tags"] == ["python", "programming"]
-        assert json_body["metadata"] == {"author": "test", "version": 1}
-
-    def test_create_fact_default_confidence(self, mock_client: MagicMock) -> None:
-        """Test create_fact uses default confidence of 1.0."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {"id": "fact-123"}
-
-        api = FactsAPI(mock_client)
-        api.create_fact(content="Test", source="test")
-
-        call_args = mock_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["confidence"] == 1.0
-
-    def test_get_fact(self, mock_client: MagicMock) -> None:
-        """Test get_fact calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "id": "fact-123",
-            "content": "Test fact",
-            "source": "docs",
-            "confidence": 0.95,
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.get_fact("fact-123")
-
-        mock_client.request.assert_called_once_with("GET", "/api/v1/facts/fact-123")
-        assert result["id"] == "fact-123"
-        assert result["confidence"] == 0.95
-
-    def test_update_fact(self, mock_client: MagicMock) -> None:
-        """Test update_fact calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "id": "fact-123",
-            "content": "Updated content",
-            "confidence": 0.99,
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.update_fact(
-            fact_id="fact-123",
-            updates={"content": "Updated content", "confidence": 0.99},
-        )
-
-        mock_client.request.assert_called_once_with(
-            "PATCH",
-            "/api/v1/facts/fact-123",
-            json={"content": "Updated content", "confidence": 0.99},
-        )
-        assert result["content"] == "Updated content"
-        assert result["confidence"] == 0.99
-
-    def test_delete_fact(self, mock_client: MagicMock) -> None:
-        """Test delete_fact calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {"deleted": True, "id": "fact-123"}
-
-        api = FactsAPI(mock_client)
-        result = api.delete_fact("fact-123")
-
-        mock_client.request.assert_called_once_with("DELETE", "/api/v1/facts/fact-123")
-        assert result["deleted"] is True
-
-    # ===========================================================================
-    # Search and List Operations
-    # ===========================================================================
-
-    def test_search_facts(self, mock_client: MagicMock) -> None:
-        """Test search_facts calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "results": [
-                {"id": "fact-1", "content": "Test", "relevance": 0.95},
-                {"id": "fact-2", "content": "Test 2", "relevance": 0.85},
-            ],
-            "total": 2,
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.search_facts(query="programming language")
-
-        mock_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts/search",
-            json={"query": "programming language", "limit": 20, "offset": 0},
-        )
-        assert len(result["results"]) == 2
-        assert result["total"] == 2
-
-    def test_search_facts_with_filters(self, mock_client: MagicMock) -> None:
-        """Test search_facts with filters and pagination."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {"results": [], "total": 0}
-
-        api = FactsAPI(mock_client)
-        api.search_facts(
-            query="test",
-            filters={"semantic": True, "source": "docs", "min_relevance": 0.5},
-            limit=50,
-            offset=10,
-        )
-
-        call_args = mock_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["query"] == "test"
-        assert json_body["filters"] == {
-            "semantic": True,
-            "source": "docs",
-            "min_relevance": 0.5,
-        }
-        assert json_body["limit"] == 50
-        assert json_body["offset"] == 10
-
-    def test_list_facts(self, mock_client: MagicMock) -> None:
-        """Test list_facts calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "facts": [{"id": "fact-1"}, {"id": "fact-2"}],
-            "total": 100,
-            "limit": 20,
-            "offset": 0,
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.list_facts()
-
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v1/facts", params={"limit": 20, "offset": 0}
-        )
-        assert len(result["facts"]) == 2
-        assert result["total"] == 100
-
-    def test_list_facts_with_all_filters(self, mock_client: MagicMock) -> None:
-        """Test list_facts with all optional filters."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {"facts": [], "total": 0}
-
-        api = FactsAPI(mock_client)
-        api.list_facts(
-            limit=50,
-            offset=25,
-            tags=["python", "api"],
-            source="official-docs",
-            min_confidence=0.7,
-            max_confidence=1.0,
-            sort_by="created_at",
-            sort_order="desc",
-        )
-
-        call_args = mock_client.request.call_args
-        params = call_args[1]["params"]
-        assert params["limit"] == 50
-        assert params["offset"] == 25
-        assert params["tags"] == ["python", "api"]
-        assert params["source"] == "official-docs"
-        assert params["min_confidence"] == 0.7
-        assert params["max_confidence"] == 1.0
-        assert params["sort_by"] == "created_at"
-        assert params["sort_order"] == "desc"
-
-    # ===========================================================================
-    # Relationship Operations
-    # ===========================================================================
-
-    def test_create_relationship(self, mock_client: MagicMock) -> None:
-        """Test create_relationship calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "id": "rel-123",
-            "source_fact_id": "fact-1",
-            "target_fact_id": "fact-2",
-            "relationship_type": "supports",
-            "weight": 0.9,
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.create_relationship(
-            source_id="fact-1",
-            target_id="fact-2",
-            relationship_type="supports",
-            weight=0.9,
-        )
-
-        mock_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts/relationships",
-            json={
-                "source_fact_id": "fact-1",
-                "target_fact_id": "fact-2",
-                "relationship_type": "supports",
-                "weight": 0.9,
-            },
-        )
-        assert result["id"] == "rel-123"
-        assert result["relationship_type"] == "supports"
-
-    def test_create_relationship_with_metadata(self, mock_client: MagicMock) -> None:
-        """Test create_relationship with metadata."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {"id": "rel-123"}
-
-        api = FactsAPI(mock_client)
-        api.create_relationship(
-            source_id="fact-1",
-            target_id="fact-2",
-            relationship_type="contradicts",
-            weight=0.8,
-            metadata={"reason": "conflicting sources", "verified": True},
-        )
-
-        call_args = mock_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["metadata"] == {"reason": "conflicting sources", "verified": True}
-
-    def test_create_relationship_default_weight(self, mock_client: MagicMock) -> None:
-        """Test create_relationship uses default weight of 1.0."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {"id": "rel-123"}
-
-        api = FactsAPI(mock_client)
-        api.create_relationship(
-            source_id="fact-1", target_id="fact-2", relationship_type="related_to"
-        )
-
-        call_args = mock_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["weight"] == 1.0
-
-    def test_get_relationships(self, mock_client: MagicMock) -> None:
-        """Test get_relationships calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "relationships": [
-                {"id": "rel-1", "relationship_type": "supports"},
-                {"id": "rel-2", "relationship_type": "elaborates"},
+from aragora.client import AragoraAsyncClient, AragoraClient
+
+
+class TestFactsCRUD:
+    """Tests for fact create, read, update, delete operations."""
+
+    def test_create_fact_minimal(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "fact_1", "content": "Water boils at 100C"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.create_fact("Water boils at 100C")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts",
+                json={"content": "Water boils at 100C"},
+            )
+            assert result["id"] == "fact_1"
+            client.close()
+
+    def test_create_fact_with_all_options(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "fact_2", "content": "Python is interpreted"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.create_fact(
+                "Python is interpreted",
+                source="docs",
+                confidence=0.95,
+                tags=["programming", "python"],
+                metadata={"verified": True},
+            )
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts",
+                json={
+                    "content": "Python is interpreted",
+                    "source": "docs",
+                    "confidence": 0.95,
+                    "tags": ["programming", "python"],
+                    "metadata": {"verified": True},
+                },
+            )
+            assert result["id"] == "fact_2"
+            client.close()
+
+    def test_get_fact(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "fact_1", "content": "Earth orbits the Sun"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.get_fact("fact_1")
+            mock_request.assert_called_once_with("GET", "/api/v1/facts/fact_1")
+            assert result["content"] == "Earth orbits the Sun"
+            client.close()
+
+    def test_update_fact(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "fact_1", "confidence": 0.99}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.update_fact("fact_1", confidence=0.99, content="Updated content")
+            mock_request.assert_called_once_with(
+                "PATCH",
+                "/api/v1/facts/fact_1",
+                json={"confidence": 0.99, "content": "Updated content"},
+            )
+            assert result["confidence"] == 0.99
+            client.close()
+
+    def test_delete_fact(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"deleted": True}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.delete_fact("fact_1")
+            mock_request.assert_called_once_with("DELETE", "/api/v1/facts/fact_1")
+            assert result["deleted"] is True
+            client.close()
+
+    def test_list_facts_no_filters(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"facts": [], "total": 0}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.list_facts()
+            mock_request.assert_called_once_with("GET", "/api/v1/facts", params=None)
+            assert result["total"] == 0
+            client.close()
+
+    def test_list_facts_with_filters(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"facts": [{"id": "f1"}], "total": 1}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.list_facts(
+                limit=10,
+                offset=5,
+                tag="science",
+                source="wikipedia",
+                min_confidence=0.8,
+            )
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts",
+                params={
+                    "limit": 10,
+                    "offset": 5,
+                    "tag": "science",
+                    "source": "wikipedia",
+                    "min_confidence": 0.8,
+                },
+            )
+            assert result["total"] == 1
+            client.close()
+
+
+class TestFactsSearchAndExists:
+    """Tests for search and existence check operations."""
+
+    def test_search_facts_basic(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"results": [{"id": "f1", "score": 0.92}]}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.search_facts("boiling point")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts/search",
+                params={"query": "boiling point"},
+            )
+            assert result["results"][0]["score"] == 0.92
+            client.close()
+
+    def test_search_facts_with_options(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"results": []}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.facts.search_facts("quantum physics", limit=5, min_score=0.7)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts/search",
+                params={"query": "quantum physics", "limit": 5, "min_score": 0.7},
+            )
+            client.close()
+
+    def test_exists(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.facts.exists("fact_42")
+            mock_request.assert_called_once_with("HEAD", "/api/v1/facts/fact_42")
+            client.close()
+
+
+class TestFactsRelationships:
+    """Tests for relationship management between facts."""
+
+    def test_create_relationship_minimal(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "rel_1", "rel_type": "supports"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.create_relationship("fact_1", "fact_2", "supports")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/relationships",
+                json={
+                    "source_id": "fact_1",
+                    "target_id": "fact_2",
+                    "rel_type": "supports",
+                },
+            )
+            assert result["rel_type"] == "supports"
+            client.close()
+
+    def test_create_relationship_with_strength(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "rel_2", "strength": 0.85}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.facts.create_relationship("fact_3", "fact_4", "contradicts", strength=0.85)
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/relationships",
+                json={
+                    "source_id": "fact_3",
+                    "target_id": "fact_4",
+                    "rel_type": "contradicts",
+                    "strength": 0.85,
+                },
+            )
+            client.close()
+
+    def test_get_relationship(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "rel_1", "rel_type": "supports"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.get_relationship("rel_1")
+            mock_request.assert_called_once_with("GET", "/api/v1/facts/relationships/rel_1")
+            assert result["id"] == "rel_1"
+            client.close()
+
+    def test_update_relationship(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"id": "rel_1", "strength": 0.95}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.update_relationship("rel_1", strength=0.95)
+            mock_request.assert_called_once_with(
+                "PATCH",
+                "/api/v1/facts/relationships/rel_1",
+                json={"strength": 0.95},
+            )
+            assert result["strength"] == 0.95
+            client.close()
+
+    def test_delete_relationship(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"deleted": True}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.delete_relationship("rel_1")
+            mock_request.assert_called_once_with("DELETE", "/api/v1/facts/relationships/rel_1")
+            assert result["deleted"] is True
+            client.close()
+
+    def test_get_relationships_no_filters(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"relationships": []}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.get_relationships("fact_1")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts/fact_1/relationships",
+                params=None,
+            )
+            assert result["relationships"] == []
+            client.close()
+
+    def test_get_relationships_with_filters(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"relationships": [{"id": "rel_5"}]}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.facts.get_relationships("fact_1", direction="outgoing", rel_type="supports")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts/fact_1/relationships",
+                params={"direction": "outgoing", "rel_type": "supports"},
+            )
+            client.close()
+
+    def test_get_related_facts_no_filters(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"facts": [{"id": "fact_7"}]}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.get_related_facts("fact_1")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts/fact_1/related",
+                params=None,
+            )
+            assert len(result["facts"]) == 1
+            client.close()
+
+    def test_get_related_facts_with_options(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"facts": []}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.facts.get_related_facts("fact_1", max_depth=3, min_strength=0.5)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts/fact_1/related",
+                params={"max_depth": 3, "min_strength": 0.5},
+            )
+            client.close()
+
+
+class TestFactsBatchAndUtility:
+    """Tests for batch operations, stats, validation, and merging."""
+
+    def test_batch_create(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"created": 2, "ids": ["f1", "f2"]}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            facts_data = [
+                {"content": "Fact A"},
+                {"content": "Fact B", "confidence": 0.9},
             ]
-        }
+            result = client.facts.batch_create(facts_data)
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/batch",
+                json={"facts": facts_data},
+            )
+            assert result["created"] == 2
+            client.close()
 
-        api = FactsAPI(mock_client)
-        result = api.get_relationships("fact-123")
+    def test_batch_delete(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"deleted": 3}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.batch_delete(["f1", "f2", "f3"])
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/batch/delete",
+                json={"ids": ["f1", "f2", "f3"]},
+            )
+            assert result["deleted"] == 3
+            client.close()
 
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v1/facts/fact-123/relationships", params={}
-        )
-        assert len(result["relationships"]) == 2
+    def test_get_stats(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"total_facts": 1500, "avg_confidence": 0.87}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.get_stats()
+            mock_request.assert_called_once_with("GET", "/api/v1/facts/stats")
+            assert result["total_facts"] == 1500
+            client.close()
 
-    def test_get_relationships_with_filters(self, mock_client: MagicMock) -> None:
-        """Test get_relationships with all filters."""
-        from aragora.namespaces.facts import FactsAPI
+    def test_validate_content(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"valid": True, "issues": []}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.validate_content("The sky is blue")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/validate",
+                json={"content": "The sky is blue"},
+            )
+            assert result["valid"] is True
+            client.close()
 
-        mock_client.request.return_value = {"relationships": []}
+    def test_merge_facts_minimal(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"merged_id": "fact_merged", "status": "ok"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.facts.merge_facts("fact_1", "fact_2")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/merge",
+                json={"source_id": "fact_1", "target_id": "fact_2"},
+            )
+            assert result["merged_id"] == "fact_merged"
+            client.close()
 
-        api = FactsAPI(mock_client)
-        api.get_relationships(
-            fact_id="fact-123",
-            relationship_type="supports",
-            direction="outgoing",
-            min_weight=0.5,
-        )
-
-        call_args = mock_client.request.call_args
-        params = call_args[1]["params"]
-        assert params["relationship_type"] == "supports"
-        assert params["direction"] == "outgoing"
-        assert params["min_weight"] == 0.5
-
-    # ===========================================================================
-    # Batch Operations
-    # ===========================================================================
-
-    def test_batch_create_facts(self, mock_client: MagicMock) -> None:
-        """Test batch_create_facts calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "created": [{"id": "fact-1"}, {"id": "fact-2"}],
-            "failed": [],
-            "total_created": 2,
-            "total_failed": 0,
-        }
-
-        facts = [
-            {"content": "Fact 1", "source": "source1", "confidence": 0.9},
-            {"content": "Fact 2", "source": "source2", "confidence": 0.8},
-        ]
-
-        api = FactsAPI(mock_client)
-        result = api.batch_create_facts(facts)
-
-        mock_client.request.assert_called_once_with(
-            "POST", "/api/v1/facts/batch", json={"facts": facts}
-        )
-        assert result["total_created"] == 2
-        assert result["total_failed"] == 0
-
-    def test_batch_create_facts_partial_failure(self, mock_client: MagicMock) -> None:
-        """Test batch_create_facts handles partial failures."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "created": [{"id": "fact-1"}],
-            "failed": [{"content": "Invalid fact", "error": "Missing source"}],
-            "total_created": 1,
-            "total_failed": 1,
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.batch_create_facts(
-            [
-                {"content": "Valid", "source": "src"},
-                {"content": "Invalid fact"},  # Missing source
-            ]
-        )
-
-        assert result["total_created"] == 1
-        assert result["total_failed"] == 1
-        assert len(result["failed"]) == 1
-
-    # ===========================================================================
-    # Verification Operations
-    # ===========================================================================
-
-    def test_verify_fact(self, mock_client: MagicMock) -> None:
-        """Test verify_fact calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "verified": True,
-            "fact": {"id": "fact-123", "status": "verified"},
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.verify_fact("fact-123")
-
-        mock_client.request.assert_called_once_with("POST", "/api/v1/facts/fact-123/verify")
-        assert result["verified"] is True
-        assert result["fact"]["status"] == "verified"
-
-    def test_invalidate_fact(self, mock_client: MagicMock) -> None:
-        """Test invalidate_fact calls correct endpoint."""
-        from aragora.namespaces.facts import FactsAPI
-
-        mock_client.request.return_value = {
-            "invalidated": True,
-            "fact": {"id": "fact-123", "status": "invalidated"},
-            "reason": "Outdated information",
-        }
-
-        api = FactsAPI(mock_client)
-        result = api.invalidate_fact("fact-123", reason="Outdated information")
-
-        mock_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts/fact-123/invalidate",
-            json={"reason": "Outdated information"},
-        )
-        assert result["invalidated"] is True
-        assert result["reason"] == "Outdated information"
+    def test_merge_facts_with_strategy(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"merged_id": "fact_merged"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.facts.merge_facts("fact_1", "fact_2", strategy="prefer_source")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/merge",
+                json={
+                    "source_id": "fact_1",
+                    "target_id": "fact_2",
+                    "strategy": "prefer_source",
+                },
+            )
+            client.close()
 
 
-class TestAsyncFactsAPI:
-    """Test asynchronous AsyncFactsAPI."""
-
-    def test_init(self, mock_async_client: MagicMock) -> None:
-        """Test API initialization."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        api = AsyncFactsAPI(mock_async_client)
-        assert api._client is mock_async_client
-
-    # ===========================================================================
-    # Fact CRUD Operations
-    # ===========================================================================
+class TestAsyncFacts:
+    """Tests for async facts methods."""
 
     @pytest.mark.asyncio
-    async def test_create_fact(self, mock_async_client: MagicMock) -> None:
-        """Test create_fact calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "id": "fact-123",
-            "content": "Python is a programming language",
-            "source": "docs",
-            "confidence": 0.95,
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.create_fact(
-            content="Python is a programming language",
-            source="docs",
-            confidence=0.95,
-        )
-
-        mock_async_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts",
-            json={
-                "content": "Python is a programming language",
-                "source": "docs",
-                "confidence": 0.95,
-            },
-        )
-        assert result["id"] == "fact-123"
+    async def test_create_fact(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"id": "fact_1", "content": "Async fact"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.facts.create_fact("Async fact", source="test", confidence=0.9)
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts",
+                json={"content": "Async fact", "source": "test", "confidence": 0.9},
+            )
+            assert result["id"] == "fact_1"
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_create_fact_with_tags_and_metadata(self, mock_async_client: MagicMock) -> None:
-        """Test create_fact with optional tags and metadata."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {"id": "fact-123"}
-
-        api = AsyncFactsAPI(mock_async_client)
-        await api.create_fact(
-            content="Test fact",
-            source="test-source",
-            tags=["python"],
-            metadata={"key": "value"},
-        )
-
-        call_args = mock_async_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["tags"] == ["python"]
-        assert json_body["metadata"] == {"key": "value"}
+    async def test_get_fact(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"id": "fact_1", "content": "Async retrieved"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.facts.get_fact("fact_1")
+            mock_request.assert_called_once_with("GET", "/api/v1/facts/fact_1")
+            assert result["content"] == "Async retrieved"
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_get_fact(self, mock_async_client: MagicMock) -> None:
-        """Test get_fact calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "id": "fact-123",
-            "content": "Test fact",
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.get_fact("fact-123")
-
-        mock_async_client.request.assert_called_once_with("GET", "/api/v1/facts/fact-123")
-        assert result["id"] == "fact-123"
+    async def test_list_facts_with_filters(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"facts": [{"id": "f1"}], "total": 1}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.facts.list_facts(tag="science", limit=20)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts",
+                params={"tag": "science", "limit": 20},
+            )
+            assert result["total"] == 1
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_update_fact(self, mock_async_client: MagicMock) -> None:
-        """Test update_fact calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "id": "fact-123",
-            "content": "Updated",
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.update_fact(fact_id="fact-123", updates={"content": "Updated"})
-
-        mock_async_client.request.assert_called_once_with(
-            "PATCH", "/api/v1/facts/fact-123", json={"content": "Updated"}
-        )
-        assert result["content"] == "Updated"
+    async def test_search_facts(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"results": [{"id": "f1", "score": 0.88}]}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.facts.search_facts("gravity", min_score=0.5)
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/facts/search",
+                params={"query": "gravity", "min_score": 0.5},
+            )
+            assert result["results"][0]["score"] == 0.88
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_delete_fact(self, mock_async_client: MagicMock) -> None:
-        """Test delete_fact calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {"deleted": True}
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.delete_fact("fact-123")
-
-        mock_async_client.request.assert_called_once_with("DELETE", "/api/v1/facts/fact-123")
-        assert result["deleted"] is True
-
-    # ===========================================================================
-    # Search and List Operations
-    # ===========================================================================
-
-    @pytest.mark.asyncio
-    async def test_search_facts(self, mock_async_client: MagicMock) -> None:
-        """Test search_facts calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "results": [{"id": "fact-1", "relevance": 0.9}],
-            "total": 1,
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.search_facts(query="test query")
-
-        mock_async_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts/search",
-            json={"query": "test query", "limit": 20, "offset": 0},
-        )
-        assert result["total"] == 1
+    async def test_create_relationship(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"id": "rel_1"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.facts.create_relationship(
+                "fact_1", "fact_2", "supports", strength=0.9
+            )
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/relationships",
+                json={
+                    "source_id": "fact_1",
+                    "target_id": "fact_2",
+                    "rel_type": "supports",
+                    "strength": 0.9,
+                },
+            )
+            assert result["id"] == "rel_1"
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_search_facts_with_filters(self, mock_async_client: MagicMock) -> None:
-        """Test search_facts with filters."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {"results": [], "total": 0}
-
-        api = AsyncFactsAPI(mock_async_client)
-        await api.search_facts(
-            query="test",
-            filters={"semantic": True},
-            limit=10,
-            offset=5,
-        )
-
-        call_args = mock_async_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["filters"] == {"semantic": True}
-        assert json_body["limit"] == 10
-        assert json_body["offset"] == 5
+    async def test_batch_create(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"created": 2}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            facts_data = [{"content": "A"}, {"content": "B"}]
+            result = await client.facts.batch_create(facts_data)
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/batch",
+                json={"facts": facts_data},
+            )
+            assert result["created"] == 2
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_list_facts(self, mock_async_client: MagicMock) -> None:
-        """Test list_facts calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "facts": [{"id": "fact-1"}],
-            "total": 50,
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.list_facts()
-
-        mock_async_client.request.assert_called_once_with(
-            "GET", "/api/v1/facts", params={"limit": 20, "offset": 0}
-        )
-        assert result["total"] == 50
+    async def test_merge_facts(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"merged_id": "fact_merged"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.facts.merge_facts("f1", "f2", strategy="combine")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/facts/merge",
+                json={"source_id": "f1", "target_id": "f2", "strategy": "combine"},
+            )
+            assert result["merged_id"] == "fact_merged"
+            await client.close()
 
     @pytest.mark.asyncio
-    async def test_list_facts_with_filters(self, mock_async_client: MagicMock) -> None:
-        """Test list_facts with all filters."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {"facts": [], "total": 0}
-
-        api = AsyncFactsAPI(mock_async_client)
-        await api.list_facts(
-            limit=100,
-            offset=50,
-            tags=["tag1"],
-            source="source1",
-            min_confidence=0.5,
-            max_confidence=0.9,
-            sort_by="confidence",
-            sort_order="asc",
-        )
-
-        call_args = mock_async_client.request.call_args
-        params = call_args[1]["params"]
-        assert params["limit"] == 100
-        assert params["offset"] == 50
-        assert params["tags"] == ["tag1"]
-        assert params["source"] == "source1"
-        assert params["min_confidence"] == 0.5
-        assert params["max_confidence"] == 0.9
-        assert params["sort_by"] == "confidence"
-        assert params["sort_order"] == "asc"
-
-    # ===========================================================================
-    # Relationship Operations
-    # ===========================================================================
-
-    @pytest.mark.asyncio
-    async def test_create_relationship(self, mock_async_client: MagicMock) -> None:
-        """Test create_relationship calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "id": "rel-123",
-            "relationship_type": "supports",
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.create_relationship(
-            source_id="fact-1",
-            target_id="fact-2",
-            relationship_type="supports",
-            weight=0.8,
-        )
-
-        mock_async_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts/relationships",
-            json={
-                "source_fact_id": "fact-1",
-                "target_fact_id": "fact-2",
-                "relationship_type": "supports",
-                "weight": 0.8,
-            },
-        )
-        assert result["id"] == "rel-123"
-
-    @pytest.mark.asyncio
-    async def test_create_relationship_with_metadata(self, mock_async_client: MagicMock) -> None:
-        """Test create_relationship with metadata."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {"id": "rel-123"}
-
-        api = AsyncFactsAPI(mock_async_client)
-        await api.create_relationship(
-            source_id="fact-1",
-            target_id="fact-2",
-            relationship_type="elaborates",
-            metadata={"detail": "provides context"},
-        )
-
-        call_args = mock_async_client.request.call_args
-        json_body = call_args[1]["json"]
-        assert json_body["metadata"] == {"detail": "provides context"}
-
-    @pytest.mark.asyncio
-    async def test_get_relationships(self, mock_async_client: MagicMock) -> None:
-        """Test get_relationships calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "relationships": [{"id": "rel-1"}, {"id": "rel-2"}]
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.get_relationships("fact-123")
-
-        mock_async_client.request.assert_called_once_with(
-            "GET", "/api/v1/facts/fact-123/relationships", params={}
-        )
-        assert len(result["relationships"]) == 2
-
-    @pytest.mark.asyncio
-    async def test_get_relationships_with_filters(self, mock_async_client: MagicMock) -> None:
-        """Test get_relationships with filters."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {"relationships": []}
-
-        api = AsyncFactsAPI(mock_async_client)
-        await api.get_relationships(
-            fact_id="fact-123",
-            relationship_type="contradicts",
-            direction="incoming",
-            min_weight=0.7,
-        )
-
-        call_args = mock_async_client.request.call_args
-        params = call_args[1]["params"]
-        assert params["relationship_type"] == "contradicts"
-        assert params["direction"] == "incoming"
-        assert params["min_weight"] == 0.7
-
-    # ===========================================================================
-    # Batch Operations
-    # ===========================================================================
-
-    @pytest.mark.asyncio
-    async def test_batch_create_facts(self, mock_async_client: MagicMock) -> None:
-        """Test batch_create_facts calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "created": [{"id": "fact-1"}, {"id": "fact-2"}, {"id": "fact-3"}],
-            "failed": [],
-            "total_created": 3,
-            "total_failed": 0,
-        }
-
-        facts = [
-            {"content": "Fact 1", "source": "s1"},
-            {"content": "Fact 2", "source": "s2"},
-            {"content": "Fact 3", "source": "s3"},
-        ]
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.batch_create_facts(facts)
-
-        mock_async_client.request.assert_called_once_with(
-            "POST", "/api/v1/facts/batch", json={"facts": facts}
-        )
-        assert result["total_created"] == 3
-
-    # ===========================================================================
-    # Verification Operations
-    # ===========================================================================
-
-    @pytest.mark.asyncio
-    async def test_verify_fact(self, mock_async_client: MagicMock) -> None:
-        """Test verify_fact calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "verified": True,
-            "fact": {"id": "fact-123", "status": "verified"},
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.verify_fact("fact-123")
-
-        mock_async_client.request.assert_called_once_with("POST", "/api/v1/facts/fact-123/verify")
-        assert result["verified"] is True
-
-    @pytest.mark.asyncio
-    async def test_invalidate_fact(self, mock_async_client: MagicMock) -> None:
-        """Test invalidate_fact calls correct endpoint."""
-        from aragora.namespaces.facts import AsyncFactsAPI
-
-        mock_async_client.request.return_value = {
-            "invalidated": True,
-            "reason": "No longer accurate",
-        }
-
-        api = AsyncFactsAPI(mock_async_client)
-        result = await api.invalidate_fact("fact-123", reason="No longer accurate")
-
-        mock_async_client.request.assert_called_once_with(
-            "POST",
-            "/api/v1/facts/fact-123/invalidate",
-            json={"reason": "No longer accurate"},
-        )
-        assert result["invalidated"] is True
-        assert result["reason"] == "No longer accurate"
+    async def test_get_stats(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"total_facts": 500}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.facts.get_stats()
+            mock_request.assert_called_once_with("GET", "/api/v1/facts/stats")
+            assert result["total_facts"] == 500
+            await client.close()

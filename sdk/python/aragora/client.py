@@ -545,10 +545,13 @@ class AragoraAsyncClient:
         from .namespaces.receipts import AsyncReceiptsAPI
         from .namespaces.relationships import AsyncRelationshipsAPI
         from .namespaces.replays import AsyncReplaysAPI
+        from .namespaces.repository import AsyncRepositoryAPI
         from .namespaces.reputation import AsyncReputationAPI
         from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.routing import AsyncRoutingAPI
+        from .namespaces.slo import AsyncSLOAPI
         from .namespaces.sme import AsyncSMEAPI
+        from .namespaces.sso import AsyncSSOAPI
         from .namespaces.system import AsyncSystemAPI
         from .namespaces.teams import AsyncTeamsAPI
         from .namespaces.tenants import AsyncTenantsAPI
@@ -644,9 +647,12 @@ class AragoraAsyncClient:
         self.reputation = AsyncReputationAPI(self)
         self.relationships = AsyncRelationshipsAPI(self)
         self.replays = AsyncReplaysAPI(self)
+        self.repository = AsyncRepositoryAPI(self)
         self.rlm = AsyncRLMAPI(self)
         self.routing = AsyncRoutingAPI(self)
+        self.slo = AsyncSLOAPI(self)
         self.sme = AsyncSMEAPI(self)
+        self.sso = AsyncSSOAPI(self)
         self.system = AsyncSystemAPI(self)
         self.teams = AsyncTeamsAPI(self)
         self.tenants = AsyncTenantsAPI(self)

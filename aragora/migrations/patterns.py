@@ -598,6 +598,8 @@ def validate_migration_safety(
 __all__ = [
     "MigrationRisk",
     "MigrationValidation",
+    "validate_identifier",
+    "quote_identifier",
     "safe_add_column",
     "safe_add_nullable_column",
     "safe_drop_column",

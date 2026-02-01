@@ -36,6 +36,7 @@ from aragora.workflow.nodes.knowledge_pruning import (
     KnowledgeDedupStep,
     ConfidenceDecayStep,
 )
+from aragora.workflow.nodes.openclaw import OpenClawActionStep, OpenClawSessionStep
 
 __all__ = [
     "HumanCheckpointStep",
@@ -57,4 +58,6 @@ __all__ = [
     "KnowledgePruningStep",
     "KnowledgeDedupStep",
     "ConfidenceDecayStep",
+    "OpenClawActionStep",
+    "OpenClawSessionStep",
 ]
