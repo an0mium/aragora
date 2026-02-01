@@ -9,6 +9,8 @@ Provides abstract base class and implementations for:
 
 from __future__ import annotations
 
+import asyncio
+import functools
 import json
 import logging
 import threading
@@ -158,8 +160,8 @@ class LocalFileBackend(AuditLogBackend):
         except Exception as e:
             logger.error(f"Failed to save audit index: {e}")
 
-    async def append(self, entry: AuditEntry) -> None:
-        """Append entry to log file."""
+    def _append_sync(self, entry: AuditEntry) -> None:
+        """Synchronous helper to append entry to log file."""
         with self._lock:
             # Append to log file
             with open(self.log_file, "a") as f:
@@ -171,8 +173,13 @@ class LocalFileBackend(AuditLogBackend):
             self._sequence_index[entry.sequence_number] = offset
             self._save_index()
 
-    async def get_entry(self, entry_id: str) -> AuditEntry | None:
-        """Get entry by ID."""
+    async def append(self, entry: AuditEntry) -> None:
+        """Append entry to log file."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._append_sync, entry)
+
+    def _get_entry_sync(self, entry_id: str) -> AuditEntry | None:
+        """Synchronous helper to get entry by ID."""
         offset = self._index.get(entry_id)
         if offset is None:
             return None
@@ -188,8 +195,13 @@ class LocalFileBackend(AuditLogBackend):
 
         return None
 
-    async def get_by_sequence(self, sequence_number: int) -> AuditEntry | None:
-        """Get entry by sequence number."""
+    async def get_entry(self, entry_id: str) -> AuditEntry | None:
+        """Get entry by ID."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._get_entry_sync, entry_id)
+
+    def _get_by_sequence_sync(self, sequence_number: int) -> AuditEntry | None:
+        """Synchronous helper to get entry by sequence number."""
         offset = self._sequence_index.get(sequence_number)
         if offset is None:
             return None
@@ -204,6 +216,11 @@ class LocalFileBackend(AuditLogBackend):
             logger.error(f"Failed to read audit entry seq={sequence_number}: {e}")
 
         return None
+
+    async def get_by_sequence(self, sequence_number: int) -> AuditEntry | None:
+        """Get entry by sequence number."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._get_by_sequence_sync, sequence_number)
 
     async def get_last_entry(self) -> AuditEntry | None:
         """Get most recent entry."""
@@ -226,7 +243,7 @@ class LocalFileBackend(AuditLogBackend):
                 entries.append(entry)
         return entries
 
-    async def query(
+    def _query_sync(
         self,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
@@ -238,7 +255,7 @@ class LocalFileBackend(AuditLogBackend):
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEntry]:
-        """Query entries with filters."""
+        """Synchronous helper to query entries with filters."""
         if not self.log_file.exists():
             return []
 
@@ -286,13 +303,43 @@ class LocalFileBackend(AuditLogBackend):
 
         return results
 
-    async def count(
+    async def query(
+        self,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
+        actors: list[str] | None = None,
+        resource_types: list[str] | None = None,
+        resource_ids: list[str] | None = None,
+        workspace_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditEntry]:
+        """Query entries with filters."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            functools.partial(
+                self._query_sync,
+                start_time=start_time,
+                end_time=end_time,
+                event_types=event_types,
+                actors=actors,
+                resource_types=resource_types,
+                resource_ids=resource_ids,
+                workspace_id=workspace_id,
+                limit=limit,
+                offset=offset,
+            ),
+        )
+
+    def _count_sync(
         self,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         event_types: list[str] | None = None,
     ) -> int:
-        """Count entries matching filters."""
+        """Synchronous helper to count entries matching filters."""
         if not self.log_file.exists():
             return 0
 
@@ -320,8 +367,26 @@ class LocalFileBackend(AuditLogBackend):
 
         return count
 
-    async def save_anchor(self, anchor: DailyAnchor) -> None:
-        """Save daily anchor."""
+    async def count(
+        self,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        event_types: list[str] | None = None,
+    ) -> int:
+        """Count entries matching filters."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            functools.partial(
+                self._count_sync,
+                start_time=start_time,
+                end_time=end_time,
+                event_types=event_types,
+            ),
+        )
+
+    def _save_anchor_sync(self, anchor: DailyAnchor) -> None:
+        """Synchronous helper to save daily anchor."""
         anchors = {}
         if self.anchors_file.exists():
             try:
@@ -332,8 +397,13 @@ class LocalFileBackend(AuditLogBackend):
         anchors[anchor.date] = anchor.to_dict()
         self.anchors_file.write_text(json.dumps(anchors, indent=2))
 
-    async def get_anchor(self, date: str) -> DailyAnchor | None:
-        """Get anchor for date."""
+    async def save_anchor(self, anchor: DailyAnchor) -> None:
+        """Save daily anchor."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._save_anchor_sync, anchor)
+
+    def _get_anchor_sync(self, date: str) -> DailyAnchor | None:
+        """Synchronous helper to get anchor for date."""
         if not self.anchors_file.exists():
             return None
 
@@ -354,6 +424,11 @@ class LocalFileBackend(AuditLogBackend):
             logger.error(f"Failed to get anchor for {date}: {e}")
 
         return None
+
+    async def get_anchor(self, date: str) -> DailyAnchor | None:
+        """Get anchor for date."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._get_anchor_sync, date)
 
 
 class S3ObjectLockBackend(AuditLogBackend):

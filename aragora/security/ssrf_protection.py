@@ -255,9 +255,9 @@ def _resolve_hostname(hostname: str, timeout: float = 2.0) -> list[str]:
 
 def validate_url(
     url: str,
-    allowed_protocols: Optional[set[str]] = None,
-    allowed_domains: Optional[set[str]] = None,
-    blocked_domains: Optional[set[str]] = None,
+    allowed_protocols: Optional[set[str] | frozenset[str]] = None,
+    allowed_domains: Optional[set[str] | frozenset[str]] = None,
+    blocked_domains: Optional[set[str] | frozenset[str]] = None,
     resolve_dns: bool = False,
     allow_private_ips: bool = False,
     dns_timeout: float = 2.0,

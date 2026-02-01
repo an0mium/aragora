@@ -44,7 +44,7 @@ import os
 import re
 from functools import wraps
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias, TypedDict
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
@@ -716,7 +716,7 @@ def rate_limit(*args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Call
     decorator = _rate_limit(*args, **kwargs)
 
     def wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
-        decorated = decorator(func)
+        decorated: Callable[..., Any] = decorator(func)
         if inspect.iscoroutinefunction(func):
 
             @wraps(func)
@@ -1229,8 +1229,9 @@ class BaseHandler:
         """Get ELO system instance."""
         # Check class attribute first (set by unified_server), then ctx
         if hasattr(self.__class__, "elo_system") and self.__class__.elo_system is not None:
-            return cast(Optional["EloSystem"], self.__class__.elo_system)
-        return cast(Optional["EloSystem"], self.ctx.get("elo_system"))
+            elo: Optional["EloSystem"] = self.__class__.elo_system
+            return elo
+        return self.ctx.get("elo_system")
 
     def get_debate_embeddings(self) -> Optional["DebateEmbeddingsDatabase"]:
         """Get debate embeddings database."""

@@ -26,7 +26,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 
 from aragora.utils.async_utils import run_async
@@ -57,18 +57,6 @@ def _FieldStub(*args: Any, **kwargs: Any) -> Any:
     return kwargs.get("default", None)
 
 
-# Type aliases for the module - allows type checkers to understand both possibilities
-BaseToolType = type[_BaseToolStub] | type[Any]
-BaseModelType = type[_BaseModelStub] | type[Any]
-FieldType = Callable[..., Any]
-
-# Module-level type declarations
-BaseTool: BaseToolType
-BaseModel: BaseModelType
-Field: FieldType
-AsyncCallbackManagerForToolRun: Optional[type[Any]]
-CallbackManagerForToolRun: Optional[type[Any]]
-
 # LangChain imports with fallback
 try:
     from langchain.tools import BaseTool as _LCBaseTool
@@ -88,11 +76,11 @@ except ImportError:
     LANGCHAIN_AVAILABLE = False
 
     # Use stubs when LangChain is not installed
-    BaseTool = _BaseToolStub
-    BaseModel = _BaseModelStub
+    BaseTool = _BaseToolStub  # type: ignore[misc,assignment]
+    BaseModel = _BaseModelStub  # type: ignore[misc,assignment]
     Field = _FieldStub
-    AsyncCallbackManagerForToolRun = None
-    CallbackManagerForToolRun = None
+    AsyncCallbackManagerForToolRun = None  # type: ignore[misc,assignment]
+    CallbackManagerForToolRun = None  # type: ignore[misc,assignment]
 
 
 def get_langchain_version() -> str | None:
