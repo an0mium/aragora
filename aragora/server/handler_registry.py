@@ -525,9 +525,17 @@ def _run_handler_coroutine(coro: Any) -> Any:
             future = asyncio.run_coroutine_threadsafe(coro, main_loop)
             return future.result(timeout=60)
     except ImportError:
+        # pool_manager not available - use fallback below
         pass
-    except (RuntimeError, OSError, TimeoutError) as e:
-        logger.debug(f"[handler_registry] Main loop dispatch failed: {e}")
+    except TimeoutError:
+        # Timeout waiting for coroutine - close it and re-raise
+        coro.close()
+        raise
+    except (RuntimeError, OSError):
+        # Coroutine may have started execution - cannot reuse, must re-raise
+        # (e.g., if sync store methods called run_async() from async context)
+        coro.close()
+        raise
 
     # Fallback: create a local event loop (works for SQLite-only mode)
     try:

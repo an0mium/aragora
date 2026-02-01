@@ -282,17 +282,29 @@ class OAuthHandler(
         redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
-        """Find user by OAuth provider ID."""
+    async def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
+        """Find user by OAuth provider ID (async version)."""
         # Look for user with matching OAuth link
         # This requires the user store to support OAuth lookups
-        if hasattr(user_store, "get_user_by_oauth"):
+        if hasattr(user_store, "get_user_by_oauth_async"):
+            return await user_store.get_user_by_oauth_async(
+                user_info.provider, user_info.provider_user_id
+            )
+        elif hasattr(user_store, "get_user_by_oauth"):
+            # Fallback to sync method for non-async stores
             return user_store.get_user_by_oauth(user_info.provider, user_info.provider_user_id)
         return None
 
-    def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
-        """Link OAuth provider to existing user."""
-        if hasattr(user_store, "link_oauth_provider"):
+    async def _link_oauth_to_user(self, user_store, user_id: str, user_info: OAuthUserInfo) -> bool:
+        """Link OAuth provider to existing user (async version)."""
+        if hasattr(user_store, "link_oauth_provider_async"):
+            return await user_store.link_oauth_provider_async(
+                user_id=user_id,
+                provider=user_info.provider,
+                provider_user_id=user_info.provider_user_id,
+                email=user_info.email,
+            )
+        elif hasattr(user_store, "link_oauth_provider"):
             return user_store.link_oauth_provider(
                 user_id=user_id,
                 provider=user_info.provider,
@@ -303,8 +315,8 @@ class OAuthHandler(
         logger.warning("UserStore doesn't support OAuth linking, using fallback")
         return False
 
-    def _create_oauth_user(self, user_store, user_info: OAuthUserInfo):
-        """Create a new user from OAuth info."""
+    async def _create_oauth_user(self, user_store, user_info: OAuthUserInfo):
+        """Create a new user from OAuth info (async version)."""
         from aragora.billing.models import hash_password
 
         # Generate random password (user will use OAuth to login)
@@ -312,17 +324,25 @@ class OAuthHandler(
         password_hash, password_salt = hash_password(random_password)
 
         try:
-            user = user_store.create_user(
-                email=user_info.email,
-                password_hash=password_hash,
-                password_salt=password_salt,
-                name=user_info.name,
-            )
+            if hasattr(user_store, "create_user_async"):
+                user = await user_store.create_user_async(
+                    email=user_info.email,
+                    password_hash=password_hash,
+                    password_salt=password_salt,
+                    name=user_info.name,
+                )
+            else:
+                user = user_store.create_user(
+                    email=user_info.email,
+                    password_hash=password_hash,
+                    password_salt=password_salt,
+                    name=user_info.name,
+                )
 
             logger.debug(f"OAuth user created: id={user.id}, email={user_info.email}")
 
             # Link OAuth provider
-            self._link_oauth_to_user(user_store, user.id, user_info)
+            await self._link_oauth_to_user(user_store, user.id, user_info)
 
             logger.info(f"Created OAuth user: {user_info.email} via {user_info.provider}")
             return user
@@ -331,28 +351,31 @@ class OAuthHandler(
             logger.error(f"Failed to create OAuth user: {e}")
             return None
 
-    def _handle_account_linking(
+    async def _handle_account_linking(
         self,
         user_store,
         user_id: str,
         user_info: OAuthUserInfo,
         state_data: dict,
     ) -> HandlerResult:
-        """Handle linking OAuth account to existing user."""
+        """Handle linking OAuth account to existing user (async version)."""
         # Verify user exists
-        user = user_store.get_user_by_id(user_id)
+        if hasattr(user_store, "get_user_by_id_async"):
+            user = await user_store.get_user_by_id_async(user_id)
+        else:
+            user = user_store.get_user_by_id(user_id)
         if not user:
             return self._redirect_with_error("User not found")
 
         # Check if OAuth is already linked to another account
-        existing_user = self._find_user_by_oauth(user_store, user_info)
+        existing_user = await self._find_user_by_oauth(user_store, user_info)
         if existing_user and existing_user.id != user_id:
             return self._redirect_with_error(
                 f"This {user_info.provider.title()} account is already linked to another user"
             )
 
         # Link OAuth
-        success = self._link_oauth_to_user(user_store, user_id, user_info)
+        success = await self._link_oauth_to_user(user_store, user_id, user_info)
         if not success:
             logger.warning(f"OAuth linking fallback for user {user_id}")
 

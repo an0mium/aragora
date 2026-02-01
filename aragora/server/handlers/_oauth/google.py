@@ -163,12 +163,14 @@ class GoogleOAuthMixin:
         # Check if this is account linking
         linking_user_id = state_data.get("user_id")
         if linking_user_id:
-            return self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
+            return await self._handle_account_linking(
+                user_store, linking_user_id, user_info, state_data
+            )
 
         # Check if user exists by OAuth provider ID
         try:
             logger.info("OAuth callback: looking up user by OAuth ID...")
-            user = self._find_user_by_oauth(user_store, user_info)
+            user = await self._find_user_by_oauth(user_store, user_info)
             logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
         except Exception as e:
             logger.error(f"OAuth callback: _find_user_by_oauth failed: {e}", exc_info=True)
@@ -178,7 +180,10 @@ class GoogleOAuthMixin:
             # Check if email already registered (without OAuth)
             try:
                 logger.info(f"OAuth callback: looking up user by email {user_info.email}...")
-                user = user_store.get_user_by_email(user_info.email)
+                if hasattr(user_store, "get_user_by_email_async"):
+                    user = await user_store.get_user_by_email_async(user_info.email)
+                else:
+                    user = user_store.get_user_by_email(user_info.email)
                 logger.info(
                     f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
                 )
@@ -189,12 +194,12 @@ class GoogleOAuthMixin:
             if user:
                 # Link OAuth to existing account
                 logger.info(f"OAuth callback: linking OAuth to existing user {user.id}")
-                self._link_oauth_to_user(user_store, user.id, user_info)
+                await self._link_oauth_to_user(user_store, user.id, user_info)
             else:
                 # Create new user with OAuth
                 try:
                     logger.info(f"OAuth callback: creating new OAuth user for {user_info.email}...")
-                    user = self._create_oauth_user(user_store, user_info)
+                    user = await self._create_oauth_user(user_store, user_info)
                     logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
                 except Exception as e:
                     logger.error(f"OAuth callback: _create_oauth_user failed: {e}", exc_info=True)
@@ -206,7 +211,10 @@ class GoogleOAuthMixin:
         # Update last login
         try:
             logger.info(f"OAuth callback: updating last login for user {user.id}...")
-            user_store.update_user(user.id, last_login_at=time.time())
+            if hasattr(user_store, "update_user_async"):
+                await user_store.update_user_async(user.id, last_login_at=time.time())
+            else:
+                user_store.update_user(user.id, last_login_at=time.time())
         except Exception as e:
             logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
             # Non-fatal, continue
