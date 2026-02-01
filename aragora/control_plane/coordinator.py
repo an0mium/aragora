@@ -29,6 +29,12 @@ from aragora.control_plane.registry import (
 )
 from aragora.control_plane.scheduler import Task, TaskPriority, TaskScheduler, TaskStatus
 
+# Resilience
+from aragora.resilience.retry import (
+    PROVIDER_RETRY_POLICIES,
+    with_retry,
+)
+
 # Observability
 from aragora.observability import (
     get_logger,
@@ -138,6 +144,9 @@ except ImportError:
     HAS_AGENT_FACTORY = False
 
 logger = get_logger(__name__)
+
+# Retry configuration for control plane operations
+_CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]
 
 
 @dataclass
@@ -431,6 +440,7 @@ class ControlPlaneCoordinator:
         await coordinator.connect()
         return coordinator
 
+    @with_retry(_CP_RETRY_CONFIG)
     async def connect(self) -> None:
         """Connect to Redis and start background services."""
         if self._connected:
@@ -767,6 +777,7 @@ class ControlPlaneCoordinator:
     # Agent Operations
     # =========================================================================
 
+    @with_retry(_CP_RETRY_CONFIG)
     async def register_agent(
         self,
         agent_id: str,
@@ -1060,6 +1071,7 @@ class ControlPlaneCoordinator:
     # Task Operations
     # =========================================================================
 
+    @with_retry(_CP_RETRY_CONFIG)
     async def submit_task(
         self,
         task_type: str,
@@ -1136,6 +1148,7 @@ class ControlPlaneCoordinator:
 
             return task_id
 
+    @with_retry(_CP_RETRY_CONFIG)
     async def claim_task(
         self,
         agent_id: str,
@@ -1188,6 +1201,7 @@ class ControlPlaneCoordinator:
 
         return task
 
+    @with_retry(_CP_RETRY_CONFIG)
     async def complete_task(
         self,
         task_id: str,

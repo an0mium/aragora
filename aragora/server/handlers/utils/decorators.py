@@ -210,6 +210,8 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
     - Return sanitized error messages to clients
     - Map exceptions to appropriate HTTP status codes
 
+    Supports both sync and async handler methods.
+
     Args:
         context: Description of the operation (e.g., "debate creation")
         default_status: Default HTTP status for unrecognized exceptions
@@ -217,27 +219,50 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
     Returns:
         Decorator function that wraps handler methods with error handling.
     """
+    import asyncio
+    import inspect
 
     def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            trace_id = generate_trace_id()
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                logger.error(
-                    f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
-                    exc_info=True,
-                )
-                status = map_exception_to_status(e, default_status)
-                message = safe_error_message(e, context)
-                return error_response(
-                    message,
-                    status=status,
-                    headers={"X-Trace-Id": trace_id},
-                )
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                trace_id = generate_trace_id()
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    logger.error(
+                        f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
+                        exc_info=True,
+                    )
+                    status = map_exception_to_status(e, default_status)
+                    message = safe_error_message(e, context)
+                    return error_response(
+                        message,
+                        status=status,
+                        headers={"X-Trace-Id": trace_id},
+                    )
 
-        return wrapper
+            return async_wrapper
+        else:
+            @wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                trace_id = generate_trace_id()
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    logger.error(
+                        f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
+                        exc_info=True,
+                    )
+                    status = map_exception_to_status(e, default_status)
+                    message = safe_error_message(e, context)
+                    return error_response(
+                        message,
+                        status=status,
+                        headers={"X-Trace-Id": trace_id},
+                    )
+
+            return wrapper
 
     return decorator
 

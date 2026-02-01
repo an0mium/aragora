@@ -189,7 +189,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
     and HTTP API handlers from StreamAPIHandlersMixin.
 
     Usage:
-        server = AiohttpUnifiedServer(port=8080, nomic_dir=Path(".nomic"))
+        from aragora.persistence.db_config import get_nomic_dir
+        server = AiohttpUnifiedServer(port=8080, nomic_dir=get_nomic_dir())
         await server.start()
     """
 
@@ -1441,9 +1442,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             register_payment_routes(app)
             logger.info("Registered payment routes")
         if INTEGRATIONS_HANDLER_AVAILABLE:
-            from aragora.server.handlers.base import ServerContext
-
-            server_context: ServerContext = {}
+            server_context: dict[str, Any] = {}
             integrations_handler = IntegrationsHandler(server_context)
             register_integration_routes(app, integrations_handler)
             logger.info("Registered integration status routes")

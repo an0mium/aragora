@@ -160,27 +160,10 @@ class FusionMixin:
         """Initialize fusion state tracking."""
         self._fusion_state = FusionState()
 
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event via the configured callback.
-
-        This stub is overridden by KnowledgeMoundAdapter when used as a mixin.
-        Provides a no-op default for standalone use or testing.
-        """
-        pass
-
-    def _record_metric(
-        self,
-        operation: str,
-        success: bool,
-        latency: float,
-        extra_labels: dict[str, str] | None = None,
-    ) -> None:
-        """Record a Prometheus metric for the operation.
-
-        This stub is overridden by KnowledgeMoundAdapter when used as a mixin.
-        Provides a no-op default for standalone use or testing.
-        """
-        pass
+    # NOTE: _emit_event and _record_metric are NOT defined here.
+    # They must be provided by KnowledgeMoundAdapter (or similar base class)
+    # which should appear AFTER this mixin in the inheritance list.
+    # The _FusionMixinProtocol above documents the expected interface.
 
     def _get_fusion_sources(self) -> list[str]:
         """Return list of source adapter names this adapter can fuse data from.

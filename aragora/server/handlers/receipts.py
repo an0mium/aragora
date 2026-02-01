@@ -66,7 +66,7 @@ class ReceiptsHandler(BaseHandler):
         "/api/v2/receipts/*",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._store = None  # Lazy initialization
@@ -1230,6 +1230,6 @@ class ReceiptsHandler(BaseHandler):
 
 
 # Handler factory function for registration
-def create_receipts_handler(server_context: ServerContext) -> ReceiptsHandler:
+def create_receipts_handler(server_context: dict[str, Any]) -> ReceiptsHandler:
     """Factory function for handler registration."""
     return ReceiptsHandler(server_context)

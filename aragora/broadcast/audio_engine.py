@@ -262,6 +262,118 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Pa
     return None
 
 
+def get_voice_for_agent(agent_name: str) -> str:
+    """Get voice ID for an agent.
+
+    Maps agent names to TTS voice identifiers.
+
+    Args:
+        agent_name: Name of the agent (e.g., "claude", "gpt4")
+
+    Returns:
+        Voice identifier string for TTS backend
+    """
+    # Use the existing voice mapping
+    return _get_voice_for_speaker(agent_name)
+
+
+class AudioEngine:
+    """
+    Audio generation engine for broadcast pipelines.
+
+    Wraps the TTS backends with a class-based interface for easier mocking
+    and configuration in tests.
+    """
+
+    def __init__(self, output_dir: Path | None = None):
+        """Initialize audio engine.
+
+        Args:
+            output_dir: Directory for output files. Defaults to temp directory.
+        """
+        self.output_dir = output_dir or Path(tempfile.gettempdir()) / "aragora_audio"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self._backend: TTSBackend | None = None
+
+    def _get_backend(self) -> TTSBackend:
+        """Get or initialize the TTS backend."""
+        if self._backend is None:
+            self._backend = get_audio_backend()
+        return self._backend
+
+    async def _synthesize_text(self, text: str, voice: str) -> bytes | None:
+        """Synthesize text to audio bytes.
+
+        Args:
+            text: Text to synthesize
+            voice: Voice identifier
+
+        Returns:
+            Audio data as bytes, or None if synthesis failed
+        """
+        output_path = self.output_dir / f"synth_{hash(text)}.mp3"
+        backend = self._get_backend()
+
+        try:
+            result = await backend.synthesize(text=text, voice=voice, output_path=output_path)
+            if result and result.exists():
+                data = result.read_bytes()
+                result.unlink()  # Clean up temp file
+                return data
+        except Exception as e:
+            logger.warning(f"TTS synthesis failed: {e}")
+
+        return None
+
+    async def generate_segment_audio(
+        self,
+        text: str,
+        voice: str,
+        output_path: Path | None = None,
+    ) -> Path | None:
+        """Generate audio for a single segment.
+
+        Args:
+            text: Text to synthesize
+            voice: Voice identifier or agent name
+            output_path: Optional output path
+
+        Returns:
+            Path to generated audio file, or None if failed
+        """
+        if output_path is None:
+            output_path = self.output_dir / f"segment_{hash(text)}.mp3"
+
+        # Map voice name if needed
+        resolved_voice = get_voice_for_agent(voice)
+
+        backend = self._get_backend()
+        try:
+            result = await backend.synthesize(
+                text=text, voice=resolved_voice, output_path=output_path
+            )
+            return result
+        except Exception as e:
+            logger.warning(f"Segment audio generation failed: {e}")
+            return None
+
+    async def generate_debate_audio(
+        self,
+        segments: list[ScriptSegment],
+        output_dir: Path | None = None,
+    ) -> list[Path]:
+        """Generate audio for all segments of a debate.
+
+        Args:
+            segments: List of script segments
+            output_dir: Output directory
+
+        Returns:
+            List of paths to generated audio files
+        """
+        return await generate_audio(segments, output_dir or self.output_dir)
+
+
 async def generate_audio(
     segments: list[ScriptSegment], output_dir: Path | None = None
 ) -> list[Path]:

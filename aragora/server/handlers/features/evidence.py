@@ -88,7 +88,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/evidence")
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._evidence_store: EvidenceStore | None = None

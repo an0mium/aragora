@@ -28,6 +28,13 @@ from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.exceptions import ExternalServiceError
+from aragora.observability.metrics.agents import (
+    ErrorType,
+    record_fallback_chain_depth,
+    record_provider_call,
+    record_provider_token_usage,
+    record_rate_limit_detected,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,8 +157,12 @@ class OpenRouterAgent(APIAgent):
         prompt: str,
         context: list[Message] | None = None,
         is_fallback: bool = False,
+        fallback_depth: int = 0,
     ) -> str:
         """Internal generate method that supports model fallback on failure."""
+        import time
+
+        start_time = time.perf_counter()
         max_retries = 3
         base_delay = 30  # Start with 30s backoff for rate limits
 
@@ -192,6 +203,13 @@ class OpenRouterAgent(APIAgent):
             # Acquire rate limit token for each attempt
             limiter = get_openrouter_limiter()
             if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
+                record_provider_call(
+                    provider="openrouter",
+                    success=False,
+                    error_type=ErrorType.RATE_LIMIT,
+                    latency_seconds=time.perf_counter() - start_time,
+                    model=model,
+                )
                 raise AgentRateLimitError(
                     "OpenRouter rate limit exceeded, request timed out",
                     agent_name=self.name,
@@ -211,6 +229,7 @@ class OpenRouterAgent(APIAgent):
                             # Rate limited - use centralized backoff
                             # This records failure and calculates delay with jitter
                             backoff_delay = limiter.record_rate_limit_error(429)
+                            record_rate_limit_detected("openrouter", backoff_delay)
 
                             # Check for Retry-After header override
                             retry_after_header = response.headers.get("Retry-After")
@@ -238,8 +257,19 @@ class OpenRouterAgent(APIAgent):
                                             f"OpenRouter {model} exhausted retries, falling back to {fallback}"
                                         )
                                         return await self._generate_with_model(
-                                            fallback, prompt, context, is_fallback=True
+                                            fallback,
+                                            prompt,
+                                            context,
+                                            is_fallback=True,
+                                            fallback_depth=fallback_depth + 1,
                                         )
+                                record_provider_call(
+                                    provider="openrouter",
+                                    success=False,
+                                    error_type=ErrorType.RATE_LIMIT,
+                                    latency_seconds=time.perf_counter() - start_time,
+                                    model=model,
+                                )
                                 raise AgentRateLimitError(
                                     f"OpenRouter rate limited (429) after {max_retries} retries",
                                     agent_name=self.name,
@@ -248,6 +278,13 @@ class OpenRouterAgent(APIAgent):
                         if response.status != 200:
                             error_text = await response.text()
                             sanitized = _sanitize_error_message(error_text)
+                            record_provider_call(
+                                provider="openrouter",
+                                success=False,
+                                error_type=ErrorType.API_ERROR,
+                                latency_seconds=time.perf_counter() - start_time,
+                                model=model,
+                            )
                             raise AgentAPIError(
                                 f"OpenRouter API error {response.status}: {sanitized}",
                                 agent_name=self.name,
@@ -258,14 +295,23 @@ class OpenRouterAgent(APIAgent):
 
                         # Record token usage for billing (OpenAI format)
                         usage = data.get("usage", {})
+                        input_tokens = usage.get("prompt_tokens", 0)
+                        output_tokens = usage.get("completion_tokens", 0)
                         self._record_token_usage(
-                            tokens_in=usage.get("prompt_tokens", 0),
-                            tokens_out=usage.get("completion_tokens", 0),
+                            tokens_in=input_tokens,
+                            tokens_out=output_tokens,
                         )
 
                         try:
                             content = data["choices"][0]["message"]["content"]
                         except (KeyError, IndexError):
+                            record_provider_call(
+                                provider="openrouter",
+                                success=False,
+                                error_type=ErrorType.API_ERROR,
+                                latency_seconds=time.perf_counter() - start_time,
+                                model=model,
+                            )
                             raise AgentAPIError(
                                 f"Unexpected OpenRouter response format: {data}",
                                 agent_name=self.name,
@@ -273,6 +319,13 @@ class OpenRouterAgent(APIAgent):
 
                         # Validate content is non-empty (empty responses should trigger retry/fallback)
                         if not content or not content.strip():
+                            record_provider_call(
+                                provider="openrouter",
+                                success=False,
+                                error_type=ErrorType.API_ERROR,
+                                latency_seconds=time.perf_counter() - start_time,
+                                model=model,
+                            )
                             raise AgentAPIError(
                                 f"Model {model} returned empty response",
                                 agent_name=self.name,
@@ -280,6 +333,24 @@ class OpenRouterAgent(APIAgent):
 
                         # Success - reset backoff state
                         limiter.record_success()
+
+                        # Record successful provider metrics
+                        latency = time.perf_counter() - start_time
+                        record_provider_call(
+                            provider="openrouter",
+                            success=True,
+                            latency_seconds=latency,
+                            model=model,
+                        )
+                        record_provider_token_usage(
+                            provider="openrouter",
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                        )
+
+                        # Record fallback chain depth (0 means no fallback was needed)
+                        record_fallback_chain_depth(fallback_depth)
+
                         return content
 
             except aiohttp.ClientError as e:
@@ -300,8 +371,19 @@ class OpenRouterAgent(APIAgent):
                             f"OpenRouter {model} connection failed, falling back to {fallback}"
                         )
                         return await self._generate_with_model(
-                            fallback, prompt, context, is_fallback=True
+                            fallback,
+                            prompt,
+                            context,
+                            is_fallback=True,
+                            fallback_depth=fallback_depth + 1,
                         )
+                record_provider_call(
+                    provider="openrouter",
+                    success=False,
+                    error_type=ErrorType.CONNECTION,
+                    latency_seconds=time.perf_counter() - start_time,
+                    model=model,
+                )
                 raise AgentConnectionError(
                     f"OpenRouter connection failed after {max_retries} retries: {last_error}",
                     agent_name=self.name,
@@ -309,6 +391,12 @@ class OpenRouterAgent(APIAgent):
                 )
 
         # Should not reach here, but satisfy mypy
+        record_provider_call(
+            provider="openrouter",
+            success=False,
+            error_type=ErrorType.UNKNOWN,
+            model=model,
+        )
         raise AgentAPIError(
             f"OpenRouter request failed after {max_retries} retries: {last_error}",
             agent_name=self.name,

@@ -1390,7 +1390,7 @@ class SharedInboxHandler(BaseHandler):
         "/api/v1/inbox/routing/rules/",
     ]
 
-    def __init__(self, ctx: ServerContext):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
 

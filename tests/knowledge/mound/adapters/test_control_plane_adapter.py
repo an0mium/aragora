@@ -32,7 +32,10 @@ def mock_knowledge_mound():
     """Create a mock KnowledgeMound."""
     mound = MagicMock()
     mound.ingest = AsyncMock(return_value="km_test_id")
-    mound.query = AsyncMock(return_value=[])
+    # Return a mock object with .items attribute (empty by default)
+    mock_result = MagicMock()
+    mock_result.items = []
+    mound.query = AsyncMock(return_value=mock_result)
     return mound
 
 
@@ -192,20 +195,22 @@ class TestCapabilityRecommendations:
     @pytest.mark.asyncio
     async def test_queries_km_for_recommendations(self, adapter, mock_knowledge_mound):
         """Should query KM for capability recommendations."""
-        mock_knowledge_mound.query.return_value = [
-            {
-                "content": "Agent claude-3 capability 'debate': 90% success",
-                "confidence": 0.9,
-                "metadata": {
-                    "type": "control_plane_capability",
-                    "agent_id": "claude-3",
-                    "capability": "debate",
-                    "success_count": 90,
-                    "failure_count": 10,
-                    "avg_duration_seconds": 15.0,
-                },
-            }
-        ]
+        # Create mock KnowledgeItem with proper attributes
+        mock_item = MagicMock()
+        mock_item.metadata = {
+            "type": "control_plane_capability",
+            "agent_id": "claude-3",
+            "capability": "debate",
+            "success_count": 90,
+            "failure_count": 10,
+            "avg_duration_seconds": 15.0,
+        }
+        mock_item.confidence = 0.9
+
+        # Implementation expects query_result.items
+        mock_result = MagicMock()
+        mock_result.items = [mock_item]
+        mock_knowledge_mound.query.return_value = mock_result
 
         results = await adapter.get_capability_recommendations("debate")
 
@@ -216,20 +221,20 @@ class TestCapabilityRecommendations:
     @pytest.mark.asyncio
     async def test_caches_results(self, adapter, mock_knowledge_mound):
         """Should cache query results."""
-        mock_knowledge_mound.query.return_value = [
-            {
-                "content": "Agent test",
-                "confidence": 0.8,
-                "metadata": {
-                    "type": "control_plane_capability",
-                    "agent_id": "test",
-                    "capability": "debate",
-                    "success_count": 50,
-                    "failure_count": 5,
-                    "avg_duration_seconds": 10.0,
-                },
-            }
-        ]
+        mock_item = MagicMock()
+        mock_item.metadata = {
+            "type": "control_plane_capability",
+            "agent_id": "test",
+            "capability": "debate",
+            "success_count": 50,
+            "failure_count": 5,
+            "avg_duration_seconds": 10.0,
+        }
+        mock_item.confidence = 0.8
+
+        mock_result = MagicMock()
+        mock_result.items = [mock_item]
+        mock_knowledge_mound.query.return_value = mock_result
 
         # First call
         await adapter.get_capability_recommendations("debate")
@@ -252,32 +257,31 @@ class TestCapabilityRecommendations:
     @pytest.mark.asyncio
     async def test_sorts_by_success_rate(self, adapter, mock_knowledge_mound):
         """Should sort recommendations by success rate."""
-        mock_knowledge_mound.query.return_value = [
-            {
-                "content": "Agent low",
-                "confidence": 0.8,
-                "metadata": {
-                    "type": "control_plane_capability",
-                    "agent_id": "low",
-                    "capability": "debate",
-                    "success_count": 50,
-                    "failure_count": 50,  # 50% success
-                    "avg_duration_seconds": 10.0,
-                },
-            },
-            {
-                "content": "Agent high",
-                "confidence": 0.9,
-                "metadata": {
-                    "type": "control_plane_capability",
-                    "agent_id": "high",
-                    "capability": "debate",
-                    "success_count": 95,
-                    "failure_count": 5,  # 95% success
-                    "avg_duration_seconds": 10.0,
-                },
-            },
-        ]
+        mock_item_low = MagicMock()
+        mock_item_low.metadata = {
+            "type": "control_plane_capability",
+            "agent_id": "low",
+            "capability": "debate",
+            "success_count": 50,
+            "failure_count": 50,  # 50% success
+            "avg_duration_seconds": 10.0,
+        }
+        mock_item_low.confidence = 0.8
+
+        mock_item_high = MagicMock()
+        mock_item_high.metadata = {
+            "type": "control_plane_capability",
+            "agent_id": "high",
+            "capability": "debate",
+            "success_count": 95,
+            "failure_count": 5,  # 95% success
+            "avg_duration_seconds": 10.0,
+        }
+        mock_item_high.confidence = 0.9
+
+        mock_result = MagicMock()
+        mock_result.items = [mock_item_low, mock_item_high]
+        mock_knowledge_mound.query.return_value = mock_result
 
         results = await adapter.get_capability_recommendations("debate")
 
@@ -339,30 +343,31 @@ class TestCrossWorkspaceInsights:
         """Should filter out insights from own workspace."""
         adapter._workspace_id = "workspace_a"
 
-        mock_knowledge_mound.query.return_value = [
-            {
-                "content": "Own insight",
-                "confidence": 0.8,
-                "metadata": {
-                    "type": "cross_workspace_insight",
-                    "insight_id": "insight_1",
-                    "source_workspace": "workspace_a",  # Same as adapter
-                    "target_workspaces": [],
-                    "task_type": "debate",
-                },
-            },
-            {
-                "content": "Other insight",
-                "confidence": 0.9,
-                "metadata": {
-                    "type": "cross_workspace_insight",
-                    "insight_id": "insight_2",
-                    "source_workspace": "workspace_b",  # Different
-                    "target_workspaces": ["workspace_a"],
-                    "task_type": "debate",
-                },
-            },
-        ]
+        mock_item_own = MagicMock()
+        mock_item_own.content = "Own insight"
+        mock_item_own.confidence = 0.8
+        mock_item_own.metadata = {
+            "type": "cross_workspace_insight",
+            "insight_id": "insight_1",
+            "source_workspace": "workspace_a",  # Same as adapter
+            "target_workspaces": [],
+            "task_type": "debate",
+        }
+
+        mock_item_other = MagicMock()
+        mock_item_other.content = "Other insight"
+        mock_item_other.confidence = 0.9
+        mock_item_other.metadata = {
+            "type": "cross_workspace_insight",
+            "insight_id": "insight_2",
+            "source_workspace": "workspace_b",  # Different
+            "target_workspaces": ["workspace_a"],
+            "task_type": "debate",
+        }
+
+        mock_result = MagicMock()
+        mock_result.items = [mock_item_own, mock_item_other]
+        mock_knowledge_mound.query.return_value = mock_result
 
         results = await adapter.get_cross_workspace_insights("debate")
 

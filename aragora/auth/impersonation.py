@@ -144,8 +144,8 @@ class ImpersonationManager:
         # In-memory audit log (backup if callback not configured)
         self._audit_log: list[ImpersonationAuditEntry] = []
 
-        # Optional persistent store
-        self._store = None
+        # Optional persistent store (typed for lazy initialization)
+        self._store: Any = None
         self._use_persistence = True  # Can be disabled for testing
 
     def _get_store(self) -> Any:

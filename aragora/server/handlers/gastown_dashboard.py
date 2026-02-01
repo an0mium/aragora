@@ -193,10 +193,11 @@ class GasTownDashboardHandler(SecureHandler):
                         overview["convoys"]["failed"] += 1
             else:
                 from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
-                from aragora.nomic.stores import get_bead_store, get_convoy_manager
+                from aragora.stores import get_canonical_workspace_stores
 
-                bead_store = await get_bead_store()
-                manager = await get_convoy_manager(bead_store)
+                stores = get_canonical_workspace_stores()
+                bead_store = await stores.bead_store()
+                manager = await stores.convoy_manager()
                 convoys = await manager.list_convoys()
                 overview["convoys"]["total"] = len(convoys)
                 for c in convoys:
@@ -221,9 +222,11 @@ class GasTownDashboardHandler(SecureHandler):
 
         # Get bead stats
         try:
-            from aragora.nomic.stores import BeadStatus, get_bead_store
+            from aragora.nomic.stores import BeadStatus
+            from aragora.stores import get_canonical_workspace_stores
 
-            bead_store = await get_bead_store()
+            stores = get_canonical_workspace_stores()
+            bead_store = await stores.bead_store()
             for status in BeadStatus:
                 beads = await bead_store.list_beads(status=status, limit=1000)
                 count = len(beads)

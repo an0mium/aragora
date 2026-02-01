@@ -12,6 +12,7 @@ Provides cross-system synchronization:
 Performance optimizations:
 - Batched store operations to avoid N+1 query pattern
 - Concurrent processing with configurable batch sizes
+- Retry logic with exponential backoff for transient failures
 
 NOTE: This is a mixin class designed to be composed with KnowledgeMound.
 Attribute accesses like self._ensure_initialized, self.workspace_id, self.store, etc.
@@ -25,6 +26,12 @@ import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING, Any, Optional, Protocol
+
+from aragora.resilience.retry import (
+    PROVIDER_RETRY_POLICIES,
+    RetryConfig,
+    with_retry,
+)
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -93,9 +100,14 @@ class SyncProtocol(Protocol):
     ) -> "SyncResult": ...
 
 
+# Retry configuration for sync operations
+_SYNC_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["knowledge_mound"]
+
+
 class SyncOperationsMixin:
     """Mixin providing sync operations for KnowledgeMound."""
 
+    @with_retry(_SYNC_RETRY_CONFIG)
     async def _batch_store(
         self,
         requests: list["IngestionRequest"],

@@ -643,9 +643,9 @@ class CodebaseAuditHandler(SecureHandler):
         "/api/v1/codebase/demo",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context if server_context is not None else cast(ServerContext, {}))
+        super().__init__(server_context if server_context is not None else dict())
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""

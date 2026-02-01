@@ -17,6 +17,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.server.handlers.base import (
@@ -40,9 +41,28 @@ def get_inbox() -> "InboxManager":
     """Get or create the inbox manager instance."""
     global _inbox
     if _inbox is None:
+        try:
+            from aragora.server.extensions import get_extension_state
+
+            state = get_extension_state()
+            if state and state.inbox_manager is not None:
+                _inbox = state.inbox_manager
+                return _inbox
+        except Exception:
+            pass
+
         from aragora.extensions.moltbot import InboxManager
 
-        _inbox = InboxManager()
+        gateway_inbox = None
+        try:
+            if os.getenv("MOLTBOT_CANONICAL_GATEWAY", "1") == "1":
+                from aragora.gateway.canonical_api import GatewayRuntime
+
+                gateway_inbox = GatewayRuntime().inbox
+        except Exception:
+            gateway_inbox = None
+
+        _inbox = InboxManager(gateway_inbox=gateway_inbox)
     return _inbox
 
 

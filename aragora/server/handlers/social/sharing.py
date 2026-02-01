@@ -307,8 +307,8 @@ class SharingHandler(BaseHandler):
         "/share/revoke",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
-        super().__init__(server_context if server_context is not None else cast(ServerContext, {}))
+    def __init__(self, server_context: dict[str, Any] | None = None):
+        super().__init__(server_context if server_context is not None else dict())
         self._store = get_share_store()
         self._social_store = get_social_share_store()
 

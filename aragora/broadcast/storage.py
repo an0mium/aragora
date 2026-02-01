@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from aragora.persistence.db_config import get_nomic_dir
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -160,10 +162,10 @@ class AudioFileStore:
         Initialize audio file store.
 
         Args:
-            storage_dir: Directory for audio storage. Defaults to .nomic/audio/
+            storage_dir: Directory for audio storage. Defaults to ARAGORA_DATA_DIR/audio/
         """
         if storage_dir is None:
-            storage_dir = Path.cwd() / ".nomic" / "audio"
+            storage_dir = get_nomic_dir() / "audio"
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 

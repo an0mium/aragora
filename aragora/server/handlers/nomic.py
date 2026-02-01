@@ -86,7 +86,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
         "/api/modes",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize nomic handler.
 
         Args:

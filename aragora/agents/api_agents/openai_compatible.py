@@ -60,6 +60,17 @@ from aragora.agents.api_agents.common import (
     handle_agent_errors,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
+from aragora.observability.metrics.agents import (
+    CircuitBreakerState,
+    ErrorType,
+    record_circuit_breaker_rejection,
+    record_circuit_breaker_state_change,
+    record_fallback_triggered,
+    record_provider_call,
+    record_provider_token_usage,
+    record_rate_limit_detected,
+    set_circuit_breaker_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -203,11 +214,27 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Generate a response using the OpenAI-compatible API.
 
         Includes circuit breaker protection to prevent cascading failures.
+        Records per-provider metrics for monitoring.
         """
+        import time
+
+        start_time = time.perf_counter()
+
         if not self.api_key:
             logger.warning(
                 "[%s] Missing API key, attempting OpenRouter fallback",
                 getattr(self, "name", "agent"),
+            )
+            record_provider_call(
+                provider=self.agent_type,
+                success=False,
+                error_type=ErrorType.AUTH,
+                model=self.model,
+            )
+            record_fallback_triggered(
+                primary_provider=self.agent_type,
+                fallback_provider="openrouter",
+                trigger_reason="auth",
             )
             result = await self.fallback_generate(prompt, context, status_code=401)
             if result is not None:
@@ -221,6 +248,14 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         # Check circuit breaker before attempting API call
         cb = getattr(self, "_circuit_breaker", None)
         if cb is not None and not cb.can_proceed():
+            record_circuit_breaker_rejection(self.agent_type)
+            record_provider_call(
+                provider=self.agent_type,
+                success=False,
+                error_type=ErrorType.CIRCUIT_OPEN,
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
             raise AgentCircuitOpenError(
                 f"Circuit breaker open for {self.name} - too many recent failures",
                 agent_name=self.name,
@@ -254,7 +289,22 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                             ):
                                 cb.record_failure()
 
+                            # Determine error type for metrics
+                            error_type = ErrorType.API_ERROR
+                            if response.status == 429:
+                                error_type = ErrorType.RATE_LIMIT
+                                record_rate_limit_detected(self.agent_type)
+                            elif response.status in (401, 403):
+                                error_type = ErrorType.AUTH
+                            elif self.is_quota_error(response.status, error_text):
+                                error_type = ErrorType.QUOTA
+
                             if response.status in (401, 403):
+                                record_fallback_triggered(
+                                    primary_provider=self.agent_type,
+                                    fallback_provider="openrouter",
+                                    trigger_reason="auth",
+                                )
                                 result = await self.fallback_generate(
                                     prompt, context, status_code=response.status
                                 )
@@ -263,11 +313,25 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
                             # Check for quota/billing errors and fallback
                             if self.is_quota_error(response.status, error_text):
+                                record_fallback_triggered(
+                                    primary_provider=self.agent_type,
+                                    fallback_provider="openrouter",
+                                    trigger_reason="quota",
+                                )
                                 result = await self.fallback_generate(
                                     prompt, context, response.status
                                 )
                                 if result is not None:
                                     return None, result
+
+                            # Record the failed call metric
+                            record_provider_call(
+                                provider=self.agent_type,
+                                success=False,
+                                error_type=error_type,
+                                latency_seconds=time.perf_counter() - start_time,
+                                model=self.model,
+                            )
 
                             raise AgentAPIError(
                                 f"{self._get_error_prefix()} API error {response.status}: {sanitized}",
@@ -281,6 +345,13 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                 if fallback_result is not None:
                     return fallback_result
                 if data is None:
+                    record_provider_call(
+                        provider=self.agent_type,
+                        success=False,
+                        error_type=ErrorType.API_ERROR,
+                        latency_seconds=time.perf_counter() - start_time,
+                        model=self.model,
+                    )
                     raise AgentAPIError(
                         f"{self._get_error_prefix()} returned empty response",
                         agent_name=self.name,
@@ -306,6 +377,13 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                     if fallback_result is not None:
                         return fallback_result
                     if data is None:
+                        record_provider_call(
+                            provider=self.agent_type,
+                            success=False,
+                            error_type=ErrorType.API_ERROR,
+                            latency_seconds=time.perf_counter() - start_time,
+                            model=self.model,
+                        )
                         raise AgentAPIError(
                             f"{self._get_error_prefix()} returned empty response",
                             agent_name=self.name,
@@ -313,29 +391,73 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
                 # Record token usage for billing (OpenAI format)
                 usage = data.get("usage", {})
+                input_tokens = usage.get("prompt_tokens", 0)
+                output_tokens = usage.get("completion_tokens", 0)
                 self._record_token_usage(
-                    tokens_in=usage.get("prompt_tokens", 0),
-                    tokens_out=usage.get("completion_tokens", 0),
+                    tokens_in=input_tokens,
+                    tokens_out=output_tokens,
                 )
 
                 content = self._parse_response(data)
                 if not content or not content.strip():
                     if cb is not None:
                         cb.record_failure()
+                    record_provider_call(
+                        provider=self.agent_type,
+                        success=False,
+                        error_type=ErrorType.API_ERROR,
+                        latency_seconds=time.perf_counter() - start_time,
+                        model=self.model,
+                    )
                     raise AgentAPIError(
                         f"{self._get_error_prefix()} returned empty response",
                         agent_name=self.name,
                     )
+
                 # Record success for circuit breaker
                 if cb is not None:
                     cb.record_success()
+
+                # Record successful provider metrics
+                latency = time.perf_counter() - start_time
+                record_provider_call(
+                    provider=self.agent_type,
+                    success=True,
+                    latency_seconds=latency,
+                    model=self.model,
+                )
+                record_provider_token_usage(
+                    provider=self.agent_type,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
+
                 return content
         except (AgentAPIError, AgentCircuitOpenError):
             raise  # Re-raise without double-recording
-        except (OSError, ValueError, TypeError, RuntimeError, asyncio.TimeoutError):
+        except asyncio.TimeoutError:
+            # Record failure for timeout errors
+            if cb is not None:
+                cb.record_failure()
+            record_provider_call(
+                provider=self.agent_type,
+                success=False,
+                error_type=ErrorType.TIMEOUT,
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
+            raise
+        except (OSError, ValueError, TypeError, RuntimeError):
             # Record failure for unexpected errors
             if cb is not None:
                 cb.record_failure()
+            record_provider_call(
+                provider=self.agent_type,
+                success=False,
+                error_type=ErrorType.UNKNOWN,
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
             raise
 
     async def generate_stream(

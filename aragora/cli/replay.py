@@ -10,6 +10,7 @@ import json
 import time
 from pathlib import Path
 
+from aragora.persistence.db_config import get_nomic_dir
 from aragora.spectate.events import SpectatorEvents
 from aragora.spectate.stream import SpectatorStream
 
@@ -19,13 +20,8 @@ def find_replay_files(directory: str | None = None) -> list[Path]:
     if directory:
         base = Path(directory)
     else:
-        # Check common locations
-        for loc in [".aragora/replays", ".nomic/replays", "replays"]:
-            if Path(loc).exists():
-                base = Path(loc)
-                break
-        else:
-            return []
+        # Use canonical ARAGORA_DATA_DIR location
+        base = get_nomic_dir() / "replays"
 
     if not base.exists():
         return []

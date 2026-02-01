@@ -76,21 +76,32 @@ def _resolve_gt_paths() -> tuple[Path, Path]:
 
 def _init_bead_store():
     """Initialize the canonical bead store."""
-    from aragora.nomic.stores import create_bead_store
+    from aragora.stores import get_canonical_workspace_stores
 
-    bead_dir, _ = _resolve_gt_paths()
-    return _run_async(create_bead_store(bead_dir=str(bead_dir)))
+    bead_dir, convoy_dir = _resolve_gt_paths()
+    stores = get_canonical_workspace_stores(
+        bead_dir=str(bead_dir),
+        convoy_dir=str(convoy_dir),
+        git_enabled=True,
+        auto_commit=False,
+    )
+    return _run_async(stores.bead_store())
 
 
 def _init_convoy_manager(bead_store=None):
     """Initialize the canonical convoy manager."""
-    from aragora.nomic.stores import ConvoyManager
+    from aragora.stores import get_canonical_workspace_stores
 
+    bead_dir, convoy_dir = _resolve_gt_paths()
+    stores = get_canonical_workspace_stores(
+        bead_dir=str(bead_dir),
+        convoy_dir=str(convoy_dir),
+        git_enabled=True,
+        auto_commit=False,
+    )
     if bead_store is None:
-        bead_store = _init_bead_store()
-    _, convoy_dir = _resolve_gt_paths()
-    manager = ConvoyManager(bead_store, convoy_dir=convoy_dir)
-    _run_async(manager.initialize())
+        bead_store = _run_async(stores.bead_store())
+    manager = _run_async(stores.convoy_manager())
     return bead_store, manager
 
 

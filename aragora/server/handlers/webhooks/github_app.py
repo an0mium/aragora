@@ -471,7 +471,7 @@ async def handle_installation(event: GitHubWebhookEvent) -> dict[str, Any]:
     }
 
 
-async def handle_github_webhook(ctx: ServerContext) -> HandlerResult:
+async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
     """
     Process incoming GitHub App webhook.
 
@@ -553,7 +553,7 @@ async def handle_github_webhook(ctx: ServerContext) -> HandlerResult:
 
 
 @require_permission("webhooks:read")
-async def handle_github_app_status(ctx: ServerContext) -> HandlerResult:
+async def handle_github_app_status(ctx: dict[str, Any]) -> HandlerResult:
     """
     Get GitHub App integration status.
 

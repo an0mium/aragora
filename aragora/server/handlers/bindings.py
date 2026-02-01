@@ -69,7 +69,7 @@ class BindingsHandler(BaseHandler):
         "/api/bindings/*",  # Must be last due to wildcard
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._router: Optional["BindingRouter"] = None

@@ -73,7 +73,7 @@ class EmailHandler(BaseHandler):
     # Prefix for dynamic routes like /api/email/context/:email_address
     ROUTE_PREFIXES = ["/api/v1/email/context/"]
 
-    def __init__(self, ctx: ServerContext):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
 

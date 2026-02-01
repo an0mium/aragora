@@ -28,6 +28,8 @@ from aragora.nomic.stores.paths import (
     resolve_bead_and_convoy_dirs,
     should_use_canonical_store,
 )
+from aragora.stores import get_canonical_workspace_stores
+from aragora.stores.canonical import WorkspaceStores
 
 logger = logging.getLogger(__name__)
 
@@ -92,14 +94,16 @@ class GastownConvoyExecutor:
             self.bead_dir = Path(base_dir)
             self.convoy_dir = Path(convoy_dir or base_dir)
 
-        self.bead_store = BeadStore(bead_dir=self.bead_dir, git_enabled=True, auto_commit=False)
-        self.convoy_manager = ConvoyManager(bead_store=self.bead_store, convoy_dir=self.convoy_dir)
-        self.hierarchy = AgentHierarchy(self.repo_path / ".nomic" / "agents")
-        self.coordinator = ConvoyCoordinator(
-            convoy_manager=self.convoy_manager,
-            hierarchy=self.hierarchy,
-            bead_store=self.bead_store,
+        self._canonical_stores: WorkspaceStores = get_canonical_workspace_stores(
+            bead_dir=str(self.bead_dir),
+            convoy_dir=str(self.convoy_dir),
+            git_enabled=True,
+            auto_commit=False,
         )
+        self.bead_store: BeadStore | None = None
+        self.convoy_manager: ConvoyManager | None = None
+        self.hierarchy = AgentHierarchy(self.repo_path / ".nomic" / "agents")
+        self.coordinator: ConvoyCoordinator | None = None
         self._executor = HybridExecutor(self.repo_path)
         self._hook_queues: dict[str, HookQueue] = {}
         self._initialized = False
@@ -127,10 +131,20 @@ class GastownConvoyExecutor:
     async def _ensure_initialized(self) -> None:
         if self._initialized:
             return
+        if self.bead_store is None:
+            self.bead_store = await self._canonical_stores.bead_store()
+        if self.convoy_manager is None:
+            self.convoy_manager = await self._canonical_stores.convoy_manager()
         await self.bead_store.initialize()
         await self.convoy_manager.initialize()
         await self.hierarchy.initialize()
         await self._register_agents()
+        if self.coordinator is None:
+            self.coordinator = ConvoyCoordinator(
+                convoy_manager=self.convoy_manager,
+                hierarchy=self.hierarchy,
+                bead_store=self.bead_store,
+            )
         await self.coordinator.initialize()
         for agent in self.implementers:
             queue = HookQueue(

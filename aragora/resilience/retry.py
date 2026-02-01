@@ -29,6 +29,26 @@ Usage:
     @with_retry(config)
     async def resilient_operation():
         ...
+
+    # With circuit breaker integration
+    from aragora.resilience import CircuitBreaker
+
+    breaker = CircuitBreaker(failure_threshold=5, cooldown_seconds=60)
+    config = RetryConfig(
+        max_retries=3,
+        circuit_breaker=breaker,
+    )
+
+    @with_retry(config)
+    async def api_call_with_circuit_breaker():
+        ...
+
+    # With per-provider retry policies
+    from aragora.resilience.retry import PROVIDER_RETRY_POLICIES
+
+    @with_retry(PROVIDER_RETRY_POLICIES["anthropic"])
+    async def anthropic_api_call():
+        ...
 """
 
 from __future__ import annotations
@@ -38,15 +58,21 @@ import functools
 import logging
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
+    Any,
     Awaitable,
     Callable,
     Optional,
     ParamSpec,
     TypeVar,
+    Union,
 )
+
+if TYPE_CHECKING:
+    from aragora.resilience.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +121,9 @@ class RetryConfig:
         retryable_exceptions: Tuple of exception types to retry on
         on_retry: Optional callback called on each retry (attempt, exception, delay)
         should_retry: Optional function to determine if specific exception should be retried
+        circuit_breaker: Optional circuit breaker for failure tracking
+        provider_name: Optional provider name for logging and metrics
+        non_retryable_status_codes: HTTP status codes that should not be retried
     """
 
     max_retries: int = 3
@@ -108,6 +137,12 @@ class RetryConfig:
     should_retry: Optional[Callable[[Exception], bool]] = None
     # Backward-compat alias: jitter=True maps to MULTIPLICATIVE, False to NONE
     jitter: Optional[bool] = None
+    # Circuit breaker integration
+    circuit_breaker: Optional["CircuitBreaker"] = None
+    # Provider identification for logging/metrics
+    provider_name: Optional[str] = None
+    # HTTP status codes that should not be retried (e.g., 400, 401, 403, 404)
+    non_retryable_status_codes: tuple[int, ...] = (400, 401, 403, 404, 422)
 
     def __post_init__(self) -> None:
         """Apply backward-compat jitter alias if set."""
@@ -144,6 +179,300 @@ class RetryConfig:
         if self.should_retry is not None:
             return self.should_retry(exception)
         return isinstance(exception, self.retryable_exceptions)
+
+    def check_circuit_breaker(self) -> bool:
+        """Check if circuit breaker allows proceeding.
+
+        Returns:
+            True if operation can proceed, False if circuit is open
+        """
+        if self.circuit_breaker is None:
+            return True
+        return self.circuit_breaker.can_proceed()
+
+    def record_success(self) -> None:
+        """Record a successful operation to the circuit breaker."""
+        if self.circuit_breaker is not None:
+            self.circuit_breaker.record_success()
+
+    def record_failure(self, exception: Optional[Exception] = None) -> None:
+        """Record a failed operation to the circuit breaker.
+
+        Args:
+            exception: The exception that caused the failure
+        """
+        if self.circuit_breaker is not None:
+            self.circuit_breaker.record_failure()
+
+
+class CircuitOpenError(Exception):
+    """Raised when circuit breaker is open and preventing operations."""
+
+    def __init__(
+        self,
+        message: str = "Circuit breaker is open",
+        provider: Optional[str] = None,
+        cooldown_remaining: Optional[float] = None,
+    ):
+        """Initialize CircuitOpenError.
+
+        Args:
+            message: Error message
+            provider: Provider name if applicable
+            cooldown_remaining: Seconds until circuit breaker may close
+        """
+        super().__init__(message)
+        self.provider = provider
+        self.cooldown_remaining = cooldown_remaining
+
+
+# ============================================================================
+# Per-Provider Retry Policies
+# ============================================================================
+# These policies are tuned for each AI provider's rate limiting behavior
+# and error patterns. They can be used directly or as templates.
+
+def _is_rate_limit_exception(exc: Exception) -> bool:
+    """Check if exception is a rate limit error."""
+    exc_str = str(exc).lower()
+    return (
+        "rate" in exc_str and "limit" in exc_str
+        or "429" in exc_str
+        or "too many requests" in exc_str
+        or "quota" in exc_str
+    )
+
+
+def _is_server_error(exc: Exception) -> bool:
+    """Check if exception is a server error (5xx)."""
+    exc_str = str(exc)
+    return any(f"{code}" in exc_str for code in [500, 502, 503, 504])
+
+
+def _is_transient_error(exc: Exception) -> bool:
+    """Check if exception is transient and worth retrying."""
+    return (
+        isinstance(exc, (ConnectionError, TimeoutError, OSError, IOError))
+        or _is_rate_limit_exception(exc)
+        or _is_server_error(exc)
+    )
+
+
+def create_provider_config(
+    provider_name: str,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+    strategy: RetryStrategy = RetryStrategy.EXPONENTIAL,
+    jitter_factor: float = 0.25,
+    circuit_breaker: Optional["CircuitBreaker"] = None,
+) -> RetryConfig:
+    """Create a RetryConfig for a specific provider.
+
+    Args:
+        provider_name: Name of the provider (for logging)
+        max_retries: Maximum retry attempts
+        base_delay: Base delay in seconds
+        max_delay: Maximum delay cap
+        strategy: Backoff strategy
+        jitter_factor: Jitter factor
+        circuit_breaker: Optional circuit breaker instance
+
+    Returns:
+        RetryConfig configured for the provider
+    """
+    return RetryConfig(
+        max_retries=max_retries,
+        base_delay=base_delay,
+        max_delay=max_delay,
+        strategy=strategy,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=jitter_factor,
+        retryable_exceptions=(
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            IOError,
+        ),
+        should_retry=_is_transient_error,
+        circuit_breaker=circuit_breaker,
+        provider_name=provider_name,
+    )
+
+
+# Pre-configured retry policies for common providers
+# These use default circuit breakers that can be overridden
+
+PROVIDER_RETRY_POLICIES: dict[str, RetryConfig] = {
+    # Anthropic: Conservative retries, longer delays (strict rate limits)
+    "anthropic": RetryConfig(
+        max_retries=3,
+        base_delay=2.0,
+        max_delay=120.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.3,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="anthropic",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # OpenAI: Moderate retries, respects Retry-After headers
+    "openai": RetryConfig(
+        max_retries=4,
+        base_delay=1.0,
+        max_delay=60.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.25,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="openai",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # Mistral: Similar to OpenAI
+    "mistral": RetryConfig(
+        max_retries=3,
+        base_delay=1.0,
+        max_delay=60.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.25,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="mistral",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # Grok (xAI): Newer service, conservative approach
+    "grok": RetryConfig(
+        max_retries=3,
+        base_delay=1.5,
+        max_delay=90.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.3,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="grok",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # OpenRouter: Aggregator, may have higher latency
+    "openrouter": RetryConfig(
+        max_retries=4,
+        base_delay=1.5,
+        max_delay=120.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.3,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="openrouter",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # Google Gemini
+    "gemini": RetryConfig(
+        max_retries=3,
+        base_delay=1.0,
+        max_delay=60.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.25,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="gemini",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # Knowledge Mound operations (database/storage)
+    "knowledge_mound": RetryConfig(
+        max_retries=3,
+        base_delay=0.5,
+        max_delay=30.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.2,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError, IOError),
+        should_retry=_is_transient_error,
+        provider_name="knowledge_mound",
+        non_retryable_status_codes=(),
+    ),
+    # Control plane operations
+    "control_plane": RetryConfig(
+        max_retries=3,
+        base_delay=0.5,
+        max_delay=30.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.2,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="control_plane",
+        non_retryable_status_codes=(),
+    ),
+    # Memory system operations
+    "memory": RetryConfig(
+        max_retries=3,
+        base_delay=0.3,
+        max_delay=15.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.2,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError, IOError),
+        should_retry=_is_transient_error,
+        provider_name="memory",
+        non_retryable_status_codes=(),
+    ),
+}
+
+
+def get_provider_retry_config(
+    provider: str,
+    circuit_breaker: Optional["CircuitBreaker"] = None,
+    **overrides: Any,
+) -> RetryConfig:
+    """Get a retry config for a provider with optional overrides.
+
+    Args:
+        provider: Provider name (e.g., "anthropic", "openai")
+        circuit_breaker: Optional circuit breaker to use
+        **overrides: Override any RetryConfig attributes
+
+    Returns:
+        RetryConfig for the provider
+
+    Example:
+        config = get_provider_retry_config(
+            "anthropic",
+            circuit_breaker=my_breaker,
+            max_retries=5,
+        )
+    """
+    base_config = PROVIDER_RETRY_POLICIES.get(provider)
+    if base_config is None:
+        # Return a sensible default for unknown providers
+        base_config = RetryConfig(
+            max_retries=3,
+            base_delay=1.0,
+            max_delay=60.0,
+            provider_name=provider,
+        )
+
+    # Create new config with overrides
+    config_dict = {
+        "max_retries": base_config.max_retries,
+        "base_delay": base_config.base_delay,
+        "max_delay": base_config.max_delay,
+        "strategy": base_config.strategy,
+        "jitter_mode": base_config.jitter_mode,
+        "jitter_factor": base_config.jitter_factor,
+        "retryable_exceptions": base_config.retryable_exceptions,
+        "should_retry": base_config.should_retry,
+        "provider_name": base_config.provider_name,
+        "non_retryable_status_codes": base_config.non_retryable_status_codes,
+        "circuit_breaker": circuit_breaker,
+    }
+    config_dict.update(overrides)
+
+    return RetryConfig(**config_dict)
 
 
 def calculate_backoff_delay(
@@ -275,16 +604,20 @@ def with_retry(
     max_retries: int = 3,
     base_delay: float = 0.1,
     retryable_exceptions: Optional[tuple[type[Exception], ...]] = None,
+    circuit_breaker: Optional["CircuitBreaker"] = None,
+    provider: Optional[str] = None,
 ) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
-    """Decorator for async functions with retry logic.
+    """Decorator for async functions with retry logic and circuit breaker support.
 
-    Can be used with a RetryConfig or with keyword arguments for convenience.
+    Can be used with a RetryConfig, provider name, or keyword arguments.
 
     Args:
         config: RetryConfig instance (if provided, other args are ignored)
         max_retries: Maximum retry attempts
         base_delay: Base delay between retries
         retryable_exceptions: Exceptions to retry on
+        circuit_breaker: Optional circuit breaker for failure tracking
+        provider: Provider name to use pre-configured policy (e.g., "anthropic", "openai")
 
     Returns:
         Decorator function
@@ -297,37 +630,73 @@ def with_retry(
         @with_retry(RetryConfig(strategy=RetryStrategy.LINEAR))
         async def another_call():
             ...
+
+        @with_retry(provider="anthropic")
+        async def anthropic_call():
+            ...
+
+        @with_retry(provider="openai", circuit_breaker=my_breaker)
+        async def openai_call():
+            ...
     """
     if config is None:
-        config = RetryConfig(
-            max_retries=max_retries,
-            base_delay=base_delay,
-            retryable_exceptions=retryable_exceptions or DEFAULT_RETRYABLE_EXCEPTIONS,
-        )
+        if provider is not None:
+            config = get_provider_retry_config(
+                provider,
+                circuit_breaker=circuit_breaker,
+                max_retries=max_retries,
+            )
+        else:
+            config = RetryConfig(
+                max_retries=max_retries,
+                base_delay=base_delay,
+                retryable_exceptions=retryable_exceptions or DEFAULT_RETRYABLE_EXCEPTIONS,
+                circuit_breaker=circuit_breaker,
+            )
 
     def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            # Check circuit breaker before attempting
+            if not config.check_circuit_breaker():
+                provider_name = config.provider_name or func.__name__
+                raise CircuitOpenError(
+                    f"Circuit breaker open for {provider_name}",
+                    provider=provider_name,
+                )
+
             last_exception: Exception | None = None
 
             for attempt in range(config.max_retries + 1):
                 try:
-                    return await func(*args, **kwargs)
-                except config.retryable_exceptions as e:
+                    result = await func(*args, **kwargs)
+                    # Record success with circuit breaker
+                    config.record_success()
+                    return result
+                except Exception as e:
                     last_exception = e
 
+                    # Check if this exception type should be retried
+                    if not isinstance(e, config.retryable_exceptions):
+                        config.record_failure(e)
+                        raise
+
                     if not config.is_retryable(e):
+                        config.record_failure(e)
                         raise
 
                     if attempt >= config.max_retries:
+                        provider_name = config.provider_name or func.__name__
                         logger.warning(
-                            f"Retry exhausted for {func.__name__} after {attempt + 1} attempts: {e}"
+                            f"Retry exhausted for {provider_name} after {attempt + 1} attempts: {e}"
                         )
+                        config.record_failure(e)
                         raise
 
                     delay = config.calculate_delay(attempt)
+                    provider_name = config.provider_name or func.__name__
                     logger.debug(
-                        f"Retry {attempt + 1}/{config.max_retries} for {func.__name__} "
+                        f"Retry {attempt + 1}/{config.max_retries} for {provider_name} "
                         f"after {delay:.2f}s: {e}"
                     )
 
@@ -338,6 +707,7 @@ def with_retry(
 
             # Should not reach here, but for type safety
             if last_exception:
+                config.record_failure(last_exception)
                 raise last_exception
             raise RuntimeError("Unexpected retry state")
 
@@ -352,8 +722,10 @@ def with_retry_sync(
     max_retries: int = 3,
     base_delay: float = 0.1,
     retryable_exceptions: Optional[tuple[type[Exception], ...]] = None,
+    circuit_breaker: Optional["CircuitBreaker"] = None,
+    provider: Optional[str] = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator for sync functions with retry logic.
+    """Decorator for sync functions with retry logic and circuit breaker support.
 
     Same as with_retry but for synchronous functions.
 
@@ -362,40 +734,68 @@ def with_retry_sync(
         max_retries: Maximum retry attempts
         base_delay: Base delay between retries
         retryable_exceptions: Exceptions to retry on
+        circuit_breaker: Optional circuit breaker for failure tracking
+        provider: Provider name to use pre-configured policy
 
     Returns:
         Decorator function
     """
     if config is None:
-        config = RetryConfig(
-            max_retries=max_retries,
-            base_delay=base_delay,
-            retryable_exceptions=retryable_exceptions or DEFAULT_RETRYABLE_EXCEPTIONS,
-        )
+        if provider is not None:
+            config = get_provider_retry_config(
+                provider,
+                circuit_breaker=circuit_breaker,
+                max_retries=max_retries,
+            )
+        else:
+            config = RetryConfig(
+                max_retries=max_retries,
+                base_delay=base_delay,
+                retryable_exceptions=retryable_exceptions or DEFAULT_RETRYABLE_EXCEPTIONS,
+                circuit_breaker=circuit_breaker,
+            )
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            # Check circuit breaker before attempting
+            if not config.check_circuit_breaker():
+                provider_name = config.provider_name or func.__name__
+                raise CircuitOpenError(
+                    f"Circuit breaker open for {provider_name}",
+                    provider=provider_name,
+                )
+
             last_exception: Exception | None = None
 
             for attempt in range(config.max_retries + 1):
                 try:
-                    return func(*args, **kwargs)
-                except config.retryable_exceptions as e:
+                    result = func(*args, **kwargs)
+                    config.record_success()
+                    return result
+                except Exception as e:
                     last_exception = e
 
+                    if not isinstance(e, config.retryable_exceptions):
+                        config.record_failure(e)
+                        raise
+
                     if not config.is_retryable(e):
+                        config.record_failure(e)
                         raise
 
                     if attempt >= config.max_retries:
+                        provider_name = config.provider_name or func.__name__
                         logger.warning(
-                            f"Retry exhausted for {func.__name__} after {attempt + 1} attempts: {e}"
+                            f"Retry exhausted for {provider_name} after {attempt + 1} attempts: {e}"
                         )
+                        config.record_failure(e)
                         raise
 
                     delay = config.calculate_delay(attempt)
+                    provider_name = config.provider_name or func.__name__
                     logger.debug(
-                        f"Retry {attempt + 1}/{config.max_retries} for {func.__name__} "
+                        f"Retry {attempt + 1}/{config.max_retries} for {provider_name} "
                         f"after {delay:.2f}s: {e}"
                     )
 
@@ -405,6 +805,7 @@ def with_retry_sync(
                     time.sleep(delay)
 
             if last_exception:
+                config.record_failure(last_exception)
                 raise last_exception
             raise RuntimeError("Unexpected retry state")
 
@@ -413,12 +814,21 @@ def with_retry_sync(
     return decorator
 
 
+# Alias for backward compatibility
+retry_with_backoff = with_retry
+
+
 __all__ = [
     "RetryStrategy",
     "JitterMode",
     "RetryConfig",
     "ExponentialBackoff",
+    "CircuitOpenError",
     "with_retry",
     "with_retry_sync",
+    "retry_with_backoff",
     "calculate_backoff_delay",
+    "PROVIDER_RETRY_POLICIES",
+    "get_provider_retry_config",
+    "create_provider_config",
 ]

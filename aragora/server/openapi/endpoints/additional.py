@@ -9,7 +9,27 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "List tournaments",
             "description": "Get list of all agent tournaments and their status.",
             "operationId": "listTournaments",
-            "responses": {"200": _ok_response("Tournament list")},
+            "responses": {
+                "200": _ok_response(
+                    "Tournament list",
+                    {
+                        "tournaments": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "status": {"type": "string"},
+                                    "participant_count": {"type": "integer"},
+                                    "created_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/tournaments/{id}/standings": {
@@ -21,7 +41,27 @@ ADDITIONAL_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Standings")},
+            "responses": {
+                "200": _ok_response(
+                    "Standings",
+                    {
+                        "tournament_id": {"type": "string"},
+                        "standings": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "rank": {"type": "integer"},
+                                    "agent_id": {"type": "string"},
+                                    "wins": {"type": "integer"},
+                                    "losses": {"type": "integer"},
+                                    "elo": {"type": "number"},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/genesis/stats": {
@@ -30,7 +70,17 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Genesis statistics",
             "description": "Get statistics about agent genesis events and population.",
             "operationId": "listGenesisStats",
-            "responses": {"200": _ok_response("Genesis stats")},
+            "responses": {
+                "200": _ok_response(
+                    "Genesis stats",
+                    {
+                        "total_agents": {"type": "integer"},
+                        "active_agents": {"type": "integer"},
+                        "genesis_events_today": {"type": "integer"},
+                        "average_lifespan_hours": {"type": "number"},
+                    },
+                )
+            },
         },
     },
     "/api/genesis/events": {
@@ -39,7 +89,26 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Genesis events",
             "description": "Get timeline of agent creation and evolution events.",
             "operationId": "listGenesisEvents",
-            "responses": {"200": _ok_response("Genesis events")},
+            "responses": {
+                "200": _ok_response(
+                    "Genesis events",
+                    {
+                        "events": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "type": {"type": "string"},
+                                    "agent_id": {"type": "string"},
+                                    "timestamp": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/genesis/lineage/{agent}": {
@@ -51,7 +120,17 @@ ADDITIONAL_ENDPOINTS = {
             "parameters": [
                 {"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Lineage data")},
+            "responses": {
+                "200": _ok_response(
+                    "Lineage data",
+                    {
+                        "agent_id": {"type": "string"},
+                        "ancestors": {"type": "array", "items": {"type": "string"}},
+                        "descendants": {"type": "array", "items": {"type": "string"}},
+                        "generation": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/genesis/tree/{agent}": {
@@ -63,7 +142,16 @@ ADDITIONAL_ENDPOINTS = {
             "parameters": [
                 {"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Tree data")},
+            "responses": {
+                "200": _ok_response(
+                    "Tree data",
+                    {
+                        "root": {"type": "string"},
+                        "nodes": {"type": "array", "items": {"type": "object"}},
+                        "edges": {"type": "array", "items": {"type": "object"}},
+                    },
+                )
+            },
         },
     },
     "/api/v1/tournaments/{tournament_id}": {
@@ -82,7 +170,17 @@ ADDITIONAL_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Tournament details"),
+                "200": _ok_response(
+                    "Tournament details",
+                    {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "status": {"type": "string"},
+                        "participants": {"type": "array", "items": {"type": "string"}},
+                        "config": {"type": "object"},
+                        "created_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -102,7 +200,10 @@ ADDITIONAL_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Tournament deleted"),
+                "200": _ok_response(
+                    "Tournament deleted",
+                    {"success": {"type": "boolean"}, "deleted_id": {"type": "string"}},
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -131,7 +232,23 @@ ADDITIONAL_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Descendant genomes"),
+                "200": _ok_response(
+                    "Descendant genomes",
+                    {
+                        "genome_id": {"type": "string"},
+                        "descendants": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "depth": {"type": "integer"},
+                                    "mutations": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                        },
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -159,7 +276,16 @@ ADDITIONAL_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Genome details"),
+                "200": _ok_response(
+                    "Genome details",
+                    {
+                        "id": {"type": "string"},
+                        "config": {"type": "object"},
+                        "parent_id": {"type": "string"},
+                        "fitness_score": {"type": "number"},
+                        "created_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -181,7 +307,16 @@ ADDITIONAL_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Review details"),
+                "200": _ok_response(
+                    "Review details",
+                    {
+                        "id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "findings": {"type": "array", "items": {"type": "object"}},
+                        "agreement_score": {"type": "number"},
+                        "created_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
@@ -224,7 +359,10 @@ ADDITIONAL_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Review updated"),
+                "200": _ok_response(
+                    "Review updated",
+                    {"success": {"type": "boolean"}, "review_id": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
@@ -246,7 +384,10 @@ ADDITIONAL_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Review deleted"),
+                "200": _ok_response(
+                    "Review deleted",
+                    {"success": {"type": "boolean"}, "deleted_id": {"type": "string"}},
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -262,7 +403,25 @@ ADDITIONAL_ENDPOINTS = {
             "parameters": [
                 {"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Evolution history")},
+            "responses": {
+                "200": _ok_response(
+                    "Evolution history",
+                    {
+                        "agent_id": {"type": "string"},
+                        "versions": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {"type": "string"},
+                                    "changes": {"type": "array", "items": {"type": "string"}},
+                                    "timestamp": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/replays": {
@@ -271,7 +430,26 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "List replays",
             "description": "Get list of available debate replays.",
             "operationId": "listReplays",
-            "responses": {"200": _ok_response("Replay list")},
+            "responses": {
+                "200": _ok_response(
+                    "Replay list",
+                    {
+                        "replays": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "debate_id": {"type": "string"},
+                                    "duration_seconds": {"type": "integer"},
+                                    "created_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/replays/{id}": {
@@ -283,7 +461,17 @@ ADDITIONAL_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Replay data")},
+            "responses": {
+                "200": _ok_response(
+                    "Replay data",
+                    {
+                        "id": {"type": "string"},
+                        "debate_id": {"type": "string"},
+                        "events": {"type": "array", "items": {"type": "object"}},
+                        "metadata": {"type": "object"},
+                    },
+                )
+            },
         },
     },
     "/api/learning/evolution": {
@@ -292,7 +480,24 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Learning evolution",
             "description": "Get learning evolution data showing system improvements over time.",
             "operationId": "listLearningEvolution",
-            "responses": {"200": _ok_response("Evolution data")},
+            "responses": {
+                "200": _ok_response(
+                    "Evolution data",
+                    {
+                        "data_points": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "timestamp": {"type": "string", "format": "date-time"},
+                                    "metric": {"type": "string"},
+                                    "value": {"type": "number"},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/meta-learning/stats": {
@@ -301,7 +506,16 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Meta-learning statistics",
             "description": "Get statistics from meta-learning processes.",
             "operationId": "listMetaLearningStats",
-            "responses": {"200": _ok_response("Meta-learning stats")},
+            "responses": {
+                "200": _ok_response(
+                    "Meta-learning stats",
+                    {
+                        "total_adaptations": {"type": "integer"},
+                        "success_rate": {"type": "number"},
+                        "average_improvement": {"type": "number"},
+                    },
+                )
+            },
         },
     },
     "/api/critiques/patterns": {
@@ -310,7 +524,24 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Critique patterns",
             "description": "Get common critique patterns across debates.",
             "operationId": "listCritiquesPatterns",
-            "responses": {"200": _ok_response("Patterns")},
+            "responses": {
+                "200": _ok_response(
+                    "Patterns",
+                    {
+                        "patterns": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "pattern": {"type": "string"},
+                                    "frequency": {"type": "integer"},
+                                    "examples": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/critiques/archive": {
@@ -319,7 +550,26 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Critique archive",
             "description": "Get archived critiques for historical analysis.",
             "operationId": "listCritiquesArchive",
-            "responses": {"200": _ok_response("Archive")},
+            "responses": {
+                "200": _ok_response(
+                    "Archive",
+                    {
+                        "critiques": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "debate_id": {"type": "string"},
+                                    "content": {"type": "string"},
+                                    "archived_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/reputation/all": {
@@ -328,7 +578,24 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "All reputations",
             "description": "Get reputation data for all agents.",
             "operationId": "listReputationAll",
-            "responses": {"200": _ok_response("Reputations")},
+            "responses": {
+                "200": _ok_response(
+                    "Reputations",
+                    {
+                        "reputations": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "agent_id": {"type": "string"},
+                                    "score": {"type": "number"},
+                                    "debate_count": {"type": "integer"},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/routing/best-teams": {
@@ -341,7 +608,24 @@ ADDITIONAL_ENDPOINTS = {
                 {"name": "min_debates", "in": "query", "schema": {"type": "integer", "default": 3}},
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
             ],
-            "responses": {"200": _ok_response("Best teams")},
+            "responses": {
+                "200": _ok_response(
+                    "Best teams",
+                    {
+                        "teams": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "agents": {"type": "array", "items": {"type": "string"}},
+                                    "win_rate": {"type": "number"},
+                                    "debate_count": {"type": "integer"},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/routing/recommendations": {
@@ -364,7 +648,24 @@ ADDITIONAL_ENDPOINTS = {
                     }
                 }
             },
-            "responses": {"200": _ok_response("Recommendations")},
+            "responses": {
+                "200": _ok_response(
+                    "Recommendations",
+                    {
+                        "recommended_agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "agent_id": {"type": "string"},
+                                    "match_score": {"type": "number"},
+                                    "traits": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/introspection/all": {
@@ -373,7 +674,24 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "All introspection data",
             "description": "Get comprehensive introspection data across all agents.",
             "operationId": "listIntrospectionAll",
-            "responses": {"200": _ok_response("Introspection data")},
+            "responses": {
+                "200": _ok_response(
+                    "Introspection data",
+                    {
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "agent_id": {"type": "string"},
+                                    "self_assessment": {"type": "object"},
+                                    "capabilities": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/introspection/leaderboard": {
@@ -382,7 +700,24 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Introspection leaderboard",
             "description": "Get leaderboard rankings based on introspection metrics.",
             "operationId": "listIntrospectionLeaderboard",
-            "responses": {"200": _ok_response("Leaderboard")},
+            "responses": {
+                "200": _ok_response(
+                    "Leaderboard",
+                    {
+                        "rankings": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "rank": {"type": "integer"},
+                                    "agent_id": {"type": "string"},
+                                    "score": {"type": "number"},
+                                },
+                            },
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/introspection/agents": {
@@ -391,7 +726,15 @@ ADDITIONAL_ENDPOINTS = {
             "summary": "Agent introspection list",
             "description": "Get list of agents with introspection data available.",
             "operationId": "listIntrospectionAgents",
-            "responses": {"200": _ok_response("Agent list")},
+            "responses": {
+                "200": _ok_response(
+                    "Agent list",
+                    {
+                        "agents": {"type": "array", "items": {"type": "string"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/introspection/agents/{name}": {
@@ -403,7 +746,18 @@ ADDITIONAL_ENDPOINTS = {
             "parameters": [
                 {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Agent introspection")},
+            "responses": {
+                "200": _ok_response(
+                    "Agent introspection",
+                    {
+                        "agent_id": {"type": "string"},
+                        "self_model": {"type": "object"},
+                        "strengths": {"type": "array", "items": {"type": "string"}},
+                        "weaknesses": {"type": "array", "items": {"type": "string"}},
+                        "last_updated": {"type": "string", "format": "date-time"},
+                    },
+                )
+            },
         },
     },
     # =========================================================================
@@ -603,7 +957,10 @@ ADDITIONAL_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Vertical configuration updated"),
+                "200": _ok_response(
+                    "Vertical configuration updated",
+                    {"success": {"type": "boolean"}, "vertical_id": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
             },

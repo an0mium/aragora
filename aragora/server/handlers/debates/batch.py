@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface that BatchOperationsMixin expects from its host class."""
 
-    ctx: ServerContext
+    ctx: dict[str, Any]
 
     def read_json_body(self, handler: Any, max_size: int | None = None) -> dict | None:
         """Read and parse JSON body from request handler."""

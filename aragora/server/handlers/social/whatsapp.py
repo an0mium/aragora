@@ -1291,11 +1291,11 @@ class WhatsAppHandler(BaseHandler):
 _whatsapp_handler: Optional["WhatsAppHandler"] = None
 
 
-def get_whatsapp_handler(server_context: ServerContext | None = None) -> "WhatsAppHandler":
+def get_whatsapp_handler(server_context: dict[str, Any] | None = None) -> "WhatsAppHandler":
     """Get or create the WhatsApp handler instance."""
     global _whatsapp_handler
     if _whatsapp_handler is None:
-        ctx: ServerContext = server_context if server_context is not None else {}
+        ctx: dict[str, Any] = server_context if server_context is not None else {}
         _whatsapp_handler = WhatsAppHandler(ctx)
     return _whatsapp_handler
 

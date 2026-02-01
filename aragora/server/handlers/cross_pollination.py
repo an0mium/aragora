@@ -607,7 +607,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
             return error_response(str(e), status=500)
 
 
-def register_routes(router: Any, server_context: Optional["ServerContext"] = None) -> None:
+def register_routes(router: Any, server_context: dict[str, Any] | None = None) -> None:
     """
     Register cross-pollination routes with the router.
 
@@ -616,7 +616,7 @@ def register_routes(router: Any, server_context: Optional["ServerContext"] = Non
         server_context: Optional server context for handlers
     """
     # Create handler instances with context - use cast for empty dict fallback
-    ctx = server_context if server_context is not None else cast("ServerContext", {})
+    ctx: dict[str, Any] = server_context if server_context is not None else {}
     stats_handler = CrossPollinationStatsHandler(ctx)
     subscribers_handler = CrossPollinationSubscribersHandler(ctx)
     bridge_handler = CrossPollinationBridgeHandler(ctx)

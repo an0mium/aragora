@@ -1326,12 +1326,12 @@ class TelegramHandler(BaseHandler):
 _telegram_handler: Optional["TelegramHandler"] = None
 
 
-def get_telegram_handler(server_context: ServerContext | None = None) -> "TelegramHandler":
+def get_telegram_handler(server_context: dict[str, Any] | None = None) -> "TelegramHandler":
     """Get or create the Telegram handler instance."""
     global _telegram_handler
     if _telegram_handler is None:
         if server_context is None:
-            server_context = cast(ServerContext, {})
+            server_context = dict()
         _telegram_handler = TelegramHandler(server_context)
     return _telegram_handler
 

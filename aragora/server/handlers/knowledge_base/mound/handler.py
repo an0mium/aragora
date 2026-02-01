@@ -273,7 +273,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         "/api/v1/knowledge/mound/confidence/stats",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize knowledge mound handler."""
         super().__init__(server_context)
         self._mound: Optional["KnowledgeMound"] = None

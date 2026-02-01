@@ -80,7 +80,7 @@ class KnowledgeHandler(
         "/api/v1/knowledge/stats",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize knowledge handler.
 
         Args:

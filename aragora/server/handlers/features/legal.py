@@ -82,11 +82,11 @@ class LegalHandler:
         "/api/v1/legal/templates",
     ]
 
-    ctx: ServerContext
+    ctx: dict[str, Any]
 
     def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        self.ctx = cast(ServerContext, server_context or {})
+        self.ctx = server_context or {}
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""

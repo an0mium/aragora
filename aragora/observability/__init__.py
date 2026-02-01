@@ -240,6 +240,22 @@ from aragora.observability.slo_alert_bridge import (
     init_slo_alerting,
     shutdown_slo_alerting,
 )
+from aragora.observability.alerting import (
+    Alert,
+    AlertManager,
+    AlertRule,
+    AlertState,
+    AlertSeverity as AlertingSeverity,  # Alias to avoid conflict
+    EmailNotificationChannel,
+    MetricsCollector,
+    MetricsSnapshot as AlertMetricsSnapshot,  # Alias to avoid conflict with memory_profiler
+    PrometheusAlertManagerChannel,
+    SlackNotificationChannel,
+    create_critical_alert_rules,
+    get_alert_manager,
+    init_alerting,
+    shutdown_alerting,
+)
 
 __all__ = [
     # Logging
@@ -414,4 +430,19 @@ __all__ = [
     "init_slo_alerting",
     "get_slo_alert_bridge",
     "shutdown_slo_alerting",
+    # Production Alerting
+    "Alert",
+    "AlertManager",
+    "AlertRule",
+    "AlertState",
+    "AlertingSeverity",
+    "AlertMetricsSnapshot",
+    "EmailNotificationChannel",
+    "MetricsCollector",
+    "PrometheusAlertManagerChannel",
+    "SlackNotificationChannel",
+    "create_critical_alert_rules",
+    "get_alert_manager",
+    "init_alerting",
+    "shutdown_alerting",
 ]

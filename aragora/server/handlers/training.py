@@ -58,7 +58,7 @@ class TrainingHandler(BaseHandler):
         "/api/v1/training/jobs/*",
     ]
 
-    def __init__(self, ctx: "ServerContext"):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
         self._exporters: dict[str, Any] = {}

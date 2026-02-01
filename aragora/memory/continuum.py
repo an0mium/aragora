@@ -35,6 +35,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
+from aragora.resilience.retry import PROVIDER_RETRY_POLICIES, with_retry
+
+# Retry configuration for memory operations
+_MEMORY_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["memory"]
 from aragora.memory.tier_manager import (
     DEFAULT_TIER_CONFIGS,
     MemoryTier,
@@ -542,6 +546,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
         return entry
 
+    @with_retry(_MEMORY_RETRY_CONFIG)
     async def add_async(
         self,
         id: str,
@@ -563,6 +568,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             ),
         )
 
+    @with_retry(_MEMORY_RETRY_CONFIG)
     async def store(
         self,
         key: str,
@@ -585,11 +591,13 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             ),
         )
 
+    @with_retry(_MEMORY_RETRY_CONFIG)
     async def get_async(self, id: str) -> ContinuumMemoryEntry | None:
         """Async wrapper for get() - offloads blocking I/O to executor."""
         loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.get, id)
 
+    @with_retry(_MEMORY_RETRY_CONFIG)
     async def retrieve_async(
         self,
         query: str | None = None,
@@ -613,6 +621,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             ),
         )
 
+    @with_retry(_MEMORY_RETRY_CONFIG)
     async def update_outcome_async(
         self,
         id: str,
@@ -1034,6 +1043,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
         return AwaitableList(entries)
 
+    @with_retry(_MEMORY_RETRY_CONFIG)
     async def hybrid_search(
         self,
         query: str,

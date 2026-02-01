@@ -281,7 +281,7 @@ class GauntletHandler(BaseHandler):
         "/api/v1/gauntlet/",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         super().__init__(server_context)
         emitter = server_context.get("stream_emitter")
         if emitter and hasattr(emitter, "emit"):

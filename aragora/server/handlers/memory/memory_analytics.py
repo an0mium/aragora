@@ -48,9 +48,9 @@ class MemoryAnalyticsHandler(SecureHandler):
 
     _tracker: TierAnalyticsTracker | None
 
-    def __init__(self, ctx: ServerContext | None = None) -> None:
+    def __init__(self, ctx: dict[str, Any] | None = None) -> None:
         """Initialize with context."""
-        super().__init__(ctx if ctx is not None else cast(ServerContext, {}))
+        super().__init__(ctx if ctx is not None else dict())
         self._tracker = None
 
     @property

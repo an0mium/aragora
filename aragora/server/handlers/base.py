@@ -47,7 +47,7 @@ import logging
 import os
 import re
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict, cast
 
 from aragora.billing.auth.context import UserAuthContext
 from aragora.config import DB_TIMEOUT_SECONDS
@@ -565,7 +565,7 @@ class BaseHandler:
     _current_handler: Any = None
     _current_query_params: dict[str, Any] | None = None
 
-    def __init__(self, server_context: dict[str, Any]):
+    def __init__(self, server_context: "ServerContext | dict[str, Any]"):
         """
         Initialize with server context.
 
@@ -574,7 +574,7 @@ class BaseHandler:
                            storage, elo_system, debate_embeddings, etc.
                            See ServerContext TypedDict for available fields.
         """
-        self.ctx = server_context
+        self.ctx = cast(dict[str, Any], server_context)
         self._current_handler = None
         self._current_query_params = {}
 

@@ -329,6 +329,49 @@ from aragora.observability.metrics.ranking import (  # noqa: F401, E402
     ANALYTICS_SELECTION_RECOMMENDATIONS,
 )
 
+# Per-provider agent metrics (new submodule for AI provider monitoring)
+from aragora.observability.metrics.agents import (  # noqa: F401, E402
+    # Enums
+    CircuitBreakerState,
+    ErrorType,
+    TokenType,
+    # Init
+    init_agent_provider_metrics,
+    # Recording functions
+    record_provider_call,
+    record_provider_latency,
+    record_provider_token_usage,
+    set_connection_pool_active,
+    set_connection_pool_waiting,
+    record_rate_limit_detected,
+    record_fallback_triggered,
+    record_fallback_chain_depth,
+    set_circuit_breaker_state,
+    record_circuit_breaker_state_change,
+    record_circuit_breaker_rejection,
+    # Context managers
+    track_agent_provider_call,
+    track_agent_provider_call_async,
+    AgentCallTracker,
+    # Decorators
+    with_agent_provider_metrics,
+    with_agent_provider_metrics_sync,
+    # Metrics objects
+    AGENT_PROVIDER_CALLS,
+    AGENT_PROVIDER_LATENCY,
+    AGENT_TOKEN_USAGE,
+    AGENT_CONNECTION_POOL_ACTIVE,
+    AGENT_CONNECTION_POOL_WAITING,
+    AGENT_RATE_LIMIT_DETECTED,
+    AGENT_RATE_LIMIT_BACKOFF_SECONDS,
+    AGENT_FALLBACK_CHAIN_DEPTH,
+    AGENT_FALLBACK_TRIGGERED,
+    AGENT_CIRCUIT_BREAKER_STATE,
+    AGENT_CIRCUIT_BREAKER_STATE_CHANGES,
+    AGENT_CIRCUIT_BREAKER_REJECTIONS,
+    AGENT_MODEL_CALLS,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup

@@ -263,8 +263,8 @@ class FormalVerificationHandler(BaseHandler):
         "/api/v1/verify/history",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
-        super().__init__(server_context or cast(ServerContext, {}))
+    def __init__(self, server_context: dict[str, Any] | None = None):
+        super().__init__(server_context or dict())
         self._manager = None
 
     def _check_permission(self, handler: Any, permission: str) -> HandlerResult | None:

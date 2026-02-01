@@ -403,9 +403,9 @@ class EmailWebhooksHandler(BaseHandler):
         "/api/v1/webhooks/history",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context if server_context is not None else cast(ServerContext, {}))
+        super().__init__(server_context if server_context is not None else dict())
 
     # =========================================================================
     # Webhook Verification Methods

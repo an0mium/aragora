@@ -65,7 +65,7 @@ class GauntletSecureHandler(ABC):
 
     RESOURCE_TYPE = "gauntlet"
 
-    def __init__(self, server_context: ServerContext) -> None:
+    def __init__(self, server_context: dict[str, Any]) -> None:
         """Initialize with server context."""
         self.ctx = server_context
         # Create a SecureHandler instance for security method access
@@ -846,7 +846,7 @@ GAUNTLET_V1_HANDLERS: list[type[GauntletSecureHandler]] = [
 
 def register_gauntlet_v1_handlers(router: Any, server_context: Any = None) -> None:
     """Register all v1 Gauntlet handlers with a router."""
-    ctx = cast(ServerContext, server_context or {})
+    ctx = server_context or {}
     for handler_cls in GAUNTLET_V1_HANDLERS:
         handler = handler_cls(ctx)
         router.add_handler(handler)

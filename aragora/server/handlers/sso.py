@@ -80,9 +80,9 @@ class SSOHandler(SecureHandler):
     Supports SAML 2.0 and OpenID Connect (OIDC) providers.
     """
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize SSO handler."""
-        ctx: ServerContext = server_context if server_context is not None else {}
+        ctx: dict[str, Any] = server_context if server_context is not None else {}
         super().__init__(ctx)
         self._provider = None
         self._initialized = False

@@ -179,7 +179,17 @@ DEBATE_ENDPOINTS = {
                 },
                 {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
             ],
-            "responses": {"200": _ok_response("Paginated messages")},
+            "responses": {
+                "200": _ok_response(
+                    "Paginated messages",
+                    {
+                        "messages": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                        "limit": {"type": "integer"},
+                        "offset": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/convergence": {
@@ -191,7 +201,16 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Convergence status")},
+            "responses": {
+                "200": _ok_response(
+                    "Convergence status",
+                    {
+                        "converged": {"type": "boolean"},
+                        "similarity_score": {"type": "number"},
+                        "rounds_since_convergence": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/citations": {
@@ -203,7 +222,16 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Citations and grounding score")},
+            "responses": {
+                "200": _ok_response(
+                    "Citations and grounding score",
+                    {
+                        "citations": {"type": "array", "items": {"type": "object"}},
+                        "grounding_score": {"type": "number"},
+                        "verdict": {"type": "string"},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/evidence": {
@@ -215,7 +243,16 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Evidence data")},
+            "responses": {
+                "200": _ok_response(
+                    "Evidence data",
+                    {
+                        "evidence": {"type": "array", "items": {"type": "object"}},
+                        "sources": {"type": "array", "items": {"type": "string"}},
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/impasse": {
@@ -227,7 +264,16 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Impasse status")},
+            "responses": {
+                "200": _ok_response(
+                    "Impasse status",
+                    {
+                        "impasse": {"type": "boolean"},
+                        "reason": {"type": "string"},
+                        "rounds_at_impasse": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/meta-critique": {
@@ -239,7 +285,17 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Meta-critique data")},
+            "responses": {
+                "200": _ok_response(
+                    "Meta-critique data",
+                    {
+                        "quality_score": {"type": "number"},
+                        "strengths": {"type": "array", "items": {"type": "string"}},
+                        "weaknesses": {"type": "array", "items": {"type": "string"}},
+                        "suggestions": {"type": "array", "items": {"type": "string"}},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/graph/stats": {
@@ -251,7 +307,17 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Graph statistics")},
+            "responses": {
+                "200": _ok_response(
+                    "Graph statistics",
+                    {
+                        "node_count": {"type": "integer"},
+                        "edge_count": {"type": "integer"},
+                        "depth": {"type": "integer"},
+                        "clusters": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/fork": {
@@ -283,7 +349,14 @@ DEBATE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "201": _ok_response("Forked debate created"),
+                "201": _ok_response(
+                    "Forked debate created",
+                    {
+                        "fork_id": {"type": "string"},
+                        "parent_id": {"type": "string"},
+                        "branch_point": {"type": "integer"},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
             },
         },
@@ -303,7 +376,16 @@ DEBATE_ENDPOINTS = {
                     "schema": {"type": "string", "enum": ["json", "markdown", "html", "pdf"]},
                 },
             ],
-            "responses": {"200": _ok_response("Exported debate")},
+            "responses": {
+                "200": _ok_response(
+                    "Exported debate",
+                    {
+                        "content": {"type": "string"},
+                        "format": {"type": "string"},
+                        "filename": {"type": "string"},
+                    },
+                )
+            },
         },
     },
     "/api/debates/{id}/broadcast": {
@@ -328,7 +410,16 @@ DEBATE_ENDPOINTS = {
                     }
                 },
             },
-            "responses": {"202": _ok_response("Broadcast generation started")},
+            "responses": {
+                "202": _ok_response(
+                    "Broadcast generation started",
+                    {
+                        "job_id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "estimated_duration_seconds": {"type": "integer"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -341,7 +432,12 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Published to Twitter")},
+            "responses": {
+                "200": _ok_response(
+                    "Published to Twitter",
+                    {"tweet_id": {"type": "string"}, "url": {"type": "string"}, "success": {"type": "boolean"}},
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -354,7 +450,12 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Published to YouTube")},
+            "responses": {
+                "200": _ok_response(
+                    "Published to YouTube",
+                    {"video_id": {"type": "string"}, "url": {"type": "string"}, "success": {"type": "boolean"}},
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -367,7 +468,16 @@ DEBATE_ENDPOINTS = {
             "parameters": [
                 {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
-            "responses": {"200": _ok_response("Red team results")},
+            "responses": {
+                "200": _ok_response(
+                    "Red team results",
+                    {
+                        "vulnerabilities": {"type": "array", "items": {"type": "object"}},
+                        "risk_score": {"type": "number"},
+                        "recommendations": {"type": "array", "items": {"type": "string"}},
+                    },
+                )
+            },
         },
     },
     "/api/v1/graph-debates/{debate_id}": {
@@ -385,7 +495,15 @@ DEBATE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Graph debate details"),
+                "200": _ok_response(
+                    "Graph debate details",
+                    {
+                        "id": {"type": "string"},
+                        "nodes": {"type": "array", "items": {"type": "object"}},
+                        "edges": {"type": "array", "items": {"type": "object"}},
+                        "status": {"type": "string"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
         },
@@ -405,7 +523,15 @@ DEBATE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Matrix debate details"),
+                "200": _ok_response(
+                    "Matrix debate details",
+                    {
+                        "id": {"type": "string"},
+                        "rows": {"type": "array", "items": {"type": "object"}},
+                        "columns": {"type": "array", "items": {"type": "object"}},
+                        "status": {"type": "string"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
         },
@@ -420,7 +546,16 @@ DEBATE_ENDPOINTS = {
                 {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}},
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
             ],
-            "responses": {"200": _ok_response("Search results")},
+            "responses": {
+                "200": _ok_response(
+                    "Search results",
+                    {
+                        "results": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                        "query": {"type": "string"},
+                    },
+                )
+            },
         },
     },
     "/api/dashboard/debates": {
@@ -434,7 +569,16 @@ DEBATE_ENDPOINTS = {
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
                 {"name": "hours", "in": "query", "schema": {"type": "integer", "default": 24}},
             ],
-            "responses": {"200": _ok_response("Dashboard data")},
+            "responses": {
+                "200": _ok_response(
+                    "Dashboard data",
+                    {
+                        "debates": {"type": "array", "items": {"type": "object"}},
+                        "stats": {"type": "object"},
+                        "period_hours": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
 }

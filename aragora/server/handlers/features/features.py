@@ -594,7 +594,7 @@ class FeaturesHandler(BaseHandler):
         "consensus_alert_threshold": 0.7,
     }
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
 

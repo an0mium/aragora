@@ -558,7 +558,7 @@ class OpenClawGatewayHandler(BaseHandler):
     - Admin operations
     """
 
-    def __init__(self, server_context: ServerContext) -> None:
+    def __init__(self, server_context: dict[str, Any]) -> None:
         """Initialize with server context."""
         super().__init__(server_context)
 
@@ -1628,7 +1628,7 @@ class OpenClawGatewayHandler(BaseHandler):
 
 
 def get_openclaw_gateway_handler(
-    server_context: ServerContext,
+    server_context: dict[str, Any],
 ) -> OpenClawGatewayHandler:
     """Get an instance of the OpenClaw gateway handler."""
     return OpenClawGatewayHandler(server_context)

@@ -179,7 +179,7 @@ class WebhookHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/webhooks")
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._webhook_store: WebhookStore | None = None

@@ -76,7 +76,7 @@ class InsightsHandler(SecureHandler):
         return await self.handle_get(path, query_params, handler, self.ctx)
 
     async def handle_get(
-        self, path: str, query: dict[str, Any], handler: HTTPRequestHandler, ctx: ServerContext
+        self, path: str, query: dict[str, Any], handler: HTTPRequestHandler, ctx: dict[str, Any]
     ) -> HandlerResult | None:
         """Handle GET requests for insights endpoints with RBAC."""
         # Normalize path to handle both /api/... and /api/v1/... paths

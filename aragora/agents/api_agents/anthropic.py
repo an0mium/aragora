@@ -30,6 +30,14 @@ from aragora.agents.api_agents.common import (
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.agents.registry import AgentRegistry
+from aragora.observability.metrics.agents import (
+    ErrorType,
+    record_circuit_breaker_rejection,
+    record_fallback_triggered,
+    record_provider_call,
+    record_provider_token_usage,
+    record_rate_limit_detected,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,9 +141,25 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         and OPENROUTER_API_KEY is set.
 
         Includes circuit breaker protection to prevent cascading failures.
+        Records per-provider metrics for monitoring.
         """
+        import time
+
+        start_time = time.perf_counter()
+
         if not self.api_key:
             logger.warning("[%s] Missing API key, attempting OpenRouter fallback", self.name)
+            record_provider_call(
+                provider="anthropic",
+                success=False,
+                error_type=ErrorType.AUTH,
+                model=self.model,
+            )
+            record_fallback_triggered(
+                primary_provider="anthropic",
+                fallback_provider="openrouter",
+                trigger_reason="auth",
+            )
             result = await self.fallback_generate(prompt, context, status_code=401)
             if result is not None:
                 return result
@@ -147,6 +171,14 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         # Check circuit breaker before attempting API call
         if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            record_circuit_breaker_rejection("anthropic")
+            record_provider_call(
+                provider="anthropic",
+                success=False,
+                error_type=ErrorType.CIRCUIT_OPEN,
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
             raise AgentCircuitOpenError(
                 f"Circuit breaker open for {self.name} - too many recent failures",
                 agent_name=self.name,
@@ -214,7 +246,22 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         ):
                             self._circuit_breaker.record_failure()
 
+                        # Determine error type for metrics
+                        error_type = ErrorType.API_ERROR
+                        if response.status == 429:
+                            error_type = ErrorType.RATE_LIMIT
+                            record_rate_limit_detected("anthropic")
+                        elif response.status in (401, 403):
+                            error_type = ErrorType.AUTH
+                        elif self.is_quota_error(response.status, error_text):
+                            error_type = ErrorType.QUOTA
+
                         if response.status in (401, 403):
+                            record_fallback_triggered(
+                                primary_provider="anthropic",
+                                fallback_provider="openrouter",
+                                trigger_reason="auth",
+                            )
                             result = await self.fallback_generate(
                                 prompt, context, status_code=response.status
                             )
@@ -223,9 +270,23 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
                         # Check if this is a quota/billing error and fallback is enabled
                         if self.is_quota_error(response.status, error_text):
+                            record_fallback_triggered(
+                                primary_provider="anthropic",
+                                fallback_provider="openrouter",
+                                trigger_reason="quota",
+                            )
                             result = await self.fallback_generate(prompt, context, response.status)
                             if result is not None:
                                 return result
+
+                        # Record the failed call metric
+                        record_provider_call(
+                            provider="anthropic",
+                            success=False,
+                            error_type=error_type,
+                            latency_seconds=time.perf_counter() - start_time,
+                            model=self.model,
+                        )
 
                         raise AgentAPIError(
                             f"Anthropic API error {response.status}: {sanitized}",
@@ -237,9 +298,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
                     # Record token usage for billing
                     usage = data.get("usage", {})
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
                     self._record_token_usage(
-                        tokens_in=usage.get("input_tokens", 0),
-                        tokens_out=usage.get("output_tokens", 0),
+                        tokens_in=input_tokens,
+                        tokens_out=output_tokens,
                     )
 
                     try:
@@ -270,6 +333,13 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         if not output or not output.strip():
                             if self._circuit_breaker is not None:
                                 self._circuit_breaker.record_failure()
+                            record_provider_call(
+                                provider="anthropic",
+                                success=False,
+                                error_type=ErrorType.API_ERROR,
+                                latency_seconds=time.perf_counter() - start_time,
+                                model=self.model,
+                            )
                             raise AgentAPIError(
                                 "Anthropic returned empty content",
                                 agent_name=self.name,
@@ -279,20 +349,60 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_success()
 
+                        # Record successful provider metrics
+                        latency = time.perf_counter() - start_time
+                        record_provider_call(
+                            provider="anthropic",
+                            success=True,
+                            latency_seconds=latency,
+                            model=self.model,
+                        )
+                        record_provider_token_usage(
+                            provider="anthropic",
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                        )
+
                         return output
                     except (KeyError, IndexError):
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()
+                        record_provider_call(
+                            provider="anthropic",
+                            success=False,
+                            error_type=ErrorType.API_ERROR,
+                            latency_seconds=time.perf_counter() - start_time,
+                            model=self.model,
+                        )
                         raise AgentAPIError(
                             f"Unexpected Anthropic response format: {data}",
                             agent_name=self.name,
                         )
         except (AgentAPIError, AgentCircuitOpenError):
             raise  # Re-raise without double-recording
-        except (OSError, ValueError, TypeError, RuntimeError, asyncio.TimeoutError):
+        except asyncio.TimeoutError:
+            # Record failure for timeout errors
+            if self._circuit_breaker is not None:
+                self._circuit_breaker.record_failure()
+            record_provider_call(
+                provider="anthropic",
+                success=False,
+                error_type=ErrorType.TIMEOUT,
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
+            raise
+        except (OSError, ValueError, TypeError, RuntimeError):
             # Record failure for unexpected errors
             if self._circuit_breaker is not None:
                 self._circuit_breaker.record_failure()
+            record_provider_call(
+                provider="anthropic",
+                success=False,
+                error_type=ErrorType.UNKNOWN,
+                latency_seconds=time.perf_counter() - start_time,
+                model=self.model,
+            )
             raise
 
     async def generate_stream(

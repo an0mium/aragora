@@ -121,7 +121,7 @@ class ThreatIntelAPI:
         url: str,
         check_virustotal: bool = True,
         check_phishtank: bool = True,
-    ) -> URLCheckResult:
+    ) -> dict[str, Any]:
         """
         Check a URL for threats.
 
@@ -141,7 +141,8 @@ class ThreatIntelAPI:
             "check_phishtank": check_phishtank,
         }
         response = self._client.request("POST", "/api/v1/threat/url", json=data)
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     def check_urls_batch(
         self,
@@ -162,13 +163,14 @@ class ThreatIntelAPI:
         if max_concurrent is not None:
             data["max_concurrent"] = max_concurrent
         response = self._client.request("POST", "/api/v1/threat/urls", json=data)
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     # =========================================================================
     # IP Reputation
     # =========================================================================
 
-    def check_ip(self, ip_address: str) -> IPReputationResult:
+    def check_ip(self, ip_address: str) -> dict[str, Any]:
         """
         Check IP address reputation.
 
@@ -181,7 +183,8 @@ class ThreatIntelAPI:
             Reputation result with abuse score and categories.
         """
         response = self._client.request("GET", f"/api/v1/threat/ip/{ip_address}")
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     def check_ips_batch(self, ips: list[str]) -> dict[str, Any]:
         """
@@ -194,13 +197,14 @@ class ThreatIntelAPI:
             Dict with 'results' list and 'summary' statistics.
         """
         response = self._client.request("POST", "/api/v1/threat/ips", json={"ips": ips})
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     # =========================================================================
     # File Hash Lookup
     # =========================================================================
 
-    def check_hash(self, hash_value: str) -> HashCheckResult:
+    def check_hash(self, hash_value: str) -> dict[str, Any]:
         """
         Check file hash for malware.
 
@@ -213,7 +217,8 @@ class ThreatIntelAPI:
             Hash analysis result with detection ratio.
         """
         response = self._client.request("GET", f"/api/v1/threat/hash/{hash_value}")
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     def check_hashes_batch(self, hashes: list[str]) -> dict[str, Any]:
         """
@@ -226,7 +231,8 @@ class ThreatIntelAPI:
             Dict with 'results' list and 'summary' statistics.
         """
         response = self._client.request("POST", "/api/v1/threat/hashes", json={"hashes": hashes})
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     # =========================================================================
     # Email Scanning
@@ -253,13 +259,14 @@ class ThreatIntelAPI:
         if headers:
             data["headers"] = headers
         response = self._client.request("POST", "/api/v1/threat/email", json=data)
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     # =========================================================================
     # Service Status
     # =========================================================================
 
-    def get_status(self) -> ThreatIntelStatus:
+    def get_status(self) -> dict[str, Any]:
         """
         Get threat intelligence service status.
 
@@ -269,7 +276,8 @@ class ThreatIntelAPI:
             Service status for all providers.
         """
         response = self._client.request("GET", "/api/v1/threat/status")
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
 
 class AsyncThreatIntelAPI:

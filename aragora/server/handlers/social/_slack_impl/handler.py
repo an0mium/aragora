@@ -215,7 +215,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
 _slack_handler: Optional["SlackHandler"] = None
 
 
-def get_slack_handler(server_context: ServerContext | dict[str, Any] | None = None) -> SlackHandler:
+def get_slack_handler(server_context: dict[str, Any] | dict[str, Any] | None = None) -> SlackHandler:
     """Get or create the Slack handler instance.
 
     Args:
@@ -229,5 +229,5 @@ def get_slack_handler(server_context: ServerContext | dict[str, Any] | None = No
         if server_context is None:
             server_context = {}
         # Cast to ServerContext - the TypedDict accepts any dict with compatible keys
-        _slack_handler = SlackHandler(cast(ServerContext, server_context))
+        _slack_handler = SlackHandler(server_context)
     return _slack_handler

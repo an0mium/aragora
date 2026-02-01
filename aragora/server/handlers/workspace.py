@@ -82,6 +82,7 @@ except ImportError:
     RBACProfile = None  # type: ignore[misc, no-redef]
 
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.openapi_decorator import api_endpoint
 
 from .base import (
     HandlerResult,
@@ -428,6 +429,12 @@ class WorkspaceHandler(SecureHandler):
     # Workspace Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workspaces",
+        summary="Create a new workspace",
+        tags=["Workspaces"],
+    )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_create")
     @handle_errors("create workspace")
     @log_request("create workspace")
@@ -499,6 +506,12 @@ class WorkspaceHandler(SecureHandler):
             status=201,
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workspaces",
+        summary="List workspaces accessible to user",
+        tags=["Workspaces"],
+    )
     @handle_errors("list workspaces")
     def _handle_list_workspaces(self, handler, query_params: dict) -> HandlerResult:
         """List workspaces accessible to user."""
@@ -534,6 +547,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workspaces/{workspace_id}",
+        summary="Get workspace details",
+        tags=["Workspaces"],
+    )
     @handle_errors("get workspace")
     def _handle_get_workspace(self, handler, workspace_id: str) -> HandlerResult:
         """Get workspace details."""
@@ -555,6 +574,12 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"workspace": workspace.to_dict()})
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/workspaces/{workspace_id}",
+        summary="Delete a workspace",
+        tags=["Workspaces"],
+    )
     @rate_limit(requests_per_minute=10, limiter_name="workspace_delete")
     @handle_errors("delete workspace")
     @log_request("delete workspace")
@@ -598,6 +623,12 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"message": "Workspace deleted successfully"})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workspaces/{workspace_id}/members",
+        summary="Add member to workspace",
+        tags=["Workspaces"],
+    )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("add workspace member")
     @log_request("add workspace member")
@@ -651,6 +682,12 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"message": f"Member {user_id} added to workspace"}, status=201)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/workspaces/{workspace_id}/members/{user_id}",
+        summary="Remove member from workspace",
+        tags=["Workspaces"],
+    )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("remove workspace member")
     @log_request("remove workspace member")
@@ -696,6 +733,12 @@ class WorkspaceHandler(SecureHandler):
     # RBAC Profile and Role Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workspaces/profiles",
+        summary="List available RBAC profiles",
+        tags=["Workspaces"],
+    )
     @handle_errors("list profiles")
     def _handle_list_profiles(self, handler) -> HandlerResult:
         """List available RBAC profiles for workspace configuration.
@@ -737,6 +780,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workspaces/{workspace_id}/roles",
+        summary="Get available roles for workspace",
+        tags=["Workspaces"],
+    )
     @handle_errors("get workspace roles")
     def _handle_get_workspace_roles(self, handler, workspace_id: str) -> HandlerResult:
         """Get available roles for a workspace based on its profile.
@@ -803,6 +852,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="PUT",
+        path="/api/v1/workspaces/{workspace_id}/members/{user_id}/role",
+        summary="Update member role in workspace",
+        tags=["Workspaces"],
+    )
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("update member role")
     @log_request("update member role")
@@ -925,6 +980,12 @@ class WorkspaceHandler(SecureHandler):
     # Retention Policy Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/retention/policies",
+        summary="List retention policies",
+        tags=["Retention"],
+    )
     @handle_errors("list retention policies")
     def _handle_list_policies(self, handler, query_params: dict) -> HandlerResult:
         """List retention policies."""
@@ -957,6 +1018,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/retention/policies",
+        summary="Create a retention policy",
+        tags=["Retention"],
+    )
     @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
     @handle_errors("create retention policy")
     @log_request("create retention policy")
@@ -1030,6 +1097,12 @@ class WorkspaceHandler(SecureHandler):
             status=201,
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/retention/policies/{policy_id}",
+        summary="Get a retention policy",
+        tags=["Retention"],
+    )
     @handle_errors("get retention policy")
     def _handle_get_policy(self, handler, policy_id: str) -> HandlerResult:
         """Get a retention policy."""
@@ -1065,6 +1138,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="PUT",
+        path="/api/v1/retention/policies/{policy_id}",
+        summary="Update a retention policy",
+        tags=["Retention"],
+    )
     @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
     @handle_errors("update retention policy")
     @log_request("update retention policy")
@@ -1121,6 +1200,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/retention/policies/{policy_id}",
+        summary="Delete a retention policy",
+        tags=["Retention"],
+    )
     @rate_limit(requests_per_minute=10, limiter_name="retention_policy")
     @handle_errors("delete retention policy")
     @log_request("delete retention policy")
@@ -1153,6 +1238,12 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"message": "Policy deleted successfully"})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/retention/policies/{policy_id}/execute",
+        summary="Execute a retention policy",
+        tags=["Retention"],
+    )
     @rate_limit(requests_per_minute=5, limiter_name="retention_execute")
     @handle_errors("execute retention policy")
     @log_request("execute retention policy")
@@ -1194,6 +1285,12 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"report": report.to_dict(), "dry_run": dry_run})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/retention/expiring",
+        summary="Get items expiring soon",
+        tags=["Retention"],
+    )
     @handle_errors("get expiring items")
     def _handle_expiring_items(self, handler, query_params: dict) -> HandlerResult:
         """Get items expiring soon."""
@@ -1216,6 +1313,12 @@ class WorkspaceHandler(SecureHandler):
     # Classification Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/classify",
+        summary="Classify content sensitivity",
+        tags=["Classification"],
+    )
     @rate_limit(requests_per_minute=60, limiter_name="classify")
     @handle_errors("classify content")
     def _handle_classify_content(self, handler) -> HandlerResult:
@@ -1264,6 +1367,12 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"classification": result.to_dict()})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/classify/policy/{level}",
+        summary="Get policy for sensitivity level",
+        tags=["Classification"],
+    )
     @handle_errors("get level policy")
     def _handle_get_level_policy(self, handler, level: str) -> HandlerResult:
         """Get recommended policy for a sensitivity level."""
@@ -1287,6 +1396,12 @@ class WorkspaceHandler(SecureHandler):
     # Audit Log Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/audit/entries",
+        summary="Query audit log entries",
+        tags=["Audit"],
+    )
     @handle_errors("query audit entries")
     def _handle_query_audit(self, handler, query_params: dict) -> HandlerResult:
         """Query audit log entries."""
@@ -1340,6 +1455,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/audit/report",
+        summary="Generate compliance audit report",
+        tags=["Audit"],
+    )
     @handle_errors("generate audit report")
     def _handle_audit_report(self, handler, query_params: dict) -> HandlerResult:
         """Generate compliance report."""
@@ -1386,6 +1507,12 @@ class WorkspaceHandler(SecureHandler):
 
         return json_response({"report": report})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/audit/verify",
+        summary="Verify audit log integrity",
+        tags=["Audit"],
+    )
     @handle_errors("verify audit integrity")
     def _handle_verify_integrity(self, handler, query_params: dict) -> HandlerResult:
         """Verify audit log integrity."""
@@ -1420,6 +1547,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/audit/actor/{actor_id}/history",
+        summary="Get all actions by a specific actor",
+        tags=["Audit"],
+    )
     @handle_errors("get actor history")
     def _handle_actor_history(self, handler, actor_id: str, query_params: dict) -> HandlerResult:
         """Get all actions by a specific actor."""
@@ -1446,6 +1579,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/audit/resource/{resource_id}/history",
+        summary="Get all actions on a specific resource",
+        tags=["Audit"],
+    )
     @handle_errors("get resource history")
     def _handle_resource_history(
         self, handler, resource_id: str, query_params: dict
@@ -1476,6 +1615,12 @@ class WorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/audit/denied",
+        summary="Get denied access attempts",
+        tags=["Audit"],
+    )
     @handle_errors("get denied access attempts")
     def _handle_denied_access(self, handler, query_params: dict) -> HandlerResult:
         """Get all denied access attempts."""

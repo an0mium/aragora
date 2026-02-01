@@ -67,7 +67,7 @@ class RLMContextHandler(BaseHandler):
     # Dynamic routes for context operations
     CONTEXT_ROUTE_PREFIX = "/api/v1/rlm/context/"
 
-    def __init__(self, ctx: ServerContext):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
         # In-memory context storage (could be backed by a store in production)

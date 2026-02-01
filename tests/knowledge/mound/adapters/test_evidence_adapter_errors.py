@@ -203,7 +203,8 @@ class TestMarkConsensusErrorHandling:
         adapter = EvidenceAdapter(store=mock_store)
         adapter.mark_used_in_consensus("ev_123", "debate_456")
 
-        mock_store.mark_used_in_consensus.assert_called_with("debate_456", "ev_123")
+        # Implementation wraps evidence_id in a list
+        mock_store.mark_used_in_consensus.assert_called_with("debate_456", ["ev_123"])
 
     def test_mark_consensus_no_method(self, mock_store):
         """Test handles store without mark_used_in_consensus."""

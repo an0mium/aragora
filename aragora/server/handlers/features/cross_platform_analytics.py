@@ -483,8 +483,8 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
 
     def __init__(self, server_context: Optional[ServerContext] = None):
         """Initialize handler with optional server context."""
-        ctx: ServerContext = (
-            server_context if server_context is not None else cast(ServerContext, {})
+        ctx: dict[str, Any] = (
+            server_context if server_context is not None else dict()
         )
         super().__init__(ctx)
 

@@ -74,7 +74,7 @@ class SecureHandler(BaseHandler):
     # Resource type for audit logging (subclasses should override)
     RESOURCE_TYPE: str = "unknown"
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: ServerContext | dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._auth_context: AuthorizationContext | None = None

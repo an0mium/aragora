@@ -77,7 +77,7 @@ class ControlPlaneHandler(BaseHandler):
     # Class-level coordinator (set during server initialization)
     coordinator: Any | None = None
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
 

@@ -1099,7 +1099,7 @@ class PRReviewHandler(BaseHandler):
         "/api/v1/github/pr/",
     ]
 
-    def __init__(self, ctx: ServerContext):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
 

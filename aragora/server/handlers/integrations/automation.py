@@ -82,7 +82,7 @@ class AutomationHandler(SecureHandler):
 
     def __init__(self, server_context: Any = None) -> None:
         """Initialize automation handler."""
-        super().__init__(cast(ServerContext, server_context or {}))
+        super().__init__(server_context or {})
         self._zapier = ZapierConnector()
         self._n8n = N8NConnector()
         self._connectors = {

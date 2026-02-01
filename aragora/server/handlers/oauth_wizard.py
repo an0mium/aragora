@@ -177,7 +177,7 @@ class OAuthWizardHandler(SecureHandler):
         "/api/v2/integrations/wizard/*",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
 
@@ -855,6 +855,6 @@ class OAuthWizardHandler(SecureHandler):
 
 
 # Handler factory function for registration
-def create_oauth_wizard_handler(server_context: ServerContext) -> OAuthWizardHandler:
+def create_oauth_wizard_handler(server_context: dict[str, Any]) -> OAuthWizardHandler:
     """Factory function for handler registration."""
     return OAuthWizardHandler(server_context)

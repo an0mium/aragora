@@ -110,9 +110,9 @@ class KMCheckpointHandler(BaseHandler):
         "/api/v1/km/checkpoints/{name}/download",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         # Default to empty dict if None, then cast for BaseHandler
-        ctx = server_context if server_context is not None else cast(ServerContext, {})
+        ctx = server_context if server_context is not None else dict()
         super().__init__(ctx)
         self._checkpoint_store: Optional["KMCheckpointStore"] = None
 

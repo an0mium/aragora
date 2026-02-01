@@ -533,10 +533,10 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "NomicHandler": Stability.STABLE,  # Extracted from SystemHandler
     "DocsHandler": Stability.STABLE,  # Extracted from SystemHandler
     "AnalyticsHandler": Stability.STABLE,
-    "AnalyticsDashboardHandler": Stability.EXPERIMENTAL,  # Enterprise analytics dashboard
-    "AnalyticsMetricsHandler": Stability.EXPERIMENTAL,  # Debate metrics and agent performance analytics
-    "EndpointAnalyticsHandler": Stability.EXPERIMENTAL,  # API endpoint performance analytics
-    "CrossPlatformAnalyticsHandler": Stability.EXPERIMENTAL,  # Cross-platform analytics aggregation
+    "AnalyticsDashboardHandler": Stability.STABLE,  # Enterprise analytics dashboard - 40+ tests, RBAC, caching
+    "AnalyticsMetricsHandler": Stability.STABLE,  # Debate metrics and agent performance analytics - RBAC, validation
+    "EndpointAnalyticsHandler": Stability.STABLE,  # API endpoint performance analytics - RBAC, rate limiting
+    "CrossPlatformAnalyticsHandler": Stability.STABLE,  # Cross-platform analytics aggregation - RBAC, full validation
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
     "SLOHandler": Stability.EXPERIMENTAL,  # SLO tracking and monitoring
@@ -546,11 +546,11 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ReplaysHandler": Stability.STABLE,
     "FeaturesHandler": Stability.STABLE,
     "ConnectorsHandler": Stability.STABLE,  # Unified connectors registry - 36 tests
-    "IntegrationsHandler": Stability.EXPERIMENTAL,  # Integration config API
-    "ExternalIntegrationsHandler": Stability.EXPERIMENTAL,  # Zapier/Make/n8n integrations
-    "IntegrationManagementHandler": Stability.EXPERIMENTAL,  # v2 integration management
-    "OAuthWizardHandler": Stability.EXPERIMENTAL,  # OAuth wizard endpoints
-    "TeamsIntegrationHandler": Stability.EXPERIMENTAL,  # Teams bot integration endpoints
+    "IntegrationsHandler": Stability.STABLE,  # Integration config API - RBAC, rate limiting, 50+ tests
+    "ExternalIntegrationsHandler": Stability.STABLE,  # Zapier/Make/n8n integrations - RBAC, validation, audit logging
+    "IntegrationManagementHandler": Stability.STABLE,  # v2 integration management - RBAC, tenant isolation, health checks
+    "OAuthWizardHandler": Stability.STABLE,  # OAuth wizard endpoints - RBAC, full validation, connection testing
+    "TeamsIntegrationHandler": Stability.STABLE,  # Teams bot integration endpoints - OAuth, RBAC
     "AuthHandler": Stability.STABLE,
     # Extended - Stable
     "TournamentHandler": Stability.STABLE,
@@ -603,9 +603,9 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "MemoryAnalyticsHandler": Stability.STABLE,  # Handler tests, 23+ tests
     "ProbesHandler": Stability.STABLE,  # 16 tests, capability probing
     "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
-    "KnowledgeHandler": Stability.EXPERIMENTAL,  # Knowledge base API - new
+    "KnowledgeHandler": Stability.STABLE,  # Knowledge base API - RBAC, modular structure, 5+ test files
     "KnowledgeMoundHandler": Stability.STABLE,  # Knowledge Mound API - Graduated from Phase A1
-    "KnowledgeChatHandler": Stability.EXPERIMENTAL,  # Knowledge-Chat integration - new
+    "KnowledgeChatHandler": Stability.STABLE,  # Knowledge-Chat integration - RBAC, rate limiting, timeouts
     "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
     "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
     # Promoted to Stable (Jan 2026) - from Preview
@@ -618,9 +618,9 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GenesisHandler": Stability.STABLE,  # 26 tests, evolution visibility
     "DocumentHandler": Stability.STABLE,  # 36 tests, document management
     "DocumentBatchHandler": Stability.STABLE,  # Batch document upload/processing
-    "DocumentQueryHandler": Stability.EXPERIMENTAL,  # NL document querying - new
-    "FolderUploadHandler": Stability.EXPERIMENTAL,  # Folder upload support - new
-    "SmartUploadHandler": Stability.EXPERIMENTAL,  # Smart upload classification - new
+    "DocumentQueryHandler": Stability.STABLE,  # NL document querying - RBAC, auth, error handling, tested
+    "FolderUploadHandler": Stability.STABLE,  # Folder upload support - RBAC, path validation, auth
+    "SmartUploadHandler": Stability.STABLE,  # Smart upload classification - RBAC, content validation, security
     "CloudStorageHandler": Stability.EXPERIMENTAL,  # Cloud storage integration - new
     "FindingWorkflowHandler": Stability.EXPERIMENTAL,  # Finding workflow - new
     "EvidenceEnrichmentHandler": Stability.EXPERIMENTAL,  # Evidence enrichment - new
@@ -666,12 +666,12 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "TriggerHandler": Stability.EXPERIMENTAL,  # Scheduled debate triggers - Phase 5.3
     "MonitoringHandler": Stability.EXPERIMENTAL,  # Trend and anomaly monitoring - Phase 5.3
     "AutonomousLearningHandler": Stability.EXPERIMENTAL,  # Continuous learning - Phase 5.2
-    "EmailHandler": Stability.EXPERIMENTAL,  # Email prioritization API - new
-    "EmailServicesHandler": Stability.EXPERIMENTAL,  # Email services (follow-up, snooze) - new
-    "GmailIngestHandler": Stability.EXPERIMENTAL,  # Gmail OAuth + sync ingestion
-    "GmailQueryHandler": Stability.EXPERIMENTAL,  # Gmail search/query API
-    "UnifiedInboxHandler": Stability.PREVIEW,  # Unified inbox API - in-memory by default
-    "EmailWebhooksHandler": Stability.EXPERIMENTAL,  # Unified inbox email webhooks
+    "EmailHandler": Stability.STABLE,  # Email prioritization API - RBAC, validation, tested
+    "EmailServicesHandler": Stability.STABLE,  # Email services (follow-up, snooze) - RBAC, auth
+    "GmailIngestHandler": Stability.STABLE,  # Gmail OAuth + sync ingestion - RBAC, rate limiting, JWT binding
+    "GmailQueryHandler": Stability.STABLE,  # Gmail search/query API - RBAC, auth, tested
+    "UnifiedInboxHandler": Stability.STABLE,  # Unified inbox API - RBAC, pagination, tested
+    "EmailWebhooksHandler": Stability.STABLE,  # Unified inbox email webhooks - RBAC, validation
     "DependencyAnalysisHandler": Stability.EXPERIMENTAL,  # Dependency analysis API - new
     "CodebaseAuditHandler": Stability.EXPERIMENTAL,  # Codebase audit API - new
     # Accounting handlers (Phase 4 - SME Vertical)

@@ -26,6 +26,21 @@ from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from ..openapi_decorator import api_endpoint
 
+# Import extracted utility functions
+from .dashboard_health import (
+    get_connector_health,
+    get_connector_type,
+    get_system_health,
+)
+from .dashboard_metrics import (
+    get_debate_patterns,
+    get_recent_activity_legacy,
+    get_recent_activity_sql,
+    get_summary_metrics_legacy,
+    get_summary_metrics_sql,
+    process_debates_single_pass,
+)
+
 logger = logging.getLogger(__name__)
 
 # Rate limiter for dashboard endpoints (60 requests per minute - frequently accessed)
@@ -430,146 +445,19 @@ class DashboardHandler(SecureHandler):
 
     def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]:
         """Get summary metrics using SQL aggregation (O(1) memory)."""
-        summary = {
-            "total_debates": 0,
-            "consensus_reached": 0,
-            "consensus_rate": 0.0,
-            "avg_confidence": 0.0,
-        }
-
-        try:
-            with storage.connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT
-                        COUNT(*) as total,
-                        SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as consensus_count,
-                        AVG(confidence) as avg_conf
-                    FROM debates
-                """)
-                row = cursor.fetchone()
-                if row:
-                    total = row[0] or 0
-                    consensus_count = row[1] or 0
-                    avg_conf = row[2]
-
-                    summary["total_debates"] = total
-                    summary["consensus_reached"] = consensus_count
-                    if total > 0:
-                        summary["consensus_rate"] = round(consensus_count / total, 3)
-                    if avg_conf is not None:
-                        summary["avg_confidence"] = round(avg_conf, 3)
-        except Exception as e:
-            logger.warning("SQL summary metrics error: %s: %s", type(e).__name__, e)
-
-        return summary
+        return get_summary_metrics_sql(storage, domain)
 
     def _get_recent_activity_sql(self, storage: Any, hours: int) -> dict[str, Any]:
         """Get recent activity metrics using SQL aggregation."""
-        activity = {
-            "debates_last_period": 0,
-            "consensus_last_period": 0,
-            "period_hours": hours,
-        }
-
-        try:
-            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
-
-            with storage.connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    SELECT
-                        COUNT(*) as recent_total,
-                        SUM(CASE WHEN consensus_reached THEN 1 ELSE 0 END) as recent_consensus
-                    FROM debates
-                    WHERE created_at >= ?
-                """,
-                    (cutoff,),
-                )
-                row = cursor.fetchone()
-                if row:
-                    activity["debates_last_period"] = row[0] or 0
-                    activity["consensus_last_period"] = row[1] or 0
-        except Exception as e:
-            logger.warning("SQL recent activity error: %s: %s", type(e).__name__, e)
-
-        return activity
+        return get_recent_activity_sql(storage, hours)
 
     def _get_summary_metrics(self, domain: str | None, debates: list) -> dict:
         """Get high-level summary metrics (legacy, kept for compatibility)."""
-        summary = {
-            "total_debates": 0,
-            "consensus_reached": 0,
-            "consensus_rate": 0.0,
-            "avg_confidence": 0.0,
-            "avg_rounds": 0.0,
-            "total_tokens_used": 0,
-        }
-
-        try:
-            if debates:
-                total = len(debates)
-                consensus_count = sum(1 for d in debates if d.get("consensus_reached"))
-                summary["total_debates"] = total
-                summary["consensus_reached"] = consensus_count
-                if total > 0:
-                    summary["consensus_rate"] = round(consensus_count / total, 3)
-
-                    # Average confidence
-                    confidences = [d.get("confidence", 0.5) for d in debates if d.get("confidence")]
-                    if confidences:
-                        summary["avg_confidence"] = round(sum(confidences) / len(confidences), 3)
-        except Exception as e:
-            logger.warning("Summary metrics error: %s: %s", type(e).__name__, e)
-
-        return summary
+        return get_summary_metrics_legacy(domain, debates)
 
     def _get_recent_activity(self, domain: str | None, hours: int, debates: list) -> dict:
         """Get recent debate activity metrics."""
-        activity = {
-            "debates_last_period": 0,
-            "consensus_last_period": 0,
-            "domains_active": [],
-            "most_active_domain": None,
-            "period_hours": hours,
-        }
-
-        try:
-            if debates:
-                from datetime import datetime, timedelta
-
-                cutoff = datetime.now() - timedelta(hours=hours)
-
-                recent: list[dict] = []
-                domain_counts: dict[str, int] = {}
-                for d in debates:
-                    created_at = d.get("created_at")
-                    if created_at:
-                        # Parse ISO timestamp
-                        try:
-                            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                            if dt.replace(tzinfo=None) > cutoff:
-                                recent.append(d)
-                                d_domain = d.get("domain", "general")
-                                domain_counts[d_domain] = domain_counts.get(d_domain, 0) + 1
-                        except (ValueError, KeyError) as e:
-                            logger.debug(f"Skipping debate with invalid datetime: {e}")
-
-                activity["debates_last_period"] = len(recent)
-                activity["consensus_last_period"] = sum(
-                    1 for d in recent if d.get("consensus_reached")
-                )
-                activity["domains_active"] = list(domain_counts.keys())[:10]
-
-                if domain_counts:
-                    activity["most_active_domain"] = max(
-                        domain_counts, key=lambda k: domain_counts[k]
-                    )
-        except Exception as e:
-            logger.warning("Recent activity error: %s: %s", type(e).__name__, e)
-
-        return activity
+        return get_recent_activity_legacy(domain, hours, debates)
 
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="agent_performance", skip_first=True

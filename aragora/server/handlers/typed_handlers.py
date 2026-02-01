@@ -87,6 +87,43 @@ class TypedHandler:
         """
         self.ctx = server_context
 
+    def read_json_body(
+        self, handler: HTTPRequestHandler, max_size: int | None = None
+    ) -> dict[str, Any] | None:
+        """Read and parse JSON body from request.
+
+        Args:
+            handler: HTTP request handler
+            max_size: Maximum body size in bytes (default: 1MB)
+
+        Returns:
+            Parsed JSON as dict, or None if parsing fails
+        """
+        import json
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if max_size and content_length > max_size:
+                return None
+            if content_length == 0:
+                return None
+            body = handler.rfile.read(content_length)
+            return json.loads(body.decode("utf-8"))
+        except (ValueError, json.JSONDecodeError, OSError):
+            return None
+
+    def error_response(self, message: str, status: int = 400) -> HandlerResult:
+        """Create an error response.
+
+        Args:
+            message: Error message
+            status: HTTP status code
+
+        Returns:
+            HandlerResult with error details
+        """
+        return error_response(message, status)
+
     def handle(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> MaybeAsyncHandlerResult:

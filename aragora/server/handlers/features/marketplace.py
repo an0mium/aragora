@@ -386,11 +386,11 @@ class MarketplaceHandler:
         "/api/v1/marketplace/demo",
     ]
 
-    ctx: ServerContext
+    ctx: dict[str, Any]
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
-        self.ctx = server_context if server_context is not None else cast(ServerContext, {})
+        self.ctx = server_context if server_context is not None else {}
         # Pre-load templates
         _load_templates()
 

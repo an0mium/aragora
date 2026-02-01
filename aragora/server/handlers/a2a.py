@@ -490,12 +490,12 @@ class A2AHandler(BaseHandler):
 _a2a_handler: Optional["A2AHandler"] = None
 
 
-def get_a2a_handler(server_context: ServerContext | None = None) -> "A2AHandler":
+def get_a2a_handler(server_context: dict[str, Any] | None = None) -> "A2AHandler":
     """Get or create the A2A handler instance."""
     global _a2a_handler
     if _a2a_handler is None:
         if server_context is None:
-            server_context = cast(ServerContext, {})
+            server_context = {}
         _a2a_handler = A2AHandler(server_context)
     return _a2a_handler
 

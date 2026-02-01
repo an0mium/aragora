@@ -134,6 +134,19 @@ class TinkerAgent(APIAgent):
             await self._client.close()
             self._client = None
 
+    def generate(self, prompt: str, context: list[Message] | None = None, **kwargs: Any) -> str:
+        """Generate a response (sync wrapper for Agent Protocol compatibility).
+
+        Args:
+            prompt: The prompt to generate a response for
+            context: Optional previous messages for context
+            **kwargs: Additional arguments (ignored)
+
+        Returns:
+            Generated response text
+        """
+        return _run_async_in_thread(self.respond(prompt, context))
+
     async def respond(
         self,
         task: str,

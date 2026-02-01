@@ -9,7 +9,27 @@ DOCUMENT_ENDPOINTS = {
             "summary": "List documents",
             "description": "Get list of uploaded documents available for debate context.",
             "operationId": "listDocuments",
-            "responses": {"200": _ok_response("Document list")},
+            "responses": {
+                "200": _ok_response(
+                    "Document list",
+                    {
+                        "documents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "filename": {"type": "string"},
+                                    "size_bytes": {"type": "integer"},
+                                    "mime_type": {"type": "string"},
+                                    "uploaded_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/documents/formats": {
@@ -18,7 +38,17 @@ DOCUMENT_ENDPOINTS = {
             "summary": "Supported formats",
             "description": "Get list of supported document formats for upload.",
             "operationId": "listDocumentsFormats",
-            "responses": {"200": _ok_response("Supported formats")},
+            "responses": {
+                "200": _ok_response(
+                    "Supported formats",
+                    {
+                        "formats": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                )
+            },
         },
     },
     "/api/documents/upload": {
@@ -28,7 +58,17 @@ DOCUMENT_ENDPOINTS = {
             "description": "Upload a document to be used as context in debates.",
             "operationId": "createDocumentsUpload",
             "requestBody": {"content": {"multipart/form-data": {"schema": {"type": "object"}}}},
-            "responses": {"201": _ok_response("Document uploaded")},
+            "responses": {
+                "201": _ok_response(
+                    "Document uploaded",
+                    {
+                        "id": {"type": "string"},
+                        "filename": {"type": "string"},
+                        "size_bytes": {"type": "integer"},
+                        "status": {"type": "string"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -47,7 +87,28 @@ DOCUMENT_ENDPOINTS = {
             "summary": "Podcast episodes",
             "description": "Get list of available podcast episodes from debates.",
             "operationId": "listPodcastEpisodes",
-            "responses": {"200": _ok_response("Episode list")},
+            "responses": {
+                "200": _ok_response(
+                    "Episode list",
+                    {
+                        "episodes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "title": {"type": "string"},
+                                    "debate_id": {"type": "string"},
+                                    "duration_seconds": {"type": "integer"},
+                                    "audio_url": {"type": "string"},
+                                    "published_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                        "total": {"type": "integer"},
+                    },
+                )
+            },
         },
     },
     "/api/youtube/auth": {
@@ -56,7 +117,15 @@ DOCUMENT_ENDPOINTS = {
             "summary": "YouTube auth URL",
             "description": "Get OAuth authorization URL for YouTube integration.",
             "operationId": "listYoutubeAuth",
-            "responses": {"200": _ok_response("Auth URL")},
+            "responses": {
+                "200": _ok_response(
+                    "Auth URL",
+                    {
+                        "url": {"type": "string"},
+                        "state": {"type": "string"},
+                    },
+                )
+            },
         },
     },
     "/api/youtube/callback": {
@@ -65,7 +134,15 @@ DOCUMENT_ENDPOINTS = {
             "summary": "YouTube OAuth callback",
             "description": "Handle OAuth callback from YouTube authorization.",
             "operationId": "listYoutubeCallback",
-            "responses": {"200": _ok_response("Auth complete")},
+            "responses": {
+                "200": _ok_response(
+                    "Auth complete",
+                    {
+                        "success": {"type": "boolean"},
+                        "message": {"type": "string"},
+                    },
+                )
+            },
         },
     },
     "/api/youtube/status": {
@@ -74,7 +151,16 @@ DOCUMENT_ENDPOINTS = {
             "summary": "YouTube auth status",
             "description": "Check current YouTube authorization status.",
             "operationId": "listYoutubeStatus",
-            "responses": {"200": _ok_response("Auth status")},
+            "responses": {
+                "200": _ok_response(
+                    "Auth status",
+                    {
+                        "connected": {"type": "boolean"},
+                        "channel_id": {"type": "string"},
+                        "channel_name": {"type": "string"},
+                    },
+                )
+            },
         },
     },
 }

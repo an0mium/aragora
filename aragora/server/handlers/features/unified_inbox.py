@@ -48,7 +48,7 @@ from ..base import (
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils import parse_json_body
-from aragora.storage.unified_inbox_store import get_unified_inbox_store
+from aragora.stores import get_canonical_gateway_stores
 
 if TYPE_CHECKING:
     pass
@@ -322,10 +322,10 @@ class UnifiedInboxHandler(BaseHandler):
         "/api/v1/inbox/trends",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or cast(ServerContext, {}))
-        self._store = get_unified_inbox_store()
+        super().__init__(server_context or dict())
+        self._store = get_canonical_gateway_stores().inbox_store()
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""

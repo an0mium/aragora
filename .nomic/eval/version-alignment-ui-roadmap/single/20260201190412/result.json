@@ -1,0 +1,20 @@
+{
+  "variant": "single",
+  "task_id": "version-alignment-ui-roadmap",
+  "title": "Align versioning across ROADMAP and live UI",
+  "started_at": "20260201190412",
+  "duration_seconds": 900.0333678722382,
+  "returncode": 124,
+  "worktree": "/Users/armand/Development/aragora/.nomic/eval/version-alignment-ui-roadmap/single/20260201190412/worktree",
+  "log_path": "/Users/armand/Development/aragora/.nomic/eval/version-alignment-ui-roadmap/single/20260201190412/nomic_eval.log",
+  "nomic_log": "/Users/armand/Development/aragora/.nomic/eval/version-alignment-ui-roadmap/single/20260201190412/worktree/.nomic/nomic_loop.log",
+  "diff": {
+    "files_changed": 0,
+    "files": [],
+    "lines_added": 0,
+    "lines_removed": 0,
+    "diff_stat": ""
+  },
+  "outcome": "unknown",
+  "verification_passed": false
+}

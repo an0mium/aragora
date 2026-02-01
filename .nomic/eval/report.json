@@ -1,0 +1,82 @@
+{
+  "generated_at": "2026-02-01T19:26:28.302757Z",
+  "repo": "/Users/armand/Development/aragora",
+  "base_ref": "main",
+  "mode": "single",
+  "tasks": [
+    {
+      "task": {
+        "task_id": "version-alignment-ui-roadmap",
+        "title": "Align versioning across ROADMAP and live UI",
+        "description": "Update ROADMAP.md and aragora/live/package.json to match the canonical core version and extend the version check script to include these surfaces.",
+        "acceptance_criteria": [
+          "ROADMAP version matches core",
+          "Live UI package version matches core",
+          "Version alignment script checks these files"
+        ],
+        "scope": [
+          "ROADMAP.md",
+          "aragora/live/package.json",
+          "scripts/check_version_alignment.py"
+        ],
+        "constraints": [
+          "No changes to release process"
+        ],
+        "test_commands": [],
+        "labels": [
+          "p2",
+          "docs"
+        ]
+      },
+      "single": {
+        "variant": "single",
+        "task_id": "version-alignment-ui-roadmap",
+        "title": "Align versioning across ROADMAP and live UI",
+        "started_at": "20260201192628",
+        "duration_seconds": 3.255171060562134,
+        "returncode": 1,
+        "worktree": "/Users/armand/Development/aragora/.nomic/eval/version-alignment-ui-roadmap/single/20260201192628/worktree",
+        "log_path": "/Users/armand/Development/aragora/.nomic/eval/version-alignment-ui-roadmap/single/20260201192628/nomic_eval.log",
+        "nomic_log": "/Users/armand/Development/aragora/.nomic/eval/version-alignment-ui-roadmap/single/20260201192628/worktree/.nomic/nomic_loop.log",
+        "diff": {
+          "files_changed": 0,
+          "files": [],
+          "lines_added": 0,
+          "lines_removed": 0,
+          "diff_stat": ""
+        },
+        "outcome": "unknown",
+        "verification_passed": false
+      },
+      "multi": null,
+      "comparison": {
+        "winner": "unknown",
+        "note": "Incomplete comparison"
+      },
+      "manual_review": {
+        "reviewer": "",
+        "reviewed_at": "",
+        "architecture_quality": null,
+        "correctness": null,
+        "maintainability": null,
+        "test_quality": null,
+        "defects_found": 0,
+        "security_issues": 0,
+        "performance_impact": "",
+        "notes": ""
+      }
+    }
+  ],
+  "rubric_template": {
+    "reviewer": "",
+    "reviewed_at": "",
+    "architecture_quality": null,
+    "correctness": null,
+    "maintainability": null,
+    "test_quality": null,
+    "defects_found": 0,
+    "security_issues": 0,
+    "performance_impact": "",
+    "notes": ""
+  }
+}

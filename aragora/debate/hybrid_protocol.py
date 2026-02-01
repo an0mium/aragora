@@ -255,10 +255,11 @@ class HybridDebateProtocol:
 
         health: dict[str, bool] = {}
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 # gather with return_exceptions=True wraps unexpected errors
                 continue
-            name, available = result
+            # result is tuple[str, bool] here
+            name, available = result  # type: ignore[misc]
             health[name] = available
 
         return health
@@ -488,7 +489,7 @@ class HybridDebateProtocol:
             logger.warning("No critiques received - defaulting to zero consensus (fail-safe)")
             return 0.0  # Fail-safe: no verification means no consensus
 
-        supportive_count = 0
+        supportive_count: float = 0.0
         for critique in critiques:
             critique_lower = critique.lower()
             support_score = sum(1 for k in self._SUPPORTIVE_KEYWORDS if k in critique_lower)

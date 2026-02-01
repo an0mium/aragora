@@ -7,22 +7,29 @@ Tests the retry implementation including:
 - Retry configuration
 - Sync and async decorators
 - Exception handling
+- Circuit breaker integration
+- Per-provider retry policies
 """
 
 from __future__ import annotations
 
 import asyncio
 import time
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from aragora.resilience.retry import (
     DEFAULT_RETRYABLE_EXCEPTIONS,
+    CircuitOpenError,
     JitterMode,
+    PROVIDER_RETRY_POLICIES,
     RetryConfig,
     RetryStrategy,
     calculate_backoff_delay,
+    create_provider_config,
+    get_provider_retry_config,
+    retry_with_backoff,
     with_retry,
     with_retry_sync,
 )
@@ -505,3 +512,326 @@ class TestDefaultRetryableExceptions:
     def test_default_exceptions_includes_os_error(self):
         """Test OSError is retryable by default."""
         assert OSError in DEFAULT_RETRYABLE_EXCEPTIONS
+
+
+# =============================================================================
+# CircuitOpenError Tests
+# =============================================================================
+
+
+class TestCircuitOpenError:
+    """Test CircuitOpenError exception."""
+
+    def test_circuit_open_error_basic(self):
+        """Test basic CircuitOpenError creation."""
+        error = CircuitOpenError()
+        assert str(error) == "Circuit breaker is open"
+        assert error.provider is None
+        assert error.cooldown_remaining is None
+
+    def test_circuit_open_error_with_provider(self):
+        """Test CircuitOpenError with provider info."""
+        error = CircuitOpenError(
+            message="Circuit breaker open for anthropic",
+            provider="anthropic",
+            cooldown_remaining=30.0,
+        )
+        assert "anthropic" in str(error)
+        assert error.provider == "anthropic"
+        assert error.cooldown_remaining == 30.0
+
+
+# =============================================================================
+# Provider Retry Policies Tests
+# =============================================================================
+
+
+class TestProviderRetryPolicies:
+    """Test per-provider retry policies."""
+
+    def test_anthropic_policy_exists(self):
+        """Test anthropic policy is configured."""
+        assert "anthropic" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["anthropic"]
+        assert policy.provider_name == "anthropic"
+        assert policy.max_retries >= 1
+        assert policy.base_delay > 0
+
+    def test_openai_policy_exists(self):
+        """Test openai policy is configured."""
+        assert "openai" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["openai"]
+        assert policy.provider_name == "openai"
+
+    def test_mistral_policy_exists(self):
+        """Test mistral policy is configured."""
+        assert "mistral" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["mistral"]
+        assert policy.provider_name == "mistral"
+
+    def test_grok_policy_exists(self):
+        """Test grok policy is configured."""
+        assert "grok" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["grok"]
+        assert policy.provider_name == "grok"
+
+    def test_openrouter_policy_exists(self):
+        """Test openrouter policy is configured."""
+        assert "openrouter" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["openrouter"]
+        assert policy.provider_name == "openrouter"
+
+    def test_knowledge_mound_policy_exists(self):
+        """Test knowledge_mound policy is configured."""
+        assert "knowledge_mound" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["knowledge_mound"]
+        assert policy.provider_name == "knowledge_mound"
+
+    def test_control_plane_policy_exists(self):
+        """Test control_plane policy is configured."""
+        assert "control_plane" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["control_plane"]
+        assert policy.provider_name == "control_plane"
+
+    def test_memory_policy_exists(self):
+        """Test memory policy is configured."""
+        assert "memory" in PROVIDER_RETRY_POLICIES
+        policy = PROVIDER_RETRY_POLICIES["memory"]
+        assert policy.provider_name == "memory"
+
+    def test_all_policies_have_retryable_exceptions(self):
+        """Test all policies have retryable exceptions configured."""
+        for name, policy in PROVIDER_RETRY_POLICIES.items():
+            assert policy.retryable_exceptions is not None
+            assert len(policy.retryable_exceptions) > 0, f"{name} has no retryable exceptions"
+
+
+# =============================================================================
+# get_provider_retry_config Tests
+# =============================================================================
+
+
+class TestGetProviderRetryConfig:
+    """Test get_provider_retry_config function."""
+
+    def test_get_known_provider(self):
+        """Test getting config for known provider."""
+        config = get_provider_retry_config("anthropic")
+        assert config.provider_name == "anthropic"
+        assert config.max_retries >= 1
+
+    def test_get_unknown_provider_returns_default(self):
+        """Test getting config for unknown provider returns sensible default."""
+        config = get_provider_retry_config("unknown_provider")
+        assert config.provider_name == "unknown_provider"
+        assert config.max_retries == 3  # Default
+        assert config.base_delay == 1.0  # Default
+
+    def test_override_max_retries(self):
+        """Test overriding max_retries."""
+        config = get_provider_retry_config("anthropic", max_retries=10)
+        assert config.max_retries == 10
+
+    def test_override_base_delay(self):
+        """Test overriding base_delay."""
+        config = get_provider_retry_config("openai", base_delay=5.0)
+        assert config.base_delay == 5.0
+
+    def test_with_circuit_breaker(self):
+        """Test passing circuit breaker."""
+        mock_breaker = MagicMock()
+        config = get_provider_retry_config("anthropic", circuit_breaker=mock_breaker)
+        assert config.circuit_breaker == mock_breaker
+
+
+# =============================================================================
+# create_provider_config Tests
+# =============================================================================
+
+
+class TestCreateProviderConfig:
+    """Test create_provider_config function."""
+
+    def test_create_basic_config(self):
+        """Test creating basic provider config."""
+        config = create_provider_config("my_provider")
+        assert config.provider_name == "my_provider"
+        assert config.max_retries == 3  # Default
+        assert config.strategy == RetryStrategy.EXPONENTIAL
+
+    def test_create_custom_config(self):
+        """Test creating custom provider config."""
+        config = create_provider_config(
+            "custom",
+            max_retries=5,
+            base_delay=2.0,
+            max_delay=120.0,
+            strategy=RetryStrategy.LINEAR,
+        )
+        assert config.provider_name == "custom"
+        assert config.max_retries == 5
+        assert config.base_delay == 2.0
+        assert config.max_delay == 120.0
+        assert config.strategy == RetryStrategy.LINEAR
+
+
+# =============================================================================
+# Circuit Breaker Integration Tests
+# =============================================================================
+
+
+class TestCircuitBreakerIntegration:
+    """Test circuit breaker integration with retry decorator."""
+
+    def test_config_check_circuit_breaker_no_breaker(self):
+        """Test check_circuit_breaker returns True when no breaker."""
+        config = RetryConfig()
+        assert config.check_circuit_breaker() is True
+
+    def test_config_check_circuit_breaker_with_mock(self):
+        """Test check_circuit_breaker uses breaker."""
+        mock_breaker = MagicMock()
+        mock_breaker.can_proceed.return_value = True
+        config = RetryConfig(circuit_breaker=mock_breaker)
+        assert config.check_circuit_breaker() is True
+        mock_breaker.can_proceed.assert_called_once()
+
+    def test_config_check_circuit_breaker_open(self):
+        """Test check_circuit_breaker returns False when breaker open."""
+        mock_breaker = MagicMock()
+        mock_breaker.can_proceed.return_value = False
+        config = RetryConfig(circuit_breaker=mock_breaker)
+        assert config.check_circuit_breaker() is False
+
+    def test_config_record_success(self):
+        """Test record_success calls circuit breaker."""
+        mock_breaker = MagicMock()
+        config = RetryConfig(circuit_breaker=mock_breaker)
+        config.record_success()
+        mock_breaker.record_success.assert_called_once()
+
+    def test_config_record_failure(self):
+        """Test record_failure calls circuit breaker."""
+        mock_breaker = MagicMock()
+        config = RetryConfig(circuit_breaker=mock_breaker)
+        config.record_failure()
+        mock_breaker.record_failure.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_decorator_checks_circuit_breaker(self):
+        """Test decorator checks circuit breaker before execution."""
+        mock_breaker = MagicMock()
+        mock_breaker.can_proceed.return_value = False
+        config = RetryConfig(circuit_breaker=mock_breaker, provider_name="test")
+
+        @with_retry(config)
+        async def my_func():
+            return "success"
+
+        with pytest.raises(CircuitOpenError):
+            await my_func()
+
+    @pytest.mark.asyncio
+    async def test_decorator_records_success(self):
+        """Test decorator records success to circuit breaker."""
+        mock_breaker = MagicMock()
+        mock_breaker.can_proceed.return_value = True
+        config = RetryConfig(circuit_breaker=mock_breaker)
+
+        @with_retry(config)
+        async def my_func():
+            return "success"
+
+        result = await my_func()
+        assert result == "success"
+        mock_breaker.record_success.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_decorator_records_failure_on_exhausted_retries(self):
+        """Test decorator records failure when retries exhausted."""
+        mock_breaker = MagicMock()
+        mock_breaker.can_proceed.return_value = True
+        config = RetryConfig(
+            max_retries=1,
+            base_delay=0.01,
+            circuit_breaker=mock_breaker,
+        )
+
+        @with_retry(config)
+        async def always_fail():
+            raise ConnectionError("fail")
+
+        with pytest.raises(ConnectionError):
+            await always_fail()
+
+        # Should record failure at least once
+        assert mock_breaker.record_failure.call_count >= 1
+
+
+# =============================================================================
+# Provider Parameter Tests
+# =============================================================================
+
+
+class TestProviderParameter:
+    """Test provider parameter in with_retry decorator."""
+
+    @pytest.mark.asyncio
+    async def test_decorator_with_provider(self):
+        """Test decorator uses provider config."""
+        call_count = 0
+
+        @with_retry(provider="anthropic", max_retries=2, base_delay=0.01)
+        async def my_func():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionError("retry")
+            return "success"
+
+        result = await my_func()
+        assert result == "success"
+        assert call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_decorator_provider_with_circuit_breaker(self):
+        """Test decorator uses provider with circuit breaker override."""
+        mock_breaker = MagicMock()
+        mock_breaker.can_proceed.return_value = True
+
+        @with_retry(provider="openai", circuit_breaker=mock_breaker)
+        async def my_func():
+            return "success"
+
+        result = await my_func()
+        assert result == "success"
+        mock_breaker.can_proceed.assert_called()
+
+
+# =============================================================================
+# Backward Compatibility Tests
+# =============================================================================
+
+
+class TestBackwardCompatibility:
+    """Test backward compatibility."""
+
+    def test_retry_with_backoff_alias(self):
+        """Test retry_with_backoff is an alias for with_retry."""
+        assert retry_with_backoff is with_retry
+
+    def test_jitter_boolean_alias(self):
+        """Test jitter=True/False maps to JitterMode."""
+        config_true = RetryConfig(jitter=True)
+        assert config_true.jitter_mode == JitterMode.MULTIPLICATIVE
+
+        config_false = RetryConfig(jitter=False)
+        assert config_false.jitter_mode == JitterMode.NONE
+
+    def test_non_retryable_status_codes_default(self):
+        """Test non_retryable_status_codes has sensible defaults."""
+        config = RetryConfig()
+        assert 400 in config.non_retryable_status_codes
+        assert 401 in config.non_retryable_status_codes
+        assert 403 in config.non_retryable_status_codes
+        assert 404 in config.non_retryable_status_codes

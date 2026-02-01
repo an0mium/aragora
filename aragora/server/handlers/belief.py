@@ -74,7 +74,7 @@ class BeliefHandler(BaseHandler):
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._km_adapter: Optional["BeliefAdapter"] = None

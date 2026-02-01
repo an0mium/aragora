@@ -20,6 +20,36 @@ if TYPE_CHECKING:
 logger = get_structured_logger(__name__)
 
 
+async def _resolve_bead_store(
+    protocol: Any,
+    env: Any,
+    bead_store_holder: Any,
+) -> Any | None:
+    """Return a canonical bead store, caching it on the holder."""
+    bead_store = getattr(bead_store_holder, "_bead_store", None)
+    if bead_store is not None:
+        return bead_store
+
+    try:
+        from aragora.stores import get_canonical_workspace_stores
+    except ImportError:
+        return None
+
+    canonical_stores = getattr(bead_store_holder, "_canonical_workspace_stores", None)
+    if canonical_stores is None:
+        bead_dir = Path(env.context.get("bead_dir")) if env.context else None
+        canonical_stores = get_canonical_workspace_stores(
+            bead_dir=str(bead_dir) if bead_dir else None,
+            git_enabled=True,
+            auto_commit=getattr(protocol, "bead_auto_commit", False),
+        )
+        setattr(bead_store_holder, "_canonical_workspace_stores", canonical_stores)
+
+    bead_store = await canonical_stores.bead_store()
+    setattr(bead_store_holder, "_bead_store", bead_store)
+    return bead_store
+
+
 async def create_debate_bead(
     result: "DebateResult",
     protocol: Any,
@@ -50,19 +80,11 @@ async def create_debate_bead(
         return None
 
     try:
-        from aragora.nomic.stores import Bead, BeadPriority, BeadStore, BeadType
-        from aragora.nomic.stores.paths import resolve_store_dir
+        from aragora.nomic.stores import Bead, BeadPriority, BeadType
 
-        bead_store = getattr(bead_store_holder, "_bead_store", None)
+        bead_store = await _resolve_bead_store(protocol, env, bead_store_holder)
         if bead_store is None:
-            bead_dir = Path(env.context.get("bead_dir")) if env.context else None
-            bead_store = BeadStore(
-                bead_dir=bead_dir or resolve_store_dir(),
-                git_enabled=True,
-                auto_commit=getattr(protocol, "bead_auto_commit", False),
-            )
-            await bead_store.initialize()
-            bead_store_holder._bead_store = bead_store
+            return None
 
         if result.confidence >= 0.9:
             priority = BeadPriority.HIGH
@@ -132,19 +154,11 @@ async def create_pending_debate_bead(
         return None
 
     try:
-        from aragora.nomic.stores import Bead, BeadPriority, BeadStore, BeadType
-        from aragora.nomic.stores.paths import resolve_store_dir
+        from aragora.nomic.stores import Bead, BeadPriority, BeadType
 
-        bead_store = getattr(bead_store_holder, "_bead_store", None)
+        bead_store = await _resolve_bead_store(protocol, env, bead_store_holder)
         if bead_store is None:
-            bead_dir = Path(env.context.get("bead_dir")) if env.context else None
-            bead_store = BeadStore(
-                bead_dir=bead_dir or resolve_store_dir(),
-                git_enabled=True,
-                auto_commit=getattr(protocol, "bead_auto_commit", False),
-            )
-            await bead_store.initialize()
-            bead_store_holder._bead_store = bead_store
+            return None
 
         bead = Bead.create(
             bead_type=BeadType.DEBATE_DECISION,

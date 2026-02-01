@@ -16,6 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.persistence.db_config import get_nomic_dir
+
 logger = logging.getLogger(__name__)
 
 # Type aliases for optional imports
@@ -257,7 +259,7 @@ class DocumentStore:
 
     def __init__(self, storage_dir: Path | None = None):
         if storage_dir is None:
-            storage_dir = Path.cwd() / ".nomic" / "documents"
+            storage_dir = get_nomic_dir() / "documents"
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 

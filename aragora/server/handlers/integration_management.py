@@ -57,7 +57,7 @@ class IntegrationsHandler(BaseHandler):
         "/api/v2/integrations/*",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._slack_store = None
@@ -828,6 +828,6 @@ class IntegrationsHandler(BaseHandler):
 
 
 # Handler factory function for registration
-def create_integrations_handler(server_context: ServerContext) -> IntegrationsHandler:
+def create_integrations_handler(server_context: dict[str, Any]) -> IntegrationsHandler:
     """Factory function for handler registration."""
     return IntegrationsHandler(server_context)

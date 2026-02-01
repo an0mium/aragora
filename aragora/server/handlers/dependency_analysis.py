@@ -411,7 +411,7 @@ class DependencyAnalysisHandler(BaseHandler):
         "/api/v1/codebase/clear-cache",
     ]
 
-    def __init__(self, ctx: ServerContext):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
 

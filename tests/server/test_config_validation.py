@@ -238,6 +238,75 @@ class TestSentryConfigValidation:
 
 
 # =============================================================================
+# LoggingConfig Validation Tests
+# =============================================================================
+
+
+class TestLoggingConfigValidation:
+    """Tests for LoggingConfig validation."""
+
+    def test_accepts_valid_log_level_info(self):
+        """Test LoggingConfig accepts INFO log level."""
+        config = LoggingConfig(log_level="INFO")
+        assert config.log_level == "INFO"
+
+    def test_accepts_valid_log_level_debug(self):
+        """Test LoggingConfig accepts DEBUG log level."""
+        config = LoggingConfig(log_level="DEBUG")
+        assert config.log_level == "DEBUG"
+
+    def test_accepts_valid_log_level_warning(self):
+        """Test LoggingConfig accepts WARNING log level."""
+        config = LoggingConfig(log_level="WARNING")
+        assert config.log_level == "WARNING"
+
+    def test_accepts_valid_log_level_error(self):
+        """Test LoggingConfig accepts ERROR log level."""
+        config = LoggingConfig(log_level="ERROR")
+        assert config.log_level == "ERROR"
+
+    def test_accepts_valid_log_level_critical(self):
+        """Test LoggingConfig accepts CRITICAL log level."""
+        config = LoggingConfig(log_level="CRITICAL")
+        assert config.log_level == "CRITICAL"
+
+    def test_normalizes_lowercase_log_level(self):
+        """Test LoggingConfig normalizes lowercase log level to uppercase."""
+        config = LoggingConfig(log_level="debug")
+        assert config.log_level == "DEBUG"
+
+    def test_normalizes_mixed_case_log_level(self):
+        """Test LoggingConfig normalizes mixed case log level to uppercase."""
+        config = LoggingConfig(log_level="WaRnInG")
+        assert config.log_level == "WARNING"
+
+    def test_invalid_log_level_defaults_to_info(self, caplog):
+        """Test LoggingConfig with invalid log level defaults to INFO."""
+        with caplog.at_level("WARNING", logger="aragora.server.config"):
+            config = LoggingConfig(log_level="INVALID")
+        assert config.log_level == "INFO"
+
+    def test_invalid_log_level_logs_warning(self, caplog):
+        """Test LoggingConfig logs warning for invalid log level."""
+        with caplog.at_level("WARNING", logger="aragora.server.config"):
+            LoggingConfig(log_level="NOTVALID")
+        assert any("Invalid log_level" in record.message for record in caplog.records)
+        assert any("NOTVALID" in record.message for record in caplog.records)
+
+    def test_empty_log_level_defaults_to_info(self, caplog):
+        """Test LoggingConfig with empty string defaults to INFO."""
+        with caplog.at_level("WARNING", logger="aragora.server.config"):
+            config = LoggingConfig(log_level="")
+        assert config.log_level == "INFO"
+
+    def test_logging_config_is_frozen(self):
+        """Test LoggingConfig is immutable."""
+        config = LoggingConfig(log_level="INFO")
+        with pytest.raises(AttributeError):
+            config.log_level = "DEBUG"
+
+
+# =============================================================================
 # RateLimitConfig Validation Tests
 # =============================================================================
 

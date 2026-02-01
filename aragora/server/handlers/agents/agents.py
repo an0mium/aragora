@@ -64,6 +64,7 @@ from ..base import (
     ttl_cache,
     validate_path_segment,
 )
+from ..openapi_decorator import api_endpoint
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
@@ -337,6 +338,12 @@ class AgentsHandler(SecureHandler):
 
         return None
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agents",
+        summary="List all known agents",
+        tags=["Agents"],
+    )
     @rate_limit(requests_per_minute=30, limiter_name="agents_list")
     @handle_errors("list agents")
     @ttl_cache(ttl_seconds=CACHE_TTL_LEADERBOARD, key_prefix="agents_list")
@@ -388,6 +395,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agents/local",
+        summary="List detected local LLM servers",
+        tags=["Agents"],
+    )
     @rate_limit(requests_per_minute=10, limiter_name="local_agents")
     @handle_errors("list local agents")
     def _list_local_agents(self) -> HandlerResult:
@@ -419,6 +432,12 @@ class AgentsHandler(SecureHandler):
                 }
             )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agents/local/status",
+        summary="Get local LLM availability status",
+        tags=["Agents"],
+    )
     @rate_limit(requests_per_minute=10, limiter_name="local_status")
     @handle_errors("get local status")
     def _get_local_status(self) -> HandlerResult:
@@ -457,6 +476,12 @@ class AgentsHandler(SecureHandler):
                 }
             )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agents/health",
+        summary="Get runtime health status for all agents",
+        tags=["Agents"],
+    )
     @rate_limit(requests_per_minute=30, limiter_name="agent_health")
     @handle_errors("get agent health")
     def _get_agent_health(self) -> HandlerResult:
@@ -651,6 +676,12 @@ class AgentsHandler(SecureHandler):
 
         return json_response(availability)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/leaderboard",
+        summary="Get agent rankings leaderboard",
+        tags=["Agents"],
+    )
     @rate_limit(requests_per_minute=30, limiter_name="leaderboard")
     def _get_leaderboard(self, limit: int, domain: str | None) -> HandlerResult:
         """Get agent leaderboard with consistency scores (batched to avoid N+1)."""
@@ -739,6 +770,12 @@ class AgentsHandler(SecureHandler):
         except Exception as e:
             return error_response(safe_error_message(e, "get leaderboard"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/calibration/leaderboard",
+        summary="Get calibration leaderboard",
+        tags=["Agents"],
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_CALIBRATION_LB, key_prefix="calibration_lb", skip_first=True)
     def _get_calibration_leaderboard(self, limit: int) -> HandlerResult:
         """Get calibration leaderboard."""
@@ -754,6 +791,12 @@ class AgentsHandler(SecureHandler):
         except Exception as e:
             return error_response(safe_error_message(e, "get calibration leaderboard"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/matches/recent",
+        summary="Get recent agent matches",
+        tags=["Agents"],
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_RECENT_MATCHES, key_prefix="recent_matches", skip_first=True)
     def _get_recent_matches(self, limit: int, loop_id: str | None) -> HandlerResult:
         """Get recent matches (uses JSON snapshot cache for fast reads)."""
@@ -771,6 +814,12 @@ class AgentsHandler(SecureHandler):
         except Exception as e:
             return error_response(safe_error_message(e, "get recent matches"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/compare",
+        summary="Compare multiple agents",
+        tags=["Agents"],
+    )
     def _compare_agents(self, agents: list[str]) -> HandlerResult:
         """Compare multiple agents using batch rating lookups."""
         if len(agents) < 2:
@@ -821,6 +870,12 @@ class AgentsHandler(SecureHandler):
         except Exception as e:
             return error_response(safe_error_message(e, "comparison"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/profile",
+        summary="Get complete agent profile",
+        tags=["Agents"],
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_PROFILE, key_prefix="agent_profile", skip_first=True)
     @handle_errors("agent profile")
     def _get_profile(self, agent: str) -> HandlerResult:
@@ -845,6 +900,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/history",
+        summary="Get agent match history",
+        tags=["Agents"],
+    )
     @handle_errors("agent history")
     def _get_history(self, agent: str, limit: int) -> HandlerResult:
         """Get agent match history."""
@@ -857,6 +918,12 @@ class AgentsHandler(SecureHandler):
         history_list = [{"timestamp": ts, "elo": rating} for ts, rating in history]
         return json_response({"agent": agent, "history": history_list})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/calibration",
+        summary="Get agent calibration scores",
+        tags=["Agents"],
+    )
     @handle_errors("agent calibration")
     def _get_calibration(self, agent: str, domain: str | None) -> HandlerResult:
         """Get agent calibration scores."""
@@ -870,6 +937,12 @@ class AgentsHandler(SecureHandler):
             calibration = {"agent": agent, "score": 0.5}
         return json_response(calibration)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/consistency",
+        summary="Get agent consistency score",
+        tags=["Agents"],
+    )
     @handle_errors("agent consistency")
     def _get_consistency(self, agent: str) -> HandlerResult:
         """Get agent consistency score."""
@@ -882,6 +955,12 @@ class AgentsHandler(SecureHandler):
             return json_response({"agent": agent, "consistency_score": score})
         return json_response({"agent": agent, "consistency_score": 1.0})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/network",
+        summary="Get agent relationship network",
+        tags=["Agents"],
+    )
     @handle_errors("agent network")
     def _get_network(self, agent: str) -> HandlerResult:
         """Get agent relationship network."""
@@ -899,6 +978,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/rivals",
+        summary="Get agent top rivals",
+        tags=["Agents"],
+    )
     @handle_errors("agent rivals")
     def _get_rivals(self, agent: str, limit: int) -> HandlerResult:
         """Get agent's top rivals."""
@@ -909,6 +994,12 @@ class AgentsHandler(SecureHandler):
         rivals = elo.get_rivals(agent, limit=limit) if hasattr(elo, "get_rivals") else []
         return json_response({"agent": agent, "rivals": rivals})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/allies",
+        summary="Get agent top allies",
+        tags=["Agents"],
+    )
     @handle_errors("agent allies")
     def _get_allies(self, agent: str, limit: int) -> HandlerResult:
         """Get agent's top allies."""
@@ -919,6 +1010,12 @@ class AgentsHandler(SecureHandler):
         allies = elo.get_allies(agent, limit=limit) if hasattr(elo, "get_allies") else []
         return json_response({"agent": agent, "allies": allies})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/moments",
+        summary="Get agent significant moments",
+        tags=["Agents"],
+    )
     @handle_errors("agent moments")
     def _get_moments(self, agent: str, limit: int) -> HandlerResult:
         """Get agent's significant moments."""
@@ -948,6 +1045,12 @@ class AgentsHandler(SecureHandler):
             return json_response({"agent": agent, "moments": moments_data})
         return json_response({"agent": agent, "moments": []})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/positions",
+        summary="Get agent position history",
+        tags=["Agents"],
+    )
     @handle_errors("agent positions")
     def _get_positions(self, agent: str, limit: int) -> HandlerResult:
         """Get agent's position history."""
@@ -960,6 +1063,12 @@ class AgentsHandler(SecureHandler):
             return json_response({"agent": agent, "positions": positions})
         return json_response({"agent": agent, "positions": []})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/domains",
+        summary="Get agent domain-specific ELO ratings",
+        tags=["Agents"],
+    )
     @handle_errors("agent domains")
     def _get_domains(self, agent: str) -> HandlerResult:
         """Get agent's domain-specific ELO ratings.
@@ -997,6 +1106,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/performance",
+        summary="Get detailed agent performance statistics",
+        tags=["Agents"],
+    )
     @handle_errors("agent performance")
     def _get_performance(self, agent: str) -> HandlerResult:
         """Get detailed agent performance statistics.
@@ -1053,6 +1168,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/metadata",
+        summary="Get agent metadata and capabilities",
+        tags=["Agents"],
+    )
     @handle_errors("agent metadata")
     def _get_metadata(self, agent: str) -> HandlerResult:
         """Get rich metadata about an agent.
@@ -1159,6 +1280,12 @@ class AgentsHandler(SecureHandler):
                 )
             raise
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/introspect",
+        summary="Get agent introspection data",
+        tags=["Agents"],
+    )
     @handle_errors("agent introspect")
     def _get_agent_introspect(self, agent: str, debate_id: str | None = None) -> HandlerResult:
         """Get agent introspection data for self-awareness and debugging.
@@ -1314,6 +1441,12 @@ class AgentsHandler(SecureHandler):
 
         return datetime.now().isoformat()
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/head-to-head/{opponent}",
+        summary="Get head-to-head stats between two agents",
+        tags=["Agents"],
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_H2H, key_prefix="agent_h2h", skip_first=True)
     @handle_errors("head-to-head stats")
     def _get_head_to_head(self, agent: str, opponent: str) -> HandlerResult:
@@ -1334,6 +1467,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/opponent-briefing/{opponent}",
+        summary="Get strategic briefing about an opponent",
+        tags=["Agents"],
+    )
     @handle_errors("opponent briefing")
     def _get_opponent_briefing(self, agent: str, opponent: str) -> HandlerResult:
         """Get strategic briefing about an opponent for an agent."""
@@ -1380,6 +1519,12 @@ class AgentsHandler(SecureHandler):
 
     # ==================== Flip Detector Endpoints ====================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agent/{name}/flips",
+        summary="Get recent position flips for agent",
+        tags=["Agents"],
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_AGENT_FLIPS, key_prefix="agent_flips", skip_first=True)
     @handle_errors("agent flips")
     def _get_agent_flips(self, agent: str, limit: int) -> HandlerResult:
@@ -1413,6 +1558,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/flips/recent",
+        summary="Get recent flips across all agents",
+        tags=["Agents"],
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_FLIPS_RECENT, key_prefix="flips_recent", skip_first=True)
     @handle_errors("recent flips")
     def _get_recent_flips(self, limit: int) -> HandlerResult:
@@ -1439,6 +1590,12 @@ class AgentsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/flips/summary",
+        summary="Get flip summary for dashboard",
+        tags=["Agents"],
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_FLIPS_SUMMARY, key_prefix="flips_summary", skip_first=True)
     @handle_errors("flip summary")
     def _get_flip_summary(self) -> HandlerResult:

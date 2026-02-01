@@ -188,14 +188,14 @@ class KafkaConnector(EnterpriseConnector):
         self._error_count = 0
         self._dlq_count = 0
 
-        # Resilience components
-        self._circuit_breaker: StreamingCircuitBreaker | None = None
+        # Resilience components (use different names to avoid base class conflict)
+        self._streaming_circuit_breaker: StreamingCircuitBreaker | None = None
         self._dlq_handler: DLQHandler | None = None
         self._health_monitor: HealthMonitor | None = None
         self._graceful_shutdown: GracefulShutdown | None = None
 
         if config.enable_circuit_breaker:
-            self._circuit_breaker = StreamingCircuitBreaker(
+            self._streaming_circuit_breaker = StreamingCircuitBreaker(
                 name="kafka-broker",
                 config=config.resilience,
             )
@@ -272,16 +272,16 @@ class KafkaConnector(EnterpriseConnector):
 
         for attempt in range(self.config.resilience.max_retries + 1):
             # Check circuit breaker
-            if self._circuit_breaker and self._circuit_breaker.is_open:
-                if not await self._circuit_breaker.can_execute():
+            if self._streaming_circuit_breaker and self._streaming_circuit_breaker.is_open:
+                if not await self._streaming_circuit_breaker.can_execute():
                     logger.warning("[Kafka] Circuit breaker is open, skipping connect")
                     return False
 
             try:
                 success = await self._connect_internal()
                 if success:
-                    if self._circuit_breaker:
-                        await self._circuit_breaker.record_success()
+                    if self._streaming_circuit_breaker:
+                        await self._streaming_circuit_breaker.record_success()
                     if self._health_monitor:
                         await self._health_monitor.record_success()
                     return True
@@ -292,8 +292,8 @@ class KafkaConnector(EnterpriseConnector):
                 return False
 
             except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-                if self._circuit_breaker:
-                    await self._circuit_breaker.record_failure(e)
+                if self._streaming_circuit_breaker:
+                    await self._streaming_circuit_breaker.record_failure(e)
                 if self._health_monitor:
                     await self._health_monitor.record_failure(e)
 
@@ -476,8 +476,8 @@ class KafkaConnector(EnterpriseConnector):
         process_fn: Callable[[KafkaMessage], Awaitable[None]],
     ) -> None:
         """Process a message with circuit breaker protection."""
-        if self._circuit_breaker:
-            async with await self._circuit_breaker.call():
+        if self._streaming_circuit_breaker:
+            async with await self._streaming_circuit_breaker.call():
                 await process_fn(message)
         else:
             await process_fn(message)
@@ -550,8 +550,8 @@ class KafkaConnector(EnterpriseConnector):
         }
 
         # Add resilience stats
-        if self._circuit_breaker:
-            stats["circuit_breaker"] = self._circuit_breaker.get_stats()
+        if self._streaming_circuit_breaker:
+            stats["circuit_breaker"] = self._streaming_circuit_breaker.get_stats()
 
         if self._dlq_handler:
             stats["dlq"] = self._dlq_handler.get_stats()
@@ -569,8 +569,8 @@ class KafkaConnector(EnterpriseConnector):
 
     def reset_circuit_breaker(self) -> None:
         """Reset the circuit breaker to closed state."""
-        if self._circuit_breaker:
-            self._circuit_breaker.reset()
+        if self._streaming_circuit_breaker:
+            self._streaming_circuit_breaker.reset()
 
     # Required abstract method implementations
 

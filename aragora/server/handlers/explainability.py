@@ -279,7 +279,7 @@ class ExplainabilityHandler(BaseHandler):
         "/api/v1/explain/*",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize with server context for richer explanations."""
         super().__init__(server_context)
         self.elo_system = (server_context or {}).get("elo_system")

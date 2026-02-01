@@ -934,7 +934,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
         "/api/v1/bots/slack/commands",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize the Slack handler."""
         super().__init__(server_context)
         # Cache signing secret at init time (important for tests with patched env)

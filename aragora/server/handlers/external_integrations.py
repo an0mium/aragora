@@ -155,7 +155,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         segments = normalized.strip("/").split("/")
         return len(segments) >= 3 and segments[2] in {"zapier", "make", "n8n"}
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._zapier: ZapierIntegration | None = None

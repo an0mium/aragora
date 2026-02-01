@@ -121,11 +121,11 @@ class DevOpsHandler(SecureHandler):
         "/api/v1/devops/status",
     ]
 
-    def __init__(self, server_context: ServerContext | None = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
         # ServerContext is a TypedDict with total=False, so empty dict is valid
-        ctx: ServerContext = (
-            server_context if server_context is not None else cast(ServerContext, {})
+        ctx: dict[str, Any] = (
+            server_context if server_context is not None else dict()
         )
         super().__init__(ctx)
 
@@ -953,7 +953,7 @@ class DevOpsHandler(SecureHandler):
 
 
 def create_devops_handler(
-    server_context: ServerContext | None = None,
+    server_context: dict[str, Any] | None = None,
 ) -> DevOpsHandler:
     """Create a devops handler instance."""
     return DevOpsHandler(server_context)

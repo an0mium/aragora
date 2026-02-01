@@ -459,7 +459,7 @@ class MetricsHandler(SecureHandler):
         "/api/v1/codebase/",
     ]
 
-    def __init__(self, ctx: ServerContext):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
 

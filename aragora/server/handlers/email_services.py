@@ -913,7 +913,7 @@ class EmailServicesHandler(SecureHandler):
         r"/api/v1/email/[^/]+/snooze",
     ]
 
-    def __init__(self, ctx: ServerContext):
+    def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
         import re

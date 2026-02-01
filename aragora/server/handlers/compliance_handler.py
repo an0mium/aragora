@@ -95,7 +95,7 @@ class ComplianceHandler(BaseHandler):
         "/api/v2/compliance/*",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
 
@@ -1762,6 +1762,6 @@ class ComplianceHandler(BaseHandler):
         return None
 
 
-def create_compliance_handler(server_context: ServerContext) -> ComplianceHandler:
+def create_compliance_handler(server_context: dict[str, Any]) -> ComplianceHandler:
     """Factory function for handler registration."""
     return ComplianceHandler(server_context)

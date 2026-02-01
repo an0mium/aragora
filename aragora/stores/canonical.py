@@ -11,15 +11,14 @@ Use these helpers instead of constructing ad-hoc store instances.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from aragora.gateway.persistence import GatewayStore, get_gateway_store
-from aragora.nomic.beads import BeadStore, create_bead_store
-from aragora.nomic.convoys import ConvoyManager, get_convoy_manager
-from aragora.storage.unified_inbox_store import (
-    UnifiedInboxStoreBackend,
-    get_unified_inbox_store,
-)
+if TYPE_CHECKING:
+    from aragora.gateway.persistence import GatewayStore
+    from aragora.nomic.beads import BeadStore
+    from aragora.nomic.convoys import ConvoyManager
+    from aragora.storage.unified_inbox_store import UnifiedInboxStoreBackend
 
 
 @runtime_checkable
@@ -39,6 +38,7 @@ class CanonicalWorkspaceStores(WorkspaceStores):
     """Canonical stores for convoys/beads/workspaces."""
 
     bead_dir: str | None = None
+    convoy_dir: str | None = None
     git_enabled: bool = True
     auto_commit: bool = False
     _bead_store: BeadStore | None = None
@@ -46,6 +46,8 @@ class CanonicalWorkspaceStores(WorkspaceStores):
 
     async def bead_store(self) -> BeadStore:
         if self._bead_store is None:
+            from aragora.nomic.beads import create_bead_store
+
             self._bead_store = await create_bead_store(
                 bead_dir=self.bead_dir,
                 git_enabled=self.git_enabled,
@@ -56,7 +58,18 @@ class CanonicalWorkspaceStores(WorkspaceStores):
     async def convoy_manager(self) -> ConvoyManager:
         if self._convoy_manager is None:
             bead_store = await self.bead_store()
-            self._convoy_manager = await get_convoy_manager(bead_store)
+            if self.convoy_dir:
+                from aragora.nomic.convoys import ConvoyManager
+
+                self._convoy_manager = ConvoyManager(
+                    bead_store=bead_store,
+                    convoy_dir=Path(self.convoy_dir),
+                )
+                await self._convoy_manager.initialize()
+            else:
+                from aragora.nomic.convoys import get_convoy_manager
+
+                self._convoy_manager = await get_convoy_manager(bead_store)
         return self._convoy_manager
 
 
@@ -69,11 +82,15 @@ class CanonicalGatewayStores(GatewayStores):
 
     def gateway_store(self) -> GatewayStore:
         if self._gateway_store is None:
+            from aragora.gateway.persistence import get_gateway_store
+
             self._gateway_store = get_gateway_store()
         return self._gateway_store
 
     def inbox_store(self) -> UnifiedInboxStoreBackend:
         if self._inbox_store is None:
+            from aragora.storage.unified_inbox_store import get_unified_inbox_store
+
             self._inbox_store = get_unified_inbox_store()
         return self._inbox_store
 
@@ -81,12 +98,14 @@ class CanonicalGatewayStores(GatewayStores):
 def get_canonical_workspace_stores(
     *,
     bead_dir: str | None = None,
+    convoy_dir: str | None = None,
     git_enabled: bool = True,
     auto_commit: bool = False,
 ) -> CanonicalWorkspaceStores:
     """Return a canonical workspace stores accessor."""
     return CanonicalWorkspaceStores(
         bead_dir=bead_dir,
+        convoy_dir=convoy_dir,
         git_enabled=git_enabled,
         auto_commit=auto_commit,
     )

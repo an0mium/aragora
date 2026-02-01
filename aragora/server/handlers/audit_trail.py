@@ -53,7 +53,7 @@ class AuditTrailHandler(BaseHandler):
     _trails: dict[str, dict[str, Any]] = {}
     _receipts: dict[str, dict[str, Any]] = {}
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
 

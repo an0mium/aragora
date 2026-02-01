@@ -17,16 +17,16 @@ from aragora.nomic.beads import (
     BeadStatus,
     BeadStore,
     BeadType,
-    create_bead_store,
 )
 from aragora.nomic.convoys import (
     Convoy,
     ConvoyManager,
     ConvoyPriority,
     ConvoyStatus,
-    get_convoy_manager,
 )
 from aragora.nomic.stores.paths import resolve_store_dir
+from aragora.stores import get_canonical_workspace_stores
+from aragora.stores.canonical import WorkspaceStores
 
 
 @runtime_checkable
@@ -82,16 +82,19 @@ class NomicBeadAPI(BeadAPI):
     bead_dir: str | None = None
     git_enabled: bool = True
     auto_commit: bool = False
+    canonical_stores: WorkspaceStores | None = None
 
     async def _store(self) -> BeadStore:
         if self.bead_store is None:
-            if self.bead_dir is None:
-                self.bead_dir = str(resolve_store_dir())
-            self.bead_store = await create_bead_store(
-                bead_dir=self.bead_dir,
-                git_enabled=self.git_enabled,
-                auto_commit=self.auto_commit,
-            )
+            if self.canonical_stores is None:
+                if self.bead_dir is None:
+                    self.bead_dir = str(resolve_store_dir())
+                self.canonical_stores = get_canonical_workspace_stores(
+                    bead_dir=self.bead_dir,
+                    git_enabled=self.git_enabled,
+                    auto_commit=self.auto_commit,
+                )
+            self.bead_store = await self.canonical_stores.bead_store()
         return self.bead_store
 
     async def create_bead(
@@ -145,18 +148,21 @@ class NomicConvoyAPI(ConvoyAPI):
     bead_dir: str | None = None
     git_enabled: bool = True
     auto_commit: bool = False
+    canonical_stores: WorkspaceStores | None = None
 
     async def _manager(self) -> ConvoyManager:
         if self.convoy_manager is None:
-            if self.bead_store is None:
+            if self.canonical_stores is None:
                 if self.bead_dir is None:
                     self.bead_dir = str(resolve_store_dir())
-                self.bead_store = await create_bead_store(
+                self.canonical_stores = get_canonical_workspace_stores(
                     bead_dir=self.bead_dir,
                     git_enabled=self.git_enabled,
                     auto_commit=self.auto_commit,
                 )
-            self.convoy_manager = await get_convoy_manager(self.bead_store)
+            if self.bead_store is None:
+                self.bead_store = await self.canonical_stores.bead_store()
+            self.convoy_manager = await self.canonical_stores.convoy_manager()
         return self.convoy_manager
 
     async def create_convoy(

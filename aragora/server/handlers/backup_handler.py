@@ -73,7 +73,7 @@ class BackupHandler(BaseHandler):
         "/api/v2/backups/*",
     ]
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
         self._manager = None  # Lazy initialization
@@ -524,6 +524,6 @@ class BackupHandler(BaseHandler):
 
 
 # Handler factory function for registration
-def create_backup_handler(server_context: ServerContext) -> BackupHandler:
+def create_backup_handler(server_context: dict[str, Any]) -> BackupHandler:
     """Factory function for handler registration."""
     return BackupHandler(server_context)

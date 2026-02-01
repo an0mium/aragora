@@ -39,7 +39,7 @@ from aragora.server.handlers.base import (
 logger = logging.getLogger(__name__)
 
 
-def _check_permission(ctx: ServerContext, permission: str) -> HandlerResult | None:
+def _check_permission(ctx: dict[str, Any], permission: str) -> HandlerResult | None:
     """
     Check if the current user has the required permission.
 
@@ -212,7 +212,7 @@ def get_feedback_store() -> FeedbackStore:
     return _feedback_store
 
 
-async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
+async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
     """
     Submit NPS feedback.
 
@@ -268,7 +268,7 @@ async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
         return error_response(str(e), status=500)
 
 
-async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
+async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
     """
     Submit general feedback.
 
@@ -331,7 +331,7 @@ async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
         return error_response(str(e), status=500)
 
 
-async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
+async def handle_get_nps_summary(ctx: dict[str, Any]) -> HandlerResult:
     """
     Get NPS summary (admin only).
 
@@ -362,7 +362,7 @@ async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
         return error_response(str(e), status=500)
 
 
-async def handle_get_feedback_prompts(ctx: ServerContext) -> HandlerResult:
+async def handle_get_feedback_prompts(ctx: dict[str, Any]) -> HandlerResult:
     """
     Get active feedback prompts for the user.
 

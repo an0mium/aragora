@@ -34,6 +34,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from aragora.persistence.db_config import get_nomic_dir
 from aragora.storage.connection_factory import (
     get_selfhosted_postgres_dsn,
     get_supabase_postgres_dsn,
@@ -153,10 +154,7 @@ def get_default_db_path(name: str, nomic_dir: Optional[str | Path] = None) -> Pa
         Path to the SQLite database file
     """
     if nomic_dir is None:
-        nomic_dir = os.environ.get("ARAGORA_NOMIC_DIR")
-
-    if nomic_dir is None:
-        nomic_dir = Path.home() / ".nomic" / "aragora"
+        nomic_dir = get_nomic_dir()
     else:
         nomic_dir = Path(nomic_dir)
 
@@ -233,8 +231,7 @@ def storage_info() -> dict[str, object]:
                 dsn = f"{user_pass[0]}:***@{parts[1]}"
         info["dsn_redacted"] = dsn
     else:
-        default_dir = os.environ.get("ARAGORA_NOMIC_DIR") or str(Path.home() / ".nomic" / "aragora")
-        info["default_db_dir"] = str(Path(default_dir) / "db")
+        info["default_db_dir"] = str(get_nomic_dir() / "db")
 
     return info
 

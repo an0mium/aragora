@@ -769,7 +769,7 @@ class OutlookHandler(BaseHandler):
 
     def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
-        super().__init__(cast(ServerContext, ctx))
+        super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
