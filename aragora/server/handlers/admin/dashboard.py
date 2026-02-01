@@ -24,6 +24,7 @@ from ..base import (
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from ..openapi_decorator import api_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -852,6 +853,16 @@ class DashboardHandler(SecureHandler):
         }
         return type_mapping.get(class_name, class_name.replace("connector", ""))
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/quality-metrics",
+        summary="Get quality metrics",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "Debate quality metrics"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @ttl_cache(ttl_seconds=60, key_prefix="quality_metrics", skip_first=True)
     def _get_quality_metrics(self) -> HandlerResult:
         """Get unified quality metrics across all subsystems.
@@ -887,6 +898,17 @@ class DashboardHandler(SecureHandler):
 
         return json_response(result)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/overview",
+        summary="Get dashboard overview",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "Dashboard overview data"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires dashboard.read"},
+        },
+    )
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_overview", skip_first=True
     )
@@ -939,6 +961,22 @@ class DashboardHandler(SecureHandler):
 
         return json_response(overview)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/debates",
+        summary="List dashboard debates",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "status", "in": "query", "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "Paginated list of debates"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+        },
+    )
     def _get_dashboard_debates(self, limit: int, offset: int, status: Any) -> HandlerResult:
         """Return dashboard debate list from storage."""
         debates: list[dict[str, Any]] = []
@@ -989,12 +1027,36 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"debates": debates, "total": total})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/debates/{debate_id}",
+        summary="Get debate detail",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Debate detail returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     def _get_dashboard_debate(self, debate_id: str) -> HandlerResult:
         """Return a single debate summary entry."""
         if not debate_id:
             return error_response("debate_id is required", 400)
         return json_response({"debate_id": debate_id})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/stats",
+        summary="Get dashboard statistics",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "Dashboard statistics"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_stats", skip_first=True
     )
@@ -1087,6 +1149,16 @@ class DashboardHandler(SecureHandler):
 
         return json_response(stats)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/stat-cards",
+        summary="Get dashboard stat cards",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "Stat card data for dashboard widgets"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="stat_cards", skip_first=True)
     def _get_stat_cards(self) -> HandlerResult:
         """Return stat cards summarizing key metrics."""
@@ -1143,6 +1215,20 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"cards": cards})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/team-performance",
+        summary="Get team performance metrics",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "Team performance data"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="team_performance", skip_first=True
     )
@@ -1185,6 +1271,20 @@ class DashboardHandler(SecureHandler):
         paginated = teams[offset : offset + limit]
         return json_response({"teams": paginated, "total": len(teams)})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/team-performance/{team_id}",
+        summary="Get team performance detail",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "team_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Detailed team performance"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Team not found"},
+        },
+    )
     def _get_team_performance_detail(self, team_id: str) -> HandlerResult:
         """Return team performance detail for a provider group."""
         if not team_id:
@@ -1222,6 +1322,20 @@ class DashboardHandler(SecureHandler):
 
         return json_response(detail)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/top-senders",
+        summary="Get top email senders",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "Top senders list"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _get_top_senders(self, limit: int, offset: int) -> HandlerResult:
         """Return top debate initiators ranked by count."""
         senders: list[dict[str, Any]] = []
@@ -1248,6 +1362,16 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"senders": senders, "total": len(senders)})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/labels",
+        summary="Get dashboard labels",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "Label categories and counts"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _get_labels(self) -> HandlerResult:
         """Return label/domain counts from debate storage."""
         labels: list[dict[str, Any]] = []
@@ -1273,6 +1397,20 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"labels": labels})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/activity",
+        summary="Get recent activity feed",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "Activity feed entries"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _get_activity(self, limit: int, offset: int) -> HandlerResult:
         """Return recent activity feed from debate storage."""
         activity: list[dict[str, Any]] = []
@@ -1309,6 +1447,16 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"activity": activity, "total": total})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/inbox-summary",
+        summary="Get inbox summary",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "Inbox summary with counts by category"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="inbox_summary", skip_first=True)
     def _get_inbox_summary(self) -> HandlerResult:
         """Return inbox summary derived from debate storage."""
@@ -1351,6 +1499,16 @@ class DashboardHandler(SecureHandler):
 
         return json_response(summary)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/quick-actions",
+        summary="Get available quick actions",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "List of available quick actions"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _get_quick_actions(self) -> HandlerResult:
         """Return quick actions list."""
         actions = [
@@ -1399,6 +1557,20 @@ class DashboardHandler(SecureHandler):
         ]
         return json_response({"actions": actions, "total": len(actions)})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/dashboard/quick-actions/{action_id}",
+        summary="Execute a quick action",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "action_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Action executed"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Action not found"},
+        },
+    )
     def _execute_quick_action(self, action_id: str) -> HandlerResult:
         """Execute a quick action (stub)."""
         if not action_id:
@@ -1411,6 +1583,20 @@ class DashboardHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/urgent",
+        summary="Get urgent items",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "Urgent items requiring attention"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _get_urgent_items(self, limit: int, offset: int) -> HandlerResult:
         """Return urgent items: debates with low confidence or no consensus."""
         items: list[dict[str, Any]] = []
@@ -1442,12 +1628,39 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"items": items, "total": len(items)})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/dashboard/urgent/{item_id}/dismiss",
+        summary="Dismiss an urgent item",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "item_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Item dismissed"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _dismiss_urgent_item(self, item_id: str) -> HandlerResult:
         """Dismiss an urgent item (stub)."""
         if not item_id:
             return error_response("item_id is required", 400)
         return json_response({"success": True})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/pending-actions",
+        summary="Get pending actions",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "Actions awaiting completion"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _get_pending_actions(self, limit: int, offset: int) -> HandlerResult:
         """Return pending actions: recent debates awaiting review."""
         actions: list[dict[str, Any]] = []
@@ -1478,12 +1691,39 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"actions": actions, "total": len(actions)})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/dashboard/pending-actions/{action_id}/complete",
+        summary="Complete a pending action",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "action_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Action completed"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Action not found"},
+        },
+    )
     def _complete_pending_action(self, action_id: str) -> HandlerResult:
         """Complete a pending action (stub)."""
         if not action_id:
             return error_response("action_id is required", 400)
         return json_response({"success": True})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/dashboard/search",
+        summary="Search dashboard",
+        tags=["Dashboard"],
+        parameters=[
+            {"name": "q", "in": "query", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Search results"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _search_dashboard(self, query: str) -> HandlerResult:
         """Search dashboard data by domain or debate ID."""
         results: list[dict[str, Any]] = []
@@ -1519,6 +1759,16 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"results": results, "total": len(results)})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/dashboard/export",
+        summary="Export dashboard data",
+        tags=["Dashboard"],
+        responses={
+            "200": {"description": "Dashboard data exported"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     def _export_dashboard_data(self) -> HandlerResult:
         """Export dashboard data as a JSON snapshot."""
         export: dict[str, Any] = {
