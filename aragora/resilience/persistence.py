@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from aragora.config import resolve_db_path
 from aragora.exceptions import ConfigurationError
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ def _get_cb_connection() -> sqlite3.Connection:
     return conn
 
 
-def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") -> None:
+def init_circuit_breaker_persistence(db_path: str = "circuit_breaker.db") -> None:
     """Initialize SQLite database for circuit breaker persistence.
 
     Creates the database and table if they don't exist.
@@ -56,13 +57,13 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
         db_path: Path to SQLite database file
     """
     global _DB_PATH
-    _DB_PATH = db_path
+    _DB_PATH = resolve_db_path(db_path)
 
     # Ensure directory exists
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(_DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
     # Use timeout and WAL mode for concurrent access
-    with sqlite3.connect(db_path, timeout=_CB_TIMEOUT_SECONDS) as conn:
+    with sqlite3.connect(_DB_PATH, timeout=_CB_TIMEOUT_SECONDS) as conn:
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS circuit_breakers (
@@ -79,7 +80,7 @@ def init_circuit_breaker_persistence(db_path: str = ".data/circuit_breaker.db") 
         """)
         conn.commit()
 
-    logger.info(f"Circuit breaker persistence initialized: {db_path}")
+    logger.info(f"Circuit breaker persistence initialized: {_DB_PATH}")
 
 
 def persist_circuit_breaker(name: str, cb: "CircuitBreaker") -> None:
