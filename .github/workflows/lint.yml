@@ -9,6 +9,8 @@ on:
       - 'scripts/**'
       - 'pyproject.toml'
       - '.github/workflows/lint.yml'
+      - 'deploy/**'
+      - 'aragora-operator/**'
   pull_request:
     branches: [main]
     paths:
@@ -16,6 +18,8 @@ on:
       - 'tests/**'
       - 'scripts/**'
       - 'pyproject.toml'
+      - 'deploy/**'
+      - 'aragora-operator/**'
   workflow_dispatch:
 
 concurrency:
@@ -269,6 +273,69 @@ jobs:
           if [ -f deploy/helm/aragora/values.schema.json ]; then
             check-jsonschema --schemafile deploy/helm/aragora/values.schema.json deploy/helm/aragora/values.yaml
             echo "Values schema validation passed!"
+          fi
+
+      - name: Install kubeconform
+        run: |
+          # Install kubeconform (kubeval successor) for K8s schema validation
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+
+      - name: Validate Kubernetes schemas
+        run: |
+          # Validate all charts against Kubernetes 1.28+ schemas
+          # Uses strict mode to catch unknown fields
+
+          echo "Validating primary chart..."
+          helm template aragora deploy/helm/aragora/ | kubeconform -strict -summary -kubernetes-version 1.28.0
+
+          echo "Validating kubernetes chart..."
+          helm template aragora deploy/kubernetes/helm/aragora/ | kubeconform -strict -summary -kubernetes-version 1.28.0
+
+          echo "Validating multi-region chart..."
+          helm template aragora deploy/multi-region/helm/aragora/ | kubeconform -strict -summary -kubernetes-version 1.28.0
+
+          echo "Validating operator chart..."
+          helm template aragora-operator aragora-operator/helm/aragora-operator/ | kubeconform -strict -summary -kubernetes-version 1.28.0
+
+          echo "All charts passed Kubernetes schema validation!"
+
+  todo-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: TODO/FIXME Enforcement
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Count TODOs and enforce baseline
+        run: |
+          CURRENT=$(grep -rn "TODO\|FIXME\|HACK\|XXX" aragora/ --include="*.py" 2>/dev/null | wc -l | tr -d ' ')
+          BASELINE=$(cat aragora/.todo_baseline 2>/dev/null || echo 50)
+          THRESHOLD=3  # Allow up to 3 new TODOs
+
+          echo "Current TODO count: $CURRENT"
+          echo "Baseline: $BASELINE"
+
+          DIFF=$((CURRENT - BASELINE))
+          if [ "$DIFF" -gt "$THRESHOLD" ]; then
+            echo "::error::TODO count increased by $DIFF (from $BASELINE to $CURRENT)"
+            echo "::error::Exceeds threshold of $THRESHOLD new TODOs"
+            echo ""
+            echo "New TODOs found:"
+            grep -rn "TODO\|FIXME\|HACK\|XXX" aragora/ --include="*.py" | head -20
+            echo ""
+            echo "Please resolve existing TODOs before adding new ones,"
+            echo "or update aragora/.todo_baseline if increase is intentional."
+            exit 1
+          elif [ "$DIFF" -gt 0 ]; then
+            echo "::warning::TODO count increased slightly (+$DIFF)"
+          elif [ "$DIFF" -lt 0 ]; then
+            echo "::notice::TODO count decreased by $((-DIFF))! Consider updating baseline."
+          else
+            echo "TODO count unchanged at $CURRENT"
           fi
 
   docs-sync:
