@@ -128,7 +128,7 @@ def extract_trace_carrier(payload: dict[str, Any]) -> TraceCarrier | None:
     Returns ``None`` if the payload has no trace context.
     """
     raw = payload.get(_TRACE_KEY)
-    if not raw or not isinstance(raw, dict):
+    if raw is None or not isinstance(raw, dict):
         return None
     try:
         return TraceCarrier.from_dict(raw)

@@ -76,6 +76,7 @@ class GauntletWorker:
         self._running = True
         logger.info(f"[{self.worker_id}] Starting gauntlet worker")
 
+        cancelled_exc: asyncio.CancelledError | None = None
         while self._running:
             try:
                 # Clean up completed tasks
@@ -104,8 +105,10 @@ class GauntletWorker:
                     # No jobs available, wait before polling again
                     await asyncio.sleep(self.poll_interval)
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError as exc:
                 logger.info(f"[{self.worker_id}] Worker cancelled")
+                cancelled_exc = exc
+                self._running = False
                 break
             except RuntimeError as e:
                 if "Event loop is closed" in str(e):
@@ -133,6 +136,8 @@ class GauntletWorker:
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
         logger.info(f"[{self.worker_id}] Worker stopped")
+        if cancelled_exc is not None:
+            raise cancelled_exc
 
     async def stop(self) -> None:
         """Stop the worker gracefully."""
