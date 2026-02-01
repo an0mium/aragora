@@ -1,11 +1,17 @@
 """
-Tests for Gauntlet Job Queue Worker.
+Comprehensive Tests for Gauntlet Job Queue Worker.
 
-Tests durable job processing for gauntlet stress-testing.
+Tests durable job processing for gauntlet stress-testing including:
+- Job processing lifecycle (start, process, complete, fail)
+- Error handling and retry logic
+- Task validation and cleanup
+- Worker concurrency management
+- Recovery of interrupted jobs
 """
 
 import asyncio
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -41,6 +47,11 @@ def store(temp_db):
     set_job_store(store)
     yield store
     reset_job_store()
+
+
+# =============================================================================
+# Enqueue Tests
+# =============================================================================
 
 
 class TestEnqueueGauntletJob:
@@ -113,6 +124,44 @@ class TestEnqueueGauntletJob:
 
         assert job.priority == 10
 
+    @pytest.mark.asyncio
+    async def test_payload_contains_all_fields(self, store):
+        """Should store all input fields in payload."""
+        job = await enqueue_gauntlet_job(
+            gauntlet_id="gauntlet-payload-test",
+            input_content="Payload test content",
+            input_type="architecture",
+            persona="compliance-officer",
+            agents=["anthropic-api", "openai-api"],
+            profile="strict",
+        )
+
+        assert job.payload["gauntlet_id"] == "gauntlet-payload-test"
+        assert job.payload["input_content"] == "Payload test content"
+        assert job.payload["input_type"] == "architecture"
+        assert job.payload["persona"] == "compliance-officer"
+        assert job.payload["agents"] == ["anthropic-api", "openai-api"]
+        assert job.payload["profile"] == "strict"
+
+    @pytest.mark.asyncio
+    async def test_multiple_input_types(self, store):
+        """Should handle all supported input types."""
+        for input_type in ["spec", "architecture", "policy", "code", "strategy", "contract"]:
+            job = await enqueue_gauntlet_job(
+                gauntlet_id=f"gauntlet-type-{input_type}",
+                input_content=f"Content for {input_type}",
+                input_type=input_type,
+                persona=None,
+                agents=["anthropic-api"],
+                profile="default",
+            )
+            assert job.payload["input_type"] == input_type
+
+
+# =============================================================================
+# Worker Initialization Tests
+# =============================================================================
+
 
 class TestGauntletWorker:
     """Tests for GauntletWorker class."""
@@ -130,6 +179,32 @@ class TestGauntletWorker:
         """Should accept custom worker ID."""
         worker = GauntletWorker(worker_id="custom-worker-1")
         assert worker.worker_id == "custom-worker-1"
+
+    @pytest.mark.asyncio
+    async def test_custom_poll_interval(self, store):
+        """Should accept custom poll interval."""
+        worker = GauntletWorker(poll_interval=5.0)
+        assert worker.poll_interval == 5.0
+
+    @pytest.mark.asyncio
+    async def test_custom_max_concurrent(self, store):
+        """Should accept custom max concurrent value."""
+        worker = GauntletWorker(max_concurrent=10)
+        assert worker.max_concurrent == 10
+
+    @pytest.mark.asyncio
+    async def test_accepts_broadcast_fn(self, store):
+        """Should accept a broadcast function."""
+        mock_fn = MagicMock()
+        worker = GauntletWorker(broadcast_fn=mock_fn)
+        assert worker.broadcast_fn is mock_fn
+
+    @pytest.mark.asyncio
+    async def test_initial_state(self, store):
+        """Should have correct initial state."""
+        worker = GauntletWorker()
+        assert worker._running is False
+        assert worker._active_jobs == {}
 
     @pytest.mark.asyncio
     async def test_dequeues_gauntlet_jobs(self, store):
@@ -177,6 +252,162 @@ class TestGauntletWorker:
         assert not worker._running
 
 
+# =============================================================================
+# Worker Lifecycle Tests
+# =============================================================================
+
+
+class TestGauntletWorkerLifecycle:
+    """Tests for worker start/stop lifecycle."""
+
+    @pytest.mark.asyncio
+    async def test_start_sets_running_true(self, store):
+        """Start should set _running to True."""
+        worker = GauntletWorker(poll_interval=0.05)
+        task = asyncio.create_task(worker.start())
+        await asyncio.sleep(0.1)
+
+        assert worker._running is True
+
+        await worker.stop()
+        await asyncio.wait_for(task, timeout=2.0)
+
+    @pytest.mark.asyncio
+    async def test_handles_cancellation(self, store):
+        """Worker should handle CancelledError gracefully."""
+        worker = GauntletWorker(poll_interval=0.05)
+        task = asyncio.create_task(worker.start())
+        await asyncio.sleep(0.1)
+
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    @pytest.mark.asyncio
+    async def test_handles_event_loop_closed(self, store):
+        """Worker should exit on event loop closed errors."""
+        worker = GauntletWorker(poll_interval=0.05)
+
+        with patch.object(
+            worker._store,
+            "dequeue",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Event loop is closed"),
+        ):
+            task = asyncio.create_task(worker.start())
+            await asyncio.wait_for(task, timeout=2.0)
+
+    @pytest.mark.asyncio
+    async def test_handles_pool_closed(self, store):
+        """Worker should exit on pool closed errors."""
+        worker = GauntletWorker(poll_interval=0.05)
+
+        with patch.object(
+            worker._store,
+            "dequeue",
+            new_callable=AsyncMock,
+            side_effect=Exception("pool is closed"),
+        ):
+            task = asyncio.create_task(worker.start())
+            await asyncio.wait_for(task, timeout=2.0)
+
+    @pytest.mark.asyncio
+    async def test_waits_for_active_jobs_on_shutdown(self, store):
+        """Worker should wait for active jobs before shutting down."""
+        worker = GauntletWorker(poll_interval=0.05)
+
+        # Create a slow-completing task
+        completed = False
+
+        async def slow_task():
+            nonlocal completed
+            await asyncio.sleep(0.1)
+            completed = True
+
+        task = asyncio.create_task(slow_task())
+        worker._active_jobs["slow-job"] = task
+
+        # Start and stop
+        start_task = asyncio.create_task(worker.start())
+        await asyncio.sleep(0.05)
+        await worker.stop()
+        await asyncio.wait_for(start_task, timeout=3.0)
+
+        assert completed
+
+
+# =============================================================================
+# Task Cleanup Tests
+# =============================================================================
+
+
+class TestCleanupCompletedTasks:
+    """Tests for _cleanup_completed_tasks method."""
+
+    @pytest.mark.asyncio
+    async def test_removes_completed_tasks(self, store):
+        """Should remove completed tasks from tracking."""
+        worker = GauntletWorker()
+
+        # Create completed task
+        async def noop():
+            pass
+
+        task = asyncio.create_task(noop())
+        await task
+        worker._active_jobs["done-job"] = task
+
+        worker._cleanup_completed_tasks()
+
+        assert "done-job" not in worker._active_jobs
+
+    @pytest.mark.asyncio
+    async def test_keeps_running_tasks(self, store):
+        """Should keep running tasks in tracking."""
+        worker = GauntletWorker()
+
+        # Create a running task
+        event = asyncio.Event()
+
+        async def wait_for_event():
+            await event.wait()
+
+        task = asyncio.create_task(wait_for_event())
+        worker._active_jobs["running-job"] = task
+
+        worker._cleanup_completed_tasks()
+
+        assert "running-job" in worker._active_jobs
+
+        # Cleanup
+        event.set()
+        await task
+
+    @pytest.mark.asyncio
+    async def test_logs_failed_tasks(self, store):
+        """Should log warnings for failed tasks."""
+        worker = GauntletWorker()
+
+        async def fail():
+            raise RuntimeError("Task failure")
+
+        task = asyncio.create_task(fail())
+        try:
+            await task
+        except RuntimeError:
+            pass
+        worker._active_jobs["failed-job"] = task
+
+        # Should not raise
+        worker._cleanup_completed_tasks()
+        assert "failed-job" not in worker._active_jobs
+
+
+# =============================================================================
+# Recovery Tests
+# =============================================================================
+
+
 class TestRecoverInterruptedGauntlets:
     """Tests for recover_interrupted_gauntlets function."""
 
@@ -202,8 +433,6 @@ class TestRecoverInterruptedGauntlets:
         await store.dequeue(worker_id="crashed-worker")
 
         # Manually backdate it
-        import time
-
         conn = store._get_conn()
         conn.execute(
             "UPDATE job_queue SET started_at = ? WHERE id = ?",
@@ -226,6 +455,35 @@ class TestRecoverInterruptedGauntlets:
         recovered = await recover_interrupted_gauntlets()
         assert recovered == 0
 
+    @pytest.mark.asyncio
+    async def test_recover_returns_count(self, store):
+        """Should return the number of recovered jobs."""
+        # Create two stale jobs
+        for i in range(2):
+            job = QueuedJob(
+                id=f"stale-{i}",
+                job_type=JOB_TYPE_GAUNTLET,
+                payload={"gauntlet_id": f"stale-{i}"},
+            )
+            await store.enqueue(job)
+            await store.dequeue(worker_id="crashed-worker")
+
+        # Backdate both
+        conn = store._get_conn()
+        conn.execute(
+            "UPDATE job_queue SET started_at = ?",
+            (time.time() - 400,),
+        )
+        conn.commit()
+
+        recovered = await store.recover_stale_jobs(stale_threshold_seconds=300.0)
+        assert recovered == 2
+
+
+# =============================================================================
+# Job Processing Tests
+# =============================================================================
+
 
 class TestWorkerJobProcessing:
     """Tests for worker job processing logic."""
@@ -233,18 +491,6 @@ class TestWorkerJobProcessing:
     @pytest.mark.asyncio
     async def test_marks_completed_on_success(self, store):
         """Should mark job completed on successful execution."""
-        # Mock the gauntlet execution
-        mock_result = MagicMock()
-        mock_result.verdict.value = "pass"
-        mock_result.confidence = 0.95
-        mock_result.risk_score = 0.1
-        mock_result.robustness_score = 0.9
-        mock_result.total_findings = 2
-        mock_result.critical_findings = []
-        mock_result.high_findings = []
-        mock_result.medium_findings = []
-        mock_result.low_findings = []
-
         with patch(
             "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
             new_callable=AsyncMock,
@@ -317,3 +563,152 @@ class TestWorkerJobProcessing:
             assert job_after is not None
             assert job_after.status == JobStatus.PENDING
             assert job_after.error == "Test error"
+
+    @pytest.mark.asyncio
+    async def test_uses_gauntlet_id_from_payload(self, store):
+        """Should use gauntlet_id from payload for logging."""
+        with patch(
+            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            new_callable=AsyncMock,
+        ) as mock_execute:
+            mock_execute.return_value = {
+                "gauntlet_id": "custom-gauntlet-id",
+                "verdict": "pass",
+            }
+
+            worker = GauntletWorker()
+            job = QueuedJob(
+                id="job-123",
+                job_type=JOB_TYPE_GAUNTLET,
+                payload={
+                    "gauntlet_id": "custom-gauntlet-id",
+                    "input_content": "Test",
+                },
+            )
+            await store.enqueue(job)
+            claimed = await store.dequeue(worker_id=worker.worker_id)
+
+            await worker._process_job(claimed)
+
+            # Verify the gauntlet was called
+            mock_execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_completed_result_includes_verdict(self, store):
+        """Should store verdict in completed result."""
+        with patch(
+            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            new_callable=AsyncMock,
+        ) as mock_execute:
+            mock_execute.return_value = {
+                "gauntlet_id": "verdict-test",
+                "verdict": "fail",
+                "confidence": 0.8,
+            }
+
+            worker = GauntletWorker()
+            job = QueuedJob(
+                id="verdict-job",
+                job_type=JOB_TYPE_GAUNTLET,
+                payload={"gauntlet_id": "verdict-test"},
+            )
+            await store.enqueue(job)
+            claimed = await store.dequeue(worker_id=worker.worker_id)
+
+            await worker._process_job(claimed)
+
+            job_after = await store.get("verdict-job")
+            assert job_after is not None
+            assert job_after.status == JobStatus.COMPLETED
+            assert job_after.result is not None
+            assert job_after.result["verdict"] == "fail"
+
+    @pytest.mark.asyncio
+    async def test_max_attempts_exhausted(self, store):
+        """Should permanently fail when max attempts exhausted."""
+        with patch(
+            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            new_callable=AsyncMock,
+        ) as mock_execute:
+            mock_execute.side_effect = RuntimeError("Persistent error")
+
+            worker = GauntletWorker()
+
+            # Create job with only 1 max attempt
+            job = QueuedJob(
+                id="exhaust-job",
+                job_type=JOB_TYPE_GAUNTLET,
+                payload={"gauntlet_id": "exhaust-test"},
+                max_attempts=1,
+            )
+            await store.enqueue(job)
+            claimed = await store.dequeue(worker_id=worker.worker_id)
+
+            # After dequeue, attempts = 1, max_attempts = 1 so no retry
+            await worker._process_job(claimed)
+
+            job_after = await store.get("exhaust-job")
+            assert job_after is not None
+            assert job_after.status == JobStatus.FAILED
+
+    @pytest.mark.asyncio
+    async def test_fallback_gauntlet_id(self, store):
+        """Should fall back to job.id when gauntlet_id not in payload."""
+        with patch(
+            "aragora.queue.workers.gauntlet_worker.GauntletWorker._execute_gauntlet",
+            new_callable=AsyncMock,
+        ) as mock_execute:
+            mock_execute.return_value = {
+                "gauntlet_id": "fallback-id",
+                "verdict": "pass",
+            }
+
+            worker = GauntletWorker()
+            job = QueuedJob(
+                id="fallback-id",
+                job_type=JOB_TYPE_GAUNTLET,
+                payload={"input_content": "Test without gauntlet_id"},
+            )
+            await store.enqueue(job)
+            claimed = await store.dequeue(worker_id=worker.worker_id)
+
+            await worker._process_job(claimed)
+
+            job_after = await store.get("fallback-id")
+            assert job_after.status == JobStatus.COMPLETED
+
+
+# =============================================================================
+# Concurrency Tests
+# =============================================================================
+
+
+class TestGauntletWorkerConcurrency:
+    """Tests for worker concurrency management."""
+
+    @pytest.mark.asyncio
+    async def test_respects_max_concurrent(self, store):
+        """Worker should not exceed max_concurrent jobs."""
+        worker = GauntletWorker(max_concurrent=2, poll_interval=0.05)
+
+        # Fill active jobs to capacity
+        events = []
+        for i in range(2):
+            event = asyncio.Event()
+            events.append(event)
+
+            async def wait_for(e=event):
+                await e.wait()
+
+            task = asyncio.create_task(wait_for())
+            worker._active_jobs[f"active-{i}"] = task
+
+        # Worker loop should skip dequeue when at capacity
+        task = asyncio.create_task(worker.start())
+        await asyncio.sleep(0.15)
+
+        # Stop worker and cleanup
+        await worker.stop()
+        for event in events:
+            event.set()
+        await asyncio.wait_for(task, timeout=3.0)

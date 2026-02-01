@@ -782,3 +782,262 @@ class TestLocalEmbeddingServiceIntegration:
         assert len(results) <= 2
         for r in results:
             assert r.score >= 0.6
+
+
+# =============================================================================
+# TestLocalEmbeddingServiceDimensionErrors - Dimension Property Error Paths
+# =============================================================================
+
+
+class TestLocalEmbeddingServiceDimensionErrors:
+    """Tests for dimension property error paths."""
+
+    def test_dimension_raises_when_model_fails_to_load(self):
+        """Should raise RuntimeError if model stays None after _ensure_model_loaded."""
+        service = LocalEmbeddingService()
+
+        # _ensure_model_loaded does nothing, leaving _model as None
+        with patch.object(service, "_ensure_model_loaded"):
+            with pytest.raises(RuntimeError, match="Model not initialized"):
+                _ = service.dimension
+
+    def test_dimension_raises_when_model_returns_none(self):
+        """Should raise RuntimeError if model returns None dimension."""
+        service = LocalEmbeddingService()
+
+        mock_model = MagicMock()
+        mock_model.get_sentence_embedding_dimension.return_value = None
+
+        with patch.object(
+            service,
+            "_ensure_model_loaded",
+            side_effect=lambda: setattr(service, "_model", mock_model),
+        ):
+            with pytest.raises(RuntimeError, match="returned None"):
+                _ = service.dimension
+
+    def test_dimension_caches_after_first_call(self):
+        """Should cache dimension after first computation."""
+        service = LocalEmbeddingService()
+
+        mock_model = MagicMock()
+        mock_model.get_sentence_embedding_dimension.return_value = 384
+
+        with patch.object(
+            service,
+            "_ensure_model_loaded",
+            side_effect=lambda: setattr(service, "_model", mock_model),
+        ):
+            dim1 = service.dimension
+            dim2 = service.dimension
+
+        assert dim1 == 384
+        assert dim2 == 384
+        # Should only call get_sentence_embedding_dimension once
+        assert mock_model.get_sentence_embedding_dimension.call_count == 1
+
+
+# =============================================================================
+# TestLocalEmbeddingServiceEmbedBatchErrors - Batch Embedding Error Paths
+# =============================================================================
+
+
+class TestLocalEmbeddingServiceEmbedBatchErrors:
+    """Tests for embed_batch error paths."""
+
+    def test_raises_when_model_not_initialized(self):
+        """Should raise RuntimeError when model fails to initialize."""
+        service = LocalEmbeddingService()
+        service._model = None
+
+        with patch.object(service, "_ensure_model_loaded"):
+            with pytest.raises(RuntimeError, match="Model not initialized"):
+                service.embed_batch(["Test"])
+
+
+# =============================================================================
+# TestLocalEmbeddingServiceSearchNormalize - Search Normalization Paths
+# =============================================================================
+
+
+class TestLocalEmbeddingServiceSearchNormalize:
+    """Tests for search normalization behavior."""
+
+    def test_search_with_normalize_false(self):
+        """Search without normalization should use full cosine formula."""
+        service = LocalEmbeddingService()
+        service.config.normalize = False
+
+        # Set up predictable embeddings
+        query_emb = [1.0, 0.0]
+        doc_embs = [[1.0, 0.0], [0.0, 1.0]]
+
+        service.embed = lambda x: query_emb
+        service.embed_batch = lambda x: doc_embs
+
+        results = service.search(
+            query="test",
+            documents=["similar", "different"],
+            top_k=2,
+        )
+
+        # First doc should have high similarity (1.0)
+        assert results[0].score == pytest.approx(1.0)
+        # Second doc should have low similarity (0.0)
+        assert results[1].score == pytest.approx(0.0)
+
+    def test_search_with_normalize_true(self):
+        """Search with normalization should use dot product only."""
+        service = LocalEmbeddingService()
+        service.config.normalize = True
+
+        query_emb = [1.0, 0.0]
+        doc_embs = [[0.8, 0.2], [0.2, 0.8]]
+
+        service.embed = lambda x: query_emb
+        service.embed_batch = lambda x: doc_embs
+
+        results = service.search(
+            query="test",
+            documents=["doc1", "doc2"],
+            top_k=2,
+        )
+
+        assert len(results) == 2
+        assert results[0].score > results[1].score
+
+
+# =============================================================================
+# TestLocalEmbeddingServiceClusterEdgeCases - Cluster Edge Cases
+# =============================================================================
+
+
+class TestLocalEmbeddingServiceClusterEdgeCases:
+    """Tests for cluster edge cases."""
+
+    def test_cluster_single_text(self):
+        """Should handle single text by returning [0]."""
+        service = LocalEmbeddingService()
+        service.embed_batch = lambda texts: [[1.0, 0.0]]
+
+        labels = service.cluster(["single"], n_clusters=5)
+        assert labels == [0]
+
+    def test_cluster_empty_texts(self):
+        """Should handle empty text list."""
+        service = LocalEmbeddingService()
+        service.embed_batch = lambda texts: []
+
+        labels = service.cluster([], n_clusters=5)
+        assert labels == []
+
+    def test_cluster_equal_texts_and_clusters(self):
+        """Should handle when texts == clusters (returns range)."""
+        service = LocalEmbeddingService()
+        service.embed_batch = lambda texts: [[float(i)] for i in range(len(texts))]
+
+        labels = service.cluster(["a", "b", "c"], n_clusters=5)
+        assert labels == [0, 1, 2]
+
+
+# =============================================================================
+# TestEmbeddingResultEdgeCases - Edge Cases for EmbeddingResult
+# =============================================================================
+
+
+class TestEmbeddingResultEdgeCases:
+    """Edge case tests for EmbeddingResult."""
+
+    def test_exactly_100_char_text(self):
+        """Text at exactly 100 chars should not be truncated."""
+        text = "x" * 100
+        result = EmbeddingResult(
+            text=text,
+            embedding=[0.1],
+            model="test",
+            dimension=1,
+        )
+        d = result.to_dict()
+        assert d["text"] == text
+        assert not d["text"].endswith("...")
+
+    def test_embedding_preview_fewer_than_5(self):
+        """Should handle embedding with fewer than 5 dimensions."""
+        result = EmbeddingResult(
+            text="Test",
+            embedding=[0.1, 0.2],
+            model="test",
+            dimension=2,
+        )
+        d = result.to_dict()
+        assert d["embedding_preview"] == [0.1, 0.2]
+
+    def test_empty_embedding(self):
+        """Should handle empty embedding."""
+        result = EmbeddingResult(
+            text="Test",
+            embedding=[],
+            model="test",
+            dimension=0,
+        )
+        d = result.to_dict()
+        assert d["embedding_preview"] == []
+
+
+# =============================================================================
+# TestSimilarityEdgeCases - Edge Cases for Similarity
+# =============================================================================
+
+
+class TestSimilarityEdgeCases:
+    """Edge case tests for similarity computation."""
+
+    def test_single_dimension_embeddings(self):
+        """Should work with single-dimension embeddings."""
+        service = LocalEmbeddingService()
+        sim = service.similarity([1.0], [1.0])
+        assert sim == pytest.approx(1.0)
+
+    def test_large_embeddings(self):
+        """Should work with large embeddings."""
+        service = LocalEmbeddingService()
+        emb1 = list(np.random.randn(768))
+        emb2 = list(np.random.randn(768))
+        sim = service.similarity(emb1, emb2)
+        assert -1.0 <= sim <= 1.0
+
+    def test_near_zero_embeddings(self):
+        """Should handle near-zero embeddings."""
+        service = LocalEmbeddingService()
+        sim = service.similarity([1e-10, 1e-10], [1e-10, 1e-10])
+        # Result may be imprecise due to floating point
+        assert isinstance(sim, float)
+
+
+# =============================================================================
+# TestGetEmbeddingServiceEdgeCases - Global Function Edge Cases
+# =============================================================================
+
+
+class TestGetEmbeddingServiceEdgeCases:
+    """Edge case tests for get_embedding_service."""
+
+    def test_creates_with_different_devices(self):
+        """Should create separate services for different devices."""
+        with patch("aragora.ml.embeddings._embedding_services", {}):
+            service_cpu = get_embedding_service(EmbeddingModel.MINILM, "cpu")
+            service_cuda = get_embedding_service(EmbeddingModel.MINILM, "cuda")
+            assert service_cpu is not service_cuda
+
+    def test_service_uses_correct_batch_size(self):
+        """Service should use config batch_size."""
+        with patch("aragora.ml.embeddings._embedding_services", {}):
+            service = get_embedding_service(EmbeddingModel.MINILM, "cpu")
+            assert service.config.batch_size == 32  # Default
+
+    def test_model_name_enum_values(self):
+        """All models should have valid string values."""
+        for model in EmbeddingModel:
+            with patch("aragora.ml.embeddings._embedding_services", {}):
+                service = get_embedding_service(model, "cpu")
+                assert service.model_name == model.value
