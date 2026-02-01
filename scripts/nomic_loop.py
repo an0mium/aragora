@@ -57,10 +57,13 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, List, Callable, Any
@@ -8416,6 +8419,185 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         except Exception:
             return "unknown"
 
+    def _get_git_remote_url(self, remote: str) -> str | None:
+        """Get git remote URL for the given remote name."""
+        try:
+            result = subprocess.run(
+                ["git", "config", "--get", f"remote.{remote}.url"],
+                capture_output=True,
+                text=True,
+                cwd=self.aragora_path,
+            )
+            if result.returncode != 0:
+                return None
+            return result.stdout.strip() or None
+        except Exception:
+            return None
+
+    def _parse_github_repo(self, remote_url: str | None) -> str | None:
+        """Extract owner/repo from a GitHub remote URL."""
+        if not remote_url:
+            return None
+        patterns = [
+            r"^git@github\.com:(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
+            r"^https?://github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
+            r"^ssh://git@github\.com/(?P<repo>[^/]+/[^/]+?)(?:\.git)?$",
+        ]
+        for pattern in patterns:
+            match = re.match(pattern, remote_url.strip())
+            if match:
+                return match.group("repo")
+        return None
+
+    def _get_github_token(self) -> str | None:
+        """Get GitHub token from environment."""
+        return (
+            os.environ.get("NOMIC_GITHUB_TOKEN")
+            or os.environ.get("GITHUB_TOKEN")
+            or os.environ.get("GH_TOKEN")
+        )
+
+    def _push_branch(self, remote: str, branch: str) -> bool:
+        """Push HEAD to a remote branch."""
+        try:
+            result = subprocess.run(
+                ["git", "push", remote, f"HEAD:refs/heads/{branch}"],
+                cwd=self.aragora_path,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                self._log(f"  [publish] Push failed: {result.stderr.strip()}")
+                return False
+            self._log(f"  [publish] Pushed to {remote}/{branch}")
+            return True
+        except Exception as e:
+            self._log(f"  [publish] Push error: {e}")
+            return False
+
+    def _create_github_pr(
+        self,
+        repo: str,
+        head: str,
+        base: str,
+        title: str,
+        body: str,
+        draft: bool,
+        token: str,
+    ) -> str | None:
+        """Create a GitHub pull request and return the PR URL if successful."""
+        url = f"https://api.github.com/repos/{repo}/pulls"
+        payload = {
+            "title": title,
+            "head": head,
+            "base": base,
+            "body": body,
+            "draft": draft,
+        }
+        data = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        request = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                result = json.load(response)
+            pr_url = result.get("html_url")
+            if pr_url:
+                self._log("  [publish] Pull request created")
+            else:
+                self._log("  [publish] Pull request created (no URL returned)")
+            return pr_url
+        except urllib.error.HTTPError as e:
+            try:
+                error_body = e.read().decode("utf-8")
+            except Exception:
+                error_body = str(e)
+            self._log(f"  [publish] PR creation failed: {error_body}")
+            return None
+        except Exception as e:
+            self._log(f"  [publish] PR creation error: {e}")
+            return None
+
+    def _maybe_publish_commit(self, improvement: str, commit_hash: str | None) -> dict | None:
+        """Optionally push changes and open a PR after a successful commit."""
+        auto_push = os.environ.get("NOMIC_AUTO_PUSH", "0") == "1"
+        auto_pr = os.environ.get("NOMIC_AUTO_PR", "0") == "1"
+        if not auto_push and not auto_pr:
+            return None
+
+        remote = os.environ.get("NOMIC_PR_REMOTE", "origin")
+        base_branch = os.environ.get("NOMIC_PR_BASE", "main")
+        branch_prefix = os.environ.get("NOMIC_PR_BRANCH_PREFIX", "nomic")
+
+        cycle_id = None
+        if hasattr(self, "_current_cycle_record") and self._current_cycle_record:
+            cycle_id = self._current_cycle_record.cycle_id[:8]
+        if not cycle_id:
+            cycle_id = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        branch_name = f"{branch_prefix}/cycle-{self.cycle_count}-{cycle_id}"
+
+        publish_result = {
+            "branch": branch_name,
+            "pushed": False,
+            "pr_created": False,
+            "pr_url": None,
+        }
+
+        # Always push if PR is requested
+        if auto_push or auto_pr:
+            publish_result["pushed"] = self._push_branch(remote, branch_name)
+            if not publish_result["pushed"] and auto_pr:
+                self._log("  [publish] PR skipped (push failed)")
+                return publish_result
+
+        if not auto_pr:
+            return publish_result
+
+        repo = os.environ.get("GITHUB_REPOSITORY") or self._parse_github_repo(
+            self._get_git_remote_url(remote)
+        )
+        if not repo:
+            self._log("  [publish] PR skipped (repo not detected)")
+            return publish_result
+
+        token = self._get_github_token()
+        if not token:
+            self._log("  [publish] PR skipped (missing GitHub token)")
+            return publish_result
+
+        title_prefix = os.environ.get("NOMIC_PR_TITLE_PREFIX", "feat(nomic):")
+        title = f"{title_prefix} {improvement.splitlines()[0].strip()[:120]}".strip()
+        body_lines = [
+            "Auto-generated by Aragora Nomic Loop.",
+            "",
+            f"Cycle: {self.cycle_count}",
+            f"Commit: {commit_hash or 'unknown'}",
+            "",
+            "Summary:",
+            improvement.strip()[:2000],
+        ]
+        body = "\n".join(body_lines)
+        draft = os.environ.get("NOMIC_PR_DRAFT", "0") == "1"
+
+        pr_url = self._create_github_pr(
+            repo=repo,
+            head=branch_name,
+            base=base_branch,
+            title=title,
+            body=body,
+            draft=draft,
+            token=token,
+        )
+        if pr_url:
+            publish_result["pr_created"] = True
+            publish_result["pr_url"] = pr_url
+
+        return publish_result
+
     def _finalize_cycle(self, cycle_result: dict) -> None:
         """Finalize cycle and record cross-cycle learning data.
 
@@ -9498,6 +9680,11 @@ Working directory: {self.aragora_path}
         if commit_result.get("committed"):
             cycle_result["outcome"] = "success"
             self._log(f"\nCYCLE {self.cycle_count} COMPLETE - Changes committed!")
+            publish_result = self._maybe_publish_commit(
+                improvement, commit_result.get("commit_hash")
+            )
+            if publish_result:
+                cycle_result["publish"] = publish_result
         else:
             cycle_result["outcome"] = "not_committed"
 
