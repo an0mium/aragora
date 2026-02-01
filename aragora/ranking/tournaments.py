@@ -263,7 +263,9 @@ class TournamentManager:
         elif nomic_dir:
             self.db_path = Path(nomic_dir) / "tournaments" / "default.db"
         else:
-            self.db_path = Path("tournaments") / "default.db"
+            from aragora.persistence.db_config import get_nomic_dir
+
+            self.db_path = get_nomic_dir() / "tournaments" / "default.db"
 
         # Create SQLiteStore-based database wrapper
         class _TournamentDB(SQLiteStore):

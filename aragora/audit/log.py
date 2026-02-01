@@ -446,7 +446,9 @@ class AuditLog:
             retention_days: Days to retain logs (default: 7 years for SOX)
         """
         if db_path is None:
-            db_path = Path(".nomic/audit.db")
+            from aragora.persistence.db_config import get_nomic_dir
+
+            db_path = get_nomic_dir() / "audit.db"
         self.db_path = db_path
         self.retention_days = retention_days
         self._last_hash = ""
@@ -1098,7 +1100,9 @@ def get_audit_log(
     )
 
     if db_path is None:
-        db_path = Path(".nomic/audit.db")
+        from aragora.persistence.db_config import get_nomic_dir
+
+        db_path = get_nomic_dir() / "audit.db"
 
     _audit_log_instance = AuditLog(db_path=db_path, retention_days=retention_days)
     return _audit_log_instance

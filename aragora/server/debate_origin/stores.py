@@ -48,8 +48,9 @@ class SQLiteOriginStore:
 
     def __init__(self, db_path: str | None = None):
         if db_path is None:
-            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
-            db_path = str(Path(data_dir) / "debate_origins.db")
+            from aragora.persistence.db_config import get_nomic_dir
+
+            db_path = str(get_nomic_dir() / "debate_origins.db")
         self.db_path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()

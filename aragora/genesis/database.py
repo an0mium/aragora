@@ -84,6 +84,6 @@ class GenesisDatabase(SQLiteStore):
         );
     """
 
-    def __init__(self, db_path: str = ".nomic/genesis.db"):
+    def __init__(self, db_path: str = "genesis.db"):
         """Initialize genesis database."""
         super().__init__(resolve_db_path(db_path), timeout=DB_TIMEOUT_SECONDS)

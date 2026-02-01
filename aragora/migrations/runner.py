@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,

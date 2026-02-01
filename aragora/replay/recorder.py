@@ -45,9 +45,13 @@ class ReplayRecorder:
         topic: str,
         proposal: str,
         agents: list[dict[str, str]],
-        storage_dir: str = ".nomic/replays",
+        storage_dir: str | None = None,
     ):
         self.debate_id = debate_id
+        if storage_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            storage_dir = str(get_nomic_dir() / "replays")
         self.storage_dir = Path(storage_dir)
         self._start_time: float | None = None
         self._event_count = 0

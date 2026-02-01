@@ -174,7 +174,9 @@ class AuditLogger:
         self.max_events = max_events
 
         if db_path is None:
-            db_path = Path(".nomic/audit.db")
+            from aragora.persistence.db_config import get_nomic_dir
+
+            db_path = get_nomic_dir() / "audit.db"
 
         self.db_path = db_path
         self._connections: list[sqlite3.Connection] = []

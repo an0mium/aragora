@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Callable, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)

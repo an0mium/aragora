@@ -318,7 +318,7 @@ class CheckpointManager:
 
     def __init__(
         self,
-        checkpoint_dir: str = ".nomic/checkpoints",
+        checkpoint_dir: str | None = None,
         max_checkpoints: int = 20,
         auto_cleanup: bool = True,
     ):
@@ -330,6 +330,10 @@ class CheckpointManager:
             max_checkpoints: Maximum checkpoints to keep
             auto_cleanup: Whether to auto-clean old checkpoints
         """
+        if checkpoint_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            checkpoint_dir = str(get_nomic_dir() / "checkpoints")
         self.checkpoint_dir = checkpoint_dir
         self.max_checkpoints = max_checkpoints
         self.auto_cleanup = auto_cleanup

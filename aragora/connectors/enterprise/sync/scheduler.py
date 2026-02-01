@@ -310,7 +310,11 @@ class SyncScheduler:
         history_retention_days: int = DEFAULT_HISTORY_RETENTION_DAYS,
         max_history_entries: int = MAX_HISTORY_ENTRIES,
     ):
-        self.state_dir = state_dir or Path.home() / ".aragora" / "sync"
+        if state_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            state_dir = get_nomic_dir() / "sync"
+        self.state_dir = state_dir
         self.max_concurrent_syncs = max_concurrent_syncs
         self.history_retention_days = history_retention_days
         self._max_history_entries = max_history_entries

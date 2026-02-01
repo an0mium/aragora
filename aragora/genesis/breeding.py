@@ -321,7 +321,7 @@ class PopulationManager:
     - Domain-specific agent selection
     """
 
-    def __init__(self, db_path: str = ".nomic/genesis.db", max_population_size: int = 8):
+    def __init__(self, db_path: str = "genesis.db", max_population_size: int = 8):
         resolved_path = resolve_db_path(db_path)
         self.db_path = Path(resolved_path)
         self.db = GenesisDatabase(resolved_path)

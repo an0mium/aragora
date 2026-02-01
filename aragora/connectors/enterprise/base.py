@@ -334,7 +334,11 @@ class EnterpriseConnector(BaseConnector):
         self.tenant_id = tenant_id
         # Use factory function for flexible credential provider auto-detection
         self.credentials: CredentialProviderProtocol = credentials or get_credential_provider()
-        self.state_dir = state_dir or Path.home() / ".aragora" / "sync_state"
+        if state_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            state_dir = get_nomic_dir() / "sync_state"
+        self.state_dir = state_dir
 
         # Circuit breaker
         self._enable_circuit_breaker = enable_circuit_breaker

@@ -62,8 +62,10 @@ class TrainingHandler(BaseHandler):
         """Initialize with server context."""
         super().__init__(ctx)
         self._exporters: dict[str, Any] = {}
+        from aragora.persistence.db_config import get_nomic_dir
+
         self._export_dir = Path(
-            os.environ.get("ARAGORA_TRAINING_EXPORT_DIR", ".nomic/training_exports")
+            os.environ.get("ARAGORA_TRAINING_EXPORT_DIR", str(get_nomic_dir() / "training_exports"))
         )
         self._export_dir.mkdir(parents=True, exist_ok=True)
 

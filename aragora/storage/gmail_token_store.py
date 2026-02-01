@@ -33,7 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 
 if TYPE_CHECKING:
     from asyncpg import Pool

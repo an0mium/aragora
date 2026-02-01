@@ -112,7 +112,11 @@ class WisdomInjector:
             storage_path: Path for persistence (defaults to .nomic/wisdom)
         """
         self.loop_id = loop_id
-        self.storage_path = storage_path or Path(".nomic/wisdom")
+        if storage_path is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            storage_path = get_nomic_dir() / "wisdom"
+        self.storage_path = storage_path
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
         self.pending_wisdom: list[WisdomSubmission] = []

@@ -31,7 +31,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.utils.async_utils import run_async
 
 if TYPE_CHECKING:

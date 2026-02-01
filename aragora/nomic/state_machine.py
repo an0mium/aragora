@@ -79,7 +79,7 @@ class NomicStateMachine:
 
     def __init__(
         self,
-        checkpoint_dir: str = ".nomic/checkpoints",
+        checkpoint_dir: str | None = None,
         enable_checkpoints: bool = True,
         enable_metrics: bool = True,
     ):
@@ -90,6 +90,10 @@ class NomicStateMachine:
             checkpoint_dir: Directory to store checkpoints
             enable_checkpoints: Whether to checkpoint after transitions
         """
+        if checkpoint_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            checkpoint_dir = str(get_nomic_dir() / "checkpoints")
         self.checkpoint_dir = checkpoint_dir
         self.enable_checkpoints = enable_checkpoints
         self.enable_metrics = enable_metrics
@@ -576,7 +580,7 @@ class NomicStateMachine:
 
 # Convenience function to create a pre-configured state machine
 def create_nomic_state_machine(
-    checkpoint_dir: str = ".nomic/checkpoints",
+    checkpoint_dir: str | None = None,
     enable_checkpoints: bool = True,
     enable_metrics: bool = True,
 ) -> NomicStateMachine:

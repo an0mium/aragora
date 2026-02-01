@@ -31,7 +31,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, ClassVar, Iterator
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 from aragora.storage.repositories import (
     AuditRepository,

@@ -610,9 +610,11 @@ def get_audit_log() -> ImmutableAuditLog:
         with _lock:
             if _audit_log is None:
                 # Default to local file backend
+                from aragora.persistence.db_config import get_nomic_dir
+
                 log_dir = os.environ.get(
                     "ARAGORA_AUDIT_LOG_DIR",
-                    ".nomic/audit_logs",
+                    str(get_nomic_dir() / "audit_logs"),
                 )
                 signing_key = os.environ.get("ARAGORA_AUDIT_SIGNING_KEY")
                 signing_key_bytes = signing_key.encode() if signing_key else None
@@ -646,7 +648,9 @@ def init_audit_log(
 
     backend_impl: AuditLogBackend
     if backend == AuditBackend.LOCAL:
-        log_dir = backend_kwargs.get("log_dir", ".nomic/audit_logs")
+        from aragora.persistence.db_config import get_nomic_dir
+
+        log_dir = backend_kwargs.get("log_dir", str(get_nomic_dir() / "audit_logs"))
         backend_impl = LocalFileBackend(log_dir)
     elif backend == AuditBackend.S3_OBJECT_LOCK:
         backend_impl = S3ObjectLockBackend(

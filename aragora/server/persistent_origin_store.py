@@ -229,8 +229,9 @@ class PersistentOriginStore:
         """Initialize SQLite database."""
         # Only set path if not already set (allows test injection)
         if self._sqlite_path is None:
-            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
-            self._sqlite_path = str(Path(data_dir) / "routing_origins.db")
+            from aragora.persistence.db_config import get_nomic_dir
+
+            self._sqlite_path = str(get_nomic_dir() / "routing_origins.db")
         Path(self._sqlite_path).parent.mkdir(parents=True, exist_ok=True)
 
         # SQLite is synchronous, run in thread pool

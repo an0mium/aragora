@@ -187,7 +187,9 @@ class ConsentStore:
             storage_path: Path to store consent data (default: ~/.aragora/consent.json)
         """
         if storage_path is None:
-            storage_path = Path.home() / ".aragora" / "consent.json"
+            from aragora.persistence.db_config import get_nomic_dir
+
+            storage_path = get_nomic_dir() / "consent.json"
         self.storage_path = Path(storage_path)
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 

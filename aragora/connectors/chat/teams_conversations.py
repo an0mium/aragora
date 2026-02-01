@@ -226,7 +226,9 @@ class TeamsConversationStore:
             db_path: Path to SQLite database
         """
         if db_path is None:
-            data_dir = Path.home() / ".aragora"
+            from aragora.persistence.db_config import get_nomic_dir
+
+            data_dir = get_nomic_dir()
             data_dir.mkdir(parents=True, exist_ok=True)
             db_path = str(data_dir / "teams_conversations.db")
 

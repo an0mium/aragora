@@ -137,7 +137,7 @@ DB_TIMEOUT = 30.0
 
 def _resolve_sqlite_path(db_path: str | Path) -> str:
     """Resolve SQLite paths under ARAGORA_DATA_DIR for relative filenames."""
-    from aragora.config.legacy import resolve_db_path
+    from aragora.config import resolve_db_path
 
     resolved = resolve_db_path(db_path)
     if resolved == ":memory:" or resolved.startswith("file:"):

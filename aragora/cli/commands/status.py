@@ -91,7 +91,9 @@ def cmd_status(args: argparse.Namespace) -> None:
             print(f"  \u2717 {name}: not found")
 
     # Show nomic loop state if available
-    nomic_state = Path(".nomic/nomic_state.json")
+    from aragora.persistence.db_config import get_nomic_dir
+
+    nomic_state = get_nomic_dir() / "nomic_state.json"
     if nomic_state.exists():
         print("\n\U0001f504 Nomic Loop:")
         try:

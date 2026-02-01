@@ -24,7 +24,7 @@ import threading
 import time
 from typing import Any
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,

@@ -16,7 +16,7 @@ import sqlite3
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.services.spam.features import SpamFeatures
 from aragora.services.spam.model import NaiveBayesClassifier
 from aragora.services.spam.models import (

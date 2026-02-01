@@ -211,7 +211,7 @@ class AgentGenome:
 class GenomeStore:
     """SQLite-based storage for genomes."""
 
-    def __init__(self, db_path: str = ".nomic/genesis.db"):
+    def __init__(self, db_path: str = "genesis.db"):
         resolved_path = resolve_db_path(db_path)
         self.db_path = Path(resolved_path)
         self.db = GenesisDatabase(resolved_path)

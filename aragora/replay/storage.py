@@ -31,7 +31,11 @@ logger = logging.getLogger(__name__)
 class ReplayStorage:
     """Manages replay storage and indexing."""
 
-    def __init__(self, storage_dir: str = ".nomic/replays"):
+    def __init__(self, storage_dir: str | None = None):
+        if storage_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            storage_dir = str(get_nomic_dir() / "replays")
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 

@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from asyncpg import Pool
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 
 logger = logging.getLogger(__name__)
 

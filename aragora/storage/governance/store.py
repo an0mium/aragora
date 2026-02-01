@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,

@@ -151,8 +151,10 @@ class MigrationRunner:
         if env_dir:
             return Path(env_dir)
 
-        # Default to .nomic (relative to current working directory)
-        return Path(".nomic")
+        # Default to ARAGORA_DATA_DIR
+        from aragora.persistence.db_config import get_nomic_dir
+
+        return get_nomic_dir()
 
     def _get_backup_manager(self):
         """Get or create the backup manager (lazy-loaded)."""

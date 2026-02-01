@@ -114,7 +114,11 @@ class GauntletOrchestrator:
             run_agent_fn: Optional function to run agents (async callable)
         """
         self.agents = agents or []
-        self.nomic_dir = nomic_dir or Path(".nomic")
+        if nomic_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            nomic_dir = get_nomic_dir()
+        self.nomic_dir = nomic_dir
         self.on_phase_complete = on_phase_complete
         self.on_finding = on_finding
         self.run_agent_fn = run_agent_fn or self._default_run_agent

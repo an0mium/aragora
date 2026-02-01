@@ -162,8 +162,10 @@ class KMCheckpointStore:
         if checkpoint_dir:
             self.checkpoint_dir = Path(checkpoint_dir)
         else:
-            # Default to .aragora/km_checkpoints
-            self.checkpoint_dir = Path.home() / ".aragora" / "km_checkpoints"
+            # Default to ARAGORA_DATA_DIR/km_checkpoints
+            from aragora.persistence.db_config import get_nomic_dir
+
+            self.checkpoint_dir = get_nomic_dir() / "km_checkpoints"
 
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 

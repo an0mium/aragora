@@ -47,10 +47,12 @@ from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
+from aragora.persistence.db_config import get_nomic_dir
+
 logger = logging.getLogger(__name__)
 
-# Default database path
-DEFAULT_METERING_DB = Path(".nomic/usage_metering.db")
+# Default database path (respects ARAGORA_DATA_DIR)
+DEFAULT_METERING_DB = get_nomic_dir() / "usage_metering.db"
 
 
 class MeteringPeriod(Enum):

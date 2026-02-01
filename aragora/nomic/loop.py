@@ -77,7 +77,11 @@ class NomicLoop:
         self.protected_files = protected_files or []
         self.require_human_approval = require_human_approval
         self.log_fn = log_fn or logger.info
-        self.checkpoint_dir = checkpoint_dir or Path(".nomic/checkpoints")
+        if checkpoint_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            checkpoint_dir = get_nomic_dir() / "checkpoints"
+        self.checkpoint_dir = checkpoint_dir
         self.max_files_per_cycle = max_files_per_cycle
         self.max_consecutive_failures = max_consecutive_failures
 

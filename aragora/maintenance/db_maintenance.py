@@ -18,8 +18,15 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Default database directory
-DEFAULT_DB_DIR = Path(".nomic")
+
+# Default database directory (respects ARAGORA_DATA_DIR)
+def _get_default_db_dir() -> Path:
+    from aragora.persistence.db_config import get_nomic_dir
+
+    return get_nomic_dir()
+
+
+DEFAULT_DB_DIR = _get_default_db_dir()
 
 # All known database files (relative to DB_DIR)
 KNOWN_DATABASES = [

@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Optional
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.persistence.db_config import DatabaseType
 
 logger = logging.getLogger(__name__)

@@ -43,10 +43,17 @@ from aragora.utils.paths import PathTraversalError, safe_path
 
 logger = logging.getLogger(__name__)
 
+
 # SECURITY: Allowed base directories for backup source paths.
 # Only files within these directories can be backed up via the API.
+def _get_data_dir_resolved() -> Path:
+    from aragora.persistence.db_config import get_nomic_dir
+
+    return get_nomic_dir().resolve()
+
+
 _ALLOWED_BACKUP_SOURCE_DIRS: list[Path] = [
-    Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic")).resolve(),
+    _get_data_dir_resolved(),
     Path("/var/aragora/data"),
     Path("/var/lib/aragora"),
 ]

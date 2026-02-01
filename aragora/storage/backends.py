@@ -30,7 +30,7 @@ from pathlib import Path
 from queue import Empty, Full, Queue
 from typing import Any, ContextManager, Generator, cast
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -546,7 +546,9 @@ def get_database_backend(
             elif db_settings:
                 sqlite_path = str(Path(db_settings.nomic_dir) / "aragora.db")
             else:
-                sqlite_path = ".nomic/aragora.db"
+                from aragora.persistence.db_config import get_nomic_dir
+
+                sqlite_path = str(get_nomic_dir() / "aragora.db")
 
             _backend = SQLiteBackend(db_path=sqlite_path)
             logger.info(f"Using SQLite backend: {sqlite_path}")

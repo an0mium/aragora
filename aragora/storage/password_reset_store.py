@@ -36,7 +36,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 
 if TYPE_CHECKING:
     from asyncpg import Pool

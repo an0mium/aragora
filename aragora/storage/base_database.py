@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Generator
 
 from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)

@@ -92,6 +92,69 @@ def _report(heading: str, paths: list[str]) -> None:
         print(f"  - {path}")
 
 
+_HARDCODED_PATH_PATTERNS = [
+    'Path(".nomic/',
+    'Path(".nomic")',
+    "Path('.nomic/",
+    "Path('.nomic')",
+    '".nomic/',
+    "'.nomic/",
+]
+
+# Files that legitimately reference .nomic (configs, docs, tests, migrations)
+_HARDCODED_PATH_ALLOWLIST = {
+    "aragora/config/legacy.py",
+    "aragora/config/settings.py",
+    "aragora/persistence/db_config.py",
+    "aragora/migrations/sqlite_to_postgres.py",
+    "scripts/guard_repo_clean.py",
+    "scripts/migrate_runtime_dbs.py",
+    "scripts/migrate_databases.py",
+    "scripts/migrate_sqlite_to_postgres.py",
+    "scripts/seed_demo.py",
+    "scripts/epic_strategic_debate.py",
+    "scripts/generate_epic_debate_receipt.py",
+    "scripts/strategic_debate.py",
+    "scripts/run_fractal_debate.py",
+    "scripts/replay_cli.py",
+    "scripts/gastown_migrate_state.py",
+    "scripts/nomic_eval.py",
+    "scripts/nomic/safety/constitution.py",
+    # Docstrings/string literals (not path construction)
+    "aragora/broadcast/pipeline.py",
+    "aragora/policy/engine.py",
+    "aragora/replay/storage.py",
+}
+
+
+def _scan_hardcoded_paths(repo_root: Path) -> list[str]:
+    """Scan Python source for hardcoded .nomic/ paths (lint check)."""
+    violations: list[str] = []
+    aragora_dir = repo_root / "aragora"
+    scripts_dir = repo_root / "scripts"
+    for search_dir in (aragora_dir, scripts_dir):
+        if not search_dir.is_dir():
+            continue
+        for py_file in search_dir.rglob("*.py"):
+            rel = str(py_file.relative_to(repo_root))
+            if rel in _HARDCODED_PATH_ALLOWLIST:
+                continue
+            if "/tests/" in rel or rel.startswith("tests/"):
+                continue
+            try:
+                content = py_file.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for i, line in enumerate(content.splitlines(), 1):
+                if any(pat in line for pat in _HARDCODED_PATH_PATTERNS):
+                    # Skip comments
+                    stripped = line.lstrip()
+                    if stripped.startswith("#"):
+                        continue
+                    violations.append(f"{rel}:{i}: {stripped.strip()}")
+    return violations
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Guard repo against runtime artifacts.")
     parser.add_argument(
@@ -105,6 +168,11 @@ def main() -> int:
         dest="check_working_tree",
         action="store_true",
         help="Also fail if untracked working-tree artifacts are present.",
+    )
+    parser.add_argument(
+        "--scan-paths",
+        action="store_true",
+        help="Scan source for hardcoded .nomic/ paths (lint check).",
     )
     args = parser.parse_args()
 
@@ -124,6 +192,12 @@ def main() -> int:
         if untracked:
             _report("Untracked runtime artifacts detected:", untracked)
             print("Move runtime data under ARAGORA_DATA_DIR or delete these artifacts.")
+            return 1
+
+    if args.scan_paths:
+        violations = _scan_hardcoded_paths(repo_root)
+        if violations:
+            _report("Hardcoded .nomic/ paths found (use get_nomic_dir()):", violations)
             return 1
 
     print("Repo hygiene check passed.")

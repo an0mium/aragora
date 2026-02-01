@@ -246,7 +246,9 @@ class DeletionStore:
     def __init__(self, storage_path: str | Path | None = None) -> None:
         """Initialize deletion store."""
         if storage_path is None:
-            storage_path = Path.home() / ".aragora" / "deletion_store.json"
+            from aragora.persistence.db_config import get_nomic_dir
+
+            storage_path = get_nomic_dir() / "deletion_store.json"
         self.storage_path = Path(storage_path)
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 

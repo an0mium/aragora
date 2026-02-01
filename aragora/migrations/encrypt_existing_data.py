@@ -51,7 +51,12 @@ class EncryptionMigration:
             dry_run: If True, preview changes without applying
             backup_dir: Path for backups (default: data_dir/backups)
         """
-        self.data_dir = Path(data_dir or os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+        if data_dir:
+            self.data_dir = Path(data_dir)
+        else:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            self.data_dir = get_nomic_dir()
         self.dry_run = dry_run
         self.backup_dir = Path(backup_dir) if backup_dir else self.data_dir / "backups"
         self.backup_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -161,7 +161,9 @@ class PluginRevenueTracker:
             db_path: Path to SQLite database (default: .nomic/plugin_revenue.db)
         """
         if db_path is None:
-            db_path = Path(".nomic/plugin_revenue.db")
+            from aragora.persistence.db_config import get_nomic_dir
+
+            db_path = get_nomic_dir() / "plugin_revenue.db"
         self.db_path = db_path
         self._ensure_schema()
 

@@ -16,7 +16,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 
 SUFFIXES = (".db", ".db-wal", ".db-shm", ".sqlite", ".sqlite3")
 

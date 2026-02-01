@@ -1314,7 +1314,9 @@ def get_backup_manager(backup_dir: str | Path | None = None) -> BackupManager:
     global _backup_manager
     if _backup_manager is None:
         if backup_dir is None:
-            backup_dir = Path.home() / ".aragora" / "backups"
+            from aragora.persistence.db_config import get_nomic_dir
+
+            backup_dir = get_nomic_dir() / "backups"
         _backup_manager = BackupManager(backup_dir)
     return _backup_manager
 

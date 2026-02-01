@@ -12,9 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
-from pathlib import Path
 from typing import Any
 
 from aragora.nomic.cycle_record import NomicCycleRecord
@@ -52,9 +50,11 @@ class CycleLearningStore:
             db_path: Path to SQLite database. Defaults to .nomic/cycles.db
         """
         if db_path is None:
-            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
-            Path(data_dir).mkdir(parents=True, exist_ok=True)
-            db_path = str(Path(data_dir) / "cycles.db")
+            from aragora.persistence.db_config import get_nomic_dir
+
+            data_dir = get_nomic_dir()
+            data_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(data_dir / "cycles.db")
 
         self.db_path = db_path
         self._init_schema()

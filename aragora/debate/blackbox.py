@@ -84,7 +84,11 @@ class BlackboxRecorder:
             max_events: Maximum events to keep in memory before flushing
         """
         self.session_id = session_id
-        self.base_path = base_path or Path(".nomic/sessions")
+        if base_path is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            base_path = get_nomic_dir() / "sessions"
+        self.base_path = base_path
         self.session_path = self.base_path / session_id
         self.session_path.mkdir(parents=True, exist_ok=True)
 

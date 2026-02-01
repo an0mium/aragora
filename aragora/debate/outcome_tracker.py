@@ -29,11 +29,12 @@ from datetime import datetime
 from pathlib import Path
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.persistence.db_config import get_nomic_dir
 
 logger = logging.getLogger(__name__)
 
-# Default database path
-DEFAULT_OUTCOMES_DB = Path(".nomic/outcomes.db")
+# Default database path (respects ARAGORA_DATA_DIR)
+DEFAULT_OUTCOMES_DB = get_nomic_dir() / "outcomes.db"
 
 
 @dataclass

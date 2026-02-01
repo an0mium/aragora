@@ -331,7 +331,11 @@ class EnterpriseMeter:
         Args:
             db_path: Path to SQLite database
         """
-        self.db_path = db_path or Path(".nomic/enterprise_billing.db")
+        if db_path is None:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            db_path = get_nomic_dir() / "enterprise_billing.db"
+        self.db_path = db_path
         self._conn: sqlite3.Connection | None = None
         self._lock = asyncio.Lock()
         self._initialized = False

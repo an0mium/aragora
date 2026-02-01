@@ -36,7 +36,7 @@ from abc import ABC
 from pathlib import Path
 
 from aragora.config import DB_TIMEOUT_SECONDS
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 from aragora.storage.base_database import BaseDatabase
 from aragora.storage.schema import SchemaManager, safe_add_column
 

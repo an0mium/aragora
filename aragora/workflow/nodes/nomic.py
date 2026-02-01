@@ -192,7 +192,7 @@ class NomicLoopStep(BaseStep):
                 logger.info(f"Starting nomic cycle {cycle + 1}/{cycles}")
 
                 machine = create_nomic_state_machine(
-                    checkpoint_dir=config.get("checkpoint_dir", ".nomic/checkpoints"),
+                    checkpoint_dir=config.get("checkpoint_dir"),
                     enable_checkpoints=recovery_enabled,
                     enable_metrics=True,
                 )

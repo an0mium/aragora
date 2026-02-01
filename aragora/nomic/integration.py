@@ -212,7 +212,12 @@ class NomicIntegration:
 
         # Checkpoint manager with file store
         if enable_checkpointing:
-            checkpoint_path = checkpoint_dir or Path(".nomic/checkpoints")
+            if checkpoint_dir is None:
+                from aragora.persistence.db_config import get_nomic_dir
+
+                checkpoint_path = get_nomic_dir() / "checkpoints"
+            else:
+                checkpoint_path = checkpoint_dir
             checkpoint_path.mkdir(parents=True, exist_ok=True)
             store = FileCheckpointStore(str(checkpoint_path))
             self.checkpoint_mgr = CheckpointManager(store=store)

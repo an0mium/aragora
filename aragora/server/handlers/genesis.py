@@ -196,7 +196,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis module not available", 503)
 
         try:
-            ledger_path = ".nomic/genesis.db"
+            ledger_path = "genesis.db"
             if nomic_dir:
                 ledger_path = str(nomic_dir / "genesis.db")
 
@@ -242,7 +242,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis module not available", 503)
 
         try:
-            ledger_path = ".nomic/genesis.db"
+            ledger_path = "genesis.db"
             if nomic_dir:
                 ledger_path = str(nomic_dir / "genesis.db")
 
@@ -330,7 +330,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis module not available", 503)
 
         try:
-            ledger_path = ".nomic/genesis.db"
+            ledger_path = "genesis.db"
             if nomic_dir:
                 ledger_path = str(nomic_dir / "genesis.db")
 
@@ -403,7 +403,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis module not available", 503)
 
         try:
-            ledger_path = ".nomic/genesis.db"
+            ledger_path = "genesis.db"
             if nomic_dir:
                 ledger_path = str(nomic_dir / "genesis.db")
 
@@ -427,7 +427,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis genome module not available", 503)
 
         try:
-            db_path = ".nomic/genesis.db"
+            db_path = "genesis.db"
             if nomic_dir:
                 db_path = str(nomic_dir / "genesis.db")
 
@@ -456,7 +456,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis genome module not available", 503)
 
         try:
-            db_path = ".nomic/genesis.db"
+            db_path = "genesis.db"
             if nomic_dir:
                 db_path = str(nomic_dir / "genesis.db")
 
@@ -479,7 +479,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis genome module not available", 503)
 
         try:
-            db_path = ".nomic/genesis.db"
+            db_path = "genesis.db"
             if nomic_dir:
                 db_path = str(nomic_dir / "genesis.db")
 
@@ -505,7 +505,7 @@ class GenesisHandler(BaseHandler):
             Population details including genomes, generation, and average fitness
         """
         try:
-            db_path = ".nomic/genesis.db"
+            db_path = "genesis.db"
             if nomic_dir:
                 db_path = str(nomic_dir / "genesis.db")
 
@@ -602,7 +602,7 @@ class GenesisHandler(BaseHandler):
             return error_response("Genesis genome module not available", 503)
 
         try:
-            db_path = ".nomic/genesis.db"
+            db_path = "genesis.db"
             if nomic_dir:
                 db_path = str(nomic_dir / "genesis.db")
 

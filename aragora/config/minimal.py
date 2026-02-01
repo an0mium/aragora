@@ -22,7 +22,7 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from aragora.config.legacy import resolve_db_path
+from aragora.config import resolve_db_path
 
 logger = logging.getLogger(__name__)
 

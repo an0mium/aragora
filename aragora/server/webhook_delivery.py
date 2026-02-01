@@ -96,11 +96,17 @@ def _build_trace_headers() -> dict[str, str]:
     return headers
 
 
-# Default database path
-_DEFAULT_DB_PATH = os.environ.get(
-    "ARAGORA_WEBHOOK_DB",
-    os.path.join(os.environ.get("ARAGORA_DATA_DIR", ".nomic"), "webhook_delivery.db"),
-)
+# Default database path (respects ARAGORA_DATA_DIR)
+def _get_default_db_path() -> str:
+    custom = os.environ.get("ARAGORA_WEBHOOK_DB")
+    if custom:
+        return custom
+    from aragora.persistence.db_config import get_nomic_dir
+
+    return str(get_nomic_dir() / "webhook_delivery.db")
+
+
+_DEFAULT_DB_PATH = _get_default_db_path()
 
 
 class DeliveryStatus(str, Enum):
