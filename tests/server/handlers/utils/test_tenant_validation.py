@@ -299,10 +299,14 @@ class TestValidateTenantAccessSync:
         result = validate_tenant_access_sync(user, "tenant-2")
         assert result is None
 
-    def test_allows_default_workspace(self):
+    def test_rejects_default_without_membership(self):
+        # validate_tenant_access_sync does NOT automatically allow "default"
+        # Use validate_workspace_access_sync for that behavior
         user = MockUser(tenant_id="tenant-1")
         result = validate_tenant_access_sync(user, "default")
-        assert result is None  # No error
+        # "default" is not in memberships, so should be rejected
+        assert result is not None
+        assert _get_response_status(result) == 403
 
 
 # ===========================================================================

@@ -41,7 +41,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional
+
+if TYPE_CHECKING:
+    from aragora.knowledge.unified.types import KnowledgeLink
 
 from aragora.knowledge.types import (
     Fact,
@@ -664,6 +667,80 @@ class KnowledgeMoundMetaStore(SQLiteStore):
                     relationships.append(KnowledgeRelationship.from_dict(dict(row)))
 
         return relationships
+
+    async def get_relationships_batch_async(
+        self,
+        node_ids: list[str],
+        types: list[RelationshipType] | None = None,
+    ) -> dict[str, list["KnowledgeLink"]]:
+        """Get relationships for multiple nodes in a single query.
+
+        This is an optimized batch operation that fetches all relationships
+        for the given node IDs in a single database query, avoiding N+1
+        query patterns.
+
+        Args:
+            node_ids: List of node IDs to fetch relationships for
+            types: Optional filter for specific relationship types
+
+        Returns:
+            Dictionary mapping each node_id to its list of relationships
+        """
+        # Import here to avoid circular import
+        from aragora.knowledge.unified.types import KnowledgeLink
+        from aragora.knowledge.unified.types import RelationshipType as UnifiedRelType
+
+        if not node_ids:
+            return {}
+
+        # Initialize result dict with empty lists for all requested nodes
+        result: dict[str, list[KnowledgeLink]] = {node_id: [] for node_id in node_ids}
+
+        with self.connection() as conn:
+            # Build query with IN clause for batch fetching
+            # Note: Parentheses around the OR clause are crucial for correct precedence
+            # when combined with AND (for type filtering)
+            placeholders = ",".join("?" * len(node_ids))
+            query = f"""
+                SELECT * FROM relationships
+                WHERE (from_node_id IN ({placeholders}) OR to_node_id IN ({placeholders}))
+            """
+            params: list[Any] = list(node_ids) + list(node_ids)
+
+            if types:
+                type_placeholders = ",".join("?" * len(types))
+                query += f" AND relationship_type IN ({type_placeholders})"
+                params.extend(types)
+
+            rows = conn.execute(query, params).fetchall()
+
+            # Group relationships by node_id
+            for row in rows:
+                row_dict = dict(row)
+                link = KnowledgeLink(
+                    id=row_dict["id"],
+                    source_id=row_dict["from_node_id"],
+                    target_id=row_dict["to_node_id"],
+                    relationship=UnifiedRelType(row_dict["relationship_type"]),
+                    confidence=row_dict.get("strength", 1.0),
+                    created_at=(
+                        datetime.fromisoformat(row_dict["created_at"])
+                        if isinstance(row_dict.get("created_at"), str)
+                        else datetime.now()
+                    ),
+                    metadata=safe_json_loads(row_dict.get("metadata", "{}"), {}),
+                )
+
+                # Add to both source and target node lists if they're in our request
+                if row_dict["from_node_id"] in result:
+                    result[row_dict["from_node_id"]].append(link)
+                if (
+                    row_dict["to_node_id"] in result
+                    and row_dict["to_node_id"] != row_dict["from_node_id"]
+                ):
+                    result[row_dict["to_node_id"]].append(link)
+
+        return result
 
     def query_nodes(
         self,

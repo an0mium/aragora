@@ -956,10 +956,12 @@ class TestAnalytics:
     """Tests for analytics operations."""
 
     @pytest.mark.asyncio
-    async def test_get_sales_metrics(self, connector, now_utc):
+    async def test_get_sales_metrics(self, connector):
         """get_sales_metrics returns aggregated data from mock orders."""
-        start = now_utc - timedelta(days=1)
-        end = now_utc + timedelta(days=1)
+        # Mock orders use datetime.now() internally, so use current time range
+        now = datetime.now(timezone.utc)
+        start = now - timedelta(days=1)
+        end = now + timedelta(days=1)
 
         metrics = await connector.get_sales_metrics(start, end)
 
@@ -1240,12 +1242,13 @@ class TestSyncStateManagement:
             assert item.domain == "ecommerce"
 
     @pytest.mark.asyncio
-    async def test_sync_respects_last_sync_at(self, connector, now_utc):
+    async def test_sync_respects_last_sync_at(self, connector):
         """Sync filters items based on last_sync_at."""
-        # Set last_sync_at to future - should filter out all mock items
+        # Mock orders use datetime.now() internally, so use actual future time
+        now = datetime.now(timezone.utc)
         future_state = SyncState(
             connector_id="amazon",
-            last_sync_at=now_utc + timedelta(days=1),
+            last_sync_at=now + timedelta(days=1),
         )
 
         items = []

@@ -77,13 +77,26 @@ class TestMetricsExceptionHandling:
 
         _init_metrics()
 
-        # Set server as running
+        # Save original state
         original_server = metrics_module._metrics_server
+
+        # Set server as "running" by assigning a port number
         metrics_module._metrics_server = 9090
+
+        # Call stop - should mark for shutdown
         result = stop_metrics_server()
+
+        # Result should be True since server was "running"
+        assert result is True, (
+            f"Expected True but got {result}, _metrics_server was {original_server}"
+        )
+
         # After calling stop, _metrics_server should be None
-        assert metrics_module._metrics_server is None
-        # Restore original state for other tests
+        assert metrics_module._metrics_server is None, (
+            f"Expected None but got {metrics_module._metrics_server}"
+        )
+
+        # Restore original state for other tests (may already be None)
         metrics_module._metrics_server = original_server
 
 

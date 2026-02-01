@@ -312,6 +312,16 @@ class AmazonConnector(EnterpriseConnector):
         ```
     """
 
+    @property
+    def name(self) -> str:
+        """Connector name for identification."""
+        return "amazon"
+
+    @property
+    def source_type(self) -> SourceType:
+        """Source type for provenance tracking."""
+        return SourceType.EXTERNAL_API
+
     def __init__(
         self,
         credentials: AmazonCredentials,
@@ -327,7 +337,7 @@ class AmazonConnector(EnterpriseConnector):
                       Set to False when python-amazon-sp-api is installed
                       and valid credentials are provided.
         """
-        super().__init__(connector_id="amazon", name="amazon", source_type=SourceType.EXTERNAL_API)
+        super().__init__(connector_id="amazon")
         self.amazon_credentials = credentials
         self.sandbox = sandbox
         self.use_mock = use_mock
@@ -853,6 +863,74 @@ class AmazonConnector(EnterpriseConnector):
                     "total_quantity": item.total_quantity,
                 },
             )
+
+    # =========================================================================
+    # BaseConnector abstract method implementations
+    # =========================================================================
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> list:
+        """
+        Search for evidence in Amazon data.
+
+        Currently searches products via catalog API.
+
+        Args:
+            query: Search query
+            limit: Maximum results
+
+        Returns:
+            List of Evidence objects (empty for now as catalog search returns None)
+        """
+        # Use catalog search as the search implementation
+        # TODO: Convert catalog search results to Evidence format when implemented
+        _ = await self.search_catalog(query, limit=limit)  # noqa: F841
+        return []
+
+    async def fetch(self, evidence_id: str):
+        """
+        Fetch specific evidence by ID.
+
+        Args:
+            evidence_id: Evidence ID (e.g., "order:123" or "inventory:SKU-001")
+
+        Returns:
+            Evidence object or None
+        """
+        # Parse the evidence ID to determine type
+        if evidence_id.startswith("order:"):
+            order_id = evidence_id[6:]
+            order = await self.get_order(order_id)
+            if order:
+                from aragora.connectors.base import Evidence
+
+                return Evidence(
+                    id=evidence_id,
+                    source_type=self.source_type,
+                    source_id=order_id,
+                    content=f"Order {order.amazon_order_id}: {order.order_status.value}",
+                    title=f"Amazon Order {order.amazon_order_id}",
+                    metadata=order.to_dict(),
+                )
+        elif evidence_id.startswith("inventory:"):
+            sku = evidence_id[10:]
+            item = await self.get_inventory_item(sku)
+            if item:
+                from aragora.connectors.base import Evidence
+
+                return Evidence(
+                    id=evidence_id,
+                    source_type=self.source_type,
+                    source_id=sku,
+                    content=f"Inventory {item.seller_sku}: {item.available_quantity} available",
+                    title=f"Amazon Inventory {item.seller_sku}",
+                    metadata=item.to_dict(),
+                )
+        return None
 
 
 # =========================================================================

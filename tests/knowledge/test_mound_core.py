@@ -478,6 +478,203 @@ class TestMetaStoreDeleteAndProvenance:
 
 
 # ============================================================
+# get_relationships_batch_async tests
+# ============================================================
+
+
+class TestGetRelationshipsBatchAsync:
+    """Tests for KnowledgeMoundMetaStore.get_relationships_batch_async."""
+
+    @pytest.fixture
+    def store(self):
+        """Create a temporary MetaStore."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test_batch_relationships.db"
+            yield KnowledgeMoundMetaStore(db_path)
+
+    @pytest.mark.asyncio
+    async def test_get_relationships_batch_returns_dict(self, store):
+        """Should return a dictionary mapping node IDs to relationship lists."""
+        n1 = KnowledgeNode(content="Node 1", workspace_id="ws")
+        n2 = KnowledgeNode(content="Node 2", workspace_id="ws")
+        n3 = KnowledgeNode(content="Node 3", workspace_id="ws")
+        store.save_node(n1)
+        store.save_node(n2)
+        store.save_node(n3)
+
+        # n1 -> n2 (supports), n1 -> n3 (contradicts)
+        store.save_relationship(
+            KnowledgeRelationship(
+                from_node_id=n1.id, to_node_id=n2.id, relationship_type="supports"
+            )
+        )
+        store.save_relationship(
+            KnowledgeRelationship(
+                from_node_id=n1.id, to_node_id=n3.id, relationship_type="contradicts"
+            )
+        )
+
+        result = await store.get_relationships_batch_async([n1.id, n2.id, n3.id])
+
+        assert isinstance(result, dict)
+        assert n1.id in result
+        assert n2.id in result
+        assert n3.id in result
+        # n1 has 2 outgoing relationships
+        assert len(result[n1.id]) == 2
+        # n2 has 1 incoming relationship (from n1)
+        assert len(result[n2.id]) == 1
+        # n3 has 1 incoming relationship (from n1)
+        assert len(result[n3.id]) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_relationships_batch_single_query(self, store):
+        """Should fetch all relationships in a single query (not N queries)."""
+        # Create nodes
+        nodes = [KnowledgeNode(content=f"Node {i}", workspace_id="ws") for i in range(5)]
+        for node in nodes:
+            store.save_node(node)
+
+        # Create relationships between all pairs
+        for i, n1 in enumerate(nodes):
+            for n2 in nodes[i + 1 :]:
+                store.save_relationship(
+                    KnowledgeRelationship(
+                        from_node_id=n1.id, to_node_id=n2.id, relationship_type="related_to"
+                    )
+                )
+
+        # Fetch all relationships in batch
+        result = await store.get_relationships_batch_async([n.id for n in nodes])
+
+        # All nodes should be in result
+        for node in nodes:
+            assert node.id in result
+
+        # Total unique relationships: 5*4/2 = 10
+        # Each relationship appears in 2 node lists (source and target)
+        total_links = sum(len(rels) for rels in result.values())
+        assert total_links == 20  # Each of 10 relationships counted twice (once per node)
+
+    @pytest.mark.asyncio
+    async def test_get_relationships_batch_empty_node_ids(self, store):
+        """Should return empty dict when node_ids list is empty."""
+        result = await store.get_relationships_batch_async([])
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_get_relationships_batch_with_type_filter(self, store):
+        """Should filter relationships by type when types parameter is provided."""
+        n1 = KnowledgeNode(content="Node 1", workspace_id="ws")
+        n2 = KnowledgeNode(content="Node 2", workspace_id="ws")
+        n3 = KnowledgeNode(content="Node 3", workspace_id="ws")
+        store.save_node(n1)
+        store.save_node(n2)
+        store.save_node(n3)
+
+        # Different relationship types
+        store.save_relationship(
+            KnowledgeRelationship(
+                from_node_id=n1.id, to_node_id=n2.id, relationship_type="supports"
+            )
+        )
+        store.save_relationship(
+            KnowledgeRelationship(
+                from_node_id=n1.id, to_node_id=n3.id, relationship_type="contradicts"
+            )
+        )
+
+        # Filter to only "supports"
+        result = await store.get_relationships_batch_async(
+            [n1.id, n2.id, n3.id], types=["supports"]
+        )
+
+        # Only the supports relationship should be returned
+        assert len(result[n1.id]) == 1
+        assert result[n1.id][0].relationship.value == "supports"
+        # n2 should see the incoming supports relationship
+        assert len(result[n2.id]) == 1
+        # n3 should have no relationships (contradicts was filtered out)
+        assert len(result[n3.id]) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_relationships_batch_handles_missing_nodes(self, store):
+        """Should return empty lists for nodes that don't exist or have no relationships."""
+        n1 = KnowledgeNode(content="Node 1", workspace_id="ws")
+        store.save_node(n1)
+
+        # Query with mix of existing and non-existing nodes
+        result = await store.get_relationships_batch_async([n1.id, "kn_nonexistent", "kn_missing"])
+
+        assert n1.id in result
+        assert "kn_nonexistent" in result
+        assert "kn_missing" in result
+        # All should have empty lists since there are no relationships
+        assert result[n1.id] == []
+        assert result["kn_nonexistent"] == []
+        assert result["kn_missing"] == []
+
+    @pytest.mark.asyncio
+    async def test_get_relationships_batch_returns_knowledge_links(self, store):
+        """Should return KnowledgeLink objects with correct attributes."""
+        from aragora.knowledge.unified.types import KnowledgeLink
+
+        n1 = KnowledgeNode(content="Source", workspace_id="ws")
+        n2 = KnowledgeNode(content="Target", workspace_id="ws")
+        store.save_node(n1)
+        store.save_node(n2)
+
+        rel = KnowledgeRelationship(
+            from_node_id=n1.id,
+            to_node_id=n2.id,
+            relationship_type="supports",
+            strength=0.85,
+            metadata={"context": "test"},
+        )
+        store.save_relationship(rel)
+
+        result = await store.get_relationships_batch_async([n1.id])
+
+        assert len(result[n1.id]) == 1
+        link = result[n1.id][0]
+        assert isinstance(link, KnowledgeLink)
+        assert link.source_id == n1.id
+        assert link.target_id == n2.id
+        assert link.relationship.value == "supports"
+        assert link.confidence == 0.85
+        assert link.metadata == {"context": "test"}
+
+    @pytest.mark.asyncio
+    async def test_get_relationships_batch_bidirectional(self, store):
+        """Should include relationships where node is either source or target."""
+        n1 = KnowledgeNode(content="Node 1", workspace_id="ws")
+        n2 = KnowledgeNode(content="Node 2", workspace_id="ws")
+        n3 = KnowledgeNode(content="Node 3", workspace_id="ws")
+        store.save_node(n1)
+        store.save_node(n2)
+        store.save_node(n3)
+
+        # n1 -> n2, n3 -> n1
+        store.save_relationship(
+            KnowledgeRelationship(
+                from_node_id=n1.id, to_node_id=n2.id, relationship_type="supports"
+            )
+        )
+        store.save_relationship(
+            KnowledgeRelationship(
+                from_node_id=n3.id, to_node_id=n1.id, relationship_type="derived_from"
+            )
+        )
+
+        result = await store.get_relationships_batch_async([n1.id])
+
+        # n1 should have both: outgoing to n2, incoming from n3
+        assert len(result[n1.id]) == 2
+        rel_types = {link.relationship.value for link in result[n1.id]}
+        assert rel_types == {"supports", "derived_from"}
+
+
+# ============================================================
 # KnowledgeMound (async integration)
 # ============================================================
 

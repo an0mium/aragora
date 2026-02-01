@@ -409,6 +409,18 @@ def _ensure_path_parameters(paths: dict[str, Any]) -> dict[str, Any]:
         if not path_params:
             continue
 
+        # Handle duplicate parameter names in path (e.g., /api/{param}/foo/{param})
+        # by making them unique: param, param_2, etc.
+        seen_params: dict[str, int] = {}
+        unique_params: list[str] = []
+        for param in path_params:
+            if param in seen_params:
+                seen_params[param] += 1
+                unique_params.append(f"{param}_{seen_params[param]}")
+            else:
+                seen_params[param] = 1
+                unique_params.append(param)
+
         for method, operation in path_spec.items():
             if method.lower() not in methods:
                 continue
@@ -423,13 +435,14 @@ def _ensure_path_parameters(paths: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(p, dict) and p.get("in") == "path"
             }
 
-            # Add missing path parameters
-            for param_name in path_params:
+            # Add missing path parameters using unique names
+            for param_name in unique_params:
                 if param_name not in existing_path_params:
                     # Infer schema type from parameter name
-                    if param_name.endswith("_id") or param_name == "id":
+                    base_name = param_name.split("_")[0] if "_" in param_name else param_name
+                    if base_name.endswith("_id") or base_name == "id":
                         schema_type = "string"
-                    elif param_name in ("page", "limit", "offset", "count", "token_id"):
+                    elif base_name in ("page", "limit", "offset", "count", "token_id"):
                         schema_type = "integer"
                     else:
                         schema_type = "string"
@@ -686,6 +699,7 @@ def generate_openapi_schema() -> dict[str, Any]:
     paths = _autogenerate_missing_paths(paths)
     paths = _align_legacy_paths_with_versioned(paths)
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(paths))
+    paths = _ensure_path_parameters(paths)  # Auto-inject missing path parameters
     return {
         "openapi": "3.1.0",
         "info": {
