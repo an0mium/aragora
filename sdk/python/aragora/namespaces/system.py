@@ -185,12 +185,12 @@ class SystemAPI:
         """
         return self._client.request("GET", "/api/circuit-breakers")
 
-    def get_prometheus_metrics(self) -> str:
+    def get_prometheus_metrics(self) -> dict[str, Any]:
         """
         Get Prometheus metrics.
 
         Returns:
-            Raw Prometheus format metrics string.
+            Prometheus format metrics.
         """
         return self._client.request("GET", "/metrics")
 
@@ -273,6 +273,6 @@ class AsyncSystemAPI:
         """Get circuit breaker metrics."""
         return await self._client.request("GET", "/api/circuit-breakers")
 
-    async def get_prometheus_metrics(self) -> str:
+    async def get_prometheus_metrics(self) -> dict[str, Any]:
         """Get Prometheus metrics."""
         return await self._client.request("GET", "/metrics")

@@ -166,7 +166,7 @@ class DevicesAPI:
         """
         return self._client.request("DELETE", f"/api/v1/devices/{device_id}")
 
-    def get(self, device_id: str) -> Device:
+    def get(self, device_id: str) -> dict[str, Any]:
         """
         Get device information.
 
@@ -176,7 +176,8 @@ class DevicesAPI:
         Returns:
             Device details.
         """
-        return self._client.request("GET", f"/api/v1/devices/{device_id}")
+        result: dict[str, Any] = self._client.request("GET", f"/api/v1/devices/{device_id}")
+        return result
 
     def list_by_user(self, user_id: str) -> dict[str, Any]:
         """
@@ -204,7 +205,7 @@ class DevicesAPI:
         action_url: str | None = None,
         badge: int | None = None,
         sound: str | None = None,
-    ) -> NotificationResult:
+    ) -> dict[str, Any]:
         """
         Send notification to a specific device.
 
@@ -278,7 +279,7 @@ class DevicesAPI:
     # Health Monitoring
     # =========================================================================
 
-    def get_health(self) -> ConnectorHealth:
+    def get_health(self) -> dict[str, Any]:
         """
         Get device connector health status.
 
@@ -370,7 +371,7 @@ class AsyncDevicesAPI:
         """Unregister a device."""
         return await self._client.request("DELETE", f"/api/v1/devices/{device_id}")
 
-    async def get(self, device_id: str) -> Device:
+    async def get(self, device_id: str) -> dict[str, Any]:
         """Get device information."""
         return await self._client.request("GET", f"/api/v1/devices/{device_id}")
 
@@ -388,7 +389,7 @@ class AsyncDevicesAPI:
         action_url: str | None = None,
         badge: int | None = None,
         sound: str | None = None,
-    ) -> NotificationResult:
+    ) -> dict[str, Any]:
         """Send notification to a specific device."""
         message: dict[str, Any] = {"title": title, "body": body}
         if data:
@@ -432,7 +433,7 @@ class AsyncDevicesAPI:
             "POST", f"/api/v1/devices/user/{user_id}/notify", json=message
         )
 
-    async def get_health(self) -> ConnectorHealth:
+    async def get_health(self) -> dict[str, Any]:
         """Get device connector health status."""
         return await self._client.request("GET", "/api/v1/devices/health")
 

@@ -201,7 +201,7 @@ class TenantsAPI:
         """
         return self._client._request("PUT", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas)
 
-    def list_members(self, tenant_id: str) -> _List[dict[str, Any]]:
+    def list_members(self, tenant_id: str) -> dict[str, Any]:
         """
         List tenant members.
 
@@ -243,7 +243,7 @@ class AsyncTenantsAPI:
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> _List[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """List tenants."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -329,7 +329,7 @@ class AsyncTenantsAPI:
             "PUT", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas
         )
 
-    async def list_members(self, tenant_id: str) -> _List[dict[str, Any]]:
+    async def list_members(self, tenant_id: str) -> dict[str, Any]:
         """List tenant members."""
         return await self._client._request("GET", f"/api/v1/tenants/{tenant_id}/members")
 

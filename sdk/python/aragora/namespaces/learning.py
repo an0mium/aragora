@@ -132,7 +132,7 @@ class LearningAPI:
         self,
         agent_name: str,
         domain: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         Get learning efficiency metrics for an agent.
 
@@ -141,7 +141,7 @@ class LearningAPI:
             domain: Optional domain to filter by
 
         Returns:
-            List of efficiency metrics with:
+            Efficiency metrics with:
             - examples_per_insight
             - time_to_improvement
             - retention_score
@@ -217,7 +217,7 @@ class AsyncLearningAPI:
         self,
         agent_name: str,
         domain: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Get learning efficiency metrics for an agent."""
         params = {"domain": domain} if domain else None
         return await self._client.request(

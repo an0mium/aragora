@@ -124,7 +124,7 @@ class AdminAPI:
         Returns:
             Dict with users list, total count, and pagination info
         """
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if org_id:
             params["org_id"] = org_id
 
@@ -475,7 +475,7 @@ class AsyncAdminAPI:
         org_id: str | None = None,
     ) -> dict[str, Any]:
         """List all users with pagination."""
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if org_id:
             params["org_id"] = org_id
 

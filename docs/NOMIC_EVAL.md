@@ -52,3 +52,6 @@ The report includes a `rubric_template` and each task includes a
 - Use `--cleanup` only after reviewing artifacts.
 - The comparison in `report.json` is intentionally conservative and should be
   combined with human review for architectural quality.
+- If `OPENROUTER_API_KEY` is set and no RLM backend is specified, the harness
+  defaults to `ARAGORA_RLM_BACKEND=openrouter` and
+  `ARAGORA_RLM_MODEL=openrouter/openai/gpt-4o`.

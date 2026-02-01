@@ -131,29 +131,6 @@ class BatchAPI:
 
         return self._client.request("GET", "/api/v1/debates/batch", params=params)
 
-    def cancel(self, batch_id: str) -> dict[str, Any]:
-        """
-        Cancel a batch operation.
-
-        Args:
-            batch_id: Batch identifier.
-
-        Returns:
-            Cancellation confirmation.
-        """
-        raise NotImplementedError("Batch cancel is not exposed via the public API")
-
-    def delete(self, batch_id: str) -> dict[str, Any]:
-        """
-        Delete a batch and its results.
-
-        Args:
-            batch_id: Batch identifier.
-
-        Returns:
-            Deletion confirmation.
-        """
-        raise NotImplementedError("Batch delete is not exposed via the public API")
 
 
 class AsyncBatchAPI:
@@ -216,11 +193,3 @@ class AsyncBatchAPI:
             params["operation_type"] = operation_type
 
         return await self._client.request("GET", "/api/v1/debates/batch", params=params)
-
-    async def cancel(self, batch_id: str) -> dict[str, Any]:
-        """Cancel a batch operation."""
-        raise NotImplementedError("Batch cancel is not exposed via the public API")
-
-    async def delete(self, batch_id: str) -> dict[str, Any]:
-        """Delete a batch and its results."""
-        raise NotImplementedError("Batch delete is not exposed via the public API")

@@ -177,7 +177,7 @@ class BeliefNetworkAPI:
         self,
         debate_id: str,
         include_cruxes: bool = True,
-    ) -> BeliefGraphResponse:
+    ) -> dict[str, Any]:
         """
         Get belief network as a graph structure for visualization.
 
@@ -189,16 +189,17 @@ class BeliefNetworkAPI:
             include_cruxes: Include crux analysis in nodes (default: True).
 
         Returns:
-            BeliefGraphResponse with nodes, links, and metadata.
+            Dict with nodes, links, and metadata.
         """
         params: dict[str, Any] = {}
         if not include_cruxes:
             params["include_cruxes"] = False
-        return self._client.request(
+        result: dict[str, Any] = self._client.request(
             "GET",
             f"/api/v1/belief-network/{debate_id}/graph",
             params=params if params else None,
         )
+        return result
 
     def export(
         self,
@@ -273,16 +274,17 @@ class AsyncBeliefNetworkAPI:
         self,
         debate_id: str,
         include_cruxes: bool = True,
-    ) -> BeliefGraphResponse:
+    ) -> dict[str, Any]:
         """Get belief network as a graph structure for visualization."""
         params: dict[str, Any] = {}
         if not include_cruxes:
             params["include_cruxes"] = False
-        return await self._client.request(
+        result: dict[str, Any] = await self._client.request(
             "GET",
             f"/api/v1/belief-network/{debate_id}/graph",
             params=params if params else None,
         )
+        return result
 
     async def export(
         self,

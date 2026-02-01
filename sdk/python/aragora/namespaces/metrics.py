@@ -71,27 +71,18 @@ class MetricsAPI:
         """
         return self._client.request("GET", "/api/metrics/system")
 
-    def get_prometheus(self) -> str:
+    def get_prometheus(self) -> dict[str, Any]:
         """
         Get Prometheus-format metrics.
 
         Returns:
-            Prometheus text format metrics
+            Prometheus format metrics
         """
         return self._client.request("GET", "/metrics")
 
     # ===========================================================================
     # Specialized Metrics
     # ===========================================================================
-
-    def get_agents(self) -> dict[str, Any]:
-        """
-        Get agent performance metrics.
-
-        Returns:
-            Dict with agent-specific metrics
-        """
-        raise NotImplementedError("Agent metrics are not exposed via the public API")
 
     def get_debates(self) -> dict[str, Any]:
         """
@@ -101,33 +92,6 @@ class MetricsAPI:
             Dict with debate throughput, latency, etc.
         """
         return self._client.request("GET", "/api/metrics/debate")
-
-    def get_api(self) -> dict[str, Any]:
-        """
-        Get API metrics.
-
-        Returns:
-            Dict with request counts, latencies, error rates
-        """
-        raise NotImplementedError("API metrics are not exposed via the public API")
-
-    def get_knowledge(self) -> dict[str, Any]:
-        """
-        Get knowledge mound metrics.
-
-        Returns:
-            Dict with KM-specific metrics
-        """
-        raise NotImplementedError("Knowledge metrics are not exposed via the public API")
-
-    def get_billing(self) -> dict[str, Any]:
-        """
-        Get billing metrics.
-
-        Returns:
-            Dict with billing and usage metrics
-        """
-        raise NotImplementedError("Billing metrics are not exposed via the public API")
 
 
 class AsyncMetricsAPI:
@@ -159,27 +123,11 @@ class AsyncMetricsAPI:
         """Get system metrics."""
         return await self._client.request("GET", "/api/metrics/system")
 
-    async def get_prometheus(self) -> str:
+    async def get_prometheus(self) -> dict[str, Any]:
         """Get Prometheus-format metrics."""
         return await self._client.request("GET", "/metrics")
 
     # Specialized Metrics
-    async def get_agents(self) -> dict[str, Any]:
-        """Get agent performance metrics."""
-        raise NotImplementedError("Agent metrics are not exposed via the public API")
-
     async def get_debates(self) -> dict[str, Any]:
         """Get debate metrics."""
         return await self._client.request("GET", "/api/metrics/debate")
-
-    async def get_api(self) -> dict[str, Any]:
-        """Get API metrics."""
-        raise NotImplementedError("API metrics are not exposed via the public API")
-
-    async def get_knowledge(self) -> dict[str, Any]:
-        """Get knowledge mound metrics."""
-        raise NotImplementedError("Knowledge metrics are not exposed via the public API")
-
-    async def get_billing(self) -> dict[str, Any]:
-        """Get billing metrics."""
-        raise NotImplementedError("Billing metrics are not exposed via the public API")

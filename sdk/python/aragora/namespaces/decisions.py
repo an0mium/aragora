@@ -164,13 +164,16 @@ class DecisionsAPI:
         """
         Get the receipt for a completed decision.
 
+        Retrieves the cryptographic receipt for audit and compliance.
+        The receipt includes the decision signature, timestamp, and full audit trail.
+
         Args:
             decision_id: Decision identifier
 
         Returns:
-            Decision receipt
+            Decision receipt with signature and audit data
         """
-        raise NotImplementedError("Decision receipts are not available in this API.")
+        return self._client._request("GET", f"/api/v2/receipts/{decision_id}")
 
     def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """
@@ -201,7 +204,17 @@ class DecisionsAPI:
         Returns:
             Feedback submission confirmation
         """
-        raise NotImplementedError("Decision feedback is not available in this API.")
+        data: dict[str, Any] = {
+            "type": "debate_quality",
+            "score": rating,
+            "context": {"decision_id": decision_id},
+        }
+        if comment:
+            data["comment"] = comment
+        else:
+            data["comment"] = f"Feedback for decision {decision_id}"
+
+        return self._client._request("POST", "/api/v1/feedback/general", json=data)
 
 
 class AsyncDecisionsAPI:
@@ -296,7 +309,7 @@ class AsyncDecisionsAPI:
 
     async def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """Get the receipt for a completed decision."""
-        raise NotImplementedError("Decision receipts are not available in this API.")
+        return await self._client._request("GET", f"/api/v2/receipts/{decision_id}")
 
     async def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """Get the explanation for a completed decision."""
@@ -309,4 +322,14 @@ class AsyncDecisionsAPI:
         comment: str | None = None,
     ) -> dict[str, Any]:
         """Submit feedback on a decision."""
-        raise NotImplementedError("Decision feedback is not available in this API.")
+        data: dict[str, Any] = {
+            "type": "debate_quality",
+            "score": rating,
+            "context": {"decision_id": decision_id},
+        }
+        if comment:
+            data["comment"] = comment
+        else:
+            data["comment"] = f"Feedback for decision {decision_id}"
+
+        return await self._client._request("POST", "/api/v1/feedback/general", json=data)

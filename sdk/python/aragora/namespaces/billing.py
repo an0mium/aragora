@@ -66,7 +66,7 @@ class BillingAPI:
         self,
         start: str | None = None,
         end: str | None = None,
-    ) -> bytes:
+    ) -> dict[str, Any]:
         """
         Export usage data as CSV.
 
@@ -75,7 +75,7 @@ class BillingAPI:
             end: End date (ISO 8601)
 
         Returns:
-            CSV file content as bytes
+            Export data
         """
         params: dict[str, Any] = {}
         if start:
@@ -243,8 +243,8 @@ class AsyncBillingAPI:
         self,
         start: str | None = None,
         end: str | None = None,
-    ) -> bytes:
-        """Export usage data as CSV."""
+    ) -> dict[str, Any]:
+        """Export usage data."""
         params: dict[str, Any] = {}
         if start:
             params["start"] = start

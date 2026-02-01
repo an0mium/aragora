@@ -27,7 +27,7 @@ class TeamsAPI:
         limit: int = 50,
         offset: int = 0,
         organization_id: str | None = None,
-    ) -> _List[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         List teams.
 
@@ -37,7 +37,7 @@ class TeamsAPI:
             organization_id: Filter by organization
 
         Returns:
-            List of team records
+            Team records
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if organization_id:
@@ -127,7 +127,7 @@ class TeamsAPI:
         """
         return self._client._request("DELETE", f"/api/v1/teams/{team_id}")
 
-    def list_members(self, team_id: str) -> _List[dict[str, Any]]:
+    def list_members(self, team_id: str) -> dict[str, Any]:
         """
         List team members.
 
@@ -135,7 +135,7 @@ class TeamsAPI:
             team_id: Team identifier
 
         Returns:
-            List of team members
+            Team members
         """
         return self._client._request("GET", f"/api/v1/teams/{team_id}/members")
 
@@ -212,7 +212,7 @@ class AsyncTeamsAPI:
         limit: int = 50,
         offset: int = 0,
         organization_id: str | None = None,
-    ) -> _List[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """List teams."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if organization_id:
@@ -264,7 +264,7 @@ class AsyncTeamsAPI:
         """Delete a team."""
         return await self._client._request("DELETE", f"/api/v1/teams/{team_id}")
 
-    async def list_members(self, team_id: str) -> _List[dict[str, Any]]:
+    async def list_members(self, team_id: str) -> dict[str, Any]:
         """List team members."""
         return await self._client._request("GET", f"/api/v1/teams/{team_id}/members")
 

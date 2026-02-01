@@ -155,7 +155,7 @@ class AuthAPI:
         Returns:
             Updated user profile
         """
-        data = {}
+        data: dict[str, Any] = {}
         if name is not None:
             data["name"] = name
         if avatar_url is not None:
@@ -543,7 +543,7 @@ class AsyncAuthAPI:
         preferences: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update user profile."""
-        data = {}
+        data: dict[str, Any] = {}
         if name is not None:
             data["name"] = name
         if avatar_url is not None:

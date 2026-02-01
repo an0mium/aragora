@@ -184,28 +184,6 @@ class RoutingAPI:
 
         return self._client.request("POST", "/api/v1/routing-rules", json=data)
 
-    def get_stats(
-        self,
-        start_date: str | None = None,
-        end_date: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get routing statistics.
-
-        Args:
-            start_date: Start date filter (ISO format).
-            end_date: End date filter (ISO format).
-
-        Returns:
-            Routing statistics.
-        """
-        params: dict[str, Any] = {}
-        if start_date:
-            params["start_date"] = start_date
-        if end_date:
-            params["end_date"] = end_date
-
-        raise NotImplementedError("Routing stats endpoint is not exposed via the public API")
 
 
 class AsyncRoutingAPI:
@@ -298,17 +276,3 @@ class AsyncRoutingAPI:
             data["description"] = description
 
         return await self._client.request("POST", "/api/v1/routing-rules", json=data)
-
-    async def get_stats(
-        self,
-        start_date: str | None = None,
-        end_date: str | None = None,
-    ) -> dict[str, Any]:
-        """Get routing statistics."""
-        params: dict[str, Any] = {}
-        if start_date:
-            params["start_date"] = start_date
-        if end_date:
-            params["end_date"] = end_date
-
-        raise NotImplementedError("Routing stats endpoint is not exposed via the public API")

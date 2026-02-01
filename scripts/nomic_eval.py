@@ -121,6 +121,10 @@ def _build_env(base_env: dict, overrides: dict) -> dict:
             env.pop(key, None)
         else:
             env[key] = str(value)
+    # Prefer OpenRouter for RLM if available and backend not explicitly set
+    if env.get("OPENROUTER_API_KEY") and not env.get("ARAGORA_RLM_BACKEND"):
+        env["ARAGORA_RLM_BACKEND"] = "openrouter"
+        env.setdefault("ARAGORA_RLM_MODEL", "openrouter/openai/gpt-4o")
     return env
 
 

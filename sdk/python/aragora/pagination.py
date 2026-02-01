@@ -72,12 +72,13 @@ class SyncPaginator(Iterator[dict[str, Any]]):
 
         # Handle different response formats
         if isinstance(response, dict):
-            items: list[dict[str, Any]] = response.get("items", response.get("data", []))
+            raw_items = response.get("items", response.get("data", []))
+            items: list[dict[str, Any]] = raw_items if raw_items is not None else []
             self._total = response.get("total")
         else:
             items = response if isinstance(response, list) else []
 
-        if items is not None:
+        if items:
             self._buffer.extend(items)
             self._offset += len(items)
 
@@ -153,12 +154,13 @@ class AsyncPaginator(AsyncIterator[dict[str, Any]]):
 
         # Handle different response formats
         if isinstance(response, dict):
-            items: list[dict[str, Any]] = response.get("items", response.get("data", []))
+            raw_items = response.get("items", response.get("data", []))
+            items: list[dict[str, Any]] = raw_items if raw_items is not None else []
             self._total = response.get("total")
         else:
             items = response if isinstance(response, list) else []
 
-        if items is not None:
+        if items:
             self._buffer.extend(items)
             self._offset += len(items)
 

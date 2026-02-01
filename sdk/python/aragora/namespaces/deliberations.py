@@ -74,9 +74,19 @@ class DeliberationsAPI:
         Returns:
             Stream configuration with type, path, and events.
         """
-        raise NotImplementedError(
-            "Deliberations stream uses WebSocket at /api/v1/deliberations/stream"
-        )
+        return {
+            "type": "websocket",
+            "path": "/api/v1/deliberations/stream",
+            "events": [
+                "deliberation_started",
+                "round_started",
+                "agent_response",
+                "consensus_forming",
+                "deliberation_completed",
+                "deliberation_failed",
+            ],
+            "description": "Connect via WebSocket for real-time deliberation updates",
+        }
 
 
 class AsyncDeliberationsAPI:
@@ -99,6 +109,16 @@ class AsyncDeliberationsAPI:
 
     async def get_stream_config(self) -> dict[str, Any]:
         """Get WebSocket stream configuration for real-time updates."""
-        raise NotImplementedError(
-            "Deliberations stream uses WebSocket at /api/v1/deliberations/stream"
-        )
+        return {
+            "type": "websocket",
+            "path": "/api/v1/deliberations/stream",
+            "events": [
+                "deliberation_started",
+                "round_started",
+                "agent_response",
+                "consensus_forming",
+                "deliberation_completed",
+                "deliberation_failed",
+            ],
+            "description": "Connect via WebSocket for real-time deliberation updates",
+        }

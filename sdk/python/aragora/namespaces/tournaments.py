@@ -285,7 +285,7 @@ class AsyncTournamentsAPI:
         format: TournamentFormat = "single_elimination",
         participants: _List[str] | None = None,
         description: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Create a new tournament."""
         data: dict[str, Any] = {"name": name, "format": format, **kwargs}

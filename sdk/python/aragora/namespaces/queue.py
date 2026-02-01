@@ -48,7 +48,7 @@ class QueueAPI:
         return self._client.request("POST", "/api/queue/dlq/requeue", json=payload)
 
     def cleanup(self, older_than_days: int = 7, status: list[str] | None = None) -> dict[str, Any]:
-        payload = {"older_than_days": older_than_days}
+        payload: dict[str, Any] = {"older_than_days": older_than_days}
         if status is not None:
             payload["status"] = status
         return self._client.request("POST", "/api/queue/cleanup", json=payload)
@@ -101,7 +101,7 @@ class AsyncQueueAPI:
     async def cleanup(
         self, older_than_days: int = 7, status: list[str] | None = None
     ) -> dict[str, Any]:
-        payload = {"older_than_days": older_than_days}
+        payload: dict[str, Any] = {"older_than_days": older_than_days}
         if status is not None:
             payload["status"] = status
         return await self._client.request("POST", "/api/queue/cleanup", json=payload)

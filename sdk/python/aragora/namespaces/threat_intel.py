@@ -242,7 +242,7 @@ class ThreatIntelAPI:
         self,
         body: str,
         headers: dict[str, str] | None = None,
-    ) -> EmailScanResult:
+    ) -> dict[str, Any]:
         """
         Scan email content for threats.
 

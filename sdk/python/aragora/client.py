@@ -456,7 +456,7 @@ class AragoraClient:
     def __enter__(self) -> AragoraClient:
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: Any) -> None:
         self.close()
 
 
@@ -910,5 +910,5 @@ class AragoraAsyncClient:
     async def __aenter__(self) -> AragoraAsyncClient:
         return self
 
-    async def __aexit__(self, *args) -> None:
+    async def __aexit__(self, *args: Any) -> None:
         await self.close()

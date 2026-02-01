@@ -168,9 +168,9 @@ class AragoraWebSocket:
         try:
             # Import websockets lazily so the module can be loaded even when
             # the optional dependency is not installed.
-            import websockets  # type: ignore[import-untyped]
+            import websockets
 
-            self._ws = await websockets.connect(url)  # type: ignore[attr-defined]
+            self._ws = await websockets.connect(url)
             self._state = _STATE_CONNECTED
             self._reconnect_attempts = 0
 
@@ -302,14 +302,17 @@ class AragoraWebSocket:
         )
 
         # Parse typed event data if a matching event class exists
+        from dataclasses import fields as dataclass_fields
+
         from .events import EVENT_CLASS_MAP
 
         cls = EVENT_CLASS_MAP.get(event.type)
         if cls:
             try:
                 # Only pass fields that exist in the dataclass
+                field_names = {f.name for f in dataclass_fields(cls)}
                 event.typed_data = cls(
-                    **{k: v for k, v in event.data.items() if k in cls.__dataclass_fields__}
+                    **{k: v for k, v in event.data.items() if k in field_names}
                 )
             except (TypeError, KeyError):
                 pass  # Fall back to untyped data dict

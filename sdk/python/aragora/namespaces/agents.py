@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
+    from ..pagination import AsyncPaginator, SyncPaginator
 
 
 class AgentsAPI:
@@ -34,7 +35,7 @@ class AgentsAPI:
         """
         return self._client.request("GET", "/api/v1/agents")
 
-    def list_all(self, page_size: int = 20):
+    def list_all(self, page_size: int = 20) -> "SyncPaginator":
         """
         Iterate through all agents with automatic pagination.
 
@@ -408,7 +409,7 @@ class AsyncAgentsAPI:
         """List all available agents."""
         return await self._client.request("GET", "/api/v1/agents")
 
-    def list_all(self, page_size: int = 20):
+    def list_all(self, page_size: int = 20) -> "AsyncPaginator":
         """
         Iterate through all agents with automatic pagination.
 

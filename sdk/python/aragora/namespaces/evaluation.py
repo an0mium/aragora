@@ -177,7 +177,7 @@ class EvaluationAPI:
             ValueError: If dimension is not found
         """
         result = self.list_dimensions()
-        dimensions = result.get("dimensions", [])
+        dimensions: list[dict[str, Any]] = result.get("dimensions", [])
         for dimension in dimensions:
             if dimension.get("id") == dimension_id:
                 return dimension
@@ -197,7 +197,7 @@ class EvaluationAPI:
             ValueError: If profile is not found
         """
         result = self.list_profiles()
-        profiles = result.get("profiles", [])
+        profiles: list[dict[str, Any]] = result.get("profiles", [])
         for profile in profiles:
             if profile.get("id") == profile_id:
                 return profile
@@ -325,7 +325,7 @@ class AsyncEvaluationAPI:
             ValueError: If dimension is not found
         """
         result = await self.list_dimensions()
-        dimensions = result.get("dimensions", [])
+        dimensions: list[dict[str, Any]] = result.get("dimensions", [])
         for dimension in dimensions:
             if dimension.get("id") == dimension_id:
                 return dimension
@@ -345,7 +345,7 @@ class AsyncEvaluationAPI:
             ValueError: If profile is not found
         """
         result = await self.list_profiles()
-        profiles = result.get("profiles", [])
+        profiles: list[dict[str, Any]] = result.get("profiles", [])
         for profile in profiles:
             if profile.get("id") == profile_id:
                 return profile

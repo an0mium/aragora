@@ -307,7 +307,8 @@ class NomicAPI:
             Proposal dict or None if not found
         """
         response = self.get_proposals()
-        for proposal in response.get("proposals", []):
+        proposals: list[dict[str, Any]] = response.get("proposals", [])
+        for proposal in proposals:
             if proposal.get("id") == proposal_id:
                 return proposal
         return None
@@ -465,7 +466,8 @@ class AsyncNomicAPI:
     async def get_proposal(self, proposal_id: str) -> dict[str, Any] | None:
         """Get a specific proposal by ID."""
         response = await self.get_proposals()
-        for proposal in response.get("proposals", []):
+        proposals: list[dict[str, Any]] = response.get("proposals", [])
+        for proposal in proposals:
             if proposal.get("id") == proposal_id:
                 return proposal
         return None

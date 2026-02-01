@@ -153,7 +153,8 @@ class NotificationsAPI:
             List of email recipients.
         """
         response = self._client.request("GET", "/api/v1/notifications/email/recipients")
-        return response.get("recipients", [])
+        result: list[dict[str, Any]] = response.get("recipients", [])
+        return result
 
     def send_test(
         self,
@@ -293,7 +294,8 @@ class AsyncNotificationsAPI:
     async def list_email_recipients(self) -> list[dict[str, Any]]:
         """List configured email recipients."""
         response = await self._client.request("GET", "/api/v1/notifications/email/recipients")
-        return response.get("recipients", [])
+        result: list[dict[str, Any]] = response.get("recipients", [])
+        return result
 
     async def send_test(
         self,

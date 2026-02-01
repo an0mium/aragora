@@ -504,10 +504,11 @@ class AsyncUnifiedInboxAPI:
         """List messages (alias for list_messages)."""
         return await self.list_messages(**kwargs)
 
-    async def get(self, message_id: str) -> UnifiedMessage:
+    async def get(self, message_id: str) -> dict[str, Any]:
         """Get message by ID."""
         result = await self.get_message(message_id)
-        return result.get("message", result)
+        msg: dict[str, Any] = result.get("message", result)
+        return msg
 
     async def send(
         self,

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
+    from ..pagination import AsyncPaginator, SyncPaginator
 
 
 class KnowledgeAPI:
@@ -71,7 +72,7 @@ class KnowledgeAPI:
         status: str | None = None,
         include_superseded: bool = False,
         page_size: int = 50,
-    ):
+    ) -> "SyncPaginator":
         """
         Iterate through all facts with automatic pagination.
 
@@ -511,7 +512,7 @@ class AsyncKnowledgeAPI:
         status: str | None = None,
         include_superseded: bool = False,
         page_size: int = 50,
-    ):
+    ) -> "AsyncPaginator":
         """
         Iterate through all facts with automatic pagination.
 

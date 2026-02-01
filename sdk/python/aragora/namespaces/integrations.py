@@ -136,18 +136,6 @@ class IntegrationsAPI:
         """
         return self._client._request("POST", f"/api/v1/integrations/{integration_id}/test")
 
-    def sync(self, integration_id: str) -> dict[str, Any]:
-        """Sync is not exposed on the current integrations API."""
-        raise NotImplementedError("Integration sync is not exposed via the API.")
-
-    def get_oauth_url(self, provider: str, redirect_uri: str) -> dict[str, Any]:
-        """OAuth helper is not exposed via the public integrations API."""
-        raise NotImplementedError("Use provider-specific OAuth endpoints.")
-
-    def complete_oauth(self, provider: str, code: str, state: str) -> dict[str, Any]:
-        """OAuth helper is not exposed via the public integrations API."""
-        raise NotImplementedError("Use provider-specific OAuth endpoints.")
-
     def list_providers(self) -> dict[str, Any]:
         """
         List available integration providers.
@@ -546,18 +534,6 @@ class AsyncIntegrationsAPI:
     async def test(self, integration_id: str) -> dict[str, Any]:
         """Test an integration connection."""
         return await self._client._request("POST", f"/api/v1/integrations/{integration_id}/test")
-
-    async def sync(self, integration_id: str) -> dict[str, Any]:
-        """Sync is not exposed on the current integrations API."""
-        raise NotImplementedError("Integration sync is not exposed via the API.")
-
-    async def get_oauth_url(self, provider: str, redirect_uri: str) -> dict[str, Any]:
-        """OAuth helper is not exposed via the public integrations API."""
-        raise NotImplementedError("Use provider-specific OAuth endpoints.")
-
-    async def complete_oauth(self, provider: str, code: str, state: str) -> dict[str, Any]:
-        """OAuth helper is not exposed via the public integrations API."""
-        raise NotImplementedError("Use provider-specific OAuth endpoints.")
 
     async def list_providers(self) -> dict[str, Any]:
         """List available integration providers."""

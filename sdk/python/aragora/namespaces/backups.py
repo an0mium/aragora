@@ -27,7 +27,7 @@ class BackupsAPI:
         offset: int = 0,
         backup_type: str | None = None,
         status: str | None = None,
-    ) -> _List[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         List backups.
 
@@ -38,7 +38,7 @@ class BackupsAPI:
             status: Filter by status (completed, in_progress, failed)
 
         Returns:
-            List of backup records
+            Backup records
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if backup_type:
@@ -170,12 +170,12 @@ class BackupsAPI:
             },
         )
 
-    def list_schedules(self) -> _List[dict[str, Any]]:
+    def list_schedules(self) -> dict[str, Any]:
         """
         List backup schedules.
 
         Returns:
-            List of backup schedules
+            Backup schedules
         """
         return self._client._request("GET", "/api/v1/backups/schedules")
 
@@ -273,7 +273,7 @@ class AsyncBackupsAPI:
         offset: int = 0,
         backup_type: str | None = None,
         status: str | None = None,
-    ) -> _List[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """List backups."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if backup_type:
@@ -350,7 +350,7 @@ class AsyncBackupsAPI:
             },
         )
 
-    async def list_schedules(self) -> _List[dict[str, Any]]:
+    async def list_schedules(self) -> dict[str, Any]:
         """List backup schedules."""
         return await self._client._request("GET", "/api/v1/backups/schedules")
 
