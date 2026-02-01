@@ -198,7 +198,7 @@ broadcast-premium = [
     "boto3>=1.34,<2.0",
 ]
 research = [
-    "duckduckgo-search>=6.0,<8.0",
+    "duckduckgo-search>=6.0,<9.0",
     "beautifulsoup4>=4.12,<5.0",
 ]
 gauntlet = [
@@ -285,7 +285,7 @@ all = [
     "edge-tts>=6.1.0,<8.0",
     "pyttsx3>=2.90,<3.0;platform_system=='Darwin' or platform_system=='Windows'",
     "elevenlabs>=1.0,<3.0",
-    "duckduckgo-search>=6.0,<8.0",
+    "duckduckgo-search>=6.0,<9.0",
     "prometheus-client>=0.19,<1.0",
     "sentry-sdk>=2.0,<3.0",
     "scipy>=1.14.0,<2.0",
