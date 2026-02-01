@@ -333,12 +333,15 @@ class TestWebhookDelivery:
         hook = create_receipt_delivery_hook(org_id="org-456")
         receipt = {"debate_id": "debate-123"}
 
-        with patch("urllib.request.urlopen") as mock_urlopen:
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_response.__enter__ = MagicMock(return_value=mock_response)
-            mock_response.__exit__ = MagicMock(return_value=False)
-            mock_urlopen.return_value = mock_response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
             result = await hook._send_to_webhook(receipt, "https://example.com/webhook")
 
@@ -351,8 +354,12 @@ class TestWebhookDelivery:
         hook = create_receipt_delivery_hook(org_id="org-456")
         receipt = {"debate_id": "debate-123"}
 
-        with patch("urllib.request.urlopen") as mock_urlopen:
-            mock_urlopen.side_effect = Exception("Connection refused")
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(side_effect=Exception("Connection refused"))
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
 
             result = await hook._send_to_webhook(receipt, "https://example.com/webhook")
 
