@@ -33,6 +33,10 @@ gateway_store = stores.gateway_store()
 inbox_store = stores.inbox_store()
 ```
 
+Gateway stores respect `ARAGORA_GATEWAY_*` environment overrides
+(backend/path/redis). For routing and inbox operations, prefer
+`GatewayRuntime` in `aragora.gateway.canonical_api`.
+
 ## Guidance
 
 - Do not instantiate ad‑hoc stores in production paths.

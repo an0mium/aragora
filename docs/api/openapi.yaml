@@ -5035,47 +5035,19 @@
     },
     "/api/v1/agents/availability": {
       "get": {
+        "summary": "Get agent availability based on configured API keys",
         "tags": [
           "Agents"
         ],
-        "summary": "Agent availability matrix",
-        "description": "Get detailed availability information for all agents.\n\n**Response includes:**\n- API key configuration status\n- Model availability per provider\n- Fallback options via OpenRouter\n- Required environment variables",
-        "operationId": "getAgentAvailability",
+        "description": "Report agent availability based on configured secrets.",
+        "operationId": "_get_agent_availability",
         "responses": {
           "200": {
-            "description": "Agent availability",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "agents": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "name": {
-                            "type": "string"
-                          },
-                          "available": {
-                            "type": "boolean"
-                          },
-                          "provider": {
-                            "type": "string"
-                          },
-                          "model": {
-                            "type": "string"
-                          },
-                          "has_api_key": {
-                            "type": "boolean"
-                          },
-                          "fallback_available": {
-                            "type": "boolean"
-                          }
-                        }
-                      }
-                    }
-                  }
+                  "type": "object"
                 }
               }
             }
@@ -8907,7 +8879,28 @@
         "description": "Get a summary of all agent relationships including collaboration scores and interaction history.",
         "responses": {
           "200": {
-            "description": "Relationship summary"
+            "description": "Relationship summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_relationships": {
+                      "type": "integer"
+                    },
+                    "avg_collaboration_score": {
+                      "type": "number"
+                    },
+                    "top_pairs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -8923,7 +8916,28 @@
         "description": "Get a summary of all agent relationships including collaboration scores and interaction history.",
         "responses": {
           "200": {
-            "description": "Relationship summary"
+            "description": "Relationship summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_relationships": {
+                      "type": "integer"
+                    },
+                    "avg_collaboration_score": {
+                      "type": "number"
+                    },
+                    "top_pairs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8937,7 +8951,28 @@
         "description": "Get graph data for agent relationships",
         "responses": {
           "200": {
-            "description": "Graph data"
+            "description": "Graph data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "edges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -8953,7 +8988,28 @@
         "description": "Get graph data for agent relationships",
         "responses": {
           "200": {
-            "description": "Graph data"
+            "description": "Graph data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "edges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -8967,7 +9023,25 @@
         "description": "Get aggregate statistics about agent relationships across all debates.",
         "responses": {
           "200": {
-            "description": "Relationship stats"
+            "description": "Relationship stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_interactions": {
+                      "type": "integer"
+                    },
+                    "unique_pairs": {
+                      "type": "integer"
+                    },
+                    "avg_interaction_count": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -8983,7 +9057,25 @@
         "description": "Get aggregate statistics about agent relationships across all debates.",
         "responses": {
           "200": {
-            "description": "Relationship stats"
+            "description": "Relationship stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_interactions": {
+                      "type": "integer"
+                    },
+                    "unique_pairs": {
+                      "type": "integer"
+                    },
+                    "avg_interaction_count": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -10199,7 +10291,28 @@
         "description": "Get the current status of verification services and backend availability.",
         "responses": {
           "200": {
-            "description": "Verification status"
+            "description": "Verification status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "backends": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "z3_version": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -10215,7 +10328,28 @@
         "description": "Get the current status of verification services and backend availability.",
         "responses": {
           "200": {
-            "description": "Verification status"
+            "description": "Verification status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "backends": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "z3_version": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -10238,7 +10372,31 @@
         },
         "responses": {
           "200": {
-            "description": "Verification result"
+            "description": "Verification result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "proofs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "counterexamples": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -10268,7 +10426,31 @@
         },
         "responses": {
           "200": {
-            "description": "Verification result"
+            "description": "Verification result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "proofs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "counterexamples": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -10296,7 +10478,31 @@
         },
         "responses": {
           "200": {
-            "description": "Probe results"
+            "description": "Probe results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "probe_id": {
+                      "type": "string"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "limitations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -10326,7 +10532,31 @@
         },
         "responses": {
           "200": {
-            "description": "Probe results"
+            "description": "Probe results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "probe_id": {
+                      "type": "string"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "limitations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -10354,7 +10584,28 @@
         },
         "responses": {
           "200": {
-            "description": "Audit results"
+            "description": "Audit results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "audit_id": {
+                      "type": "string"
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "severity_counts": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -10384,7 +10635,28 @@
         },
         "responses": {
           "200": {
-            "description": "Audit results"
+            "description": "Audit results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "audit_id": {
+                      "type": "string"
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "severity_counts": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -16294,7 +16566,22 @@
         },
         "responses": {
           "200": {
-            "description": "Account linked successfully"
+            "description": "Account linked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "linked": {
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -16409,7 +16696,22 @@
         },
         "responses": {
           "200": {
-            "description": "Account linked successfully"
+            "description": "Account linked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "linked": {
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -16509,7 +16811,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Account unlinked successfully"
+            "description": "Account unlinked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "unlinked": {
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -16633,7 +16950,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Account unlinked successfully"
+            "description": "Account unlinked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "unlinked": {
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -16784,7 +17116,31 @@
         ],
         "responses": {
           "200": {
-            "description": "List of linked providers"
+            "description": "List of linked providers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "provider": {
+                            "type": "string"
+                          },
+                          "linked_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -16833,7 +17189,31 @@
         ],
         "responses": {
           "200": {
-            "description": "List of linked providers"
+            "description": "List of linked providers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "provider": {
+                            "type": "string"
+                          },
+                          "linked_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -17288,7 +17668,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Workspace deleted"
+            "description": "Workspace deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "workspace_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -17499,7 +17894,25 @@
         },
         "responses": {
           "200": {
-            "description": "Member added"
+            "description": "Member added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "added": {
+                      "type": "boolean"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "permission": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -17653,7 +18066,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Available RBAC profiles with role details"
+            "description": "Available RBAC profiles with role details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profiles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "roles": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -17739,7 +18178,31 @@
         ],
         "responses": {
           "200": {
-            "description": "Workspace roles with assignment permissions"
+            "description": "Workspace roles with assignment permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "assignable_roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "current_role": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -17923,7 +18386,25 @@
         },
         "responses": {
           "200": {
-            "description": "Role updated successfully"
+            "description": "Role updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "updated": {
+                      "type": "boolean"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "new_role": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -18387,7 +18868,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Execution result with affected items count"
+            "description": "Execution result with affected items count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "executed": {
+                      "type": "boolean"
+                    },
+                    "affected_count": {
+                      "type": "integer"
+                    },
+                    "policy_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -18536,7 +19035,25 @@
         ],
         "responses": {
           "200": {
-            "description": "List of expiring items"
+            "description": "List of expiring items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -18634,7 +19151,25 @@
         },
         "responses": {
           "200": {
-            "description": "Classification result with level and confidence"
+            "description": "Classification result with level and confidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "level": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "number"
+                    },
+                    "reasoning": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -18763,7 +19298,31 @@
         ],
         "responses": {
           "200": {
-            "description": "Policy details for the sensitivity level"
+            "description": "Policy details for the sensitivity level",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "level": {
+                      "type": "string"
+                    },
+                    "handling_rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "access_restrictions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -18946,7 +19505,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Filtered audit entries"
+            "description": "Filtered audit entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -19084,7 +19661,31 @@
         ],
         "responses": {
           "200": {
-            "description": "Compliance report"
+            "description": "Compliance report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "report": {
+                      "type": "object"
+                    },
+                    "generated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "period_start": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "period_end": {
+                      "type": "string",
+                      "format": "date"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -19243,7 +19844,25 @@
         ],
         "responses": {
           "200": {
-            "description": "Verification result with integrity status"
+            "description": "Verification result with integrity status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "integrity_status": {
+                      "type": "string"
+                    },
+                    "entries_checked": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -19589,7 +20208,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Workflow deleted"
+            "description": "Workflow deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "workflow_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Not found - The requested resource does not exist",
@@ -19844,7 +20478,25 @@
         },
         "responses": {
           "200": {
-            "description": "Workflow execution result or execution ID"
+            "description": "Workflow execution result or execution ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execution_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "result": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -19996,7 +20648,25 @@
         ],
         "responses": {
           "200": {
-            "description": "List of workflow versions"
+            "description": "List of workflow versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Not found - The requested resource does not exist",
@@ -20330,7 +21000,34 @@
         ],
         "responses": {
           "200": {
-            "description": "Execution details with step progress"
+            "description": "Execution details with step progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execution_id": {
+                      "type": "string"
+                    },
+                    "workflow_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "progress": {
+                      "type": "number"
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Not found - The requested resource does not exist",
@@ -20375,7 +21072,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Execution cancelled"
+            "description": "Execution cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cancelled": {
+                      "type": "boolean"
+                    },
+                    "execution_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -20536,7 +21248,28 @@
         ],
         "responses": {
           "200": {
-            "description": "Workflow execution details"
+            "description": "Workflow execution details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execution_id": {
+                      "type": "string"
+                    },
+                    "workflow_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "result": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Not found - The requested resource does not exist",
@@ -20587,7 +21320,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Workflow execution deleted"
+            "description": "Workflow execution deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "execution_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -20873,7 +21621,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Workflow template deleted"
+            "description": "Workflow template deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "template_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -20957,7 +21720,25 @@
         ],
         "responses": {
           "200": {
-            "description": "List of pending approvals"
+            "description": "List of pending approvals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -21067,7 +21848,25 @@
         },
         "responses": {
           "200": {
-            "description": "Approval submitted"
+            "description": "Approval submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approved": {
+                      "type": "boolean"
+                    },
+                    "approval_id": {
+                      "type": "string"
+                    },
+                    "execution_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -21211,7 +22010,25 @@
         },
         "responses": {
           "200": {
-            "description": "Approval submitted"
+            "description": "Approval submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approved": {
+                      "type": "boolean"
+                    },
+                    "approval_id": {
+                      "type": "string"
+                    },
+                    "execution_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -21313,7 +22130,28 @@
         "description": "Get statistics for all cross-subsystem event subscribers including event counts, success/failure rates, circuit breaker status, and latency metrics.",
         "responses": {
           "200": {
-            "description": "Subscriber statistics with totals and per-handler metrics"
+            "description": "Subscriber statistics with totals and per-handler metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_events": {
+                      "type": "integer"
+                    },
+                    "success_rate": {
+                      "type": "number"
+                    },
+                    "handlers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -21329,7 +22167,28 @@
         "description": "Get statistics for all cross-subsystem event subscribers including event counts, success/failure rates, circuit breaker status, and latency metrics.",
         "responses": {
           "200": {
-            "description": "Subscriber statistics with totals and per-handler metrics"
+            "description": "Subscriber statistics with totals and per-handler metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_events": {
+                      "type": "integer"
+                    },
+                    "success_rate": {
+                      "type": "number"
+                    },
+                    "handlers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -21343,7 +22202,25 @@
         "description": "Get a list of all registered cross-subsystem event subscribers with their subscribed event types and handler metadata.",
         "responses": {
           "200": {
-            "description": "List of subscribers with event types and descriptions"
+            "description": "List of subscribers with event types and descriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscribers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -21359,7 +22236,25 @@
         "description": "Get a list of all registered cross-subsystem event subscribers with their subscribed event types and handler metadata.",
         "responses": {
           "200": {
-            "description": "List of subscribers with event types and descriptions"
+            "description": "List of subscribers with event types and descriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscribers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -21373,7 +22268,28 @@
         "description": "Get status of the Arena-to-CrossSubscriber event bridge including connection state, event mappings, and throughput statistics.",
         "responses": {
           "200": {
-            "description": "Bridge status with connection state and event mappings"
+            "description": "Bridge status with connection state and event mappings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "event_mappings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "throughput": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -21389,7 +22305,28 @@
         "description": "Get status of the Arena-to-CrossSubscriber event bridge including connection state, event mappings, and throughput statistics.",
         "responses": {
           "200": {
-            "description": "Bridge status with connection state and event mappings"
+            "description": "Bridge status with connection state and event mappings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "event_mappings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "throughput": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -21439,7 +22376,22 @@
         "description": "Reset all cross-pollination statistics counters and circuit breaker states. Useful for testing and debugging.",
         "responses": {
           "200": {
-            "description": "Statistics reset confirmation with handler count"
+            "description": "Statistics reset confirmation with handler count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reset": {
+                      "type": "boolean"
+                    },
+                    "handlers_reset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -21455,7 +22407,22 @@
         "description": "Reset all cross-pollination statistics counters and circuit breaker states. Useful for testing and debugging.",
         "responses": {
           "200": {
-            "description": "Statistics reset confirmation with handler count"
+            "description": "Statistics reset confirmation with handler count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reset": {
+                      "type": "boolean"
+                    },
+                    "handlers_reset": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -21581,7 +22548,22 @@
         "description": "Manually trigger synchronization of cross-pollination data to the Knowledge Mound.",
         "responses": {
           "200": {
-            "description": "Sync triggered with job ID"
+            "description": "Sync triggered with job ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "triggered": {
+                      "type": "boolean"
+                    },
+                    "job_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "503": {
             "description": "Knowledge Mound unavailable"
@@ -21600,7 +22582,22 @@
         "description": "Manually trigger synchronization of cross-pollination data to the Knowledge Mound.",
         "responses": {
           "200": {
-            "description": "Sync triggered with job ID"
+            "description": "Sync triggered with job ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "triggered": {
+                      "type": "boolean"
+                    },
+                    "job_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "503": {
             "description": "Knowledge Mound unavailable"
@@ -21617,7 +22614,25 @@
         "description": "Check for stale cross-pollination data in the Knowledge Mound that needs revalidation.",
         "responses": {
           "200": {
-            "description": "Staleness report with entries needing refresh"
+            "description": "Staleness report with entries needing refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stale_entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total_stale": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -21633,7 +22648,25 @@
         "description": "Check for stale cross-pollination data in the Knowledge Mound that needs revalidation.",
         "responses": {
           "200": {
-            "description": "Staleness report with entries needing refresh"
+            "description": "Staleness report with entries needing refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stale_entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "total_stale": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -21647,7 +22680,28 @@
         "description": "Get learned debate culture patterns from cross-pollination analysis across debates.",
         "responses": {
           "200": {
-            "description": "Culture patterns with collaboration and dissent metrics"
+            "description": "Culture patterns with collaboration and dissent metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "patterns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "collaboration_score": {
+                      "type": "number"
+                    },
+                    "dissent_rate": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "deprecated": true
@@ -21663,7 +22717,28 @@
         "description": "Get learned debate culture patterns from cross-pollination analysis across debates.",
         "responses": {
           "200": {
-            "description": "Culture patterns with collaboration and dissent metrics"
+            "description": "Culture patterns with collaboration and dissent metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "patterns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "collaboration_score": {
+                      "type": "number"
+                    },
+                    "dissent_rate": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -22021,7 +23096,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "receipt": {
+                      "type": "object"
+                    },
+                    "metadata": {
+                      "type": "object"
+                    }
+                  }
                 }
               },
               "text/markdown": {
@@ -22143,7 +23226,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "receipt": {
+                      "type": "object"
+                    },
+                    "metadata": {
+                      "type": "object"
+                    }
+                  }
                 }
               },
               "text/markdown": {
@@ -22240,7 +23331,28 @@
         },
         "responses": {
           "200": {
-            "description": "Bundle of exported receipts"
+            "description": "Bundle of exported receipts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "receipts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "exported_count": {
+                      "type": "integer"
+                    },
+                    "format": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -22337,7 +23449,28 @@
         },
         "responses": {
           "200": {
-            "description": "Bundle of exported receipts"
+            "description": "Bundle of exported receipts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "receipts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "exported_count": {
+                      "type": "integer"
+                    },
+                    "format": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - Invalid input or malformed JSON",
@@ -22763,7 +23896,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "heatmap": {
+                      "type": "object"
+                    },
+                    "cells": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
                 }
               },
               "text/csv": {
@@ -22842,7 +23986,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "heatmap": {
+                      "type": "object"
+                    },
+                    "cells": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
                 }
               },
               "text/csv": {
@@ -25318,7 +26473,22 @@
         ],
         "responses": {
           "200": {
-            "description": "Policy deleted"
+            "description": "Policy deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policy_id": {
+                      "type": "string"
+                    },
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -39153,7 +40323,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "config": {
+                      "type": "object"
+                    },
+                    "connected_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
                 }
               }
             }
@@ -39265,7 +40450,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -39393,7 +40589,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "updated": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -39511,7 +40718,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -39593,7 +40811,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "integration_id": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "config": {
+                      "type": "object"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
@@ -39705,7 +40937,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "integration_id": {
+                      "type": "string"
+                    },
+                    "updated": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -39845,7 +41088,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "integration_id": {
+                      "type": "string"
+                    },
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -39949,7 +41203,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "latency_ms": {
+                      "type": "number"
+                    }
+                  }
                 }
               }
             }
@@ -41879,7 +43147,22 @@
         "description": "Called by Slack when app is uninstalled from a workspace. Verified via Slack signature.",
         "responses": {
           "200": {
-            "description": "Uninstall acknowledged"
+            "description": "Uninstall acknowledged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    },
+                    "workspace_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -41945,7 +43228,22 @@
         "operationId": "slackUninstallWebhook",
         "responses": {
           "200": {
-            "description": "Uninstall acknowledged"
+            "description": "Uninstall acknowledged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    },
+                    "workspace_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -42759,7 +44057,22 @@
         "description": "Called when bot is removed from a Discord server.",
         "responses": {
           "200": {
-            "description": "Uninstall acknowledged"
+            "description": "Uninstall acknowledged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    },
+                    "guild_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
             "description": "Internal server error - Unexpected error occurred",
@@ -42797,7 +44110,22 @@
         "operationId": "discordUninstallWebhook",
         "responses": {
           "200": {
-            "description": "Uninstall acknowledged"
+            "description": "Uninstall acknowledged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    },
+                    "guild_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           },
           "500": {
             "description": "Internal server error - Unexpected error occurred",
@@ -43229,7 +44557,23 @@
         "description": "Refresh the OAuth token for a Teams integration.",
         "responses": {
           "200": {
-            "description": "Token refreshed"
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "refreshed": {
+                      "type": "boolean"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -43295,7 +44639,23 @@
         "operationId": "refreshTeamsToken",
         "responses": {
           "200": {
-            "description": "Token refreshed"
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "refreshed": {
+                      "type": "boolean"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -44131,7 +45491,19 @@
         "description": "Invalidate the current session token.",
         "responses": {
           "200": {
-            "description": "Logged out successfully"
+            "description": "Logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logged_out": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Not authenticated"
@@ -44155,7 +45527,19 @@
         "description": "Invalidate the current session token.",
         "responses": {
           "200": {
-            "description": "Logged out successfully"
+            "description": "Logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logged_out": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Not authenticated"
@@ -44375,7 +45759,19 @@
         },
         "responses": {
           "200": {
-            "description": "Token revoked"
+            "description": "Token revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Not authenticated"
@@ -44425,7 +45821,19 @@
         },
         "responses": {
           "200": {
-            "description": "Token revoked"
+            "description": "Token revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Not authenticated"
@@ -44736,7 +46144,19 @@
         },
         "responses": {
           "200": {
-            "description": "Password changed successfully"
+            "description": "Password changed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Invalid current password"
@@ -44783,7 +46203,19 @@
         },
         "responses": {
           "200": {
-            "description": "Password changed successfully"
+            "description": "Password changed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Invalid current password"
@@ -45733,7 +47165,21 @@
             "content": {
               "application/scim+json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "schemas": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -45932,7 +47378,21 @@
             "content": {
               "application/scim+json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "schemas": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -46455,7 +47915,24 @@
             "content": {
               "application/scim+json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "schemas": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "userName": {
+                      "type": "string"
+                    },
+                    "active": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
@@ -46654,7 +48131,24 @@
             "content": {
               "application/scim+json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "schemas": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "userName": {
+                      "type": "string"
+                    },
+                    "active": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
@@ -63700,6 +65194,587 @@
         ]
       }
     },
+    "/api/v1/integrations/zapier/apps": {
+      "get": {
+        "summary": "List Zapier apps",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle GET /api/integrations/zapier/apps - list Zapier apps.",
+        "operationId": "_handle_list_zapier_apps",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Zapier app",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle POST /api/integrations/zapier/apps - create Zapier app.",
+        "operationId": "_handle_create_zapier_app",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/zapier/triggers": {
+      "get": {
+        "summary": "List Zapier trigger types",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle GET /api/integrations/zapier/triggers - list trigger types.",
+        "operationId": "_handle_list_zapier_trigger_types",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Subscribe to Zapier trigger",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle POST /api/integrations/zapier/triggers - subscribe to trigger.",
+        "operationId": "_handle_subscribe_zapier_trigger",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/zapier/apps/{app_id}": {
+      "delete": {
+        "summary": "Delete Zapier app",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle DELETE /api/integrations/zapier/apps/:id - delete Zapier app.",
+        "operationId": "_handle_delete_zapier_app",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: app_id"
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/zapier/triggers/{trigger_id}": {
+      "delete": {
+        "summary": "Unsubscribe from Zapier trigger",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle DELETE /api/integrations/zapier/triggers/:id - unsubscribe.",
+        "operationId": "_handle_unsubscribe_zapier_trigger",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "trigger_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: trigger_id"
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/make/connections": {
+      "get": {
+        "summary": "List Make connections",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle GET /api/integrations/make/connections - list connections.",
+        "operationId": "_handle_list_make_connections",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Make connection",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle POST /api/integrations/make/connections - create connection.",
+        "operationId": "_handle_create_make_connection",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/make/modules": {
+      "get": {
+        "summary": "List Make modules",
+        "tags": [
+          "Integrations"
+        ],
+        "operationId": "_handle_list_make_modules",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/make/connections/{connection_id}": {
+      "delete": {
+        "summary": "Delete Make connection",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle DELETE /api/integrations/make/connections/:id - delete.",
+        "operationId": "_handle_delete_make_connection",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: connection_id"
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/make/webhooks": {
+      "post": {
+        "summary": "Register Make webhook",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle POST /api/integrations/make/webhooks - register webhook.",
+        "operationId": "_handle_register_make_webhook",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/make/webhooks/{webhook_id}": {
+      "delete": {
+        "summary": "Unregister Make webhook",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle DELETE /api/integrations/make/webhooks/:id - unregister.",
+        "operationId": "_handle_unregister_make_webhook",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: webhook_id"
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/n8n/credentials": {
+      "get": {
+        "summary": "List n8n credentials",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle GET /api/integrations/n8n/credentials - list credentials.",
+        "operationId": "_handle_list_n8n_credentials",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create n8n credential",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle POST /api/integrations/n8n/credentials - create credential.",
+        "operationId": "_handle_create_n8n_credential",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/n8n/nodes": {
+      "get": {
+        "summary": "Get n8n node definitions",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle GET /api/integrations/n8n/nodes - get node definitions.",
+        "operationId": "_handle_get_n8n_nodes",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/n8n/credentials/{credential_id}": {
+      "delete": {
+        "summary": "Delete n8n credential",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle DELETE /api/integrations/n8n/credentials/:id - delete.",
+        "operationId": "_handle_delete_n8n_credential",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "credential_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: credential_id"
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/n8n/webhooks": {
+      "post": {
+        "summary": "Register n8n webhook",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle POST /api/integrations/n8n/webhooks - register webhook.",
+        "operationId": "_handle_register_n8n_webhook",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/n8n/webhooks/{webhook_id}": {
+      "delete": {
+        "summary": "Unregister n8n webhook",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle DELETE /api/integrations/n8n/webhooks/:id - unregister.",
+        "operationId": "_handle_unregister_n8n_webhook",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: webhook_id"
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/{platform}/test": {
+      "post": {
+        "summary": "Test integration connection",
+        "tags": [
+          "Integrations"
+        ],
+        "description": "Handle POST /api/integrations/:platform/test - test integration.",
+        "operationId": "_handle_test_integration",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: platform"
+          }
+        ]
+      }
+    },
     "/api/v1/gauntlet/personas": {
       "get": {
         "summary": "List available personas",
@@ -74797,230 +76872,6 @@
             "description": "Path parameter: param"
           }
         ]
-      }
-    },
-    "/api/v1/integrations/zapier/apps": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/integrations/zapier/triggers": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/integrations/make/connections": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/integrations/make/webhooks": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/integrations/make/modules": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/integrations/n8n/credentials": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/integrations/n8n/webhooks": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/integrations/n8n/nodes": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Integrations"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
       }
     },
     "/api/v1/gmail/connect": {
