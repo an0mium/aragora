@@ -7,6 +7,7 @@ Tests cover:
 - GET /api/v1/partners/me - Get current partner profile
 - POST /api/v1/partners/keys - Create API key
 - GET /api/v1/partners/keys - List API keys
+- POST /api/v1/partners/keys/{key_id}/rotate - Rotate API key
 - DELETE /api/v1/partners/keys/{key_id} - Revoke API key
 - GET /api/v1/partners/usage - Get usage statistics
 - POST /api/v1/partners/webhooks - Configure webhook
@@ -80,7 +81,7 @@ PartnerHandler = partner_module.PartnerHandler
 # ===========================================================================
 
 
-@dataclass
+@dataclass(frozen=True)
 class MockPartnerTier:
     """Mock partner tier enum."""
 
@@ -225,6 +226,24 @@ class MockPartnerAPI:
     def generate_webhook_secret(self, partner_id: str) -> str:
         return f"whsec_{'x' * 32}"
 
+    def rotate_api_key(
+        self,
+        partner_id: str,
+        key_id: str,
+    ) -> tuple[MockAPIKey, str]:
+        partner_keys = self._store.keys.get(partner_id, [])
+        for key in partner_keys:
+            if key.key_id == key_id and key.is_active:
+                key.is_active = False
+                new_key = MockAPIKey(
+                    key_id=f"key-rotated-{key_id}",
+                    name=key.name,
+                    scopes=key.scopes,
+                )
+                partner_keys.append(new_key)
+                return new_key, f"ara_{'r' * 32}"
+        raise ValueError("API key not found")
+
     def check_rate_limit(self, partner: MockPartner) -> tuple[bool, dict]:
         return True, {"requests_remaining": 50}
 
@@ -301,6 +320,9 @@ class TestPartnerHandlerRouting:
 
     def test_can_handle_keys(self, partner_handler):
         assert partner_handler.can_handle("/api/v1/partners/keys") is True
+
+    def test_can_handle_key_rotate(self, partner_handler):
+        assert partner_handler.can_handle("/api/v1/partners/keys/key-123/rotate") is True
 
     def test_can_handle_key_delete(self, partner_handler):
         assert partner_handler.can_handle("/api/v1/partners/keys/key-123") is True
@@ -524,6 +546,75 @@ class TestPartnerListKeys:
         assert "keys" in data
         assert "total" in data
         assert "active" in data
+
+
+# ===========================================================================
+# Test Rotate API Key (POST /api/v1/partners/keys/{key_id}/rotate)
+# ===========================================================================
+
+
+class TestPartnerRotateKey:
+    """Tests for POST /api/v1/partners/keys/{key_id}/rotate endpoint."""
+
+    def test_rotate_key_success(self, partner_handler, mock_partner_api):
+        """Happy path: rotate API key."""
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/v1/partners/keys/key-123/rotate",
+        )
+
+        with patch("aragora.billing.partner.get_partner_api", return_value=mock_partner_api):
+            result = partner_handler._rotate_api_key("key-123", handler, user=MagicMock())
+
+        assert result is not None
+        assert result.status_code == 201
+        data = json.loads(result.body)
+        assert "key" in data
+        assert data["key"].startswith("ara_")
+        assert data["rotated_from"] == "key-123"
+        assert "warning" in data
+
+    def test_rotate_key_missing_partner_id(self, partner_handler, mock_partner_api):
+        """Missing partner ID returns 400."""
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/v1/partners/keys/key-123/rotate",
+            partner_id=None,
+        )
+
+        with patch("aragora.billing.partner.get_partner_api", return_value=mock_partner_api):
+            result = partner_handler._rotate_api_key("key-123", handler, user=MagicMock())
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_rotate_key_not_found(self, partner_handler, mock_partner_api):
+        """Non-existent key returns 400."""
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/v1/partners/keys/nonexistent/rotate",
+        )
+
+        with patch("aragora.billing.partner.get_partner_api", return_value=mock_partner_api):
+            result = partner_handler._rotate_api_key("nonexistent", handler, user=MagicMock())
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_rotate_key_via_routing(self, partner_handler, mock_partner_api):
+        """Rotation should be reachable via handle() routing."""
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/v1/partners/keys/key-123/rotate",
+        )
+
+        with patch("aragora.billing.partner.get_partner_api", return_value=mock_partner_api):
+            result = partner_handler.handle(
+                "/api/v1/partners/keys/key-123/rotate", {}, handler
+            )
+
+        assert result is not None
+        assert result.status_code == 201
 
 
 # ===========================================================================

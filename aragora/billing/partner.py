@@ -484,6 +484,33 @@ class PartnerStore:
                 for row in rows
             ]
 
+    def get_api_key(self, key_id: str) -> APIKey | None:
+        """Get API key by ID."""
+        import json
+
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT * FROM api_keys WHERE key_id = ?", (key_id,)).fetchone()
+
+            if not row:
+                return None
+
+            return APIKey(
+                key_id=row["key_id"],
+                partner_id=row["partner_id"],
+                key_prefix=row["key_prefix"],
+                key_hash=row["key_hash"],
+                name=row["name"],
+                scopes=json.loads(row["scopes_json"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+                expires_at=(
+                    datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None
+                ),
+                last_used_at=(
+                    datetime.fromisoformat(row["last_used_at"]) if row["last_used_at"] else None
+                ),
+                is_active=bool(row["is_active"]),
+            )
+
     def revoke_api_key(self, key_id: str) -> bool:
         """Revoke an API key."""
         with self._get_connection() as conn:
@@ -636,6 +663,72 @@ class PartnerAPI:
 
         self._store.create_api_key(api_key)
         return api_key, raw_key
+
+    def rotate_api_key(
+        self,
+        partner_id: str,
+        key_id: str,
+    ) -> tuple[APIKey, str]:
+        """
+        Rotate an API key - revokes old key and creates a new one.
+
+        Preserves the key name, scopes, and expiration policy.
+        Returns (new_APIKey, raw_key) - raw_key is only returned once.
+        """
+        old_key = self._store.get_api_key(key_id)
+        if not old_key:
+            raise ValueError("API key not found")
+
+        if old_key.partner_id != partner_id:
+            raise ValueError("API key does not belong to this partner")
+
+        if not old_key.is_active:
+            raise ValueError("Cannot rotate an inactive key")
+
+        partner = self._store.get_partner(partner_id)
+        if not partner or partner.status != PartnerStatus.ACTIVE:
+            raise ValueError("Partner not found or not active")
+
+        # Revoke the old key
+        self._store.revoke_api_key(key_id)
+
+        # Generate new key with same name and scopes
+        raw_key = f"ara_{secrets.token_urlsafe(32)}"
+        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        key_prefix = raw_key[:12]
+
+        now = datetime.now(timezone.utc)
+
+        # Preserve expiration window if original had one
+        expires_at = None
+        if old_key.expires_at and old_key.created_at:
+            original_ttl = old_key.expires_at - old_key.created_at
+            expires_at = now + original_ttl
+
+        new_api_key = APIKey(
+            key_id=f"key_{secrets.token_hex(8)}",
+            partner_id=partner_id,
+            key_prefix=key_prefix,
+            key_hash=key_hash,
+            name=old_key.name,
+            scopes=old_key.scopes,
+            created_at=now,
+            expires_at=expires_at,
+            last_used_at=None,
+            is_active=True,
+        )
+
+        self._store.create_api_key(new_api_key)
+
+        logger.info(
+            "API key rotated for partner %s: %s -> %s (prefix: %s)",
+            partner_id,
+            key_id,
+            new_api_key.key_id,
+            key_prefix,
+        )
+
+        return new_api_key, raw_key
 
     def validate_api_key(self, raw_key: str) -> tuple[APIKey, Partner] | None:
         """

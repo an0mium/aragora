@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -420,13 +422,14 @@ class BudgetManager:
         "budget_manager_conn", default=None
     )
 
-    def __init__(self, db_path: str = "data/budgets.db"):
+    def __init__(self, db_path: str | None = None):
         """Initialize budget manager.
 
         Args:
             db_path: Path to SQLite database
         """
-        self._db_path = db_path
+        db_path = db_path or "budgets.db"
+        self._db_path = resolve_db_path(db_path)
         self._connections: list[sqlite3.Connection] = []
         self._init_lock = threading.Lock()
         self._initialized = False
@@ -1278,7 +1281,7 @@ class BudgetManager:
 _budget_manager: BudgetManager | None = None
 
 
-def get_budget_manager(db_path: str = "data/budgets.db") -> BudgetManager:
+def get_budget_manager(db_path: str | None = None) -> BudgetManager:
     """Get or create the budget manager singleton."""
     global _budget_manager
     if _budget_manager is None:

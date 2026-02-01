@@ -162,6 +162,23 @@ jobs:
         run: |
           echo "::warning::NPM dependency vulnerabilities detected. Review npm audit results."
 
+  rbac-coverage:
+    name: RBAC Coverage Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check RBAC decorator coverage
+        run: python scripts/audit_rbac_coverage.py --summary --min-coverage 55
+
   secret-scanning:
     name: Secret Scanning
     runs-on: ubuntu-latest

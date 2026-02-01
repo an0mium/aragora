@@ -2,14 +2,15 @@
 Partner API HTTP handlers.
 
 Endpoints:
-- POST /api/partners/register        - Register as a partner
-- GET  /api/partners/me              - Get current partner profile
-- POST /api/partners/keys            - Create API key
-- GET  /api/partners/keys            - List API keys
-- DELETE /api/partners/keys/{key_id} - Revoke API key
-- GET  /api/partners/usage           - Get usage statistics
-- POST /api/partners/webhooks        - Configure webhook
-- GET  /api/partners/limits          - Get rate limits
+- POST /api/partners/register                - Register as a partner
+- GET  /api/partners/me                      - Get current partner profile
+- POST /api/partners/keys                    - Create API key
+- GET  /api/partners/keys                    - List API keys
+- POST /api/partners/keys/{key_id}/rotate    - Rotate API key
+- DELETE /api/partners/keys/{key_id}         - Revoke API key
+- GET  /api/partners/usage                   - Get usage statistics
+- POST /api/partners/webhooks                - Configure webhook
+- GET  /api/partners/limits                  - Get rate limits
 """
 
 from __future__ import annotations
@@ -65,9 +66,14 @@ class PartnerHandler(BaseHandler):
                 return self._create_api_key(handler)
             elif method == "GET":
                 return self._list_api_keys(handler)
-        elif path.startswith("/api/v1/partners/keys/") and method == "DELETE":
-            key_id = path.split("/")[-1]
-            return self._revoke_api_key(key_id, handler)
+        elif path.startswith("/api/v1/partners/keys/"):
+            parts = path.split("/")
+            if len(parts) == 7 and parts[-1] == "rotate" and method == "POST":
+                key_id = parts[-2]
+                return self._rotate_api_key(key_id, handler)
+            elif method == "DELETE":
+                key_id = parts[-1]
+                return self._revoke_api_key(key_id, handler)
         elif path == "/api/v1/partners/usage" and method == "GET":
             return self._get_usage(query_params, handler)
         elif path == "/api/v1/partners/webhooks" and method == "POST":
@@ -231,6 +237,61 @@ class PartnerHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Error creating API key: {e}")
             return error_response(safe_error_message(e, "key creation"), 500)
+
+    @require_user_auth
+    @handle_errors("rotate API key")
+    def _rotate_api_key(self, key_id: str, handler, user=None) -> HandlerResult:
+        """
+        Rotate an API key - revokes old key and creates a new one.
+
+        Preserves name, scopes, and expiration policy from the original key.
+
+        Response:
+        {
+            "key_id": "...",
+            "key": "ara_...",  // Only returned once!
+            "key_prefix": "ara_...",
+            "name": "...",
+            "scopes": [...],
+            "rotated_from": "old_key_id",
+            "expires_at": "..."
+        }
+        """
+        partner_id = handler.headers.get("X-Partner-ID")
+        if not partner_id:
+            return error_response("Partner ID required", 400)
+
+        try:
+            from aragora.billing.partner import get_partner_api
+
+            api = get_partner_api()
+            new_key, raw_key = api.rotate_api_key(
+                partner_id=partner_id,
+                key_id=key_id,
+            )
+
+            return json_response(
+                {
+                    "key_id": new_key.key_id,
+                    "key": raw_key,  # Only returned once!
+                    "key_prefix": new_key.key_prefix,
+                    "name": new_key.name,
+                    "scopes": new_key.scopes,
+                    "created_at": new_key.created_at.isoformat(),
+                    "expires_at": (
+                        new_key.expires_at.isoformat() if new_key.expires_at else None
+                    ),
+                    "rotated_from": key_id,
+                    "warning": "Save this key securely - it will not be shown again!",
+                },
+                status=201,
+            )
+
+        except ValueError as e:
+            return error_response(str(e), 400)
+        except Exception as e:
+            logger.exception(f"Error rotating API key: {e}")
+            return error_response(safe_error_message(e, "key rotation"), 500)
 
     @require_user_auth
     @handle_errors("list API keys")

@@ -1098,3 +1098,759 @@ class TestEdgeCases:
         assert user.created_at is not None
         assert org.created_at is not None
         assert sub.current_period_start is not None
+
+
+# =============================================================================
+# Additional Password Hashing Tests
+# =============================================================================
+
+
+class TestPasswordHashingExtended:
+    """Extended tests for password hashing edge cases."""
+
+    def test_hash_password_no_bcrypt_no_insecure(self):
+        """Test hash_password raises ConfigurationError when bcrypt missing and insecure not allowed."""
+        from aragora.exceptions import ConfigurationError
+
+        with patch("aragora.billing.models.HAS_BCRYPT", False), \
+             patch("aragora.billing.models.ALLOW_INSECURE_PASSWORDS", False):
+            with pytest.raises(ConfigurationError):
+                hash_password("test_password")
+
+    def test_verify_password_bcrypt_hash_no_bcrypt_installed(self):
+        """Test verify_password with bcrypt hash when bcrypt not installed."""
+        bcrypt_hash = f"{HASH_VERSION_BCRYPT}$2b$12$somebcrypthashvalue"
+        with patch("aragora.billing.models.HAS_BCRYPT", False):
+            result = verify_password("test", bcrypt_hash, "")
+            assert result is False
+
+    def test_verify_password_bcrypt_checkpw_exception(self):
+        """Test verify_password handles bcrypt.checkpw exception gracefully."""
+        if not HAS_BCRYPT:
+            pytest.skip("bcrypt not installed")
+        # A malformed bcrypt hash will cause checkpw to raise
+        bad_bcrypt_hash = f"{HASH_VERSION_BCRYPT}$2b$12$invalidhashdata"
+        result = verify_password("test", bad_bcrypt_hash, "")
+        assert result is False
+
+    def test_hash_password_sha256_with_explicit_salt(self):
+        """Test SHA-256 hashing with explicit salt."""
+        from aragora.billing.models import _hash_password_sha256
+
+        salt = "fixed_salt_for_testing"
+        hash1, salt1 = _hash_password_sha256("password", salt)
+        hash2, salt2 = _hash_password_sha256("password", salt)
+
+        assert hash1 == hash2
+        assert salt1 == salt
+        assert salt2 == salt
+
+    def test_hash_password_sha256_different_salts(self):
+        """Test SHA-256 hashing produces different results with different salts."""
+        from aragora.billing.models import _hash_password_sha256
+
+        hash1, salt1 = _hash_password_sha256("password", "salt_a")
+        hash2, salt2 = _hash_password_sha256("password", "salt_b")
+
+        assert hash1 != hash2
+
+    def test_hash_password_sha256_auto_salt(self):
+        """Test SHA-256 hashing generates salt when not provided."""
+        from aragora.billing.models import _hash_password_sha256
+
+        hash1, salt1 = _hash_password_sha256("password")
+        hash2, salt2 = _hash_password_sha256("password")
+
+        # Different auto-generated salts -> different hashes
+        assert salt1 != salt2
+        assert hash1 != hash2
+
+    @patch.dict(os.environ, {"ARAGORA_ALLOW_INSECURE_PASSWORDS": "1"})
+    def test_hash_password_sha256_fallback_produces_prefixed_hash(self):
+        """Test SHA-256 fallback produces properly prefixed hash."""
+        with patch("aragora.billing.models.HAS_BCRYPT", False), \
+             patch("aragora.billing.models.ALLOW_INSECURE_PASSWORDS", True):
+            from aragora.billing.models import _hash_password_sha256
+
+            legacy_hash, salt = _hash_password_sha256("test")
+            prefixed = f"{HASH_VERSION_SHA256}{legacy_hash}"
+
+            # Verify it can be verified
+            result = verify_password("test", prefixed, salt)
+            assert result is True
+
+    def test_needs_rehash_legacy_unprefixed_sha256(self):
+        """Test that legacy unprefixed SHA-256 hash needs rehash."""
+        if not HAS_BCRYPT:
+            pytest.skip("bcrypt not installed")
+
+        legacy_hash = "a" * 64  # 64-char hex looks like legacy SHA-256
+        assert needs_rehash(legacy_hash) is True
+
+    def test_needs_rehash_bcrypt_not_available_bcrypt_hash(self):
+        """Test needs_rehash returns False for bcrypt hash when bcrypt unavailable."""
+        with patch("aragora.billing.models.HAS_BCRYPT", False):
+            bcrypt_hash = f"{HASH_VERSION_BCRYPT}$2b$12$somehash"
+            assert needs_rehash(bcrypt_hash) is False
+
+    def test_verify_password_with_various_hash_lengths(self):
+        """Test verify_password rejects unknown format hashes of various lengths."""
+        assert verify_password("test", "short", "salt") is False
+        assert verify_password("test", "x" * 63, "salt") is False  # Not 64 chars
+        assert verify_password("test", "x" * 65, "salt") is False
+        assert verify_password("test", "x" * 128, "salt") is False
+
+    def test_bcrypt_rounds_constant(self):
+        """Test BCRYPT_ROUNDS is set to a reasonable value."""
+        assert BCRYPT_ROUNDS == 12
+        assert BCRYPT_ROUNDS >= 10  # Security minimum
+
+
+# =============================================================================
+# Extended User Tests
+# =============================================================================
+
+
+class TestUserExtended:
+    """Extended tests for User dataclass."""
+
+    def test_user_set_password_updates_timestamp(self):
+        """Test that set_password updates the updated_at timestamp."""
+        user = User()
+        old_updated = user.updated_at
+        user.set_password("new_password")
+        assert user.updated_at >= old_updated
+
+    def test_user_upgrade_password_hash_when_needed(self):
+        """Test password hash upgrade when hash is legacy SHA-256."""
+        if not HAS_BCRYPT:
+            pytest.skip("bcrypt not installed")
+
+        user = User()
+        # Set a legacy SHA-256 hash manually
+        salt = secrets.token_hex(32)
+        hash_input = f"{salt}my_password".encode("utf-8")
+        legacy_hash = hashlib.sha256(hash_input).hexdigest()
+        user.password_hash = f"{HASH_VERSION_SHA256}{legacy_hash}"
+        user.password_salt = salt
+
+        # Verify it needs rehash
+        assert user.needs_password_rehash() is True
+
+        # Upgrade
+        result = user.upgrade_password_hash("my_password")
+        assert result is True
+        assert user.password_hash.startswith(HASH_VERSION_BCRYPT)
+
+        # Verify new hash works
+        assert user.verify_password("my_password") is True
+
+    def test_user_generate_api_key_custom_expiration(self):
+        """Test API key generation with custom expiration days."""
+        user = User()
+        user.generate_api_key(expires_days=30)
+
+        expected_expiry = datetime.now(timezone.utc) + timedelta(days=30)
+        # Within 10 seconds tolerance
+        delta = abs((user.api_key_expires_at - expected_expiry).total_seconds())
+        assert delta < 10
+
+    def test_user_api_key_prefix_format(self):
+        """Test API key prefix is first 12 characters."""
+        user = User()
+        api_key = user.generate_api_key()
+
+        assert user.api_key_prefix == api_key[:12]
+        assert user.api_key_prefix.startswith("ara_")
+
+    def test_user_is_api_key_expired_no_expiration(self):
+        """Test is_api_key_expired when no expiration set."""
+        user = User()
+        assert user.is_api_key_expired() is False
+
+    def test_user_promote_to_admin_valid_roles(self):
+        """Test promotion to each valid admin role."""
+        for role in ["admin", "owner", "superadmin"]:
+            user = User(role="member")
+            user.promote_to_admin(role)
+            assert user.role == role
+
+    def test_user_promote_to_admin_mfa_already_enabled(self):
+        """Test promotion when MFA is already enabled skips grace period."""
+        user = User(role="member", mfa_enabled=True)
+        user.promote_to_admin("admin")
+
+        assert user.role == "admin"
+        # MFA already enabled, so no grace period
+        assert user.mfa_grace_period_started_at is None
+
+    def test_user_service_account_scopes_none(self):
+        """Test service account scopes when None."""
+        user = User(is_service_account=True)
+        user.service_account_scopes = None
+        assert user.get_service_account_scopes() == []
+
+    def test_user_mfa_bypass_no_expiration(self):
+        """Test MFA bypass is valid when no expiration set."""
+        user = User(is_service_account=True)
+        user.mfa_bypass_approved_at = datetime.now(timezone.utc)
+        user.mfa_bypass_expires_at = None
+
+        assert user.is_mfa_bypass_valid() is True
+
+    def test_user_mfa_bypass_no_approval(self):
+        """Test MFA bypass is invalid when not approved."""
+        user = User(is_service_account=True)
+        assert user.is_mfa_bypass_valid() is False
+
+    def test_user_to_dict_with_last_login(self):
+        """Test User serialization includes last_login_at when set."""
+        user = User()
+        login_time = datetime.now(timezone.utc)
+        user.last_login_at = login_time
+
+        data = user.to_dict()
+        assert data["last_login_at"] == login_time.isoformat()
+
+    def test_user_to_dict_without_last_login(self):
+        """Test User serialization handles missing last_login_at."""
+        user = User()
+        data = user.to_dict()
+        assert data["last_login_at"] is None
+
+    def test_user_to_dict_has_api_key_flag(self):
+        """Test has_api_key flag in serialization."""
+        user = User()
+        assert user.to_dict()["has_api_key"] is False
+
+        user.generate_api_key()
+        assert user.to_dict()["has_api_key"] is True
+
+    def test_user_to_dict_sensitive_no_service_account(self):
+        """Test sensitive data for non-service account."""
+        user = User(is_service_account=False)
+        user.generate_api_key()
+
+        data = user.to_dict(include_sensitive=True)
+        assert "api_key_prefix" in data
+        # mfa_bypass fields should not be present for non-service accounts
+        assert "mfa_bypass_reason" not in data
+
+    def test_user_from_dict_minimal(self):
+        """Test User deserialization with minimal data."""
+        user = User.from_dict({})
+        assert user.email == ""
+        assert user.role == "member"
+        assert user.is_active is True
+        assert user.token_version == 1
+
+    def test_user_from_dict_with_datetime_objects(self):
+        """Test User deserialization with datetime objects (not strings)."""
+        now = datetime.now(timezone.utc)
+        data = {
+            "created_at": now,
+            "updated_at": now,
+            "last_login_at": now,
+        }
+        user = User.from_dict(data)
+
+        assert user.created_at == now
+        assert user.updated_at == now
+        assert user.last_login_at == now
+
+    def test_user_from_dict_with_api_key_dates(self):
+        """Test User deserialization with api_key_created_at."""
+        data = {
+            "api_key_created_at": "2024-06-15T10:30:00",
+        }
+        user = User.from_dict(data)
+        assert user.api_key_created_at is not None
+        assert user.api_key_created_at.year == 2024
+
+    def test_user_from_dict_with_mfa_bypass_dates(self):
+        """Test User deserialization with MFA bypass datetime fields."""
+        data = {
+            "is_service_account": True,
+            "mfa_bypass_approved_at": "2024-03-01T00:00:00",
+            "mfa_bypass_expires_at": "2024-06-01T00:00:00",
+            "mfa_bypass_reason": "api_integration",
+            "mfa_bypass_approved_by": "admin-123",
+        }
+        user = User.from_dict(data)
+
+        assert user.mfa_bypass_approved_at is not None
+        assert user.mfa_bypass_expires_at is not None
+        assert user.mfa_bypass_reason == "api_integration"
+        assert user.mfa_bypass_approved_by == "admin-123"
+
+    def test_user_from_dict_with_mfa_grace_period(self):
+        """Test User deserialization with mfa_grace_period_started_at."""
+        data = {
+            "mfa_grace_period_started_at": "2024-05-01T12:00:00",
+        }
+        user = User.from_dict(data)
+        assert user.mfa_grace_period_started_at is not None
+
+    def test_user_round_trip_serialization(self):
+        """Test User serialization/deserialization round trip."""
+        original = User(
+            id="user-rt",
+            email="rt@test.com",
+            name="Round Trip",
+            role="admin",
+            org_id="org-rt",
+            is_active=True,
+            email_verified=True,
+            mfa_enabled=True,
+            token_version=3,
+        )
+
+        data = original.to_dict()
+        restored = User.from_dict(data)
+
+        assert restored.id == original.id
+        assert restored.email == original.email
+        assert restored.name == original.name
+        assert restored.role == original.role
+        assert restored.org_id == original.org_id
+        assert restored.mfa_enabled == original.mfa_enabled
+        assert restored.token_version == original.token_version
+
+    def test_user_revoke_api_key_updates_timestamp(self):
+        """Test that revoke_api_key updates updated_at."""
+        user = User()
+        user.generate_api_key()
+        old_updated = user.updated_at
+
+        user.revoke_api_key()
+        assert user.updated_at >= old_updated
+
+
+# =============================================================================
+# Extended Organization Tests
+# =============================================================================
+
+
+class TestOrganizationExtended:
+    """Extended tests for Organization dataclass."""
+
+    def test_organization_enterprise_plus_limits(self):
+        """Test ENTERPRISE_PLUS tier limits on organization."""
+        org = Organization(tier=SubscriptionTier.ENTERPRISE_PLUS)
+        limits = org.limits
+
+        assert limits.dedicated_infrastructure is True
+        assert limits.sla_guarantee is True
+        assert limits.unlimited_api_calls is True
+
+    def test_organization_increment_debates_by_count(self):
+        """Test incrementing debates by various counts."""
+        org = Organization(tier=SubscriptionTier.FREE)  # 10 limit
+
+        assert org.increment_debates(3) is True
+        assert org.debates_used_this_month == 3
+
+        assert org.increment_debates(7) is True
+        assert org.debates_used_this_month == 10
+
+        # Now at limit
+        assert org.increment_debates(1) is False
+
+    def test_organization_to_dict_complete(self):
+        """Test Organization serialization includes all fields."""
+        org = Organization(
+            id="org-full",
+            name="Full Org",
+            slug="full-org",
+            tier=SubscriptionTier.ENTERPRISE,
+            owner_id="user-owner",
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_456",
+            debates_used_this_month=42,
+            settings={"theme": "dark", "notifications": True},
+        )
+        data = org.to_dict()
+
+        assert data["stripe_customer_id"] == "cus_123"
+        assert data["stripe_subscription_id"] == "sub_456"
+        assert data["settings"] == {"theme": "dark", "notifications": True}
+        assert data["is_at_limit"] is False
+        assert "limits" in data
+
+    def test_organization_from_dict_with_datetime_objects(self):
+        """Test Organization deserialization with datetime objects."""
+        now = datetime.now(timezone.utc)
+        data = {
+            "name": "Datetime Org",
+            "created_at": now,
+            "updated_at": now,
+            "billing_cycle_start": now,
+        }
+        org = Organization.from_dict(data)
+
+        assert org.created_at == now
+        assert org.updated_at == now
+        assert org.billing_cycle_start == now
+
+    def test_organization_from_dict_with_settings(self):
+        """Test Organization deserialization preserves settings."""
+        data = {
+            "settings": {"feature_flags": ["beta"], "max_retries": 3},
+        }
+        org = Organization.from_dict(data)
+        assert org.settings["feature_flags"] == ["beta"]
+        assert org.settings["max_retries"] == 3
+
+    def test_organization_from_dict_minimal(self):
+        """Test Organization deserialization with minimal data."""
+        org = Organization.from_dict({})
+        assert org.name == ""
+        assert org.tier == SubscriptionTier.FREE
+        assert org.debates_used_this_month == 0
+
+    def test_organization_round_trip_serialization(self):
+        """Test Organization serialization round trip."""
+        original = Organization(
+            id="org-rt",
+            name="Round Trip Org",
+            slug="round-trip-org",
+            tier=SubscriptionTier.PROFESSIONAL,
+            owner_id="user-123",
+            debates_used_this_month=25,
+            settings={"key": "value"},
+        )
+
+        data = original.to_dict()
+        restored = Organization.from_dict(data)
+
+        assert restored.id == original.id
+        assert restored.name == original.name
+        assert restored.tier == original.tier
+        assert restored.debates_used_this_month == original.debates_used_this_month
+
+    def test_organization_debates_remaining_all_tiers(self):
+        """Test debates_remaining for all tier types."""
+        for tier in SubscriptionTier:
+            org = Organization(tier=tier)
+            limits = TIER_LIMITS[tier]
+            assert org.debates_remaining == limits.debates_per_month
+            assert org.is_at_limit is False
+
+
+# =============================================================================
+# Extended Subscription Tests
+# =============================================================================
+
+
+class TestSubscriptionExtended:
+    """Extended tests for Subscription dataclass."""
+
+    def test_subscription_from_dict_with_trial_dates(self):
+        """Test Subscription deserialization with trial dates."""
+        data = {
+            "status": "trialing",
+            "trial_start": "2024-01-01T00:00:00",
+            "trial_end": "2024-01-15T00:00:00",
+        }
+        sub = Subscription.from_dict(data)
+
+        assert sub.trial_start is not None
+        assert sub.trial_end is not None
+
+    def test_subscription_from_dict_with_cancel_at_period_end(self):
+        """Test Subscription deserialization with cancel flag."""
+        data = {
+            "cancel_at_period_end": True,
+        }
+        sub = Subscription.from_dict(data)
+        assert sub.cancel_at_period_end is True
+
+    def test_subscription_from_dict_with_all_dates(self):
+        """Test Subscription deserialization with all date fields."""
+        data = {
+            "current_period_start": "2024-01-01T00:00:00",
+            "current_period_end": "2024-02-01T00:00:00",
+            "trial_start": "2024-01-01T00:00:00",
+            "trial_end": "2024-01-15T00:00:00",
+            "created_at": "2023-12-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00",
+        }
+        sub = Subscription.from_dict(data)
+
+        assert sub.current_period_start.year == 2024
+        assert sub.current_period_end.month == 2
+        assert sub.trial_start is not None
+        assert sub.trial_end is not None
+        assert sub.created_at.year == 2023
+
+    def test_subscription_from_dict_with_datetime_objects(self):
+        """Test Subscription deserialization with datetime objects (not strings)."""
+        now = datetime.now(timezone.utc)
+        data = {
+            "current_period_start": now,
+            "current_period_end": now + timedelta(days=30),
+        }
+        sub = Subscription.from_dict(data)
+
+        assert sub.current_period_start == now
+
+    def test_subscription_to_dict_with_trial(self):
+        """Test Subscription serialization with trial data."""
+        sub = Subscription(
+            status="trialing",
+            trial_start=datetime.now(timezone.utc),
+            trial_end=datetime.now(timezone.utc) + timedelta(days=14),
+        )
+        data = sub.to_dict()
+
+        assert data["trial_start"] is not None
+        assert data["trial_end"] is not None
+        assert data["is_trialing"] is True
+
+    def test_subscription_to_dict_no_trial(self):
+        """Test Subscription serialization without trial."""
+        sub = Subscription(status="active")
+        data = sub.to_dict()
+
+        assert data["trial_start"] is None
+        assert data["trial_end"] is None
+
+    def test_subscription_round_trip_serialization(self):
+        """Test Subscription serialization round trip."""
+        original = Subscription(
+            id="sub-rt",
+            org_id="org-rt",
+            tier=SubscriptionTier.PROFESSIONAL,
+            status="active",
+            stripe_subscription_id="sub_stripe_rt",
+            stripe_price_id="price_rt",
+            cancel_at_period_end=True,
+        )
+
+        data = original.to_dict()
+        restored = Subscription.from_dict(data)
+
+        assert restored.id == original.id
+        assert restored.org_id == original.org_id
+        assert restored.tier == original.tier
+        assert restored.cancel_at_period_end is True
+
+    def test_subscription_all_status_types(self):
+        """Test all possible subscription statuses."""
+        for status, expected_active in [
+            ("active", True),
+            ("trialing", True),
+            ("canceled", False),
+            ("past_due", False),
+        ]:
+            sub = Subscription(status=status)
+            assert sub.is_active is expected_active, f"Status '{status}' expected active={expected_active}"
+
+
+# =============================================================================
+# Extended OrganizationInvitation Tests
+# =============================================================================
+
+
+class TestOrganizationInvitationExtended:
+    """Extended tests for OrganizationInvitation dataclass."""
+
+    def test_invitation_from_dict_with_datetime_objects(self):
+        """Test invitation deserialization with datetime objects."""
+        now = datetime.now(timezone.utc)
+        data = {
+            "created_at": now,
+            "expires_at": now + timedelta(days=7),
+            "accepted_at": now,
+        }
+        inv = OrganizationInvitation.from_dict(data)
+
+        assert inv.created_at == now
+        assert inv.accepted_at == now
+
+    def test_invitation_from_dict_with_string_dates(self):
+        """Test invitation deserialization with string dates."""
+        data = {
+            "created_at": "2024-01-01T00:00:00",
+            "expires_at": "2024-01-08T00:00:00",
+        }
+        inv = OrganizationInvitation.from_dict(data)
+
+        assert inv.created_at.year == 2024
+        assert inv.expires_at.month == 1
+
+    def test_invitation_to_dict_accepted(self):
+        """Test invitation serialization when accepted."""
+        inv = OrganizationInvitation()
+        inv.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        inv.accept()
+
+        data = inv.to_dict()
+        assert data["status"] == "accepted"
+        assert data["accepted_at"] is not None
+        assert data["is_pending"] is False
+
+    def test_invitation_to_dict_revoked(self):
+        """Test invitation serialization when revoked."""
+        inv = OrganizationInvitation()
+        inv.revoke()
+
+        data = inv.to_dict()
+        assert data["status"] == "revoked"
+        assert data["is_pending"] is False
+
+    def test_invitation_round_trip(self):
+        """Test invitation serialization round trip."""
+        original = OrganizationInvitation(
+            id="inv-rt",
+            org_id="org-rt",
+            email="test@example.com",
+            role="admin",
+            invited_by="user-rt",
+        )
+
+        data = original.to_dict(include_token=True)
+        restored = OrganizationInvitation.from_dict(data)
+
+        assert restored.id == original.id
+        assert restored.org_id == original.org_id
+        assert restored.email == original.email
+        assert restored.role == original.role
+
+    def test_invitation_accept_then_revoke_fails(self):
+        """Test that accepted invitation cannot be revoked."""
+        inv = OrganizationInvitation()
+        inv.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+        inv.accept()
+        result = inv.revoke()
+        assert result is False
+        assert inv.status == "accepted"
+
+
+# =============================================================================
+# Extended Generate Slug Tests
+# =============================================================================
+
+
+class TestGenerateSlugExtended:
+    """Extended tests for generate_slug function."""
+
+    def test_generate_slug_with_numbers(self):
+        """Test slug generation with numbers."""
+        assert generate_slug("Team 42") == "team-42"
+        assert generate_slug("123 Corp") == "123-corp"
+
+    def test_generate_slug_already_slugified(self):
+        """Test slug generation with already slugified input."""
+        assert generate_slug("already-a-slug") == "already-a-slug"
+
+    def test_generate_slug_unicode(self):
+        """Test slug generation strips non-ASCII unicode."""
+        slug = generate_slug("Cafe")
+        assert slug == "cafe"
+
+    def test_generate_slug_single_word(self):
+        """Test slug generation with single word."""
+        assert generate_slug("Company") == "company"
+
+    def test_generate_slug_whitespace_only(self):
+        """Test slug generation with whitespace only."""
+        assert generate_slug("   ") == "org"
+
+    def test_generate_slug_exact_50_chars(self):
+        """Test slug generation with exactly 50 character result."""
+        name = "a" * 50
+        slug = generate_slug(name)
+        assert len(slug) == 50
+
+    def test_generate_slug_51_chars_truncated(self):
+        """Test slug generation truncates at 50 characters."""
+        name = "a" * 51
+        slug = generate_slug(name)
+        assert len(slug) == 50
+
+
+# =============================================================================
+# ALLOW_INSECURE_PASSWORDS Configuration Tests
+# =============================================================================
+
+
+class TestInsecurePasswordConfig:
+    """Tests for ALLOW_INSECURE_PASSWORDS configuration."""
+
+    def test_allow_insecure_true_values(self):
+        """Test ALLOW_INSECURE_PASSWORDS recognizes 'true' values."""
+        for val in ["1", "true", "yes", "TRUE", "True", "YES", "Yes"]:
+            result = val.lower() in ("1", "true", "yes")
+            assert result is True, f"Value '{val}' should be truthy"
+
+    def test_allow_insecure_false_values(self):
+        """Test ALLOW_INSECURE_PASSWORDS rejects false values."""
+        for val in ["0", "false", "no", "", "maybe"]:
+            result = val.lower() in ("1", "true", "yes")
+            assert result is False, f"Value '{val}' should be falsy"
+
+
+# =============================================================================
+# TierLimits Extended Tests
+# =============================================================================
+
+
+class TestTierLimitsExtended:
+    """Extended tests for TierLimits dataclass."""
+
+    def test_tier_limits_default_enterprise_features(self):
+        """Test default enterprise features are False for standard tiers."""
+        for tier in [SubscriptionTier.FREE, SubscriptionTier.STARTER, SubscriptionTier.PROFESSIONAL]:
+            limits = TIER_LIMITS[tier]
+            assert limits.dedicated_infrastructure is False
+            assert limits.sla_guarantee is False
+            assert limits.custom_model_training is False
+            assert limits.private_model_deployment is False
+            assert limits.compliance_certifications is False
+            assert limits.unlimited_api_calls is False
+            assert limits.token_based_billing is False
+
+    def test_tier_pricing_monotonically_increasing(self):
+        """Test that tier pricing increases with each level."""
+        tier_order = [
+            SubscriptionTier.FREE,
+            SubscriptionTier.STARTER,
+            SubscriptionTier.PROFESSIONAL,
+            SubscriptionTier.ENTERPRISE,
+            SubscriptionTier.ENTERPRISE_PLUS,
+        ]
+
+        for i in range(len(tier_order) - 1):
+            lower = TIER_LIMITS[tier_order[i]].price_monthly_cents
+            higher = TIER_LIMITS[tier_order[i + 1]].price_monthly_cents
+            assert higher > lower, (
+                f"{tier_order[i+1].value} price ({higher}) should be greater "
+                f"than {tier_order[i].value} price ({lower})"
+            )
+
+    def test_tier_debates_monotonically_increasing(self):
+        """Test that debate limits increase with each level."""
+        tier_order = [
+            SubscriptionTier.FREE,
+            SubscriptionTier.STARTER,
+            SubscriptionTier.PROFESSIONAL,
+            SubscriptionTier.ENTERPRISE,
+        ]
+
+        for i in range(len(tier_order) - 1):
+            lower = TIER_LIMITS[tier_order[i]].debates_per_month
+            higher = TIER_LIMITS[tier_order[i + 1]].debates_per_month
+            assert higher > lower
+
+    def test_enterprise_tiers_have_all_features(self):
+        """Test that ENTERPRISE and ENTERPRISE_PLUS have all base features enabled."""
+        for tier in [SubscriptionTier.ENTERPRISE, SubscriptionTier.ENTERPRISE_PLUS]:
+            limits = TIER_LIMITS[tier]
+            assert limits.api_access is True
+            assert limits.all_agents is True
+            assert limits.custom_agents is True
+            assert limits.sso_enabled is True
+            assert limits.audit_logs is True
+            assert limits.priority_support is True

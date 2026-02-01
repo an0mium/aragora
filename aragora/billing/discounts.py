@@ -35,6 +35,8 @@ from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -263,14 +265,13 @@ class DiscountManager:
         Initialize discount manager.
 
         Args:
-            db_path: Path to SQLite database. Defaults to ~/.aragora/discounts.db
+            db_path: Path to SQLite database. Defaults to ARAGORA_DATA_DIR/discounts.db
         """
         if db_path is None:
-            db_dir = Path.home() / ".aragora"
-            db_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(db_dir / "discounts.db")
+            db_path = "discounts.db"
 
-        self.db_path = db_path
+        self.db_path = resolve_db_path(db_path)
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._connections: list[sqlite3.Connection] = []
         self._init_db()
 

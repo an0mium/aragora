@@ -522,6 +522,61 @@ class TestPartnerStore:
         assert stats["error_count"] == 0
 
 
+class TestPartnerStoreGetAPIKey:
+    """Tests for PartnerStore.get_api_key method."""
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        """Create store with temporary database file."""
+        db_path = str(tmp_path / "partner_get_key_test.db")
+        return PartnerStore(db_path=db_path)
+
+    @pytest.fixture
+    def sample_partner(self):
+        """Create sample partner."""
+        now = datetime.now(timezone.utc)
+        return Partner(
+            partner_id="partner_getkey_test",
+            name="GetKey Test Partner",
+            email="getkey@test.com",
+            company=None,
+            tier=PartnerTier.DEVELOPER,
+            status=PartnerStatus.ACTIVE,
+            created_at=now,
+            updated_at=now,
+            referral_code="GETKEY123",
+        )
+
+    def test_get_api_key_by_id(self, store, sample_partner):
+        """Should retrieve API key by ID."""
+        store.create_partner(sample_partner)
+
+        now = datetime.now(timezone.utc)
+        key = APIKey(
+            key_id="key_byid_test",
+            partner_id=sample_partner.partner_id,
+            key_prefix="ara_byid",
+            key_hash="byidhash123",
+            name="ById Test Key",
+            scopes=["debates:read"],
+            created_at=now,
+            expires_at=None,
+            last_used_at=None,
+        )
+        store.create_api_key(key)
+
+        result = store.get_api_key("key_byid_test")
+        assert result is not None
+        assert result.key_id == "key_byid_test"
+        assert result.partner_id == sample_partner.partner_id
+        assert result.name == "ById Test Key"
+
+    def test_get_api_key_not_found(self, store):
+        """Should return None for non-existent key ID."""
+        result = store.get_api_key("nonexistent_key")
+        assert result is None
+
+
 class TestPartnerAPI:
     """Tests for PartnerAPI management."""
 
@@ -756,6 +811,127 @@ class TestPartnerAPI:
         """Should raise for non-existent partner."""
         with pytest.raises(ValueError, match="Partner not found"):
             api.get_partner_stats("nonexistent")
+
+    def test_rotate_api_key(self, api):
+        """Should rotate API key preserving name and scopes."""
+        partner = api.register_partner(
+            name="Rotate Partner",
+            email="rotate@partner.com",
+        )
+        api.activate_partner(partner.partner_id)
+
+        old_key, old_raw = api.create_api_key(
+            partner_id=partner.partner_id,
+            name="Rotatable Key",
+            scopes=["debates:read", "debates:write"],
+        )
+
+        new_key, new_raw = api.rotate_api_key(
+            partner_id=partner.partner_id,
+            key_id=old_key.key_id,
+        )
+
+        # New key should have same name and scopes
+        assert new_key.name == "Rotatable Key"
+        assert new_key.scopes == ["debates:read", "debates:write"]
+        assert new_key.is_active is True
+        assert new_key.key_id != old_key.key_id
+        assert new_raw.startswith("ara_")
+        assert new_raw != old_raw
+
+        # Old key should be revoked
+        old_retrieved = api._store.get_api_key(old_key.key_id)
+        assert old_retrieved.is_active is False
+
+        # Old key should no longer validate
+        assert api.validate_api_key(old_raw) is None
+
+        # New key should validate
+        result = api.validate_api_key(new_raw)
+        assert result is not None
+
+    def test_rotate_api_key_with_expiry(self, api):
+        """Should preserve expiration window on rotation."""
+        partner = api.register_partner(
+            name="Expiry Rotate Partner",
+            email="expiry-rotate@partner.com",
+        )
+        api.activate_partner(partner.partner_id)
+
+        old_key, _ = api.create_api_key(
+            partner_id=partner.partner_id,
+            name="Expiring Key",
+            scopes=["debates:read"],
+            expires_in_days=90,
+        )
+
+        new_key, _ = api.rotate_api_key(
+            partner_id=partner.partner_id,
+            key_id=old_key.key_id,
+        )
+
+        # New key should have an expiration
+        assert new_key.expires_at is not None
+
+    def test_rotate_api_key_not_found(self, api):
+        """Should raise for non-existent key."""
+        partner = api.register_partner(
+            name="NotFound Rotate Partner",
+            email="notfound-rotate@partner.com",
+        )
+        api.activate_partner(partner.partner_id)
+
+        with pytest.raises(ValueError, match="API key not found"):
+            api.rotate_api_key(
+                partner_id=partner.partner_id,
+                key_id="nonexistent_key",
+            )
+
+    def test_rotate_api_key_wrong_partner(self, api):
+        """Should reject rotation if key belongs to different partner."""
+        partner1 = api.register_partner(
+            name="Partner 1",
+            email="p1@rotate.com",
+        )
+        api.activate_partner(partner1.partner_id)
+
+        partner2 = api.register_partner(
+            name="Partner 2",
+            email="p2@rotate.com",
+        )
+        api.activate_partner(partner2.partner_id)
+
+        key, _ = api.create_api_key(
+            partner_id=partner1.partner_id,
+            name="P1 Key",
+        )
+
+        with pytest.raises(ValueError, match="does not belong"):
+            api.rotate_api_key(
+                partner_id=partner2.partner_id,
+                key_id=key.key_id,
+            )
+
+    def test_rotate_inactive_key(self, api):
+        """Should reject rotation of already-revoked key."""
+        partner = api.register_partner(
+            name="Inactive Rotate Partner",
+            email="inactive-rotate@partner.com",
+        )
+        api.activate_partner(partner.partner_id)
+
+        key, _ = api.create_api_key(
+            partner_id=partner.partner_id,
+            name="Soon Revoked",
+        )
+
+        api._store.revoke_api_key(key.key_id)
+
+        with pytest.raises(ValueError, match="inactive"):
+            api.rotate_api_key(
+                partner_id=partner.partner_id,
+                key_id=key.key_id,
+            )
 
     def test_generate_webhook_secret(self, api):
         """Should generate webhook secret."""

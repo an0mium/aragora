@@ -69,9 +69,26 @@ class ResponseHelpersMixin:
         self._add_security_headers()
         self._add_rate_limit_headers()
         self._add_trace_headers()
+        self._add_version_headers()
         self._add_v1_deprecation_headers()
         self.end_headers()
         self.wfile.write(content)
+
+    def _add_version_headers(self) -> None:
+        """Add X-API-Version header to all API responses.
+
+        Extracts the API version from the request path and includes it
+        in the response. Has zero overhead for non-API requests.
+        """
+        try:
+            path = getattr(self, "path", "")
+            if path and path.startswith("/api/"):
+                from aragora.server.middleware.versioning import get_api_version
+
+                version = get_api_version(path)
+                self.send_header("X-API-Version", version.value)
+        except Exception as e:
+            logger.debug("Version header injection failed: %s", e)
 
     def _add_v1_deprecation_headers(self) -> None:
         """Add v1 API deprecation/sunset headers if this is a v1 request.

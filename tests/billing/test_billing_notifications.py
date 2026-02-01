@@ -6,14 +6,15 @@ Tests cover:
 - NotificationResult dataclass
 - SMTP email delivery
 - Webhook notifications
-- Payment failure notifications
+- Payment failure notifications with urgency levels
 - Trial expiration warnings
 - Subscription cancellation notifications
 - Downgrade notifications
-- Budget alert notifications
+- Budget alert notifications at all levels
 - Forecast overage alerts
 - Credit expiration notifications
 - Fallback behavior (email -> webhook -> log)
+- Edge cases: empty emails, zero budgets, special characters
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, patch, Mock, call
 from urllib.error import URLError
 
 import pytest
@@ -71,6 +72,17 @@ class TestNotificationResult:
         """Test log fallback result."""
         result = NotificationResult(success=True, method="log")
         assert result.method == "log"
+
+    def test_error_none_by_default(self):
+        """Test error is None by default."""
+        result = NotificationResult(success=True, method="email")
+        assert result.error is None
+
+    def test_method_values(self):
+        """Test various method values are accepted."""
+        for method in ["email", "webhook", "log"]:
+            result = NotificationResult(success=True, method=method)
+            assert result.method == method
 
 
 # =============================================================================
@@ -123,6 +135,22 @@ class TestBillingNotifierInit:
             smtp_password="secret",
         )
         assert notifier._is_smtp_configured() is True
+
+    def test_is_smtp_configured_missing_user(self):
+        """Test SMTP not configured when missing user."""
+        notifier = BillingNotifier(
+            smtp_host="mail.example.com",
+            smtp_password="secret",
+        )
+        assert notifier._is_smtp_configured() is False
+
+    def test_is_smtp_configured_missing_password(self):
+        """Test SMTP not configured when missing password."""
+        notifier = BillingNotifier(
+            smtp_host="mail.example.com",
+            smtp_user="user@example.com",
+        )
+        assert notifier._is_smtp_configured() is False
 
 
 # =============================================================================
@@ -194,7 +222,7 @@ class TestEmailSending:
 
     @patch("smtplib.SMTP")
     def test_send_email_html_only(self, mock_smtp_class):
-        """Test email with HTML body only."""
+        """Test email with HTML body only (no text_body)."""
         mock_smtp = MagicMock()
         mock_smtp_class.return_value.__enter__ = Mock(return_value=mock_smtp)
         mock_smtp_class.return_value.__exit__ = Mock(return_value=False)
@@ -231,7 +259,7 @@ class TestWebhookSending:
         assert result.method == "webhook"
         assert "not configured" in result.error.lower()
 
-    @patch("urllib.request.urlopen")
+    @patch("aragora.billing.notifications.urlopen")
     def test_send_webhook_success(self, mock_urlopen):
         """Test successful webhook sending."""
         mock_response = MagicMock()
@@ -247,7 +275,7 @@ class TestWebhookSending:
         assert result.method == "webhook"
         mock_urlopen.assert_called_once()
 
-    @patch("urllib.request.urlopen")
+    @patch("aragora.billing.notifications.urlopen")
     def test_send_webhook_failure(self, mock_urlopen):
         """Test webhook sending failure."""
         mock_urlopen.side_effect = URLError("Connection refused")
@@ -270,7 +298,7 @@ class TestPaymentFailedNotification:
     """Tests for payment failure notifications."""
 
     def test_notify_payment_failed_first_attempt(self):
-        """Test payment failed notification for first attempt."""
+        """Test payment failed notification for first attempt falls back to log."""
         notifier = BillingNotifier()
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -294,7 +322,7 @@ class TestPaymentFailedNotification:
                 assert result.method == "log"
 
     def test_notify_payment_failed_second_attempt(self):
-        """Test payment failed notification for second attempt."""
+        """Test payment failed notification for second attempt uses IMPORTANT urgency."""
         notifier = BillingNotifier()
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -309,15 +337,13 @@ class TestPaymentFailedNotification:
 
             assert result.success is True
             assert result.method == "email"
-            # Verify urgency in email
+            # Verify email was called; _send_email(email, subject, html_body, text_body)
             call_args = mock_email.call_args
-            assert (
-                "IMPORTANT" in call_args[1]["subject"]
-                or "Payment Failed" in call_args[1]["subject"]
-            )
+            subject = call_args[0][1]  # positional arg: subject
+            assert "Payment Failed" in subject
 
     def test_notify_payment_failed_final_attempt(self):
-        """Test payment failed notification for final attempt."""
+        """Test payment failed notification for final attempt (3rd) triggers URGENT."""
         notifier = BillingNotifier()
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -331,10 +357,13 @@ class TestPaymentFailedNotification:
             )
 
             assert result.success is True
-            # Third attempt should be URGENT
+            # The subject stays the same but HTML body contains URGENT
+            call_args = mock_email.call_args
+            html_body = call_args[0][2]  # positional arg: html_body
+            assert "URGENT" in html_body
 
     def test_notify_payment_failed_with_invoice_url(self):
-        """Test payment failed notification with invoice URL."""
+        """Test payment failed notification includes invoice URL in body."""
         notifier = BillingNotifier()
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -349,10 +378,11 @@ class TestPaymentFailedNotification:
             )
 
             call_args = mock_email.call_args
-            assert "pay.stripe.com" in call_args[1]["html_body"]
+            html_body = call_args[0][2]  # positional arg: html_body
+            assert "pay.stripe.com" in html_body
 
     def test_notify_payment_failed_webhook_fallback(self):
-        """Test payment failed falls back to webhook."""
+        """Test payment failed falls back to webhook when email fails."""
         notifier = BillingNotifier(webhook_url="https://hooks.example.com")
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -371,6 +401,56 @@ class TestPaymentFailedNotification:
                 assert result.success is True
                 assert result.method == "webhook"
 
+    def test_notify_payment_failed_webhook_payload(self):
+        """Test payment failed webhook includes correct payload."""
+        notifier = BillingNotifier(webhook_url="https://hooks.example.com")
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(
+                success=False, method="email", error="failed"
+            )
+            with patch.object(notifier, "_send_webhook") as mock_webhook:
+                mock_webhook.return_value = NotificationResult(success=True, method="webhook")
+
+                notifier.notify_payment_failed(
+                    org_id="org-123",
+                    org_name="Test Org",
+                    email="admin@example.com",
+                    attempt_count=2,
+                )
+
+                call_args = mock_webhook.call_args
+                payload = call_args[0][0]
+                assert payload["event"] == "payment_failed"
+                assert payload["org_id"] == "org-123"
+                assert payload["org_name"] == "Test Org"
+                assert payload["attempt_count"] == 2
+                assert payload["urgency"] == "IMPORTANT"
+
+    def test_notify_payment_failed_urgency_levels(self):
+        """Test urgency levels for different attempt counts."""
+        notifier = BillingNotifier(webhook_url="https://hooks.example.com")
+
+        for attempt, expected_urgency in [(1, "NOTICE"), (2, "IMPORTANT"), (3, "URGENT"), (4, "URGENT")]:
+            with patch.object(notifier, "_send_email") as mock_email:
+                mock_email.return_value = NotificationResult(
+                    success=False, method="email", error="failed"
+                )
+                with patch.object(notifier, "_send_webhook") as mock_webhook:
+                    mock_webhook.return_value = NotificationResult(success=True, method="webhook")
+
+                    notifier.notify_payment_failed(
+                        org_id="org-123",
+                        org_name="Test Org",
+                        email="admin@example.com",
+                        attempt_count=attempt,
+                    )
+
+                    payload = mock_webhook.call_args[0][0]
+                    assert payload["urgency"] == expected_urgency, (
+                        f"attempt={attempt}: expected {expected_urgency}, got {payload['urgency']}"
+                    )
+
 
 # =============================================================================
 # Trial Ending Notification Tests
@@ -381,7 +461,7 @@ class TestTrialEndingNotification:
     """Tests for trial ending notifications."""
 
     def test_notify_trial_ending_7_days(self):
-        """Test trial ending notification with 7 days remaining."""
+        """Test trial ending notification with 7 days remaining (INFO)."""
         notifier = BillingNotifier()
         trial_end = datetime.now(timezone.utc) + timedelta(days=7)
 
@@ -398,10 +478,11 @@ class TestTrialEndingNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "7 Days Left" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "7 Days Left" in subject
 
     def test_notify_trial_ending_3_days(self):
-        """Test trial ending notification with 3 days remaining."""
+        """Test trial ending notification with 3 days remaining (REMINDER)."""
         notifier = BillingNotifier()
         trial_end = datetime.now(timezone.utc) + timedelta(days=3)
 
@@ -418,10 +499,11 @@ class TestTrialEndingNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "3 Days" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "3 Days" in subject
 
     def test_notify_trial_ending_1_day(self):
-        """Test trial ending notification with 1 day remaining (urgent)."""
+        """Test trial ending notification with 1 day remaining (URGENT)."""
         notifier = BillingNotifier()
         trial_end = datetime.now(timezone.utc) + timedelta(days=1)
 
@@ -438,10 +520,32 @@ class TestTrialEndingNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "Tomorrow" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "Tomorrow" in subject
+
+    def test_notify_trial_ending_0_days(self):
+        """Test trial ending notification with 0 days remaining is URGENT."""
+        notifier = BillingNotifier()
+        trial_end = datetime.now(timezone.utc)
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            result = notifier.notify_trial_ending(
+                org_id="org-123",
+                org_name="Test Org",
+                email="admin@example.com",
+                days_remaining=0,
+                trial_end=trial_end,
+            )
+
+            assert result.success is True
+            call_args = mock_email.call_args
+            subject = call_args[0][1]
+            assert "Tomorrow" in subject
 
     def test_notify_trial_ending_log_fallback(self):
-        """Test trial ending falls back to logging."""
+        """Test trial ending falls back to logging when email and webhook fail."""
         notifier = BillingNotifier()
         trial_end = datetime.now(timezone.utc) + timedelta(days=5)
 
@@ -465,6 +569,52 @@ class TestTrialEndingNotification:
                 assert result.success is True
                 assert result.method == "log"
 
+    def test_notify_trial_ending_webhook_payload(self):
+        """Test trial ending webhook payload has correct fields."""
+        notifier = BillingNotifier(webhook_url="https://hooks.example.com")
+        trial_end = datetime.now(timezone.utc) + timedelta(days=2)
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(
+                success=False, method="email", error="failed"
+            )
+            with patch.object(notifier, "_send_webhook") as mock_webhook:
+                mock_webhook.return_value = NotificationResult(success=True, method="webhook")
+
+                notifier.notify_trial_ending(
+                    org_id="org-123",
+                    org_name="Test Org",
+                    email="admin@example.com",
+                    days_remaining=2,
+                    trial_end=trial_end,
+                )
+
+                payload = mock_webhook.call_args[0][0]
+                assert payload["event"] == "trial_ending"
+                assert payload["org_id"] == "org-123"
+                assert payload["days_remaining"] == 2
+                assert payload["urgency"] == "REMINDER"
+
+    def test_notify_trial_ending_html_includes_date(self):
+        """Test trial ending HTML body includes formatted trial end date."""
+        notifier = BillingNotifier()
+        trial_end = datetime(2025, 3, 15, tzinfo=timezone.utc)
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_trial_ending(
+                org_id="org-123",
+                org_name="Test Org",
+                email="admin@example.com",
+                days_remaining=5,
+                trial_end=trial_end,
+            )
+
+            call_args = mock_email.call_args
+            html_body = call_args[0][2]
+            assert "March 15, 2025" in html_body
+
 
 # =============================================================================
 # Subscription Canceled Notification Tests
@@ -475,7 +625,7 @@ class TestSubscriptionCanceledNotification:
     """Tests for subscription cancellation notifications."""
 
     def test_notify_subscription_canceled(self):
-        """Test subscription canceled notification."""
+        """Test subscription canceled notification includes correct subject."""
         notifier = BillingNotifier()
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -489,7 +639,8 @@ class TestSubscriptionCanceledNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "Canceled" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "Canceled" in subject
 
     def test_notify_subscription_canceled_with_reason(self):
         """Test subscription canceled notification with reason."""
@@ -532,6 +683,24 @@ class TestSubscriptionCanceledNotification:
                 assert payload["event"] == "subscription_canceled"
                 assert payload["reason"] == "budget_constraints"
 
+    def test_notify_subscription_canceled_html_contains_reactivation_link(self):
+        """Test cancellation email contains reactivation link."""
+        notifier = BillingNotifier()
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_subscription_canceled(
+                org_id="org-123",
+                org_name="Test Org",
+                email="admin@example.com",
+            )
+
+            call_args = mock_email.call_args
+            html_body = call_args[0][2]
+            assert "REACTIVATE" in html_body
+            assert "aragora.ai/billing" in html_body
+
 
 # =============================================================================
 # Downgraded Notification Tests
@@ -557,8 +726,10 @@ class TestDowngradedNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "Downgraded" in call_args[1]["subject"]
-            assert "PROFESSIONAL" in call_args[1]["html_body"]
+            subject = call_args[0][1]
+            html_body = call_args[0][2]
+            assert "Downgraded" in subject
+            assert "PROFESSIONAL" in html_body
 
     def test_notify_downgraded_with_invoice_url(self):
         """Test subscription downgraded notification with invoice URL."""
@@ -577,7 +748,26 @@ class TestDowngradedNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "pay.stripe.com" in call_args[1]["html_body"]
+            html_body = call_args[0][2]
+            assert "pay.stripe.com" in html_body
+
+    def test_notify_downgraded_without_invoice_url(self):
+        """Test downgrade notification without invoice URL uses default billing link."""
+        notifier = BillingNotifier()
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_downgraded(
+                org_id="org-123",
+                org_name="Test Org",
+                email="admin@example.com",
+                previous_tier=SubscriptionTier.PROFESSIONAL,
+            )
+
+            call_args = mock_email.call_args
+            html_body = call_args[0][2]
+            assert "aragora.ai/billing" in html_body
 
     def test_notify_downgraded_webhook_payload(self):
         """Test downgrade notification webhook payload."""
@@ -602,6 +792,24 @@ class TestDowngradedNotification:
                 assert payload["event"] == "subscription_downgraded"
                 assert payload["previous_tier"] == "professional"
                 assert payload["new_tier"] == "free"
+
+    def test_notify_downgraded_enterprise_plus(self):
+        """Test downgrade notification for Enterprise Plus tier."""
+        notifier = BillingNotifier()
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_downgraded(
+                org_id="org-123",
+                org_name="Test Org",
+                email="admin@example.com",
+                previous_tier=SubscriptionTier.ENTERPRISE_PLUS,
+            )
+
+            call_args = mock_email.call_args
+            html_body = call_args[0][2]
+            assert "ENTERPRISE_PLUS" in html_body
 
 
 # =============================================================================
@@ -630,7 +838,9 @@ class TestBudgetAlertNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "50%" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "50%" in subject
+            assert "Budget Update" in subject
 
     def test_notify_budget_alert_warning(self):
         """Test budget alert notification at warning level."""
@@ -651,7 +861,8 @@ class TestBudgetAlertNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "Warning" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "Warning" in subject
 
     def test_notify_budget_alert_critical(self):
         """Test budget alert notification at critical level."""
@@ -671,7 +882,8 @@ class TestBudgetAlertNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "Critical" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "Critical" in subject
 
     def test_notify_budget_alert_exceeded(self):
         """Test budget alert notification when exceeded."""
@@ -691,10 +903,11 @@ class TestBudgetAlertNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "Exceeded" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "Exceeded" in subject
 
     def test_notify_budget_alert_unknown_level(self):
-        """Test budget alert with unknown alert level (defaults to warning)."""
+        """Test budget alert with unknown alert level (defaults to warning config)."""
         notifier = BillingNotifier()
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -710,6 +923,74 @@ class TestBudgetAlertNotification:
             )
 
             assert result.success is True
+
+    def test_notify_budget_alert_uses_org_name(self):
+        """Test budget alert uses org_name when provided."""
+        notifier = BillingNotifier()
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_budget_alert(
+                tenant_id="tenant-123",
+                email="admin@example.com",
+                alert_level="info",
+                current_spend="$50.00",
+                budget_limit="$100.00",
+                percent_used=50.0,
+                org_name="Acme Corp",
+            )
+
+            call_args = mock_email.call_args
+            html_body = call_args[0][2]
+            assert "Acme Corp" in html_body
+
+    def test_notify_budget_alert_uses_tenant_id_as_fallback(self):
+        """Test budget alert uses tenant_id when org_name not provided."""
+        notifier = BillingNotifier()
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_budget_alert(
+                tenant_id="tenant-abc",
+                email="admin@example.com",
+                alert_level="info",
+                current_spend="$50.00",
+                budget_limit="$100.00",
+                percent_used=50.0,
+            )
+
+            call_args = mock_email.call_args
+            html_body = call_args[0][2]
+            assert "tenant-abc" in html_body
+
+    def test_notify_budget_alert_webhook_payload(self):
+        """Test budget alert webhook payload contains all fields."""
+        notifier = BillingNotifier(webhook_url="https://hooks.example.com")
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(
+                success=False, method="email", error="failed"
+            )
+            with patch.object(notifier, "_send_webhook") as mock_webhook:
+                mock_webhook.return_value = NotificationResult(success=True, method="webhook")
+
+                notifier.notify_budget_alert(
+                    tenant_id="tenant-123",
+                    email="admin@example.com",
+                    alert_level="critical",
+                    current_spend="$95.00",
+                    budget_limit="$100.00",
+                    percent_used=95.0,
+                    org_name="Test Org",
+                )
+
+                payload = mock_webhook.call_args[0][0]
+                assert payload["event"] == "budget_alert"
+                assert payload["tenant_id"] == "tenant-123"
+                assert payload["alert_level"] == "critical"
+                assert payload["percent_used"] == 95.0
 
 
 # =============================================================================
@@ -741,11 +1022,12 @@ class TestForecastOverageNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "Forecast" in call_args[1]["subject"]
-            assert "Monthly API Budget" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "Forecast" in subject
+            assert "Monthly API Budget" in subject
 
     def test_notify_forecast_overage_calculations(self):
-        """Test forecast overage notification calculations."""
+        """Test forecast overage notification includes correct calculations."""
         notifier = BillingNotifier()
         projected_date = datetime.now(timezone.utc) + timedelta(days=5)
 
@@ -764,7 +1046,7 @@ class TestForecastOverageNotification:
             )
 
             call_args = mock_email.call_args
-            html_body = call_args[1]["html_body"]
+            html_body = call_args[0][2]
             assert "$1,500" in html_body or "1,500" in html_body  # Projected amount
             assert "$500" in html_body or "500" in html_body  # Overage amount
 
@@ -799,6 +1081,30 @@ class TestForecastOverageNotification:
                 assert payload["projected_amount"] == 1000.00
                 assert payload["overage_amount"] == 200.00
 
+    def test_notify_forecast_overage_days_calculation(self):
+        """Test forecast overage correctly calculates days until exceed."""
+        notifier = BillingNotifier()
+        projected_date = datetime.now(timezone.utc) + timedelta(days=15)
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_forecast_overage(
+                org_id="org-123",
+                email="admin@example.com",
+                org_name="Test Org",
+                budget_name="Monthly Budget",
+                current_spent=500.00,
+                budget_limit=1000.00,
+                projected_date=projected_date,
+                projected_amount=1200.00,
+            )
+
+            call_args = mock_email.call_args
+            subject = call_args[0][1]
+            # Should contain the number of days
+            assert "15 days" in subject or "14 days" in subject  # Approximate due to timing
+
 
 # =============================================================================
 # Credit Expiring Notification Tests
@@ -827,8 +1133,9 @@ class TestCreditExpiringNotification:
 
             assert result.success is True
             call_args = mock_email.call_args
-            assert "$50.00" in call_args[1]["subject"]
-            assert "14 days" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "$50.00" in subject
+            assert "14 days" in subject
 
     def test_notify_credit_expiring_large_amount(self):
         """Test credit expiring notification with large amount."""
@@ -848,7 +1155,8 @@ class TestCreditExpiringNotification:
             )
 
             call_args = mock_email.call_args
-            assert "$1,000.00" in call_args[1]["subject"] or "$1000.00" in call_args[1]["subject"]
+            subject = call_args[0][1]
+            assert "$1,000.00" in subject or "$1000.00" in subject
 
     def test_notify_credit_expiring_webhook(self):
         """Test credit expiring webhook payload."""
@@ -877,6 +1185,49 @@ class TestCreditExpiringNotification:
                 assert payload["expiring_amount_cents"] == 2500
                 assert payload["expiring_amount_usd"] == 25.00
                 assert payload["days_until"] == 3
+
+    def test_notify_credit_expiring_cents_to_dollars_conversion(self):
+        """Test correct conversion from cents to dollars."""
+        notifier = BillingNotifier()
+        expiration_date = datetime.now(timezone.utc) + timedelta(days=5)
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            notifier.notify_credit_expiring(
+                org_id="org-123",
+                email="admin@example.com",
+                org_name="Test Org",
+                expiring_amount_cents=199,  # $1.99
+                expiration_date=expiration_date,
+                days_until=5,
+            )
+
+            call_args = mock_email.call_args
+            subject = call_args[0][1]
+            assert "$1.99" in subject
+
+    def test_notify_credit_expiring_zero_cents(self):
+        """Test credit expiring with zero cents."""
+        notifier = BillingNotifier()
+        expiration_date = datetime.now(timezone.utc) + timedelta(days=5)
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            result = notifier.notify_credit_expiring(
+                org_id="org-123",
+                email="admin@example.com",
+                org_name="Test Org",
+                expiring_amount_cents=0,
+                expiration_date=expiration_date,
+                days_until=5,
+            )
+
+            assert result.success is True
+            call_args = mock_email.call_args
+            subject = call_args[0][1]
+            assert "$0.00" in subject
 
 
 # =============================================================================
@@ -963,6 +1314,54 @@ class TestFallbackChain:
 
                 assert result.success is True
                 assert result.method == "log"
+
+    def test_fallback_chain_for_all_notification_types(self):
+        """Test fallback chain works for all notification types."""
+        notifier = BillingNotifier()
+        trial_end = datetime.now(timezone.utc) + timedelta(days=5)
+        projected_date = datetime.now(timezone.utc) + timedelta(days=10)
+        expiration_date = datetime.now(timezone.utc) + timedelta(days=7)
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(
+                success=False, method="email", error="failed"
+            )
+            with patch.object(notifier, "_send_webhook") as mock_webhook:
+                mock_webhook.return_value = NotificationResult(
+                    success=False, method="webhook", error="failed"
+                )
+
+                # All should fall back to log
+                r1 = notifier.notify_trial_ending(
+                    "org-1", "Org", "e@e.com", 5, trial_end
+                )
+                assert r1.method == "log"
+
+                r2 = notifier.notify_subscription_canceled(
+                    "org-1", "Org", "e@e.com"
+                )
+                assert r2.method == "log"
+
+                r3 = notifier.notify_downgraded(
+                    "org-1", "Org", "e@e.com", SubscriptionTier.PROFESSIONAL
+                )
+                assert r3.method == "log"
+
+                r4 = notifier.notify_budget_alert(
+                    "t-1", "e@e.com", "info", "$50", "$100", 50.0
+                )
+                assert r4.method == "log"
+
+                r5 = notifier.notify_forecast_overage(
+                    "org-1", "e@e.com", "Org", "Budget", 500.0, 1000.0,
+                    projected_date, 1200.0,
+                )
+                assert r5.method == "log"
+
+                r6 = notifier.notify_credit_expiring(
+                    "org-1", "e@e.com", "Org", 5000, expiration_date, 7
+                )
+                assert r6.method == "log"
 
 
 # =============================================================================
@@ -1054,3 +1453,37 @@ class TestEdgeCases:
             )
 
             assert result.success is True
+
+    def test_unicode_in_org_name(self):
+        """Test notification with unicode characters in org name."""
+        notifier = BillingNotifier()
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            result = notifier.notify_payment_failed(
+                org_id="org-123",
+                org_name="Test Org GmbH",
+                email="admin@example.com",
+            )
+
+            assert result.success is True
+
+    def test_very_high_attempt_count(self):
+        """Test payment failed with very high attempt count."""
+        notifier = BillingNotifier()
+
+        with patch.object(notifier, "_send_email") as mock_email:
+            mock_email.return_value = NotificationResult(success=True, method="email")
+
+            result = notifier.notify_payment_failed(
+                org_id="org-123",
+                org_name="Test Org",
+                email="admin@example.com",
+                attempt_count=100,
+            )
+
+            assert result.success is True
+            # Should still be URGENT (>= 3)
+            html_body = mock_email.call_args[0][2]
+            assert "URGENT" in html_body

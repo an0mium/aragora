@@ -160,7 +160,7 @@ class SCIMHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/scim/v2/")
 
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
@@ -211,7 +211,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:
+    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]
         """Handle POST requests."""
         if not self.can_handle(path):
             return None
@@ -243,7 +243,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:
+    def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]
         """Handle PUT requests."""
         if not self.can_handle(path):
             return None
@@ -277,7 +277,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_patch(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:
+    def handle_patch(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]
         """Handle PATCH requests."""
         if not self.can_handle(path):
             return None
@@ -311,7 +311,7 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:
+    def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]
         """Handle DELETE requests."""
         if not self.can_handle(path):
             return None
