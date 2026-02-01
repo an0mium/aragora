@@ -324,6 +324,16 @@ class DebateContext:
     """Per-agent isolated workspaces to prevent crosstalk."""
 
     # =========================================================================
+    # Checkpoint State (set when restored from checkpoint)
+    # =========================================================================
+
+    _restored_from_checkpoint: str | None = None
+    """Checkpoint ID if this context was restored from a checkpoint."""
+
+    _checkpoint_resume_round: int | None = None
+    """Round number to resume from if restored from checkpoint."""
+
+    # =========================================================================
     # Helper Methods
     # =========================================================================
 

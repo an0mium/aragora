@@ -721,6 +721,10 @@ class ContextGatherer:
                 logger.warning(f"Failed to initialize codebase context builder: {exc}")
                 return None
 
+        if self._codebase_context_builder is None:
+            logger.warning("Codebase context builder not initialized")
+            return None
+
         try:
             context = await asyncio.wait_for(
                 self._codebase_context_builder.build_debate_context(),

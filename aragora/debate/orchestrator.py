@@ -187,6 +187,17 @@ class Arena(ArenaDelegatesMixin):
     analytics_phase: "AnalyticsPhase"
     feedback_phase: "FeedbackPhase"
 
+    # Convergence attributes (initialized by orchestrator_convergence.init_convergence)
+    convergence_detector: Optional[Any]
+    _convergence_debate_id: Optional[str]
+    _previous_round_responses: dict[str, str]
+
+    # Role attributes (initialized by orchestrator_roles.init_roles_and_stances)
+    roles_manager: Any
+    role_rotator: Any
+    role_matcher: Any
+    current_role_assignments: Any
+
     def __init__(
         self,
         environment: Environment,

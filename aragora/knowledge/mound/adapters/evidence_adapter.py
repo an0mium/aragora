@@ -699,7 +699,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
 
         if hasattr(store, "mark_used_in_consensus"):
             try:
-                store.mark_used_in_consensus(str(debate_id), str(evidence_id))
+                store.mark_used_in_consensus(str(debate_id), [str(evidence_id)])
                 logger.debug(
                     f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}"
                 )

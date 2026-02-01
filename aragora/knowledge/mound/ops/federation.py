@@ -685,14 +685,15 @@ class KnowledgeFederationMixin:
             from aragora.coordination.cross_workspace import (
                 CrossWorkspaceCoordinator,
                 FederatedWorkspace,
+                FederationMode,
             )
 
             workspace = FederatedWorkspace(
                 id=f"region:{region.region_id}",
                 name=f"Region: {region.region_id}",
-                federation_mode=str(region.mode.value)
+                federation_mode=FederationMode(region.mode.value)
                 if hasattr(region.mode, "value")
-                else str(region.mode),
+                else FederationMode(region.mode),
                 endpoint_url=region.endpoint_url,
                 public_key=region.api_key,
             )

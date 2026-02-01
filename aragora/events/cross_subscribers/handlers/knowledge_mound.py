@@ -83,6 +83,7 @@ class KnowledgeMoundHandlersMixin:
 
             request = IngestionRequest(
                 content=content,
+                workspace_id=data.get("workspace_id", "default"),
                 source_type=KnowledgeSource.CONTINUUM,
                 confidence=importance,
                 metadata=data.get("metadata", {}),

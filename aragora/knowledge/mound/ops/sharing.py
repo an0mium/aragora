@@ -405,14 +405,16 @@ class KnowledgeSharingMixin:
             from aragora.coordination.cross_workspace import (
                 CrossWorkspaceCoordinator,
                 DataSharingConsent,
+                OperationType,
+                SharingScope,
             )
 
             coordinator = CrossWorkspaceCoordinator()
             consent = DataSharingConsent(
-                from_workspace_id=from_workspace_id,
-                to_workspace_id=to_workspace_id,
-                scope=scope,
-                operations=operations,
+                source_workspace_id=from_workspace_id,
+                target_workspace_id=to_workspace_id,
+                scope=SharingScope(scope) if isinstance(scope, str) else scope,
+                operations={OperationType(op) if isinstance(op, str) else op for op in operations},
                 granted_by=granted_by,
             )
             if hasattr(coordinator, "record_consent"):

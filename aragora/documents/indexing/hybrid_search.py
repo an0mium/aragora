@@ -168,8 +168,12 @@ class HybridSearcher:
         )
 
         results = await asyncio.gather(vector_task, keyword_task, return_exceptions=True)
-        vector_results = results[0] if not isinstance(results[0], Exception) else []
-        keyword_results = results[1] if not isinstance(results[1], Exception) else []
+        vector_results: list[SearchResult] = (
+            results[0] if not isinstance(results[0], BaseException) else []
+        )
+        keyword_results: list[SearchResult] = (
+            results[1] if not isinstance(results[1], BaseException) else []
+        )
 
         # Fuse results using RRF
         fused = self._reciprocal_rank_fusion(

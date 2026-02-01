@@ -38,7 +38,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any, TypeVar
 
 from aragora.events.types import StreamEventType
@@ -65,7 +65,7 @@ class EventPayload:
     def from_dict(cls: type[T], data: dict[str, Any]) -> T:
         """Create payload from dictionary with validation."""
         # Filter to only known fields
-        known_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        known_fields = {f.name for f in fields(cls)}  # type: ignore[arg-type]
         filtered = {k: v for k, v in data.items() if k in known_fields}
         return cls(**filtered)
 

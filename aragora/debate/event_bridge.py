@@ -196,7 +196,7 @@ class EventEmitterBridge:
                 StreamEvent(
                     type=StreamEventType.MOMENT_DETECTED,
                     data=moment.to_dict(),
-                    debate_id=self.loop_id or "unknown",
+                    loop_id=self.loop_id or "unknown",
                 )
             )
             logger.debug("Emitted moment event: %s for %s", moment.moment_type, moment.agent_name)

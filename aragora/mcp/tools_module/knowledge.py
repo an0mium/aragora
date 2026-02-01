@@ -225,15 +225,16 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
                 "workspace_id": stats.workspace_id,
             }
         else:
-            # Fallback if stats is a dict
+            # Fallback if stats is a dict (legacy compatibility)
+            stats_dict: dict[str, Any] = stats  # type: ignore[assignment]
             return {
-                "total_nodes": stats.get("total_nodes", 0),
-                "total_relationships": stats.get("total_relationships", 0),
-                "nodes_by_type": stats.get("nodes_by_type", {}),
-                "nodes_by_tier": stats.get("nodes_by_tier", {}),
-                "avg_confidence": stats.get("avg_confidence", 0),
-                "stale_nodes_count": stats.get("stale_nodes_count", 0),
-                "last_updated": stats.get("last_updated", "unknown"),
+                "total_nodes": stats_dict.get("total_nodes", 0),
+                "total_relationships": stats_dict.get("total_relationships", 0),
+                "nodes_by_type": stats_dict.get("nodes_by_type", {}),
+                "nodes_by_tier": stats_dict.get("nodes_by_tier", {}),
+                "avg_confidence": stats_dict.get("avg_confidence", 0),
+                "stale_nodes_count": stats_dict.get("stale_nodes_count", 0),
+                "last_updated": stats_dict.get("last_updated", "unknown"),
             }
 
     except ImportError:

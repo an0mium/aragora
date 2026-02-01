@@ -578,13 +578,14 @@ class KnowledgeMoundCore:
         else:
             from aragora.knowledge.mound import KnowledgeRelationship
 
-            # rel_type may be str or RelationshipType; constructor accepts either
+            # rel_type may be str or RelationshipType; constructor accepts a Literal string
+            # Cast to the expected Literal type
+            from typing import cast
+
             rel = KnowledgeRelationship(
                 from_node_id=from_id,
                 to_node_id=to_id,
-                relationship_type=RelationshipType(rel_type)
-                if isinstance(rel_type, str)
-                else rel_type,
+                relationship_type=cast(RelationshipType, rel_type),
             )
             self._meta_store.save_relationship(rel)
 
