@@ -26,6 +26,7 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..openapi_decorator import api_endpoint
 from ..utils.responses import HandlerResult
 from ..secure import SecureHandler
 from aragora.rbac.decorators import require_permission
@@ -170,6 +171,12 @@ class BudgetControlsHandler(SecureHandler):
 
         return db_user, org, None
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/budgets",
+        summary="List organization budgets",
+        tags=["SME", "Budgets"],
+    )
     @handle_errors("list budgets")
     @require_permission("sme:budgets:read")
     def _list_budgets(
@@ -207,6 +214,12 @@ class BudgetControlsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/budgets/{budget_id}",
+        summary="Get budget details",
+        tags=["SME", "Budgets"],
+    )
     @handle_errors("get budget")
     @require_permission("sme:budgets:read")
     def _get_budget(
@@ -241,6 +254,12 @@ class BudgetControlsHandler(SecureHandler):
 
         return json_response({"budget": budget.to_dict()})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/sme/budgets",
+        summary="Create organization budget",
+        tags=["SME", "Budgets"],
+    )
     @handle_errors("create budget")
     @require_permission("sme:budgets:write")
     def _create_budget(
@@ -322,6 +341,12 @@ class BudgetControlsHandler(SecureHandler):
             logger.error(f"Failed to create budget: {e}")
             return error_response(f"Failed to create budget: {e}", 500)
 
+    @api_endpoint(
+        method="PATCH",
+        path="/api/v1/sme/budgets/{budget_id}",
+        summary="Update organization budget",
+        tags=["SME", "Budgets"],
+    )
     @handle_errors("update budget")
     @require_permission("sme:budgets:write")
     def _update_budget(
@@ -415,6 +440,12 @@ class BudgetControlsHandler(SecureHandler):
             logger.error(f"Failed to update budget: {e}")
             return error_response(f"Failed to update budget: {e}", 500)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/sme/budgets/{budget_id}",
+        summary="Delete organization budget",
+        tags=["SME", "Budgets"],
+    )
     @handle_errors("delete budget")
     @require_permission("sme:budgets:write")
     def _delete_budget(
@@ -460,6 +491,12 @@ class BudgetControlsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/budgets/{budget_id}/alerts",
+        summary="List budget alerts",
+        tags=["SME", "Budgets"],
+    )
     @handle_errors("list budget alerts")
     @require_permission("sme:budgets:read")
     def _list_alerts(
@@ -574,6 +611,12 @@ class BudgetControlsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/budgets/{budget_id}/transactions",
+        summary="List budget transactions",
+        tags=["SME", "Budgets"],
+    )
     @handle_errors("list transactions")
     @require_permission("sme:budgets:read")
     def _list_transactions(

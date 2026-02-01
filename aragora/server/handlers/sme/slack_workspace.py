@@ -30,6 +30,7 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..openapi_decorator import api_endpoint
 from ..utils.responses import HandlerResult
 from ..secure import SecureHandler
 from aragora.rbac.decorators import require_permission
@@ -217,6 +218,12 @@ class SlackWorkspaceHandler(SecureHandler):
         except (json_lib.JSONDecodeError, ValueError):
             return None, error_response("Invalid JSON body", 400)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/slack/workspaces",
+        summary="List connected Slack workspaces",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("list Slack workspaces")
     @require_permission("sme:workspaces:read")
     def _list_workspaces(
@@ -266,6 +273,12 @@ class SlackWorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/sme/slack/workspaces",
+        summary="Create a Slack workspace connection",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("create Slack workspace")
     @require_permission("sme:workspaces:write")
     def _create_workspace(
@@ -313,6 +326,12 @@ class SlackWorkspaceHandler(SecureHandler):
 
         return json_response({"workspace": workspace.to_dict()}, status=201)
 
+    @api_endpoint(
+        method="PATCH",
+        path="/api/v1/sme/slack/workspaces/{workspace_id}",
+        summary="Update Slack workspace details",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("update Slack workspace")
     @require_permission("sme:workspaces:write")
     def _update_workspace(
@@ -353,6 +372,12 @@ class SlackWorkspaceHandler(SecureHandler):
 
         return json_response({"workspace": workspace.to_dict()})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/slack/workspaces/{workspace_id}",
+        summary="Get Slack workspace details",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("get Slack workspace")
     @require_permission("sme:workspaces:read")
     def _get_workspace(
@@ -387,6 +412,12 @@ class SlackWorkspaceHandler(SecureHandler):
 
         return json_response({"workspace": workspace.to_dict()})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/sme/slack/workspaces/{workspace_id}/test",
+        summary="Test Slack workspace connection",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("test Slack connection")
     @require_permission("sme:workspaces:write")
     def _test_connection(
@@ -459,6 +490,12 @@ class SlackWorkspaceHandler(SecureHandler):
 
         return json_response(result)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/sme/slack/workspaces/{workspace_id}",
+        summary="Disconnect Slack workspace",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("disconnect Slack workspace")
     @require_permission("sme:workspaces:write")
     def _disconnect_workspace(
@@ -515,6 +552,12 @@ class SlackWorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/slack/workspaces/{workspace_id}/channels",
+        summary="List Slack workspace channels",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("list Slack channels")
     @require_permission("sme:workspaces:read")
     def _list_channels(
@@ -591,6 +634,12 @@ class SlackWorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/sme/slack/subscribe",
+        summary="Subscribe Slack channel to notifications",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("subscribe Slack channel")
     @require_permission("sme:channels:subscribe")
     def _subscribe_channel(
@@ -683,6 +732,12 @@ class SlackWorkspaceHandler(SecureHandler):
         except ValueError as e:
             return error_response(str(e), 409)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/slack/subscriptions",
+        summary="List Slack channel subscriptions",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("list Slack subscriptions")
     @require_permission("sme:channels:subscribe")
     def _list_subscriptions(
@@ -728,6 +783,12 @@ class SlackWorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/sme/slack/subscriptions/{subscription_id}",
+        summary="Delete Slack channel subscription",
+        tags=["SME", "Slack"],
+    )
     @handle_errors("delete Slack subscription")
     @require_permission("sme:channels:subscribe")
     def _delete_subscription(
@@ -774,6 +835,12 @@ class SlackWorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/slack/oauth/start",
+        summary="Start Slack OAuth flow",
+        tags=["SME", "Slack", "OAuth"],
+    )
     @handle_errors("start Slack OAuth")
     @require_permission("sme:workspaces:write")
     def _handle_oauth_start(
@@ -791,6 +858,12 @@ class SlackWorkspaceHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/sme/slack/oauth/callback",
+        summary="Handle Slack OAuth callback",
+        tags=["SME", "Slack", "OAuth"],
+    )
     @handle_errors("Slack OAuth callback")
     @require_permission("sme:workspaces:write")
     def _handle_oauth_callback(

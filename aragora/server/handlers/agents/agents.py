@@ -645,6 +645,12 @@ class AgentsHandler(SecureHandler):
 
         return json_response(health)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/agents/availability",
+        summary="Get agent availability based on configured API keys",
+        tags=["Agents"],
+    )
     @rate_limit(requests_per_minute=60, limiter_name="agent_availability")
     @handle_errors("get agent availability")
     def _get_agent_availability(self) -> HandlerResult:
