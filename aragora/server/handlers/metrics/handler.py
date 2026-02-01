@@ -30,7 +30,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from ..admin.cache import _cache, get_cache_stats
 from ..base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
-from ..utils.decorators import require_permission
+from aragora.rbac.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from .formatters import format_size, format_uptime
 from .tracking import get_request_stats, get_start_time, get_verification_stats

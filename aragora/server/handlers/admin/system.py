@@ -44,7 +44,7 @@ from ..base import (
     validate_path_segment,
 )
 from ..utils.rate_limit import rate_limit
-from ..utils.decorators import require_permission
+from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 # Cache TTLs for system endpoints (in seconds)

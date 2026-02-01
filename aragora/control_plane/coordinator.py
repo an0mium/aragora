@@ -124,6 +124,19 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
+# Optional AgentFactory for auto-creating agents from registry
+AgentFactory: Any = None
+get_agent_factory: Any = None
+try:
+    from aragora.control_plane.agent_factory import (
+        AgentFactory,
+        get_agent_factory,
+    )
+
+    HAS_AGENT_FACTORY = True
+except ImportError:
+    HAS_AGENT_FACTORY = False
+
 logger = get_logger(__name__)
 
 
@@ -391,6 +404,11 @@ class ControlPlaneCoordinator:
                 check_interval=self._config.watchdog_check_interval,
                 auto_escalate=self._config.watchdog_auto_escalate,
             )
+
+        # Agent factory for auto-creating agents from registry selection
+        self._agent_factory: Optional["AgentFactory"] = None
+        if HAS_AGENT_FACTORY:
+            self._agent_factory = get_agent_factory()
 
         self._connected = False
         self._result_waiters: dict[str, asyncio.Event] = {}
@@ -1708,26 +1726,46 @@ class ControlPlaneCoordinator:
         ) as span:
             start = time.monotonic()
 
-            # If no agents provided, select from registry
+            # If no agents provided, select from registry and convert to Agent instances
             if not agents:
                 # Get required_capabilities from task, defaulting to ["debate"]
                 raw_capabilities: list[str] = getattr(task, "required_capabilities", ["debate"])
                 capabilities: list[str | AgentCapability] = list(raw_capabilities)
-                selected_agents: list[Any] = []
-                for _ in range(task.sla.min_agents if hasattr(task, "sla") else 2):
+                selected_infos: list[AgentInfo] = []
+                min_agents = task.sla.min_agents if hasattr(task, "sla") else 2
+
+                for _ in range(min_agents):
                     agent_info = await self.select_agent(
                         capabilities=capabilities,
-                        exclude=[a.name if hasattr(a, "name") else str(a) for a in selected_agents],
+                        exclude=[a.agent_id for a in selected_infos],
                     )
                     if agent_info:
-                        # We need to convert AgentInfo to actual Agent instances
-                        # This is a bridge - the caller should provide agents
-                        pass
-                logger.warning(
-                    "deliberation_no_agents",
-                    task_id=task.task_id,
-                    msg="No agents provided and auto-selection not yet implemented",
-                )
+                        selected_infos.append(agent_info)
+
+                # Convert AgentInfo -> concrete Agent instances via factory
+                if selected_infos and self._agent_factory:
+                    try:
+                        agents = await self._agent_factory.create_agents(
+                            selected_infos,
+                            role="proposer",
+                            min_agents=0,  # Don't raise, log warning instead
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "deliberation_agent_creation_failed",
+                            task_id=task.task_id,
+                            error=str(e),
+                            selected_count=len(selected_infos),
+                        )
+
+                if not agents:
+                    logger.warning(
+                        "deliberation_no_agents",
+                        task_id=task.task_id,
+                        msg="No agents could be created from registry selection",
+                        selected_count=len(selected_infos),
+                        factory_available=self._agent_factory is not None,
+                    )
 
             try:
                 outcome = await self._arena_bridge.execute_via_arena(
