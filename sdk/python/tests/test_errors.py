@@ -12,9 +12,11 @@ from aragora.exceptions import (
     AragoraError,
     AuthenticationError,
     AuthorizationError,
+    ConnectionError,
     NotFoundError,
     RateLimitError,
     ServerError,
+    TimeoutError,
     ValidationError,
 )
 
@@ -46,6 +48,33 @@ class TestAragoraError:
         error = AragoraError("Simple error")
         assert str(error) == "AragoraError: Simple error"
 
+    def test_error_with_error_code(self) -> None:
+        """AragoraError stores error code."""
+        error = AragoraError("Error", error_code="ERR_CODE")
+        assert error.error_code == "ERR_CODE"
+        assert "[ERR_CODE]" in str(error)
+
+    def test_error_with_trace_id(self) -> None:
+        """AragoraError stores trace id."""
+        error = AragoraError("Error", trace_id="trace-123")
+        assert error.trace_id == "trace-123"
+        assert "trace: trace-123" in str(error)
+
+    def test_error_str_with_all_fields(self) -> None:
+        """String representation with all fields."""
+        error = AragoraError(
+            "Something went wrong",
+            status_code=500,
+            error_code="INTERNAL_ERROR",
+            trace_id="abc-123-xyz",
+        )
+        result = str(error)
+        assert "AragoraError" in result
+        assert "(500)" in result
+        assert "[INTERNAL_ERROR]" in result
+        assert "Something went wrong" in result
+        assert "trace: abc-123-xyz" in result
+
 
 class TestAuthenticationError:
     """Tests for AuthenticationError."""
@@ -68,6 +97,16 @@ class TestAuthenticationError:
         error = AuthenticationError("Token expired", response_body=body)
         assert error.response_body["code"] == "TOKEN_EXPIRED"
 
+    def test_authentication_error_with_error_code_and_trace_id(self) -> None:
+        """AuthenticationError with error_code and trace_id."""
+        error = AuthenticationError(
+            "Token expired",
+            error_code="TOKEN_EXPIRED",
+            trace_id="auth-trace-456",
+        )
+        assert error.error_code == "TOKEN_EXPIRED"
+        assert error.trace_id == "auth-trace-456"
+
 
 class TestAuthorizationError:
     """Tests for AuthorizationError."""
@@ -84,6 +123,16 @@ class TestAuthorizationError:
         assert error.message == "Insufficient permissions"
         assert error.status_code == 403
 
+    def test_authorization_error_with_error_code_and_trace_id(self) -> None:
+        """AuthorizationError with error_code and trace_id."""
+        error = AuthorizationError(
+            "Insufficient permissions",
+            error_code="FORBIDDEN",
+            trace_id="authz-trace-789",
+        )
+        assert error.error_code == "FORBIDDEN"
+        assert error.trace_id == "authz-trace-789"
+
 
 class TestNotFoundError:
     """Tests for NotFoundError."""
@@ -98,6 +147,16 @@ class TestNotFoundError:
         """NotFoundError with custom message."""
         error = NotFoundError("Debate deb_123 not found")
         assert error.message == "Debate deb_123 not found"
+
+    def test_not_found_error_with_error_code_and_trace_id(self) -> None:
+        """NotFoundError with error_code and trace_id."""
+        error = NotFoundError(
+            "User not found",
+            error_code="USER_NOT_FOUND",
+            trace_id="nf-trace-001",
+        )
+        assert error.error_code == "USER_NOT_FOUND"
+        assert error.trace_id == "nf-trace-001"
 
 
 class TestRateLimitError:
@@ -121,6 +180,18 @@ class TestRateLimitError:
         error = RateLimitError("Rate limited")
         assert "retry after" not in str(error)
 
+    def test_rate_limit_error_with_error_code_and_trace_id(self) -> None:
+        """RateLimitError with error_code and trace_id."""
+        error = RateLimitError(
+            "Too many requests",
+            retry_after=120,
+            error_code="RATE_LIMITED",
+            trace_id="rl-trace-xyz",
+        )
+        assert error.error_code == "RATE_LIMITED"
+        assert error.trace_id == "rl-trace-xyz"
+        assert error.retry_after == 120
+
 
 class TestValidationError:
     """Tests for ValidationError."""
@@ -141,6 +212,18 @@ class TestValidationError:
         error = ValidationError("Validation failed", errors=field_errors)
         assert len(error.errors) == 2
         assert error.errors[0]["field"] == "task"
+
+    def test_validation_error_with_error_code_and_trace_id(self) -> None:
+        """ValidationError with error_code and trace_id."""
+        error = ValidationError(
+            "Invalid input",
+            errors=[{"field": "name", "message": "Required"}],
+            error_code="VALIDATION_FAILED",
+            trace_id="val-trace-123",
+        )
+        assert error.error_code == "VALIDATION_FAILED"
+        assert error.trace_id == "val-trace-123"
+        assert len(error.errors) == 1
 
 
 class TestServerError:
@@ -165,6 +248,70 @@ class TestServerError:
         """ServerError with 503 status."""
         error = ServerError("Service unavailable", status_code=503)
         assert error.status_code == 503
+
+    def test_server_error_with_error_code_and_trace_id(self) -> None:
+        """ServerError with error_code and trace_id."""
+        error = ServerError(
+            "Internal server error",
+            error_code="INTERNAL_ERROR",
+            trace_id="srv-trace-500",
+        )
+        assert error.error_code == "INTERNAL_ERROR"
+        assert error.trace_id == "srv-trace-500"
+
+
+class TestTimeoutError:
+    """Tests for TimeoutError."""
+
+    def test_timeout_error_defaults(self) -> None:
+        """TimeoutError has correct defaults."""
+        error = TimeoutError()
+        assert error.message == "Request timed out"
+        assert error.status_code is None
+        assert error.error_code is None
+        assert error.trace_id is None
+
+    def test_timeout_error_custom_message(self) -> None:
+        """TimeoutError with custom message."""
+        error = TimeoutError("Operation timed out after 30s")
+        assert error.message == "Operation timed out after 30s"
+
+    def test_timeout_error_with_error_code_and_trace_id(self) -> None:
+        """TimeoutError with error_code and trace_id."""
+        error = TimeoutError(
+            "Operation timed out after 30s",
+            error_code="TIMEOUT",
+            trace_id="to-trace-999",
+        )
+        assert error.error_code == "TIMEOUT"
+        assert error.trace_id == "to-trace-999"
+
+
+class TestConnectionError:
+    """Tests for ConnectionError."""
+
+    def test_connection_error_defaults(self) -> None:
+        """ConnectionError has correct defaults."""
+        error = ConnectionError()
+        assert error.message == "Connection failed"
+        assert error.status_code is None
+        assert error.error_code is None
+        assert error.trace_id is None
+
+    def test_connection_error_custom_message(self) -> None:
+        """ConnectionError with custom message."""
+        error = ConnectionError("Could not connect to server")
+        assert error.message == "Could not connect to server"
+
+    def test_connection_error_with_error_code_and_trace_id(self) -> None:
+        """ConnectionError with error_code and trace_id."""
+        error = ConnectionError(
+            "Could not connect to server",
+            error_code="CONNECTION_REFUSED",
+            trace_id="conn-trace-001",
+        )
+        assert error.error_code == "CONNECTION_REFUSED"
+        assert error.trace_id == "conn-trace-001"
 
 
 class TestClientErrorHandling:
@@ -424,6 +571,38 @@ class TestErrorInheritance:
             RateLimitError(),
             ValidationError(),
             ServerError(),
+            TimeoutError(),
+            ConnectionError(),
         ]
         for error in errors:
             assert isinstance(error, Exception)
+
+    def test_timeout_error_is_aragora_error(self) -> None:
+        """TimeoutError inherits from AragoraError."""
+        error = TimeoutError()
+        assert isinstance(error, AragoraError)
+
+    def test_connection_error_is_aragora_error(self) -> None:
+        """ConnectionError inherits from AragoraError."""
+        error = ConnectionError()
+        assert isinstance(error, AragoraError)
+
+    def test_all_errors_catchable_as_aragora_error(self) -> None:
+        """All specific errors can be caught as AragoraError."""
+        errors = [
+            AuthenticationError(),
+            AuthorizationError(),
+            NotFoundError(),
+            RateLimitError(),
+            ValidationError(),
+            ServerError(),
+            TimeoutError(),
+            ConnectionError(),
+        ]
+        for error in errors:
+            try:
+                raise error
+            except AragoraError as e:
+                assert isinstance(e, AragoraError)
+            except Exception:
+                pytest.fail(f"{type(error).__name__} was not caught as AragoraError")

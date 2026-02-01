@@ -63,6 +63,49 @@ class KnowledgeAPI:
             params["status"] = status
         return self._client.request("GET", "/api/v1/knowledge/facts", params=params)
 
+    def list_all_facts(
+        self,
+        workspace_id: str | None = None,
+        topic: str | None = None,
+        min_confidence: float = 0.0,
+        status: str | None = None,
+        include_superseded: bool = False,
+        page_size: int = 50,
+    ):
+        """
+        Iterate through all facts with automatic pagination.
+
+        Args:
+            workspace_id: Filter by workspace
+            topic: Filter by topic
+            min_confidence: Minimum confidence threshold
+            status: Filter by status
+            include_superseded: Include superseded facts
+            page_size: Number of facts per page (default 50)
+
+        Returns:
+            SyncPaginator yielding fact dictionaries
+
+        Example::
+
+            for fact in client.knowledge.list_all_facts(topic="security"):
+                print(fact["statement"])
+        """
+        from ..pagination import SyncPaginator
+
+        params: dict[str, Any] = {
+            "min_confidence": min_confidence,
+            "include_superseded": include_superseded,
+        }
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if topic:
+            params["topic"] = topic
+        if status:
+            params["status"] = status
+
+        return SyncPaginator(self._client, "/api/v1/knowledge/facts", params, page_size)
+
     def get_fact(self, fact_id: str) -> dict[str, Any]:
         """Get a single fact by ID."""
         return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}")
@@ -459,6 +502,49 @@ class AsyncKnowledgeAPI:
         if status:
             params["status"] = status
         return await self._client.request("GET", "/api/v1/knowledge/facts", params=params)
+
+    def list_all_facts(
+        self,
+        workspace_id: str | None = None,
+        topic: str | None = None,
+        min_confidence: float = 0.0,
+        status: str | None = None,
+        include_superseded: bool = False,
+        page_size: int = 50,
+    ):
+        """
+        Iterate through all facts with automatic pagination.
+
+        Args:
+            workspace_id: Filter by workspace
+            topic: Filter by topic
+            min_confidence: Minimum confidence threshold
+            status: Filter by status
+            include_superseded: Include superseded facts
+            page_size: Number of facts per page (default 50)
+
+        Returns:
+            AsyncPaginator yielding fact dictionaries
+
+        Example::
+
+            async for fact in client.knowledge.list_all_facts(topic="security"):
+                print(fact["statement"])
+        """
+        from ..pagination import AsyncPaginator
+
+        params: dict[str, Any] = {
+            "min_confidence": min_confidence,
+            "include_superseded": include_superseded,
+        }
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if topic:
+            params["topic"] = topic
+        if status:
+            params["status"] = status
+
+        return AsyncPaginator(self._client, "/api/v1/knowledge/facts", params, page_size)
 
     async def get_fact(self, fact_id: str) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}")

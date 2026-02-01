@@ -34,6 +34,25 @@ class AgentsAPI:
         """
         return self._client.request("GET", "/api/v1/agents")
 
+    def list_all(self, page_size: int = 20):
+        """
+        Iterate through all agents with automatic pagination.
+
+        Args:
+            page_size: Number of agents per page (default 20)
+
+        Returns:
+            SyncPaginator yielding agent dictionaries
+
+        Example::
+
+            for agent in client.agents.list_all():
+                print(agent["name"])
+        """
+        from ..pagination import SyncPaginator
+
+        return SyncPaginator(self._client, "/api/v1/agents", {}, page_size)
+
     def get(self, agent_name: str) -> dict[str, Any]:
         """
         Get details for a specific agent.
@@ -388,6 +407,25 @@ class AsyncAgentsAPI:
     async def list(self) -> dict[str, Any]:
         """List all available agents."""
         return await self._client.request("GET", "/api/v1/agents")
+
+    def list_all(self, page_size: int = 20):
+        """
+        Iterate through all agents with automatic pagination.
+
+        Args:
+            page_size: Number of agents per page (default 20)
+
+        Returns:
+            AsyncPaginator yielding agent dictionaries
+
+        Example::
+
+            async for agent in client.agents.list_all():
+                print(agent["name"])
+        """
+        from ..pagination import AsyncPaginator
+
+        return AsyncPaginator(self._client, "/api/v1/agents", {}, page_size)
 
     async def get(self, agent_name: str) -> dict[str, Any]:
         """Get details for a specific agent."""

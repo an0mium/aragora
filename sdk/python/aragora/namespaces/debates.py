@@ -87,6 +87,34 @@ class DebatesAPI:
 
         return self._client.request("GET", "/api/v1/debates", params=params)
 
+    def list_all(
+        self,
+        status: str | None = None,
+        page_size: int = 20,
+    ):
+        """
+        Iterate through all debates with automatic pagination.
+
+        Args:
+            status: Filter by status (active, completed, etc.)
+            page_size: Number of debates per page (default 20)
+
+        Returns:
+            SyncPaginator yielding debate dictionaries
+
+        Example::
+
+            for debate in client.debates.list_all(status="active"):
+                print(debate["id"])
+        """
+        from ..pagination import SyncPaginator
+
+        params = {}
+        if status:
+            params["status"] = status
+
+        return SyncPaginator(self._client, "/api/v1/debates", params, page_size)
+
     def get_messages(self, debate_id: str) -> dict[str, Any]:
         """
         Get messages from a debate.
@@ -532,6 +560,69 @@ class AsyncDebatesAPI:
             params["status"] = status
 
         return await self._client.request("GET", "/api/v1/debates", params=params)
+
+    def list_all(
+        self,
+        status: str | None = None,
+        page_size: int = 20,
+    ):
+        """
+        Iterate through all debates with automatic pagination.
+
+        Args:
+            status: Filter by status (active, completed, etc.)
+            page_size: Number of debates per page (default 20)
+
+        Returns:
+            AsyncPaginator yielding debate dictionaries
+
+        Example::
+
+            async for debate in client.debates.list_all(status="active"):
+                print(debate["id"])
+        """
+        from ..pagination import AsyncPaginator
+
+        params = {}
+        if status:
+            params["status"] = status
+
+        return AsyncPaginator(self._client, "/api/v1/debates", params, page_size)
+
+    async def stream(self, debate_id: str):
+        """
+        Stream debate events via WebSocket.
+
+        Yields events as they occur during the debate. Automatically connects
+        and disconnects the WebSocket.
+
+        Args:
+            debate_id: The ID of the debate to stream
+
+        Yields:
+            WebSocketEvent objects with typed_data for structured access
+
+        Example::
+
+            async for event in client.debates.stream(debate_id):
+                print(event.type, event.data)
+                if event.type == "debate_end":
+                    break
+        """
+        from ..websocket import AragoraWebSocket
+
+        ws = AragoraWebSocket(
+            base_url=self._client.base_url,
+            api_key=self._client.api_key,
+        )
+        await ws.connect(debate_id=debate_id)
+        try:
+            async for event in ws.events():
+                yield event
+                if event.type in ("debate_end", "error"):
+                    break
+        finally:
+            await ws.close()
 
     async def get_messages(self, debate_id: str) -> dict[str, Any]:
         """Get messages from a debate."""

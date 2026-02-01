@@ -260,6 +260,9 @@ from .generated_types import (
 
 # Alias Code as ErrorCode for clarity in exception handling contexts
 from .generated_types import Code as ErrorCode
+
+# Pagination helpers
+from .pagination import AsyncPaginator, SyncPaginator
 from .websocket import AragoraWebSocket, WebSocketEvent, WebSocketOptions, stream_debate
 
 __version__ = "2.5.0"
@@ -272,6 +275,9 @@ __all__ = [
     "WebSocketEvent",
     "WebSocketOptions",
     "stream_debate",
+    # --- Pagination ---
+    "AsyncPaginator",
+    "SyncPaginator",
     # --- Typed WebSocket Events ---
     "EVENT_CLASS_MAP",
     "AgentMessageEvent",

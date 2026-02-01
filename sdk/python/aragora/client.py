@@ -344,6 +344,15 @@ class AragoraClient:
                     continue
                 raise AragoraError("Connection failed") from e
 
+            except RateLimitError as e:
+                last_error = e
+                if attempt < self.max_retries - 1:
+                    # Use server-specified retry delay if available
+                    delay = e.retry_after if e.retry_after else self.retry_delay * (2**attempt)
+                    time.sleep(delay)
+                    continue
+                raise
+
         if last_error:
             raise AragoraError(f"Request failed after {self.max_retries} retries") from last_error
 
@@ -754,6 +763,15 @@ class AragoraAsyncClient:
                     await asyncio.sleep(self.retry_delay * (2**attempt))
                     continue
                 raise AragoraError("Connection failed") from e
+
+            except RateLimitError as e:
+                last_error = e
+                if attempt < self.max_retries - 1:
+                    # Use server-specified retry delay if available
+                    delay = e.retry_after if e.retry_after else self.retry_delay * (2**attempt)
+                    await asyncio.sleep(delay)
+                    continue
+                raise
 
         if last_error:
             raise AragoraError(f"Request failed after {self.max_retries} retries") from last_error
