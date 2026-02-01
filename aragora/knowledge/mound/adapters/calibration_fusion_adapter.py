@@ -148,16 +148,8 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         # Initialize fusion state
         self._init_fusion_state()
 
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event if callback is configured.
-
-        Override required because FusionMixin stub shadows KnowledgeMoundAdapter.
-        """
-        if self._event_callback:
-            try:
-                self._event_callback(event_type, data)
-            except Exception as e:
-                logger.warning(f"[{self.adapter_name}] Failed to emit event {event_type}: {e}")
+    # Note: _emit_event is now properly inherited from KnowledgeMoundAdapter
+    # since the stub in FusionMixin has been removed.
 
     @property
     def engine(self) -> CalibrationFusionEngine:

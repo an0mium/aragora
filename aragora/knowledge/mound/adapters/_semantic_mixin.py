@@ -66,13 +66,10 @@ class SemanticSearchMixin:
     # Expected from KnowledgeMoundAdapter or subclass
     adapter_name: str
 
-    def _record_metric(self, operation: str, success: bool, latency: float) -> None:
-        """Expected from KnowledgeMoundAdapter."""
-        pass  # Will be provided by base class
-
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Expected from KnowledgeMoundAdapter."""
-        pass  # Will be provided by base class
+    # Note: _emit_event and _record_metric are expected from KnowledgeMoundAdapter
+    # via inheritance. Do NOT add stub implementations here as they would
+    # shadow the real implementations due to MRO when this mixin is listed
+    # before KnowledgeMoundAdapter in the inheritance chain.
 
     def _get_record_by_id(self, record_id: str) -> Any | None:
         """Get a full record by its ID from the source system.
