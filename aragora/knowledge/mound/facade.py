@@ -76,7 +76,10 @@ from aragora.knowledge.mound.ops.analytics import AnalyticsMixin
 from aragora.knowledge.mound.ops.extraction import ExtractionMixin
 from aragora.knowledge.mound.types import MoundConfig
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.events import EventEmitterProtocol
 
 
 class KnowledgeMound(
@@ -100,6 +103,31 @@ class KnowledgeMound(
     ExtractionMixin,
     KnowledgeMoundCore,
 ):
+    """Unified knowledge facade for the Aragora multi-agent control plane."""
+
+    def __init__(
+        self,
+        config: MoundConfig | None = None,
+        workspace_id: str | None = None,
+        event_emitter: "EventEmitterProtocol | None" = None,
+    ) -> None:
+        """Initialize the Knowledge Mound.
+
+        Explicit __init__ required because Protocol classes in the MRO
+        (from DedupOperationsMixin and AutoCurationMixin) can interfere
+        with __init__ resolution.
+
+        Args:
+            config: Mound configuration. Defaults to SQLite backend.
+            workspace_id: Default workspace for queries.
+            event_emitter: Optional event emitter for cross-subsystem events.
+        """
+        # Directly call KnowledgeMoundCore.__init__ because Protocol classes
+        # in the MRO intercept super().__init__() before it reaches the core
+        KnowledgeMoundCore.__init__(
+            self, config=config, workspace_id=workspace_id, event_emitter=event_emitter
+        )
+
     # Explicit override to resolve MRO conflict between
     # ConfidenceDecayMixin.apply_confidence_decay(workspace_id, force) -> DecayReport
     # and PruningOperationsMixin.apply_confidence_decay(workspace_id, decay_rate, min_confidence) -> int
@@ -156,17 +184,3 @@ class KnowledgeMound(
 
     - KnowledgeMoundCore: initialize, close, session, get_stats, storage adapters
     """
-
-    def __init__(
-        self,
-        config: MoundConfig | None = None,
-        workspace_id: str | None = None,
-    ) -> None:
-        """
-        Initialize the Knowledge Mound.
-
-        Args:
-            config: Mound configuration. Defaults to SQLite backend.
-            workspace_id: Default workspace for queries. Overrides config.
-        """
-        super().__init__(config=config, workspace_id=workspace_id)
