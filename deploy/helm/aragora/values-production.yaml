@@ -1,0 +1,177 @@
+# Production values for Aragora
+# ==================================
+# Use this file for production deployments:
+#   helm install aragora ./deploy/helm/aragora -f deploy/helm/aragora/values-production.yaml
+#
+# IMPORTANT: Review and customize these values for your environment.
+# At minimum, you MUST configure:
+# - image.tag: Use a specific version (not "latest")
+# - config.aragora*: Set your API keys via secrets
+# - ingress: Configure your domain and TLS
+# - persistence: Verify storage class availability
+
+# High Availability - 3 replicas minimum
+replicaCount: 3
+
+# Image configuration - ALWAYS use pinned versions in production
+image:
+  repository: aragora/aragora
+  # IMPORTANT: Replace with a specific version tag or SHA digest
+  # Example: tag: "v2.5.0" or tag: "v2.5.0@sha256:abc123..."
+  tag: "v2.5.0"
+  pullPolicy: IfNotPresent
+
+# Autoscaling - enabled for production
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+  # Conservative scale-down to prevent flapping
+  scaleDown:
+    stabilizationWindowSeconds: 300
+    percentValue: 20
+    periodSeconds: 60
+  # Responsive scale-up for load spikes
+  scaleUp:
+    stabilizationWindowSeconds: 30
+    percentValue: 100
+    podsValue: 4
+    periodSeconds: 15
+
+# Pod Disruption Budget - ensures availability during maintenance
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # Alternative: maxUnavailable: 1
+
+# Production resource limits
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Ingress configuration - customize for your domain
+ingress:
+  enabled: true
+  className: "nginx"  # or "alb" for AWS
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # For AWS ALB:
+    # alb.ingress.kubernetes.io/scheme: internet-facing
+    # alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: aragora.example.com  # CHANGE THIS
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: aragora-tls
+      hosts:
+        - aragora.example.com  # CHANGE THIS
+
+# Application configuration
+config:
+  port: 8080
+  logLevel: INFO
+  logFormat: json
+  canonicalStorePersist: true
+  storeDir: "/app/data/.aragora_beads"
+
+  # API keys - use external secrets or sealed secrets in production
+  # NEVER commit actual keys to version control
+  anthropicApiKey: ""  # Set via --set or external secret
+  openaiApiKey: ""     # Set via --set or external secret
+  openrouterApiKey: "" # Set via --set or external secret
+
+# Persistence for state
+persistence:
+  enabled: true
+  storageClass: ""  # Use default or specify: "gp3", "standard", etc.
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+
+# Redis configuration for caching/rate-limiting
+redis:
+  enabled: true
+  architecture: replication  # HA Redis with replicas
+  auth:
+    enabled: true
+    # Set password via --set redis.auth.password=xxx
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  architecture: replication  # HA PostgreSQL
+  auth:
+    # Set credentials via --set
+    database: aragora
+    username: aragora
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+  readReplicas:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 20Gi
+
+# Monitoring
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Network policies (restrict pod-to-pod traffic)
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+
+# Pod anti-affinity for HA (spread across nodes)
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - aragora
+          topologyKey: kubernetes.io/hostname
+
+# Topology spread constraints (spread across availability zones)
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: aragora

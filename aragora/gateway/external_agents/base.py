@@ -411,27 +411,58 @@ class ExternalAgentGateway:
                 self._active_executions.pop(task.task_id, None)
 
     async def _check_policy(self, adapter: ExternalAgentAdapter, task: ExternalAgentTask) -> Any:
-        """Check policy for task execution."""
-        # Stub - will be implemented with policy.py
-        from dataclasses import dataclass
+        """Check policy for task execution.
 
-        @dataclass
-        class PolicyResult:
-            allowed: bool = True
-            reason: str = ""
+        Uses the injected PolicyEngine if available, otherwise falls back
+        to basic capability blocking based on config.
+        """
+        from aragora.gateway.external_agents.policy import PolicyDecision, PolicyAction
 
-        # Check blocked capabilities
+        # Use policy engine if available
+        if self._policy_engine:
+            return await self._policy_engine.evaluate(
+                adapter=adapter,
+                task=task,
+                tenant_id=task.tenant_id,
+                user_id=task.user_id,
+            )
+
+        # Fallback: basic capability blocking
         for cap in task.required_capabilities:
             if cap in self.config.blocked_capabilities:
-                return PolicyResult(allowed=False, reason=f"Capability {cap} is blocked")
+                return PolicyDecision(
+                    allowed=False,
+                    action=PolicyAction.DENY,
+                    reason=f"Capability {cap.value} is blocked by gateway config",
+                )
 
-        return PolicyResult(allowed=True)
+        return PolicyDecision(
+            allowed=True,
+            action=PolicyAction.ALLOW,
+            reason="Basic policy check passed (no policy engine configured)",
+        )
 
     async def _get_credentials(
         self, adapter: ExternalAgentAdapter, task: ExternalAgentTask
     ) -> dict[str, str]:
-        """Get credentials from vault."""
-        # Stub - will be implemented with credential_vault.py
+        """Get credentials from vault for agent execution.
+
+        Uses the injected CredentialVault if available. Credentials are
+        scoped by tenant and agent for security.
+        """
+        # Use credential vault if available
+        if self._credential_vault:
+            return await self._credential_vault.get_credentials_for_execution(
+                agent_name=adapter.agent_name,
+                tenant_id=task.tenant_id,
+                required_credentials=task.metadata.get("required_credentials"),
+            )
+
+        # Fallback: no credentials available without vault
+        logger.warning(
+            f"No credential vault configured - agent {adapter.agent_name} "
+            "will execute without injected credentials"
+        )
         return {}
 
     def _build_sandbox_config(
