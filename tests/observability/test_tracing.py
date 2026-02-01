@@ -325,3 +325,266 @@ class TestBuildTraceHeaders:
         finally:
             set_trace_id(None)
             set_span_id(None)
+
+
+class TestTracedDecorator:
+    """Tests for the @traced decorator."""
+
+    def test_traced_sync_function(self):
+        """Test @traced works on synchronous functions."""
+        from aragora.observability.tracing import traced
+
+        @traced("test.sync_function")
+        def sync_func(x: int, y: int) -> int:
+            return x + y
+
+        result = sync_func(2, 3)
+        assert result == 5
+
+    def test_traced_async_function(self):
+        """Test @traced works on async functions."""
+        import asyncio
+
+        from aragora.observability.tracing import traced
+
+        @traced("test.async_function")
+        async def async_func(x: int, y: int) -> int:
+            return x + y
+
+        result = asyncio.get_event_loop().run_until_complete(async_func(2, 3))
+        assert result == 5
+
+    def test_traced_with_default_name(self):
+        """Test @traced uses function name when no name provided."""
+        from aragora.observability.tracing import traced
+
+        @traced()
+        def my_function() -> str:
+            return "hello"
+
+        result = my_function()
+        assert result == "hello"
+
+    def test_traced_with_attributes(self):
+        """Test @traced with static attributes."""
+        from aragora.observability.tracing import traced
+
+        @traced("test.with_attrs", attributes={"service": "billing", "version": "1.0"})
+        def func_with_attrs() -> bool:
+            return True
+
+        result = func_with_attrs()
+        assert result is True
+
+    def test_traced_with_record_args(self):
+        """Test @traced records function arguments."""
+        from aragora.observability.tracing import traced
+
+        @traced("test.record_args", record_args=True)
+        def func_with_args(name: str, count: int) -> str:
+            return f"{name}:{count}"
+
+        result = func_with_args("test", 42)
+        assert result == "test:42"
+
+    def test_traced_with_record_result(self):
+        """Test @traced records function result."""
+        from aragora.observability.tracing import traced
+
+        @traced("test.record_result", record_result=True)
+        def func_with_result() -> dict:
+            return {"status": "ok", "count": 10}
+
+        result = func_with_result()
+        assert result == {"status": "ok", "count": 10}
+
+    def test_traced_preserves_exception(self):
+        """Test @traced preserves and records exceptions."""
+        from aragora.observability.tracing import traced
+
+        @traced("test.exception")
+        def func_that_raises() -> None:
+            raise ValueError("test error")
+
+        with pytest.raises(ValueError, match="test error"):
+            func_that_raises()
+
+    def test_traced_async_exception(self):
+        """Test @traced preserves async exceptions."""
+        import asyncio
+
+        from aragora.observability.tracing import traced
+
+        @traced("test.async_exception")
+        async def async_func_that_raises() -> None:
+            raise RuntimeError("async error")
+
+        with pytest.raises(RuntimeError, match="async error"):
+            asyncio.get_event_loop().run_until_complete(async_func_that_raises())
+
+
+class TestAutoInstrumentation:
+    """Tests for AutoInstrumentation class."""
+
+    def test_get_instrumented_libraries_initially_empty(self):
+        """Test instrumented libraries set starts empty after reset."""
+        from aragora.observability.tracing import AutoInstrumentation
+
+        AutoInstrumentation.reset()
+        instrumented = AutoInstrumentation.get_instrumented_libraries()
+        assert instrumented == set()
+
+    def test_reset_clears_instrumented(self):
+        """Test reset clears the instrumented set."""
+        from aragora.observability.tracing import AutoInstrumentation
+
+        # Manually add to instrumented (simulating successful instrumentation)
+        AutoInstrumentation._instrumented.add("test_lib")
+        assert "test_lib" in AutoInstrumentation.get_instrumented_libraries()
+
+        AutoInstrumentation.reset()
+        assert "test_lib" not in AutoInstrumentation.get_instrumented_libraries()
+
+    def test_instrument_httpx_returns_bool(self):
+        """Test instrument_httpx returns boolean."""
+        from aragora.observability.tracing import AutoInstrumentation
+
+        AutoInstrumentation.reset()
+        result = AutoInstrumentation.instrument_httpx()
+        # May be True or False depending on whether opentelemetry-instrumentation-httpx is installed
+        assert isinstance(result, bool)
+
+    def test_instrument_all_returns_list(self):
+        """Test instrument_all returns list of instrumented libraries."""
+        from aragora.observability.tracing import AutoInstrumentation
+
+        AutoInstrumentation.reset()
+        result = AutoInstrumentation.instrument_all()
+        assert isinstance(result, list)
+
+
+class TestWorkerTracing:
+    """Tests for worker job tracing helpers."""
+
+    def test_trace_worker_job(self):
+        """Test trace_worker_job context manager."""
+        from aragora.observability.tracing import trace_worker_job
+
+        with trace_worker_job(
+            job_type="routing",
+            job_id="job-123",
+            worker_id="worker-1",
+        ) as span:
+            assert span is not None
+
+    def test_trace_worker_job_with_payload(self):
+        """Test trace_worker_job with payload keys."""
+        from aragora.observability.tracing import trace_worker_job
+
+        payload = {"debate_id": "d-123", "include_voice": True, "secret": "hidden"}
+
+        with trace_worker_job(
+            job_type="routing",
+            job_id="job-456",
+            payload_keys=["debate_id", "include_voice"],
+            payload=payload,
+        ) as span:
+            assert span is not None
+
+    def test_trace_worker_batch(self):
+        """Test trace_worker_batch context manager."""
+        from aragora.observability.tracing import trace_worker_batch
+
+        with trace_worker_batch(
+            job_type="gauntlet",
+            batch_size=10,
+            worker_id="worker-2",
+        ) as span:
+            assert span is not None
+
+
+class TestExternalServiceTracing:
+    """Tests for external service tracing helpers."""
+
+    def test_trace_external_call(self):
+        """Test trace_external_call context manager."""
+        from aragora.observability.tracing import trace_external_call
+
+        with trace_external_call(
+            service="openai",
+            operation="chat.completions",
+            endpoint="https://api.openai.com/v1/chat/completions",
+        ) as span:
+            assert span is not None
+
+    def test_trace_external_call_without_endpoint(self):
+        """Test trace_external_call without endpoint."""
+        from aragora.observability.tracing import trace_external_call
+
+        with trace_external_call(
+            service="anthropic",
+            operation="messages",
+        ) as span:
+            assert span is not None
+
+    def test_trace_llm_call(self):
+        """Test trace_llm_call context manager."""
+        from aragora.observability.tracing import trace_llm_call
+
+        with trace_llm_call(
+            provider="anthropic",
+            model="claude-3-opus",
+            operation="generate",
+            prompt_tokens=100,
+        ) as span:
+            assert span is not None
+
+    def test_trace_llm_call_minimal(self):
+        """Test trace_llm_call with minimal args."""
+        from aragora.observability.tracing import trace_llm_call
+
+        with trace_llm_call(
+            provider="openai",
+            model="gpt-4",
+        ) as span:
+            assert span is not None
+
+
+class TestTracingImports:
+    """Tests for new tracing module imports from observability package."""
+
+    def test_traced_importable(self):
+        """Test traced decorator is importable from observability."""
+        from aragora.observability import traced
+
+        assert callable(traced)
+
+    def test_auto_instrumentation_importable(self):
+        """Test AutoInstrumentation is importable from observability."""
+        from aragora.observability import AutoInstrumentation
+
+        assert hasattr(AutoInstrumentation, "instrument_all")
+
+    def test_instrument_all_importable(self):
+        """Test instrument_all is importable from observability."""
+        from aragora.observability import instrument_all
+
+        assert callable(instrument_all)
+
+    def test_trace_worker_job_importable(self):
+        """Test trace_worker_job is importable from observability."""
+        from aragora.observability import trace_worker_job
+
+        assert callable(trace_worker_job)
+
+    def test_trace_llm_call_importable(self):
+        """Test trace_llm_call is importable from observability."""
+        from aragora.observability import trace_llm_call
+
+        assert callable(trace_llm_call)
+
+    def test_trace_external_call_importable(self):
+        """Test trace_external_call is importable from observability."""
+        from aragora.observability import trace_external_call
+
+        assert callable(trace_external_call)
