@@ -89,7 +89,7 @@ class DebatesHandler(
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = ctx or {}  # type: ignore[assignment]  # dict is runtime-compatible with ServerContext
 
     # Route patterns this handler manages
     ROUTES = [

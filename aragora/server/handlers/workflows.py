@@ -1453,6 +1453,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error updating workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/workflows/{workflow_id}",
+        summary="Delete a workflow",
+        tags=["Workflows"],
+    )
     def _handle_delete_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1479,6 +1485,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error deleting workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflows/{workflow_id}/execute",
+        summary="Execute a workflow",
+        tags=["Workflows"],
+    )
     def _handle_execute(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:

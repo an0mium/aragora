@@ -224,7 +224,9 @@ class TestModuleConstants:
 
     def test_module_all_exports(self):
         """Module __all__ should list expected exports."""
-        from aragora.server.middleware.rate_limit import redis_limiter
+        import sys
+        from aragora.server.middleware.rate_limit.redis_limiter import RedisRateLimiter
+        mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         expected = {
             "REDIS_AVAILABLE",
@@ -237,7 +239,7 @@ class TestModuleConstants:
             "RateLimitCircuitBreaker",
             "RedisRateLimiter",
         }
-        assert set(redis_limiter.__all__) == expected
+        assert set(mod.__all__) == expected
 
 
 # =============================================================================
@@ -259,7 +261,9 @@ class TestGetRedisClient:
 
     def test_reset_redis_client_handles_close_errors(self):
         """reset_redis_client should handle close errors gracefully."""
-        import aragora.server.middleware.rate_limit.redis_limiter as mod
+        import sys
+        from aragora.server.middleware.rate_limit.redis_limiter import reset_redis_client
+        mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         # Set up a mock client that raises on close
         mock_client = MagicMock()
@@ -272,7 +276,7 @@ class TestGetRedisClient:
             mod._redis_init_attempted = True
 
             # Should not raise
-            mod.reset_redis_client()
+            reset_redis_client()
 
             assert mod._redis_client is None
             assert mod._redis_init_attempted is False
@@ -282,7 +286,9 @@ class TestGetRedisClient:
 
     def test_get_redis_client_returns_none_when_unavailable(self):
         """get_redis_client should return None when Redis not available."""
-        import aragora.server.middleware.rate_limit.redis_limiter as mod
+        import sys
+        from aragora.server.middleware.rate_limit.redis_limiter import get_redis_client
+        mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         old_client = mod._redis_client
         old_attempted = mod._redis_init_attempted
@@ -292,7 +298,7 @@ class TestGetRedisClient:
             mod._redis_init_attempted = False
             mod.REDIS_AVAILABLE = False
 
-            result = mod.get_redis_client()
+            result = get_redis_client()
             assert result is None
         finally:
             mod._redis_client = old_client
@@ -301,7 +307,9 @@ class TestGetRedisClient:
 
     def test_get_redis_client_returns_cached(self):
         """get_redis_client should return cached client on repeat calls."""
-        import aragora.server.middleware.rate_limit.redis_limiter as mod
+        import sys
+        from aragora.server.middleware.rate_limit.redis_limiter import get_redis_client
+        mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         old_client = mod._redis_client
         old_attempted = mod._redis_init_attempted
@@ -310,7 +318,7 @@ class TestGetRedisClient:
             mod._redis_client = mock_client
             mod._redis_init_attempted = True
 
-            result = mod.get_redis_client()
+            result = get_redis_client()
             assert result is mock_client
         finally:
             mod._redis_client = old_client

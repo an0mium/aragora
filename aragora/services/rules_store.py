@@ -20,10 +20,12 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Generator, Optional
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Default database location
-DEFAULT_DB_PATH = os.path.expanduser("~/.aragora/data/rules.db")
+DEFAULT_DB_PATH = resolve_db_path("rules.db")
 
 
 class RulesStore:
@@ -42,9 +44,9 @@ class RulesStore:
         Initialize the rules store.
 
         Args:
-            db_path: Path to SQLite database file. Defaults to ~/.aragora/data/rules.db
+            db_path: Path to SQLite database file. Defaults to ARAGORA_DATA_DIR/rules.db
         """
-        self.db_path = db_path or DEFAULT_DB_PATH
+        self.db_path = resolve_db_path(db_path or DEFAULT_DB_PATH)
         self._connections: list[sqlite3.Connection] = []
         self._init_lock = threading.Lock()
         self._initialized = False

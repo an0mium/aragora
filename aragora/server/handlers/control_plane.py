@@ -400,6 +400,12 @@ class ControlPlaneHandler(BaseHandler):
 
         return json_response(get_decision_status(request_id))
 
+    @api_endpoint(
+        method="GET",
+        path="/api/control-plane/health",
+        summary="Get system health status",
+        tags=["Control Plane"],
+    )
     @require_permission("controlplane:health.read")
     def _handle_system_health(self) -> HandlerResult:
         """Get system health status."""

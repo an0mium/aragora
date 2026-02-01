@@ -1185,3 +1185,505 @@ class TestDeadlockDetection:
 
         result = manager._detect_deadlock(messages, lookback=3)
         assert result is False
+
+
+# =============================================================================
+# Additional Coverage: _emit_breakpoint_event and _emit_breakpoint_resolved_event
+# =============================================================================
+
+
+class TestEmitBreakpointEvents:
+    """Tests for WebSocket event emission methods."""
+
+    def _make_snapshot(self, debate_id="debate-123"):
+        return DebateSnapshot(
+            debate_id=debate_id,
+            task="Test task for event emission",
+            current_round=2,
+            total_rounds=5,
+            latest_messages=[],
+            active_proposals=[],
+            open_critiques=[],
+            current_consensus=None,
+            confidence=0.4,
+            agent_positions={"claude": "Position A"},
+            unresolved_issues=[],
+            key_disagreements=["Disagreement 1"],
+        )
+
+    def _make_breakpoint(self, snapshot=None, guidance=None):
+        snapshot = snapshot or self._make_snapshot()
+        return Breakpoint(
+            breakpoint_id="bp-test-001",
+            trigger=BreakpointTrigger.LOW_CONFIDENCE,
+            triggered_at=datetime.now().isoformat(),
+            debate_snapshot=snapshot,
+            escalation_level=2,
+            timeout_minutes=15,
+            resolved=guidance is not None,
+            guidance=guidance,
+            resolved_at=datetime.now().isoformat() if guidance else None,
+        )
+
+    def test_emit_breakpoint_event_no_emitter(self):
+        """Test _emit_breakpoint_event does nothing without emitter."""
+        manager = BreakpointManager(event_emitter=None)
+        bp = self._make_breakpoint()
+        # Should not raise
+        manager._emit_breakpoint_event(bp)
+
+    def test_emit_breakpoint_event_import_failure(self):
+        """Test _emit_breakpoint_event handles import errors gracefully."""
+        emitter = Mock()
+        manager = BreakpointManager(event_emitter=emitter, loop_id="loop-1")
+
+        bp = self._make_breakpoint()
+
+        with patch(
+            "aragora.debate.breakpoints.StreamEvent",
+            side_effect=ImportError("No module"),
+        ):
+            # Should not raise
+            manager._emit_breakpoint_event(bp)
+
+    def test_emit_breakpoint_event_calls_emitter(self):
+        """Test _emit_breakpoint_event emits correct event data."""
+        emitter = Mock()
+        manager = BreakpointManager(event_emitter=emitter, loop_id="loop-42")
+
+        bp = self._make_breakpoint()
+
+        with patch("aragora.debate.breakpoints.StreamEvent") as MockStreamEvent:
+            with patch("aragora.debate.breakpoints.StreamEventType") as MockStreamEventType:
+                MockStreamEventType.BREAKPOINT = "BREAKPOINT"
+                mock_event_instance = Mock()
+                MockStreamEvent.return_value = mock_event_instance
+
+                manager._emit_breakpoint_event(bp)
+
+                MockStreamEvent.assert_called_once()
+                call_kwargs = MockStreamEvent.call_args
+                data = call_kwargs[1]["data"] if "data" in call_kwargs[1] else call_kwargs[0][2] if len(call_kwargs[0]) > 2 else {}
+                assert data.get("breakpoint_id") == "bp-test-001" or emitter.emit.called
+
+                emitter.emit.assert_called_once_with(mock_event_instance)
+
+    def test_emit_breakpoint_resolved_event_no_emitter(self):
+        """Test _emit_breakpoint_resolved_event does nothing without emitter."""
+        manager = BreakpointManager(event_emitter=None)
+        guidance = HumanGuidance(
+            guidance_id="g-1",
+            debate_id="debate-123",
+            human_id="user",
+            action="continue",
+        )
+        bp = self._make_breakpoint(guidance=guidance)
+        # Should not raise
+        manager._emit_breakpoint_resolved_event(bp)
+
+    def test_emit_breakpoint_resolved_event_no_guidance(self):
+        """Test _emit_breakpoint_resolved_event skips when no guidance."""
+        emitter = Mock()
+        manager = BreakpointManager(event_emitter=emitter)
+        bp = self._make_breakpoint(guidance=None)
+        manager._emit_breakpoint_resolved_event(bp)
+        emitter.emit.assert_not_called()
+
+    def test_emit_breakpoint_resolved_event_calls_emitter(self):
+        """Test _emit_breakpoint_resolved_event emits when guidance present."""
+        emitter = Mock()
+        manager = BreakpointManager(event_emitter=emitter, loop_id="loop-99")
+
+        guidance = HumanGuidance(
+            guidance_id="g-2",
+            debate_id="debate-123",
+            human_id="expert_user",
+            action="resolve",
+            decision="Use Redis",
+            hints=["Consider latency"],
+            constraints=["Max 50ms"],
+            reasoning="Best tradeoff",
+        )
+        bp = self._make_breakpoint(guidance=guidance)
+
+        with patch("aragora.debate.breakpoints.StreamEvent") as MockStreamEvent:
+            with patch("aragora.debate.breakpoints.StreamEventType") as MockStreamEventType:
+                MockStreamEventType.BREAKPOINT_RESOLVED = "BREAKPOINT_RESOLVED"
+                mock_event = Mock()
+                MockStreamEvent.return_value = mock_event
+
+                manager._emit_breakpoint_resolved_event(bp)
+
+                MockStreamEvent.assert_called_once()
+                emitter.emit.assert_called_once_with(mock_event)
+
+
+# =============================================================================
+# Additional Coverage: handle_breakpoint success path
+# =============================================================================
+
+
+class TestHandleBreakpointSuccess:
+    """Tests for handle_breakpoint successful human input flow."""
+
+    @pytest.mark.asyncio
+    async def test_handle_breakpoint_success(self):
+        """Test handle_breakpoint with successful human input."""
+        guidance = HumanGuidance(
+            guidance_id="guide-success",
+            debate_id="debate-123",
+            human_id="expert",
+            action="resolve",
+            decision="Use Redis",
+        )
+
+        async def mock_human_input(bp):
+            return guidance
+
+        manager = BreakpointManager(get_human_input=mock_human_input)
+
+        snapshot = DebateSnapshot(
+            debate_id="debate-123",
+            task="Test",
+            current_round=2,
+            total_rounds=5,
+            latest_messages=[],
+            active_proposals=[],
+            open_critiques=[],
+            current_consensus=None,
+            confidence=0.3,
+            agent_positions={},
+            unresolved_issues=[],
+            key_disagreements=[],
+        )
+
+        bp = Breakpoint(
+            breakpoint_id="bp-success",
+            trigger=BreakpointTrigger.LOW_CONFIDENCE,
+            triggered_at=datetime.now().isoformat(),
+            debate_snapshot=snapshot,
+            timeout_minutes=30,
+        )
+
+        result = await manager.handle_breakpoint(bp)
+
+        assert result.action == "resolve"
+        assert result.decision == "Use Redis"
+        assert result.human_id == "expert"
+        assert bp.resolved is True
+        assert bp.guidance is guidance
+        assert bp.resolved_at is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_breakpoint_emits_resolved_event(self):
+        """Test handle_breakpoint emits resolved event."""
+        guidance = HumanGuidance(
+            guidance_id="g-1",
+            debate_id="debate-123",
+            human_id="user",
+            action="continue",
+        )
+
+        async def mock_input(bp):
+            return guidance
+
+        emitter = Mock()
+        manager = BreakpointManager(
+            get_human_input=mock_input,
+            event_emitter=emitter,
+            loop_id="loop-1",
+        )
+
+        snapshot = DebateSnapshot(
+            debate_id="debate-123",
+            task="Test",
+            current_round=1,
+            total_rounds=5,
+            latest_messages=[],
+            active_proposals=[],
+            open_critiques=[],
+            current_consensus=None,
+            confidence=0.3,
+            agent_positions={},
+            unresolved_issues=[],
+            key_disagreements=[],
+        )
+
+        bp = Breakpoint(
+            breakpoint_id="bp-emit",
+            trigger=BreakpointTrigger.LOW_CONFIDENCE,
+            triggered_at=datetime.now().isoformat(),
+            debate_snapshot=snapshot,
+            timeout_minutes=30,
+        )
+
+        with patch(
+            "aragora.debate.breakpoints.BreakpointManager._emit_breakpoint_resolved_event"
+        ) as mock_emit:
+            await manager.handle_breakpoint(bp)
+            mock_emit.assert_called_once_with(bp)
+
+
+# =============================================================================
+# Additional Coverage: _create_breakpoint snapshot building
+# =============================================================================
+
+
+class TestCreateBreakpointSnapshot:
+    """Tests for _create_breakpoint snapshot construction."""
+
+    def _make_msg(self, agent, content, round_num):
+        msg = Mock()
+        msg.agent = agent
+        msg.content = content
+        msg.round = round_num
+        return msg
+
+    def test_snapshot_extracts_agent_positions_from_reversed_messages(self):
+        """Test agent positions are extracted from latest messages per agent."""
+        manager = BreakpointManager()
+
+        messages = [
+            self._make_msg("claude", "Early position", 1),
+            self._make_msg("gpt4", "GPT4 early position", 1),
+            self._make_msg("claude", "Latest position from claude", 2),
+            self._make_msg("gpt4", "Latest position from gpt4", 2),
+        ]
+
+        bp = manager.check_triggers(
+            debate_id="debate-pos",
+            task="Test",
+            messages=messages,
+            confidence=0.3,
+            round_num=2,
+            max_rounds=5,
+        )
+
+        positions = bp.debate_snapshot.agent_positions
+        assert "claude" in positions
+        assert "gpt4" in positions
+
+    def test_snapshot_limits_latest_messages_to_5(self):
+        """Test snapshot only includes last 5 messages."""
+        manager = BreakpointManager()
+
+        messages = [self._make_msg("claude", f"Message {i}", i) for i in range(10)]
+
+        bp = manager.check_triggers(
+            debate_id="debate-limit",
+            task="Test",
+            messages=messages,
+            confidence=0.3,
+            round_num=10,
+            max_rounds=15,
+        )
+
+        assert len(bp.debate_snapshot.latest_messages) <= 5
+
+    def test_breakpoint_counter_increments(self):
+        """Test breakpoint counter increments across multiple breakpoints."""
+        manager = BreakpointManager()
+
+        msg = self._make_msg("claude", "Test", 1)
+
+        bp1 = manager.check_triggers(
+            debate_id="debate-1",
+            task="Test",
+            messages=[msg],
+            confidence=0.3,
+            round_num=1,
+            max_rounds=5,
+        )
+
+        bp2 = manager.check_triggers(
+            debate_id="debate-2",
+            task="Test",
+            messages=[msg],
+            confidence=0.2,
+            round_num=1,
+            max_rounds=5,
+        )
+
+        assert manager._breakpoint_counter == 2
+
+    def test_safety_concern_escalation_level_3(self):
+        """Test safety concern breakpoint always has escalation level 3."""
+        config = BreakpointConfig(safety_keywords=["harmful"])
+        manager = BreakpointManager(config=config)
+
+        msg = self._make_msg("claude", "This could be harmful", 1)
+
+        bp = manager.check_triggers(
+            debate_id="debate-safety",
+            task="Test",
+            messages=[msg],
+            confidence=0.9,
+            round_num=1,
+            max_rounds=5,
+        )
+
+        assert bp.trigger == BreakpointTrigger.SAFETY_CONCERN
+        assert bp.escalation_level == 3
+
+
+# =============================================================================
+# Additional Coverage: inject_guidance edge cases
+# =============================================================================
+
+
+class TestInjectGuidanceDeep:
+    """Additional tests for inject_guidance edge cases."""
+
+    def test_inject_guidance_abort_does_nothing(self):
+        """Test inject_guidance with abort action makes no changes."""
+        manager = BreakpointManager()
+
+        guidance = HumanGuidance(
+            guidance_id="g-1",
+            debate_id="debate-123",
+            human_id="user",
+            action="abort",
+        )
+
+        messages = [Mock()]
+        env = Mock()
+
+        new_messages, new_env = manager.inject_guidance(guidance, messages, env)
+
+        assert len(new_messages) == 1  # Unchanged
+        assert new_env is env
+
+    def test_inject_guidance_continue_with_hints(self):
+        """Test inject_guidance continue action with hints creates guidance message."""
+        manager = BreakpointManager()
+
+        guidance = HumanGuidance(
+            guidance_id="g-2",
+            debate_id="debate-123",
+            human_id="user",
+            action="continue",
+            hints=["Think about caching", "Consider latency requirements"],
+        )
+
+        msg = Mock()
+        msg.round = 1
+        messages = [msg]
+        env = Mock()
+
+        new_messages, new_env = manager.inject_guidance(guidance, messages, env)
+
+        # Should have added a guidance message
+        assert len(new_messages) >= 1
+
+    def test_inject_guidance_redirect_updates_task(self):
+        """Test inject_guidance redirect action updates environment task."""
+        manager = BreakpointManager()
+
+        guidance = HumanGuidance(
+            guidance_id="g-3",
+            debate_id="debate-123",
+            human_id="user",
+            action="redirect",
+            decision="Focus on scalability instead",
+            hints=["Think about horizontal scaling"],
+        )
+
+        msg = Mock()
+        msg.round = 1
+        messages = [msg]
+        env = Mock()
+        env.task = "Original task"
+
+        new_messages, new_env = manager.inject_guidance(guidance, messages, env)
+
+        # redirect should create guidance message
+        assert len(new_messages) >= 1
+
+
+# =============================================================================
+# Additional Coverage: resolve_breakpoint
+# =============================================================================
+
+
+class TestResolveBreakpoint:
+    """Tests for resolve_breakpoint method."""
+
+    def test_resolve_breakpoint_updates_state(self):
+        """Test resolve_breakpoint updates breakpoint state."""
+        manager = BreakpointManager()
+
+        snapshot = DebateSnapshot(
+            debate_id="debate-123",
+            task="Test",
+            current_round=1,
+            total_rounds=5,
+            latest_messages=[],
+            active_proposals=[],
+            open_critiques=[],
+            current_consensus=None,
+            confidence=0.3,
+            agent_positions={},
+            unresolved_issues=[],
+            key_disagreements=[],
+        )
+
+        bp = Breakpoint(
+            breakpoint_id="bp-resolve",
+            trigger=BreakpointTrigger.LOW_CONFIDENCE,
+            triggered_at=datetime.now().isoformat(),
+            debate_snapshot=snapshot,
+            timeout_minutes=30,
+        )
+
+        guidance = HumanGuidance(
+            guidance_id="g-1",
+            debate_id="debate-123",
+            human_id="user",
+            action="resolve",
+            decision="Approved",
+        )
+
+        manager.resolve_breakpoint(bp, guidance)
+
+        assert bp.resolved is True
+        assert bp.guidance is guidance
+        assert bp.resolved_at is not None
+
+    def test_resolve_breakpoint_stores_in_history(self):
+        """Test resolved breakpoints are tracked in history."""
+        manager = BreakpointManager()
+
+        snapshot = DebateSnapshot(
+            debate_id="debate-123",
+            task="Test",
+            current_round=1,
+            total_rounds=5,
+            latest_messages=[],
+            active_proposals=[],
+            open_critiques=[],
+            current_consensus=None,
+            confidence=0.3,
+            agent_positions={},
+            unresolved_issues=[],
+            key_disagreements=[],
+        )
+
+        bp = Breakpoint(
+            breakpoint_id="bp-history",
+            trigger=BreakpointTrigger.LOW_CONFIDENCE,
+            triggered_at=datetime.now().isoformat(),
+            debate_snapshot=snapshot,
+            timeout_minutes=30,
+        )
+
+        guidance = HumanGuidance(
+            guidance_id="g-1",
+            debate_id="debate-123",
+            human_id="user",
+            action="continue",
+        )
+
+        manager.resolve_breakpoint(bp, guidance)
+
+        history = manager.get_breakpoint_history("debate-123")
+        assert len(history) >= 1

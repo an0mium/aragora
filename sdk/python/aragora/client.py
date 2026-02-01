@@ -7,7 +7,7 @@ Main HTTP client for interacting with the Aragora platform.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin
 
 if TYPE_CHECKING:
@@ -308,7 +308,7 @@ class AragoraClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Make an HTTP request to the Aragora API.
 
@@ -320,7 +320,7 @@ class AragoraClient:
             headers: Additional headers
 
         Returns:
-            Parsed JSON response
+            Parsed JSON response as a dictionary.
 
         Raises:
             AragoraError: For API errors
@@ -342,8 +342,8 @@ class AragoraClient:
 
                 if response.is_success:
                     if response.content:
-                        return response.json()
-                    return None
+                        return cast(dict[str, Any], response.json())
+                    return {}
 
                 # Handle error responses
                 self._handle_error_response(response)
@@ -383,7 +383,7 @@ class AragoraClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """Backward-compatible alias for request()."""
         return self.request(method, path, params=params, json=json, headers=headers)
 
@@ -748,7 +748,7 @@ class AragoraAsyncClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Make an async HTTP request to the Aragora API.
 
@@ -760,7 +760,7 @@ class AragoraAsyncClient:
             headers: Additional headers
 
         Returns:
-            Parsed JSON response
+            Parsed JSON response as a dictionary.
         """
         import asyncio
 
@@ -781,8 +781,8 @@ class AragoraAsyncClient:
 
                 if response.is_success:
                     if response.content:
-                        return response.json()
-                    return None
+                        return cast(dict[str, Any], response.json())
+                    return {}
 
                 self._handle_error_response(response)
 
@@ -821,7 +821,7 @@ class AragoraAsyncClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """Backward-compatible alias for request()."""
         return await self.request(method, path, params=params, json=json, headers=headers)
 
