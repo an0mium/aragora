@@ -536,6 +536,44 @@ async def handle_slack_events(request: Any) -> HandlerResult:
             # Direct message or channel message
             pass
 
+        elif event_type == "app_uninstalled":
+            # App was uninstalled from workspace - clean up tokens
+            team_id = data.get("team_id") or event.get("team_id")
+            if team_id:
+                try:
+                    from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+                    store = get_slack_workspace_store()
+                    store.revoke_token(team_id)
+                    logger.info(f"Slack app uninstalled from workspace {team_id}")
+
+                    audit_data(
+                        user_id="system",
+                        resource_type="slack_workspace",
+                        resource_id=team_id,
+                        action="uninstall",
+                        platform="slack",
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to handle app_uninstalled for {team_id}: {e}")
+
+            return json_response({"ok": True})
+
+        elif event_type == "tokens_revoked":
+            # Tokens were revoked (e.g., user deauthorized) - also clean up
+            team_id = data.get("team_id") or event.get("team_id")
+            if team_id:
+                try:
+                    from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+                    store = get_slack_workspace_store()
+                    store.revoke_token(team_id)
+                    logger.info(f"Slack tokens revoked for workspace {team_id}")
+                except Exception as e:
+                    logger.error(f"Failed to handle tokens_revoked for {team_id}: {e}")
+
+            return json_response({"ok": True})
+
         return json_response({"ok": True})
 
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:

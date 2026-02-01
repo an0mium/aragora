@@ -535,6 +535,40 @@ class SlackWorkspaceStore:
             logger.error(f"Failed to deactivate workspace {workspace_id}: {e}")
             return False
 
+    def revoke_token(self, workspace_id: str) -> bool:
+        """Revoke tokens for a workspace (clear sensitive data on uninstall).
+
+        This clears the access_token, refresh_token, and signing_secret while
+        preserving workspace metadata for audit purposes.
+
+        Args:
+            workspace_id: Slack team_id
+
+        Returns:
+            True if tokens were revoked successfully
+        """
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """
+                UPDATE slack_workspaces
+                SET access_token = '[REVOKED]',
+                    refresh_token = NULL,
+                    signing_secret = NULL,
+                    token_expires_at = NULL,
+                    is_active = 0
+                WHERE workspace_id = ?
+                """,
+                (workspace_id,),
+            )
+            conn.commit()
+            logger.info(f"Revoked tokens for Slack workspace: {workspace_id}")
+            return True
+
+        except sqlite3.Error as e:
+            logger.error(f"Failed to revoke tokens for workspace {workspace_id}: {e}")
+            return False
+
     def delete(self, workspace_id: str) -> bool:
         """Permanently delete a workspace.
 

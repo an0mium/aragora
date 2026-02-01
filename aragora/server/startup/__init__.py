@@ -36,6 +36,7 @@ from aragora.server.startup.background import (
     init_background_tasks,
     init_circuit_breaker_persistence,
     init_pulse_scheduler,
+    init_slack_token_refresh_scheduler,
     init_state_cleanup_task,
     init_stuck_debate_watchdog,
 )
@@ -340,6 +341,7 @@ async def run_startup_sequence(
         "witness_patrol": False,
         "mayor_coordinator": False,
         "postgres_pool": {"enabled": False},
+        "slack_token_refresh_scheduler": False,
     }
 
     # Initialize PostgreSQL connection pool FIRST (event-loop bound)
@@ -399,6 +401,9 @@ async def run_startup_sequence(
 
     # Start notification dispatcher worker for queue processing
     status["notification_worker"] = await init_notification_worker()
+
+    # Start Slack token refresh scheduler for proactive token renewal
+    status["slack_token_refresh_scheduler"] = await init_slack_token_refresh_scheduler()
 
     # Initialize Redis state backend for horizontal scaling
     status["redis_state_backend"] = await init_redis_state_backend()
@@ -501,6 +506,7 @@ __all__ = [
     "init_pulse_scheduler",
     "init_state_cleanup_task",
     "init_stuck_debate_watchdog",
+    "init_slack_token_refresh_scheduler",
     "init_control_plane_coordinator",
     "init_shared_control_plane_state",
     "init_tts_integration",

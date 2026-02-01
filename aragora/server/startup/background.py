@@ -192,3 +192,76 @@ async def init_stuck_debate_watchdog() -> asyncio.Task | None:
     except (ImportError, RuntimeError) as e:
         logger.debug(f"Stuck debate watchdog not started: {e}")
         return None
+
+
+async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
+    """Start Slack token refresh scheduler.
+
+    Proactively refreshes Slack OAuth tokens 1 hour before expiry
+    to prevent service interruption.
+
+    Returns:
+        The scheduler task if started, None otherwise
+    """
+    import os
+
+    # Check if Slack integration is enabled
+    if not os.environ.get("SLACK_CLIENT_ID") or not os.environ.get("SLACK_CLIENT_SECRET"):
+        logger.debug("Slack token refresh scheduler not started: missing client credentials")
+        return None
+
+    try:
+        from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+        store = get_slack_workspace_store()
+        client_id = os.environ["SLACK_CLIENT_ID"]
+        client_secret = os.environ["SLACK_CLIENT_SECRET"]
+
+        async def _refresh_expiring_tokens():
+            """Background task to refresh expiring Slack tokens."""
+            refresh_interval = 3600  # Check every hour
+            lookahead_hours = 1  # Refresh tokens expiring in the next hour
+
+            while True:
+                try:
+                    # Get workspaces with tokens expiring soon
+                    expiring = store.get_expiring_tokens(hours=lookahead_hours)
+
+                    if expiring:
+                        logger.info(f"Found {len(expiring)} Slack tokens expiring soon")
+
+                    for workspace in expiring:
+                        try:
+                            result = await store.refresh_workspace_token(
+                                workspace.workspace_id,
+                                client_id,
+                                client_secret,
+                            )
+                            if result:
+                                logger.info(
+                                    f"Refreshed Slack token for workspace {workspace.workspace_id}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"Failed to refresh Slack token for {workspace.workspace_id}"
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"Error refreshing token for {workspace.workspace_id}: {e}"
+                            )
+
+                except Exception as e:
+                    logger.error(f"Error in Slack token refresh scheduler: {e}")
+
+                await asyncio.sleep(refresh_interval)
+
+        task = asyncio.create_task(_refresh_expiring_tokens())
+        logger.info("Slack token refresh scheduler started (1 hour interval)")
+        return task
+
+    except ImportError as e:
+        logger.debug(f"Slack token refresh scheduler not available: {e}")
+        return None
+    except (RuntimeError, OSError) as e:
+        logger.warning(f"Failed to start Slack token refresh scheduler: {e}")
+        return None
