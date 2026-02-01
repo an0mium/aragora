@@ -2,11 +2,11 @@
 Analytics Dashboard endpoint handlers.
 
 Endpoints:
-- GET  /api/analytics/summary           - Dashboard summary
-- GET  /api/analytics/trends/findings   - Finding trends over time
-- GET  /api/analytics/remediation       - Remediation metrics
-- GET  /api/analytics/agents            - Agent performance metrics
-- GET  /api/analytics/cost              - Cost analysis
+- GET  /api/analytics/summary           - Dashboard summary (cached: 60s)
+- GET  /api/analytics/trends/findings   - Finding trends over time (cached: 300s)
+- GET  /api/analytics/remediation       - Remediation metrics (cached: 300s)
+- GET  /api/analytics/agents            - Agent performance metrics (cached: 300s)
+- GET  /api/analytics/cost              - Cost analysis (cached: 300s)
 - GET  /api/analytics/compliance        - Compliance scorecard
 - GET  /api/analytics/heatmap           - Risk heatmap data
 - GET  /api/analytics/flips/summary     - Flip detection summary
@@ -15,10 +15,15 @@ Endpoints:
 - GET  /api/analytics/flips/trends      - Flip trends over time
 
 Deliberation Analytics:
-- GET  /api/v1/analytics/deliberations           - Deliberation summary
+- GET  /api/v1/analytics/deliberations           - Deliberation summary (cached: 300s)
 - GET  /api/v1/analytics/deliberations/channels  - Deliberations by channel
 - GET  /api/v1/analytics/deliberations/consensus - Consensus rates by team
 - GET  /api/v1/analytics/deliberations/performance - Performance metrics
+
+Caching:
+- Workspace-scoped caching for expensive queries
+- TTL: 60s for overview/summary, 300s for detailed reports
+- Automatic invalidation on data changes
 """
 
 from __future__ import annotations
@@ -32,6 +37,10 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from aragora.rbac.decorators import require_permission
 
+from .analytics.cache import (
+    cached_analytics,
+    cached_analytics_org,
+)
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -199,6 +208,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get analytics summary")
+    @cached_analytics("summary", workspace_key="workspace_id", time_range_key="time_range")
     def _get_summary(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get dashboard summary with key metrics.
@@ -220,6 +230,8 @@ class AnalyticsDashboardHandler(BaseHandler):
             "top_categories": [...],
             "recent_critical": [...]
         }
+
+        Caching: 60s TTL, scoped by workspace_id + time_range
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
@@ -249,6 +261,12 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get finding trends")
+    @cached_analytics(
+        "trends",
+        workspace_key="workspace_id",
+        time_range_key="time_range",
+        extra_keys=["granularity"],
+    )
     def _get_finding_trends(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get finding trends over time.
@@ -270,6 +288,8 @@ class AnalyticsDashboardHandler(BaseHandler):
                 ...
             ]
         }
+
+        Caching: 300s TTL, scoped by workspace_id + time_range + granularity
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
@@ -314,6 +334,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get remediation metrics")
+    @cached_analytics("remediation", workspace_key="workspace_id", time_range_key="time_range")
     def _get_remediation_metrics(
         self, query_params: dict, handler=None, user=None
     ) -> HandlerResult:
@@ -333,6 +354,8 @@ class AnalyticsDashboardHandler(BaseHandler):
             "false_positive_rate": 0.08,
             "accepted_risk_rate": 0.03
         }
+
+        Caching: 300s TTL (memory usage proxy), scoped by workspace_id + time_range
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
@@ -368,6 +391,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get agent metrics")
+    @cached_analytics("agents", workspace_key="workspace_id", time_range_key="time_range")
     def _get_agent_metrics(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get agent performance metrics.
@@ -390,6 +414,8 @@ class AnalyticsDashboardHandler(BaseHandler):
                 ...
             ]
         }
+
+        Caching: 300s TTL, scoped by workspace_id + time_range
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
@@ -425,6 +451,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get cost metrics")
+    @cached_analytics("cost", workspace_key="workspace_id", time_range_key="time_range")
     def _get_cost_metrics(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get cost analysis for audits.
@@ -441,6 +468,8 @@ class AnalyticsDashboardHandler(BaseHandler):
             "cost_by_type": {"security": 45.00, ...},
             "token_usage": {"input": 500000, "output": 100000}
         }
+
+        Caching: 300s TTL, scoped by workspace_id + time_range
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
@@ -588,6 +617,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get token usage")
+    @cached_analytics_org("tokens", org_key="org_id", days_key="days")
     def _get_token_usage(self, query_params: dict, handler=None, user=None) -> HandlerResult:
         """
         Get token usage summary.
@@ -606,6 +636,8 @@ class AnalyticsDashboardHandler(BaseHandler):
             "cost_by_provider": {"anthropic": "80.00", "openai": "45.50"},
             "top_models": [{"model": "claude-opus-4", "tokens": 400000, "cost": "60.00"}]
         }
+
+        Caching: 300s TTL, scoped by org_id + days
         """
         org_id = query_params.get("org_id")
         if not org_id:
@@ -1132,6 +1164,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get deliberation summary")
+    @cached_analytics_org("deliberations", org_key="org_id", days_key="days")
     def _get_deliberation_summary(
         self, query_params: dict, handler=None, user=None
     ) -> HandlerResult:

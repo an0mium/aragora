@@ -480,6 +480,18 @@ CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
     "elo": ["leaderboard", "lb_rankings", "agents_list", "agent_profile"],
     # Agent events
     "agent": ["agent_profile", "agents_list"],
+    # Analytics dashboard events (see aragora.server.handlers.analytics.cache)
+    "analytics_dashboard": [
+        "analytics_dashboard_summary",
+        "analytics_dashboard_trends",
+        "analytics_dashboard_agents",
+        "analytics_dashboard_remediation",
+        "analytics_dashboard_cost",
+        "analytics_dashboard_tokens",
+        "analytics_dashboard_deliberations",
+    ],
+    # Cost/billing events
+    "billing": ["analytics_dashboard_cost", "analytics_dashboard_tokens"],
 }
 
 

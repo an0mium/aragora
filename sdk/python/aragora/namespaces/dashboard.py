@@ -141,6 +141,197 @@ class DashboardAPI:
             "POST", f"/api/v1/dashboard/quick-actions/{action_id}", json=data
         )
 
+    # --- Debates ---
+
+    def list_debates(
+        self,
+        status: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List debates on the dashboard."""
+        params: dict[str, Any] = {}
+        if status:
+            params["status"] = status
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._client.request(
+            "GET", "/api/v1/dashboard/debates", params=params if params else None
+        )
+
+    def get_debate(self, debate_id: str) -> dict[str, Any]:
+        """Get a specific debate from the dashboard."""
+        return self._client.request("GET", f"/api/v1/dashboard/debates/{debate_id}")
+
+    # --- Stat Cards ---
+
+    def get_stat_cards(self) -> dict[str, Any]:
+        """Get dashboard stat cards."""
+        return self._client.request("GET", "/api/v1/dashboard/stat-cards")
+
+    # --- Team Performance ---
+
+    def get_team_performance(
+        self,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
+        min_debates: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get team performance metrics."""
+        params: dict[str, Any] = {}
+        if sort_by:
+            params["sort_by"] = sort_by
+        if sort_order:
+            params["sort_order"] = sort_order
+        if min_debates is not None:
+            params["min_debates"] = min_debates
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._client.request(
+            "GET", "/api/v1/dashboard/team-performance", params=params if params else None
+        )
+
+    def get_team_by_id(self, team_id: str) -> dict[str, Any]:
+        """Get team performance by ID."""
+        return self._client.request("GET", f"/api/v1/dashboard/team-performance/{team_id}")
+
+    # --- Email Analytics ---
+
+    def get_top_senders(
+        self,
+        domain: str | None = None,
+        min_messages: int | None = None,
+        sort_by: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get top email senders."""
+        params: dict[str, Any] = {}
+        if domain:
+            params["domain"] = domain
+        if min_messages is not None:
+            params["min_messages"] = min_messages
+        if sort_by:
+            params["sort_by"] = sort_by
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._client.request(
+            "GET", "/api/v1/dashboard/top-senders", params=params if params else None
+        )
+
+    def get_labels(self) -> dict[str, Any]:
+        """Get dashboard labels."""
+        return self._client.request("GET", "/api/v1/dashboard/labels")
+
+    # --- Urgent Items & Actions ---
+
+    def get_urgent_items(
+        self,
+        action_type: str | None = None,
+        min_importance: int | None = None,
+        include_deadline_passed: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get urgent items."""
+        params: dict[str, Any] = {}
+        if action_type:
+            params["action_type"] = action_type
+        if min_importance is not None:
+            params["min_importance"] = min_importance
+        if include_deadline_passed is not None:
+            params["include_deadline_passed"] = include_deadline_passed
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._client.request(
+            "GET", "/api/v1/dashboard/urgent", params=params if params else None
+        )
+
+    def get_pending_actions(
+        self, limit: int | None = None, offset: int | None = None
+    ) -> dict[str, Any]:
+        """Get pending actions."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._client.request(
+            "GET", "/api/v1/dashboard/pending-actions", params=params if params else None
+        )
+
+    def dismiss_urgent_item(self, item_id: str) -> dict[str, Any]:
+        """Dismiss an urgent item."""
+        return self._client.request("POST", f"/api/v1/dashboard/urgent/{item_id}/dismiss")
+
+    def complete_action(
+        self, action_id: str, result: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Complete a pending action."""
+        data: dict[str, Any] = {}
+        if result:
+            data["result"] = result
+        return self._client.request(
+            "POST",
+            f"/api/v1/dashboard/pending-actions/{action_id}/complete",
+            json=data if data else None,
+        )
+
+    # --- Search & Export ---
+
+    def search(
+        self,
+        query: str,
+        types: list[str] | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Search the dashboard."""
+        params: dict[str, Any] = {"query": query}
+        if types:
+            params["types"] = ",".join(types)
+        if limit is not None:
+            params["limit"] = limit
+        return self._client.request("GET", "/api/v1/dashboard/search", params=params)
+
+    def export_data(
+        self,
+        format: str,
+        include: list[str] | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> dict[str, Any]:
+        """Export dashboard data."""
+        data: dict[str, Any] = {"format": format}
+        if include:
+            data["include"] = include
+        if start_date:
+            data["start_date"] = start_date
+        if end_date:
+            data["end_date"] = end_date
+        return self._client.request("POST", "/api/v1/dashboard/export", json=data)
+
+    # --- Convenience ---
+
+    def get_recent_activity(self, limit: int = 20) -> dict[str, Any]:
+        """Get recent activity (convenience wrapper)."""
+        return self.get_activity(limit=limit)
+
 
 class AsyncDashboardAPI:
     """Asynchronous Dashboard API."""
@@ -202,3 +393,180 @@ class AsyncDashboardAPI:
         return await self._client.request(
             "POST", f"/api/v1/dashboard/quick-actions/{action_id}", json=data
         )
+
+    async def list_debates(
+        self,
+        status: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List debates on the dashboard."""
+        params: dict[str, Any] = {}
+        if status:
+            params["status"] = status
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return await self._client.request(
+            "GET", "/api/v1/dashboard/debates", params=params if params else None
+        )
+
+    async def get_debate(self, debate_id: str) -> dict[str, Any]:
+        """Get a specific debate from the dashboard."""
+        return await self._client.request("GET", f"/api/v1/dashboard/debates/{debate_id}")
+
+    async def get_stat_cards(self) -> dict[str, Any]:
+        """Get dashboard stat cards."""
+        return await self._client.request("GET", "/api/v1/dashboard/stat-cards")
+
+    async def get_team_performance(
+        self,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
+        min_debates: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get team performance metrics."""
+        params: dict[str, Any] = {}
+        if sort_by:
+            params["sort_by"] = sort_by
+        if sort_order:
+            params["sort_order"] = sort_order
+        if min_debates is not None:
+            params["min_debates"] = min_debates
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return await self._client.request(
+            "GET", "/api/v1/dashboard/team-performance", params=params if params else None
+        )
+
+    async def get_team_by_id(self, team_id: str) -> dict[str, Any]:
+        """Get team performance by ID."""
+        return await self._client.request("GET", f"/api/v1/dashboard/team-performance/{team_id}")
+
+    async def get_top_senders(
+        self,
+        domain: str | None = None,
+        min_messages: int | None = None,
+        sort_by: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get top email senders."""
+        params: dict[str, Any] = {}
+        if domain:
+            params["domain"] = domain
+        if min_messages is not None:
+            params["min_messages"] = min_messages
+        if sort_by:
+            params["sort_by"] = sort_by
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return await self._client.request(
+            "GET", "/api/v1/dashboard/top-senders", params=params if params else None
+        )
+
+    async def get_labels(self) -> dict[str, Any]:
+        """Get dashboard labels."""
+        return await self._client.request("GET", "/api/v1/dashboard/labels")
+
+    async def get_urgent_items(
+        self,
+        action_type: str | None = None,
+        min_importance: int | None = None,
+        include_deadline_passed: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """Get urgent items."""
+        params: dict[str, Any] = {}
+        if action_type:
+            params["action_type"] = action_type
+        if min_importance is not None:
+            params["min_importance"] = min_importance
+        if include_deadline_passed is not None:
+            params["include_deadline_passed"] = include_deadline_passed
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return await self._client.request(
+            "GET", "/api/v1/dashboard/urgent", params=params if params else None
+        )
+
+    async def get_pending_actions(
+        self, limit: int | None = None, offset: int | None = None
+    ) -> dict[str, Any]:
+        """Get pending actions."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return await self._client.request(
+            "GET", "/api/v1/dashboard/pending-actions", params=params if params else None
+        )
+
+    async def dismiss_urgent_item(self, item_id: str) -> dict[str, Any]:
+        """Dismiss an urgent item."""
+        return await self._client.request("POST", f"/api/v1/dashboard/urgent/{item_id}/dismiss")
+
+    async def complete_action(
+        self, action_id: str, result: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Complete a pending action."""
+        data: dict[str, Any] = {}
+        if result:
+            data["result"] = result
+        return await self._client.request(
+            "POST",
+            f"/api/v1/dashboard/pending-actions/{action_id}/complete",
+            json=data if data else None,
+        )
+
+    async def search(
+        self,
+        query: str,
+        types: list[str] | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Search the dashboard."""
+        params: dict[str, Any] = {"query": query}
+        if types:
+            params["types"] = ",".join(types)
+        if limit is not None:
+            params["limit"] = limit
+        return await self._client.request("GET", "/api/v1/dashboard/search", params=params)
+
+    async def export_data(
+        self,
+        format: str,
+        include: list[str] | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> dict[str, Any]:
+        """Export dashboard data."""
+        data: dict[str, Any] = {"format": format}
+        if include:
+            data["include"] = include
+        if start_date:
+            data["start_date"] = start_date
+        if end_date:
+            data["end_date"] = end_date
+        return await self._client.request("POST", "/api/v1/dashboard/export", json=data)
+
+    async def get_recent_activity(self, limit: int = 20) -> dict[str, Any]:
+        """Get recent activity (convenience wrapper)."""
+        return await self.get_activity(limit=limit)
