@@ -1011,3 +1011,292 @@ class TestCredentialProxyErrors:
         assert len(history) == 1
         assert history[0].success is False
         assert "not found" in history[0].error_message.lower()
+
+
+# =============================================================================
+# Credential Caching Tests
+# =============================================================================
+
+
+class TestCredentialCaching:
+    """Test TTL cache for credential lookups."""
+
+    @pytest.fixture
+    def proxy(self):
+        return CredentialProxy(default_rate_limit=60, cache_ttl=60.0)
+
+    @pytest.fixture
+    def sample_credential(self):
+        return ExternalCredential(
+            credential_id="cred-1",
+            external_service="slack",
+            tenant_id="tenant-a",
+            api_key="sk-123",
+            scopes=["read", "write"],
+        )
+
+    def test_cache_hit_returns_cached_credential(self, proxy, sample_credential):
+        """First lookup populates the cache; second lookup returns cached value."""
+        proxy.register_credential(sample_credential)
+
+        # First call populates cache
+        result1 = proxy.get_credential("cred-1")
+        assert result1 is not None
+
+        # Second call should return cached value (same object)
+        result2 = proxy.get_credential("cred-1")
+        assert result2 is result1
+
+    def test_cache_miss_performs_lookup(self, proxy, sample_credential):
+        """When credential is not in cache, a store lookup is performed."""
+        proxy.register_credential(sample_credential)
+
+        # Cache is empty initially, get_credential must hit the store
+        result = proxy.get_credential("cred-1")
+        assert result is not None
+        assert result.credential_id == "cred-1"
+
+    def test_cache_expires_after_ttl(self, proxy, sample_credential, monkeypatch):
+        """Cache entries expire after the configured TTL."""
+        import time as _time
+
+        proxy.register_credential(sample_credential)
+
+        # Populate cache
+        proxy.get_credential("cred-1")
+        assert "cred-1" in proxy._lookup_cache
+
+        # Fast-forward time past TTL
+        original_entry = proxy._lookup_cache["cred-1"]
+        # Manually set the cached_time to the past
+        proxy._lookup_cache["cred-1"] = (
+            _time.monotonic() - proxy._cache_ttl - 1.0,
+            original_entry[1],
+        )
+
+        # Cache should be expired now; _get_cached_credential returns None
+        assert proxy._get_cached_credential("cred-1") is None
+        # But get_credential still returns the credential via store lookup
+        result = proxy.get_credential("cred-1")
+        assert result is not None
+
+    def test_register_invalidates_cache(self, proxy, sample_credential):
+        """Registering a credential invalidates any cached entry for that ID."""
+        proxy.register_credential(sample_credential)
+
+        # Populate cache
+        proxy.get_credential("cred-1")
+        assert "cred-1" in proxy._lookup_cache
+
+        # Re-register (e.g., rotate) should invalidate cache
+        new_cred = ExternalCredential(
+            credential_id="cred-1",
+            external_service="slack",
+            tenant_id="tenant-a",
+            api_key="sk-new",
+            scopes=["read", "write"],
+        )
+        proxy.register_credential(new_cred)
+        assert "cred-1" not in proxy._lookup_cache
+
+        # Next lookup should return the new credential
+        result = proxy.get_credential("cred-1")
+        assert result.api_key == "sk-new"
+
+    def test_unregister_invalidates_cache(self, proxy, sample_credential):
+        """Unregistering a credential removes it from the cache."""
+        proxy.register_credential(sample_credential)
+
+        # Populate cache
+        proxy.get_credential("cred-1")
+        assert "cred-1" in proxy._lookup_cache
+
+        proxy.unregister_credential("cred-1")
+        assert "cred-1" not in proxy._lookup_cache
+
+    def test_invalidate_all_clears_cache(self, proxy):
+        """Calling _invalidate_cache with no argument clears the entire cache."""
+        cred1 = ExternalCredential(
+            credential_id="cred-1",
+            external_service="slack",
+            tenant_id="tenant-a",
+            scopes=["read"],
+        )
+        cred2 = ExternalCredential(
+            credential_id="cred-2",
+            external_service="github",
+            tenant_id="tenant-a",
+            scopes=["repo"],
+        )
+        proxy.register_credential(cred1)
+        proxy.register_credential(cred2)
+
+        # Populate cache
+        proxy.get_credential("cred-1")
+        proxy.get_credential("cred-2")
+        assert len(proxy._lookup_cache) == 2
+
+        proxy._invalidate_cache()
+        assert len(proxy._lookup_cache) == 0
+
+    def test_cache_hit_does_not_call_store(self, proxy, sample_credential):
+        """A cache hit should not need to access the underlying store."""
+        proxy.register_credential(sample_credential)
+
+        # First call: populate cache
+        proxy.get_credential("cred-1")
+
+        # Remove from underlying store (but NOT from cache)
+        del proxy._credentials["cred-1"]
+
+        # Cache should still serve the credential
+        result = proxy.get_credential("cred-1")
+        assert result is not None
+        assert result.credential_id == "cred-1"
+
+    def test_custom_cache_ttl(self):
+        """CredentialProxy accepts a custom cache_ttl."""
+        proxy = CredentialProxy(cache_ttl=120.0)
+        assert proxy._cache_ttl == 120.0
+
+    def test_none_not_cached(self, proxy):
+        """A lookup that returns None should not populate the cache."""
+        result = proxy.get_credential("nonexistent")
+        assert result is None
+        assert "nonexistent" not in proxy._lookup_cache
+
+
+# =============================================================================
+# Token Bucket Rate Limit Tests
+# =============================================================================
+
+
+class TestTokenBucketRateLimit:
+    """Test token bucket rate limiter replacing timestamp-list approach."""
+
+    @pytest.fixture
+    def proxy(self):
+        return CredentialProxy(default_rate_limit=60, audit_enabled=True)
+
+    @pytest.fixture
+    def sample_credential(self):
+        return ExternalCredential(
+            credential_id="cred-1",
+            external_service="slack",
+            tenant_id="tenant-a",
+            api_key="sk-123",
+            scopes=["read", "write", "admin"],
+        )
+
+    def test_allows_requests_within_limit(self, proxy):
+        """Token bucket should allow requests within the configured limit."""
+        proxy.set_rate_limit("test-service", 10)
+
+        # All 10 requests should succeed (bucket starts at capacity)
+        for _ in range(10):
+            assert proxy._check_rate_limit("test-service", 10) is True
+
+    def test_rejects_when_tokens_exhausted(self, proxy):
+        """Token bucket should reject requests once tokens are exhausted."""
+        proxy.set_rate_limit("test-service", 3)
+
+        # Exhaust all 3 tokens
+        for _ in range(3):
+            assert proxy._check_rate_limit("test-service", 3) is True
+
+        # Next request should be rejected
+        assert proxy._check_rate_limit("test-service", 3) is False
+
+    def test_tokens_refill_over_time(self, proxy):
+        """Tokens should refill based on elapsed time."""
+        import time as _time
+
+        proxy.set_rate_limit("test-service", 60)  # 1 token per second
+
+        # Exhaust all tokens
+        for _ in range(60):
+            proxy._check_rate_limit("test-service", 60)
+
+        # Should be rejected immediately
+        assert proxy._check_rate_limit("test-service", 60) is False
+
+        # Manually advance the bucket's last_refill to simulate time passing
+        bucket = proxy._rate_limiters["test-service"]
+        bucket._last_refill = _time.monotonic() - 2.0  # 2 seconds ago -> ~2 tokens
+
+        # Now should be allowed again
+        assert proxy._check_rate_limit("test-service", 60) is True
+
+    def test_separate_buckets_per_service(self, proxy):
+        """Each service gets its own token bucket."""
+        proxy.set_rate_limit("service-a", 2)
+        proxy.set_rate_limit("service-b", 2)
+
+        # Exhaust service-a
+        proxy._check_rate_limit("service-a", 2)
+        proxy._check_rate_limit("service-a", 2)
+        assert proxy._check_rate_limit("service-a", 2) is False
+
+        # service-b should still be available
+        assert proxy._check_rate_limit("service-b", 2) is True
+
+    def test_set_rate_limit_resets_bucket(self, proxy):
+        """Changing the rate limit should reset the token bucket."""
+        proxy.set_rate_limit("test-service", 2)
+
+        # Exhaust tokens
+        proxy._check_rate_limit("test-service", 2)
+        proxy._check_rate_limit("test-service", 2)
+        assert proxy._check_rate_limit("test-service", 2) is False
+
+        # Increase limit - should reset bucket
+        proxy.set_rate_limit("test-service", 100)
+        assert proxy._check_rate_limit("test-service", 100) is True
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_integration_with_execute(self, proxy, sample_credential):
+        """End-to-end test: token bucket enforces limits during execute_with_credential."""
+        proxy.register_credential(sample_credential)
+        proxy.set_rate_limit("slack", 2)
+
+        async def mock_operation(cred):
+            return "ok"
+
+        # First two should succeed
+        for _ in range(2):
+            result = await proxy.execute_with_credential(
+                credential_id="cred-1",
+                external_service="slack",
+                operation="test",
+                execute_fn=mock_operation,
+                required_scopes=["read"],
+                tenant_id="tenant-a",
+                user_id="user-1",
+            )
+            assert result == "ok"
+
+        # Third should be rate limited
+        with pytest.raises(RateLimitExceededError, match="Rate limit exceeded"):
+            await proxy.execute_with_credential(
+                credential_id="cred-1",
+                external_service="slack",
+                operation="test",
+                execute_fn=mock_operation,
+                required_scopes=["read"],
+                tenant_id="tenant-a",
+                user_id="user-1",
+            )
+
+    def test_default_rate_limit_creates_bucket(self, proxy):
+        """When no explicit rate limit is set, the default is used to create a bucket."""
+        # No explicit set_rate_limit call; _check_rate_limit uses default
+        assert proxy._check_rate_limit("new-service", proxy.default_rate_limit) is True
+        assert "new-service" in proxy._rate_limiters
+
+    def test_bucket_capacity_matches_limit(self, proxy):
+        """The token bucket capacity should match the configured rate limit."""
+        proxy.set_rate_limit("test-service", 42)
+        proxy._check_rate_limit("test-service", 42)
+
+        bucket = proxy._rate_limiters["test-service"]
+        assert bucket._capacity == 42

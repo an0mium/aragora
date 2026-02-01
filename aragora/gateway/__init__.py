@@ -71,6 +71,26 @@ from aragora.gateway.decision_router import (
     RoutingMetrics,
     SimpleAnomalyDetector,
 )
+from aragora.gateway.metrics import (
+    init_gateway_metrics,
+    record_gateway_request,
+    record_gateway_action,
+    record_policy_decision,
+    record_audit_event,
+    set_circuit_breaker_state,
+    set_credentials_stored,
+    set_active_sessions,
+    inc_active_sessions,
+    dec_active_sessions,
+    track_gateway_request,
+    track_gateway_action,
+)
+from aragora.gateway.health import (
+    GatewayHealthChecker,
+    GatewayHealthStatus,
+    ComponentHealth,
+    HealthStatus as GatewayHealthStatus_Enum,
+)
 
 __all__ = [
     # Server
@@ -131,4 +151,22 @@ __all__ = [
     "DecisionRoutingEventType",
     "RoutingMetrics",
     "SimpleAnomalyDetector",
+    # Metrics
+    "init_gateway_metrics",
+    "record_gateway_request",
+    "record_gateway_action",
+    "record_policy_decision",
+    "record_audit_event",
+    "set_circuit_breaker_state",
+    "set_credentials_stored",
+    "set_active_sessions",
+    "inc_active_sessions",
+    "dec_active_sessions",
+    "track_gateway_request",
+    "track_gateway_action",
+    # Health
+    "GatewayHealthChecker",
+    "GatewayHealthStatus",
+    "ComponentHealth",
+    "GatewayHealthStatus_Enum",
 ]
