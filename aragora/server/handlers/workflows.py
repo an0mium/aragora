@@ -552,10 +552,23 @@ async def create_workflow_from_template(
 
 
 def register_template(workflow: WorkflowDefinition) -> None:
-    """Register a workflow as a template."""
+    """Register a workflow as a template.
+
+    Note: For PostgreSQL backends, this is a no-op at import time. Templates
+    registered via this function will be loaded during server startup.
+    """
     workflow.is_template = True
     store = _get_store()
-    _call_store_method(store.save_template(workflow))
+
+    # Skip for async stores at import time
+    from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
+
+    if isinstance(store, PostgresWorkflowStore):
+        # Store will be populated during server startup
+        logger.debug(f"Deferring template registration for {workflow.id} to server startup")
+        return
+
+    store.save_template(workflow)
 
 
 # =============================================================================
@@ -824,11 +837,25 @@ register_template(_create_code_review_template())
 
 # Load YAML templates from disk
 def _load_yaml_templates() -> None:
-    """Load workflow templates from YAML files into persistent store."""
+    """Load workflow templates from YAML files into persistent store.
+
+    Note: For PostgreSQL backends, template loading is deferred to server startup
+    (via load_yaml_templates_async) to avoid connection pool issues at import time.
+    """
     try:
         from aragora.workflow.template_loader import load_templates
+        from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
 
         store = _get_store()
+
+        # Skip sync loading for async stores - will be loaded at server startup
+        if isinstance(store, PostgresWorkflowStore):
+            logger.debug(
+                "Skipping YAML template loading at import time for PostgreSQL backend. "
+                "Templates will be loaded during server startup."
+            )
+            return
+
         templates = load_templates()
         loaded = 0
         for template_id, template in templates.items():
@@ -847,7 +874,57 @@ def _load_yaml_templates() -> None:
         logger.warning(f"Failed to parse YAML templates: {e}")
 
 
-# Load templates on module import
+async def load_yaml_templates_async() -> None:
+    """Load workflow templates from YAML files (async version for PostgreSQL).
+
+    Call this during server startup to load templates when using PostgreSQL backend.
+    """
+    try:
+        from aragora.workflow.template_loader import load_templates
+        from aragora.workflow.persistent_store import get_async_workflow_store
+
+        store = await get_async_workflow_store()
+        templates = load_templates()
+        loaded = 0
+        for template_id, template in templates.items():
+            existing = await store.get_template(template_id)
+            if not existing:
+                await store.save_template(template)
+                loaded += 1
+        if loaded > 0:
+            logger.info(f"Loaded {loaded} new YAML templates into database (async)")
+    except ImportError as e:
+        logger.debug(f"Template loader not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to load YAML templates (async): {e}")
+
+
+async def register_builtin_templates_async() -> None:
+    """Register built-in Python-defined templates (async version for PostgreSQL).
+
+    Call this during server startup when using PostgreSQL backend.
+    """
+    try:
+        from aragora.workflow.persistent_store import get_async_workflow_store
+
+        store = await get_async_workflow_store()
+
+        # Register Python-defined templates
+        templates = [
+            _create_contract_review_template(),
+            _create_code_review_template(),
+        ]
+        for template in templates:
+            template.is_template = True
+            existing = await store.get_template(template.id)
+            if not existing:
+                await store.save_template(template)
+                logger.debug(f"Registered built-in template: {template.id}")
+    except Exception as e:
+        logger.warning(f"Failed to register built-in templates (async): {e}")
+
+
+# Load templates on module import (skipped for PostgreSQL - use async versions at startup)
 _load_yaml_templates()
 
 # =============================================================================
