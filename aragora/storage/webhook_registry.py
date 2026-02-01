@@ -10,6 +10,7 @@ Backends:
 
 from __future__ import annotations
 
+import builtins
 import contextvars
 import json
 import logging
@@ -280,7 +281,7 @@ class SQLiteWebhookRegistry:
         self,
         user_id: str | None = None,
         workspace_id: str | None = None,
-    ) -> list[WebhookConfig]:
+    ) -> builtins.list[WebhookConfig]:
         """List all webhooks (alias for list())."""
         return self.list(user_id=user_id, workspace_id=workspace_id)
 
@@ -302,7 +303,7 @@ class SQLiteWebhookRegistry:
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[list[str]] = None,
+        events: Optional[builtins.list[str]] = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -377,7 +378,7 @@ class SQLiteWebhookRegistry:
         event_type: str,
         user_id: str | None = None,
         workspace_id: str | None = None,
-    ) -> list[WebhookConfig]:
+    ) -> builtins.list[WebhookConfig]:
         """Get all active webhooks that should receive the given event."""
         conn = self._get_conn()
 

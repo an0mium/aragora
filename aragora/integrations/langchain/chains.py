@@ -69,8 +69,8 @@ try:
 except ImportError:
     LANGCHAIN_AVAILABLE = False
     _ChainBase = _StubChain
-    AsyncCallbackManagerForChainRun = _StubAsyncCallbackManager  # type: ignore[misc, no-redef]
-    CallbackManagerForChainRun = _StubCallbackManager  # type: ignore[misc, no-redef]
+    AsyncCallbackManagerForChainRun = _StubAsyncCallbackManager  # type: ignore[misc, assignment]
+    CallbackManagerForChainRun = _StubCallbackManager  # type: ignore[misc, assignment]
 
 
 class AragoraDebateChain(_ChainBase):

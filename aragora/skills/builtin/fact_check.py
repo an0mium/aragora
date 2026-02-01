@@ -252,7 +252,7 @@ class FactCheckSkill(Skill):
 
     async def _check_knowledge_mound(self, claim: str, context: str) -> list[VerificationEvidence]:
         """Check claim against Knowledge Mound."""
-        evidence = []
+        evidence: list[VerificationEvidence] = []
 
         try:
             from aragora.knowledge.mound import get_knowledge_mound
@@ -359,7 +359,7 @@ class FactCheckSkill(Skill):
         self, claim: str, context: SkillContext
     ) -> list[VerificationEvidence]:
         """Check claim against historical debate outcomes."""
-        evidence = []
+        evidence: list[VerificationEvidence] = []
 
         if not context.debate_context:
             return evidence

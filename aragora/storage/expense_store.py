@@ -343,7 +343,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
 
     def __init__(self, db_path: Path | None = None) -> None:
         if db_path is None:
-            db_path = "expenses.db"
+            db_path = Path("expenses.db")
 
         self._db_path = Path(resolve_db_path(db_path))
         self._db_path.parent.mkdir(parents=True, exist_ok=True)

@@ -75,9 +75,9 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
-    get_encryption_service = _fallback_get_encryption_service  # type: ignore[misc, no-redef]
-    is_encryption_required = _fallback_is_encryption_required  # type: ignore[misc, no-redef]
-    EncryptionError = _FallbackEncryptionError  # type: ignore[misc, no-redef]
+    get_encryption_service = _fallback_get_encryption_service  # type: ignore[misc, assignment]
+    is_encryption_required = _fallback_is_encryption_required  # type: ignore[misc, assignment]
+    EncryptionError = _FallbackEncryptionError  # type: ignore[misc, assignment]
 
 
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:

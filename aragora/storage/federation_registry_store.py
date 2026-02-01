@@ -301,7 +301,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
                      $ARAGORA_DATA_DIR/federation_registry.db
         """
         if db_path is None:
-            db_path = "federation_registry.db"
+            db_path = Path("federation_registry.db")
 
         self._db_path = Path(resolve_db_path(db_path))
         self._db_path.parent.mkdir(parents=True, exist_ok=True)

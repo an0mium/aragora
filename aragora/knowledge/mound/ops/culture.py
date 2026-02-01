@@ -124,7 +124,7 @@ class CultureOperationsMixin:
             from aragora.knowledge.mound.culture import OrganizationCultureManager
 
             self._org_culture_manager = OrganizationCultureManager(
-                mound=self,
+                mound=self,  # type: ignore[arg-type]
                 culture_accumulator=self._culture_accumulator,  # type: ignore[attr-defined]
             )
 

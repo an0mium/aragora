@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import base64
+import binascii
 import logging
 import os
 import time
@@ -502,7 +503,7 @@ class SAMLProvider(SSOProvider):
             raise SSOAuthenticationError(f"Invalid SAML response XML: {e}")
         except SSOAuthenticationError:
             raise
-        except (ValueError, KeyError, AttributeError, base64.binascii.Error, zlib.error) as e:
+        except (ValueError, KeyError, AttributeError, binascii.Error, zlib.error) as e:
             logger.error(f"SAML authentication error: {e}")
             raise SSOAuthenticationError(f"SAML authentication failed: {e}")
 

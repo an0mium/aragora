@@ -291,7 +291,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                      $ARAGORA_DATA_DIR/gauntlet_runs.db
         """
         if db_path is None:
-            db_path = "gauntlet_runs.db"
+            db_path = Path("gauntlet_runs.db")
 
         self._db_path = Path(resolve_db_path(db_path))
         self._db_path.parent.mkdir(parents=True, exist_ok=True)

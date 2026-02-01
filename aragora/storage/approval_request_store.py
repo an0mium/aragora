@@ -311,7 +311,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
                      $ARAGORA_DATA_DIR/approval_requests.db
         """
         if db_path is None:
-            db_path = "approval_requests.db"
+            db_path = Path("approval_requests.db")
 
         self._db_path = Path(resolve_db_path(db_path))
         self._db_path.parent.mkdir(parents=True, exist_ok=True)

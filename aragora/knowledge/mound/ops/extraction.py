@@ -606,7 +606,7 @@ class ExtractionMixin:
     ) -> int:
         """Promote extracted claims to Knowledge Mound."""
         return await self._get_extractor().promote_to_mound(
-            mound=self,
+            mound=self,  # type: ignore[arg-type]
             workspace_id=workspace_id,
             claims=claims,
             min_confidence=min_confidence,

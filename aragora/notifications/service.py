@@ -815,9 +815,9 @@ class NotificationService:
                 continue
 
             # Get recipients for this channel
-            channel_recipients = []
+            channel_recipients: list[str] = []
             if recipients and channel in recipients:
-                channel_recipients = recipients[channel]
+                channel_recipients = recipients[channel] or []
             else:
                 # Default recipients
                 channel_recipients = self._get_default_recipients(channel, notification)
