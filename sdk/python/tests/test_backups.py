@@ -248,6 +248,99 @@ class TestBackupsSchedules:
         assert result["deleted"] is True
 
 
+class TestBackupsVerification:
+    """Tests for backup verification methods."""
+
+    def test_verify(self, client: AragoraClient, mock_request) -> None:
+        """Verify backup integrity."""
+        mock_request.return_value = {"valid": True, "checksum": "abc123"}
+        result = client.backups.verify("bk_123")
+        mock_request.assert_called_once_with(
+            "POST",
+            "/api/v1/backups/bk_123/verify",
+            params=None,
+            json=None,
+            headers=None,
+        )
+        assert result["valid"] is True
+
+    def test_verify_comprehensive(self, client: AragoraClient, mock_request) -> None:
+        """Run comprehensive backup verification."""
+        mock_request.return_value = {
+            "valid": True,
+            "checks": {"data": True, "schema": True},
+        }
+        result = client.backups.verify_comprehensive("bk_123")
+        mock_request.assert_called_once_with(
+            "POST",
+            "/api/v1/backups/bk_123/verify-comprehensive",
+            params=None,
+            json=None,
+            headers=None,
+        )
+        assert result["checks"]["data"] is True
+
+    def test_test_restore(self, client: AragoraClient, mock_request) -> None:
+        """Test restore without applying changes."""
+        mock_request.return_value = {"success": True, "estimated_time": 120}
+        result = client.backups.test_restore("bk_123")
+        mock_request.assert_called_once_with(
+            "POST",
+            "/api/v1/backups/bk_123/restore-test",
+            params=None,
+            json=None,
+            headers=None,
+        )
+        assert result["success"] is True
+
+    def test_test_restore_with_path(self, client: AragoraClient, mock_request) -> None:
+        """Test restore to a specific target path."""
+        mock_request.return_value = {"success": True}
+        client.backups.test_restore("bk_123", target_path="/tmp/restore-test")
+        call_kwargs = mock_request.call_args[1]
+        assert call_kwargs["json"]["target_path"] == "/tmp/restore-test"
+
+    def test_cleanup_dry_run(self, client: AragoraClient, mock_request) -> None:
+        """Clean up with dry run (default)."""
+        mock_request.return_value = {"would_delete": 5, "freed_bytes": 1024000}
+        result = client.backups.cleanup()
+        mock_request.assert_called_once_with(
+            "POST",
+            "/api/v1/backups/cleanup",
+            params=None,
+            json={"dry_run": True},
+            headers=None,
+        )
+        assert result["would_delete"] == 5
+
+    def test_cleanup_execute(self, client: AragoraClient, mock_request) -> None:
+        """Clean up with actual deletion."""
+        mock_request.return_value = {"deleted": 5, "freed_bytes": 1024000}
+        result = client.backups.cleanup(dry_run=False)
+        mock_request.assert_called_once_with(
+            "POST",
+            "/api/v1/backups/cleanup",
+            params=None,
+            json={"dry_run": False},
+            headers=None,
+        )
+        assert result["deleted"] == 5
+
+    def test_get_stats(self, client: AragoraClient, mock_request) -> None:
+        """Get backup statistics."""
+        mock_request.return_value = {
+            "total_backups": 42,
+            "total_size_bytes": 5000000,
+            "health": "healthy",
+        }
+        result = client.backups.get_stats()
+        mock_request.assert_called_once_with(
+            "GET", "/api/v1/backups/stats", params=None, json=None, headers=None
+        )
+        assert result["total_backups"] == 42
+        assert result["health"] == "healthy"
+
+
 class TestAsyncBackups:
     """Tests for async backups API."""
 
@@ -296,3 +389,55 @@ class TestAsyncBackups:
             assert call_json["retention_days"] == 30
             assert call_json["enabled"] is True
             assert result["schedule_id"] == "sch_async"
+
+    @pytest.mark.asyncio
+    async def test_async_verify(self, mock_async_request) -> None:
+        """Verify a backup asynchronously."""
+        mock_async_request.return_value = {"valid": True}
+
+        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+            result = await client.backups.verify("bk_123")
+
+            assert result["valid"] is True
+
+    @pytest.mark.asyncio
+    async def test_async_verify_comprehensive(self, mock_async_request) -> None:
+        """Run comprehensive verification asynchronously."""
+        mock_async_request.return_value = {"valid": True, "checks": {"data": True}}
+
+        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+            result = await client.backups.verify_comprehensive("bk_123")
+
+            assert result["valid"] is True
+
+    @pytest.mark.asyncio
+    async def test_async_test_restore(self, mock_async_request) -> None:
+        """Test restore asynchronously."""
+        mock_async_request.return_value = {"success": True}
+
+        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+            result = await client.backups.test_restore("bk_123")
+
+            assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_async_cleanup(self, mock_async_request) -> None:
+        """Clean up asynchronously."""
+        mock_async_request.return_value = {"would_delete": 3}
+
+        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+            result = await client.backups.cleanup()
+
+            call_kwargs = mock_async_request.call_args[1]
+            assert call_kwargs["json"]["dry_run"] is True
+            assert result["would_delete"] == 3
+
+    @pytest.mark.asyncio
+    async def test_async_get_stats(self, mock_async_request) -> None:
+        """Get backup stats asynchronously."""
+        mock_async_request.return_value = {"total_backups": 10}
+
+        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+            result = await client.backups.get_stats()
+
+            assert result["total_backups"] == 10

@@ -186,6 +186,75 @@ class BackupsAPI:
         """
         return self._client._request("DELETE", f"/api/v1/backups/schedules/{schedule_id}")
 
+    def verify(self, backup_id: str) -> dict[str, Any]:
+        """
+        Verify backup integrity.
+
+        Args:
+            backup_id: Backup identifier
+
+        Returns:
+            Verification result with integrity status
+        """
+        return self._client._request("POST", f"/api/v1/backups/{backup_id}/verify")
+
+    def verify_comprehensive(self, backup_id: str) -> dict[str, Any]:
+        """
+        Run comprehensive backup verification.
+
+        Args:
+            backup_id: Backup identifier
+
+        Returns:
+            Detailed verification results including checksums and data validation
+        """
+        return self._client._request("POST", f"/api/v1/backups/{backup_id}/verify-comprehensive")
+
+    def test_restore(
+        self,
+        backup_id: str,
+        target_path: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Test restore without applying changes.
+
+        Args:
+            backup_id: Backup identifier
+            target_path: Optional target path for test restore
+
+        Returns:
+            Test restore results
+        """
+        data: dict[str, Any] = {}
+        if target_path:
+            data["target_path"] = target_path
+        return self._client._request(
+            "POST",
+            f"/api/v1/backups/{backup_id}/restore-test",
+            json=data if data else None,
+        )
+
+    def cleanup(self, dry_run: bool = True) -> dict[str, Any]:
+        """
+        Clean up old or expired backups.
+
+        Args:
+            dry_run: If True, only report what would be cleaned up
+
+        Returns:
+            Cleanup results with affected backups
+        """
+        return self._client._request("POST", "/api/v1/backups/cleanup", json={"dry_run": dry_run})
+
+    def get_stats(self) -> dict[str, Any]:
+        """
+        Get backup statistics.
+
+        Returns:
+            Backup statistics including counts, sizes, and health metrics
+        """
+        return self._client._request("GET", "/api/v1/backups/stats")
+
 
 class AsyncBackupsAPI:
     """Asynchronous backups API."""
@@ -283,3 +352,38 @@ class AsyncBackupsAPI:
     async def delete_schedule(self, schedule_id: str) -> dict[str, Any]:
         """Delete a backup schedule."""
         return await self._client._request("DELETE", f"/api/v1/backups/schedules/{schedule_id}")
+
+    async def verify(self, backup_id: str) -> dict[str, Any]:
+        """Verify backup integrity."""
+        return await self._client._request("POST", f"/api/v1/backups/{backup_id}/verify")
+
+    async def verify_comprehensive(self, backup_id: str) -> dict[str, Any]:
+        """Run comprehensive backup verification."""
+        return await self._client._request(
+            "POST", f"/api/v1/backups/{backup_id}/verify-comprehensive"
+        )
+
+    async def test_restore(
+        self,
+        backup_id: str,
+        target_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Test restore without applying changes."""
+        data: dict[str, Any] = {}
+        if target_path:
+            data["target_path"] = target_path
+        return await self._client._request(
+            "POST",
+            f"/api/v1/backups/{backup_id}/restore-test",
+            json=data if data else None,
+        )
+
+    async def cleanup(self, dry_run: bool = True) -> dict[str, Any]:
+        """Clean up old or expired backups."""
+        return await self._client._request(
+            "POST", "/api/v1/backups/cleanup", json={"dry_run": dry_run}
+        )
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get backup statistics."""
+        return await self._client._request("GET", "/api/v1/backups/stats")
