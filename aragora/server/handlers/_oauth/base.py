@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-import time
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 from aragora.rbac import AuthorizationContext, check_permission
@@ -265,7 +265,7 @@ class OAuthHandler(
             return self._redirect_with_error("Failed to create user account")
 
         # Update last login
-        user_store.update_user(user.id, last_login_at=time.time())
+        user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
 
         # Create tokens
         from aragora.billing.jwt_auth import create_token_pair

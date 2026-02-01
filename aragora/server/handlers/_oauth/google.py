@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-import time
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
@@ -212,9 +212,11 @@ class GoogleOAuthMixin:
         try:
             logger.info(f"OAuth callback: updating last login for user {user.id}...")
             if hasattr(user_store, "update_user_async"):
-                await user_store.update_user_async(user.id, last_login_at=time.time())
+                await user_store.update_user_async(
+                    user.id, last_login_at=datetime.now(timezone.utc)
+                )
             else:
-                user_store.update_user(user.id, last_login_at=time.time())
+                user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
         except Exception as e:
             logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
             # Non-fatal, continue

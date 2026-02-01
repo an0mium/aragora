@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-import time
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlencode
 
@@ -160,7 +160,7 @@ class GitHubOAuthMixin:
             return self._redirect_with_error("Failed to create user account")
 
         # Update last login
-        user_store.update_user(user.id, last_login_at=time.time())
+        user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
 
         # Create tokens
         from aragora.billing.jwt_auth import create_token_pair
