@@ -30,6 +30,22 @@ def analyzer():
 
 
 @pytest.fixture
+def analyzer_with_prefs():
+    """Create an EmailPriorityAnalyzer with pre-set preferences to avoid memory lookups."""
+    analyzer = EmailPriorityAnalyzer(user_id="test-user-123")
+    # Pre-set preferences to avoid memory lookups
+    analyzer._preferences = UserEmailPreferences(
+        user_id="test-user-123",
+        important_senders=["boss@company.com"],
+        important_domains=["work.io"],
+        important_keywords=[],
+        low_priority_senders=["noreply@marketing.com"],
+        low_priority_keywords=["unsubscribe", "newsletter"],
+    )
+    return analyzer
+
+
+@pytest.fixture
 def preferences():
     """Create sample user preferences."""
     return UserEmailPreferences(
@@ -288,9 +304,9 @@ class TestFullEmailScoring:
     """Tests for complete email scoring."""
 
     @pytest.mark.asyncio
-    async def test_score_email_basic(self, analyzer):
+    async def test_score_email_basic(self, analyzer_with_prefs):
         """Test basic email scoring."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="email-123",
             subject="Hello",
             from_address="friend@gmail.com",
@@ -304,9 +320,9 @@ class TestFullEmailScoring:
         assert "sender" in score.factors
 
     @pytest.mark.asyncio
-    async def test_score_urgent_email(self, analyzer):
+    async def test_score_urgent_email(self, analyzer_with_prefs):
         """Test that urgent emails get high scores."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="urgent-123",
             subject="URGENT: Immediate action required",
             from_address="boss@company.com",
@@ -318,9 +334,9 @@ class TestFullEmailScoring:
         assert score.score > 0.7  # Should be high priority
 
     @pytest.mark.asyncio
-    async def test_score_promotional_email(self, analyzer):
+    async def test_score_promotional_email(self, analyzer_with_prefs):
         """Test that promotional emails get low scores."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="promo-123",
             subject="Weekly Newsletter - 50% Off!",
             from_address="noreply@marketing.com",
@@ -331,9 +347,9 @@ class TestFullEmailScoring:
         assert score.score < 0.5  # Should be low priority
 
     @pytest.mark.asyncio
-    async def test_score_email_with_all_params(self, analyzer):
+    async def test_score_email_with_all_params(self, analyzer_with_prefs):
         """Test scoring with all parameters provided."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="full-123",
             subject="Project Update",
             from_address="colleague@work.io",
@@ -353,13 +369,13 @@ class TestBatchScoring:
     """Tests for batch email scoring."""
 
     @pytest.mark.asyncio
-    async def test_score_batch_empty(self, analyzer):
+    async def test_score_batch_empty(self, analyzer_with_prefs):
         """Test batch scoring with empty list."""
-        result = await analyzer.score_batch([])
+        result = await analyzer_with_prefs.score_batch([])
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_score_batch_single(self, analyzer):
+    async def test_score_batch_single(self, analyzer_with_prefs):
         """Test batch scoring with single email."""
         emails = [
             {
@@ -370,13 +386,13 @@ class TestBatchScoring:
             }
         ]
 
-        results = await analyzer.score_batch(emails)
+        results = await analyzer_with_prefs.score_batch(emails)
 
         assert len(results) == 1
         assert results[0].email_id == "batch-1"
 
     @pytest.mark.asyncio
-    async def test_score_batch_multiple(self, analyzer):
+    async def test_score_batch_multiple(self, analyzer_with_prefs):
         """Test batch scoring with multiple emails."""
         emails = [
             {
@@ -388,14 +404,14 @@ class TestBatchScoring:
             for i in range(5)
         ]
 
-        results = await analyzer.score_batch(emails)
+        results = await analyzer_with_prefs.score_batch(emails)
 
         assert len(results) == 5
         for i, result in enumerate(results):
             assert result.email_id == f"batch-{i}"
 
     @pytest.mark.asyncio
-    async def test_score_batch_preserves_order(self, analyzer):
+    async def test_score_batch_preserves_order(self, analyzer_with_prefs):
         """Test that batch scoring preserves input order."""
         emails = [
             {"id": "first", "subject": "First", "from_address": "a@test.com", "snippet": "1"},
@@ -403,7 +419,7 @@ class TestBatchScoring:
             {"id": "third", "subject": "Third", "from_address": "c@test.com", "snippet": "3"},
         ]
 
-        results = await analyzer.score_batch(emails)
+        results = await analyzer_with_prefs.score_batch(emails)
 
         assert results[0].email_id == "first"
         assert results[1].email_id == "second"
@@ -414,9 +430,9 @@ class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_empty_subject(self, analyzer):
+    async def test_empty_subject(self, analyzer_with_prefs):
         """Test handling of empty subject."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="empty-subj",
             subject="",
             from_address="test@example.com",
@@ -427,9 +443,9 @@ class TestEdgeCases:
         assert 0.0 <= score.score <= 1.0
 
     @pytest.mark.asyncio
-    async def test_empty_sender(self, analyzer):
+    async def test_empty_sender(self, analyzer_with_prefs):
         """Test handling of empty sender."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="empty-sender",
             subject="Test",
             from_address="",
@@ -439,9 +455,9 @@ class TestEdgeCases:
         assert isinstance(score, EmailPriorityScore)
 
     @pytest.mark.asyncio
-    async def test_none_labels(self, analyzer):
+    async def test_none_labels(self, analyzer_with_prefs):
         """Test handling of None labels."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="none-labels",
             subject="Test",
             from_address="test@example.com",
@@ -452,9 +468,9 @@ class TestEdgeCases:
         assert isinstance(score, EmailPriorityScore)
 
     @pytest.mark.asyncio
-    async def test_invalid_email_format(self, analyzer):
+    async def test_invalid_email_format(self, analyzer_with_prefs):
         """Test handling of invalid email format."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="invalid-email",
             subject="Test",
             from_address="not-an-email",
@@ -465,12 +481,12 @@ class TestEdgeCases:
         # Should still return a valid score
 
     @pytest.mark.asyncio
-    async def test_very_long_content(self, analyzer):
+    async def test_very_long_content(self, analyzer_with_prefs):
         """Test handling of very long content."""
         long_subject = "A" * 1000
         long_snippet = "B" * 5000
 
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="long-content",
             subject=long_subject,
             from_address="test@example.com",
@@ -480,9 +496,9 @@ class TestEdgeCases:
         assert isinstance(score, EmailPriorityScore)
 
     @pytest.mark.asyncio
-    async def test_special_characters_in_content(self, analyzer):
+    async def test_special_characters_in_content(self, analyzer_with_prefs):
         """Test handling of special characters."""
-        score = await analyzer.score_email(
+        score = await analyzer_with_prefs.score_email(
             email_id="special-chars",
             subject="Test <script>alert('xss')</script>",
             from_address="test@example.com",

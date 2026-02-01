@@ -7,7 +7,7 @@ from aragora.broadcast.script_gen import (
     ScriptSegment,
     _summarize_code,
     _extract_content_text,
-    _extract_speaker_turns,
+    _extract_speaker_turns_from_trace as _extract_speaker_turns,
     generate_script,
 )
 from aragora.debate.traces import DebateTrace, TraceEvent, EventType
@@ -244,7 +244,7 @@ class TestGenerateScript:
     """Tests for generate_script function."""
 
     def test_returns_script_segments(self):
-        """Returns list of ScriptSegment objects."""
+        """Returns Script object with list of ScriptSegment objects."""
         trace = DebateTrace(
             trace_id="trace-123",
             debate_id="debate-123",
@@ -254,10 +254,12 @@ class TestGenerateScript:
             events=[],
         )
 
-        segments = generate_script(trace)
+        script = generate_script(trace)
 
-        assert isinstance(segments, list)
-        assert all(isinstance(s, ScriptSegment) for s in segments)
+        # generate_script now returns a Script object with segments attribute
+        assert hasattr(script, 'segments')
+        assert isinstance(script.segments, list)
+        assert all(isinstance(s, ScriptSegment) for s in script.segments)
 
     def test_delegates_to_extract_speaker_turns(self):
         """generate_script delegates to _extract_speaker_turns."""
@@ -279,9 +281,9 @@ class TestGenerateScript:
             ],
         )
 
-        segments = generate_script(trace)
+        script = generate_script(trace)
 
         # Should have opening, message, closing
-        assert len(segments) >= 3
-        assert segments[0].speaker == "narrator"  # Opening
-        assert segments[-1].speaker == "narrator"  # Closing
+        assert len(script.segments) >= 3
+        assert script.segments[0].speaker == "narrator"  # Opening
+        assert script.segments[-1].speaker == "narrator"  # Closing

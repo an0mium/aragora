@@ -767,21 +767,22 @@ class TestRecoverPendingDebates:
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
         mock_store = MagicMock()
-        mock_store.initialize = AsyncMock()
-        mock_beads_module.BeadStore.return_value = mock_store
+        mock_stores = MagicMock()
+        mock_stores.bead_store = AsyncMock(return_value=mock_store)
 
         mock_registry = MagicMock()
         mock_registry.recover_all = AsyncMock(return_value={})
         mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
 
-        with patch.dict(
-            sys.modules,
-            {
-                "aragora.nomic.beads": mock_beads_module,
-                "aragora.nomic.hook_queue": mock_hook_queue_module,
-            },
-        ):
-            result = await recover_pending_debates()
+        with patch("aragora.stores.get_canonical_workspace_stores", return_value=mock_stores):
+            with patch.dict(
+                sys.modules,
+                {
+                    "aragora.nomic.beads": mock_beads_module,
+                    "aragora.nomic.hook_queue": mock_hook_queue_module,
+                },
+            ):
+                result = await recover_pending_debates()
 
         assert result == []
 
@@ -791,8 +792,8 @@ class TestRecoverPendingDebates:
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
         mock_store = MagicMock()
-        mock_store.initialize = AsyncMock()
-        mock_beads_module.BeadStore.return_value = mock_store
+        mock_stores = MagicMock()
+        mock_stores.bead_store = AsyncMock(return_value=mock_store)
 
         # Create mock bead
         mock_bead = MagicMock()
@@ -810,14 +811,15 @@ class TestRecoverPendingDebates:
         )
         mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
 
-        with patch.dict(
-            sys.modules,
-            {
-                "aragora.nomic.beads": mock_beads_module,
-                "aragora.nomic.hook_queue": mock_hook_queue_module,
-            },
-        ):
-            result = await recover_pending_debates()
+        with patch("aragora.stores.get_canonical_workspace_stores", return_value=mock_stores):
+            with patch.dict(
+                sys.modules,
+                {
+                    "aragora.nomic.beads": mock_beads_module,
+                    "aragora.nomic.hook_queue": mock_hook_queue_module,
+                },
+            ):
+                result = await recover_pending_debates()
 
         assert len(result) == 1
         assert result[0]["debate_id"] == "debate-456"
@@ -829,8 +831,8 @@ class TestRecoverPendingDebates:
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
         mock_store = MagicMock()
-        mock_store.initialize = AsyncMock()
-        mock_beads_module.BeadStore.return_value = mock_store
+        mock_stores = MagicMock()
+        mock_stores.bead_store = AsyncMock(return_value=mock_store)
 
         # Create old bead (48 hours old)
         mock_bead = MagicMock()
@@ -848,14 +850,15 @@ class TestRecoverPendingDebates:
         )
         mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
 
-        with patch.dict(
-            sys.modules,
-            {
-                "aragora.nomic.beads": mock_beads_module,
-                "aragora.nomic.hook_queue": mock_hook_queue_module,
-            },
-        ):
-            result = await recover_pending_debates(max_age_hours=24)
+        with patch("aragora.stores.get_canonical_workspace_stores", return_value=mock_stores):
+            with patch.dict(
+                sys.modules,
+                {
+                    "aragora.nomic.beads": mock_beads_module,
+                    "aragora.nomic.hook_queue": mock_hook_queue_module,
+                },
+            ):
+                result = await recover_pending_debates(max_age_hours=24)
 
         assert result == []
 
@@ -865,8 +868,8 @@ class TestRecoverPendingDebates:
         from aragora.debate.orchestrator_hooks import recover_pending_debates
 
         mock_store = MagicMock()
-        mock_store.initialize = AsyncMock()
-        mock_beads_module.BeadStore.return_value = mock_store
+        mock_stores = MagicMock()
+        mock_stores.bead_store = AsyncMock(return_value=mock_store)
 
         mock_bead = MagicMock()
         mock_bead.id = "completed-bead"
@@ -883,14 +886,15 @@ class TestRecoverPendingDebates:
         )
         mock_hook_queue_module.HookQueueRegistry.return_value = mock_registry
 
-        with patch.dict(
-            sys.modules,
-            {
-                "aragora.nomic.beads": mock_beads_module,
-                "aragora.nomic.hook_queue": mock_hook_queue_module,
-            },
-        ):
-            result = await recover_pending_debates()
+        with patch("aragora.stores.get_canonical_workspace_stores", return_value=mock_stores):
+            with patch.dict(
+                sys.modules,
+                {
+                    "aragora.nomic.beads": mock_beads_module,
+                    "aragora.nomic.hook_queue": mock_hook_queue_module,
+                },
+            ):
+                result = await recover_pending_debates()
 
         assert result == []
 

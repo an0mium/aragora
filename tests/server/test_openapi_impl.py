@@ -175,6 +175,20 @@ class TestOpenAPISchemaContent:
                 assert "tags" in operation, f"Missing tags in {method} {path}"
                 assert len(operation["tags"]) > 0
 
+    def test_paths_have_stability_marker(self, openapi_schema):
+        """All path operations should include stability metadata."""
+        from aragora.server.openapi.stability import STABILITY_VALUES
+
+        http_methods = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
+        for path, spec in openapi_schema["paths"].items():
+            for method, operation in spec.items():
+                if method.lower() not in http_methods:
+                    continue
+                stability = operation.get("x-aragora-stability")
+                assert stability in STABILITY_VALUES, (
+                    f"Missing/invalid stability for {method} {path}"
+                )
+
 
 # ---------------------------------------------------------------------------
 # Test Class: Tag Inference

@@ -7,7 +7,7 @@ from aragora.broadcast.script_gen import (
     ScriptSegment,
     _summarize_code,
     _extract_content_text,
-    _extract_speaker_turns,
+    _extract_speaker_turns_from_trace as _extract_speaker_turns,
     generate_script,
 )
 from aragora.debate.traces import DebateTrace, TraceEvent, EventType
@@ -221,9 +221,10 @@ class TestGenerateScript:
         )
         script = generate_script(trace)
 
-        assert len(script) >= 3  # Opening, message, closing
-        assert isinstance(script[0], ScriptSegment)
-        assert script[0].speaker == "narrator"
+        # generate_script returns a Script object with segments attribute
+        assert len(script.segments) >= 3  # Opening, message, closing
+        assert isinstance(script.segments[0], ScriptSegment)
+        assert script.segments[0].speaker == "narrator"
 
     def test_script_includes_task_in_opening(self):
         """Test script opening includes the task."""
@@ -235,7 +236,7 @@ class TestGenerateScript:
         )
         script = generate_script(trace)
 
-        opening = script[0]
+        opening = script.segments[0]
         assert "rate limiter" in opening.text.lower()
 
     def test_script_truncates_long_task(self):
@@ -249,6 +250,6 @@ class TestGenerateScript:
         )
         script = generate_script(trace)
 
-        opening = script[0]
+        opening = script.segments[0]
         # Should be truncated to ~200 chars + "..."
         assert len(opening.text) < 300

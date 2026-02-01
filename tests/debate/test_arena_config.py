@@ -48,7 +48,7 @@ class TestDebateConfig:
     def test_defaults(self):
         c = DebateConfig()
         assert c.rounds == DEFAULT_ROUNDS
-        assert c.consensus_threshold == 0.7
+        assert c.consensus_threshold == 0.6  # Matches DEBATE_DEFAULTS.consensus_threshold
         assert c.convergence_detection is True
         assert c.convergence_threshold == 0.85
         assert c.divergence_threshold == 0.3

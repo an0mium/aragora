@@ -338,7 +338,8 @@ class TestEvidenceAdapterMarkUsedInConsensus:
         adapter = EvidenceAdapter(store=mock_store)
         adapter.mark_used_in_consensus("ev_123", "debate_456")
 
-        mock_store.mark_used_in_consensus.assert_called_once_with("debate_456", "ev_123")
+        # Implementation wraps evidence_id in a list
+        mock_store.mark_used_in_consensus.assert_called_once_with("debate_456", ["ev_123"])
 
 
 class TestEvidenceAdapterGetStats:

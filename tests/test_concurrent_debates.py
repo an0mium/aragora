@@ -14,6 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Mark entire module as slow (contains asyncio.sleep calls for timing-sensitive tests)
+pytestmark = [pytest.mark.slow, pytest.mark.asyncio]
+
 
 class TestConcurrentDebateExecution:
     """Test multiple debates running concurrently."""

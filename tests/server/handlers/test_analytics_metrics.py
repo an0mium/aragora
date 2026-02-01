@@ -29,6 +29,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Mark entire module for asyncio (contains many async test methods)
+pytestmark = pytest.mark.asyncio
+
 from aragora.server.handlers.analytics import (
     AnalyticsMetricsHandler,
     VALID_GRANULARITIES,

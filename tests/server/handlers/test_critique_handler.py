@@ -109,13 +109,9 @@ class TestCritiquePatterns:
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_patterns_with_data(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_patterns_with_data(self, mock_get_store, tmp_path):
         """Should return patterns when data exists."""
-        # Create mock database file
-        db_path = tmp_path / "debates.db"
-        db_path.touch()
-
         # Setup mock store
         mock_store = MagicMock()
         mock_store.retrieve_patterns.return_value = [
@@ -127,7 +123,7 @@ class TestCritiquePatterns:
             ),
         ]
         mock_store.get_stats.return_value = {"total": 100, "archived": 50}
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -167,15 +163,12 @@ class TestArchiveStats:
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_archive_with_data(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_archive_with_data(self, mock_get_store, tmp_path):
         """Should return archive stats when data exists."""
-        db_path = tmp_path / "debates.db"
-        db_path.touch()
-
         mock_store = MagicMock()
         mock_store.get_archive_stats.return_value = {"archived": 50, "by_type": {"logic": 25}}
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()

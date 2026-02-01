@@ -247,11 +247,11 @@ class TestOverview:
             Bead,
             BeadType,
             ConvoyStatus,
-            get_bead_store,
-            get_convoy_manager,
         )
 
-        bead_store = await get_bead_store()
+        stores = handler._get_canonical_workspace_stores()
+        assert stores is not None
+        bead_store = await stores.bead_store()
         bead1 = Bead.create(bead_type=BeadType.TASK, title="active")
         bead2 = Bead.create(bead_type=BeadType.TASK, title="completed")
         bead3 = Bead.create(bead_type=BeadType.TASK, title="failed")
@@ -259,7 +259,7 @@ class TestOverview:
         await bead_store.create(bead2)
         await bead_store.create(bead3)
 
-        manager = await get_convoy_manager(bead_store)
+        manager = await stores.convoy_manager()
         convoy_active = await manager.create_convoy(title="active", bead_ids=[bead1.id])
         convoy_completed = await manager.create_convoy(title="completed", bead_ids=[bead2.id])
         convoy_failed = await manager.create_convoy(title="failed", bead_ids=[bead3.id])

@@ -9,6 +9,9 @@ import asyncio
 import time
 import pytest
 
+# Mark entire module as slow (contains asyncio.sleep calls for timing-sensitive tests)
+pytestmark = [pytest.mark.slow, pytest.mark.asyncio]
+
 from aragora.resilience import CircuitBreaker
 
 
