@@ -11,7 +11,8 @@ Wraps the NomicStateMachine and phase implementations to enable:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, cast
+from pathlib import Path
+from typing import Any, Optional, Sequence
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -73,10 +74,10 @@ class NomicLoopStep(BaseStep):
         workspace_id = config.get("workspace_id", context.get_input("workspace_id", "default"))
         enable_code_execution = config.get("enable_code_execution", False)
         require_approval = config.get("require_approval", True)
-        timeout_seconds = config.get("timeout_seconds", 300.0)
         recovery_enabled = config.get("recovery_enabled", True)
-        max_retries = config.get("max_retries", 3)
-        agents = config.get("agents", ["claude", "gpt4"])
+        from aragora.config.settings import get_settings
+
+        agents = config.get("agents", get_settings().agent.default_agent_list)
 
         # Validate phases
         phases = [p for p in phases if p in self.ALL_PHASES]
@@ -90,177 +91,259 @@ class NomicLoopStep(BaseStep):
         )
 
         try:
-            from aragora.nomic import (  # noqa: F401
-                NomicStateMachine,
-                NomicState,
-                create_nomic_state_machine,
-                CheckpointManager,
-                RecoveryManager,
+            from aragora.agents import create_agent
+            from aragora.core_types import Environment
+            from aragora.debate.orchestrator import Arena
+            from aragora.debate.protocol import DebateProtocol
+            from aragora.nomic import NomicState, create_nomic_state_machine
+            from aragora.nomic.handlers import (
+                create_commit_handler,
+                create_context_handler,
+                create_debate_handler,
+                create_design_handler,
+                create_implement_handler,
+                create_verify_handler,
             )
             from aragora.nomic.phases import (
+                CommitPhase,
                 ContextPhase,
+                DebateConfig,
                 DebatePhase,
+                DesignConfig,
                 DesignPhase,
                 ImplementPhase,
                 VerifyPhase,
-                CommitPhase,
-                DebateConfig,
-                DesignConfig,
+            )
+            from aragora.implement import create_single_task_plan, generate_implement_plan
+            from aragora.config.settings import DebateSettings
+
+            def _normalize_agents(value: Any) -> list[str]:
+                if isinstance(value, str):
+                    return [v.strip() for v in value.split(",") if v.strip()]
+                if isinstance(value, Sequence):
+                    return [str(v).strip() for v in value if str(v).strip()]
+                return []
+
+            def _find_agent(agent_list: list[Any], names: set[str]) -> Any | None:
+                for agent in agent_list:
+                    name = str(getattr(agent, "name", "")).lower()
+                    if name in names:
+                        return agent
+                return None
+
+            agent_types = _normalize_agents(agents)
+            agent_instances: list[Any] = []
+            for agent_type in agent_types:
+                try:
+                    agent_instances.append(create_agent(agent_type))
+                except Exception as exc:
+                    logger.warning("Failed to create agent %s: %s", agent_type, exc)
+
+            claude_agent = _find_agent(agent_instances, {"claude", "anthropic-api"})
+            if claude_agent is None:
+                try:
+                    claude_agent = create_agent("claude")
+                except Exception:
+                    claude_agent = None
+
+            codex_agent = _find_agent(agent_instances, {"codex", "openai-api"})
+            if codex_agent is None:
+                try:
+                    codex_agent = create_agent("codex")
+                except Exception:
+                    codex_agent = None
+
+            if not enable_code_execution:
+                phases = [p for p in phases if p in ("context", "debate", "design")]
+
+            repo_path = Path(
+                config.get("repo_path") or context.get_input("repo_path") or Path.cwd()
             )
 
-            # Map phase names to state machine states
+            debate_config: DebateConfig
+            try:
+                from aragora.nomic.debate_profile import NomicDebateProfile
 
-            # Build phase instances - using cast since phase classes have dynamic signatures
-            phase_instances: dict[str, _PhaseType] = {}
+                profile = NomicDebateProfile.from_env()
+                debate_config = profile.to_debate_config()
+            except Exception:
+                debate_config = DebateConfig(rounds=DebateSettings().default_rounds)
 
-            if "context" in phases:
-                phase_instances["context"] = cast(
-                    _PhaseType,
-                    ContextPhase(
-                        workspace_id=workspace_id,
-                        timeout_seconds=timeout_seconds,
-                    ),
-                )
+            if config.get("debate_rounds"):
+                debate_config.rounds = int(config.get("debate_rounds"))
+            if config.get("consensus_mechanism"):
+                debate_config.consensus_mode = str(config.get("consensus_mechanism"))
 
-            if "debate" in phases:
-                debate_config = cast(
-                    _PhaseType,
-                    DebateConfig(
-                        agents=agents,
-                        rounds=config.get("debate_rounds", 3),
-                        consensus_mechanism=config.get("consensus_mechanism", "weighted"),
-                    ),
-                )
-                phase_instances["debate"] = cast(
-                    _PhaseType,
-                    DebatePhase(
-                        config=debate_config,
-                        timeout_seconds=timeout_seconds,
-                    ),
-                )
+            async def _generate_implement_plan(design: str, repo: Path):
+                try:
+                    return await generate_implement_plan(design, repo)
+                except Exception as exc:
+                    logger.warning("Plan generation failed, using fallback: %s", exc)
+                    return create_single_task_plan(design, repo)
 
-            if "design" in phases:
-                design_config = cast(
-                    _PhaseType,
-                    DesignConfig(
-                        require_approval=require_approval,
-                        max_scope=config.get("max_scope", 3),
-                    ),
-                )
-                phase_instances["design"] = cast(
-                    _PhaseType,
-                    DesignPhase(
-                        config=design_config,
-                        timeout_seconds=timeout_seconds,
-                    ),
-                )
-
-            if "implement" in phases:
-                phase_instances["implement"] = cast(
-                    _PhaseType,
-                    ImplementPhase(
-                        enable_code_execution=enable_code_execution,
-                        require_approval=require_approval,
-                        timeout_seconds=timeout_seconds,
-                    ),
-                )
-
-            if "verify" in phases:
-                phase_instances["verify"] = cast(
-                    _PhaseType,
-                    VerifyPhase(
-                        timeout_seconds=timeout_seconds,
-                    ),
-                )
-
-            if "commit" in phases:
-                phase_instances["commit"] = cast(
-                    _PhaseType,
-                    CommitPhase(
-                        require_approval=require_approval,
-                        timeout_seconds=timeout_seconds,
-                    ),
-                )
-
-            # Execute cycles
             results: list[dict[str, Any]] = []
             for cycle in range(cycles):
                 self._cycle_count = cycle + 1
                 logger.info(f"Starting nomic cycle {cycle + 1}/{cycles}")
 
+                machine = create_nomic_state_machine(
+                    checkpoint_dir=config.get("checkpoint_dir", ".nomic/checkpoints"),
+                    enable_checkpoints=recovery_enabled,
+                    enable_metrics=True,
+                )
+
+                context_phase = ContextPhase(
+                    aragora_path=repo_path,
+                    claude_agent=claude_agent,
+                    codex_agent=codex_agent,
+                    cycle_count=self._cycle_count,
+                    log_fn=logger.info,
+                )
+                debate_phase = DebatePhase(
+                    aragora_path=repo_path,
+                    agents=agent_instances,
+                    arena_factory=lambda *args, **kwargs: Arena(*args, **kwargs),
+                    environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
+                    protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
+                    config=debate_config,
+                    cycle_count=self._cycle_count,
+                    log_fn=logger.info,
+                )
+                design_phase = DesignPhase(
+                    aragora_path=repo_path,
+                    agents=agent_instances,
+                    arena_factory=lambda *args, **kwargs: Arena(*args, **kwargs),
+                    environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
+                    protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
+                    config=DesignConfig(),
+                    cycle_count=self._cycle_count,
+                    log_fn=logger.info,
+                )
+
+                executor = None
+                if config.get("use_gastown_executor", True):
+                    try:
+                        from aragora.nomic.convoy_executor import GastownConvoyExecutor
+
+                        implementers = [a for a in agent_instances if a is not None]
+                        for extra in (claude_agent, codex_agent):
+                            if extra and extra not in implementers:
+                                implementers.append(extra)
+
+                        executor = GastownConvoyExecutor(
+                            repo_path=repo_path,
+                            implementers=implementers,
+                            reviewers=implementers,
+                            log_fn=logger.info,
+                        )
+                    except Exception as exc:
+                        logger.warning("Failed to initialize GastownConvoyExecutor: %s", exc)
+                        executor = None
+
+                if executor is None:
+                    try:
+                        from aragora.nomic.implement_executor import ConvoyImplementExecutor
+
+                        implementer_names = [
+                            getattr(a, "name", "") for a in agent_instances if a is not None
+                        ]
+
+                        def _agent_factory(name: str):
+                            for agent in agent_instances:
+                                if getattr(agent, "name", "") == name:
+                                    return agent
+                            return agent_instances[0] if agent_instances else None
+
+                        executor = ConvoyImplementExecutor(
+                            aragora_path=repo_path,
+                            agents=[n for n in implementer_names if n],
+                            agent_factory=_agent_factory if agent_instances else None,
+                            max_parallel=4,
+                            enable_cross_check=True,
+                            log_fn=logger.info,
+                        )
+                    except Exception as exc:
+                        logger.warning("Failed to initialize ConvoyImplementExecutor: %s", exc)
+                        executor = None
+
+                implement_phase = ImplementPhase(
+                    aragora_path=repo_path,
+                    plan_generator=_generate_implement_plan,
+                    executor=executor,
+                    cycle_count=self._cycle_count,
+                    log_fn=logger.info,
+                )
+                verify_phase = VerifyPhase(
+                    aragora_path=repo_path,
+                    codex=codex_agent,
+                    cycle_count=self._cycle_count,
+                    log_fn=logger.info,
+                )
+                commit_phase = CommitPhase(
+                    aragora_path=repo_path,
+                    require_human_approval=require_approval,
+                    auto_commit=bool(config.get("auto_commit", False)) and not require_approval,
+                    cycle_count=self._cycle_count,
+                    log_fn=logger.info,
+                )
+
+                if "context" in phases:
+                    machine.register_handler(
+                        NomicState.CONTEXT, create_context_handler(context_phase)
+                    )
+                if "debate" in phases:
+                    machine.register_handler(NomicState.DEBATE, create_debate_handler(debate_phase))
+                if "design" in phases:
+                    machine.register_handler(NomicState.DESIGN, create_design_handler(design_phase))
+                if "implement" in phases:
+                    machine.register_handler(
+                        NomicState.IMPLEMENT, create_implement_handler(implement_phase)
+                    )
+                if "verify" in phases:
+                    machine.register_handler(NomicState.VERIFY, create_verify_handler(verify_phase))
+                if "commit" in phases:
+                    machine.register_handler(NomicState.COMMIT, create_commit_handler(commit_phase))
+
+                await machine.start(
+                    config={
+                        "workflow_id": context.workflow_id,
+                        "cycle": cycle + 1,
+                    }
+                )
+
+                phase_results = {
+                    "context": machine.context.context_result,
+                    "debate": machine.context.debate_result,
+                    "design": machine.context.design_result,
+                    "implement": machine.context.implement_result,
+                    "verify": machine.context.verify_result,
+                    "commit": machine.context.commit_result,
+                }
+
                 cycle_result: dict[str, Any] = {
                     "cycle": cycle + 1,
                     "phases": {},
-                    "success": True,
+                    "success": machine.current_state == NomicState.COMPLETED,
                 }
 
-                # Execute each phase in order
-                for phase_name in phases:
-                    if phase_name not in phase_instances:
+                for phase_name, result in phase_results.items():
+                    if phase_name not in phases or result is None:
                         continue
+                    cycle_result["phases"][phase_name] = {
+                        "success": bool(result.get("success", True)),
+                        "result": result,
+                    }
+                    context.set_state(f"nomic_{phase_name}_result", result)
 
-                    self._current_phase_idx = self.ALL_PHASES.index(phase_name)
-                    phase = phase_instances[phase_name]
-
-                    logger.info(f"Executing phase: {phase_name}")
-
-                    try:
-                        # Create phase context from workflow context
-                        phase_context = self._build_phase_context(context, cycle_result)
-
-                        # Execute the phase
-                        phase_result = await phase.execute(phase_context)
-
-                        cycle_result["phases"][phase_name] = {
-                            "success": True,
-                            "result": phase_result,
-                        }
-
-                        # Store phase output in workflow context for next phase
-                        context.set_state(f"nomic_{phase_name}_result", phase_result)
-
-                    except Exception as e:
-                        logger.error(f"Phase {phase_name} failed: {e}")
-                        cycle_result["phases"][phase_name] = {
-                            "success": False,
-                            "error": str(e),
-                        }
-                        cycle_result["success"] = False
-
-                        # Check if we should continue or abort
-                        if not recovery_enabled:
-                            raise
-
-                        # Try recovery if enabled
-                        retries = 0
-                        while retries < max_retries:
-                            retries += 1
-                            logger.info(
-                                f"Retrying phase {phase_name} (attempt {retries}/{max_retries})"
-                            )
-                            try:
-                                phase_result = await phase.execute(phase_context)
-                                cycle_result["phases"][phase_name] = {
-                                    "success": True,
-                                    "result": phase_result,
-                                    "retries": retries,
-                                }
-                                cycle_result["success"] = True
-                                break
-                            except Exception as retry_error:
-                                logger.error(f"Retry {retries} failed: {retry_error}")
-
-                        if not cycle_result["phases"][phase_name].get("success"):
-                            # All retries exhausted
-                            break
+                if machine.context.errors:
+                    cycle_result["success"] = False
+                    cycle_result["errors"] = machine.context.errors
 
                 results.append(cycle_result)
 
-                # Check if cycle failed and we should stop
                 if not cycle_result["success"] and not config.get("continue_on_failure", False):
                     break
 
-            # Aggregate results
             return {
                 "cycles_completed": len(results),
                 "cycles_requested": cycles,
