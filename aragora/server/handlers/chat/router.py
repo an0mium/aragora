@@ -702,8 +702,9 @@ if HANDLER_BASE_AVAILABLE:
             "/api/v1/chat/whatsapp/webhook",
         ]
 
-        def __init__(self):
+        def __init__(self, ctx: dict | None = None):
             """Initialize with router."""
+            self.ctx = ctx
             self.router = ChatWebhookRouter()
 
         def can_handle(self, path: str, method: str = "GET") -> bool:
