@@ -43,6 +43,41 @@ List agents, get recommendations, and select the best agents for a task.
 npx ts-node examples/agent-selection.ts
 ```
 
+### Workflow Templates
+Workflow automation with templates, approval gates, and execution monitoring.
+
+```bash
+npx ts-node examples/workflow-templates.ts
+```
+
+### Enterprise Authentication
+OIDC/OAuth setup, MFA configuration, SCIM provisioning, and SSO integration.
+
+```bash
+npx ts-node examples/auth-enterprise.ts
+```
+
+### Billing and Usage
+Usage statistics, budget management, invoice retrieval, and cost tracking.
+
+```bash
+npx ts-node examples/billing-usage.ts
+```
+
+### Control Plane
+Agent registry, task scheduling, health monitoring, and policy management.
+
+```bash
+npx ts-node examples/control-plane.ts
+```
+
+### Decision Explainability
+Explanation factors, counterfactual scenarios, provenance tracking, and narratives.
+
+```bash
+npx ts-node examples/explainability.ts
+```
+
 ## Quick Start
 
 ```typescript
