@@ -19,6 +19,8 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
+from aragora.config import resolve_db_path
+
 if TYPE_CHECKING:
     pass
 
@@ -499,13 +501,10 @@ class AuditTrail:
             import aiosqlite
             from pathlib import Path
 
-            # Default path in user's home directory
+            # Default path in ARAGORA_DATA_DIR
             if self._db_path is None:
-                import os
-
-                data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora")))
-                data_dir.mkdir(parents=True, exist_ok=True)
-                self._db_path = str(data_dir / "km_audit.db")
+                self._db_path = resolve_db_path("km_audit.db")
+            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
 
             async with aiosqlite.connect(self._db_path) as db:
                 await db.execute("""

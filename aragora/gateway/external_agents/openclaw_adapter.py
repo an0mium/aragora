@@ -151,7 +151,7 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
         """Translate AgentCapability to OpenClaw capability strings."""
         return [CAPABILITY_MAPPING.get(cap, cap.value) for cap in capabilities]
 
-    async def execute(
+    async def execute(  # type: ignore[override]
         self,
         task: ExternalAgentTask,
     ) -> ExternalAgentResult:

@@ -441,7 +441,7 @@ class OrchestrationHandler(SecureHandler):
 
         return None
 
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         data: dict[str, Any],

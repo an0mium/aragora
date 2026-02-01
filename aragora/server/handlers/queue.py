@@ -120,7 +120,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):
         return normalized.startswith("/api/queue/")
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any | None = None
     ) -> HandlerResult | None:
         """Route request to appropriate handler method."""

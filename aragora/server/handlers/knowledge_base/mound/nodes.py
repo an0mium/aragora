@@ -156,8 +156,8 @@ class NodeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node_id = _run_async(mound.add_node(node))
-            saved_node = _run_async(mound.get_node(node_id))
+            node_id = _run_async(mound.add_node(node))  # type: ignore[misc]
+            saved_node = _run_async(mound.get_node(node_id))  # type: ignore[misc]
         except Exception as e:
             logger.error(f"Failed to create node: {e}")
             return error_response(f"Failed to create node: {e}", 500)
@@ -174,7 +174,7 @@ class NodeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))
+            node = _run_async(mound.get_node(node_id))  # type: ignore[misc]
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -209,7 +209,7 @@ class NodeOperationsMixin:
 
         try:
             nodes = _run_async(
-                mound.query_nodes(
+                mound.query_nodes(  # type: ignore[misc]
                     workspace_id=workspace_id,
                     node_types=node_types,
                     min_confidence=min_confidence,

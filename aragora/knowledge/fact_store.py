@@ -16,6 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 from aragora.knowledge.types import (
     Fact,
     FactFilters,
@@ -92,13 +94,13 @@ class FactStore(SQLiteStore):
         CREATE INDEX IF NOT EXISTS idx_relations_type ON fact_relations(relation_type);
     """
 
-    DEFAULT_DB_PATH = Path.home() / ".aragora" / "knowledge.db"
+    DEFAULT_DB_PATH = Path(resolve_db_path("knowledge.db"))
 
     def __init__(self, db_path: Path | None = None):
         """Initialize the fact store.
 
         Args:
-            db_path: Path to SQLite database (default: ~/.aragora/knowledge.db)
+            db_path: Path to SQLite database (default: ARAGORA_DATA_DIR/knowledge.db)
         """
         super().__init__(db_path=db_path or self.DEFAULT_DB_PATH)
 

@@ -181,11 +181,11 @@ class RLMOperationsMixin:
             logger.error(f"RLM query failed: {e}")
             return None
 
-    def is_rlm_available(self: RLMProtocol) -> bool:
+    def is_rlm_available(self) -> bool:
         """Check if RLM features are available."""
         return HAS_RLM
 
-    def is_true_rlm_available(self: RLMProtocol) -> bool:
+    def is_true_rlm_available(self) -> bool:
         """Check if TRUE RLM (REPL-based) features are available."""
         return HAS_RLM and HAS_OFFICIAL_RLM
 

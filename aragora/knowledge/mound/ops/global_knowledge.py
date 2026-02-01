@@ -323,6 +323,6 @@ class GlobalKnowledgeMixin:
 
         return merged
 
-    def get_system_workspace_id(self: GlobalKnowledgeProtocol) -> str:
+    def get_system_workspace_id(self) -> str:
         """Get the system workspace ID for global knowledge."""
         return SYSTEM_WORKSPACE_ID

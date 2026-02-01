@@ -695,7 +695,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
         return result
 
-    async def sync_validations_from_km(
+    async def sync_validations_from_km(  # type: ignore[override]
         self,
         km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,

@@ -62,7 +62,7 @@ class CoordinatorHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> MaybeAsyncHandlerResult:
         """Route coordinator requests with RBAC."""

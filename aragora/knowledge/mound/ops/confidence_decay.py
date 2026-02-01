@@ -498,7 +498,7 @@ class ConfidenceDecayMixin:
 
     _decay_manager: ConfidenceDecayManager | None = None
 
-    def _get_decay_manager(self: KnowledgeMoundProtocol) -> ConfidenceDecayManager:
+    def _get_decay_manager(self) -> ConfidenceDecayManager:
         """Get or create decay manager."""
         # Access the class attribute via self
         manager = getattr(self, "_decay_manager", None)
@@ -553,7 +553,7 @@ class ConfidenceDecayMixin:
         manager = self._get_decay_manager()
         return await manager.get_adjustment_history(item_id, event_type, limit)
 
-    def get_decay_stats(self: ConfidenceDecayMixinProtocol) -> dict[str, Any]:
+    def get_decay_stats(self) -> dict[str, Any]:
         """Get confidence decay statistics."""
         manager = self._get_decay_manager()
         return manager.get_stats()

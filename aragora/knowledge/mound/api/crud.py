@@ -128,7 +128,7 @@ class CRUDProtocol(Protocol):
 class CRUDOperationsMixin:
     """Mixin providing CRUD operations for KnowledgeMound."""
 
-    async def store(self: CRUDProtocol, request: "IngestionRequest") -> "IngestionResult":
+    async def store(self, request: "IngestionRequest") -> "IngestionResult":
         """
         Store a new knowledge item with full provenance tracking.
 
@@ -278,7 +278,7 @@ class CRUDOperationsMixin:
                 relationships_created=relationships_created,
             )
 
-    async def get(self: CRUDProtocol, node_id: str) -> Optional["KnowledgeItem"]:
+    async def get(self, node_id: str) -> Optional["KnowledgeItem"]:
         """Get a knowledge node by ID.
 
         Args:
@@ -371,7 +371,7 @@ class CRUDOperationsMixin:
             span.set_tag("success", result is not None)
             return result
 
-    async def delete(self: CRUDProtocol, node_id: str, archive: bool = True) -> bool:
+    async def delete(self, node_id: str, archive: bool = True) -> bool:
         """Delete a knowledge node.
 
         Args:
@@ -467,7 +467,7 @@ class CRUDOperationsMixin:
         result = await self.store(request)
         return result.node_id
 
-    async def add_node(self: CRUDProtocol, node: Any) -> str:
+    async def add_node(self, node: Any) -> str:
         """
         Add a KnowledgeNode to the mound.
 
@@ -500,7 +500,7 @@ class CRUDOperationsMixin:
             tier=tier_str,
         )
 
-    async def get_node(self: CRUDProtocol, node_id: str) -> Any | None:
+    async def get_node(self, node_id: str) -> Any | None:
         """
         Get a KnowledgeNode by ID.
 

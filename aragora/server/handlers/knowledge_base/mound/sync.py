@@ -64,7 +64,7 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_continuum_incremental(
+                mound.sync_continuum_incremental(  # type: ignore[misc]
                     workspace_id=workspace_id, since=since, limit=limit
                 )
             )
@@ -74,9 +74,9 @@ class SyncOperationsMixin:
                 from aragora.memory import get_continuum_memory
 
                 continuum = get_continuum_memory()
-                _run_async(mound.connect_memory_stores(continuum=continuum))
+                _run_async(mound.connect_memory_stores(continuum=continuum))  # type: ignore[misc]
                 result = _run_async(
-                    mound.sync_continuum_incremental(
+                    mound.sync_continuum_incremental(  # type: ignore[misc]
                         workspace_id=workspace_id, since=since, limit=limit
                     )
                 )
@@ -127,7 +127,7 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_consensus_incremental(
+                mound.sync_consensus_incremental(  # type: ignore[misc]
                     workspace_id=workspace_id, since=since, limit=limit
                 )
             )
@@ -137,9 +137,9 @@ class SyncOperationsMixin:
                 from aragora.memory import ConsensusMemory
 
                 consensus = ConsensusMemory()
-                _run_async(mound.connect_memory_stores(consensus=consensus))
+                _run_async(mound.connect_memory_stores(consensus=consensus))  # type: ignore[misc]
                 result = _run_async(
-                    mound.sync_consensus_incremental(
+                    mound.sync_consensus_incremental(  # type: ignore[misc]
                         workspace_id=workspace_id, since=since, limit=limit
                     )
                 )
@@ -190,7 +190,9 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_facts_incremental(workspace_id=workspace_id, since=since, limit=limit)
+                mound.sync_facts_incremental(  # type: ignore[misc]
+                    workspace_id=workspace_id, since=since, limit=limit
+                )
             )
         except AttributeError:
             # Fallback: Connect facts store and try direct sync
@@ -198,9 +200,9 @@ class SyncOperationsMixin:
                 from aragora.knowledge.fact_store import FactStore
 
                 facts = FactStore()
-                _run_async(mound.connect_memory_stores(facts=facts))
+                _run_async(mound.connect_memory_stores(facts=facts))  # type: ignore[misc]
                 result = _run_async(
-                    mound.sync_facts_incremental(
+                    mound.sync_facts_incremental(  # type: ignore[misc]
                         workspace_id=workspace_id, since=since, limit=limit
                     )
                 )

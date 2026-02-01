@@ -95,7 +95,7 @@ class ReceiptsHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         method: str,
         path: str,

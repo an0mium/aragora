@@ -106,7 +106,7 @@ class CultureOperationsMixin:
     # Organization-Level Culture
     # =========================================================================
 
-    def get_org_culture_manager(self: CultureProtocol) -> "OrganizationCultureManager":
+    def get_org_culture_manager(self) -> "OrganizationCultureManager":
         """
         Get the organization culture manager.
 

@@ -681,7 +681,7 @@ class SyncOperationsMixin:
             errors=errors,
         )
 
-    async def sync_all(self: SyncProtocol) -> dict[str, "SyncResult"]:
+    async def sync_all(self) -> dict[str, "SyncResult"]:
         """
         Sync from all connected memory systems.
 
@@ -1163,7 +1163,7 @@ class SyncOperationsMixin:
 
         return status
 
-    def get_connected_stores(self: SyncProtocol) -> list[str]:
+    def get_connected_stores(self) -> list[str]:
         """Get list of connected memory store names."""
         connected = []
         if self._continuum:
