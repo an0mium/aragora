@@ -15,6 +15,7 @@ from .ap_automation import APAutomationAPI, AsyncAPAutomationAPI
 from .ar_automation import ARAutomationAPI, AsyncARAutomationAPI
 from .audio import AsyncAudioAPI, AudioAPI
 from .audit import AsyncAuditAPI, AuditAPI
+from .auditing import AsyncAuditingAPI, AuditingAPI
 from .auth import AsyncAuthAPI, AuthAPI
 from .backups import AsyncBackupsAPI, BackupsAPI
 from .batch import AsyncBatchAPI, BatchAPI
@@ -102,12 +103,14 @@ from .replays import AsyncReplaysAPI, ReplaysAPI
 from .repository import AsyncRepositoryAPI, RepositoryAPI
 from .reputation import AsyncReputationAPI, ReputationAPI
 from .retention import AsyncRetentionAPI, RetentionAPI
+from .reviews import AsyncReviewsAPI, ReviewsAPI
 from .rlm import RLMAPI, AsyncRLMAPI
 from .routing import AsyncRoutingAPI, RoutingAPI
 from .security import AsyncSecurityAPI, SecurityAPI
 from .skills import AsyncSkillsAPI, SkillsAPI
 from .slo import SLOAPI, AsyncSLOAPI
 from .sme import SMEAPI, AsyncSMEAPI
+from .social import AsyncSocialAPI, SocialAPI
 from .sso import SSOAPI, AsyncSSOAPI
 from .system import AsyncSystemAPI, SystemAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
@@ -116,12 +119,14 @@ from .threat_intel import AsyncThreatIntelAPI, ThreatIntelAPI
 from .tournaments import AsyncTournamentsAPI, TournamentsAPI
 from .training import AsyncTrainingAPI, TrainingAPI
 from .transcription import AsyncTranscriptionAPI, TranscriptionAPI
+from .uncertainty import AsyncUncertaintyAPI, UncertaintyAPI
 from .unified_inbox import AsyncUnifiedInboxAPI, UnifiedInboxAPI
 from .usage import AsyncUsageAPI, UsageAPI
 from .usage_metering import AsyncUsageMeteringAPI, UsageMeteringAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .verticals import AsyncVerticalsAPI, VerticalsAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
+from .workflow_templates import AsyncWorkflowTemplatesAPI, WorkflowTemplatesAPI
 from .workflows import AsyncWorkflowsAPI, WorkflowsAPI
 from .workspaces import AsyncWorkspacesAPI, WorkspacesAPI
 from .youtube import AsyncYouTubeAPI, YouTubeAPI
@@ -149,6 +154,8 @@ __all__ = [
     "AsyncAudioAPI",
     "AuditAPI",
     "AsyncAuditAPI",
+    "AuditingAPI",
+    "AsyncAuditingAPI",
     "AuthAPI",
     "AsyncAuthAPI",
     "BackupsAPI",
@@ -323,6 +330,8 @@ __all__ = [
     "AsyncReputationAPI",
     "RetentionAPI",
     "AsyncRetentionAPI",
+    "ReviewsAPI",
+    "AsyncReviewsAPI",
     "RLMAPI",
     "AsyncRLMAPI",
     "RoutingAPI",
@@ -335,6 +344,8 @@ __all__ = [
     "AsyncSLOAPI",
     "SMEAPI",
     "AsyncSMEAPI",
+    "SocialAPI",
+    "AsyncSocialAPI",
     "SSOAPI",
     "AsyncSSOAPI",
     "SystemAPI",
@@ -351,6 +362,8 @@ __all__ = [
     "AsyncTrainingAPI",
     "TranscriptionAPI",
     "AsyncTranscriptionAPI",
+    "UncertaintyAPI",
+    "AsyncUncertaintyAPI",
     "UnifiedInboxAPI",
     "AsyncUnifiedInboxAPI",
     "UsageAPI",
@@ -365,6 +378,8 @@ __all__ = [
     "AsyncWebhooksAPI",
     "WorkflowsAPI",
     "AsyncWorkflowsAPI",
+    "WorkflowTemplatesAPI",
+    "AsyncWorkflowTemplatesAPI",
     "WorkspacesAPI",
     "AsyncWorkspacesAPI",
     "YouTubeAPI",

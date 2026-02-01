@@ -92,6 +92,7 @@ class AragoraClient:
         from .namespaces.ar_automation import ARAutomationAPI
         from .namespaces.audio import AudioAPI
         from .namespaces.audit import AuditAPI
+        from .namespaces.auditing import AuditingAPI
         from .namespaces.auth import AuthAPI
         from .namespaces.backups import BackupsAPI
         from .namespaces.batch import BatchAPI
@@ -174,12 +175,14 @@ class AragoraClient:
         from .namespaces.replays import ReplaysAPI
         from .namespaces.repository import RepositoryAPI
         from .namespaces.reputation import ReputationAPI
+        from .namespaces.reviews import ReviewsAPI
         from .namespaces.rlm import RLMAPI
         from .namespaces.routing import RoutingAPI
         from .namespaces.scim import SCIMAPI
         from .namespaces.security import SecurityAPI
         from .namespaces.slo import SLOAPI
         from .namespaces.sme import SMEAPI
+        from .namespaces.social import SocialAPI
         from .namespaces.sso import SSOAPI
         from .namespaces.system import SystemAPI
         from .namespaces.teams import TeamsAPI
@@ -187,11 +190,13 @@ class AragoraClient:
         from .namespaces.threat_intel import ThreatIntelAPI
         from .namespaces.tournaments import TournamentsAPI
         from .namespaces.training import TrainingAPI
+        from .namespaces.uncertainty import UncertaintyAPI
         from .namespaces.unified_inbox import UnifiedInboxAPI
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.verticals import VerticalsAPI
         from .namespaces.webhooks import WebhooksAPI
+        from .namespaces.workflow_templates import WorkflowTemplatesAPI
         from .namespaces.workflows import WorkflowsAPI
         from .namespaces.workspaces import WorkspacesAPI
         from .namespaces.youtube import YouTubeAPI
@@ -207,6 +212,7 @@ class AragoraClient:
         self.ar_automation = ARAutomationAPI(self)
         self.audio = AudioAPI(self)
         self.audit = AuditAPI(self)
+        self.auditing = AuditingAPI(self)
         self.auth = AuthAPI(self)
         self.backups = BackupsAPI(self)
         self.batch = BatchAPI(self)
@@ -286,6 +292,7 @@ class AragoraClient:
         self.rbac = RBACAPI(self)
         self.receipts = ReceiptsAPI(self)
         self.reputation = ReputationAPI(self)
+        self.reviews = ReviewsAPI(self)
         self.relationships = RelationshipsAPI(self)
         self.replays = ReplaysAPI(self)
         self.repository = RepositoryAPI(self)
@@ -295,6 +302,7 @@ class AragoraClient:
         self.security = SecurityAPI(self)
         self.slo = SLOAPI(self)
         self.sme = SMEAPI(self)
+        self.social = SocialAPI(self)
         self.sso = SSOAPI(self)
         self.system = SystemAPI(self)
         self.teams = TeamsAPI(self)
@@ -302,11 +310,13 @@ class AragoraClient:
         self.training = TrainingAPI(self)
         self.threat_intel = ThreatIntelAPI(self)
         self.tournaments = TournamentsAPI(self)
+        self.uncertainty = UncertaintyAPI(self)
         self.unified_inbox = UnifiedInboxAPI(self)
         self.usage = UsageAPI(self)
         self.verification = VerificationAPI(self)
         self.verticals = VerticalsAPI(self)
         self.webhooks = WebhooksAPI(self)
+        self.workflow_templates = WorkflowTemplatesAPI(self)
         self.workflows = WorkflowsAPI(self)
         self.workspaces = WorkspacesAPI(self)
         self.youtube = YouTubeAPI(self)
@@ -542,6 +552,7 @@ class AragoraAsyncClient:
         from .namespaces.ar_automation import AsyncARAutomationAPI
         from .namespaces.audio import AsyncAudioAPI
         from .namespaces.audit import AsyncAuditAPI
+        from .namespaces.auditing import AsyncAuditingAPI
         from .namespaces.auth import AsyncAuthAPI
         from .namespaces.backups import AsyncBackupsAPI
         from .namespaces.batch import AsyncBatchAPI
@@ -624,12 +635,14 @@ class AragoraAsyncClient:
         from .namespaces.replays import AsyncReplaysAPI
         from .namespaces.repository import AsyncRepositoryAPI
         from .namespaces.reputation import AsyncReputationAPI
+        from .namespaces.reviews import AsyncReviewsAPI
         from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.routing import AsyncRoutingAPI
         from .namespaces.scim import AsyncSCIMAPI
         from .namespaces.security import AsyncSecurityAPI
         from .namespaces.slo import AsyncSLOAPI
         from .namespaces.sme import AsyncSMEAPI
+        from .namespaces.social import AsyncSocialAPI
         from .namespaces.sso import AsyncSSOAPI
         from .namespaces.system import AsyncSystemAPI
         from .namespaces.teams import AsyncTeamsAPI
@@ -637,11 +650,13 @@ class AragoraAsyncClient:
         from .namespaces.threat_intel import AsyncThreatIntelAPI
         from .namespaces.tournaments import AsyncTournamentsAPI
         from .namespaces.training import AsyncTrainingAPI
+        from .namespaces.uncertainty import AsyncUncertaintyAPI
         from .namespaces.unified_inbox import AsyncUnifiedInboxAPI
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.verticals import AsyncVerticalsAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
+        from .namespaces.workflow_templates import AsyncWorkflowTemplatesAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
         from .namespaces.workspaces import AsyncWorkspacesAPI
         from .namespaces.youtube import AsyncYouTubeAPI
@@ -657,6 +672,7 @@ class AragoraAsyncClient:
         self.ar_automation = AsyncARAutomationAPI(self)
         self.audio = AsyncAudioAPI(self)
         self.audit = AsyncAuditAPI(self)
+        self.auditing = AsyncAuditingAPI(self)
         self.auth = AsyncAuthAPI(self)
         self.backups = AsyncBackupsAPI(self)
         self.batch = AsyncBatchAPI(self)
@@ -736,6 +752,7 @@ class AragoraAsyncClient:
         self.rbac = AsyncRBACAPI(self)
         self.receipts = AsyncReceiptsAPI(self)
         self.reputation = AsyncReputationAPI(self)
+        self.reviews = AsyncReviewsAPI(self)
         self.relationships = AsyncRelationshipsAPI(self)
         self.replays = AsyncReplaysAPI(self)
         self.repository = AsyncRepositoryAPI(self)
@@ -745,6 +762,7 @@ class AragoraAsyncClient:
         self.security = AsyncSecurityAPI(self)
         self.slo = AsyncSLOAPI(self)
         self.sme = AsyncSMEAPI(self)
+        self.social = AsyncSocialAPI(self)
         self.sso = AsyncSSOAPI(self)
         self.system = AsyncSystemAPI(self)
         self.teams = AsyncTeamsAPI(self)
@@ -752,11 +770,13 @@ class AragoraAsyncClient:
         self.training = AsyncTrainingAPI(self)
         self.threat_intel = AsyncThreatIntelAPI(self)
         self.tournaments = AsyncTournamentsAPI(self)
+        self.uncertainty = AsyncUncertaintyAPI(self)
         self.unified_inbox = AsyncUnifiedInboxAPI(self)
         self.usage = AsyncUsageAPI(self)
         self.verification = AsyncVerificationAPI(self)
         self.verticals = AsyncVerticalsAPI(self)
         self.webhooks = AsyncWebhooksAPI(self)
+        self.workflow_templates = AsyncWorkflowTemplatesAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
         self.workspaces = AsyncWorkspacesAPI(self)
         self.youtube = AsyncYouTubeAPI(self)
