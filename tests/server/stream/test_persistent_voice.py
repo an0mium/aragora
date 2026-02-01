@@ -567,7 +567,7 @@ class TestHeartbeat:
         original_heartbeat = sample_session.last_heartbeat
 
         with patch.object(manager, "_load_session", new_callable=AsyncMock):
-            time.sleep(0.01)
+            await asyncio.sleep(0.01)
             result = await manager.heartbeat(sample_session.session_id)
 
         assert result is True

@@ -17,6 +17,7 @@ Security test categories:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -425,7 +426,7 @@ class TestHandleSsoCallback:
         """Expired state should return 401."""
         # Create an immediately expired state
         state = mock_state_store.generate(ttl_seconds=0)
-        time.sleep(0.01)
+        await asyncio.sleep(0.01)
 
         with patch(
             "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
