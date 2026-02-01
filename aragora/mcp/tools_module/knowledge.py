@@ -42,45 +42,69 @@ async def query_knowledge_tool(
     results: list[dict[str, Any]] = []
 
     try:
+        from aragora.knowledge.mound.types import QueryFilters
+
         mound: KnowledgeMound = get_knowledge_mound()
 
-        # Parse node types
-        types_filter = None if node_types == "all" else node_types.split(",")
+        # Build filters if needed
+        filters = None
+        if min_confidence > 0.0:
+            filters = QueryFilters(min_importance=min_confidence)
 
-        # Query the mound
-        nodes = await mound.query(
+        # Query the mound - returns QueryResult with items attribute
+        query_result = await mound.query(
             query=query,
-            node_types=types_filter,
-            min_confidence=min_confidence,
+            filters=filters,
             limit=limit,
         )
 
-        for node in nodes:
-            result = {
-                "id": node.id,
-                "content": node.content[:500] if len(node.content) > 500 else node.content,
-                "node_type": node.node_type,
-                "confidence": node.confidence,
-                "tier": node.tier,
+        # Iterate over items in the result
+        for item in query_result.items:
+            # Get node_type from metadata
+            node_type = item.metadata.get("node_type", item.source.value)
+            tier = item.metadata.get("tier", "medium")
+            topics = item.metadata.get("topics", [])
+
+            # Filter by node_types if specified
+            if node_types != "all":
+                types_filter = [t.strip() for t in node_types.split(",")]
+                if node_type not in types_filter:
+                    continue
+
+            result_item = {
+                "id": item.id,
+                "content": item.content[:500] if len(item.content) > 500 else item.content,
+                "node_type": node_type,
+                "confidence": item.confidence.value
+                if hasattr(item.confidence, "value")
+                else item.confidence,
+                "tier": tier,
                 "created_at": (
-                    node.created_at.isoformat()
-                    if hasattr(node.created_at, "isoformat")
-                    else str(node.created_at)
+                    item.created_at.isoformat()
+                    if hasattr(item.created_at, "isoformat")
+                    else str(item.created_at)
                 ),
-                "topics": node.topics[:5] if node.topics else [],
+                "topics": topics[:5] if topics else [],
             }
 
-            if include_relationships and hasattr(node, "relationships"):
-                result["relationships"] = [
-                    {
-                        "type": rel.type,
-                        "target_id": rel.target_id,
-                        "weight": rel.weight,
-                    }
-                    for rel in node.relationships[:5]
-                ]
+            if include_relationships:
+                # Get relationships via query_graph if available
+                try:
+                    graph_result = await mound.query_graph(start_id=item.id, depth=1, max_nodes=6)
+                    result_item["relationships"] = [
+                        {
+                            "type": edge.relationship.value
+                            if hasattr(edge.relationship, "value")
+                            else str(edge.relationship),
+                            "target_id": edge.target_id,
+                            "weight": edge.confidence,
+                        }
+                        for edge in graph_result.edges[:5]
+                    ]
+                except Exception:
+                    result_item["relationships"] = []
 
-            results.append(result)
+            results.append(result_item)
 
     except ImportError:
         logger.warning("Knowledge Mound not available")
@@ -142,21 +166,23 @@ async def store_knowledge_tool(
         # Parse topics
         topics_list = [t.strip() for t in topics.split(",") if t.strip()] if topics else []
 
-        # Store the node
-        node_id = await mound.store(
+        # Build metadata
+        metadata: dict[str, Any] = {
+            "node_type": node_type,
+            "tier": tier,
+            "topics": topics_list,
+            "stored_via": "mcp_tool",
+        }
+        if source_debate_id:
+            metadata["source_debate_id"] = source_debate_id
+
+        # Store the node using add() method
+        node_id = await mound.add(
             content=content,
+            metadata=metadata,
             node_type=node_type,
             confidence=confidence,
             tier=tier,
-            topics=topics_list,
-            metadata=(
-                {
-                    "source_debate_id": source_debate_id,
-                    "stored_via": "mcp_tool",
-                }
-                if source_debate_id
-                else {"stored_via": "mcp_tool"}
-            ),
         )
 
         return {
@@ -187,15 +213,28 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
         mound: KnowledgeMound = get_knowledge_mound()
         stats = await mound.get_stats()
 
-        return {
-            "total_nodes": stats.get("total_nodes", 0),
-            "total_relationships": stats.get("total_relationships", 0),
-            "nodes_by_type": stats.get("nodes_by_type", {}),
-            "nodes_by_tier": stats.get("nodes_by_tier", {}),
-            "avg_confidence": stats.get("avg_confidence", 0),
-            "stale_nodes_count": stats.get("stale_nodes_count", 0),
-            "last_updated": stats.get("last_updated", "unknown"),
-        }
+        # get_stats returns a MoundStats dataclass, convert to dict
+        if hasattr(stats, "total_nodes"):
+            return {
+                "total_nodes": stats.total_nodes,
+                "total_relationships": stats.total_relationships,
+                "nodes_by_type": stats.nodes_by_type,
+                "nodes_by_tier": stats.nodes_by_tier,
+                "avg_confidence": stats.average_confidence,
+                "stale_nodes_count": stats.stale_nodes_count,
+                "workspace_id": stats.workspace_id,
+            }
+        else:
+            # Fallback if stats is a dict
+            return {
+                "total_nodes": stats.get("total_nodes", 0),
+                "total_relationships": stats.get("total_relationships", 0),
+                "nodes_by_type": stats.get("nodes_by_type", {}),
+                "nodes_by_tier": stats.get("nodes_by_tier", {}),
+                "avg_confidence": stats.get("avg_confidence", 0),
+                "stale_nodes_count": stats.get("stale_nodes_count", 0),
+                "last_updated": stats.get("last_updated", "unknown"),
+            }
 
     except ImportError:
         logger.warning("Knowledge Mound not available")
