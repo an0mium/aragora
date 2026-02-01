@@ -31,6 +31,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import asdict, dataclass, field
@@ -303,11 +304,9 @@ class HandoffStore:
         self._handoffs: dict[str, BeadHandoffContext] = {}
         self._molecule_handoffs: dict[str, MoleculeHandoffContext] = {}
 
-    async def initialize(self) -> None:
-        """Initialize storage, loading existing handoffs."""
-        self.storage_path.mkdir(parents=True, exist_ok=True)
-
-        # Load bead handoffs
+    def _load_bead_handoffs_sync(self) -> dict[str, BeadHandoffContext]:
+        """Synchronous helper to load bead handoffs from file."""
+        handoffs: dict[str, BeadHandoffContext] = {}
         bead_path = self.storage_path / "bead_handoffs.jsonl"
         if bead_path.exists():
             with open(bead_path) as f:
@@ -315,10 +314,12 @@ class HandoffStore:
                     if line.strip():
                         data = json.loads(line)
                         handoff = BeadHandoffContext.from_dict(data)
-                        self._handoffs[handoff.id] = handoff
-            logger.info(f"Loaded {len(self._handoffs)} bead handoffs")
+                        handoffs[handoff.id] = handoff
+        return handoffs
 
-        # Load molecule handoffs
+    def _load_molecule_handoffs_sync(self) -> dict[str, MoleculeHandoffContext]:
+        """Synchronous helper to load molecule handoffs from file."""
+        molecule_handoffs: dict[str, MoleculeHandoffContext] = {}
         mol_path = self.storage_path / "molecule_handoffs.jsonl"
         if mol_path.exists():
             with open(mol_path) as f:
@@ -326,7 +327,25 @@ class HandoffStore:
                     if line.strip():
                         mol_data = json.loads(line)
                         mol_handoff = MoleculeHandoffContext.from_dict(mol_data)
-                        self._molecule_handoffs[mol_handoff.id] = mol_handoff
+                        molecule_handoffs[mol_handoff.id] = mol_handoff
+        return molecule_handoffs
+
+    async def initialize(self) -> None:
+        """Initialize storage, loading existing handoffs."""
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+
+        loop = asyncio.get_event_loop()
+
+        # Load bead handoffs
+        self._handoffs = await loop.run_in_executor(None, self._load_bead_handoffs_sync)
+        if self._handoffs:
+            logger.info(f"Loaded {len(self._handoffs)} bead handoffs")
+
+        # Load molecule handoffs
+        self._molecule_handoffs = await loop.run_in_executor(
+            None, self._load_molecule_handoffs_sync
+        )
+        if self._molecule_handoffs:
             logger.info(f"Loaded {len(self._molecule_handoffs)} molecule handoffs")
 
     async def save_bead_handoff(self, handoff: BeadHandoffContext) -> None:
@@ -390,19 +409,29 @@ class HandoffStore:
             await self._persist_bead_handoffs()
         return len(expired)
 
-    async def _persist_bead_handoffs(self) -> None:
-        """Persist bead handoffs to JSONL."""
+    def _persist_bead_handoffs_sync(self) -> None:
+        """Synchronous helper to persist bead handoffs to JSONL."""
         path = self.storage_path / "bead_handoffs.jsonl"
         with open(path, "w") as f:
             for handoff in self._handoffs.values():
                 f.write(json.dumps(handoff.to_dict()) + "\n")
 
-    async def _persist_molecule_handoffs(self) -> None:
-        """Persist molecule handoffs to JSONL."""
+    async def _persist_bead_handoffs(self) -> None:
+        """Persist bead handoffs to JSONL."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._persist_bead_handoffs_sync)
+
+    def _persist_molecule_handoffs_sync(self) -> None:
+        """Synchronous helper to persist molecule handoffs to JSONL."""
         path = self.storage_path / "molecule_handoffs.jsonl"
         with open(path, "w") as f:
             for handoff in self._molecule_handoffs.values():
                 f.write(json.dumps(handoff.to_dict()) + "\n")
+
+    async def _persist_molecule_handoffs(self) -> None:
+        """Persist molecule handoffs to JSONL."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._persist_molecule_handoffs_sync)
 
 
 class HandoffProtocol:

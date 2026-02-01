@@ -325,10 +325,12 @@ class BeadStore:
                 logger.warning(f"Could not initialize git: {e}")
                 self.git_enabled = False
 
-    async def _load_beads(self) -> None:
-        """Load all beads from JSONL file into cache."""
+    def _load_beads_sync(self) -> tuple[dict[str, "Bead"], dict[str, int]]:
+        """Synchronous helper to load all beads from JSONL file."""
+        cache: dict[str, Bead] = {}
+        index: dict[str, int] = {}
         if not self.bead_file.exists():
-            return
+            return cache, index
 
         try:
             with open(self.bead_file) as f:
@@ -339,20 +341,33 @@ class BeadStore:
                     try:
                         data = json.loads(line)
                         bead = Bead.from_dict(data)
-                        self._beads_cache[bead.id] = bead
-                        self._index[bead.id] = line_num
+                        cache[bead.id] = bead
+                        index[bead.id] = line_num
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid bead at line {line_num}: {e}")
         except Exception as e:
             logger.error(f"Failed to load beads: {e}")
+        return cache, index
 
-    async def _append_bead(self, bead: Bead) -> None:
-        """Append a bead to the JSONL file."""
+    async def _load_beads(self) -> None:
+        """Load all beads from JSONL file into cache."""
+        loop = asyncio.get_event_loop()
+        cache, index = await loop.run_in_executor(None, self._load_beads_sync)
+        self._beads_cache = cache
+        self._index = index
+
+    def _append_bead_sync(self, bead: Bead) -> None:
+        """Synchronous helper to append a bead to the JSONL file."""
         with open(self.bead_file, "a") as f:
             f.write(json.dumps(bead.to_dict()) + "\n")
 
-    async def _rewrite_file(self) -> None:
-        """Rewrite the entire JSONL file from cache (for updates)."""
+    async def _append_bead(self, bead: Bead) -> None:
+        """Append a bead to the JSONL file."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._append_bead_sync, bead)
+
+    def _rewrite_file_sync(self) -> None:
+        """Synchronous helper to rewrite the entire JSONL file from cache."""
         temp_file = self.bead_file.with_suffix(".tmp")
         try:
             with open(temp_file, "w") as f:
@@ -366,10 +381,20 @@ class BeadStore:
                 temp_file.unlink()
             raise e
 
-    async def _record_event(self, event: BeadEvent) -> None:
-        """Record a bead event to the events log."""
+    async def _rewrite_file(self) -> None:
+        """Rewrite the entire JSONL file from cache (for updates)."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._rewrite_file_sync)
+
+    def _record_event_sync(self, event: BeadEvent) -> None:
+        """Synchronous helper to record a bead event to the events log."""
         with open(self.events_file, "a") as f:
             f.write(json.dumps(event.to_dict()) + "\n")
+
+    async def _record_event(self, event: BeadEvent) -> None:
+        """Record a bead event to the events log."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._record_event_sync, event)
 
     async def create(self, bead: Bead) -> str:
         """

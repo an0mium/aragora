@@ -202,10 +202,11 @@ class HookQueue:
             f"{len(self._entries)} entries, {pending_count} pending"
         )
 
-    async def _load_entries(self) -> None:
-        """Load hook entries from file."""
+    def _load_entries_sync(self) -> dict[str, HookEntry]:
+        """Synchronous helper to load hook entries from file."""
+        entries: dict[str, HookEntry] = {}
         if not self.hook_file.exists():
-            return
+            return entries
 
         try:
             with open(self.hook_file) as f:
@@ -216,14 +217,20 @@ class HookQueue:
                     try:
                         data = json.loads(line)
                         entry = HookEntry.from_dict(data)
-                        self._entries[entry.id] = entry
+                        entries[entry.id] = entry
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid hook entry: {e}")
         except Exception as e:
             logger.error(f"Failed to load hook entries: {e}")
+        return entries
 
-    async def _save_entries(self) -> None:
-        """Save all entries to file."""
+    async def _load_entries(self) -> None:
+        """Load hook entries from file."""
+        loop = asyncio.get_event_loop()
+        self._entries = await loop.run_in_executor(None, self._load_entries_sync)
+
+    def _save_entries_sync(self) -> None:
+        """Synchronous helper to save all entries to file."""
         temp_file = self.hook_file.with_suffix(".tmp")
         try:
             with open(temp_file, "w") as f:
@@ -234,6 +241,11 @@ class HookQueue:
             if temp_file.exists():
                 temp_file.unlink()
             raise e
+
+    async def _save_entries(self) -> None:
+        """Save all entries to file."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._save_entries_sync)
 
     async def push(
         self,
