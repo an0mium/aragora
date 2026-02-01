@@ -10,6 +10,7 @@ Provides a single entry point for:
 import asyncio
 import os
 import signal
+from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
@@ -67,7 +68,8 @@ from aragora.server.static_file_handler import StaticFileHandler
 
 # Import extracted mixins for focused handler responsibilities
 from aragora.server.auth_checks import AuthChecksMixin
-from aragora.server.request_utils import RequestUtilsMixin
+from aragora.server.request_utils import MAX_JSON_CONTENT_LENGTH, RequestUtilsMixin
+from aragora.server.request_logging import TRUSTED_PROXIES as REQUEST_TRUSTED_PROXIES
 from aragora.server.request_logging import RequestLoggingMixin
 from aragora.server.debate_controller_mixin import DebateControllerMixin
 
@@ -77,13 +79,28 @@ MAX_CONTENT_LENGTH: int = 100 * 1024 * 1024  # 100MB for uploads
 # Note: MAX_JSON_CONTENT_LENGTH is imported from request_utils
 
 # Note: TRUSTED_PROXIES is imported from request_logging
+TRUSTED_PROXIES = REQUEST_TRUSTED_PROXIES
 
 # Import from initialization module
 from aragora.server.handler_registry import HandlerRegistryMixin
 from aragora.server.initialization import init_persistence
+from aragora.config import MAX_CONCURRENT_DEBATES as CONFIG_MAX_CONCURRENT_DEBATES
+
+try:
+    from aragora.server.handlers.features.documents import DocumentHandler
+
+    MAX_UPLOADS_PER_MINUTE = DocumentHandler.MAX_UPLOADS_PER_MINUTE
+    MAX_UPLOADS_PER_HOUR = DocumentHandler.MAX_UPLOADS_PER_HOUR
+    _UPLOAD_COUNTS = DocumentHandler._upload_counts
+except Exception:
+    MAX_UPLOADS_PER_MINUTE = 5
+    MAX_UPLOADS_PER_HOUR = 30
+    _UPLOAD_COUNTS = OrderedDict()
 
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()
+
+MAX_CONCURRENT_DEBATES: int = CONFIG_MAX_CONCURRENT_DEBATES
 
 
 class _UnifiedHandlerBase(BaseHTTPRequestHandler):
@@ -118,6 +135,10 @@ class UnifiedHandler(
     """
 
     storage: DebateStorage | None = None
+    MAX_UPLOADS_PER_MINUTE: int = MAX_UPLOADS_PER_MINUTE
+    MAX_UPLOADS_PER_HOUR: int = MAX_UPLOADS_PER_HOUR
+    MAX_JSON_CONTENT_LENGTH: int = MAX_JSON_CONTENT_LENGTH
+    _upload_counts: OrderedDict[str, list] = _UPLOAD_COUNTS
     static_dir: Path | None = None
     stream_emitter: SyncEventEmitter | None = None
     control_plane_stream: Optional["ControlPlaneStreamServer"] = None

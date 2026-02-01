@@ -324,7 +324,16 @@ class SAMLProvider(SSOProvider):
                 )
 
         if HAS_SAML_LIB:
-            return await self._authenticate_with_library(saml_response, relay_state)
+            try:
+                return await self._authenticate_with_library(saml_response, relay_state)
+            except SSOAuthenticationError:
+                raise
+            except Exception as e:
+                logger.error(
+                    "SAML library authentication error",
+                    extra={"error": str(e), "error_type": type(e).__name__},
+                )
+                raise SSOAuthenticationError(f"Invalid SAML response: {e}")
         else:
             # SECURITY: The simplified parser does NOT validate XML signatures.
             # Only allow it in development with explicit opt-in.

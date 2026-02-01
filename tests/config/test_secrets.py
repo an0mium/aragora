@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from aragora.config.secrets import (
     CRITICAL_SECRETS,
