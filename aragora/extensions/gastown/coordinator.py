@@ -48,6 +48,9 @@ class Coordinator:
         self,
         storage_path: str | Path | None = None,
         auto_persist: bool = True,
+        workspace_manager: WorkspaceManager | None = None,
+        convoy_tracker: ConvoyTracker | None = None,
+        hook_runner: HookRunner | None = None,
     ) -> None:
         """
         Initialize the coordinator.
@@ -61,9 +64,13 @@ class Coordinator:
         self._auto_persist = auto_persist
 
         # Initialize subsystems
-        self._workspace_manager = WorkspaceManager(storage_path=self._storage_path / "workspaces")
-        self._convoy_tracker = ConvoyTracker(storage_path=self._storage_path / "convoys")
-        self._hook_runner = HookRunner(
+        self._workspace_manager = workspace_manager or WorkspaceManager(
+            storage_path=self._storage_path / "workspaces"
+        )
+        self._convoy_tracker = convoy_tracker or ConvoyTracker(
+            storage_path=self._storage_path / "convoys"
+        )
+        self._hook_runner = hook_runner or HookRunner(
             storage_path=self._storage_path / "hooks",
             auto_commit=auto_persist,
         )

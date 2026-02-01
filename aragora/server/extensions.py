@@ -246,12 +246,22 @@ def init_gastown(storage_path: Path | None = None) -> tuple[Any | None, ...]:
             Coordinator(
                 storage_path=gastown_path if gastown_path else None,
                 auto_persist=True,
+                workspace_manager=workspace_mgr,
+                convoy_tracker=convoy_tracker,
+                hook_runner=hook_runner,
             )
             if Coordinator
             else None
         )
 
-        gastown_adapter = GastownConvoyAdapter() if GastownConvoyAdapter else None
+        if GastownConvoyAdapter:
+            gastown_adapter = (
+                GastownConvoyAdapter(tracker=convoy_tracker)
+                if convoy_tracker is not None
+                else GastownConvoyAdapter()
+            )
+        else:
+            gastown_adapter = None
 
         if coordinator:
             logger.info("[extensions] Gastown extension initialized")
