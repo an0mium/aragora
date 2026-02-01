@@ -61,11 +61,11 @@ try:
 except ImportError:
     METRICS_AVAILABLE = False
 
-    def record_rbac_check(*args, **kwargs):
+    def record_rbac_check(*args: Any, **kwargs: Any) -> None:
         pass
 
-    def track_handler(*args, **kwargs):
-        def decorator(fn):
+    def track_handler(*args: Any, **kwargs: Any) -> Any:
+        def decorator(fn: Any) -> Any:
             return fn
 
         return decorator
