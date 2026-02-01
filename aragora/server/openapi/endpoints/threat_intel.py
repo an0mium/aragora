@@ -12,7 +12,21 @@ THREAT_INTEL_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "description": "URL to scan for threats",
+                                },
+                            },
+                            "required": ["url"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Threat result", "StandardSuccessResponse"),
@@ -31,7 +45,21 @@ THREAT_INTEL_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "urls": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "uri"},
+                                    "description": "URLs to scan for threats",
+                                },
+                            },
+                            "required": ["urls"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Threat results", "StandardSuccessResponse"),
@@ -72,7 +100,21 @@ THREAT_INTEL_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "ip_addresses": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "ipv4"},
+                                    "description": "IP addresses to check reputation",
+                                },
+                            },
+                            "required": ["ip_addresses"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("IP results", "StandardSuccessResponse"),
@@ -113,7 +155,26 @@ THREAT_INTEL_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "hashes": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "File hashes to check (MD5, SHA1, or SHA256)",
+                                },
+                                "hash_type": {
+                                    "type": "string",
+                                    "enum": ["md5", "sha1", "sha256"],
+                                    "description": "Type of hash provided",
+                                },
+                            },
+                            "required": ["hashes"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Hash results", "StandardSuccessResponse"),
@@ -132,7 +193,40 @@ THREAT_INTEL_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "subject": {
+                                    "type": "string",
+                                    "description": "Email subject line",
+                                },
+                                "body": {
+                                    "type": "string",
+                                    "description": "Email body content",
+                                },
+                                "sender": {
+                                    "type": "string",
+                                    "format": "email",
+                                    "description": "Sender email address",
+                                },
+                                "attachments": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "filename": {"type": "string"},
+                                            "hash": {"type": "string"},
+                                        },
+                                    },
+                                    "description": "Email attachments to scan",
+                                },
+                            },
+                            "required": ["body"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Email scan", "StandardSuccessResponse"),

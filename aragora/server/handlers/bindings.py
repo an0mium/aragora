@@ -80,6 +80,43 @@ class BindingsHandler(BaseHandler):
             self._router = get_binding_router()
         return self._router
 
+    @api_endpoint(
+        path="/api/bindings",
+        method="GET",
+        summary="List all message bindings",
+        tags=["Bindings"],
+        description="Retrieve all registered message bindings or filter by provider.",
+        parameters=[
+            query_param(
+                "provider",
+                "Filter bindings by provider name",
+                schema_type="string",
+                required=False,
+            ),
+        ],
+        responses={
+            "200": {
+                "description": "List of bindings",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "bindings": {
+                                    "type": "array",
+                                    "items": {"type": "object"},
+                                },
+                                "total": {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
+            "429": {"description": "Rate limit exceeded"},
+            "503": {"description": "Bindings system not available"},
+        },
+        auth_required=True,
+    )
     @handle_errors("bindings GET request")
     async def handle_get(self, path: str, request: Any) -> HandlerResult:
         """Handle GET requests for bindings endpoints."""
@@ -117,6 +154,75 @@ class BindingsHandler(BaseHandler):
 
         return error_response(f"Unknown bindings endpoint: {path}", 404)
 
+    @api_endpoint(
+        path="/api/bindings",
+        method="POST",
+        summary="Create a new message binding",
+        tags=["Bindings"],
+        description="Register a new message binding to route messages from a provider/account to an agent.",
+        request_body={
+            "description": "Binding configuration",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["provider", "account_id", "peer_pattern", "agent_binding"],
+                        "properties": {
+                            "provider": {
+                                "type": "string",
+                                "description": "Message provider (e.g., telegram, whatsapp)",
+                            },
+                            "account_id": {
+                                "type": "string",
+                                "description": "Provider account identifier",
+                            },
+                            "peer_pattern": {
+                                "type": "string",
+                                "description": "Pattern to match peer/chat IDs",
+                            },
+                            "agent_binding": {
+                                "type": "string",
+                                "description": "Agent or debate to route to",
+                            },
+                            "binding_type": {
+                                "type": "string",
+                                "enum": ["default", "direct", "broadcast"],
+                                "default": "default",
+                            },
+                            "priority": {"type": "integer", "default": 0},
+                            "name": {"type": "string", "description": "Optional binding name"},
+                            "description": {
+                                "type": "string",
+                                "description": "Optional description",
+                            },
+                            "enabled": {"type": "boolean", "default": True},
+                        },
+                    },
+                },
+            },
+        },
+        responses={
+            "201": {
+                "description": "Binding created successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "status": {"type": "string"},
+                                "binding": {"type": "object"},
+                            },
+                        },
+                    },
+                },
+            },
+            "400": {"description": "Invalid request body"},
+            "429": {"description": "Rate limit exceeded"},
+            "503": {"description": "Bindings system not available"},
+        },
+        auth_required=True,
+    )
     @handle_errors("bindings POST request")
     async def handle_post(self, path: str, request: Any) -> HandlerResult | web.Response:
         """Handle POST requests for bindings endpoints."""
@@ -148,6 +254,37 @@ class BindingsHandler(BaseHandler):
 
         return error_response(f"Unknown bindings endpoint: {path}", 404)
 
+    @api_endpoint(
+        path="/api/bindings/{provider}/{account_id}/{peer_pattern}",
+        method="DELETE",
+        summary="Delete a message binding",
+        tags=["Bindings"],
+        description="Remove a message binding by provider, account, and peer pattern.",
+        parameters=[
+            path_param("provider", "Message provider name"),
+            path_param("account_id", "Provider account identifier"),
+            path_param("peer_pattern", "Peer pattern to match"),
+        ],
+        responses={
+            "200": {
+                "description": "Binding deleted",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "status": {"type": "string", "example": "deleted"},
+                            },
+                        },
+                    },
+                },
+            },
+            "404": {"description": "Binding not found"},
+            "429": {"description": "Rate limit exceeded"},
+            "503": {"description": "Bindings system not available"},
+        },
+        auth_required=True,
+    )
     @handle_errors("bindings DELETE request")
     async def handle_delete(self, path: str, request: Any) -> HandlerResult:
         """Handle DELETE requests for bindings endpoints."""

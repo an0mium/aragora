@@ -20,7 +20,28 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "paths": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Paths to analyze (empty for full repo)",
+                                },
+                                "depth": {
+                                    "type": "integer",
+                                    "description": "Analysis depth level",
+                                },
+                                "include_tests": {
+                                    "type": "boolean",
+                                    "description": "Include test files in analysis",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Analysis", "StandardSuccessResponse"),
@@ -81,7 +102,29 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "files_changed": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "List of changed file paths",
+                                },
+                                "commit_sha": {
+                                    "type": "string",
+                                    "description": "Git commit SHA to analyze",
+                                },
+                                "include_indirect": {
+                                    "type": "boolean",
+                                    "description": "Include indirect dependencies",
+                                },
+                            },
+                            "required": ["files_changed"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Impact", "StandardSuccessResponse"),
@@ -100,7 +143,29 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "question": {
+                                    "type": "string",
+                                    "description": "Question about the codebase",
+                                },
+                                "context": {
+                                    "type": "string",
+                                    "description": "Additional context for the question",
+                                },
+                                "file_hints": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Hint files to focus on",
+                                },
+                            },
+                            "required": ["question"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Answer", "StandardSuccessResponse"),
@@ -119,7 +184,30 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "audit_type": {
+                                    "type": "string",
+                                    "enum": ["security", "quality", "performance", "full"],
+                                    "description": "Type of audit to run",
+                                },
+                                "severity_threshold": {
+                                    "type": "string",
+                                    "enum": ["low", "medium", "high", "critical"],
+                                    "description": "Minimum severity to report",
+                                },
+                                "paths": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Paths to audit (empty for full repo)",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Audit started", "StandardSuccessResponse"),
@@ -156,7 +244,28 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "paths": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Paths to analyze (empty for full repo)",
+                                },
+                                "depth": {
+                                    "type": "integer",
+                                    "description": "Analysis depth level",
+                                },
+                                "include_tests": {
+                                    "type": "boolean",
+                                    "description": "Include test files in analysis",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Analysis", "StandardSuccessResponse"),
@@ -217,7 +326,29 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "files_changed": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "List of changed file paths",
+                                },
+                                "commit_sha": {
+                                    "type": "string",
+                                    "description": "Git commit SHA to analyze",
+                                },
+                                "include_indirect": {
+                                    "type": "boolean",
+                                    "description": "Include indirect dependencies",
+                                },
+                            },
+                            "required": ["files_changed"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Impact", "StandardSuccessResponse"),
@@ -236,7 +367,29 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "question": {
+                                    "type": "string",
+                                    "description": "Question about the codebase",
+                                },
+                                "context": {
+                                    "type": "string",
+                                    "description": "Additional context for the question",
+                                },
+                                "file_hints": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Hint files to focus on",
+                                },
+                            },
+                            "required": ["question"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Answer", "StandardSuccessResponse"),
@@ -255,7 +408,30 @@ CODEBASE_INTELLIGENCE_ENDPOINTS = {
             "parameters": _codebase_params(),
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "audit_type": {
+                                    "type": "string",
+                                    "enum": ["security", "quality", "performance", "full"],
+                                    "description": "Type of audit to run",
+                                },
+                                "severity_threshold": {
+                                    "type": "string",
+                                    "enum": ["low", "medium", "high", "critical"],
+                                    "description": "Minimum severity to report",
+                                },
+                                "paths": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Paths to audit (empty for full repo)",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Audit started", "StandardSuccessResponse"),

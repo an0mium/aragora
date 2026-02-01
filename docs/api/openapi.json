@@ -2430,7 +2430,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/transcription/status/{task_id}": {
@@ -5557,7 +5557,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "post": {
         "summary": "Create a new debate",
@@ -5591,7 +5591,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debate": {
@@ -5936,7 +5936,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/slug/{slug}": {
@@ -6166,7 +6166,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/convergence": {
@@ -6245,7 +6245,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/citations": {
@@ -6330,7 +6330,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/evidence": {
@@ -6418,7 +6418,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/impasse": {
@@ -6497,7 +6497,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/meta-critique": {
@@ -6608,7 +6608,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/graph/stats": {
@@ -6701,7 +6701,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/fork": {
@@ -6902,7 +6902,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/export/{format}": {
@@ -7024,7 +7024,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/debates/{id}/broadcast": {
@@ -7719,7 +7719,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/dashboard/debates": {
@@ -7833,7 +7833,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/analytics/disagreements": {
@@ -10500,7 +10500,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/verification/status": {
@@ -10952,7 +10952,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/documents": {
@@ -11258,7 +11258,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/podcast/episodes": {
@@ -16238,7 +16238,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/google/callback": {
@@ -16444,7 +16444,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/github": {
@@ -16662,7 +16662,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/github/callback": {
@@ -16852,7 +16852,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/link": {
@@ -22778,7 +22778,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/cross-pollination/reset": {
@@ -23979,7 +23979,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "delete": {
         "summary": "Delete gauntlet result",
@@ -24721,7 +24721,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{debate_id}/votes/pivots": {
@@ -24910,7 +24910,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/explain/{decision_id}": {
@@ -27429,7 +27429,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/codebase/{repo}/scan": {
@@ -33130,7 +33130,56 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "criteria": {
+                    "type": "object",
+                    "properties": {
+                      "from": {
+                        "type": "string"
+                      },
+                      "to": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "query": {
+                        "type": "string"
+                      },
+                      "has_attachment": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "action": {
+                    "type": "object",
+                    "properties": {
+                      "add_label_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "remove_label_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "forward": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "user_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "criteria",
+                  "action"
+                ]
               }
             }
           }
@@ -33377,7 +33426,24 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "add_label_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "remove_label_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "user_id": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
@@ -33510,7 +33576,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "is_read": {
+                    "type": "boolean"
+                  },
+                  "user_id": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
@@ -33605,7 +33679,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "is_starred": {
+                    "type": "boolean"
+                  },
+                  "user_id": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
@@ -33785,7 +33867,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "trash": {
+                    "type": "boolean"
+                  },
+                  "user_id": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
@@ -35185,7 +35275,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/chat/knowledge/inject": {
@@ -35213,7 +35303,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/chat/knowledge/store": {
@@ -35244,7 +35334,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/chat/knowledge/channel/{channel_id}/summary": {
@@ -35282,7 +35372,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/query": {
@@ -35364,7 +35454,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/search": {
@@ -35426,7 +35516,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/stats": {
@@ -35463,7 +35553,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/facts": {
@@ -35555,7 +35645,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "post": {
         "summary": "Create a new fact",
@@ -35632,7 +35722,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/facts/{fact_id}": {
@@ -35673,7 +35763,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "put": {
         "summary": "Update an existing fact",
@@ -35752,7 +35842,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "delete": {
         "summary": "Delete a fact",
@@ -35791,7 +35881,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/facts/{fact_id}/verify": {
@@ -35835,7 +35925,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/facts/{fact_id}/contradictions": {
@@ -35876,7 +35966,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/facts/{fact_id}/relations": {
@@ -35943,7 +36033,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "post": {
         "summary": "Add a relation from a specific fact to another",
@@ -36020,7 +36110,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/facts/relations": {
@@ -36090,7 +36180,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/knowledge/mound/governance/roles": {
@@ -39884,7 +39974,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/bots/teams/status": {
@@ -40740,7 +40830,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/webhooks/dead-letter/{id}/retry": {
@@ -40774,7 +40864,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/webhooks/queue/stats": {
@@ -46078,7 +46168,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/login": {
@@ -46144,7 +46234,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/logout": {
@@ -47001,7 +47091,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "delete": {
         "summary": "Revoke API key",
@@ -47030,7 +47120,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/auth/api-keys/{key_id}": {
@@ -47227,7 +47317,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/mfa/enable": {
@@ -47295,7 +47385,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/mfa/disable": {
@@ -47363,7 +47453,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/mfa/verify": {
@@ -47431,7 +47521,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/mfa/backup-codes": {
@@ -47499,7 +47589,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/sessions": {
@@ -47549,7 +47639,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/sessions/{session_id}": {
@@ -47631,7 +47721,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/scim/v2/Groups/{group_id}": {
@@ -49144,7 +49234,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/users": {
@@ -49211,7 +49301,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/stats": {
@@ -49238,7 +49328,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/system/metrics": {
@@ -49265,7 +49355,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/revenue": {
@@ -49292,7 +49382,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/impersonate/{user_id}": {
@@ -49332,7 +49422,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/nomic/status": {
@@ -49359,7 +49449,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/nomic/circuit-breakers": {
@@ -49389,7 +49479,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/nomic/reset": {
@@ -49451,7 +49541,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/nomic/pause": {
@@ -49494,7 +49584,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/nomic/resume": {
@@ -49540,7 +49630,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/nomic/circuit-breakers/reset": {
@@ -49570,7 +49660,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/.well-known/agent.json": {
@@ -49655,7 +49745,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/a2a/agents": {
@@ -49821,7 +49911,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/a2a/tasks": {
@@ -50350,7 +50440,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/a2a/openapi.json": {
@@ -54646,7 +54736,7 @@
             "description": "Update processed"
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/bots/telegram/webhook/{token}": {
@@ -54711,7 +54801,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/bots/telegram/status": {
@@ -54815,7 +54905,7 @@
             "description": "Webhook processed"
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "get": {
         "tags": [
@@ -55088,7 +55178,7 @@
             "description": "Event processed"
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/bots/zoom/status": {
@@ -64121,7 +64211,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/users/{user_id}/unlock": {
@@ -64185,7 +64275,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/overview": {
@@ -64249,7 +64339,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/stats": {
@@ -64273,7 +64363,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/stat-cards": {
@@ -64297,7 +64387,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/team-performance": {
@@ -64339,7 +64429,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/team-performance/{team_id}": {
@@ -64376,7 +64466,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/top-senders": {
@@ -64418,7 +64508,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/labels": {
@@ -64442,7 +64532,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/activity": {
@@ -64484,7 +64574,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/inbox-summary": {
@@ -64508,7 +64598,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/quick-actions": {
@@ -64532,7 +64622,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/quick-actions/{action_id}": {
@@ -64569,7 +64659,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/urgent": {
@@ -64611,7 +64701,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/urgent/{item_id}/dismiss": {
@@ -64645,7 +64735,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/pending-actions": {
@@ -64687,7 +64777,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/pending-actions/{action_id}/complete": {
@@ -64724,7 +64814,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/search": {
@@ -64758,7 +64848,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/dashboard/export": {
@@ -64782,7 +64872,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/agent/{name}/positions": {
@@ -64821,7 +64911,7 @@
             "description": "Path parameter: name"
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/agent/{name}/metadata": {
@@ -64860,7 +64950,7 @@
             "description": "Path parameter: name"
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/agent/{name}/introspect": {
@@ -64899,7 +64989,7 @@
             "description": "Path parameter: name"
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/agent/{name}/head-to-head/{opponent}": {
@@ -65243,7 +65333,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{debate_id}/meta-critique": {
@@ -65284,7 +65374,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{debate_id}/graph/stats": {
@@ -65325,7 +65415,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/batch": {
@@ -65356,7 +65446,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/batch/{batch_id}/status": {
@@ -65397,7 +65487,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/queue/status": {
@@ -65422,7 +65512,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/export/batch": {
@@ -65447,7 +65537,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/export/batch/{job_id}/status": {
@@ -65561,7 +65651,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{debate_id}/followups": {
@@ -65599,7 +65689,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{debate_id}/forks": {
@@ -65637,7 +65727,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/graph/{debate_id}": {
@@ -65678,7 +65768,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/graph": {
@@ -65715,7 +65805,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/graph/{debate_id}/branches": {
@@ -65753,7 +65843,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/graph/{debate_id}/nodes": {
@@ -65825,7 +65915,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{id}/verification-report": {
@@ -65860,7 +65950,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{id}/summary": {
@@ -65894,7 +65984,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/{id}/cancel": {
@@ -65931,7 +66021,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/matrix/{matrix_id}": {
@@ -65972,7 +66062,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/matrix": {
@@ -66009,7 +66099,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/matrix/{matrix_id}/scenarios": {
@@ -66709,7 +66799,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/gauntlet/run": {
@@ -66739,7 +66829,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/gauntlet/{gauntlet_id}/receipt": {
@@ -66803,7 +66893,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/gauntlet/{gauntlet_id}/receipt/verify": {
@@ -66893,7 +66983,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/gauntlet/results": {
@@ -66953,7 +67043,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/gauntlet/{gauntlet_id}/compare/{compare_id}": {
@@ -67069,7 +67159,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/workspaces/{workspace_id}/members/{user_id}": {
@@ -67529,7 +67619,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/rank-inbox": {
@@ -67557,7 +67647,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/feedback": {
@@ -67585,7 +67675,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/feedback/batch": {
@@ -67613,7 +67703,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/categorize": {
@@ -67641,7 +67731,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/categorize/batch": {
@@ -67669,7 +67759,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/categorize/apply-label": {
@@ -67697,7 +67787,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/inbox": {
@@ -67749,7 +67839,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/config": {
@@ -67774,7 +67864,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "put": {
         "summary": "Update email config",
@@ -67800,7 +67890,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/vip": {
@@ -67828,7 +67918,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "delete": {
         "summary": "Remove VIP email/domain",
@@ -67854,7 +67944,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/gmail/oauth/url": {
@@ -67883,7 +67973,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/gmail/oauth/callback": {
@@ -67912,7 +68002,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/gmail/status": {
@@ -67938,7 +68028,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/context/{email_address}": {
@@ -67976,7 +68066,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/email/context/boost": {
@@ -68004,7 +68094,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/blockchain/config": {

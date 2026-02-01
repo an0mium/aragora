@@ -36,6 +36,7 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..openapi_decorator import api_endpoint, path_param, query_param
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
@@ -115,6 +116,91 @@ class DecisionExplainHandler(SecureHandler):
             return True
         return False
 
+    @api_endpoint(
+        path="/api/v1/decisions/{request_id}/explain",
+        method="GET",
+        summary="Get comprehensive decision explanation",
+        tags=["Decisions", "Explainability"],
+        description="""Retrieve a detailed explanation of a debate decision including:
+- Decision summary (answer, confidence, consensus)
+- Key claims with evidence strength
+- Vote records with reasoning
+- Dissenting views and alternative perspectives
+- Unresolved tensions and tradeoffs
+- Audit trail (timing, agents, rounds)
+
+Supports multiple output formats via the 'format' query parameter.""",
+        parameters=[
+            path_param("request_id", "The debate request ID to explain"),
+            query_param(
+                "format",
+                "Output format for the explanation",
+                schema_type="string",
+                required=False,
+                default="json",
+                enum=["json", "md", "markdown", "html"],
+            ),
+        ],
+        responses={
+            "200": {
+                "description": "Decision explanation",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "request_id": {"type": "string"},
+                                "generated_at": {"type": "string", "format": "date-time"},
+                                "summary": {
+                                    "type": "object",
+                                    "properties": {
+                                        "answer": {"type": "string"},
+                                        "confidence": {"type": "number"},
+                                        "consensus_reached": {"type": "boolean"},
+                                        "agreement_ratio": {"type": "number"},
+                                    },
+                                },
+                                "reasoning": {
+                                    "type": "object",
+                                    "properties": {
+                                        "key_claims": {
+                                            "type": "array",
+                                            "items": {"type": "object"},
+                                        },
+                                        "supporting_evidence": {
+                                            "type": "array",
+                                            "items": {"type": "object"},
+                                        },
+                                        "crux_claims": {
+                                            "type": "array",
+                                            "items": {"type": "object"},
+                                        },
+                                    },
+                                },
+                                "votes": {"type": "array", "items": {"type": "object"}},
+                                "dissent": {"type": "object"},
+                                "tensions": {"type": "array", "items": {"type": "object"}},
+                                "audit_trail": {"type": "object"},
+                            },
+                        },
+                    },
+                    "text/markdown": {
+                        "schema": {"type": "string"},
+                    },
+                    "text/html": {
+                        "schema": {"type": "string"},
+                    },
+                },
+            },
+            "400": {"description": "Invalid request_id format"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied - requires decision:read permission"},
+            "404": {"description": "Decision not found"},
+            "429": {"description": "Rate limit exceeded"},
+            "503": {"description": "Nomic directory not configured"},
+        },
+        auth_required=True,
+    )
     async def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route decision explain requests with RBAC."""
         # Rate limit check

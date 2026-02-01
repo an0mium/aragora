@@ -486,7 +486,20 @@ GMAIL_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": False,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "trash": {
+                                    "type": "boolean",
+                                    "description": "True to trash, false to untrash",
+                                },
+                                "user_id": {"type": "string", "description": "Gmail user ID"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Thread trashed", "StandardSuccessResponse"),
@@ -512,7 +525,26 @@ GMAIL_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "add_label_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Labels to add to the thread",
+                                },
+                                "remove_label_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Labels to remove from the thread",
+                                },
+                                "user_id": {"type": "string", "description": "Gmail user ID"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Thread updated", "StandardSuccessResponse"),
@@ -547,7 +579,34 @@ GMAIL_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "to": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "Recipient email addresses",
+                                },
+                                "cc": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "CC email addresses",
+                                },
+                                "bcc": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "BCC email addresses",
+                                },
+                                "subject": {"type": "string", "description": "Email subject"},
+                                "body": {"type": "string", "description": "Email body content"},
+                                "user_id": {"type": "string", "description": "Gmail user ID"},
+                            },
+                            "required": ["to", "subject", "body"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Draft created", "StandardSuccessResponse"),
@@ -596,7 +655,33 @@ GMAIL_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "to": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "Recipient email addresses",
+                                },
+                                "cc": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "CC email addresses",
+                                },
+                                "bcc": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "BCC email addresses",
+                                },
+                                "subject": {"type": "string", "description": "Email subject"},
+                                "body": {"type": "string", "description": "Email body content"},
+                                "user_id": {"type": "string", "description": "Gmail user ID"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Draft updated", "StandardSuccessResponse"),

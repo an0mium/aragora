@@ -29,6 +29,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.openapi_decorator import api_endpoint, path_param, query_param
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import SecureHandler
@@ -236,6 +237,56 @@ class WebhookHandler(SecureHandler):
 
         return None
 
+    @api_endpoint(
+        path="/api/v1/webhooks",
+        method="GET",
+        summary="List registered webhooks",
+        tags=["Webhooks"],
+        description="Retrieve all webhooks registered by the authenticated user. Supports filtering by active status.",
+        parameters=[
+            query_param(
+                "active_only",
+                "Filter to only active webhooks",
+                schema_type="boolean",
+                required=False,
+                default=False,
+            ),
+        ],
+        responses={
+            "200": {
+                "description": "List of webhooks",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "webhooks": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "url": {"type": "string", "format": "uri"},
+                                            "events": {
+                                                "type": "array",
+                                                "items": {"type": "string"},
+                                            },
+                                            "name": {"type": "string"},
+                                            "active": {"type": "boolean"},
+                                            "created_at": {"type": "string", "format": "date-time"},
+                                        },
+                                    },
+                                },
+                                "count": {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
+            "429": {"description": "Rate limit exceeded"},
+        },
+        auth_required=True,
+    )
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -276,6 +327,76 @@ class WebhookHandler(SecureHandler):
 
         return None
 
+    @api_endpoint(
+        path="/api/v1/webhooks",
+        method="POST",
+        summary="Register a new webhook",
+        tags=["Webhooks"],
+        description="""Register a new webhook to receive HTTP POST notifications when subscribed events occur.
+All webhook payloads include HMAC-SHA256 signatures for verification.
+The webhook secret is only returned once on creation - save it securely.""",
+        request_body={
+            "description": "Webhook configuration",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["url", "events"],
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "HTTPS URL to receive webhook events",
+                            },
+                            "events": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Event types to subscribe to (use '*' for all events)",
+                            },
+                            "name": {"type": "string", "description": "Optional webhook name"},
+                            "description": {
+                                "type": "string",
+                                "description": "Optional description",
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        responses={
+            "201": {
+                "description": "Webhook created successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "webhook": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "url": {"type": "string"},
+                                        "events": {"type": "array", "items": {"type": "string"}},
+                                        "secret": {
+                                            "type": "string",
+                                            "description": "HMAC secret (only shown once)",
+                                        },
+                                    },
+                                },
+                                "message": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+            "400": {
+                "description": "Invalid request (missing URL, invalid events, or SSRF protection triggered)"
+            },
+            "429": {"description": "Rate limit exceeded"},
+        },
+        auth_required=True,
+    )
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -307,6 +428,35 @@ class WebhookHandler(SecureHandler):
 
         return None
 
+    @api_endpoint(
+        path="/api/v1/webhooks/{webhook_id}",
+        method="DELETE",
+        summary="Delete a webhook",
+        tags=["Webhooks"],
+        description="Remove a registered webhook. Only the webhook owner can delete it.",
+        parameters=[
+            path_param("webhook_id", "The webhook ID to delete"),
+        ],
+        responses={
+            "200": {
+                "description": "Webhook deleted",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "deleted": {"type": "boolean"},
+                                "webhook_id": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+            "403": {"description": "Access denied - not the webhook owner"},
+            "404": {"description": "Webhook not found"},
+        },
+        auth_required=True,
+    )
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

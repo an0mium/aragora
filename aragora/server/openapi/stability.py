@@ -29,8 +29,10 @@ class StabilityIndex:
 
 def _normalize_path(path: str) -> str:
     path = path.split("?", 1)[0]
-    if path.startswith("/api/") and not path.startswith("/api/v1/") and not path.startswith(
-        "/api/v2/"
+    if (
+        path.startswith("/api/")
+        and not path.startswith("/api/v1/")
+        and not path.startswith("/api/v2/")
     ):
         path = path.replace("/api/", "/api/v1/", 1)
     return re.sub(r"{[^}]+}", "{param}", path)
@@ -53,10 +55,15 @@ def _load_manifest() -> StabilityIndex:
             data = json.loads(_MANIFEST_PATH.read_text())
         except (json.JSONDecodeError, OSError):
             data = {}
-    stable = _parse_manifest_entries(data.get("stable", []) if isinstance(data, dict) else [])
-    beta = _parse_manifest_entries(data.get("beta", []) if isinstance(data, dict) else [])
+    # Cast to list[str] since manifest entries are expected to be string lists
+    stable_entries = data.get("stable", []) if isinstance(data, dict) else []
+    beta_entries = data.get("beta", []) if isinstance(data, dict) else []
+    internal_entries = data.get("internal", []) if isinstance(data, dict) else []
+
+    stable = _parse_manifest_entries(stable_entries if isinstance(stable_entries, list) else [])  # type: ignore[arg-type]
+    beta = _parse_manifest_entries(beta_entries if isinstance(beta_entries, list) else [])  # type: ignore[arg-type]
     internal = _parse_manifest_entries(
-        data.get("internal", []) if isinstance(data, dict) else []
+        internal_entries if isinstance(internal_entries, list) else []  # type: ignore[arg-type]
     )
     return StabilityIndex(stable=stable, beta=beta, internal=internal)
 
