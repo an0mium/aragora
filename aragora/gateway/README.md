@@ -271,7 +271,7 @@ Supported message types:
 
 | Variable | Description |
 |----------|-------------|
-| `ARAGORA_GATEWAY_SESSION_STORE` | Storage backend (memory, file, redis) |
+| `ARAGORA_GATEWAY_SESSION_STORE` | Storage backend (auto, file, redis, memory). Defaults to auto (redis if available, else file). |
 | `ARAGORA_GATEWAY_SESSION_PATH` | Path for file backend |
 | `ARAGORA_GATEWAY_SESSION_REDIS_URL` | Redis URL for redis backend |
 | `REDIS_URL` | Fallback Redis URL |

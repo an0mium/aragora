@@ -99,7 +99,7 @@ class LocalGateway:
     def _get_session_store(self):
         if self._session_store is not None:
             return self._session_store
-        backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "memory")
+        backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "auto")
         backend = backend.strip().lower() if backend else "memory"
         if backend in {"none", "off", "disabled"}:
             return None
