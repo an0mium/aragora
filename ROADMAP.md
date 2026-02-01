@@ -1,7 +1,7 @@
 # Aragora Product Roadmap
 
 **Last Updated:** January 2026
-**Current Version:** 2.4.0
+**Current Version:** 2.5.0
 
 ---
 
@@ -11,7 +11,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 
 ---
 
-## Current Capabilities (v2.1)
+## Current Capabilities (v2.5)
 
 ### Core Platform
 - Multi-agent debate orchestration with configurable protocols

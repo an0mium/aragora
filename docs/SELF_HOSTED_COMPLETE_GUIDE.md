@@ -1271,7 +1271,7 @@ curl http://localhost:8080/api/health
 ```bash
 # Update image
 kubectl -n aragora set image deployment/aragora \
-  aragora=aragora/server:v2.4.1
+  aragora=aragora/server:v2.5.0
 
 # Watch rollout
 kubectl -n aragora rollout status deployment/aragora
@@ -1781,4 +1781,4 @@ See `docs/ENVIRONMENT.md` for the complete reference (70+ variables).
 
 ---
 
-*Version: 2.5.0 | Updated: 2026-01-27*
+*Version: 2.5.0 | Updated: 2026-02-01*

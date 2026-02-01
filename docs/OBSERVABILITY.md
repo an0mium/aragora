@@ -82,7 +82,7 @@ export OTEL_TRACES_SAMPLER_ARG=1.0
 export OTEL_PROPAGATORS=tracecontext,baggage
 
 # Additional resource attributes (optional)
-export OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,service.version=2.4.1
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,service.version=2.5.0
 ```
 
 #### Legacy/Compatibility Variables

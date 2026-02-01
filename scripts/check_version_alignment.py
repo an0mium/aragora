@@ -95,6 +95,27 @@ def fix_package_json_version(path: Path, new_version: str) -> bool:
     return False
 
 
+def get_doc_version(path: Path, pattern: str) -> str | None:
+    """Extract a version string from a documentation file using a regex pattern."""
+    if not path.exists():
+        return None
+    content = path.read_text()
+    match = re.search(pattern, content, re.MULTILINE)
+    return match.group(2) if match else None
+
+
+def fix_doc_version(path: Path, pattern: str, new_version: str) -> bool:
+    """Update a version string in documentation using a regex pattern."""
+    if not path.exists():
+        return False
+    content = path.read_text()
+    new_content = re.sub(pattern, rf"\\1{new_version}\\3", content, flags=re.MULTILINE)
+    if new_content != content:
+        path.write_text(new_content)
+        return True
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check version alignment across packages")
     parser.add_argument("--fix", action="store_true", help="Auto-fix version mismatches")
@@ -115,7 +136,35 @@ def main() -> int:
         ("aragora-sdk/pyproject.toml", Path("aragora-sdk/pyproject.toml"), "pyproject"),
         ("sdk/python/pyproject.toml", Path("sdk/python/pyproject.toml"), "pyproject"),
         ("aragora-js/package.json", Path("aragora-js/package.json"), "package"),
+        ("aragora/live/package.json", Path("aragora/live/package.json"), "package"),
         ("sdk/typescript/package.json", Path("sdk/typescript/package.json"), "package"),
+    ]
+    doc_sources: list[tuple[str, Path, str]] = [
+        (
+            "ROADMAP.md",
+            Path("ROADMAP.md"),
+            r"^(\*\*Current Version:\*\*\s*)(\d+\.\d+\.\d+)(.*)$",
+        ),
+        (
+            "docs/STATUS.md",
+            Path("docs/STATUS.md"),
+            r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
+        ),
+        (
+            "docs/GETTING_STARTED.md",
+            Path("docs/GETTING_STARTED.md"),
+            r"^(\s*aragora:\s*)(\d+\.\d+\.\d+)(.*)$",
+        ),
+        (
+            "docs/SELF_HOSTED_QUICKSTART.md",
+            Path("docs/SELF_HOSTED_QUICKSTART.md"),
+            r"^(\*Version:\s*)(\d+\.\d+\.\d+)(\*)$",
+        ),
+        (
+            "docs/SELF_HOSTED_COMPLETE_GUIDE.md",
+            Path("docs/SELF_HOSTED_COMPLETE_GUIDE.md"),
+            r"^(\*Version:\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+        ),
     ]
 
     mismatches: list[tuple[str, str | None]] = []
@@ -147,6 +196,22 @@ def main() -> int:
                 else:
                     if fix_package_json_version(path, canonical):
                         fixed.append(name)
+
+    for name, path, pattern in doc_sources:
+        version = get_doc_version(path, pattern)
+        if version is None:
+            print(f"  {name}: (version not found)")
+            continue
+
+        status = "OK" if version == canonical else "MISMATCH"
+        print(f"  {name}: {version} [doc] [{status}]")
+
+        if version != canonical:
+            mismatches.append((name, version))
+
+            if args.fix:
+                if fix_doc_version(path, pattern, canonical):
+                    fixed.append(name)
 
     print("-" * 50)
 
