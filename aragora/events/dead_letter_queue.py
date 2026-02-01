@@ -154,10 +154,6 @@ class DLQStats:
 class EventDLQPersistence:
     """SQLite-backed persistence for the event DLQ."""
 
-    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
-        "event_dlq_conn", default=None
-    )
-
     def __init__(self, db_path: str | None = None):
         """Initialize persistence layer.
 
@@ -166,223 +162,251 @@ class EventDLQPersistence:
                      $ARAGORA_DATA_DIR/.nomic/event_dlq.db
         """
         if db_path is None:
-            db_path = "event_dlq.db"
+            if os.getenv("PYTEST_CURRENT_TEST"):
+                db_path = ":memory:"
+            else:
+                db_path = "event_dlq.db"
 
         self._db_path = resolve_db_path(db_path)
-        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
+        if self._db_path != ":memory:":
+            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._connections: list[sqlite3.Connection] = []
-        self._init_schema()
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            "event_dlq_conn", default=None
+        )
+        self._schema_lock = threading.Lock()
+        self._schema_initialized = False
+        self._db_lock = threading.Lock()
+        self._get_conn()
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get context-local connection."""
         conn = self._conn_var.get()
         if conn is None:
-            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn = sqlite3.connect(self._db_path, check_same_thread=False, timeout=30.0)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
             self._conn_var.set(conn)
             self._connections.append(conn)
+            self._ensure_schema(conn)
         return conn
 
-    def _init_schema(self) -> None:
-        """Initialize database schema."""
-        conn = self._get_conn()
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS failed_events (
-                id TEXT PRIMARY KEY,
-                event_type TEXT NOT NULL,
-                event_data TEXT NOT NULL,
-                handler_name TEXT NOT NULL,
-                error_message TEXT NOT NULL,
-                error_type TEXT NOT NULL,
-                retry_count INTEGER DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at REAL NOT NULL,
-                updated_at REAL NOT NULL,
-                original_timestamp REAL NOT NULL,
-                trace_id TEXT,
-                correlation_id TEXT,
-                metadata TEXT
-            );
+    def _ensure_schema(self, conn: sqlite3.Connection) -> None:
+        """Initialize database schema once per persistence instance."""
+        if self._schema_initialized:
+            return
+        with self._schema_lock:
+            if self._schema_initialized:
+                return
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS failed_events (
+                    id TEXT PRIMARY KEY,
+                    event_type TEXT NOT NULL,
+                    event_data TEXT NOT NULL,
+                    handler_name TEXT NOT NULL,
+                    error_message TEXT NOT NULL,
+                    error_type TEXT NOT NULL,
+                    retry_count INTEGER DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL,
+                    original_timestamp REAL NOT NULL,
+                    trace_id TEXT,
+                    correlation_id TEXT,
+                    metadata TEXT
+                );
 
-            CREATE INDEX IF NOT EXISTS idx_failed_events_status
-                ON failed_events(status);
-            CREATE INDEX IF NOT EXISTS idx_failed_events_handler
-                ON failed_events(handler_name);
-            CREATE INDEX IF NOT EXISTS idx_failed_events_created
-                ON failed_events(created_at);
-            CREATE INDEX IF NOT EXISTS idx_failed_events_type
-                ON failed_events(event_type);
-            """
-        )
-        conn.commit()
+                CREATE INDEX IF NOT EXISTS idx_failed_events_status
+                    ON failed_events(status);
+                CREATE INDEX IF NOT EXISTS idx_failed_events_handler
+                    ON failed_events(handler_name);
+                CREATE INDEX IF NOT EXISTS idx_failed_events_created
+                    ON failed_events(created_at);
+                CREATE INDEX IF NOT EXISTS idx_failed_events_type
+                    ON failed_events(event_type);
+                """
+            )
+            conn.commit()
+            self._schema_initialized = True
 
     def save(self, event: FailedEvent) -> None:
         """Save or update a failed event."""
-        conn = self._get_conn()
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO failed_events (
-                id, event_type, event_data, handler_name, error_message,
-                error_type, retry_count, status, created_at, updated_at,
-                original_timestamp, trace_id, correlation_id, metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                event.id,
-                event.event_type,
-                json.dumps(event.event_data, default=str),
-                event.handler_name,
-                event.error_message,
-                event.error_type,
-                event.retry_count,
-                event.status.value,
-                event.created_at,
-                event.updated_at,
-                event.original_timestamp,
-                event.trace_id,
-                event.correlation_id,
-                json.dumps(event.metadata, default=str),
-            ),
-        )
-        conn.commit()
+        with self._db_lock:
+            conn = self._get_conn()
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO failed_events (
+                    id, event_type, event_data, handler_name, error_message,
+                    error_type, retry_count, status, created_at, updated_at,
+                    original_timestamp, trace_id, correlation_id, metadata
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event.id,
+                    event.event_type,
+                    json.dumps(event.event_data, default=str),
+                    event.handler_name,
+                    event.error_message,
+                    event.error_type,
+                    event.retry_count,
+                    event.status.value,
+                    event.created_at,
+                    event.updated_at,
+                    event.original_timestamp,
+                    event.trace_id,
+                    event.correlation_id,
+                    json.dumps(event.metadata, default=str),
+                ),
+            )
+            conn.commit()
 
     def get(self, event_id: str) -> FailedEvent | None:
         """Get a failed event by ID."""
-        conn = self._get_conn()
-        row = conn.execute("SELECT * FROM failed_events WHERE id = ?", (event_id,)).fetchone()
+        with self._db_lock:
+            conn = self._get_conn()
+            row = conn.execute("SELECT * FROM failed_events WHERE id = ?", (event_id,)).fetchone()
         if row is None:
             return None
         return self._row_to_event(row)
 
     def get_pending(self, limit: int = 100, handler_name: str | None = None) -> list[FailedEvent]:
         """Get pending failed events."""
-        conn = self._get_conn()
-        if handler_name:
-            rows = conn.execute(
-                """
-                SELECT * FROM failed_events
-                WHERE status = 'pending' AND handler_name = ?
-                ORDER BY created_at ASC
-                LIMIT ?
-                """,
-                (handler_name, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                """
-                SELECT * FROM failed_events
-                WHERE status = 'pending'
-                ORDER BY created_at ASC
-                LIMIT ?
-                """,
-                (limit,),
-            ).fetchall()
+        with self._db_lock:
+            conn = self._get_conn()
+            if handler_name:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM failed_events
+                    WHERE status = 'pending' AND handler_name = ?
+                    ORDER BY created_at ASC
+                    LIMIT ?
+                    """,
+                    (handler_name, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM failed_events
+                    WHERE status = 'pending'
+                    ORDER BY created_at ASC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                ).fetchall()
         return [self._row_to_event(row) for row in rows]
 
     def get_by_handler(self, handler_name: str, limit: int = 100) -> list[FailedEvent]:
         """Get failed events for a specific handler."""
-        conn = self._get_conn()
-        rows = conn.execute(
-            """
-            SELECT * FROM failed_events
-            WHERE handler_name = ?
-            ORDER BY created_at DESC
-            LIMIT ?
-            """,
-            (handler_name, limit),
-        ).fetchall()
+        with self._db_lock:
+            conn = self._get_conn()
+            rows = conn.execute(
+                """
+                SELECT * FROM failed_events
+                WHERE handler_name = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (handler_name, limit),
+            ).fetchall()
         return [self._row_to_event(row) for row in rows]
 
     def update_status(self, event_id: str, status: FailedEventStatus) -> bool:
         """Update the status of a failed event."""
-        conn = self._get_conn()
-        result = conn.execute(
-            """
-            UPDATE failed_events
-            SET status = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (status.value, time.time(), event_id),
-        )
-        conn.commit()
-        return result.rowcount > 0
+        with self._db_lock:
+            conn = self._get_conn()
+            result = conn.execute(
+                """
+                UPDATE failed_events
+                SET status = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (status.value, time.time(), event_id),
+            )
+            conn.commit()
+            return result.rowcount > 0
 
     def delete(self, event_id: str) -> bool:
         """Delete a failed event."""
-        conn = self._get_conn()
-        result = conn.execute("DELETE FROM failed_events WHERE id = ?", (event_id,))
-        conn.commit()
-        return result.rowcount > 0
+        with self._db_lock:
+            conn = self._get_conn()
+            result = conn.execute("DELETE FROM failed_events WHERE id = ?", (event_id,))
+            conn.commit()
+            return result.rowcount > 0
 
     def cleanup_old(self, retention_days: int = DEFAULT_RETENTION_DAYS) -> int:
         """Remove events older than retention period."""
-        conn = self._get_conn()
-        cutoff = time.time() - (retention_days * 24 * 60 * 60)
-        result = conn.execute(
-            """
-            DELETE FROM failed_events
-            WHERE created_at < ? AND status IN ('recovered', 'discarded')
-            """,
-            (cutoff,),
-        )
-        conn.commit()
-        return result.rowcount
+        with self._db_lock:
+            conn = self._get_conn()
+            cutoff = time.time() - (retention_days * 24 * 60 * 60)
+            result = conn.execute(
+                """
+                DELETE FROM failed_events
+                WHERE created_at < ? AND status IN ('recovered', 'discarded')
+                """,
+                (cutoff,),
+            )
+            conn.commit()
+            return result.rowcount
 
     def get_stats(self) -> DLQStats:
         """Get DLQ statistics."""
-        conn = self._get_conn()
-        stats = DLQStats()
+        with self._db_lock:
+            conn = self._get_conn()
+            stats = DLQStats()
 
-        # Total and status counts
-        for row in conn.execute(
-            "SELECT status, COUNT(*) as cnt FROM failed_events GROUP BY status"
-        ).fetchall():
-            if row["status"] == "pending":
-                stats.pending_events = row["cnt"]
-            elif row["status"] == "recovered":
-                stats.recovered_events = row["cnt"]
-            elif row["status"] == "discarded":
-                stats.discarded_events = row["cnt"]
-            stats.total_events += row["cnt"]
+            # Total and status counts
+            for row in conn.execute(
+                "SELECT status, COUNT(*) as cnt FROM failed_events GROUP BY status"
+            ).fetchall():
+                if row["status"] == "pending":
+                    stats.pending_events = row["cnt"]
+                elif row["status"] == "recovered":
+                    stats.recovered_events = row["cnt"]
+                elif row["status"] == "discarded":
+                    stats.discarded_events = row["cnt"]
+                stats.total_events += row["cnt"]
 
-        # By handler
-        for row in conn.execute(
-            """
-            SELECT handler_name, COUNT(*) as cnt
-            FROM failed_events WHERE status = 'pending'
-            GROUP BY handler_name
-            """
-        ).fetchall():
-            stats.events_by_handler[row["handler_name"]] = row["cnt"]
+            # By handler
+            for row in conn.execute(
+                """
+                SELECT handler_name, COUNT(*) as cnt
+                FROM failed_events WHERE status = 'pending'
+                GROUP BY handler_name
+                """
+            ).fetchall():
+                stats.events_by_handler[row["handler_name"]] = row["cnt"]
 
-        # By type
-        for row in conn.execute(
-            """
-            SELECT event_type, COUNT(*) as cnt
-            FROM failed_events WHERE status = 'pending'
-            GROUP BY event_type
-            """
-        ).fetchall():
-            stats.events_by_type[row["event_type"]] = row["cnt"]
+            # By type
+            for row in conn.execute(
+                """
+                SELECT event_type, COUNT(*) as cnt
+                FROM failed_events WHERE status = 'pending'
+                GROUP BY event_type
+                """
+            ).fetchall():
+                stats.events_by_type[row["event_type"]] = row["cnt"]
 
-        # Age stats
-        now = time.time()
-        row = conn.execute(
-            "SELECT MIN(created_at), MAX(created_at) FROM failed_events WHERE status = 'pending'"
-        ).fetchone()
-        if row[0] is not None:
-            stats.oldest_event_age_seconds = now - row[0]
-            stats.newest_event_age_seconds = now - row[1]
+            # Age stats
+            now = time.time()
+            row = conn.execute(
+                "SELECT MIN(created_at), MAX(created_at) FROM failed_events WHERE status = 'pending'"
+            ).fetchone()
+            if row[0] is not None:
+                stats.oldest_event_age_seconds = now - row[0]
+                stats.newest_event_age_seconds = now - row[1]
 
         return stats
 
     def count_pending(self) -> int:
         """Count pending events."""
-        conn = self._get_conn()
-        row = conn.execute("SELECT COUNT(*) FROM failed_events WHERE status = 'pending'").fetchone()
-        return row[0] if row else 0
+        with self._db_lock:
+            conn = self._get_conn()
+            row = conn.execute(
+                "SELECT COUNT(*) FROM failed_events WHERE status = 'pending'"
+            ).fetchone()
+            return row[0] if row else 0
 
     def _row_to_event(self, row: sqlite3.Row) -> FailedEvent:
         """Convert database row to FailedEvent."""

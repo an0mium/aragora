@@ -418,10 +418,6 @@ class BudgetManager:
     CREATE INDEX IF NOT EXISTS idx_transactions_budget ON budget_transactions(budget_id);
     """
 
-    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
-        "budget_manager_conn", default=None
-    )
-
     def __init__(self, db_path: str | None = None):
         """Initialize budget manager.
 
@@ -430,6 +426,9 @@ class BudgetManager:
         """
         db_path = db_path or "budgets.db"
         self._db_path = resolve_db_path(db_path)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            "budget_manager_conn", default=None
+        )
         self._connections: list[sqlite3.Connection] = []
         self._init_lock = threading.Lock()
         self._initialized = False
@@ -1285,5 +1284,7 @@ def get_budget_manager(db_path: str | None = None) -> BudgetManager:
     """Get or create the budget manager singleton."""
     global _budget_manager
     if _budget_manager is None:
+        _budget_manager = BudgetManager(db_path)
+    elif db_path is not None and _budget_manager._db_path != resolve_db_path(db_path):
         _budget_manager = BudgetManager(db_path)
     return _budget_manager
