@@ -1095,3 +1095,121 @@ class TestExternalFrameworkGenerationParams:
         assert "temperature" in params
         assert params["temperature"] == 0.8
         assert "top_p" not in params
+
+
+class TestCredentialProxyIntegration:
+    """Tests for optional CredentialProxy integration."""
+
+    def test_init_without_credential_proxy(self):
+        """Default agent should work without credential proxy."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
+        assert agent._credential_proxy is None
+        assert agent._credential_id is None
+
+    def test_init_with_credential_proxy(self):
+        """Agent should accept credential proxy."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        mock_proxy = MagicMock()
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
+            credential_proxy=mock_proxy,
+            credential_id="test-cred",
+        )
+        assert agent._credential_proxy is mock_proxy
+        assert agent._credential_id == "test-cred"
+
+    def test_resolve_api_key_from_proxy(self):
+        """Should resolve API key from credential proxy."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        mock_cred = MagicMock()
+        mock_cred.api_key = "proxy-secret-key"
+        mock_cred.is_expired = False
+        mock_proxy = MagicMock()
+        mock_proxy.get_credential.return_value = mock_cred
+
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
+            credential_proxy=mock_proxy,
+            credential_id="test-cred",
+        )
+        assert agent._resolve_api_key() == "proxy-secret-key"
+
+    def test_resolve_api_key_fallback_to_direct(self):
+        """Should fall back to direct api_key if proxy fails."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        mock_proxy = MagicMock()
+        mock_proxy.get_credential.side_effect = Exception("Proxy error")
+
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
+            api_key="direct-key",
+            credential_proxy=mock_proxy,
+            credential_id="test-cred",
+        )
+        assert agent._resolve_api_key() == "direct-key"
+
+    def test_resolve_api_key_skips_expired_credential(self):
+        """Should skip expired credentials from proxy."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        mock_cred = MagicMock()
+        mock_cred.is_expired = True
+        mock_proxy = MagicMock()
+        mock_proxy.get_credential.return_value = mock_cred
+
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
+            api_key="direct-key",
+            credential_proxy=mock_proxy,
+            credential_id="test-cred",
+        )
+        assert agent._resolve_api_key() == "direct-key"
+
+    def test_build_headers_uses_proxy_credential(self):
+        """Headers should use credential from proxy."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        mock_cred = MagicMock()
+        mock_cred.api_key = "proxy-key"
+        mock_cred.is_expired = False
+        mock_proxy = MagicMock()
+        mock_proxy.get_credential.return_value = mock_cred
+
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
+            credential_proxy=mock_proxy,
+            credential_id="test-cred",
+        )
+        headers = agent._build_headers()
+        assert "proxy-key" in headers.get("Authorization", "")
+
+    def test_no_proxy_no_credential_id(self):
+        """Should work normally without proxy even if credential_id set."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
+            credential_id="orphan-id",
+        )
+        # Without a proxy, _resolve_api_key falls back to self.api_key (None)
+        assert agent._resolve_api_key() is None
+
+    def test_proxy_returns_none_credential(self):
+        """Should handle None from proxy gracefully."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        mock_proxy = MagicMock()
+        mock_proxy.get_credential.return_value = None
+
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
+            api_key="fallback",
+            credential_proxy=mock_proxy,
+            credential_id="test-cred",
+        )
+        assert agent._resolve_api_key() == "fallback"

@@ -18,7 +18,10 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.gateway.credential_proxy import CredentialProxy
 
 import aiohttp
 
@@ -116,6 +119,9 @@ class ExternalFrameworkAgent(APIAgent):
         enable_circuit_breaker: bool = True,
         circuit_breaker_threshold: int = 5,
         circuit_breaker_cooldown: float = 60.0,
+        # Credential proxy integration
+        credential_proxy: "CredentialProxy | None" = None,
+        credential_id: str | None = None,
     ) -> None:
         """Initialize external framework agent.
 
@@ -130,6 +136,8 @@ class ExternalFrameworkAgent(APIAgent):
             enable_circuit_breaker: Enable circuit breaker protection.
             circuit_breaker_threshold: Failures before circuit opens.
             circuit_breaker_cooldown: Seconds before circuit resets.
+            credential_proxy: Optional CredentialProxy for secure credential mediation.
+            credential_id: Credential ID to resolve via the proxy.
         """
         # Build config from parameters or use provided config
         if config is None:
@@ -173,6 +181,8 @@ class ExternalFrameworkAgent(APIAgent):
 
         self.config = config
         self.agent_type = "external-framework"
+        self._credential_proxy = credential_proxy
+        self._credential_id = credential_id
 
         # Validate base URL against SSRF attacks
         self._validate_endpoint_url(config.base_url)
@@ -200,6 +210,23 @@ class ExternalFrameworkAgent(APIAgent):
                 url=url,
             )
 
+    def _resolve_api_key(self) -> str | None:
+        """Resolve API key from credential proxy or direct configuration.
+
+        Priority:
+        1. Credential proxy (if configured)
+        2. Direct api_key parameter
+        3. Environment variable
+        """
+        if self._credential_proxy and self._credential_id:
+            try:
+                cred = self._credential_proxy.get_credential(self._credential_id)
+                if cred and not cred.is_expired:
+                    return cred.api_key
+            except Exception as e:
+                logger.warning(f"[{self.name}] Failed to resolve credential via proxy: {e}")
+        return self.api_key
+
     def _build_headers(self) -> dict[str, str]:
         """Build request headers including authentication."""
         headers = {
@@ -207,13 +234,14 @@ class ExternalFrameworkAgent(APIAgent):
             "Accept": "application/json",
         }
 
-        # Add API key if configured
-        if self.api_key:
+        # Add API key if configured (resolved via proxy or direct)
+        api_key = self._resolve_api_key()
+        if api_key:
             prefix = self.config.api_key_prefix
             if prefix:
-                headers[self.config.api_key_header] = f"{prefix} {self.api_key}"
+                headers[self.config.api_key_header] = f"{prefix} {api_key}"
             else:
-                headers[self.config.api_key_header] = self.api_key
+                headers[self.config.api_key_header] = api_key
 
         # Add extra headers
         headers.update(self.config.extra_headers)
