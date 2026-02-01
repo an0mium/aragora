@@ -246,6 +246,18 @@ from .slo_tracking import (
     track_slo,
     track_slo_async,
 )
+from .deprecation import (
+    V1UsageTracker,
+    add_v1_headers_to_handler,
+    create_v1_sunset_middleware,
+    get_v1_deprecation_headers,
+    get_v1_usage_tracker,
+    inject_v1_deprecation_headers,
+    is_deprecation_middleware_enabled,
+    is_v1_request,
+    reset_v1_usage_tracker,
+    v1_sunset_middleware,
+)
 
 __all__ = [
     # Auth
@@ -451,4 +463,15 @@ __all__ = [
     "track_slo",
     "track_slo_async",
     "get_slo_tracking_stats",
+    # V1 sunset deprecation
+    "V1UsageTracker",
+    "add_v1_headers_to_handler",
+    "create_v1_sunset_middleware",
+    "get_v1_deprecation_headers",
+    "get_v1_usage_tracker",
+    "inject_v1_deprecation_headers",
+    "is_deprecation_middleware_enabled",
+    "is_v1_request",
+    "reset_v1_usage_tracker",
+    "v1_sunset_middleware",
 ]

@@ -74,23 +74,42 @@ async def init_error_monitoring() -> bool:
 async def init_opentelemetry() -> bool:
     """Initialize OpenTelemetry tracing.
 
+    Tries the unified otel.py setup first for consistent configuration,
+    then falls back to the legacy tracing.py initializer.
+
     Returns:
         True if tracing was enabled, False otherwise
     """
+    # Try unified setup first
+    try:
+        from aragora.observability.otel import setup_otel, is_initialized
+
+        if setup_otel():
+            logger.info("OpenTelemetry tracing enabled via unified setup")
+            return True
+        elif is_initialized():
+            logger.debug("OpenTelemetry already initialized")
+            return True
+    except ImportError:
+        logger.debug("Unified OTel setup not available, trying legacy path")
+    except (ValueError, TypeError, OSError, RuntimeError) as e:
+        logger.warning("Unified OTel setup failed: %s", e)
+
+    # Fallback to legacy tracing initializer
     try:
         from aragora.observability.config import is_tracing_enabled
         from aragora.observability.tracing import get_tracer
 
         if is_tracing_enabled():
             get_tracer()  # Initialize tracer singleton
-            logger.info("OpenTelemetry tracing enabled")
+            logger.info("OpenTelemetry tracing enabled (legacy path)")
             return True
         else:
             logger.debug("OpenTelemetry tracing disabled (set OTEL_ENABLED=true to enable)")
     except ImportError as e:
-        logger.debug(f"OpenTelemetry not available: {e}")
+        logger.debug("OpenTelemetry not available: %s", e)
     except (ValueError, TypeError, OSError, RuntimeError) as e:
-        logger.warning(f"Failed to initialize OpenTelemetry: {e}")
+        logger.warning("Failed to initialize OpenTelemetry: %s", e)
     return False
 
 

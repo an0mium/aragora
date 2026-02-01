@@ -8,10 +8,8 @@ debate protocols and consensus mechanisms.
 from __future__ import annotations
 
 import asyncio
-import time
 from collections import deque
 from types import TracebackType
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
@@ -30,11 +28,6 @@ from aragora.debate.budget_coordinator import BudgetCoordinator
 from aragora.debate.audience_manager import AudienceManager
 from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.knowledge_manager import ArenaKnowledgeManager
-from aragora.debate.complexity_governor import (
-    classify_task_complexity,
-    get_complexity_governor,
-)
-from aragora.debate.config.defaults import DEBATE_DEFAULTS
 from aragora.debate.context import DebateContext
 from aragora.debate.context_delegation import ContextDelegator
 from aragora.debate.convergence import (
@@ -53,35 +46,14 @@ from aragora.debate.roles_manager import RolesManager
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.state_cache import DebateStateCache
 from aragora.debate.termination_checker import TerminationChecker
-from aragora.exceptions import EarlyStopError
-from aragora.logging_config import LogContext, get_logger as get_structured_logger
+from aragora.logging_config import get_logger as get_structured_logger
 from aragora.observability.n1_detector import n1_detection_scope
 from aragora.observability.tracing import add_span_attributes, get_tracer
 from aragora.debate.performance_monitor import get_debate_monitor
-from aragora.server.metrics import (
-    ACTIVE_DEBATES,
-    track_debate_outcome,
-)
+from aragora.server.metrics import ACTIVE_DEBATES
 from aragora.spectate.stream import SpectatorStream
 
-# Extracted sibling modules for hook/bead, memory, and agent selection logic
-from aragora.debate.orchestrator_hooks import (
-    complete_hook_tracking as _hooks_complete_hook_tracking,
-    create_debate_bead as _hooks_create_debate_bead,
-    create_pending_debate_bead as _hooks_create_pending_debate_bead,
-    init_hook_tracking as _hooks_init_hook_tracking,
-    recover_pending_debates as _hooks_recover_pending_debates,
-    update_debate_bead as _hooks_update_debate_bead,
-)
-from aragora.debate.orchestrator_memory import (
-    auto_create_knowledge_mound as _mem_auto_create_knowledge_mound,
-    compress_debate_messages as _mem_compress_debate_messages,
-    init_checkpoint_bridge as _mem_init_checkpoint_bridge,
-    init_cross_subscriber_bridge as _mem_init_cross_subscriber_bridge,
-    init_rlm_limiter_state as _mem_init_rlm_limiter_state,
-    queue_for_supabase_sync as _mem_queue_for_supabase_sync,
-    setup_belief_network as _mem_setup_belief_network,
-)
+# Extracted sibling modules
 from aragora.debate.orchestrator_agents import (
     assign_hierarchy_roles as _agents_assign_hierarchy_roles,
     filter_responses_by_quality as _agents_filter_responses_by_quality,
@@ -96,12 +68,24 @@ from aragora.debate.orchestrator_checkpoints import (
     restore_from_checkpoint as _cp_restore_from_checkpoint,
     save_checkpoint as _cp_save_checkpoint,
 )
+from aragora.debate.orchestrator_config import merge_config_objects
+from aragora.debate.orchestrator_delegates import ArenaDelegatesMixin
 from aragora.debate.orchestrator_domains import (
     compute_domain_from_task as _compute_domain_from_task,
 )
-from aragora.debate.orchestrator_output import (
-    format_conclusion as _output_format_conclusion,
-    translate_conclusions as _output_translate_conclusions,
+from aragora.debate.orchestrator_memory import (
+    auto_create_knowledge_mound as _mem_auto_create_knowledge_mound,
+    init_checkpoint_bridge as _mem_init_checkpoint_bridge,
+    init_cross_subscriber_bridge as _mem_init_cross_subscriber_bridge,
+    init_rlm_limiter_state as _mem_init_rlm_limiter_state,
+)
+from aragora.debate.orchestrator_runner import (
+    cleanup_debate_resources as _runner_cleanup_debate_resources,
+    execute_debate_phases as _runner_execute_debate_phases,
+    handle_debate_completion as _runner_handle_debate_completion,
+    initialize_debate_context as _runner_initialize_debate_context,
+    record_debate_metrics as _runner_record_debate_metrics,
+    setup_debate_infrastructure as _runner_setup_debate_infrastructure,
 )
 
 # Structured logger for all debate events (JSON-formatted in production)
@@ -124,13 +108,11 @@ if TYPE_CHECKING:
     from aragora.debate.prompt_builder import PromptBuilder
     from aragora.debate.revalidation_scheduler import RevalidationScheduler
     from aragora.debate.strategy import DebateStrategy
-    from aragora.events.security_events import SecurityEvent
     from aragora.knowledge.mound.core import KnowledgeMound
     from aragora.memory.consensus import ConsensusMemory
     from aragora.memory.continuum import ContinuumMemory
     from aragora.ml.delegation import MLDelegationStrategy
     from aragora.ranking.elo import EloSystem
-    from aragora.reasoning.belief import BeliefNetwork
     from aragora.reasoning.citations import CitationExtractor
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
     from aragora.rlm.cognitive_limiter import RLMCognitiveLoadLimiter
@@ -138,22 +120,7 @@ if TYPE_CHECKING:
     from aragora.workflow.engine import Workflow
 
 
-@dataclass
-class _DebateExecutionState:
-    """Internal state for debate execution passed between _run_inner helper methods."""
-
-    debate_id: str
-    correlation_id: str
-    domain: str
-    task_complexity: Any  # TaskComplexity enum
-    ctx: "DebateContext"
-    gupp_bead_id: str | None = None
-    gupp_hook_entries: dict[str, str] = field(default_factory=dict)
-    debate_status: str = "completed"
-    debate_start_time: float = 0.0
-
-
-class Arena:
+class Arena(ArenaDelegatesMixin):
     """
     Orchestrates multi-agent debates.
 
@@ -225,310 +192,322 @@ class Arena:
         # =====================================================================
         # Config Objects (Preferred - cleaner interface)
         # =====================================================================
-        # Pass these config objects instead of individual parameters for cleaner code.
-        # Individual params below are deprecated but maintained for backward compatibility.
-        debate_config: Optional["DebateConfig"] = None,  # Debate protocol settings
-        agent_config: Optional["AgentConfig"] = None,  # Agent management settings
-        memory_config: Optional["MemoryConfig"] = None,  # Memory/knowledge settings
-        streaming_config: Optional["StreamingConfig"] = None,  # WebSocket/event settings
-        observability_config: Optional["ObservabilityConfig"] = None,  # Telemetry settings
+        debate_config: Optional["DebateConfig"] = None,
+        agent_config: Optional["AgentConfig"] = None,
+        memory_config: Optional["MemoryConfig"] = None,
+        streaming_config: Optional["StreamingConfig"] = None,
+        observability_config: Optional["ObservabilityConfig"] = None,
         # =====================================================================
         # Individual Parameters (Deprecated - use config objects instead)
         # =====================================================================
-        # These are maintained for backward compatibility. When config objects
-        # are provided, these values are ignored (config objects take precedence).
-        memory: Any = None,  # CritiqueStore instance
-        event_hooks: Optional[dict[str, Any]] = None,  # Optional hooks for streaming events
-        hook_manager: Any = None,  # Optional HookManager for extended lifecycle hooks
-        event_emitter: Optional[
-            "EventEmitterProtocol"
-        ] = None,  # Optional event emitter for subscribing to user events
-        spectator: Optional[
-            SpectatorStream
-        ] = None,  # Optional spectator stream for real-time events
-        debate_embeddings: Any = None,  # DebateEmbeddingsDatabase for historical context
-        insight_store: Any = None,  # Optional InsightStore for extracting learnings from debates
-        recorder: Any = None,  # Optional ReplayRecorder for debate recording
-        agent_weights: Optional[
-            dict[str, float]
-        ] = None,  # Optional reliability weights from capability probing
-        position_tracker: Any = None,  # Optional PositionTracker for truth-grounded personas
-        position_ledger: Any = None,  # Optional PositionLedger for grounded personas
-        enable_position_ledger: bool = False,  # Auto-create PositionLedger if True
-        elo_system: Optional["EloSystem"] = None,  # Optional EloSystem for relationship tracking
-        persona_manager: Any = None,  # Optional PersonaManager for agent specialization
-        vertical: Optional[
-            str
-        ] = None,  # Industry vertical: "software", "legal", "healthcare", etc.
-        vertical_persona_manager: Any = None,  # Optional VerticalPersonaManager for industry-specific personas
-        auto_detect_vertical: bool = True,  # Auto-detect vertical from task description
-        dissent_retriever: Any = None,  # Optional DissentRetriever for historical minority views
-        consensus_memory: Optional[
-            "ConsensusMemory"
-        ] = None,  # Optional ConsensusMemory for historical outcomes
-        flip_detector: Any = None,  # Optional FlipDetector for position reversal detection
-        calibration_tracker: Any = None,  # Optional CalibrationTracker for prediction accuracy
-        continuum_memory: Optional[
-            "ContinuumMemory"
-        ] = None,  # Optional ContinuumMemory for cross-debate learning
-        relationship_tracker: Any = None,  # Optional RelationshipTracker for agent relationships
-        moment_detector: Any = None,  # Optional MomentDetector for significant moments
-        tier_analytics_tracker: Any = None,  # Optional TierAnalyticsTracker for memory ROI
-        knowledge_mound: Optional[
-            "KnowledgeMound"
-        ] = None,  # Optional KnowledgeMound for unified knowledge queries/ingestion
-        auto_create_knowledge_mound: bool = True,  # Auto-create KM if not provided (recommended)
-        enable_knowledge_retrieval: bool = True,  # Query mound before debates
-        enable_knowledge_ingestion: bool = True,  # Store consensus outcomes in mound
-        enable_knowledge_extraction: bool = False,  # Extract structured claims/relationships
-        extraction_min_confidence: float = 0.3,  # Min debate confidence to trigger extraction
-        enable_belief_guidance: bool = False,  # Inject historical cruxes from similar debates
-        enable_auto_revalidation: bool = False,  # Auto-trigger revalidation for stale knowledge
-        revalidation_staleness_threshold: float = 0.8,  # Score threshold for staleness
-        revalidation_check_interval_seconds: int = 3600,  # Interval for staleness checks
-        revalidation_scheduler: Optional[
-            "RevalidationScheduler"
-        ] = None,  # Optional RevalidationScheduler instance
-        loop_id: str = "",  # Loop ID for multi-loop scoping
-        strict_loop_scoping: bool = False,  # Drop events without loop_id when True
-        circuit_breaker: Optional[
-            CircuitBreaker
-        ] = None,  # Optional CircuitBreaker for agent failure handling
-        initial_messages: Optional[
-            list[Message]
-        ] = None,  # Optional initial conversation history (for fork debates)
-        trending_topic: Any = None,  # Optional TrendingTopic to seed debate context
-        pulse_manager: Any = None,  # Optional PulseManager for auto-fetching trending topics
-        auto_fetch_trending: bool = False,  # Auto-fetch trending topics if none provided
-        population_manager: Any = None,  # Optional PopulationManager for genome evolution
-        auto_evolve: bool = False,  # Trigger evolution after high-quality debates
-        breeding_threshold: float = 0.8,  # Min confidence to trigger evolution
-        evidence_collector: Any = None,  # Optional EvidenceCollector for auto-collecting evidence
-        skill_registry: Any = None,  # Optional SkillRegistry for extensible capabilities
-        enable_skills: bool = False,  # Enable skills during evidence collection
-        propulsion_engine: Any = None,  # Optional PropulsionEngine for push-based work assignment
-        enable_propulsion: bool = False,  # Enable propulsion events at stage transitions
-        breakpoint_manager: Any = None,  # Optional BreakpointManager for human-in-the-loop
-        checkpoint_manager: Optional[
-            "CheckpointManager"
-        ] = None,  # Optional CheckpointManager for debate resume
-        enable_checkpointing: bool = True,  # Auto-create CheckpointManager if True (enables debate resume)
-        performance_monitor: Any = None,  # Optional AgentPerformanceMonitor for telemetry
-        enable_performance_monitor: bool = True,  # Auto-create PerformanceMonitor if True
-        enable_telemetry: bool = False,  # Enable Prometheus/Blackbox telemetry emission
-        use_airlock: bool = False,  # Wrap agents with AirlockProxy for timeout protection
-        airlock_config: Any = None,  # Optional AirlockConfig for customization
-        agent_selector: Any = None,  # Optional AgentSelector for performance-based team selection
-        use_performance_selection: bool = False,  # Enable ELO/calibration-based agent selection
-        # Gastown-inspired agent hierarchy (orchestrator/monitor/worker roles)
-        enable_agent_hierarchy: bool = True,  # Assign roles based on capabilities
-        hierarchy_config: Optional[HierarchyConfig] = None,  # Optional custom hierarchy config
-        prompt_evolver: Any = None,  # Optional PromptEvolver for extracting winning patterns
-        enable_prompt_evolution: bool = False,  # Auto-create PromptEvolver if True
-        # Billing/usage tracking
-        org_id: str = "",  # Organization ID for multi-tenancy
-        user_id: str = "",  # User ID for usage attribution
-        usage_tracker: Any = None,  # UsageTracker instance for recording token usage
-        # Broadcast auto-trigger
-        broadcast_pipeline: Any = None,  # BroadcastPipeline for audio/video generation
-        auto_broadcast: bool = False,  # Auto-trigger broadcast after high-quality debates
-        broadcast_min_confidence: float = 0.8,  # Minimum confidence to trigger broadcast
-        # Training data export (Tinker integration)
-        training_exporter: Any = None,  # DebateTrainingExporter for auto-export
-        auto_export_training: bool = False,  # Auto-export training data after debates
-        training_export_min_confidence: float = 0.75,  # Min confidence to export
-        # ML Integration (local ML models for routing, quality, consensus)
-        enable_ml_delegation: bool = False,  # Use ML-based agent selection
-        ml_delegation_strategy: Optional[
-            "MLDelegationStrategy"
-        ] = None,  # Optional custom MLDelegationStrategy
-        ml_delegation_weight: float = 0.3,  # Weight for ML scoring vs ELO (0.0-1.0)
-        enable_quality_gates: bool = False,  # Filter low-quality responses via QualityGate
-        quality_gate_threshold: float = 0.6,  # Minimum quality score (0.0-1.0)
-        enable_consensus_estimation: bool = False,  # Use ConsensusEstimator for early termination
-        consensus_early_termination_threshold: float = 0.85,  # Probability threshold
-        # RLM Cognitive Load Limiter (for long debates)
-        use_rlm_limiter: bool = True,  # Use RLM-enhanced cognitive limiter for context compression (auto after round 3)
-        rlm_limiter: Optional[
-            "RLMCognitiveLoadLimiter"
-        ] = None,  # Pre-configured RLMCognitiveLoadLimiter
-        rlm_compression_threshold: int = 3000,  # Chars above which to trigger RLM compression
-        rlm_max_recent_messages: int = 5,  # Keep N most recent messages at full detail
-        rlm_summary_level: str = "SUMMARY",  # Abstraction level for older content
-        rlm_compression_round_threshold: int = 3,  # Start auto-compression after this many rounds
-        # Adaptive rounds (Memory-based debate strategy)
-        enable_adaptive_rounds: bool = False,  # Use memory-based strategy to determine rounds
-        debate_strategy: Optional[
-            "DebateStrategy"
-        ] = None,  # Optional pre-configured DebateStrategy instance
-        # Cross-debate institutional memory
-        cross_debate_memory: Any = None,  # Optional CrossDebateMemory for institutional knowledge
-        enable_cross_debate_memory: bool = True,  # Inject institutional knowledge from past debates
-        # Post-debate workflow automation
-        post_debate_workflow: Optional[
-            "Workflow"
-        ] = None,  # Workflow DAG to trigger after high-confidence debates
-        enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
-        post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
-        # Agent Fabric integration (for high-scale orchestration)
-        fabric: Any = None,  # Optional AgentFabric instance
-        fabric_config: Any = None,  # Optional FabricDebateConfig
+        memory: Any = None,
+        event_hooks: Optional[dict[str, Any]] = None,
+        hook_manager: Any = None,
+        event_emitter: Optional["EventEmitterProtocol"] = None,
+        spectator: Optional[SpectatorStream] = None,
+        debate_embeddings: Any = None,
+        insight_store: Any = None,
+        recorder: Any = None,
+        agent_weights: Optional[dict[str, float]] = None,
+        position_tracker: Any = None,
+        position_ledger: Any = None,
+        enable_position_ledger: bool = False,
+        elo_system: Optional["EloSystem"] = None,
+        persona_manager: Any = None,
+        vertical: Optional[str] = None,
+        vertical_persona_manager: Any = None,
+        auto_detect_vertical: bool = True,
+        dissent_retriever: Any = None,
+        consensus_memory: Optional["ConsensusMemory"] = None,
+        flip_detector: Any = None,
+        calibration_tracker: Any = None,
+        continuum_memory: Optional["ContinuumMemory"] = None,
+        relationship_tracker: Any = None,
+        moment_detector: Any = None,
+        tier_analytics_tracker: Any = None,
+        knowledge_mound: Optional["KnowledgeMound"] = None,
+        auto_create_knowledge_mound: bool = True,
+        enable_knowledge_retrieval: bool = True,
+        enable_knowledge_ingestion: bool = True,
+        enable_knowledge_extraction: bool = False,
+        extraction_min_confidence: float = 0.3,
+        enable_belief_guidance: bool = False,
+        enable_auto_revalidation: bool = False,
+        revalidation_staleness_threshold: float = 0.8,
+        revalidation_check_interval_seconds: int = 3600,
+        revalidation_scheduler: Optional["RevalidationScheduler"] = None,
+        loop_id: str = "",
+        strict_loop_scoping: bool = False,
+        circuit_breaker: Optional[CircuitBreaker] = None,
+        initial_messages: Optional[list[Message]] = None,
+        trending_topic: Any = None,
+        pulse_manager: Any = None,
+        auto_fetch_trending: bool = False,
+        population_manager: Any = None,
+        auto_evolve: bool = False,
+        breeding_threshold: float = 0.8,
+        evidence_collector: Any = None,
+        skill_registry: Any = None,
+        enable_skills: bool = False,
+        propulsion_engine: Any = None,
+        enable_propulsion: bool = False,
+        breakpoint_manager: Any = None,
+        checkpoint_manager: Optional["CheckpointManager"] = None,
+        enable_checkpointing: bool = True,
+        performance_monitor: Any = None,
+        enable_performance_monitor: bool = True,
+        enable_telemetry: bool = False,
+        use_airlock: bool = False,
+        airlock_config: Any = None,
+        agent_selector: Any = None,
+        use_performance_selection: bool = False,
+        enable_agent_hierarchy: bool = True,
+        hierarchy_config: Optional[HierarchyConfig] = None,
+        prompt_evolver: Any = None,
+        enable_prompt_evolution: bool = False,
+        org_id: str = "",
+        user_id: str = "",
+        usage_tracker: Any = None,
+        broadcast_pipeline: Any = None,
+        auto_broadcast: bool = False,
+        broadcast_min_confidence: float = 0.8,
+        training_exporter: Any = None,
+        auto_export_training: bool = False,
+        training_export_min_confidence: float = 0.75,
+        enable_ml_delegation: bool = False,
+        ml_delegation_strategy: Optional["MLDelegationStrategy"] = None,
+        ml_delegation_weight: float = 0.3,
+        enable_quality_gates: bool = False,
+        quality_gate_threshold: float = 0.6,
+        enable_consensus_estimation: bool = False,
+        consensus_early_termination_threshold: float = 0.85,
+        use_rlm_limiter: bool = True,
+        rlm_limiter: Optional["RLMCognitiveLoadLimiter"] = None,
+        rlm_compression_threshold: int = 3000,
+        rlm_max_recent_messages: int = 5,
+        rlm_summary_level: str = "SUMMARY",
+        rlm_compression_round_threshold: int = 3,
+        enable_adaptive_rounds: bool = False,
+        debate_strategy: Optional["DebateStrategy"] = None,
+        cross_debate_memory: Any = None,
+        enable_cross_debate_memory: bool = True,
+        post_debate_workflow: Optional["Workflow"] = None,
+        enable_post_debate_workflow: bool = False,
+        post_debate_workflow_threshold: float = 0.7,
+        fabric: Any = None,
+        fabric_config: Any = None,
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems.
 
         See inline parameter comments for subsystem descriptions.
         Initialization delegates to ArenaInitializer for core/tracker setup.
-
-        Config Objects (Preferred):
-            Pass grouped config objects for cleaner code:
-            - debate_config: DebateConfig for protocol settings
-            - agent_config: AgentConfig for agent management
-            - memory_config: MemoryConfig for memory/knowledge systems
-            - streaming_config: StreamingConfig for WebSocket/events
-            - observability_config: ObservabilityConfig for telemetry
-
-            Example::
-
-                arena = Arena(
-                    env, agents,
-                    debate_config=DebateConfig(rounds=5, consensus_threshold=0.8),
-                    agent_config=AgentConfig(use_airlock=True),
-                    memory_config=MemoryConfig(enable_knowledge_retrieval=True),
-                )
-
-        Backward Compatibility:
-            Individual parameters are still supported but deprecated.
-            Config objects take precedence when both are provided.
-
-        Fabric Integration:
-            When fabric and fabric_config are provided, agents are obtained from the
-            specified fabric pool instead of the agents parameter. This enables
-            high-scale orchestration with 50+ concurrent agents.
         """
         # =====================================================================
         # Config Object Merging (config objects take precedence over individual params)
         # =====================================================================
-        # This enables both new config-based and legacy individual param patterns.
+        cfg = merge_config_objects(
+            debate_config=debate_config,
+            agent_config=agent_config,
+            memory_config=memory_config,
+            streaming_config=streaming_config,
+            observability_config=observability_config,
+            protocol=protocol,
+            enable_adaptive_rounds=enable_adaptive_rounds,
+            debate_strategy=debate_strategy,
+            enable_agent_hierarchy=enable_agent_hierarchy,
+            hierarchy_config=hierarchy_config,
+            agent_weights=agent_weights,
+            agent_selector=agent_selector,
+            use_performance_selection=use_performance_selection,
+            circuit_breaker=circuit_breaker,
+            use_airlock=use_airlock,
+            airlock_config=airlock_config,
+            position_tracker=position_tracker,
+            position_ledger=position_ledger,
+            enable_position_ledger=enable_position_ledger,
+            elo_system=elo_system,
+            calibration_tracker=calibration_tracker,
+            relationship_tracker=relationship_tracker,
+            persona_manager=persona_manager,
+            vertical=vertical,
+            vertical_persona_manager=vertical_persona_manager,
+            auto_detect_vertical=auto_detect_vertical,
+            fabric=fabric,
+            fabric_config=fabric_config,
+            memory=memory,
+            continuum_memory=continuum_memory,
+            consensus_memory=consensus_memory,
+            debate_embeddings=debate_embeddings,
+            insight_store=insight_store,
+            dissent_retriever=dissent_retriever,
+            flip_detector=flip_detector,
+            moment_detector=moment_detector,
+            tier_analytics_tracker=tier_analytics_tracker,
+            cross_debate_memory=cross_debate_memory,
+            enable_cross_debate_memory=enable_cross_debate_memory,
+            knowledge_mound=knowledge_mound,
+            auto_create_knowledge_mound=auto_create_knowledge_mound,
+            enable_knowledge_retrieval=enable_knowledge_retrieval,
+            enable_knowledge_ingestion=enable_knowledge_ingestion,
+            enable_knowledge_extraction=enable_knowledge_extraction,
+            extraction_min_confidence=extraction_min_confidence,
+            enable_belief_guidance=enable_belief_guidance,
+            enable_auto_revalidation=enable_auto_revalidation,
+            revalidation_staleness_threshold=revalidation_staleness_threshold,
+            revalidation_check_interval_seconds=revalidation_check_interval_seconds,
+            revalidation_scheduler=revalidation_scheduler,
+            use_rlm_limiter=use_rlm_limiter,
+            rlm_limiter=rlm_limiter,
+            rlm_compression_threshold=rlm_compression_threshold,
+            rlm_max_recent_messages=rlm_max_recent_messages,
+            rlm_summary_level=rlm_summary_level,
+            rlm_compression_round_threshold=rlm_compression_round_threshold,
+            checkpoint_manager=checkpoint_manager,
+            enable_checkpointing=enable_checkpointing,
+            event_hooks=event_hooks,
+            hook_manager=hook_manager,
+            event_emitter=event_emitter,
+            spectator=spectator,
+            recorder=recorder,
+            loop_id=loop_id,
+            strict_loop_scoping=strict_loop_scoping,
+            skill_registry=skill_registry,
+            enable_skills=enable_skills,
+            propulsion_engine=propulsion_engine,
+            enable_propulsion=enable_propulsion,
+            performance_monitor=performance_monitor,
+            enable_performance_monitor=enable_performance_monitor,
+            enable_telemetry=enable_telemetry,
+            prompt_evolver=prompt_evolver,
+            enable_prompt_evolution=enable_prompt_evolution,
+            breakpoint_manager=breakpoint_manager,
+            trending_topic=trending_topic,
+            pulse_manager=pulse_manager,
+            auto_fetch_trending=auto_fetch_trending,
+            population_manager=population_manager,
+            auto_evolve=auto_evolve,
+            breeding_threshold=breeding_threshold,
+            evidence_collector=evidence_collector,
+            org_id=org_id,
+            user_id=user_id,
+            usage_tracker=usage_tracker,
+            broadcast_pipeline=broadcast_pipeline,
+            auto_broadcast=auto_broadcast,
+            broadcast_min_confidence=broadcast_min_confidence,
+            training_exporter=training_exporter,
+            auto_export_training=auto_export_training,
+            training_export_min_confidence=training_export_min_confidence,
+            enable_ml_delegation=enable_ml_delegation,
+            ml_delegation_strategy=ml_delegation_strategy,
+            ml_delegation_weight=ml_delegation_weight,
+            enable_quality_gates=enable_quality_gates,
+            quality_gate_threshold=quality_gate_threshold,
+            enable_consensus_estimation=enable_consensus_estimation,
+            consensus_early_termination_threshold=consensus_early_termination_threshold,
+            post_debate_workflow=post_debate_workflow,
+            enable_post_debate_workflow=enable_post_debate_workflow,
+            post_debate_workflow_threshold=post_debate_workflow_threshold,
+            initial_messages=initial_messages,
+        )
 
-        # Merge DebateConfig
-        if debate_config is not None:
-            enable_adaptive_rounds = debate_config.enable_adaptive_rounds
-            debate_strategy = debate_config.debate_strategy
-            enable_agent_hierarchy = debate_config.enable_agent_hierarchy
-            hierarchy_config = debate_config.hierarchy_config
-            # Apply protocol overrides if protocol is provided
-            if protocol is not None:
-                debate_config.apply_to_protocol(protocol)
-
-        # Merge AgentConfig
-        if agent_config is not None:
-            agent_weights = agent_config.agent_weights or agent_weights
-            agent_selector = agent_config.agent_selector or agent_selector
-            use_performance_selection = agent_config.use_performance_selection
-            circuit_breaker = agent_config.circuit_breaker or circuit_breaker
-            use_airlock = agent_config.use_airlock
-            airlock_config = agent_config.airlock_config or airlock_config
-            position_tracker = agent_config.position_tracker or position_tracker
-            position_ledger = agent_config.position_ledger or position_ledger
-            enable_position_ledger = agent_config.enable_position_ledger
-            elo_system = agent_config.elo_system or elo_system
-            calibration_tracker = agent_config.calibration_tracker or calibration_tracker
-            relationship_tracker = agent_config.relationship_tracker or relationship_tracker
-            persona_manager = agent_config.persona_manager or persona_manager
-            vertical = agent_config.vertical or vertical
-            vertical_persona_manager = (
-                agent_config.vertical_persona_manager or vertical_persona_manager
-            )
-            auto_detect_vertical = agent_config.auto_detect_vertical
-            fabric = agent_config.fabric or fabric
-            fabric_config = agent_config.fabric_config or fabric_config
-
-        # Merge MemoryConfig
-        if memory_config is not None:
-            memory = memory_config.memory or memory
-            continuum_memory = memory_config.continuum_memory or continuum_memory
-            consensus_memory = memory_config.consensus_memory or consensus_memory
-            debate_embeddings = memory_config.debate_embeddings or debate_embeddings
-            insight_store = memory_config.insight_store or insight_store
-            dissent_retriever = memory_config.dissent_retriever or dissent_retriever
-            flip_detector = memory_config.flip_detector or flip_detector
-            moment_detector = memory_config.moment_detector or moment_detector
-            tier_analytics_tracker = memory_config.tier_analytics_tracker or tier_analytics_tracker
-            cross_debate_memory = memory_config.cross_debate_memory or cross_debate_memory
-            enable_cross_debate_memory = memory_config.enable_cross_debate_memory
-            knowledge_mound = memory_config.knowledge_mound or knowledge_mound
-            auto_create_knowledge_mound = memory_config.auto_create_knowledge_mound
-            enable_knowledge_retrieval = memory_config.enable_knowledge_retrieval
-            enable_knowledge_ingestion = memory_config.enable_knowledge_ingestion
-            enable_knowledge_extraction = memory_config.enable_knowledge_extraction
-            extraction_min_confidence = memory_config.extraction_min_confidence
-            enable_belief_guidance = memory_config.enable_belief_guidance
-            enable_auto_revalidation = memory_config.enable_auto_revalidation
-            revalidation_staleness_threshold = memory_config.revalidation_staleness_threshold
-            revalidation_check_interval_seconds = memory_config.revalidation_check_interval_seconds
-            revalidation_scheduler = memory_config.revalidation_scheduler or revalidation_scheduler
-            use_rlm_limiter = memory_config.use_rlm_limiter
-            rlm_limiter = memory_config.rlm_limiter or rlm_limiter
-            rlm_compression_threshold = memory_config.rlm_compression_threshold
-            rlm_max_recent_messages = memory_config.rlm_max_recent_messages
-            rlm_summary_level = memory_config.rlm_summary_level
-            rlm_compression_round_threshold = memory_config.rlm_compression_round_threshold
-            checkpoint_manager = memory_config.checkpoint_manager or checkpoint_manager
-            enable_checkpointing = memory_config.enable_checkpointing
-
-        # Merge StreamingConfig
-        if streaming_config is not None:
-            event_hooks = streaming_config.event_hooks or event_hooks
-            hook_manager = streaming_config.hook_manager or hook_manager
-            event_emitter = streaming_config.event_emitter or event_emitter
-            spectator = streaming_config.spectator or spectator
-            recorder = streaming_config.recorder or recorder
-            loop_id = streaming_config.loop_id or loop_id
-            strict_loop_scoping = streaming_config.strict_loop_scoping
-            skill_registry = streaming_config.skill_registry or skill_registry
-            enable_skills = streaming_config.enable_skills
-            propulsion_engine = streaming_config.propulsion_engine or propulsion_engine
-            enable_propulsion = streaming_config.enable_propulsion
-
-        # Merge ObservabilityConfig
-        if observability_config is not None:
-            performance_monitor = observability_config.performance_monitor or performance_monitor
-            enable_performance_monitor = observability_config.enable_performance_monitor
-            enable_telemetry = observability_config.enable_telemetry
-            prompt_evolver = observability_config.prompt_evolver or prompt_evolver
-            enable_prompt_evolution = observability_config.enable_prompt_evolution
-            breakpoint_manager = observability_config.breakpoint_manager or breakpoint_manager
-            trending_topic = observability_config.trending_topic or trending_topic
-            pulse_manager = observability_config.pulse_manager or pulse_manager
-            auto_fetch_trending = observability_config.auto_fetch_trending
-            population_manager = observability_config.population_manager or population_manager
-            auto_evolve = observability_config.auto_evolve
-            breeding_threshold = observability_config.breeding_threshold
-            evidence_collector = observability_config.evidence_collector or evidence_collector
-            org_id = observability_config.org_id or org_id
-            user_id = observability_config.user_id or user_id
-            usage_tracker = observability_config.usage_tracker or usage_tracker
-            broadcast_pipeline = observability_config.broadcast_pipeline or broadcast_pipeline
-            auto_broadcast = observability_config.auto_broadcast
-            broadcast_min_confidence = observability_config.broadcast_min_confidence
-            training_exporter = observability_config.training_exporter or training_exporter
-            auto_export_training = observability_config.auto_export_training
-            training_export_min_confidence = observability_config.training_export_min_confidence
-            enable_ml_delegation = observability_config.enable_ml_delegation
-            ml_delegation_strategy = (
-                observability_config.ml_delegation_strategy or ml_delegation_strategy
-            )
-            ml_delegation_weight = observability_config.ml_delegation_weight
-            enable_quality_gates = observability_config.enable_quality_gates
-            quality_gate_threshold = observability_config.quality_gate_threshold
-            enable_consensus_estimation = observability_config.enable_consensus_estimation
-            consensus_early_termination_threshold = (
-                observability_config.consensus_early_termination_threshold
-            )
-            post_debate_workflow = observability_config.post_debate_workflow or post_debate_workflow
-            enable_post_debate_workflow = observability_config.enable_post_debate_workflow
-            post_debate_workflow_threshold = observability_config.post_debate_workflow_threshold
-            initial_messages = observability_config.initial_messages or initial_messages
+        # Unpack merged config back to local variables for use below
+        # (config objects may have overridden individual params)
+        fabric = cfg.fabric
+        fabric_config = cfg.fabric_config
+        agent_weights = cfg.agent_weights
+        use_airlock = cfg.use_airlock
+        airlock_config = cfg.airlock_config
+        use_performance_selection = cfg.use_performance_selection
+        agent_selector = cfg.agent_selector
+        circuit_breaker = cfg.circuit_breaker
+        memory = cfg.memory
+        event_hooks = cfg.event_hooks
+        hook_manager = cfg.hook_manager
+        event_emitter = cfg.event_emitter
+        spectator = cfg.spectator
+        recorder = cfg.recorder
+        loop_id = cfg.loop_id
+        strict_loop_scoping = cfg.strict_loop_scoping
+        initial_messages = cfg.initial_messages
+        debate_embeddings = cfg.debate_embeddings
+        insight_store = cfg.insight_store
+        trending_topic = cfg.trending_topic
+        pulse_manager = cfg.pulse_manager
+        auto_fetch_trending = cfg.auto_fetch_trending
+        population_manager = cfg.population_manager
+        auto_evolve = cfg.auto_evolve
+        breeding_threshold = cfg.breeding_threshold
+        evidence_collector = cfg.evidence_collector
+        breakpoint_manager = cfg.breakpoint_manager
+        checkpoint_manager = cfg.checkpoint_manager
+        enable_checkpointing = cfg.enable_checkpointing
+        performance_monitor = cfg.performance_monitor
+        enable_performance_monitor = cfg.enable_performance_monitor
+        enable_telemetry = cfg.enable_telemetry
+        prompt_evolver = cfg.prompt_evolver
+        enable_prompt_evolution = cfg.enable_prompt_evolution
+        org_id = cfg.org_id
+        user_id = cfg.user_id
+        usage_tracker = cfg.usage_tracker
+        broadcast_pipeline = cfg.broadcast_pipeline
+        auto_broadcast = cfg.auto_broadcast
+        broadcast_min_confidence = cfg.broadcast_min_confidence
+        training_exporter = cfg.training_exporter
+        auto_export_training = cfg.auto_export_training
+        training_export_min_confidence = cfg.training_export_min_confidence
+        enable_ml_delegation = cfg.enable_ml_delegation
+        ml_delegation_strategy = cfg.ml_delegation_strategy
+        ml_delegation_weight = cfg.ml_delegation_weight
+        enable_quality_gates = cfg.enable_quality_gates
+        quality_gate_threshold = cfg.quality_gate_threshold
+        enable_consensus_estimation = cfg.enable_consensus_estimation
+        consensus_early_termination_threshold = cfg.consensus_early_termination_threshold
+        position_tracker = cfg.position_tracker
+        position_ledger = cfg.position_ledger
+        enable_position_ledger = cfg.enable_position_ledger
+        elo_system = cfg.elo_system
+        persona_manager = cfg.persona_manager
+        dissent_retriever = cfg.dissent_retriever
+        consensus_memory = cfg.consensus_memory
+        flip_detector = cfg.flip_detector
+        calibration_tracker = cfg.calibration_tracker
+        continuum_memory = cfg.continuum_memory
+        relationship_tracker = cfg.relationship_tracker
+        moment_detector = cfg.moment_detector
+        tier_analytics_tracker = cfg.tier_analytics_tracker
+        knowledge_mound = cfg.knowledge_mound
+        auto_create_knowledge_mound = cfg.auto_create_knowledge_mound
+        enable_knowledge_retrieval = cfg.enable_knowledge_retrieval
+        enable_knowledge_ingestion = cfg.enable_knowledge_ingestion
+        enable_knowledge_extraction = cfg.enable_knowledge_extraction
+        extraction_min_confidence = cfg.extraction_min_confidence
+        enable_belief_guidance = cfg.enable_belief_guidance
+        vertical = cfg.vertical
+        vertical_persona_manager = cfg.vertical_persona_manager
+        auto_detect_vertical = cfg.auto_detect_vertical
+        enable_auto_revalidation = cfg.enable_auto_revalidation
+        revalidation_staleness_threshold = cfg.revalidation_staleness_threshold
+        revalidation_check_interval_seconds = cfg.revalidation_check_interval_seconds
+        revalidation_scheduler = cfg.revalidation_scheduler
+        enable_adaptive_rounds = cfg.enable_adaptive_rounds
+        debate_strategy = cfg.debate_strategy
+        cross_debate_memory = cfg.cross_debate_memory
+        enable_cross_debate_memory = cfg.enable_cross_debate_memory
+        enable_agent_hierarchy = cfg.enable_agent_hierarchy
+        hierarchy_config = cfg.hierarchy_config
+        use_rlm_limiter = cfg.use_rlm_limiter
+        rlm_limiter = cfg.rlm_limiter
+        rlm_compression_threshold = cfg.rlm_compression_threshold
+        rlm_max_recent_messages = cfg.rlm_max_recent_messages
+        rlm_summary_level = cfg.rlm_summary_level
+        rlm_compression_round_threshold = cfg.rlm_compression_round_threshold
+        skill_registry = cfg.skill_registry
+        enable_skills = cfg.enable_skills
+        propulsion_engine = cfg.propulsion_engine
+        enable_propulsion = cfg.enable_propulsion
+        post_debate_workflow = cfg.post_debate_workflow
+        enable_post_debate_workflow = cfg.enable_post_debate_workflow
+        post_debate_workflow_threshold = cfg.post_debate_workflow_threshold
 
         # Handle fabric integration - get agents from fabric pool if configured
         if fabric is not None and fabric_config is not None:
@@ -682,7 +661,6 @@ class Arena:
         self.enable_adaptive_rounds = enable_adaptive_rounds
         self.debate_strategy = debate_strategy
         if self.enable_adaptive_rounds and self.debate_strategy is None:
-            # Auto-create strategy using continuum_memory
             try:
                 from aragora.debate.strategy import DebateStrategy
 
@@ -705,7 +683,6 @@ class Arena:
         self.enable_cross_debate_memory = enable_cross_debate_memory
 
         # Post-debate workflow automation
-        # Auto-create default workflow if enabled but none provided
         if enable_post_debate_workflow and post_debate_workflow is None:
             try:
                 from aragora.workflow.patterns.post_debate import get_default_post_debate_workflow
@@ -743,7 +720,6 @@ class Arena:
         self._init_knowledge_ops()
 
         # Initialize RLM cognitive load limiter for context compression
-        # Must be before _init_phases() since phases need use_rlm_limiter
         self._init_rlm_limiter(
             use_rlm_limiter=use_rlm_limiter,
             rlm_limiter=rlm_limiter,
@@ -767,6 +743,10 @@ class Arena:
 
         # Initialize cross-subscriber bridge for event cross-pollination
         self._init_cross_subscriber_bridge()
+
+    # =========================================================================
+    # Factory Methods
+    # =========================================================================
 
     @classmethod
     def from_config(
@@ -804,32 +784,7 @@ class Arena:
         """Create an Arena from grouped config objects.
 
         This is the preferred factory method for creating Arena instances
-        with the new configuration pattern. Config objects group related
-        parameters for cleaner code.
-
-        Args:
-            environment: Debate environment (task, constraints, etc.)
-            agents: List of agents to participate in the debate
-            protocol: Optional DebateProtocol for debate settings
-            debate_config: Protocol/consensus settings
-            agent_config: Agent management settings
-            memory_config: Memory/knowledge systems
-            streaming_config: WebSocket/event settings
-            observability_config: Telemetry/monitoring settings
-
-        Returns:
-            Configured Arena instance
-
-        Example::
-
-            arena = Arena.from_configs(
-                environment=env,
-                agents=agents,
-                debate_config=DebateConfig(rounds=5),
-                agent_config=AgentConfig(use_airlock=True),
-                memory_config=MemoryConfig(enable_knowledge_retrieval=True),
-            )
-            result = await arena.run()
+        with the new configuration pattern.
         """
         return cls(
             environment=environment,
@@ -841,6 +796,10 @@ class Arena:
             streaming_config=streaming_config,
             observability_config=observability_config,
         )
+
+    # =========================================================================
+    # Core Component Setup
+    # =========================================================================
 
     def _apply_core_components(self, core) -> None:
         """Unpack CoreComponents dataclass to instance attributes."""
@@ -931,24 +890,22 @@ class Arena:
         """Get agents from fabric pool. Delegates to orchestrator_agents."""
         return _agents_get_fabric_agents_sync(fabric, fabric_config)
 
+    # =========================================================================
+    # Initialization Helpers
+    # =========================================================================
+
     def _init_user_participation(self) -> None:
         """Initialize user participation tracking and event subscription."""
-        # Create AudienceManager for thread-safe event handling
         self.audience_manager = AudienceManager(
             loop_id=self.loop_id,
             strict_loop_scoping=self.strict_loop_scoping,
         )
         self.audience_manager.set_notify_callback(self._notify_spectator)
-
-        # Subscribe to user participation events if emitter provided
         if self.event_emitter:
             self.audience_manager.subscribe_to_emitter(self.event_emitter)
 
     def _init_event_bus(self) -> None:
-        """Initialize EventBus for pub/sub event handling.
-
-        Must be called after _init_user_participation() so audience_manager exists.
-        """
+        """Initialize EventBus for pub/sub event handling."""
         self.event_bus = EventBus(
             event_bridge=self.event_bridge,
             audience_manager=self.audience_manager,
@@ -968,7 +925,6 @@ class Arena:
 
     def _init_roles_and_stances(self) -> None:
         """Initialize cognitive role rotation and agent stances."""
-        # Create roles manager
         self.roles_manager = RolesManager(
             agents=self.agents,
             protocol=self.protocol,
@@ -978,13 +934,9 @@ class Arena:
             ),
             persona_manager=self.persona_manager if hasattr(self, "persona_manager") else None,
         )
-
-        # Expose internal state for backwards compatibility
         self.role_rotator = self.roles_manager.role_rotator
         self.role_matcher = self.roles_manager.role_matcher
         self.current_role_assignments = self.roles_manager.current_role_assignments
-
-        # Assign roles, stances, and agreement intensity
         self.roles_manager.assign_initial_roles()
         self.roles_manager.assign_stances(round_num=0)
         self.roles_manager.apply_agreement_intensity()
@@ -1022,15 +974,8 @@ class Arena:
             cleanup_embedding_cache(self._convergence_debate_id)
             logger.debug(f"Cleaned up embedding cache for debate {self._convergence_debate_id}")
 
-    def _queue_for_supabase_sync(self, ctx: "DebateContext", result: "DebateResult") -> None:
-        """Queue debate result for background Supabase sync. Delegates to orchestrator_memory."""
-        _mem_queue_for_supabase_sync(ctx, result)
-
     def _init_caches(self) -> None:
-        """Initialize caches for computed values.
-
-        Uses DebateStateCache to centralize all per-debate cached values.
-        """
+        """Initialize caches for computed values."""
         self._cache = DebateStateCache()
 
     def _init_lifecycle_manager(self) -> None:
@@ -1066,7 +1011,6 @@ class Arena:
 
     def _init_grounded_operations(self) -> None:
         """Initialize GroundedOperations helper for verdict and relationship management."""
-        # Note: evidence_grounder is set later in _init_phases
         self._grounded_ops = GroundedOperations(
             position_ledger=self.position_ledger,
             elo_system=self.elo_system,
@@ -1094,7 +1038,6 @@ class Arena:
 
     def _init_knowledge_ops(self) -> None:
         """Initialize ArenaKnowledgeManager for knowledge retrieval and ingestion."""
-        # Create the knowledge manager
         self._km_manager = ArenaKnowledgeManager(
             knowledge_mound=self.knowledge_mound,
             enable_retrieval=self.enable_knowledge_retrieval,
@@ -1106,8 +1049,6 @@ class Arena:
             ),
             notify_callback=self._knowledge_notify_callback,
         )
-
-        # Initialize the manager with subsystems
         self._km_manager.initialize(
             continuum_memory=self.continuum_memory,
             consensus_memory=self.consensus_memory,
@@ -1119,11 +1060,8 @@ class Arena:
             pulse_manager=getattr(self, "pulse_manager", None),
             memory=self.memory,
         )
-
-        # Expose manager components for backwards compatibility
         self._knowledge_ops = self._km_manager._knowledge_ops
         self.knowledge_bridge_hub = self._km_manager.knowledge_bridge_hub
-        # Only override revalidation_scheduler if manager created one
         if self._km_manager.revalidation_scheduler is not None:
             self.revalidation_scheduler = self._km_manager.revalidation_scheduler
         self._km_coordinator = self._km_manager._km_coordinator
@@ -1162,15 +1100,9 @@ class Arena:
     def _init_phases(self) -> None:
         """Initialize phase classes for orchestrator decomposition."""
         init_phases(self)
-
-        # Create PhaseExecutor with all phases for centralized execution
         self.phase_executor = create_phase_executor(self)
-
-        # Now that phases are initialized, set evidence_grounder on _grounded_ops
         if hasattr(self, "_grounded_ops") and self._grounded_ops:
             self._grounded_ops.evidence_grounder = self.evidence_grounder
-
-        # Set memory_manager on _checkpoint_ops now that it exists
         if hasattr(self, "_checkpoint_ops") and self._checkpoint_ops:
             self._checkpoint_ops.memory_manager = self.memory_manager
 
@@ -1196,58 +1128,9 @@ class Arena:
         """Initialize cross-subscriber bridge. Delegates to orchestrator_memory."""
         self._cross_subscriber_bridge = _mem_init_cross_subscriber_bridge(self.event_bus)
 
-    async def _init_km_context(self, debate_id: str, domain: str) -> None:
-        """Initialize Knowledge Mound context. Delegates to ArenaKnowledgeManager."""
-        await self._km_manager.init_context(
-            debate_id=debate_id,
-            domain=domain,
-            env=self.env,
-            agents=self.agents,
-            protocol=self.protocol,
-        )
-
-    def _get_culture_hints(self, debate_id: str) -> dict[str, Any]:
-        """Retrieve culture hints. Delegates to ArenaKnowledgeManager."""
-        return self._km_manager.get_culture_hints(debate_id)
-
-    def _apply_culture_hints(self, hints: dict[str, Any]) -> None:
-        """Apply culture-derived hints. Delegates to ArenaKnowledgeManager."""
-        self._km_manager.apply_culture_hints(hints)
-        self._culture_consensus_hint = self._km_manager.culture_consensus_hint
-        self._culture_extra_critiques = self._km_manager.culture_extra_critiques
-        self._culture_early_consensus = self._km_manager.culture_early_consensus
-        self._culture_domain_patterns = self._km_manager.culture_domain_patterns
-
-    def _setup_belief_network(
-        self,
-        debate_id: str,
-        topic: str,
-        seed_from_km: bool = True,
-    ) -> Optional["BeliefNetwork"]:
-        """Initialize BeliefNetwork. Delegates to orchestrator_memory."""
-        return _mem_setup_belief_network(debate_id, topic, seed_from_km)
-
-    def _init_rlm_limiter(
-        self,
-        use_rlm_limiter: bool,
-        rlm_limiter: Optional["RLMCognitiveLoadLimiter"],
-        rlm_compression_threshold: int,
-        rlm_max_recent_messages: int,
-        rlm_summary_level: str,
-    ) -> None:
-        """Initialize the RLM cognitive load limiter. Delegates to orchestrator_memory."""
-        state = _mem_init_rlm_limiter_state(
-            use_rlm_limiter=use_rlm_limiter,
-            rlm_limiter=rlm_limiter,
-            rlm_compression_threshold=rlm_compression_threshold,
-            rlm_max_recent_messages=rlm_max_recent_messages,
-            rlm_summary_level=rlm_summary_level,
-        )
-        self.use_rlm_limiter = state["use_rlm_limiter"]
-        self.rlm_compression_threshold = state["rlm_compression_threshold"]
-        self.rlm_max_recent_messages = state["rlm_max_recent_messages"]
-        self.rlm_summary_level = state["rlm_summary_level"]
-        self.rlm_limiter = state["rlm_limiter"]
+    # =========================================================================
+    # Core Instance Helpers
+    # =========================================================================
 
     def _require_agents(self) -> list[Agent]:
         """Return agents list, raising error if empty."""
@@ -1262,77 +1145,17 @@ class Arena:
         self.prompt_builder._continuum_context_cache = self._get_continuum_context()
         self.prompt_builder.user_suggestions = list(self.user_suggestions)
 
-    async def compress_debate_messages(
-        self,
-        messages: list[Message],
-        critiques: Optional[list[Critique]] = None,
-    ) -> tuple[list[Message], Optional[list[Critique]]]:
-        """Compress debate messages using RLM cognitive load limiter.
-
-        Delegates to orchestrator_memory.compress_debate_messages().
-        """
-        return await _mem_compress_debate_messages(
-            messages, critiques, self.use_rlm_limiter, self.rlm_limiter
-        )
-
     def _get_continuum_context(self) -> str:
         """Retrieve relevant memories from ContinuumMemory for debate context."""
         return self._context_delegator.get_continuum_context()
 
-    def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
-        """Store debate outcome. Delegates to CheckpointOperations."""
-        belief_cruxes = getattr(result, "belief_cruxes", None)
-        if belief_cruxes:
-            belief_cruxes = [str(c) for c in belief_cruxes[:10]]
-        self._checkpoint_ops.store_debate_outcome(
-            result, self.env.task, belief_cruxes=belief_cruxes
-        )
-
-    def _store_evidence_in_memory(self, evidence_snippets: list[Any], task: str) -> None:
-        """Store evidence. Delegates to CheckpointOperations."""
-        self._checkpoint_ops.store_evidence(evidence_snippets, task)
-
-    def _update_continuum_memory_outcomes(self, result: "DebateResult") -> None:
-        """Update memory outcomes. Delegates to CheckpointOperations."""
-        self._checkpoint_ops.update_memory_outcomes(result)
-
-    def _has_high_priority_needs(self, needs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Filter citation needs to high-priority items only."""
-        return [n for n in needs if n["priority"] == "high"]
-
-    def _log_citation_needs(self, agent_name: str, needs: list[dict[str, Any]]) -> None:
-        """Log high-priority citation needs for an agent if any exist."""
-        high_priority = self._has_high_priority_needs(needs)
-        if high_priority:
-            logger.debug(f"citations_needed agent={agent_name} count={len(high_priority)}")
-
-    def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict[str, Any]]]:
-        """Extract claims that need citations from all proposals."""
-        if not self.citation_extractor:
-            return {}
-
-        citation_needs: dict[str, list[dict[str, Any]]] = {}
-        for agent_name, proposal in proposals.items():
-            needs = self.citation_extractor.identify_citation_needs(proposal)
-            if needs:
-                citation_needs[agent_name] = needs
-                self._log_citation_needs(agent_name, needs)
-
-        return citation_needs
-
     def _extract_debate_domain(self) -> str:
         """Extract domain from the debate task. Cached at instance and module level."""
-        # Return instance-level cached domain if available
         if self._cache.has_debate_domain():
-            # has_debate_domain() guarantees debate_domain is not None
             if self._cache.debate_domain is None:
                 raise RuntimeError("Cached debate domain is None - cache may be corrupted")
             return self._cache.debate_domain
-
-        # Use module-level LRU cache for the actual computation
         domain = _compute_domain_from_task(self.env.task.lower())
-
-        # Cache at instance level and return
         self._cache.debate_domain = domain
         return domain
 
@@ -1372,204 +1195,45 @@ class Arena:
             task=self.env.task,
         )
 
-    def _get_calibration_weight(self, agent_name: str) -> float:
-        """Get calibration weight. Delegates to AgentPool."""
-        return self.agent_pool._get_calibration_weight(agent_name)
-
-    def _compute_composite_judge_score(self, agent_name: str) -> float:
-        """Compute composite judge score. Delegates to AgentPool."""
-        return self.agent_pool._compute_composite_score(agent_name, self._extract_debate_domain())
-
-    def _select_critics_for_proposal(
-        self, proposal_agent: str, all_critics: list[Agent]
-    ) -> list[Agent]:
-        """Select critics for proposal. Delegates to AgentPool."""
-        # Find the proposer agent object
-        proposer = None
-        for agent in all_critics:
-            if getattr(agent, "name", str(agent)) == proposal_agent:
-                proposer = agent
-                break
-
-        if proposer is None:
-            proposer = all_critics[0] if all_critics else None
-
-        return self.agent_pool.select_critics(
-            proposer=proposer,
-            candidates=all_critics,
-        )
-
-    def _handle_user_event(self, event: Any) -> None:
-        """Handle user participation events. Delegates to AudienceManager."""
-        self.audience_manager.handle_event(event)
-
-    def _drain_user_events(self) -> None:
-        """Drain pending user events. Delegates to AudienceManager."""
-        self.audience_manager.drain_events()
-
-    def _notify_spectator(self, event_type: str, **kwargs: Any) -> None:
-        """Notify spectator. Delegates to EventEmitter."""
-        self._event_emitter.notify_spectator(event_type, **kwargs)
-
-    def _emit_moment_event(self, moment: Any) -> None:
-        """Emit moment event. Delegates to EventEmitter."""
-        self._event_emitter.emit_moment(moment)
-
-    def _emit_agent_preview(self) -> None:
-        """Emit agent preview. Delegates to EventEmitter."""
-        self._event_emitter.emit_agent_preview(self.agents, self.current_role_assignments)
-
-    def _record_grounded_position(
+    def _init_rlm_limiter(
         self,
-        agent_name: str,
-        content: str,
-        debate_id: str,
-        round_num: int,
-        confidence: float = DEBATE_DEFAULTS.coordinator_min_confidence_for_mound,
-        domain: Optional[str] = None,
+        use_rlm_limiter: bool,
+        rlm_limiter: Optional["RLMCognitiveLoadLimiter"],
+        rlm_compression_threshold: int,
+        rlm_max_recent_messages: int,
+        rlm_summary_level: str,
     ) -> None:
-        """Record position. Delegates to GroundedOperations."""
-        self._grounded_ops.record_position(
-            agent_name=agent_name,
-            content=content,
-            debate_id=debate_id,
-            round_num=round_num,
-            confidence=confidence,
-            domain=domain,
+        """Initialize the RLM cognitive load limiter. Delegates to orchestrator_memory."""
+        state = _mem_init_rlm_limiter_state(
+            use_rlm_limiter=use_rlm_limiter,
+            rlm_limiter=rlm_limiter,
+            rlm_compression_threshold=rlm_compression_threshold,
+            rlm_max_recent_messages=rlm_max_recent_messages,
+            rlm_summary_level=rlm_summary_level,
         )
+        self.use_rlm_limiter = state["use_rlm_limiter"]
+        self.rlm_compression_threshold = state["rlm_compression_threshold"]
+        self.rlm_max_recent_messages = state["rlm_max_recent_messages"]
+        self.rlm_summary_level = state["rlm_summary_level"]
+        self.rlm_limiter = state["rlm_limiter"]
 
-    def _update_agent_relationships(
-        self, debate_id: str, participants: list[str], winner: Optional[str], votes: list[Vote]
-    ) -> None:
-        """Update relationships. Delegates to GroundedOperations."""
-        self._grounded_ops.update_relationships(debate_id, participants, winner, votes)
+    async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
+        """Select judge based on protocol.judge_selection setting. Delegates to JudgeSelector."""
 
-    def _create_grounded_verdict(self, result: "DebateResult") -> Any:
-        """Create verdict. Delegates to GroundedOperations."""
-        return self._grounded_ops.create_grounded_verdict(result)
+        async def generate_wrapper(agent: Agent, prompt: str, ctx: list[Message]) -> str:
+            return await agent.generate(prompt, ctx)
 
-    async def _verify_claims_formally(self, result: "DebateResult") -> None:
-        """Verify claims with Z3. Delegates to GroundedOperations."""
-        await self._grounded_ops.verify_claims_formally(result)
-
-    async def _fetch_historical_context(self, task: str, limit: int = 3) -> str:
-        """Fetch similar past debates for historical context."""
-        return await self._context_delegator.fetch_historical_context(task, limit)
-
-    def _format_patterns_for_prompt(self, patterns: list[dict[str, Any]]) -> str:
-        """Format learned patterns as prompt context for agents."""
-        return self._context_delegator.format_patterns_for_prompt(patterns)
-
-    def _get_successful_patterns_from_memory(self, limit: int = 5) -> str:
-        """Retrieve successful patterns from CritiqueStore memory."""
-        return self._context_delegator.get_successful_patterns(limit)
-
-    async def _perform_research(self, task: str) -> str:
-        """Perform multi-source research for the debate topic."""
-        return await self._context_delegator.perform_research(task)
-
-    async def _gather_aragora_context(self, task: str) -> str | None:
-        """Gather Aragora-specific documentation context if relevant to task."""
-        return await self._context_delegator.gather_aragora_context(task)
-
-    async def _gather_evidence_context(self, task: str) -> str | None:
-        """Gather evidence from web, GitHub, and local docs connectors."""
-        return await self._context_delegator.gather_evidence_context(task)
-
-    async def _gather_trending_context(self) -> str | None:
-        """Gather pulse/trending context from social platforms."""
-        return await self._context_delegator.gather_trending_context()
-
-    async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> str | None:
-        """Fetch relevant knowledge from Knowledge Mound for debate context.
-
-        Delegates to ArenaKnowledgeManager.fetch_context().
-        """
-        return await self._km_manager.fetch_context(task, limit)
-
-    async def _ingest_debate_outcome(self, result: "DebateResult") -> None:
-        """Store debate outcome in Knowledge Mound for future retrieval.
-
-        Delegates to ArenaKnowledgeManager.ingest_outcome().
-        """
-        await self._km_manager.ingest_outcome(result, self.env)
-
-    async def _create_debate_bead(self, result: "DebateResult") -> str | None:
-        """Create a Bead to track this debate decision. Delegates to orchestrator_hooks."""
-        return await _hooks_create_debate_bead(result, self.protocol, self.env, self)
-
-    async def _create_pending_debate_bead(self, debate_id: str, task: str) -> str | None:
-        """Create a pending bead for GUPP tracking. Delegates to orchestrator_hooks."""
-        return await _hooks_create_pending_debate_bead(
-            debate_id, task, self.protocol, self.env, self.agents, self
+        selector = JudgeSelector(
+            agents=self._require_agents(),
+            elo_system=self.elo_system,
+            judge_selection=self.protocol.judge_selection,
+            generate_fn=generate_wrapper,
+            build_vote_prompt_fn=lambda candidates,
+            props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
+            sanitize_fn=OutputSanitizer.sanitize_agent_output,
+            consensus_memory=self.consensus_memory,
         )
-
-    async def _update_debate_bead(
-        self, bead_id: str, result: "DebateResult", success: bool
-    ) -> None:
-        """Update a pending debate bead. Delegates to orchestrator_hooks."""
-        await _hooks_update_debate_bead(bead_id, result, success, self)
-
-    async def _init_hook_tracking(self, debate_id: str, bead_id: str) -> dict[str, str]:
-        """Initialize GUPP hook tracking. Delegates to orchestrator_hooks."""
-        return await _hooks_init_hook_tracking(debate_id, bead_id, self.protocol, self.agents, self)
-
-    async def _complete_hook_tracking(
-        self, bead_id: str, hook_entries: dict[str, str], success: bool, error_msg: str = ""
-    ) -> None:
-        """Complete or fail hook entries. Delegates to orchestrator_hooks."""
-        await _hooks_complete_hook_tracking(bead_id, hook_entries, success, self, error_msg)
-
-    @classmethod
-    async def recover_pending_debates(
-        cls,
-        bead_store: Any = None,
-        max_age_hours: int = 24,
-    ) -> list[dict[str, Any]]:
-        """Recover pending debates from hook queues. Delegates to orchestrator_hooks."""
-        return await _hooks_recover_pending_debates(bead_store, max_age_hours)
-
-    async def _refresh_evidence_for_round(
-        self, combined_text: str, ctx: "DebateContext", round_num: int
-    ) -> int:
-        """Refresh evidence based on claims made during a debate round."""
-        return await self._context_delegator.refresh_evidence_for_round(
-            combined_text=combined_text,
-            evidence_collector=self.evidence_collector,
-            task=self.env.task if self.env else "",
-            evidence_store_callback=self._store_evidence_in_memory,
-            prompt_builder=self.prompt_builder,
-        )
-
-    def _format_conclusion(self, result: "DebateResult") -> str:
-        """Format debate conclusion. Delegates to orchestrator_output."""
-        return _output_format_conclusion(result)
-
-    async def _translate_conclusions(self, result: "DebateResult") -> None:
-        """Translate conclusions. Delegates to orchestrator_output."""
-        await _output_translate_conclusions(result, self.protocol)
-
-    def _assign_roles(self) -> None:
-        """Assign roles to agents based on protocol. Delegates to RolesManager."""
-        self.roles_manager.assign_initial_roles()
-
-    def _apply_agreement_intensity(self) -> None:
-        """Apply agreement intensity guidance. Delegates to RolesManager."""
-        self.roles_manager.apply_agreement_intensity()
-
-    def _assign_stances(self, round_num: int = 0) -> None:
-        """Assign debate stances to agents. Delegates to RolesManager."""
-        self.roles_manager.assign_stances(round_num)
-
-    def _get_stance_guidance(self, agent: Agent) -> str:
-        """Get stance guidance for agent. Delegates to RolesManager."""
-        return self.roles_manager.get_stance_guidance(agent)
-
-    async def _create_checkpoint(self, ctx: DebateContext, round_num: int) -> None:
-        """Create checkpoint. Delegates to CheckpointOperations."""
-        await self._checkpoint_ops.create_checkpoint(
-            ctx, round_num, self.env, self.agents, self.protocol
-        )
+        return await selector.select_judge(proposals, context)
 
     # =========================================================================
     # Public Checkpoint API
@@ -1585,10 +1249,7 @@ class Arena:
         current_round: int = 0,
         current_consensus: Optional[str] = None,
     ) -> Optional[str]:
-        """Save a checkpoint for the current debate state.
-
-        Delegates to :func:`orchestrator_checkpoints.save_checkpoint`.
-        """
+        """Save a checkpoint for the current debate state."""
         return await _cp_save_checkpoint(
             checkpoint_manager=self.checkpoint_manager,
             debate_id=debate_id,
@@ -1608,10 +1269,7 @@ class Arena:
         checkpoint_id: str,
         resumed_by: str = "system",
     ) -> Optional["DebateContext"]:
-        """Restore debate state from a checkpoint.
-
-        Delegates to :func:`orchestrator_checkpoints.restore_from_checkpoint`.
-        """
+        """Restore debate state from a checkpoint."""
         return await _cp_restore_from_checkpoint(
             checkpoint_manager=self.checkpoint_manager,
             checkpoint_id=checkpoint_id,
@@ -1628,10 +1286,7 @@ class Arena:
         debate_id: Optional[str] = None,
         limit: int = 100,
     ) -> list[dict]:
-        """List available checkpoints.
-
-        Delegates to :func:`orchestrator_checkpoints.list_checkpoints`.
-        """
+        """List available checkpoints."""
         return await _cp_list_checkpoints(
             checkpoint_manager=self.checkpoint_manager,
             debate_id=debate_id,
@@ -1643,10 +1298,7 @@ class Arena:
         debate_id: str,
         keep_latest: int = 1,
     ) -> int:
-        """Clean up old checkpoints for a completed debate.
-
-        Delegates to :func:`orchestrator_checkpoints.cleanup_checkpoints`.
-        """
+        """Clean up old checkpoints for a completed debate."""
         return await _cp_cleanup_checkpoints(
             checkpoint_manager=self.checkpoint_manager,
             debate_id=debate_id,
@@ -1658,12 +1310,7 @@ class Arena:
     # =========================================================================
 
     async def __aenter__(self) -> "Arena":
-        """Enter async context - prepare for debate.
-
-        Enables usage pattern:
-            async with Arena(env, agents, protocol) as arena:
-                result = await arena.run()
-        """
+        """Enter async context - prepare for debate."""
         return self
 
     async def __aexit__(
@@ -1672,11 +1319,7 @@ class Arena:
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
-        """Exit async context - cleanup resources.
-
-        Cancels any pending arena-related tasks and clears caches.
-        This ensures clean teardown even when tests timeout or fail.
-        """
+        """Exit async context - cleanup resources."""
         await self._cleanup()
 
     def _track_circuit_breaker_metrics(self) -> None:
@@ -1691,17 +1334,14 @@ class Arena:
         """Internal cleanup. Delegates to LifecycleManager."""
         await self._lifecycle.cleanup()
         await self._teardown_agent_channels()
-        # Clear context gatherer cache to prevent cross-debate leaks
         if hasattr(self, "context_gatherer") and self.context_gatherer:
             self.context_gatherer.clear_cache()
-        # Clear embedding cache (also called on success path, but idempotent)
         self._cleanup_convergence_cache()
 
     async def _setup_agent_channels(self, ctx: "DebateContext", debate_id: str) -> None:
         """Initialize agent-to-agent channels for the current debate."""
         if not getattr(self.protocol, "enable_agent_channels", False):
             return
-
         try:
             from aragora.debate.channel_integration import create_channel_integration
 
@@ -1730,368 +1370,19 @@ class Arena:
             self._channel_integration = None
 
     # =========================================================================
-    # _run_inner Helper Methods (Extracted for readability)
+    # Debate Execution
     # =========================================================================
-
-    async def _initialize_debate_context(self, correlation_id: str) -> _DebateExecutionState:
-        """Initialize debate context and return execution state.
-
-        Sets up:
-        - Debate ID and correlation ID
-        - Convergence detector (debate-scoped cache)
-        - Knowledge Mound context
-        - Culture hints
-        - DebateContext with all dependencies
-        - BeliefNetwork (if enabled)
-        - Task complexity classification
-        - Question domain classification
-        - Agent selection and hierarchy roles
-        - Agent-to-agent channels
-        """
-        import uuid
-
-        debate_id = str(uuid.uuid4())
-        if not correlation_id:
-            correlation_id = f"corr-{debate_id[:8]}"
-
-        # Reinitialize convergence detector with debate-scoped cache
-        self._reinit_convergence_for_debate(debate_id)
-
-        # Extract domain early for metrics
-        domain = self._extract_debate_domain()
-
-        # Initialize Knowledge Mound context for bidirectional integration
-        await self._init_km_context(debate_id, domain)
-
-        # Apply culture-informed protocol adjustments
-        culture_hints = self._get_culture_hints(debate_id)
-        if culture_hints:
-            self._apply_culture_hints(culture_hints)
-
-        # Create shared context for all phases
-        ctx = DebateContext(
-            env=self.env,
-            agents=self.agents,
-            start_time=time.time(),
-            debate_id=debate_id,
-            correlation_id=correlation_id,
-            domain=domain,
-            hook_manager=self.hook_manager,
-            org_id=self.org_id,
-            budget_check_callback=lambda round_num: self._budget_coordinator.check_budget_mid_debate(
-                debate_id, round_num
-            ),
-        )
-        ctx.molecule_orchestrator = self.molecule_orchestrator
-        ctx.checkpoint_bridge = self.checkpoint_bridge
-
-        # Initialize BeliefNetwork with KM seeding if enabled
-        if getattr(self.protocol, "enable_km_belief_sync", False):
-            ctx.belief_network = self._setup_belief_network(
-                debate_id=debate_id,
-                topic=self.env.task,
-                seed_from_km=True,
-            )
-
-        # Classify task complexity and configure adaptive timeouts
-        task_complexity = classify_task_complexity(self.env.task)
-        governor = get_complexity_governor()
-        governor.set_task_complexity(task_complexity)
-
-        # Classify question domain using LLM for accurate persona selection
-        if self.prompt_builder:
-            try:
-                await self.prompt_builder.classify_question_async(use_llm=True)
-            except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-                logger.warning(f"Question classification timed out: {e}")
-            except (ValueError, TypeError, AttributeError) as e:
-                logger.warning(f"Question classification failed with data error: {e}")
-            except Exception as e:
-                logger.exception(f"Unexpected question classification error: {e}")
-
-        # Apply performance-based agent selection if enabled
-        if self.use_performance_selection:
-            self.agents = self._select_debate_team(self.agents)
-            ctx.agents = self.agents
-
-        # Assign hierarchy roles to agents (Gastown pattern)
-        self._assign_hierarchy_roles(ctx, task_type=domain)
-
-        # Initialize agent-to-agent channels
-        await self._setup_agent_channels(ctx, debate_id)
-
-        return _DebateExecutionState(
-            debate_id=debate_id,
-            correlation_id=correlation_id,
-            domain=domain,
-            task_complexity=task_complexity,
-            ctx=ctx,
-        )
-
-    async def _setup_debate_infrastructure(self, state: _DebateExecutionState) -> None:
-        """Set up debate infrastructure before execution.
-
-        Handles:
-        - Structured logging for debate start
-        - Trackers notification
-        - Agent preview emission
-        - Budget validation
-        - GUPP hook tracking initialization
-        - Initial result creation
-        """
-        ctx = state.ctx
-
-        # Structured logging for debate lifecycle
-        with LogContext(trace_id=state.correlation_id):
-            logger.info(
-                "debate_start",
-                debate_id=state.debate_id,
-                complexity=state.task_complexity.value,
-                agent_count=len(self.agents),
-                agents=[a.name for a in self.agents],
-                domain=state.domain,
-                task_length=len(self.env.task),
-            )
-
-        # Notify subsystem coordinator of debate start
-        self._trackers.on_debate_start(ctx)
-
-        # Emit agent preview for quick UI feedback
-        self._emit_agent_preview()
-
-        # Check budget before starting debate (may raise BudgetExceededError)
-        self._budget_coordinator.check_budget_before_debate(state.debate_id)
-
-        # Initialize GUPP hook tracking for crash recovery
-        if getattr(self.protocol, "enable_hook_tracking", False):
-            try:
-                state.gupp_bead_id = await self._create_pending_debate_bead(
-                    state.debate_id, self.env.task
-                )
-                if state.gupp_bead_id:
-                    state.gupp_hook_entries = await self._init_hook_tracking(
-                        state.debate_id, state.gupp_bead_id
-                    )
-            except (OSError, RuntimeError, ValueError, TypeError) as e:
-                logger.debug(f"GUPP initialization failed (non-critical): {e}")
-
-        # Initialize result early for timeout recovery
-        ctx.result = DebateResult(
-            task=self.env.task,
-            consensus_reached=False,
-            confidence=0.0,
-            messages=[],
-            critiques=[],
-            votes=[],
-            rounds_used=0,
-            final_answer="",
-        )
-
-        # Record start time for metrics
-        state.debate_start_time = time.perf_counter()
-
-    async def _execute_debate_phases(self, state: _DebateExecutionState, span: Any) -> None:
-        """Execute all debate phases with tracing and error handling.
-
-        Args:
-            state: The debate execution state
-            span: OpenTelemetry span for tracing
-        """
-        ctx = state.ctx
-
-        try:
-            # Execute all phases via PhaseExecutor with OpenTelemetry tracing
-            execution_result = await self.phase_executor.execute(
-                ctx,
-                debate_id=state.debate_id,
-            )
-            self._log_phase_failures(execution_result)
-
-        except asyncio.TimeoutError:
-            # Timeout recovery - use partial results from context
-            ctx.result.messages = ctx.partial_messages
-            ctx.result.critiques = ctx.partial_critiques
-            ctx.result.rounds_used = ctx.partial_rounds
-            state.debate_status = "timeout"
-            span.set_attribute("debate.status", "timeout")
-            logger.warning("Debate timed out, returning partial results")
-
-        except EarlyStopError:
-            state.debate_status = "aborted"
-            span.set_attribute("debate.status", "aborted")
-            raise
-
-        except Exception as e:
-            state.debate_status = "error"
-            span.set_attribute("debate.status", "error")
-            span.record_exception(e)
-            raise
-
-    def _record_debate_metrics(self, state: _DebateExecutionState, span: Any) -> None:
-        """Record debate metrics in the finally block.
-
-        Args:
-            state: The debate execution state
-            span: OpenTelemetry span for tracing
-        """
-        ACTIVE_DEBATES.dec()
-        duration = time.perf_counter() - state.debate_start_time
-        ctx = state.ctx
-
-        # Get consensus info from result
-        consensus_reached = getattr(ctx.result, "consensus_reached", False)
-        confidence = getattr(ctx.result, "confidence", 0.0)
-
-        # Add final attributes to span
-        add_span_attributes(
-            span,
-            {
-                "debate.status": state.debate_status,
-                "debate.duration_seconds": duration,
-                "debate.consensus_reached": consensus_reached,
-                "debate.confidence": confidence,
-                "debate.message_count": len(ctx.result.messages) if ctx.result else 0,
-            },
-        )
-
-        track_debate_outcome(
-            status=state.debate_status,
-            domain=state.domain,
-            duration_seconds=duration,
-            consensus_reached=consensus_reached,
-            confidence=confidence,
-        )
-
-        # Structured logging for debate completion
-        logger.info(
-            "debate_end",
-            debate_id=state.debate_id,
-            status=state.debate_status,
-            duration_seconds=round(duration, 3),
-            consensus_reached=consensus_reached,
-            confidence=round(confidence, 3),
-            rounds_used=ctx.result.rounds_used if ctx.result else 0,
-            message_count=len(ctx.result.messages) if ctx.result else 0,
-            domain=state.domain,
-        )
-
-        self._track_circuit_breaker_metrics()
-
-    async def _handle_debate_completion(self, state: _DebateExecutionState) -> None:
-        """Handle post-debate completion tasks.
-
-        Includes:
-        - Trackers notification
-        - Extensions triggering (billing, training export)
-        - Budget recording
-        - Knowledge Mound ingestion
-        - GUPP hook completion
-        - Bead creation
-        - Supabase sync queuing
-        """
-        ctx = state.ctx
-
-        # Notify subsystem coordinator of debate completion
-        if ctx.result:
-            self._trackers.on_debate_complete(ctx, ctx.result)
-
-        # Trigger extensions (billing, training export)
-        self.extensions.on_debate_complete(ctx, ctx.result, self.agents)
-
-        # Record debate cost against organization budget
-        if ctx.result:
-            self._budget_coordinator.record_debate_cost(
-                state.debate_id, ctx.result, extensions=self.extensions
-            )
-
-        # Ingest high-confidence consensus into Knowledge Mound
-        if ctx.result:
-            try:
-                await self._ingest_debate_outcome(ctx.result)
-            except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-                logger.debug(f"Knowledge Mound ingestion failed (non-critical): {e}")
-
-        # Complete GUPP hook tracking for crash recovery
-        if state.gupp_bead_id and state.gupp_hook_entries:
-            try:
-                success = state.debate_status == "completed"
-                await self._update_debate_bead(state.gupp_bead_id, ctx.result, success)
-                await self._complete_hook_tracking(
-                    state.gupp_bead_id,
-                    state.gupp_hook_entries,
-                    success,
-                    error_msg="" if success else f"Debate {state.debate_status}",
-                )
-                if success:
-                    ctx.result.bead_id = state.gupp_bead_id
-            except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-                logger.debug(f"GUPP completion failed (non-critical): {e}")
-        # Create a Bead if GUPP didn't already create one
-        elif ctx.result and not state.gupp_bead_id:
-            try:
-                bead_id = await self._create_debate_bead(ctx.result)
-                if bead_id:
-                    ctx.result.bead_id = bead_id
-            except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
-                logger.debug(f"Bead creation failed (non-critical): {e}")
-
-        # Queue for Supabase background sync
-        self._queue_for_supabase_sync(ctx, ctx.result)
-
-    async def _cleanup_debate_resources(self, state: _DebateExecutionState) -> DebateResult:
-        """Clean up debate resources and finalize result.
-
-        Handles:
-        - Checkpoint cleanup (on success)
-        - Convergence cache cleanup
-        - Agent channel teardown
-        - Result finalization
-        - Translation (if enabled)
-
-        Returns:
-            The finalized DebateResult
-        """
-        ctx = state.ctx
-
-        # Clean up checkpoints after successful completion
-        if state.debate_status == "completed" and getattr(
-            self.protocol, "checkpoint_cleanup_on_success", True
-        ):
-            try:
-                keep_count = getattr(self.protocol, "checkpoint_keep_on_success", 0)
-                deleted = await self.cleanup_checkpoints(state.debate_id, keep_latest=keep_count)
-                if deleted > 0:
-                    logger.debug(
-                        f"[checkpoint] Cleaned up {deleted} checkpoints for completed debate"
-                    )
-            except Exception as e:
-                logger.debug(f"[checkpoint] Cleanup failed (non-critical): {e}")
-
-        # Cleanup debate-scoped embedding cache to free memory
-        self._cleanup_convergence_cache()
-        await self._teardown_agent_channels()
-
-        # Finalize the result
-        result = ctx.finalize_result()
-
-        # Translate conclusions if multi-language support is enabled
-        if result and getattr(self.protocol, "enable_translation", False):
-            await self._translate_conclusions(result)
-
-        return result
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results."""
         if self.protocol.timeout_seconds > 0:
             try:
-                # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
                 return await asyncio.wait_for(
                     self._run_inner(correlation_id=correlation_id),
                     timeout=self.protocol.timeout_seconds,
                 )
             except asyncio.TimeoutError:
                 logger.warning(f"debate_timeout timeout_seconds={self.protocol.timeout_seconds}")
-                # Return partial result with timeout indicator
                 return DebateResult(
                     task=self.env.task,
                     messages=getattr(self, "_partial_messages", []),
@@ -2111,20 +1402,12 @@ class Arena:
         3. Execute debate phases with tracing and error handling
         4. Handle completion (extensions, knowledge ingestion, beads)
         5. Clean up resources (checkpoints, caches, channels)
-
-        The actual phase execution is delegated to PhaseExecutor which runs:
-        - ContextInitializer (Phase 0)
-        - ProposalPhase (Phase 1)
-        - DebateRoundsPhase (Phase 2)
-        - ConsensusPhase (Phase 3)
-        - AnalyticsPhase (Phases 4-6)
-        - FeedbackPhase (Phase 7)
         """
         # Phase 1: Initialize debate context and execution state
-        state = await self._initialize_debate_context(correlation_id)
+        state = await _runner_initialize_debate_context(self, correlation_id)
 
         # Phase 2: Set up debate infrastructure
-        await self._setup_debate_infrastructure(state)
+        await _runner_setup_debate_infrastructure(self, state)
 
         # Track active debates metric
         ACTIVE_DEBATES.inc()
@@ -2159,15 +1442,15 @@ class Arena:
             )
 
             try:
-                await self._execute_debate_phases(state, span)
+                await _runner_execute_debate_phases(self, state, span)
             finally:
-                self._record_debate_metrics(state, span)
+                _runner_record_debate_metrics(self, state, span)
 
         # Phase 4: Handle debate completion (trackers, extensions, knowledge)
-        await self._handle_debate_completion(state)
+        await _runner_handle_debate_completion(self, state)
 
         # Phase 5: Clean up resources and finalize result
-        return await self._cleanup_debate_resources(state)
+        return await _runner_cleanup_debate_resources(self, state)
 
     # NOTE: Legacy _run_inner code (1,300+ lines) removed after successful phase integration.
     # The debate execution is now handled by phase classes:
@@ -2180,132 +1463,3 @@ class Arena:
     #
     # NOTE: Token usage recording and training export are now handled by
     # ArenaExtensions.on_debate_complete() - see debate/extensions.py
-
-    async def _index_debate_async(self, artifact: dict[str, Any]) -> None:
-        """Index debate asynchronously to avoid blocking."""
-        try:
-            if self.debate_embeddings:
-                await self.debate_embeddings.index_debate(artifact)
-        except (AttributeError, TypeError, ValueError, RuntimeError, OSError, ConnectionError) as e:
-            logger.warning(f"Async debate indexing failed: {e}")
-
-    def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
-        """Group semantically similar vote choices. Delegates to VotingPhase."""
-        return self.voting_phase.group_similar_votes(votes)
-
-    async def _check_judge_termination(
-        self, round_num: int, proposals: dict[str, str], context: list[Message]
-    ) -> tuple[bool, str]:
-        """Have a judge evaluate if the debate is conclusive. Delegates to TerminationChecker."""
-        return await self.termination_checker.check_judge_termination(round_num, proposals, context)
-
-    async def _check_early_stopping(
-        self, round_num: int, proposals: dict[str, str], context: list[Message]
-    ) -> bool:
-        """Check if agents want to stop debate early. Delegates to TerminationChecker."""
-        return await self.termination_checker.check_early_stopping(round_num, proposals, context)
-
-    async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
-        """Select judge based on protocol.judge_selection setting. Delegates to JudgeSelector."""
-
-        async def generate_wrapper(agent: Agent, prompt: str, ctx: list[Message]) -> str:
-            return await agent.generate(prompt, ctx)
-
-        selector = JudgeSelector(
-            agents=self._require_agents(),
-            elo_system=self.elo_system,
-            judge_selection=self.protocol.judge_selection,
-            generate_fn=generate_wrapper,
-            build_vote_prompt_fn=lambda candidates,
-            props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
-            sanitize_fn=OutputSanitizer.sanitize_agent_output,
-            consensus_memory=self.consensus_memory,
-        )
-        return await selector.select_judge(proposals, context)
-
-    def _get_agreement_intensity_guidance(self) -> str:
-        """Get agreement intensity guidance. Delegates to RolesManager."""
-        return self.roles_manager._get_agreement_intensity_guidance()
-
-    def _format_role_assignments_for_log(self) -> str:
-        """Format current role assignments as a log-friendly string."""
-        return ", ".join(
-            f"{name}: {assign.role.value}" for name, assign in self.current_role_assignments.items()
-        )
-
-    def _log_role_assignments(self, round_num: int) -> None:
-        """Log current role assignments if any exist."""
-        if self.current_role_assignments:
-            roles_str = self._format_role_assignments_for_log()
-            logger.debug(f"role_assignments round={round_num} roles={roles_str}")
-
-    def _update_role_assignments(self, round_num: int) -> None:
-        """Update cognitive role assignments for the current round."""
-        debate_domain = self._extract_debate_domain()
-        self.roles_manager.update_role_assignments(round_num, debate_domain)
-
-        # Sync role assignments back to orchestrator for backward compatibility
-        self.current_role_assignments = self.roles_manager.current_role_assignments
-        self._log_role_assignments(round_num)
-
-    def _get_role_context(self, agent: Agent) -> str:
-        """Get cognitive role context for an agent. Delegates to RolesManager."""
-        return self.roles_manager.get_role_context(agent)
-
-    def _get_persona_context(self, agent: Agent) -> str:
-        """Get persona context. Delegates to PromptContextBuilder."""
-        return self._prompt_context.get_persona_context(agent)
-
-    def _get_flip_context(self, agent: Agent) -> str:
-        """Get flip/consistency context. Delegates to PromptContextBuilder."""
-        return self._prompt_context.get_flip_context(agent)
-
-    def _prepare_audience_context(self, emit_event: bool = False) -> str:
-        """Prepare audience context for prompt building. Delegates to PromptContextBuilder."""
-        self._sync_prompt_builder_state()
-        return self._prompt_context.prepare_audience_context(emit_event=emit_event)
-
-    def _build_proposal_prompt(self, agent: Agent) -> str:
-        """Build the initial proposal prompt. Delegates to PromptContextBuilder."""
-        self._sync_prompt_builder_state()
-        return self._prompt_context.build_proposal_prompt(agent)
-
-    def _build_revision_prompt(
-        self, agent: Agent, original: str, critiques: list[Critique], round_number: int = 0
-    ) -> str:
-        """Build the revision prompt. Delegates to PromptContextBuilder."""
-        self._sync_prompt_builder_state()
-        return self._prompt_context.build_revision_prompt(
-            agent, original, critiques, round_number=round_number
-        )
-
-    # =========================================================================
-    # Security Debate Integration
-    # =========================================================================
-
-    @classmethod
-    async def run_security_debate(
-        cls,
-        event: "SecurityEvent",
-        agents: Optional[list[Agent]] = None,
-        confidence_threshold: float = DEBATE_DEFAULTS.strong_consensus_confidence,
-        timeout_seconds: int = 300,
-        org_id: str = "default",
-    ) -> DebateResult:
-        """Run a security debate. Delegates to aragora.debate.security_debate."""
-        from aragora.debate.security_debate import run_security_debate
-
-        return await run_security_debate(
-            event=event,
-            agents=agents,
-            confidence_threshold=confidence_threshold,
-            timeout_seconds=timeout_seconds,
-            org_id=org_id,
-        )
-
-    @staticmethod
-    async def _get_security_debate_agents() -> list[Agent]:
-        """Get agents suitable for security debates. Delegates to security_debate module."""
-        from aragora.debate.security_debate import get_security_debate_agents
-
-        return await get_security_debate_agents()

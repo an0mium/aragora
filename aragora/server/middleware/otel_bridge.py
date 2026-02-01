@@ -252,7 +252,8 @@ def _create_sampler(config: OTelBridgeConfig) -> Any:
 def init_otel_bridge(config: OTelBridgeConfig | None = None) -> bool:
     """Initialize the OpenTelemetry bridge.
 
-    Sets up the tracer provider, exporter, and propagator based on configuration.
+    Tries the unified otel.py setup first for consistent configuration.
+    Falls back to direct initialization if the unified module is unavailable.
 
     Args:
         config: Optional configuration. If None, loads from environment.
@@ -269,6 +270,32 @@ def init_otel_bridge(config: OTelBridgeConfig | None = None) -> bool:
         logger.debug("OpenTelemetry bridge disabled (no OTEL endpoint configured)")
         return False
 
+    # Try unified OTel setup first (preferred path for consistent configuration)
+    try:
+        from aragora.observability.otel import (
+            setup_otel,
+            is_initialized,
+            get_tracer as otel_get_tracer,
+        )
+
+        if not is_initialized():
+            setup_otel()
+
+        if is_initialized():
+            _tracer = otel_get_tracer("aragora.middleware", config.service_version)
+            _otel_available = True
+            logger.info(
+                "OpenTelemetry bridge initialized via unified setup: service=%s, sampler=%s",
+                config.service_name,
+                config.sampler_type.value,
+            )
+            return True
+    except ImportError:
+        logger.debug("Unified OTel setup not available, falling back to direct bridge init")
+    except Exception as e:
+        logger.debug("Unified OTel setup failed in bridge, falling back: %s", e)
+
+    # Fallback: direct initialization (legacy path)
     try:
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
@@ -339,18 +366,21 @@ def init_otel_bridge(config: OTelBridgeConfig | None = None) -> bool:
         _otel_available = True
 
         logger.info(
-            f"OpenTelemetry bridge initialized: endpoint={config.endpoint}, "
-            f"service={config.service_name}, sampler={config.sampler_type.value}"
+            "OpenTelemetry bridge initialized (direct): endpoint=%s, service=%s, sampler=%s",
+            config.endpoint,
+            config.service_name,
+            config.sampler_type.value,
         )
         return True
 
     except ImportError as e:
         logger.debug(
-            f"OpenTelemetry not available: {e}. Install with: pip install aragora[observability]"
+            "OpenTelemetry not available: %s. Install with: pip install aragora[observability]",
+            e,
         )
         return False
     except Exception as e:
-        logger.error(f"Failed to initialize OpenTelemetry bridge: {e}")
+        logger.error("Failed to initialize OpenTelemetry bridge: %s", e)
         return False
 
 
@@ -585,6 +615,101 @@ def is_otel_available() -> bool:
     return _otel_available
 
 
+# =============================================================================
+# Span enrichment helpers
+# =============================================================================
+
+
+def enrich_span_with_debate_context(
+    span: Any,
+    debate_id: str | None = None,
+    round_number: int | None = None,
+    agent_name: str | None = None,
+    phase: str | None = None,
+) -> None:
+    """Enrich a span with debate-specific attributes.
+
+    Adds structured attributes that enable filtering and grouping
+    traces by debate, round, agent, and phase in observability backends.
+
+    Safe to call with no-op spans or when OTel is not available.
+
+    Args:
+        span: The span to enrich (OTel span or internal span)
+        debate_id: Debate identifier
+        round_number: Current round number
+        agent_name: Name of the agent involved
+        phase: Debate phase (propose, critique, vote, revise, consensus)
+    """
+    if span is None:
+        return
+
+    attrs: dict[str, Any] = {}
+    if debate_id:
+        attrs["debate.id"] = debate_id
+    if round_number is not None:
+        attrs["debate.round_number"] = round_number
+    if agent_name:
+        attrs["agent.name"] = agent_name
+    if phase:
+        attrs["debate.phase"] = phase
+
+    for key, value in attrs.items():
+        try:
+            if hasattr(span, "set_attribute"):
+                span.set_attribute(key, value)
+            elif hasattr(span, "set_tag"):
+                span.set_tag(key, value)
+        except (TypeError, ValueError) as e:
+            logger.debug("Failed to set span attribute %s: %s", key, e)
+
+
+def enrich_span_with_http_context(
+    span: Any,
+    method: str | None = None,
+    path: str | None = None,
+    status_code: int | None = None,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+) -> None:
+    """Enrich a span with HTTP request context attributes.
+
+    Follows OpenTelemetry semantic conventions for HTTP spans.
+
+    Args:
+        span: The span to enrich
+        method: HTTP method (GET, POST, etc.)
+        path: Request path
+        status_code: HTTP response status code
+        client_ip: Client IP address
+        user_agent: User-Agent header value
+    """
+    if span is None:
+        return
+
+    attrs: dict[str, Any] = {}
+    if method:
+        attrs["http.method"] = method
+    if path:
+        attrs["http.target"] = path
+    if status_code is not None:
+        attrs["http.status_code"] = status_code
+    if client_ip:
+        attrs["net.peer.ip"] = client_ip
+    if user_agent:
+        # Truncate to avoid huge attributes
+        attrs["http.user_agent"] = user_agent[:200]
+
+    for key, value in attrs.items():
+        try:
+            if hasattr(span, "set_attribute"):
+                span.set_attribute(key, value)
+            elif hasattr(span, "set_tag"):
+                span.set_tag(key, value)
+        except (TypeError, ValueError) as e:
+            logger.debug("Failed to set span attribute %s: %s", key, e)
+
+
 __all__ = [
     "OTelBridgeConfig",
     "SamplerType",
@@ -598,4 +723,6 @@ __all__ = [
     "create_span_context",
     "shutdown_otel_bridge",
     "is_otel_available",
+    "enrich_span_with_debate_context",
+    "enrich_span_with_http_context",
 ]

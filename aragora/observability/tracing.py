@@ -41,7 +41,11 @@ _tracer_provider = None
 
 
 def _init_tracer() -> Any:
-    """Initialize OpenTelemetry tracer lazily."""
+    """Initialize OpenTelemetry tracer lazily.
+
+    Delegates to the unified otel.py setup module when available.
+    Falls back to direct initialization for backward compatibility.
+    """
     global _tracer, _tracer_provider
 
     if _tracer is not None:
@@ -53,16 +57,47 @@ def _init_tracer() -> Any:
         # Return a no-op tracer
         return _NoOpTracer()
 
+    # Try unified OTel setup first (preferred path)
+    try:
+        from aragora.observability.otel import (
+            setup_otel,
+            get_tracer as otel_get_tracer,
+            is_initialized,
+        )
+
+        if not is_initialized():
+            setup_otel()  # Will read config from environment
+
+        if is_initialized():
+            _tracer = otel_get_tracer("aragora", config.service_version)
+            logger.info(
+                "OpenTelemetry tracing initialized via unified setup: service=%s, sample_rate=%s",
+                config.service_name,
+                config.sample_rate,
+            )
+            return _tracer
+    except ImportError:
+        logger.debug("Unified OTel setup not available, falling back to direct init")
+    except Exception as e:
+        logger.debug("Unified OTel setup failed, falling back to direct init: %s", e)
+
+    # Fallback: direct initialization (legacy path)
     try:
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+        from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
-        # Create resource with service name
-        resource = Resource.create({SERVICE_NAME: config.service_name})
+        # Create resource with service attributes
+        resource = Resource.create(
+            {
+                "service.name": config.service_name,
+                "service.version": config.service_version,
+                "deployment.environment": config.environment,
+            }
+        )
 
         # Create sampler based on sample rate
         sampler = TraceIdRatioBased(config.sample_rate)
@@ -84,23 +119,29 @@ def _init_tracer() -> Any:
         trace.set_tracer_provider(_tracer_provider)
 
         # Get tracer
-        _tracer = trace.get_tracer("aragora", "1.0.0")
+        _tracer = trace.get_tracer("aragora", config.service_version)
 
         logger.info(
-            f"OpenTelemetry tracing initialized: endpoint={config.otlp_endpoint}, "
-            f"service={config.service_name}, sample_rate={config.sample_rate}"
+            "OpenTelemetry tracing initialized (direct): endpoint=%s, "
+            "service=%s/%s, environment=%s, sample_rate=%s",
+            config.otlp_endpoint,
+            config.service_name,
+            config.service_version,
+            config.environment,
+            config.sample_rate,
         )
 
         return _tracer
 
     except ImportError as e:
         logger.warning(
-            f"OpenTelemetry not installed, tracing disabled: {e}. "
-            "Install with: pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp"
+            "OpenTelemetry not installed, tracing disabled: %s. "
+            "Install with: pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp",
+            e,
         )
         return _NoOpTracer()
     except Exception as e:
-        logger.error(f"Failed to initialize OpenTelemetry: {e}")
+        logger.error("Failed to initialize OpenTelemetry: %s", e)
         return _NoOpTracer()
 
 
