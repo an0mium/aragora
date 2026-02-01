@@ -452,6 +452,30 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
+    # Phase 13b: Close HTTP client pool
+    async def close_http_client_pool():
+        try:
+            from aragora.server.http_client_pool import HTTPClientPool
+
+            pool = HTTPClientPool.get_instance()
+            if pool and not pool._closed:
+                await pool.aclose()
+                logger.info("HTTP client pool closed")
+        except ImportError:
+            pass  # HTTP client pool module not available
+        except RuntimeError as e:
+            # Pool already closed or not initialized
+            logger.debug(f"HTTP client pool close skipped: {e}")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close HTTP client pool",
+            execute=close_http_client_pool,
+            timeout=5.0,
+            critical=False,
+        )
+    )
+
     # Phase 14: Stop RBAC distributed cache
     async def stop_rbac_cache():
         try:

@@ -12,6 +12,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 import uuid
 from pathlib import Path
@@ -28,6 +29,152 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+# ===========================================================================
+# File Security Validation
+# ===========================================================================
+
+# Magic byte signatures for audio formats
+# Format: extension -> list of (offset, signature_bytes) tuples
+ALLOWED_AUDIO_SIGNATURES: dict[str, list[tuple[int, bytes]]] = {
+    ".mp3": [
+        (0, b"\xff\xfb"),  # MP3 frame sync (MPEG Audio Layer 3)
+        (0, b"\xff\xfa"),  # MP3 frame sync variant
+        (0, b"\xff\xf3"),  # MP3 frame sync variant (MPEG 2.5)
+        (0, b"\xff\xf2"),  # MP3 frame sync variant
+        (0, b"ID3"),  # ID3v2 tag header
+    ],
+    ".wav": [
+        (0, b"RIFF"),  # RIFF header (must also have WAVE at offset 8)
+    ],
+    ".m4a": [
+        (4, b"ftyp"),  # ISO base media file format
+    ],
+    ".webm": [
+        (0, b"\x1a\x45\xdf\xa3"),  # EBML header (WebM/Matroska)
+    ],
+    ".ogg": [
+        (0, b"OggS"),  # Ogg container format
+    ],
+    ".flac": [
+        (0, b"fLaC"),  # FLAC audio format
+    ],
+    ".aac": [
+        (0, b"\xff\xf1"),  # ADTS AAC
+        (0, b"\xff\xf9"),  # ADTS AAC variant
+    ],
+}
+
+# Magic byte signatures for video formats
+ALLOWED_VIDEO_SIGNATURES: dict[str, list[tuple[int, bytes]]] = {
+    ".mp4": [
+        (4, b"ftyp"),  # ISO base media file format
+    ],
+    ".mov": [
+        (4, b"ftyp"),  # QuickTime container (also uses ftyp)
+        (4, b"moov"),  # QuickTime legacy
+        (4, b"mdat"),  # QuickTime data atom
+        (4, b"free"),  # QuickTime free space
+        (4, b"wide"),  # QuickTime wide atom
+    ],
+    ".webm": [
+        (0, b"\x1a\x45\xdf\xa3"),  # EBML header (WebM/Matroska)
+    ],
+    ".mkv": [
+        (0, b"\x1a\x45\xdf\xa3"),  # EBML header (Matroska)
+    ],
+    ".avi": [
+        (0, b"RIFF"),  # RIFF header (must also have AVI at offset 8)
+    ],
+}
+
+# Pattern to detect double extensions (e.g., .mp3.exe, .wav.bat)
+DOUBLE_EXTENSION_PATTERN = re.compile(
+    r"\.(mp3|wav|m4a|webm|ogg|flac|aac|mp4|mov|mkv|avi)"
+    r"\.(exe|bat|cmd|sh|ps1|vbs|js|jar|py|pl|rb|php|asp|aspx|jsp|cgi|com|scr|pif|msi|dll|sys)$",
+    re.IGNORECASE,
+)
+
+
+def _validate_filename_security(filename: str) -> tuple[bool, str | None]:
+    """Validate filename for security issues.
+
+    Checks for:
+    - Null bytes (path traversal prevention)
+    - Double extensions (e.g., .mp3.exe)
+
+    Args:
+        filename: The filename to validate
+
+    Returns:
+        Tuple of (is_valid, error_message). If valid, error_message is None.
+    """
+    # Check for null bytes (path traversal attack)
+    if "\x00" in filename:
+        return False, "Invalid filename: contains null bytes"
+
+    # Check for double extensions
+    if DOUBLE_EXTENSION_PATTERN.search(filename):
+        return False, "Invalid filename: double extensions not allowed"
+
+    return True, None
+
+
+def _validate_file_content(
+    file_data: bytes,
+    extension: str,
+    is_video: bool = False,
+) -> tuple[bool, str | None]:
+    """Validate file content by checking magic bytes against expected signatures.
+
+    Args:
+        file_data: Raw file content bytes
+        extension: Declared file extension (e.g., '.mp3')
+        is_video: Whether to check against video signatures (vs audio)
+
+    Returns:
+        Tuple of (is_valid, error_message). If valid, error_message is None.
+    """
+    if not file_data:
+        return False, "Empty file content"
+
+    # Select appropriate signature set
+    signatures = ALLOWED_VIDEO_SIGNATURES if is_video else ALLOWED_AUDIO_SIGNATURES
+
+    # Get expected signatures for this extension
+    ext_lower = extension.lower()
+    expected_sigs = signatures.get(ext_lower)
+
+    if expected_sigs is None:
+        return False, f"Unknown file extension: {extension}"
+
+    # Check if file matches any expected signature
+    for offset, signature in expected_sigs:
+        # Ensure we have enough bytes to check
+        if len(file_data) < offset + len(signature):
+            continue
+
+        # Check if signature matches at the expected offset
+        if file_data[offset : offset + len(signature)] == signature:
+            # Additional validation for formats that need secondary checks
+            if ext_lower == ".wav" and len(file_data) >= 12:
+                # WAV must have "WAVE" at offset 8
+                if file_data[8:12] == b"WAVE":
+                    return True, None
+                # If RIFF but not WAVE, continue checking other signatures
+                continue
+            elif ext_lower == ".avi" and len(file_data) >= 12:
+                # AVI must have "AVI " at offset 8
+                if file_data[8:12] == b"AVI ":
+                    return True, None
+                # If RIFF but not AVI, continue checking
+                continue
+            else:
+                return True, None
+
+    return False, f"File content does not match expected {extension} format"
+
 
 # Lazy-loaded job store for persistence
 _job_store = None
@@ -305,12 +452,27 @@ class TranscriptionHandler(BaseHandler):
             if not file_data:
                 return error_response("No file provided", 400)
 
+            # Security: Verify actual body size (don't trust Content-Length header)
+            actual_size = len(file_data)
+            if actual_size > MAX_AUDIO_SIZE_MB * 1024 * 1024:
+                return error_response(f"File too large. Max: {MAX_AUDIO_SIZE_MB}MB", 413)
+
+            # Security: Validate filename for path traversal and double extensions
+            filename_valid, filename_error = _validate_filename_security(filename)
+            if not filename_valid:
+                return error_response(filename_error, 400)
+
             # Validate file extension
             suffix = Path(filename).suffix.lower()
             if suffix not in AUDIO_FORMATS:
                 return error_response(
                     f"Unsupported format: {suffix}. Supported: {list(AUDIO_FORMATS)}", 400
                 )
+
+            # Security: Validate file content matches declared extension (magic bytes check)
+            content_valid, content_error = _validate_file_content(file_data, suffix, is_video=False)
+            if not content_valid:
+                return error_response(content_error, 400)
 
             # Save to temp file
             temp_path = Path(tempfile.mktemp(suffix=suffix))
@@ -398,11 +560,26 @@ class TranscriptionHandler(BaseHandler):
             if not file_data:
                 return error_response("No file provided", 400)
 
+            # Security: Verify actual body size (don't trust Content-Length header)
+            actual_size = len(file_data)
+            if actual_size > MAX_VIDEO_SIZE_MB * 1024 * 1024:
+                return error_response(f"File too large. Max: {MAX_VIDEO_SIZE_MB}MB", 413)
+
+            # Security: Validate filename for path traversal and double extensions
+            filename_valid, filename_error = _validate_filename_security(filename)
+            if not filename_valid:
+                return error_response(filename_error, 400)
+
             suffix = Path(filename).suffix.lower()
             if suffix not in VIDEO_FORMATS:
                 return error_response(
                     f"Unsupported format: {suffix}. Supported: {list(VIDEO_FORMATS)}", 400
                 )
+
+            # Security: Validate file content matches declared extension (magic bytes check)
+            content_valid, content_error = _validate_file_content(file_data, suffix, is_video=True)
+            if not content_valid:
+                return error_response(content_error, 400)
 
             temp_path = Path(tempfile.mktemp(suffix=suffix))
             temp_path.write_bytes(file_data)

@@ -58,7 +58,7 @@ import logging
 import os
 import re
 import sys
-import threading
+import contextvars
 import uuid
 import warnings
 from contextlib import contextmanager
@@ -74,18 +74,20 @@ warnings.warn(
     stacklevel=2,
 )
 
-# Thread-local storage for correlation IDs
-_correlation_id = threading.local()
+# Context-local storage for correlation IDs (async-safe)
+_correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "correlation_id", default=None
+)
 
 
 def set_correlation_id(correlation_id: str) -> None:
-    """Set the correlation ID for the current thread."""
-    _correlation_id.value = correlation_id
+    """Set the correlation ID for the current context (async-safe)."""
+    _correlation_id.set(correlation_id)
 
 
 def get_correlation_id() -> str | None:
-    """Get the correlation ID for the current thread."""
-    return getattr(_correlation_id, "value", None)
+    """Get the correlation ID for the current context (async-safe)."""
+    return _correlation_id.get()
 
 
 def generate_correlation_id() -> str:
@@ -109,10 +111,7 @@ def correlation_context(correlation_id: str | None = None) -> Generator[str, Non
     try:
         yield cid
     finally:
-        if old_id:
-            set_correlation_id(old_id)
-        else:
-            _correlation_id.value = None
+        _correlation_id.set(old_id)
 
 
 # Fields to redact in logs

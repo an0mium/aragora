@@ -6,6 +6,7 @@ Centralizes the common request handling pattern:
 - Timing and tracing
 - Error handling
 - Metrics and logging
+- Timeout enforcement
 
 This eliminates repetition across do_GET, do_POST, do_PUT, etc.
 """
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -21,6 +23,48 @@ if TYPE_CHECKING:
     from aragora.server.tracing_service import TracingService
 
 logger = logging.getLogger(__name__)
+
+# Timeout middleware integration (graceful degradation if not available)
+_timeout_config = None
+_timeout_executor: ThreadPoolExecutor | None = None
+
+try:
+    from aragora.server.middleware.timeout import (
+        get_timeout_config as _get_timeout_config,
+        get_executor as _get_timeout_executor,
+    )
+
+    _timeout_config = _get_timeout_config
+    _timeout_executor_factory = _get_timeout_executor
+except ImportError:
+    logger.debug(
+        "Timeout middleware not available, requests will proceed without timeout enforcement"
+    )
+    _timeout_config = None
+    _timeout_executor_factory = None
+
+
+def _get_request_timeout(path: str) -> float | None:
+    """Get the timeout for a request path, or None if timeout is not available."""
+    if _timeout_config is None:
+        return None
+    try:
+        config = _timeout_config()
+        return config.get_timeout(path)
+    except Exception as e:
+        logger.debug(f"Could not get timeout config: {e}")
+        return None
+
+
+def _get_executor() -> ThreadPoolExecutor | None:
+    """Get the timeout executor, or None if not available."""
+    if _timeout_executor_factory is None:
+        return None
+    try:
+        return _timeout_executor_factory()
+    except Exception as e:
+        logger.debug(f"Could not get timeout executor: {e}")
+        return None
 
 
 class RequestLifecycleManager:

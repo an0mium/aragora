@@ -92,6 +92,51 @@ def _allow_dev_auth_fallback() -> bool:
     return os.environ.get("ARAGORA_ALLOW_DEV_AUTH_FALLBACK", "").lower() in ("1", "true", "yes")
 
 
+def validate_oidc_security_settings() -> None:
+    """Validate OIDC security settings at startup.
+
+    SECURITY: This function should be called during OIDCProvider initialization
+    to ensure dangerous configurations are rejected early.
+
+    Raises:
+        SSOConfigurationError: If ARAGORA_ENV=production and
+            ARAGORA_ALLOW_DEV_AUTH_FALLBACK is set (any value).
+    """
+    import os
+
+    env = os.environ.get("ARAGORA_ENV", "production").lower()
+    fallback_setting = os.environ.get("ARAGORA_ALLOW_DEV_AUTH_FALLBACK")
+
+    # SECURITY: Reject any combination of production mode with fallback enabled
+    if env == "production" and fallback_setting is not None:
+        logger.critical(
+            "SECURITY VIOLATION: ARAGORA_ALLOW_DEV_AUTH_FALLBACK is set in production mode. "
+            "This setting must not be present in production environments. "
+            "Remove the ARAGORA_ALLOW_DEV_AUTH_FALLBACK environment variable."
+        )
+        raise SSOConfigurationError(
+            "SECURITY VIOLATION: ARAGORA_ALLOW_DEV_AUTH_FALLBACK cannot be set when "
+            "ARAGORA_ENV=production. This combination bypasses ID token validation security. "
+            "Remove the ARAGORA_ALLOW_DEV_AUTH_FALLBACK environment variable.",
+            {
+                "error_code": "INSECURE_AUTH_FALLBACK_IN_PRODUCTION",
+                "aragora_env": env,
+                "fallback_setting_present": True,
+            },
+        )
+
+    # Warn in non-production if fallback is enabled
+    if not _is_production_mode() and fallback_setting is not None:
+        fallback_enabled = fallback_setting.lower() in ("1", "true", "yes")
+        if fallback_enabled:
+            logger.warning(
+                "SECURITY WARNING: ARAGORA_ALLOW_DEV_AUTH_FALLBACK is enabled. "
+                "ID token validation failures will fall back to userinfo endpoint. "
+                "This is INSECURE and should NEVER be used in production. "
+                f"Current ARAGORA_ENV={env}"
+            )
+
+
 class OIDCError(SSOError):
     """OIDC-specific error."""
 
@@ -307,6 +352,10 @@ class OIDCProvider(SSOProvider):
             raise SSOConfigurationError(
                 f"Invalid OIDC configuration: {', '.join(errors)}", {"errors": errors}
             )
+
+        # SECURITY: Validate environment security settings at startup
+        # This catches dangerous configurations like fallback enabled in production
+        validate_oidc_security_settings()
 
         # SECURITY: Require JWT library in production for proper token validation
         if not HAS_JWT and _is_production_mode():
@@ -592,13 +641,35 @@ class OIDCProvider(SSOProvider):
             ) as e:
                 # Token parsing/validation errors - catch all JWT exceptions for defense in depth
                 # SECURITY: Never silently fall back to userinfo - could allow signature bypass
-                if _is_production_mode() or not _allow_dev_auth_fallback():
+                #
+                # DEFENSE IN DEPTH: Multiple explicit checks to prevent fallback in production:
+                # 1. _is_production_mode() - returns True if ARAGORA_ENV is not dev/test/local
+                # 2. _allow_dev_auth_fallback() - returns False in production (double-check)
+                # 3. Explicit production check below as final safeguard
+                is_production = _is_production_mode()
+                fallback_allowed = _allow_dev_auth_fallback()
+
+                # SECURITY: Explicit production guard - NEVER allow fallback in production
+                if is_production:
+                    logger.error(
+                        f"ID token validation failed in PRODUCTION mode: {e}. "
+                        "Fallback is BLOCKED for security."
+                    )
+                    raise SSOAuthenticationError(
+                        f"ID token validation failed: {e}. "
+                        "Token validation is required in production mode."
+                    )
+
+                # SECURITY: Even in non-production, require explicit opt-in
+                if not fallback_allowed:
                     logger.error(f"ID token validation failed: {e}")
                     raise SSOAuthenticationError(
                         f"ID token validation failed: {e}. "
                         "Set ARAGORA_ENV=development and ARAGORA_ALLOW_DEV_AUTH_FALLBACK=1 "
                         "to allow fallback to userinfo endpoint (NOT recommended for production)."
                     )
+
+                # At this point: NOT production AND fallback explicitly allowed
                 logger.warning(
                     f"ID token validation failed, using userinfo fallback (dev mode): {e}. "
                     "This is INSECURE - do not use in production!"
@@ -615,6 +686,7 @@ class OIDCProvider(SSOProvider):
                             "error_type": type(e).__name__,
                             "issuer": self.config.issuer_url,
                             "fallback": "userinfo_endpoint",
+                            "aragora_env": "development",
                         },
                     )
                 except ImportError:
@@ -846,4 +918,7 @@ __all__ = [
     "PROVIDER_CONFIGS",
     "HAS_JWT",
     "HAS_HTTPX",
+    "validate_oidc_security_settings",
+    "_is_production_mode",
+    "_allow_dev_auth_fallback",
 ]

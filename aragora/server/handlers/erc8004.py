@@ -15,7 +15,7 @@ Provides REST API endpoints for interacting with ERC-8004 registries:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Awaitable, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -378,7 +378,9 @@ class ERC8004Handler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return path.startswith("/api/v1/blockchain/")
 
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | Awaitable[HandlerResult] | None:
         method = handler.command if hasattr(handler, "command") else "GET"
 
         if path == "/api/v1/blockchain/config" and method == "GET":

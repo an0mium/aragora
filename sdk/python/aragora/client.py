@@ -365,32 +365,62 @@ class AragoraClient:
         try:
             body = response.json()
             message = body.get("error", body.get("message", response.text))
+            error_code = body.get("code")
+            trace_id = body.get("trace_id")
         except (ValueError, AttributeError):
             body = None
             message = response.text or "Unknown error"
+            error_code = None
+            trace_id = None
 
         status = response.status_code
 
         if status == 401:
-            raise AuthenticationError(message, response_body=body)
+            raise AuthenticationError(
+                message, error_code=error_code, trace_id=trace_id, response_body=body
+            )
         elif status == 403:
-            raise AuthorizationError(message, response_body=body)
+            raise AuthorizationError(
+                message, error_code=error_code, trace_id=trace_id, response_body=body
+            )
         elif status == 404:
-            raise NotFoundError(message, response_body=body)
+            raise NotFoundError(
+                message, error_code=error_code, trace_id=trace_id, response_body=body
+            )
         elif status == 429:
             retry_after = response.headers.get("Retry-After")
             raise RateLimitError(
                 message,
                 retry_after=int(retry_after) if retry_after else None,
+                error_code=error_code,
+                trace_id=trace_id,
                 response_body=body,
             )
         elif status == 400:
             errors = body.get("errors") if body else None
-            raise ValidationError(message, errors=errors, response_body=body)
+            raise ValidationError(
+                message,
+                errors=errors,
+                error_code=error_code,
+                trace_id=trace_id,
+                response_body=body,
+            )
         elif status >= 500:
-            raise ServerError(message, status_code=status, response_body=body)
+            raise ServerError(
+                message,
+                status_code=status,
+                error_code=error_code,
+                trace_id=trace_id,
+                response_body=body,
+            )
         else:
-            raise AragoraError(message, status_code=status, response_body=body)
+            raise AragoraError(
+                message,
+                status_code=status,
+                error_code=error_code,
+                trace_id=trace_id,
+                response_body=body,
+            )
 
     def close(self) -> None:
         """Close the HTTP client."""

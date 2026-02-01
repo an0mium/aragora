@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import hashlib
 import json
 import logging
@@ -197,21 +198,25 @@ class DeliveryPersistence:
     """SQLite persistence for webhook delivery queues.
 
     Ensures retry and dead-letter queues survive server restarts.
-    Uses thread-local connections for thread safety with proper cleanup tracking.
+    Uses context-local connections for async safety with proper cleanup tracking.
     """
 
     def __init__(self, db_path: str = _DEFAULT_DB_PATH):
         self._db_path = db_path
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"delivery_conn_{id(self)}", default=None
+        )
         self._initialized = False
         self._init_lock = threading.Lock()
-        # Track all connections for proper cleanup across threads
+        # Track all connections for proper cleanup across contexts
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn") or self._local.conn is None:
+        """Get context-local database connection (async-safe)."""
+        conn = self._conn_var.get()
+        if conn is None:
             # Ensure directory exists
             Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
             conn = sqlite3.connect(
@@ -222,11 +227,11 @@ class DeliveryPersistence:
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA busy_timeout=30000")
-            self._local.conn = conn
+            self._conn_var.set(conn)
             # Track connection for cleanup
             with self._connections_lock:
                 self._connections.add(conn)
-        return self._local.conn
+        return conn
 
     def initialize(self) -> None:
         """Initialize database schema."""
@@ -392,7 +397,7 @@ class DeliveryPersistence:
         return cursor.rowcount
 
     def close(self) -> None:
-        """Close all database connections across all threads."""
+        """Close all database connections across all contexts."""
         # Close all tracked connections
         with self._connections_lock:
             for conn in self._connections:
@@ -401,9 +406,11 @@ class DeliveryPersistence:
                 except (sqlite3.Error, OSError):
                     pass  # Connection may already be closed
             self._connections.clear()
-        # Clear thread-local reference
-        if hasattr(self._local, "conn"):
-            self._local.conn = None
+        # Clear context-local reference
+        try:
+            self._conn_var.set(None)
+        except LookupError:
+            pass  # No context, nothing to clear
 
 
 class WebhookDeliveryManager:

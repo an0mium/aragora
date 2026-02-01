@@ -50,22 +50,46 @@ class AragoraError(Exception):
 class AuthenticationError(AragoraError):
     """Raised when authentication fails (401 errors)."""
 
-    def __init__(self, message: str = "Authentication failed", **kwargs):
-        super().__init__(message, status_code=401, **kwargs)
+    def __init__(
+        self,
+        message: str = "Authentication failed",
+        error_code: str | None = None,
+        trace_id: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(
+            message, status_code=401, error_code=error_code, trace_id=trace_id, **kwargs
+        )
 
 
 class AuthorizationError(AragoraError):
     """Raised when authorization fails (403 errors)."""
 
-    def __init__(self, message: str = "Access denied", **kwargs):
-        super().__init__(message, status_code=403, **kwargs)
+    def __init__(
+        self,
+        message: str = "Access denied",
+        error_code: str | None = None,
+        trace_id: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(
+            message, status_code=403, error_code=error_code, trace_id=trace_id, **kwargs
+        )
 
 
 class NotFoundError(AragoraError):
     """Raised when a resource is not found (404 errors)."""
 
-    def __init__(self, message: str = "Resource not found", **kwargs):
-        super().__init__(message, status_code=404, **kwargs)
+    def __init__(
+        self,
+        message: str = "Resource not found",
+        error_code: str | None = None,
+        trace_id: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(
+            message, status_code=404, error_code=error_code, trace_id=trace_id, **kwargs
+        )
 
 
 class RateLimitError(AragoraError):
@@ -75,15 +99,20 @@ class RateLimitError(AragoraError):
         self,
         message: str = "Rate limit exceeded",
         retry_after: int | None = None,
+        error_code: str | None = None,
+        trace_id: str | None = None,
         **kwargs,
     ):
-        super().__init__(message, status_code=429, **kwargs)
+        super().__init__(
+            message, status_code=429, error_code=error_code, trace_id=trace_id, **kwargs
+        )
         self.retry_after = retry_after
 
     def __str__(self) -> str:
+        base = super().__str__().replace("AragoraError", "RateLimitError")
         if self.retry_after:
-            return f"RateLimitError: {self.message} (retry after {self.retry_after}s)"
-        return f"RateLimitError: {self.message}"
+            return f"{base} (retry after {self.retry_after}s)"
+        return base
 
 
 class ValidationError(AragoraError):
@@ -93,28 +122,50 @@ class ValidationError(AragoraError):
         self,
         message: str = "Validation failed",
         errors: list[dict] | None = None,
+        error_code: str | None = None,
+        trace_id: str | None = None,
         **kwargs,
     ):
-        super().__init__(message, status_code=400, **kwargs)
+        super().__init__(
+            message, status_code=400, error_code=error_code, trace_id=trace_id, **kwargs
+        )
         self.errors = errors or []
 
 
 class ServerError(AragoraError):
     """Raised for server errors (5xx errors)."""
 
-    def __init__(self, message: str = "Server error", **kwargs):
-        super().__init__(message, **kwargs)
+    def __init__(
+        self,
+        message: str = "Server error",
+        error_code: str | None = None,
+        trace_id: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(message, error_code=error_code, trace_id=trace_id, **kwargs)
 
 
 class TimeoutError(AragoraError):
     """Raised when a request times out."""
 
-    def __init__(self, message: str = "Request timed out", **kwargs):
-        super().__init__(message, **kwargs)
+    def __init__(
+        self,
+        message: str = "Request timed out",
+        error_code: str | None = None,
+        trace_id: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(message, error_code=error_code, trace_id=trace_id, **kwargs)
 
 
 class ConnectionError(AragoraError):
     """Raised when a connection cannot be established."""
 
-    def __init__(self, message: str = "Connection failed", **kwargs):
-        super().__init__(message, **kwargs)
+    def __init__(
+        self,
+        message: str = "Connection failed",
+        error_code: str | None = None,
+        trace_id: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(message, error_code=error_code, trace_id=trace_id, **kwargs)

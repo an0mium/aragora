@@ -114,6 +114,40 @@ class MongoDBConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"MongoDB ({self.database_name})"
 
+    def __repr__(self) -> str:
+        """
+        Return a string representation that never exposes credentials.
+
+        Connection strings and passwords are masked for security.
+        """
+        masked_conn_str = None
+        if self.connection_string:
+            masked_conn_str = self._mask_connection_string(self.connection_string)
+
+        return (
+            f"MongoDBConnector("
+            f"host={self.host!r}, "
+            f"port={self.port}, "
+            f"database={self.database_name!r}, "
+            f"collections={self.collections!r}, "
+            f"connection_string={masked_conn_str!r})"
+        )
+
+    @staticmethod
+    def _mask_connection_string(conn_str: str) -> str:
+        """
+        Mask any password in a MongoDB connection string for safe logging.
+
+        Handles formats like:
+        - mongodb://user:password@host:port/db
+        - mongodb+srv://user:password@cluster/db
+        """
+        import re
+
+        # Pattern matches mongodb:// or mongodb+srv:// followed by user:password@
+        pattern = r"(mongodb(?:\+srv)?://[^:]+:)([^@]+)(@)"
+        return re.sub(pattern, r"\1****\3", conn_str)
+
     async def _get_client(self) -> Any:
         """Get or create MongoDB client."""
         if self._client is not None:
@@ -122,19 +156,35 @@ class MongoDBConnector(EnterpriseConnector):
         try:
             from motor.motor_asyncio import AsyncIOMotorClient
 
-            # Build connection string
+            # Build connection string and auth kwargs
+            auth_kwargs: dict[str, Any] = {}
+
             if self.connection_string:
+                # When using a custom connection string, we cannot separate credentials
+                # Log a masked version for debugging
                 conn_str = self.connection_string
+                logger.debug(
+                    f"Using custom connection string: {self._mask_connection_string(conn_str)}"
+                )
             else:
+                # Build connection string WITHOUT credentials embedded
+                conn_str = f"mongodb://{self.host}:{self.port}/{self.database_name}"
+
+                # Get credentials and pass them as separate kwargs
                 username = await self.credentials.get_credential("MONGO_USER")
                 password = await self.credentials.get_credential("MONGO_PASSWORD")
 
                 if username and password:
-                    conn_str = f"mongodb://{username}:{password}@{self.host}:{self.port}/{self.database_name}"
+                    auth_kwargs = {
+                        "username": username,
+                        "password": password,
+                        "authSource": self.database_name,
+                    }
+                    logger.debug(f"Connecting to MongoDB at {conn_str} with authentication")
                 else:
-                    conn_str = f"mongodb://{self.host}:{self.port}/{self.database_name}"
+                    logger.debug(f"Connecting to MongoDB at {conn_str} without authentication")
 
-            self._client = AsyncIOMotorClient(conn_str)
+            self._client = AsyncIOMotorClient(conn_str, **auth_kwargs)
             self._db = self._client[self.database_name]
             return self._client
 

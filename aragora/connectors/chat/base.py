@@ -34,6 +34,7 @@ from .models import (
     VoiceMessage,
     WebhookEvent,
 )
+from .http_resilience import HTTPResilienceMixin
 from .rich_context import (
     analyze_sentiment as _analyze_sentiment_impl,
     calculate_activity_patterns as _calculate_activity_patterns_impl,
@@ -44,7 +45,7 @@ from .rich_context import (
 logger = logging.getLogger(__name__)
 
 
-class ChatPlatformConnector(ABC):
+class ChatPlatformConnector(HTTPResilienceMixin, ABC):
     """
     Abstract base class for chat platform integrations.
 

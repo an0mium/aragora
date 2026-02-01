@@ -67,6 +67,20 @@ ENCRYPTION_REQUIRED = os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() 
 )
 
 
+def _is_production_mode() -> bool:
+    """Check if the application is running in production mode.
+
+    Production mode is detected when ARAGORA_ENV is set to:
+    - 'production' or 'prod'
+    - 'staging' or 'stage'
+
+    Returns:
+        True if in production/staging mode, False otherwise.
+    """
+    env = os.environ.get("ARAGORA_ENV", "").lower()
+    return env in ("production", "prod", "staging", "stage")
+
+
 class EncryptionError(Exception):
     """Raised when encryption/decryption fails and ENCRYPTION_REQUIRED is True."""
 
@@ -657,7 +671,18 @@ _encryption_service: EncryptionService | None = None
 
 
 def get_encryption_service() -> EncryptionService:
-    """Get the global encryption service instance."""
+    """Get the global encryption service instance.
+
+    In production mode (ARAGORA_ENV=production or staging), this function
+    requires ARAGORA_ENCRYPTION_KEY to be set. Using ephemeral keys in
+    production would result in unrecoverable data loss after restart.
+
+    Raises:
+        EncryptionError: If in production mode and no encryption key is configured.
+
+    Returns:
+        The global EncryptionService instance.
+    """
     global _encryption_service
 
     if _encryption_service is None:
@@ -669,12 +694,28 @@ def get_encryption_service() -> EncryptionService:
             master_key = bytes.fromhex(master_key_hex)
             _encryption_service = EncryptionService(master_key=master_key)
         else:
-            # Create service and generate a new key
+            # SECURITY: In production, encryption key is mandatory
+            if _is_production_mode():
+                env = os.environ.get("ARAGORA_ENV", "unknown")
+                raise EncryptionError(
+                    operation="initialize",
+                    reason=(
+                        f"ARAGORA_ENCRYPTION_KEY is required in {env} mode. "
+                        "Data encrypted with ephemeral keys would be unrecoverable after restart. "
+                        'Generate a 32-byte (256-bit) key with: python -c "import secrets; print(secrets.token_hex(32))"'
+                    ),
+                    store="EncryptionService",
+                )
+
+            # Non-production: Create service with ephemeral key and log prominent warning
             _encryption_service = EncryptionService()
             _encryption_service.generate_key("default")
             logger.warning(
-                "No ARAGORA_ENCRYPTION_KEY set - generated ephemeral key. "
-                "Data will not be recoverable after restart."
+                "SECURITY WARNING: No ARAGORA_ENCRYPTION_KEY configured. "
+                "Using ephemeral encryption key - ALL ENCRYPTED DATA WILL BE LOST on restart! "
+                "This is acceptable for development/testing only. "
+                "For production, set ARAGORA_ENCRYPTION_KEY environment variable. "
+                'Generate a key with: python -c "import secrets; print(secrets.token_hex(32))"'
             )
 
     return _encryption_service
@@ -690,6 +731,66 @@ def init_encryption_service(
     return _encryption_service
 
 
+def validate_encryption_security_settings() -> dict[str, Any]:
+    """Validate encryption security settings at startup.
+
+    This function should be called during application startup to verify
+    that encryption is properly configured. It checks:
+
+    1. In production mode: ARAGORA_ENCRYPTION_KEY must be set
+    2. In non-production: Warns if using ephemeral keys
+
+    Returns:
+        A dictionary with validation results:
+        - is_production: Whether running in production mode
+        - has_encryption_key: Whether ARAGORA_ENCRYPTION_KEY is configured
+        - is_valid: Whether the configuration is valid for the current mode
+        - warnings: List of warning messages
+        - errors: List of error messages
+
+    Raises:
+        EncryptionError: If in production mode without encryption key configured.
+    """
+    from aragora.config.secrets import get_secret
+
+    result: dict[str, Any] = {
+        "is_production": _is_production_mode(),
+        "has_encryption_key": False,
+        "is_valid": True,
+        "warnings": [],
+        "errors": [],
+    }
+
+    master_key_hex = get_secret("ARAGORA_ENCRYPTION_KEY")
+    result["has_encryption_key"] = bool(master_key_hex)
+
+    if result["is_production"]:
+        if not result["has_encryption_key"]:
+            env = os.environ.get("ARAGORA_ENV", "unknown")
+            error_msg = (
+                f"ARAGORA_ENCRYPTION_KEY is required in {env} mode. "
+                "Data encrypted with ephemeral keys would be unrecoverable after restart. "
+                'Generate a 32-byte (256-bit) key with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+            result["errors"].append(error_msg)
+            result["is_valid"] = False
+            raise EncryptionError(
+                operation="validate",
+                reason=error_msg,
+                store="EncryptionService",
+            )
+    else:
+        # Non-production mode
+        if not result["has_encryption_key"]:
+            result["warnings"].append(
+                "SECURITY WARNING: No ARAGORA_ENCRYPTION_KEY configured. "
+                "Using ephemeral encryption key - ALL ENCRYPTED DATA WILL BE LOST on restart! "
+                "This is acceptable for development/testing only."
+            )
+
+    return result
+
+
 __all__ = [
     "EncryptionService",
     "EncryptionConfig",
@@ -701,6 +802,8 @@ __all__ = [
     "get_encryption_service",
     "init_encryption_service",
     "is_encryption_required",
+    "validate_encryption_security_settings",
+    "_is_production_mode",
     "encrypt_data",
     "decrypt_data",
     "CRYPTO_AVAILABLE",

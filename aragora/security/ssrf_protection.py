@@ -58,6 +58,19 @@ class SSRFValidationError(Exception):
         super().__init__(message)
 
 
+class SecurityConfigurationError(Exception):
+    """Raised when security configuration is invalid or dangerous.
+
+    This exception is raised when security settings would create vulnerabilities,
+    such as allowing localhost in production environments.
+    """
+
+    def __init__(self, message: str, setting: str = "", environment: str = ""):
+        self.setting = setting
+        self.environment = environment
+        super().__init__(message)
+
+
 # Allowed protocols - only HTTP(S) for external requests
 ALLOWED_PROTOCOLS: frozenset[str] = frozenset({"http", "https"})
 
@@ -213,8 +226,20 @@ def _is_hostname_suspicious(hostname: str) -> tuple[bool, str]:
 
     # Check for localhost aliases (unless explicitly allowed for testing)
     if hostname_lower in LOCALHOST_HOSTNAMES:
-        if os.environ.get("ARAGORA_SSRF_ALLOW_LOCALHOST", "").lower() == "true":
-            # Testing environment - allow localhost for integration tests
+        allow_localhost = os.environ.get("ARAGORA_SSRF_ALLOW_LOCALHOST", "").lower() == "true"
+        is_production = os.environ.get("ARAGORA_ENV", "").lower() == "production"
+
+        # SECURITY: Never allow localhost in production, even if override is set
+        # This provides defense-in-depth against accidental misconfiguration
+        if is_production:
+            logger.warning(
+                "Localhost access blocked in production environment. "
+                "ARAGORA_SSRF_ALLOW_LOCALHOST has no effect when ARAGORA_ENV=production."
+            )
+            return True, "Localhost hostname detected (blocked in production)"
+
+        if allow_localhost:
+            # Non-production environment with explicit override - allow localhost for tests
             return False, ""
         return True, "Localhost hostname detected"
 
@@ -469,6 +494,16 @@ def validate_microsoft_url(url: str) -> SSRFValidationResult:
 
 
 # Environment-based configuration
+def _is_production_environment() -> bool:
+    """Check if we're running in a production environment.
+
+    Returns:
+        True if ARAGORA_ENV is set to 'production', False otherwise.
+    """
+    env = os.environ.get("ARAGORA_ENV", "").lower()
+    return env == "production"
+
+
 def get_ssrf_config() -> dict:
     """Get SSRF protection configuration from environment.
 
@@ -485,11 +520,59 @@ def get_ssrf_config() -> dict:
     }
 
 
+def validate_ssrf_security_settings() -> None:
+    """Validate SSRF security settings to prevent dangerous configurations.
+
+    This function checks for security misconfigurations that could lead to
+    vulnerabilities in production environments.
+
+    Raises:
+        SecurityConfigurationError: If dangerous configuration is detected in production.
+
+    Security:
+        - In production (ARAGORA_ENV=production), ARAGORA_SSRF_ALLOW_LOCALHOST must not be set
+        - In non-production environments, a warning is logged if localhost is allowed
+    """
+    allow_localhost = os.environ.get("ARAGORA_SSRF_ALLOW_LOCALHOST", "").lower() == "true"
+    is_production = _is_production_environment()
+
+    if is_production and allow_localhost:
+        raise SecurityConfigurationError(
+            "ARAGORA_SSRF_ALLOW_LOCALHOST cannot be enabled in production environment. "
+            "This setting disables critical SSRF protections and could allow attackers "
+            "to access internal services. Remove this environment variable or set "
+            "ARAGORA_ENV to a non-production value.",
+            setting="ARAGORA_SSRF_ALLOW_LOCALHOST",
+            environment="production",
+        )
+
+    if allow_localhost and not is_production:
+        logger.warning(
+            "SSRF localhost protection is disabled (ARAGORA_SSRF_ALLOW_LOCALHOST=true). "
+            "This is acceptable for testing/development but must never be used in production."
+        )
+
+
+# Module-level initialization: validate security settings on import
+# This catches dangerous configurations early, preventing production deployments
+# with insecure settings. Uses try/except for graceful degradation in edge cases.
+try:
+    validate_ssrf_security_settings()
+except SecurityConfigurationError:
+    # Re-raise security errors - these must not be silently ignored
+    raise
+except Exception as e:
+    # Log other unexpected errors but don't crash the application
+    # This provides graceful degradation for edge cases like missing env access
+    logger.error(f"SSRF security validation failed unexpectedly: {e}")
+
+
 __all__ = [
     # Core functions
     "validate_url",
     "is_url_safe",
     "validate_webhook_url",
+    "validate_ssrf_security_settings",
     # Service-specific validators
     "validate_slack_url",
     "validate_discord_url",
@@ -498,6 +581,7 @@ __all__ = [
     # Result and error types
     "SSRFValidationResult",
     "SSRFValidationError",
+    "SecurityConfigurationError",
     # Domain constants
     "SLACK_ALLOWED_DOMAINS",
     "DISCORD_ALLOWED_DOMAINS",
