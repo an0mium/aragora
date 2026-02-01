@@ -4,6 +4,11 @@ Provides unified semantic vector search functionality that can be mixed into
 any adapter. Consolidates ~350 lines of duplicated semantic search code
 across 7 adapters (consensus, continuum, evidence, belief, insights, pulse, cost).
 
+NOTE: This is a mixin class designed to be composed with KnowledgeMoundAdapter.
+Attribute accesses like self._emit_event, self._record_metric, etc. are provided
+by the composed class. The ``# type: ignore[attr-defined]`` comments suppress
+mypy warnings that are expected for this mixin pattern.
+
 Usage:
     from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 
@@ -292,7 +297,7 @@ class SemanticSearchMixin:
                 )
 
                 # Emit event
-                self._emit_event(
+                self._emit_event(  # type: ignore[attr-defined]
                     "km_adapter_semantic_search",
                     {
                         "source": self.source_type,
@@ -332,7 +337,7 @@ class SemanticSearchMixin:
             return fallback_results
 
         finally:
-            self._record_metric("semantic_search", success, time.time() - start)
+            self._record_metric("semantic_search", success, time.time() - start)  # type: ignore[attr-defined]
 
     def _enrich_semantic_results(self, results: list[Any]) -> list[dict[str, Any]]:
         """Enrich semantic search results with full record data.

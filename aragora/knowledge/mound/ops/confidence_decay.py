@@ -508,7 +508,7 @@ class ConfidenceDecayMixin:
         return manager
 
     async def apply_confidence_decay(
-        self: ConfidenceDecayMixinProtocol,
+        self,
         workspace_id: str,
         force: bool = False,
     ) -> DecayReport:
@@ -525,7 +525,7 @@ class ConfidenceDecayMixin:
         return await manager.apply_decay(self, workspace_id, force)
 
     async def record_confidence_event(
-        self: ConfidenceDecayMixinProtocol,
+        self,
         item_id: str,
         event: ConfidenceEvent,
         reason: str = "",
@@ -544,7 +544,7 @@ class ConfidenceDecayMixin:
         return await manager.record_event(self, item_id, event, reason)
 
     async def get_confidence_history(
-        self: ConfidenceDecayMixinProtocol,
+        self,
         item_id: str | None = None,
         event_type: ConfidenceEvent | None = None,
         limit: int = 100,

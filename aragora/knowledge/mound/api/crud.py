@@ -9,6 +9,11 @@ Provides core create, read, update, delete operations:
 - add: Simplified content addition
 - add_node: KnowledgeNode adapter
 - get_node: KnowledgeNode retrieval adapter
+
+NOTE: This is a mixin class designed to be composed with KnowledgeMound.
+Attribute accesses like self._ensure_initialized, self.store, self._cache, etc.
+are provided by the composed class. The ``# type: ignore[attr-defined]``
+comments suppress mypy warnings that are expected for this mixin pattern.
 """
 
 from __future__ import annotations
@@ -143,7 +148,7 @@ class CRUDOperationsMixin:
         """
         from aragora.knowledge.mound.types import IngestionResult
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         with trace_context("km.store") as span:
             span.set_tag("workspace_id", request.workspace_id)
@@ -171,12 +176,12 @@ class CRUDOperationsMixin:
             span.set_tag("node_id", node_id)
 
             # Check for duplicates if enabled
-            if self.config.enable_deduplication:
+            if self.config.enable_deduplication:  # type: ignore[attr-defined]
                 content_hash = hashlib.sha256(request.content.encode()).hexdigest()[:32]
-                existing = await self._find_by_content_hash(content_hash, request.workspace_id)
+                existing = await self._find_by_content_hash(content_hash, request.workspace_id)  # type: ignore[attr-defined]
                 if existing:
                     # Update existing node
-                    await self._increment_update_count(existing)
+                    await self._increment_update_count(existing)  # type: ignore[attr-defined]
                     span.set_tag("deduplicated", True)
                     span.add_event("deduplication_found", {"existing_id": existing})
                     return IngestionResult(
@@ -208,13 +213,13 @@ class CRUDOperationsMixin:
             }
 
             # Save to store
-            await self._save_node(node_data)
+            await self._save_node(node_data)  # type: ignore[attr-defined]
             span.add_event("node_saved")
 
             # Index in semantic store for embedding-based search
-            if self._semantic_store:
+            if self._semantic_store:  # type: ignore[attr-defined]
                 try:
-                    await self._semantic_store.index_item(
+                    await self._semantic_store.index_item(  # type: ignore[attr-defined]
                         source_type=request.source_type,
                         source_id=node_id,
                         content=request.content,
@@ -230,13 +235,13 @@ class CRUDOperationsMixin:
             # Create relationships
             relationships_created = 0
             for target_id in request.supports:
-                await self._save_relationship(node_id, target_id, "supports")
+                await self._save_relationship(node_id, target_id, "supports")  # type: ignore[attr-defined]
                 relationships_created += 1
             for target_id in request.contradicts:
-                await self._save_relationship(node_id, target_id, "contradicts")
+                await self._save_relationship(node_id, target_id, "contradicts")  # type: ignore[attr-defined]
                 relationships_created += 1
             for target_id in request.derived_from:
-                await self._save_relationship(node_id, target_id, "derived_from")
+                await self._save_relationship(node_id, target_id, "derived_from")  # type: ignore[attr-defined]
                 relationships_created += 1
 
             if relationships_created > 0:
@@ -244,18 +249,18 @@ class CRUDOperationsMixin:
             span.set_tag("relationships_count", relationships_created)
 
             # Invalidate cache
-            if self._cache:
-                await self._cache.invalidate_queries(request.workspace_id)
+            if self._cache:  # type: ignore[attr-defined]
+                await self._cache.invalidate_queries(request.workspace_id)  # type: ignore[attr-defined]
                 span.add_event("cache_invalidated")
 
             logger.debug(f"Stored knowledge node: {node_id}")
 
             # Emit KNOWLEDGE_INDEXED event for cross-subsystem tracking
-            if self.event_emitter:
+            if self.event_emitter:  # type: ignore[attr-defined]
                 try:
                     from aragora.events.types import StreamEvent, StreamEventType
 
-                    self.event_emitter.emit(
+                    self.event_emitter.emit(  # type: ignore[attr-defined]
                         StreamEvent(
                             type=StreamEventType.KNOWLEDGE_INDEXED,
                             data={
@@ -290,7 +295,7 @@ class CRUDOperationsMixin:
         Raises:
             ValidationError: If node_id is invalid
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         with trace_context("km.get") as span:
             span.set_tag("node_id", node_id)
@@ -299,8 +304,8 @@ class CRUDOperationsMixin:
             validate_id(node_id, field_name="node_id")
 
             # Check cache first
-            if self._cache:
-                cached = await self._cache.get_node(node_id)
+            if self._cache:  # type: ignore[attr-defined]
+                cached = await self._cache.get_node(node_id)  # type: ignore[attr-defined]
                 if cached:
                     span.set_tag("cache_hit", True)
                     span.add_event("cache_hit")
@@ -309,20 +314,18 @@ class CRUDOperationsMixin:
             span.set_tag("cache_hit", False)
 
             # Query store
-            node = await self._get_node(node_id)
+            node = await self._get_node(node_id)  # type: ignore[attr-defined]
             span.add_event("node_retrieved", {"found": node is not None})
 
             # Cache result
-            if self._cache and node:
-                await self._cache.set_node(node_id, node)
+            if self._cache and node:  # type: ignore[attr-defined]
+                await self._cache.set_node(node_id, node)  # type: ignore[attr-defined]
                 span.add_event("node_cached")
 
             span.set_tag("found", node is not None)
             return node
 
-    async def update(
-        self: CRUDProtocol, node_id: str, updates: dict[str, Any]
-    ) -> Optional["KnowledgeItem"]:
+    async def update(self, node_id: str, updates: dict[str, Any]) -> Optional["KnowledgeItem"]:
         """Update a knowledge node.
 
         Args:
@@ -335,7 +338,7 @@ class CRUDOperationsMixin:
         Raises:
             ValidationError: If inputs are invalid
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         with trace_context("km.update") as span:
             span.set_tag("node_id", node_id)
@@ -359,12 +362,12 @@ class CRUDOperationsMixin:
             if "metadata" in updates:
                 updates["metadata"] = _serialize_for_storage(updates["metadata"])
 
-            await self._update_node(node_id, updates)
+            await self._update_node(node_id, updates)  # type: ignore[attr-defined]
             span.add_event("node_updated")
 
             # Invalidate cache
-            if self._cache:
-                await self._cache.invalidate_node(node_id)
+            if self._cache:  # type: ignore[attr-defined]
+                await self._cache.invalidate_node(node_id)  # type: ignore[attr-defined]
                 span.add_event("cache_invalidated")
 
             result = await self.get(node_id)
@@ -384,7 +387,7 @@ class CRUDOperationsMixin:
         Raises:
             ValidationError: If node_id is invalid
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         with trace_context("km.delete") as span:
             span.set_tag("node_id", node_id)
@@ -394,30 +397,30 @@ class CRUDOperationsMixin:
             validate_id(node_id, field_name="node_id")
 
             if archive:
-                await self._archive_node(node_id)
+                await self._archive_node(node_id)  # type: ignore[attr-defined]
                 span.add_event("node_archived")
 
-            result = await self._delete_node(node_id)
+            result = await self._delete_node(node_id)  # type: ignore[attr-defined]
             span.add_event("node_deleted", {"success": result})
 
             # Invalidate cache
-            if self._cache:
-                await self._cache.invalidate_node(node_id)
+            if self._cache:  # type: ignore[attr-defined]
+                await self._cache.invalidate_node(node_id)  # type: ignore[attr-defined]
                 span.add_event("cache_invalidated")
 
             # Emit MOUND_UPDATED event for structural change
-            if result and self.event_emitter:
+            if result and self.event_emitter:  # type: ignore[attr-defined]
                 try:
                     from aragora.events.types import StreamEvent, StreamEventType
 
-                    self.event_emitter.emit(
+                    self.event_emitter.emit(  # type: ignore[attr-defined]
                         StreamEvent(
                             type=StreamEventType.MOUND_UPDATED,
                             data={
                                 "node_id": node_id,
                                 "update_type": "node_deleted",
                                 "archived": archive,
-                                "workspace_id": self.workspace_id,
+                                "workspace_id": self.workspace_id,  # type: ignore[attr-defined]
                             },
                         )
                     )
@@ -428,7 +431,7 @@ class CRUDOperationsMixin:
             return result
 
     async def add(
-        self: CRUDProtocol,
+        self,
         content: str,
         metadata: Optional[dict[str, Any]] = None,
         workspace_id: str | None = None,
@@ -457,7 +460,7 @@ class CRUDOperationsMixin:
 
         request = IngestionRequest(
             content=content,
-            workspace_id=workspace_id or self.workspace_id,
+            workspace_id=workspace_id or self.workspace_id,  # type: ignore[attr-defined]
             node_type=node_type,
             confidence=confidence,
             tier=tier,
@@ -494,7 +497,7 @@ class CRUDOperationsMixin:
                 "provenance": node.provenance.to_dict() if node.provenance else None,
                 "node_type": node.node_type,
             },
-            workspace_id=node.workspace_id or self.workspace_id,
+            workspace_id=node.workspace_id or self.workspace_id,  # type: ignore[attr-defined]
             node_type=node.node_type if isinstance(node.node_type, str) else node.node_type,
             confidence=node.confidence,
             tier=tier_str,
@@ -545,7 +548,7 @@ class CRUDOperationsMixin:
         return NodeProxy(item)
 
     async def add_relationship(
-        self: CRUDProtocol,
+        self,
         from_id: str,
         to_id: str,
         relationship_type: str,
@@ -563,9 +566,9 @@ class CRUDOperationsMixin:
         Returns:
             True if relationship was created successfully
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
         try:
-            await self._save_relationship(from_id, to_id, relationship_type)
+            await self._save_relationship(from_id, to_id, relationship_type)  # type: ignore[attr-defined]
             logger.debug(f"Created relationship: {from_id} --{relationship_type}--> {to_id}")
             return True
         except Exception as e:
@@ -573,7 +576,7 @@ class CRUDOperationsMixin:
             return False
 
     async def get_relationships(
-        self: CRUDProtocol,
+        self,
         node_id: str,
         relationship_type: str | None = None,
         direction: str = "outgoing",
@@ -589,7 +592,7 @@ class CRUDOperationsMixin:
         Returns:
             List of relationship dicts with from_id, to_id, relationship_type
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         # Query relationships from graph store if available
         if hasattr(self, "_graph_store") and self._graph_store:
@@ -615,7 +618,7 @@ class CRUDOperationsMixin:
         return []
 
     async def query_nodes(
-        self: CRUDProtocol,
+        self,
         node_type: str | None = None,
         workspace_id: str | None = None,
         limit: int = 100,
@@ -633,7 +636,7 @@ class CRUDOperationsMixin:
         Returns:
             List of knowledge items matching the criteria
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         # Call the query method (from QueryOperationsMixin) with simple filter
         if hasattr(self, "query"):
@@ -656,7 +659,7 @@ class CRUDOperationsMixin:
         return []
 
     async def get_access_grants(
-        self: CRUDProtocol,
+        self,
         node_id: str,
     ) -> list[dict[str, Any]]:
         """
@@ -668,7 +671,7 @@ class CRUDOperationsMixin:
         Returns:
             List of access grant dicts with user_id, workspace_id, permission level
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         # Query from sharing mixin if available
         if hasattr(self, "_get_access_grants_impl"):
@@ -678,7 +681,7 @@ class CRUDOperationsMixin:
         return []
 
     async def update_confidence(
-        self: CRUDProtocol,
+        self,
         node_id: str,
         new_confidence: float,
     ) -> bool:
@@ -695,7 +698,7 @@ class CRUDOperationsMixin:
         Returns:
             True if update was successful, False if node not found
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         # Validate inputs
         validate_id(node_id, field_name="node_id")
@@ -703,11 +706,11 @@ class CRUDOperationsMixin:
 
         # Update the node
         try:
-            await self._update_node(node_id, {"confidence": new_confidence})
+            await self._update_node(node_id, {"confidence": new_confidence})  # type: ignore[attr-defined]
 
             # Invalidate cache
-            if self._cache:
-                await self._cache.invalidate_node(node_id)
+            if self._cache:  # type: ignore[attr-defined]
+                await self._cache.invalidate_node(node_id)  # type: ignore[attr-defined]
 
             logger.debug(f"Updated confidence for {node_id} to {new_confidence:.3f}")
             return True

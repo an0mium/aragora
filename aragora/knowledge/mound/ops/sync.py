@@ -12,6 +12,11 @@ Provides cross-system synchronization:
 Performance optimizations:
 - Batched store operations to avoid N+1 query pattern
 - Concurrent processing with configurable batch sizes
+
+NOTE: This is a mixin class designed to be composed with KnowledgeMound.
+Attribute accesses like self._ensure_initialized, self.workspace_id, self.store, etc.
+are provided by the composed class. The ``# type: ignore[attr-defined]``
+comments suppress mypy warnings that are expected for this mixin pattern.
 """
 
 from __future__ import annotations
@@ -92,7 +97,7 @@ class SyncOperationsMixin:
     """Mixin providing sync operations for KnowledgeMound."""
 
     async def _batch_store(
-        self: SyncProtocol,
+        self,
         requests: list["IngestionRequest"],
         batch_size: int = 50,
     ) -> tuple[int, int, int, int, list[str]]:
@@ -126,7 +131,7 @@ class SyncOperationsMixin:
             ) -> tuple[bool, bool, int, str | None]:
                 """Store a single request and return status."""
                 try:
-                    result = await self.store(req)
+                    result = await self.store(req)  # type: ignore[attr-defined]
                     return (
                         not result.deduplicated,  # is_new
                         result.deduplicated,  # is_update
@@ -166,7 +171,7 @@ class SyncOperationsMixin:
         return nodes_synced, nodes_updated, nodes_skipped, relationships_created, errors
 
     async def sync_from_continuum(
-        self: SyncProtocol,
+        self,
         continuum: "ContinuumMemory",
         incremental: bool = True,
         batch_size: int = 100,
@@ -191,7 +196,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         self._continuum = continuum
@@ -217,7 +222,7 @@ class SyncOperationsMixin:
                     # Create ingestion request from continuum entry
                     request = IngestionRequest(
                         content=entry.content,
-                        workspace_id=self.workspace_id,
+                        workspace_id=self.workspace_id,  # type: ignore[attr-defined]
                         source_type=KnowledgeSource.CONTINUUM,
                         node_type="memory",
                         confidence=entry.importance,
@@ -263,7 +268,7 @@ class SyncOperationsMixin:
         )
 
     async def sync_from_consensus(
-        self: SyncProtocol,
+        self,
         consensus: "ConsensusMemory",
         incremental: bool = True,
         batch_size: int = 100,
@@ -287,7 +292,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         self._consensus = consensus
@@ -338,7 +343,7 @@ class SyncOperationsMixin:
                         # Create ingestion request
                         request = IngestionRequest(
                             content=f"{topic}: {conclusion}",
-                            workspace_id=self.workspace_id,
+                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
                             source_type=KnowledgeSource.CONSENSUS,
                             debate_id=record_id,
                             node_type="consensus",
@@ -392,7 +397,7 @@ class SyncOperationsMixin:
         )
 
     async def sync_from_facts(
-        self: SyncProtocol,
+        self,
         facts: "FactStore",
         incremental: bool = True,
         batch_size: int = 100,
@@ -416,7 +421,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         self._facts = facts
@@ -432,7 +437,7 @@ class SyncOperationsMixin:
                 from aragora.knowledge.types import FactFilters
 
                 filters = FactFilters(
-                    workspace_id=self.workspace_id,
+                    workspace_id=self.workspace_id,  # type: ignore[attr-defined]
                     limit=10000,
                 )
                 all_facts = facts.query_facts(query="", filters=filters)
@@ -443,7 +448,7 @@ class SyncOperationsMixin:
                     try:
                         request = IngestionRequest(
                             content=fact.statement,
-                            workspace_id=self.workspace_id,
+                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
                             source_type=KnowledgeSource.FACT,
                             document_id=fact.source_documents[0] if fact.source_documents else None,
                             node_type="fact",
@@ -494,7 +499,7 @@ class SyncOperationsMixin:
         )
 
     async def sync_from_evidence(
-        self: SyncProtocol,
+        self,
         evidence: "EvidenceStore",
         incremental: bool = True,
         batch_size: int = 100,
@@ -518,7 +523,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         self._evidence = evidence
@@ -540,7 +545,7 @@ class SyncOperationsMixin:
                     try:
                         request = IngestionRequest(
                             content=ev.content,
-                            workspace_id=self.workspace_id,
+                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
                             source_type=KnowledgeSource.EVIDENCE,
                             debate_id=getattr(ev, "debate_id", None),
                             agent_id=getattr(ev, "agent_id", None),
@@ -585,7 +590,7 @@ class SyncOperationsMixin:
         )
 
     async def sync_from_critique(
-        self: SyncProtocol,
+        self,
         critique: "CritiqueStore",
         incremental: bool = True,
         batch_size: int = 100,
@@ -609,7 +614,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         self._critique = critique
@@ -636,7 +641,7 @@ class SyncOperationsMixin:
 
                         request = IngestionRequest(
                             content=content,
-                            workspace_id=self.workspace_id,
+                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
                             source_type=KnowledgeSource.CRITIQUE,
                             agent_id=getattr(pattern, "agent_name", None),
                             node_type="critique",
@@ -689,7 +694,7 @@ class SyncOperationsMixin:
         Only syncs from sources that have been connected.
         """
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
         results: dict[str, SyncResult] = {}
 
         continuum = self._continuum
@@ -727,7 +732,7 @@ class SyncOperationsMixin:
     # =========================================================================
 
     async def sync_continuum_incremental(
-        self: SyncProtocol,
+        self,
         workspace_id: str | None = None,
         since: str | None = None,
         limit: int = 1000,
@@ -755,7 +760,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         if not self._continuum:
             return SyncResult(
@@ -769,7 +774,7 @@ class SyncOperationsMixin:
             )
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
@@ -851,7 +856,7 @@ class SyncOperationsMixin:
         )
 
     async def sync_consensus_incremental(
-        self: SyncProtocol,
+        self,
         workspace_id: str | None = None,
         since: str | None = None,
         limit: int = 1000,
@@ -878,7 +883,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         if not self._consensus:
             return SyncResult(
@@ -892,7 +897,7 @@ class SyncOperationsMixin:
             )
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
@@ -991,7 +996,7 @@ class SyncOperationsMixin:
         )
 
     async def sync_facts_incremental(
-        self: SyncProtocol,
+        self,
         workspace_id: str | None = None,
         since: str | None = None,
         limit: int = 1000,
@@ -1018,7 +1023,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         if not self._facts:
             return SyncResult(
@@ -1032,7 +1037,7 @@ class SyncOperationsMixin:
             )
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
@@ -1114,7 +1119,7 @@ class SyncOperationsMixin:
         )
 
     async def connect_memory_stores(
-        self: SyncProtocol,
+        self,
         continuum: Optional["ContinuumMemory"] = None,
         consensus: Optional["ConsensusMemory"] = None,
         facts: Optional["FactStore"] = None,

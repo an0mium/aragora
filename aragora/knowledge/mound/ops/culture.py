@@ -6,6 +6,11 @@ Provides culture management operations:
 - observe_debate: Extract patterns from debates
 - recommend_agents: Agent recommendations based on culture
 - Organization culture management
+
+NOTE: This is a mixin class designed to be composed with KnowledgeMound.
+Attribute accesses like self._ensure_initialized, self._culture_accumulator, self._cache, etc.
+are provided by the composed class. The ``# type: ignore[attr-defined]``
+comments suppress mypy warnings that are expected for this mixin pattern.
 """
 
 from __future__ import annotations
@@ -44,23 +49,23 @@ class CultureOperationsMixin:
     """Mixin providing culture management for KnowledgeMound."""
 
     async def get_culture_profile(
-        self: CultureProtocol,
+        self,
         workspace_id: str | None = None,
     ) -> "CultureProfile":
         """Get aggregated culture profile for a workspace."""
         from aragora.knowledge.mound.types import CultureProfile
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Check cache
-        if self._cache:
-            cached = await self._cache.get_culture(ws_id)
+        if self._cache:  # type: ignore[attr-defined]
+            cached = await self._cache.get_culture(ws_id)  # type: ignore[attr-defined]
             if cached:
                 return cached
 
-        if not self._culture_accumulator:
+        if not self._culture_accumulator:  # type: ignore[attr-defined]
             return CultureProfile(
                 workspace_id=ws_id,
                 patterns={},
@@ -68,39 +73,39 @@ class CultureOperationsMixin:
                 total_observations=0,
             )
 
-        profile = await self._culture_accumulator.get_profile(ws_id)
+        profile = await self._culture_accumulator.get_profile(ws_id)  # type: ignore[attr-defined]
 
         # Cache result
-        if self._cache:
-            await self._cache.set_culture(ws_id, profile)
+        if self._cache:  # type: ignore[attr-defined]
+            await self._cache.set_culture(ws_id, profile)  # type: ignore[attr-defined]
 
         return profile
 
     async def observe_debate(
-        self: CultureProtocol,
+        self,
         debate_result: Any,
     ) -> list["CulturePattern"]:
         """Extract and store cultural patterns from a completed debate."""
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
-        if not self._culture_accumulator:
+        if not self._culture_accumulator:  # type: ignore[attr-defined]
             return []
 
-        return await self._culture_accumulator.observe_debate(debate_result, self.workspace_id)
+        return await self._culture_accumulator.observe_debate(debate_result, self.workspace_id)  # type: ignore[attr-defined]
 
     async def recommend_agents(
-        self: CultureProtocol,
+        self,
         task_type: str,
         workspace_id: str | None = None,
     ) -> list[str]:
         """Recommend agents based on cultural patterns."""
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
-        if not self._culture_accumulator:
+        if not self._culture_accumulator:  # type: ignore[attr-defined]
             return []
 
-        ws_id = workspace_id or self.workspace_id
-        return await self._culture_accumulator.recommend_agents(task_type, ws_id)
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        return await self._culture_accumulator.recommend_agents(task_type, ws_id)  # type: ignore[attr-defined]
 
     # =========================================================================
     # Organization-Level Culture
@@ -113,20 +118,20 @@ class CultureOperationsMixin:
         Returns:
             OrganizationCultureManager instance
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         if not hasattr(self, "_org_culture_manager") or self._org_culture_manager is None:
             from aragora.knowledge.mound.culture import OrganizationCultureManager
 
             self._org_culture_manager = OrganizationCultureManager(
                 mound=self,
-                culture_accumulator=self._culture_accumulator,
+                culture_accumulator=self._culture_accumulator,  # type: ignore[attr-defined]
             )
 
         return self._org_culture_manager
 
     async def get_org_culture(
-        self: CultureProtocol,
+        self,
         org_id: str,
         workspace_ids: Optional[list[str]] = None,
     ) -> "OrganizationCulture":
@@ -146,7 +151,7 @@ class CultureOperationsMixin:
         return await manager.get_organization_culture(org_id, workspace_ids)
 
     async def add_culture_document(
-        self: CultureProtocol,
+        self,
         org_id: str,
         category: str,
         title: str,
@@ -178,7 +183,7 @@ class CultureOperationsMixin:
         )
 
     async def promote_to_culture(
-        self: CultureProtocol,
+        self,
         workspace_id: str,
         pattern_id: str,
         promoted_by: str,
@@ -205,7 +210,7 @@ class CultureOperationsMixin:
         )
 
     async def get_culture_context(
-        self: CultureProtocol,
+        self,
         org_id: str,
         task: str,
         max_documents: int = 3,
@@ -227,7 +232,7 @@ class CultureOperationsMixin:
         return await manager.get_relevant_context(org_id, task, max_documents)
 
     def register_workspace_org(
-        self: CultureProtocol,
+        self,
         workspace_id: str,
         org_id: str,
     ) -> None:

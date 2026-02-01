@@ -8,6 +8,11 @@ Provides query and search operations:
 - query_graph: Graph traversal
 - export_graph_d3: D3.js visualization export
 - export_graph_graphml: GraphML export
+
+NOTE: This is a mixin class designed to be composed with KnowledgeMound.
+Attribute accesses like self._ensure_initialized, self.workspace_id, self._cache, etc.
+are provided by the composed class. The ``# type: ignore[attr-defined]``
+comments suppress mypy warnings that are expected for this mixin pattern.
 """
 
 from __future__ import annotations
@@ -154,7 +159,7 @@ class QueryOperationsMixin:
     """Mixin providing query operations for KnowledgeMound."""
 
     async def query(
-        self: QueryProtocol,
+        self,
         query: str,
         sources: Sequence["SourceFilter"] = ("all",),
         filters: Optional["QueryFilters"] = None,
@@ -178,7 +183,7 @@ class QueryOperationsMixin:
         """
         from aragora.knowledge.mound.types import KnowledgeSource, QueryResult
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         with trace_context("km.query") as span:
             span.set_tag("query", query[:100])  # Truncate for tag size limits
@@ -188,19 +193,19 @@ class QueryOperationsMixin:
 
             # Validate inputs
             validate_query(query)
-            ws_id = workspace_id or self.workspace_id
+            ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
             if ws_id:
                 validate_workspace_id(ws_id)
                 span.set_tag("workspace_id", ws_id)
             limit, offset = validate_pagination(limit, offset)
 
             start_time = time.time()
-            limit = min(limit, self.config.max_query_limit)
+            limit = min(limit, self.config.max_query_limit)  # type: ignore[attr-defined]
 
             # Check cache first (include offset in cache key)
             cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}"
-            if self._cache:
-                cached = await self._cache.get_query(cache_key)
+            if self._cache:  # type: ignore[attr-defined]
+                cached = await self._cache.get_query(cache_key)  # type: ignore[attr-defined]
                 if cached:
                     span.set_tag("cache_hit", True)
                     span.add_event("cache_hit")
@@ -210,22 +215,22 @@ class QueryOperationsMixin:
             span.add_event("cache_miss")
 
             # Query local mound
-            items = await self._query_local(query, filters, limit, ws_id)
+            items = await self._query_local(query, filters, limit, ws_id)  # type: ignore[attr-defined]
             span.add_event("local_query_complete", {"count": len(items)})
 
             # Query connected memory systems in parallel
-            if self.config.parallel_queries:
+            if self.config.parallel_queries:  # type: ignore[attr-defined]
                 tasks = []
                 if "all" in sources or "continuum" in sources:
-                    tasks.append(self._query_continuum(query, filters, limit))
+                    tasks.append(self._query_continuum(query, filters, limit))  # type: ignore[attr-defined]
                 if "all" in sources or "consensus" in sources:
-                    tasks.append(self._query_consensus(query, filters, limit))
+                    tasks.append(self._query_consensus(query, filters, limit))  # type: ignore[attr-defined]
                 if "all" in sources or "fact" in sources:
-                    tasks.append(self._query_facts(query, filters, limit, ws_id))
+                    tasks.append(self._query_facts(query, filters, limit, ws_id))  # type: ignore[attr-defined]
                 if "all" in sources or "evidence" in sources:
-                    tasks.append(self._query_evidence(query, filters, limit, ws_id))
+                    tasks.append(self._query_evidence(query, filters, limit, ws_id))  # type: ignore[attr-defined]
                 if "all" in sources or "critique" in sources:
-                    tasks.append(self._query_critique(query, filters, limit))
+                    tasks.append(self._query_critique(query, filters, limit))  # type: ignore[attr-defined]
 
                 if tasks:
                     span.add_event("parallel_queries_start", {"count": len(tasks)})
@@ -265,14 +270,14 @@ class QueryOperationsMixin:
             )
 
             # Cache result
-            if self._cache:
-                await self._cache.set_query(cache_key, result)
+            if self._cache:  # type: ignore[attr-defined]
+                await self._cache.set_query(cache_key, result)  # type: ignore[attr-defined]
                 span.add_event("result_cached")
 
             return result
 
     async def get_recent_nodes(
-        self: QueryProtocol,
+        self,
         workspace_id: str | None = None,
         limit: int = 50,
     ) -> list["KnowledgeItem"]:
@@ -286,16 +291,16 @@ class QueryOperationsMixin:
         Returns:
             List of KnowledgeItems sorted by update time (newest first)
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Query the meta store for recent nodes
-        if hasattr(self._meta_store, "get_recent_nodes_async"):
-            return await self._meta_store.get_recent_nodes_async(ws_id, limit)
+        if hasattr(self._meta_store, "get_recent_nodes_async"):  # type: ignore[attr-defined]
+            return await self._meta_store.get_recent_nodes_async(ws_id, limit)  # type: ignore[attr-defined]
         else:
             # SQLite fallback - query nodes ordered by updated_at
-            nodes = self._meta_store.query_nodes(
+            nodes = self._meta_store.query_nodes(  # type: ignore[attr-defined]
                 workspace_id=ws_id,
                 limit=limit,
             )
@@ -307,36 +312,36 @@ class QueryOperationsMixin:
                 or "",
                 reverse=True,
             )
-            return [self._node_to_item(n) for n in sorted_nodes[:limit]]
+            return [self._node_to_item(n) for n in sorted_nodes[:limit]]  # type: ignore[attr-defined]
 
     async def query_semantic(
-        self: QueryProtocol,
+        self,
         text: str,
         limit: int = 10,
         min_confidence: float = 0.0,
         workspace_id: str | None = None,
     ) -> list["KnowledgeItem"]:
         """Semantic similarity search using vector embeddings."""
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Try Weaviate first (production vector store)
-        if self._vector_store:
+        if self._vector_store:  # type: ignore[attr-defined]
             try:
-                results = await self._vector_store.search(
+                results = await self._vector_store.search(  # type: ignore[attr-defined]
                     query=text,
                     limit=limit,
                     filters={"workspace_id": ws_id},
                 )
-                return [self._vector_result_to_item(r) for r in results]
+                return [self._vector_result_to_item(r) for r in results]  # type: ignore[attr-defined]
             except Exception as e:
                 logger.warning(f"Weaviate search failed: {e}, falling back")
 
         # Try local semantic store (embeddings in SQLite)
-        if self._semantic_store:
+        if self._semantic_store:  # type: ignore[attr-defined]
             try:
-                results = await self._semantic_store.search_similar(
+                results = await self._semantic_store.search_similar(  # type: ignore[attr-defined]
                     query=text,
                     tenant_id=ws_id,
                     limit=limit,
@@ -345,7 +350,7 @@ class QueryOperationsMixin:
                 # Convert semantic results to KnowledgeItems
                 items = []
                 for sr in results:
-                    node = await self.get(sr.source_id)
+                    node = await self.get(sr.source_id)  # type: ignore[attr-defined]
                     if node:
                         items.append(node)
                 return items
@@ -357,7 +362,7 @@ class QueryOperationsMixin:
         return result.items
 
     async def query_graph(
-        self: QueryProtocol,
+        self,
         start_id: str,
         relationship_types: Optional[list["RelationshipType"]] = None,
         depth: int = 2,
@@ -382,7 +387,7 @@ class QueryOperationsMixin:
         """
         from aragora.knowledge.mound.types import GraphQueryResult
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         # Validate inputs
         validate_id(start_id, field_name="start_id")
@@ -413,7 +418,7 @@ class QueryOperationsMixin:
 
             # Fetch all nodes in parallel
             node_results = await asyncio.gather(
-                *[self.get(node_id) for node_id in to_visit],
+                *[self.get(node_id) for node_id in to_visit],  # type: ignore[attr-defined]
                 return_exceptions=True,
             )
 
@@ -431,7 +436,7 @@ class QueryOperationsMixin:
             next_level: list[str] = []
             if current_depth < depth and valid_node_ids:
                 # Batch fetch relationships for all nodes at this level
-                rels_by_node = await self._get_relationships_batch(
+                rels_by_node = await self._get_relationships_batch(  # type: ignore[attr-defined]
                     valid_node_ids, relationship_types
                 )
 
@@ -455,7 +460,7 @@ class QueryOperationsMixin:
         )
 
     async def export_graph_d3(
-        self: QueryProtocol,
+        self,
         start_node_id: str | None = None,
         depth: int = 3,
         limit: int = 100,
@@ -471,7 +476,7 @@ class QueryOperationsMixin:
         Returns:
             Dict with 'nodes' and 'links' arrays for D3 force-directed graph
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         nodes: list[dict[str, Any]] = []
         links: list[dict[str, Any]] = []
@@ -525,7 +530,7 @@ class QueryOperationsMixin:
                 )
         else:
             # Get all nodes up to limit using local query
-            all_items = await self._query_local("", None, limit, self.workspace_id)
+            all_items = await self._query_local("", None, limit, self.workspace_id)  # type: ignore[attr-defined]
             for item in all_items[:limit]:
                 node_ids.add(item.id)
                 source = getattr(item, "source", None) or getattr(item, "source_type", None)
@@ -550,7 +555,7 @@ class QueryOperationsMixin:
 
             # Get relationships between collected nodes using batch fetching
             batch_node_ids = list(node_ids)[:50]
-            rels_by_node = await self._get_relationships_batch(batch_node_ids)
+            rels_by_node = await self._get_relationships_batch(batch_node_ids)  # type: ignore[attr-defined]
 
             for node_id in batch_node_ids:
                 rels = rels_by_node.get(node_id, [])
@@ -581,7 +586,7 @@ class QueryOperationsMixin:
         return {"nodes": nodes, "links": links}
 
     async def export_graph_graphml(
-        self: QueryProtocol,
+        self,
         start_node_id: str | None = None,
         depth: int = 3,
         limit: int = 100,
@@ -645,7 +650,7 @@ class QueryOperationsMixin:
     # =========================================================================
 
     async def query_with_visibility(
-        self: QueryProtocol,
+        self,
         query: str,
         actor_id: str,
         actor_workspace_id: str,
@@ -679,11 +684,11 @@ class QueryOperationsMixin:
         """
         from aragora.knowledge.mound.types import QueryResult
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
         ws_id = workspace_id or actor_workspace_id
-        limit = min(limit, self.config.max_query_limit)
+        limit = min(limit, self.config.max_query_limit)  # type: ignore[attr-defined]
 
         # First, get regular query results
         result = await self.query(
@@ -710,7 +715,7 @@ class QueryOperationsMixin:
         )
 
     async def _filter_by_visibility(
-        self: QueryProtocol,
+        self,
         items: list["KnowledgeItem"],
         actor_id: str,
         actor_workspace_id: str,
@@ -764,7 +769,7 @@ class QueryOperationsMixin:
         return result
 
     def _has_access_grant(
-        self: QueryProtocol,
+        self,
         grants: list[dict],
         actor_id: str,
         actor_workspace_id: str,
@@ -807,7 +812,7 @@ class QueryOperationsMixin:
         return False
 
     async def get_shared_items(
-        self: QueryProtocol,
+        self,
         actor_id: str,
         actor_workspace_id: str,
         limit: int = 50,
@@ -826,12 +831,12 @@ class QueryOperationsMixin:
         Returns:
             List of shared items
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         # If the postgres store has the method, use it
-        if hasattr(self._meta_store, "get_grants_for_grantee_async"):
-            grants = await self._meta_store.get_grants_for_grantee_async(actor_id)
-            workspace_grants = await self._meta_store.get_grants_for_grantee_async(
+        if hasattr(self._meta_store, "get_grants_for_grantee_async"):  # type: ignore[attr-defined]
+            grants = await self._meta_store.get_grants_for_grantee_async(actor_id)  # type: ignore[attr-defined]
+            workspace_grants = await self._meta_store.get_grants_for_grantee_async(  # type: ignore[attr-defined]
                 actor_workspace_id, grantee_type="workspace"
             )
 
@@ -843,7 +848,7 @@ class QueryOperationsMixin:
             # Fetch items
             items = []
             for item_id in list(all_item_ids)[:limit]:
-                item = await self.get(item_id)
+                item = await self.get(item_id)  # type: ignore[attr-defined]
                 if item:
                     items.append(item)
 

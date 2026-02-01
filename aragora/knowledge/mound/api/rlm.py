@@ -12,6 +12,11 @@ approach where the model writes code to examine context. This is preferred
 over compression-based methods.
 
 Install TRUE RLM: pip install aragora[rlm]
+
+NOTE: This is a mixin class designed to be composed with KnowledgeMound.
+Attribute accesses like self._ensure_initialized, self.workspace_id, self.query_semantic, etc.
+are provided by the composed class. The ``# type: ignore[attr-defined]``
+comments suppress mypy warnings that are expected for this mixin pattern.
 """
 
 from __future__ import annotations
@@ -66,7 +71,7 @@ class RLMOperationsMixin:
     """Mixin providing RLM operations for KnowledgeMound."""
 
     async def query_with_rlm(
-        self: RLMProtocol,
+        self,
         query: str,
         limit: int = 50,
         workspace_id: str | None = None,
@@ -102,12 +107,12 @@ class RLMOperationsMixin:
             logger.warning("RLM not available, use query_semantic instead")
             return None
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Fetch relevant knowledge items
-        items = await self.query_semantic(
+        items = await self.query_semantic(  # type: ignore[attr-defined]
             text=query,
             limit=limit,
             workspace_id=ws_id,
@@ -190,7 +195,7 @@ class RLMOperationsMixin:
         return HAS_RLM and HAS_OFFICIAL_RLM
 
     async def query_with_true_rlm(
-        self: RLMProtocol,
+        self,
         query: str,
         limit: int = 50,
         workspace_id: str | None = None,
@@ -225,8 +230,8 @@ class RLMOperationsMixin:
             )
             return None
 
-        self._ensure_initialized()
-        ws_id = workspace_id or self.workspace_id
+        self._ensure_initialized()  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Check if TRUE RLM is available
         if prefer_true_rlm and not HAS_OFFICIAL_RLM:
@@ -237,7 +242,7 @@ class RLMOperationsMixin:
             )
 
         # Fetch relevant knowledge items
-        items = await self.query_semantic(
+        items = await self.query_semantic(  # type: ignore[attr-defined]
             text=query,
             limit=limit,
             workspace_id=ws_id,
@@ -337,7 +342,7 @@ class RLMOperationsMixin:
             return None
 
     async def create_knowledge_repl(
-        self: RLMProtocol,
+        self,
         workspace_id: str | None = None,
         content_id: str | None = None,
     ) -> Any | None:
@@ -364,8 +369,8 @@ class RLMOperationsMixin:
             )
             return None
 
-        self._ensure_initialized()
-        ws_id = workspace_id or self.workspace_id
+        self._ensure_initialized()  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         try:
             from aragora.rlm import get_repl_adapter
