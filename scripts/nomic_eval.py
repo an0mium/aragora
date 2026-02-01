@@ -124,6 +124,10 @@ def _build_env(base_env: dict, overrides: dict) -> dict:
     return env
 
 
+def _missing_env(env: dict, keys: list[str]) -> bool:
+    return all(not env.get(key) for key in keys)
+
+
 def _run_variant(
     repo: Path,
     task: EvalTask,
@@ -133,6 +137,9 @@ def _run_variant(
     cleanup: bool,
     single_agent: str,
     nomic_timeout: int | None,
+    context_timeout: int | None,
+    skip_gemini: bool,
+    skip_grok: bool,
 ) -> dict:
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     task_dir = output_dir / task.task_id
@@ -145,6 +152,21 @@ def _run_variant(
     proposal_path = variant_dir / "proposal.txt"
     proposal_path.write_text(build_task_prompt(task))
 
+    # Default skip behavior when provider keys are unavailable
+    env_snapshot = os.environ.copy()
+    if (
+        not skip_gemini
+        and _missing_env(env_snapshot, ["GEMINI_API_KEY"])
+        and _missing_env(env_snapshot, ["OPENROUTER_API_KEY"])
+    ):
+        skip_gemini = True
+    if (
+        not skip_grok
+        and _missing_env(env_snapshot, ["XAI_API_KEY"])
+        and _missing_env(env_snapshot, ["OPENROUTER_API_KEY"])
+    ):
+        skip_grok = True
+
     env_overrides = {
         "NOMIC_AUTO_COMMIT": "0",
         "NOMIC_AUTO_PUSH": "0",
@@ -152,6 +174,9 @@ def _run_variant(
         "NOMIC_SINGLE_AGENT": "1" if variant == "single" else "0",
         "NOMIC_SINGLE_AGENT_NAME": single_agent if variant == "single" else "",
         "ARAGORA_HYBRID_IMPLEMENT": "0" if variant == "single" else "1",
+        "NOMIC_CONTEXT_TIMEOUT": str(context_timeout) if context_timeout else None,
+        "NOMIC_CONTEXT_SKIP_GEMINI": "1" if skip_gemini else "0",
+        "NOMIC_CONTEXT_SKIP_GROK": "1" if skip_grok else "0",
     }
     env = _build_env(os.environ, env_overrides)
 
@@ -246,6 +271,14 @@ def main() -> int:
     )
     parser.add_argument("--task-id", type=str, help="Run only a single task by id")
     parser.add_argument("--timeout", type=int, help="Timeout for each run (seconds)")
+    parser.add_argument(
+        "--context-timeout",
+        type=int,
+        default=600,
+        help="Timeout for Nomic context phase (seconds)",
+    )
+    parser.add_argument("--skip-gemini", action="store_true", help="Skip Gemini in context")
+    parser.add_argument("--skip-grok", action="store_true", help="Skip Grok in context")
     args = parser.parse_args()
 
     repo = Path(__file__).parent.parent
@@ -286,6 +319,9 @@ def main() -> int:
                 cleanup=args.cleanup,
                 single_agent=args.single_agent,
                 nomic_timeout=args.timeout,
+                context_timeout=args.context_timeout,
+                skip_gemini=args.skip_gemini,
+                skip_grok=args.skip_grok,
             )
         if args.mode in ("multi", "shadow"):
             task_entry["multi"] = _run_variant(
@@ -297,6 +333,9 @@ def main() -> int:
                 cleanup=args.cleanup,
                 single_agent=args.single_agent,
                 nomic_timeout=args.timeout,
+                context_timeout=args.context_timeout,
+                skip_gemini=args.skip_gemini,
+                skip_grok=args.skip_grok,
             )
         task_entry["comparison"] = _compare_results(task_entry["single"], task_entry["multi"])
         report["tasks"].append(task_entry)
