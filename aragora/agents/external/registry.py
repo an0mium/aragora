@@ -231,7 +231,7 @@ def register_all_adapters() -> None:
 
     # AutoGPT adapter (future)
     try:
-        from aragora.agents.external.adapters import autogpt  # noqa: F401
+        from aragora.agents.external.adapters import autogpt  # type: ignore[attr-defined]  # noqa: F401
 
         logger.debug("Loaded AutoGPT adapter")
     except ImportError as e:
@@ -239,7 +239,7 @@ def register_all_adapters() -> None:
 
     # CrewAI adapter (future)
     try:
-        from aragora.agents.external.adapters import crewai  # noqa: F401
+        from aragora.agents.external.adapters import crewai  # type: ignore[attr-defined]  # noqa: F401
 
         logger.debug("Loaded CrewAI adapter")
     except ImportError as e:
