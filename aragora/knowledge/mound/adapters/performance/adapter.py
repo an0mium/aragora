@@ -35,9 +35,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
-from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 from aragora.knowledge.mound.adapters.performance.elo_storage import EloStorageMixin
 from aragora.knowledge.mound.adapters.performance.expertise import ExpertiseMixin
@@ -67,7 +67,7 @@ class PerformanceAdapter(
     SearchMixin,
     FusionMixin,
     SemanticSearchMixin,
-    ResilientAdapterMixin,
+    KnowledgeMoundAdapter,
 ):
     """
     Unified adapter for agent performance metrics (ELO + domain expertise).
@@ -160,9 +160,14 @@ class PerformanceAdapter(
             cache_ttl_seconds: TTL for cached queries (default: 60 seconds)
             enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._elo_system = elo_system
-        self._enable_dual_write = enable_dual_write
-        self._event_callback = event_callback
         self._cache_ttl_seconds = cache_ttl_seconds
 
         # ELO storage (from EloAdapter)
@@ -189,25 +194,7 @@ class PerformanceAdapter(
         self._cache_hits = 0
         self._cache_misses = 0
 
-        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
-        if enable_resilience:
-            self._init_resilience(adapter_name=self.adapter_name)
-
-    # =========================================================================
-    # Event System
-    # =========================================================================
-
-    def set_event_callback(self, callback: EventCallback) -> None:
-        """Set the event callback for WebSocket notifications."""
-        self._event_callback = callback
-
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event if callback is configured."""
-        if self._event_callback:
-            try:
-                self._event_callback(event_type, data)
-            except Exception as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+    # set_event_callback, _emit_event inherited from KnowledgeMoundAdapter
 
     # =========================================================================
     # ELO System Property
