@@ -1921,3 +1921,217 @@ export interface UnifiedCampaign {
   /** When the campaign was last updated */
   updated_at?: string;
 }
+
+export interface AnalyticsDebatesOverview {
+  time_range?: string;
+  total_debates?: number;
+  debates_this_period?: number;
+  debates_previous_period?: number;
+  growth_rate?: number;
+  consensus_reached?: number;
+  consensus_rate?: number;
+  avg_rounds?: number;
+  avg_agents_per_debate?: number;
+  avg_confidence?: number;
+  generated_at?: string;
+}
+
+export interface AnalyticsDebateTrendPoint {
+  period?: string;
+  total?: number;
+  consensus_reached?: number;
+  consensus_rate?: number;
+  avg_rounds?: number;
+}
+
+export interface AnalyticsDebatesTrends {
+  time_range?: string;
+  granularity?: string;
+  data_points?: AnalyticsDebateTrendPoint[];
+  generated_at?: string;
+}
+
+export interface AnalyticsDebateTopic {
+  topic?: string;
+  count?: number;
+  percentage?: number;
+  consensus_rate?: number;
+}
+
+export interface AnalyticsDebatesTopics {
+  time_range?: string;
+  topics?: AnalyticsDebateTopic[];
+  total_debates?: number;
+  generated_at?: string;
+}
+
+export interface AnalyticsOutcomeConfidenceBucket {
+  count?: number;
+  consensus_rate?: number;
+}
+
+export interface AnalyticsDebatesOutcomes {
+  time_range?: string;
+  outcomes?: {
+    consensus?: number;
+    majority?: number;
+    dissent?: number;
+    no_resolution?: number;
+  };
+  total_debates?: number;
+  by_confidence?: Record<string, any>;
+  generated_at?: string;
+}
+
+export interface AnalyticsLeaderboardEntry {
+  rank?: number;
+  agent_name?: string;
+  elo?: number;
+  wins?: number;
+  losses?: number;
+  draws?: number;
+  win_rate?: number;
+  games_played?: number;
+  calibration_score?: number;
+}
+
+export interface AnalyticsAgentsLeaderboard {
+  leaderboard?: AnalyticsLeaderboardEntry[];
+  total_agents?: number;
+  domain?: string;
+  generated_at?: string;
+}
+
+export interface AnalyticsDomainPerformanceEntry {
+  elo?: number;
+  wins?: number;
+  losses?: number;
+}
+
+export interface AnalyticsEloHistoryPoint {
+  timestamp?: string;
+  elo?: number;
+}
+
+export interface AnalyticsAgentPerformance {
+  agent_id?: string;
+  agent_name?: string;
+  time_range?: string;
+  elo?: number;
+  elo_change?: number;
+  rank?: number;
+  wins?: number;
+  losses?: number;
+  draws?: number;
+  win_rate?: number;
+  games_played?: number;
+  debates_count?: number;
+  consensus_contribution_rate?: number;
+  calibration_score?: number;
+  calibration_accuracy?: number;
+  domain_performance?: Record<string, any>;
+  recent_matches?: Record<string, any>[];
+  elo_history?: AnalyticsEloHistoryPoint[];
+  generated_at?: string;
+}
+
+export interface AnalyticsAgentComparisonEntry {
+  agent_name?: string;
+  elo?: number;
+  wins?: number;
+  losses?: number;
+  draws?: number;
+  win_rate?: number;
+  games_played?: number;
+  calibration_score?: number;
+  error?: string;
+}
+
+export interface AnalyticsAgentsComparison {
+  agents?: string[];
+  comparison?: AnalyticsAgentComparisonEntry[];
+  head_to_head?: Record<string, any>;
+  generated_at?: string;
+}
+
+export interface AnalyticsAgentTrendPoint {
+  period?: string;
+  elo?: number;
+  games?: number;
+}
+
+export interface AnalyticsAgentsTrends {
+  agents?: string[];
+  time_range?: string;
+  granularity?: string;
+  trends?: Record<string, any>;
+  generated_at?: string;
+}
+
+export interface AnalyticsTokenSummary {
+  total_tokens_in?: number;
+  total_tokens_out?: number;
+  total_tokens?: number;
+  avg_tokens_per_day?: number;
+}
+
+export interface AnalyticsUsageTokens {
+  org_id?: string;
+  time_range?: string;
+  granularity?: string;
+  summary?: AnalyticsTokenSummary;
+  trends?: {
+    period?: string;
+    tokens_in?: number;
+    tokens_out?: number;
+  }[];
+  by_agent?: Record<string, any>;
+  by_model?: Record<string, any>;
+  message?: string;
+  generated_at?: string;
+}
+
+export interface AnalyticsCostSummary {
+  total_cost_usd?: string;
+  avg_cost_per_day?: string;
+  avg_cost_per_debate?: string;
+  total_api_calls?: number;
+}
+
+export interface AnalyticsUsageCosts {
+  org_id?: string;
+  time_range?: string;
+  summary?: AnalyticsCostSummary;
+  by_provider?: Record<string, any>;
+  by_model?: Record<string, any>;
+  message?: string;
+  generated_at?: string;
+}
+
+export interface AnalyticsActiveUserCounts {
+  daily?: number;
+  weekly?: number;
+  monthly?: number;
+}
+
+export interface AnalyticsUserGrowth {
+  new_users?: number;
+  churned_users?: number;
+  net_growth?: number;
+}
+
+export interface AnalyticsActivityDistribution {
+  power_users?: number;
+  regular_users?: number;
+  occasional_users?: number;
+}
+
+export interface AnalyticsActiveUsers {
+  org_id?: string;
+  time_range?: string;
+  active_users?: AnalyticsActiveUserCounts;
+  user_growth?: AnalyticsUserGrowth;
+  activity_distribution?: AnalyticsActivityDistribution;
+  message?: string;
+  generated_at?: string;
+}
