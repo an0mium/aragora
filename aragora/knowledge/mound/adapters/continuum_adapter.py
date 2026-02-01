@@ -33,9 +33,9 @@ EventCallback = Callable[[str, dict[str, Any]], None]
 logger = logging.getLogger(__name__)
 
 # Import mixins for semantic search and fusion functionality
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
-from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 
 @dataclass
@@ -82,7 +82,7 @@ class ContinuumSearchResult:
             self.matched_keywords = []
 
 
-class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
+class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     """
     Adapter that bridges ContinuumMemory to the Knowledge Mound.
 
@@ -207,17 +207,16 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             event_callback: Optional callback for emitting events (event_type, data)
             enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._continuum = continuum
-        self._enable_dual_write = enable_dual_write
-        self._event_callback = event_callback
 
-        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
-        if enable_resilience:
-            self._init_resilience(adapter_name=self.adapter_name)
-
-    def set_event_callback(self, callback: EventCallback) -> None:
-        """Set the event callback for WebSocket notifications."""
-        self._event_callback = callback
+    # set_event_callback inherited from KnowledgeMoundAdapter
 
     # SemanticSearchMixin required methods
     def _get_record_by_id(self, record_id: str) -> Any | None:
@@ -254,73 +253,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             return source_id[3:]
         return source_id
 
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event if callback is configured."""
-        if self._event_callback:
-            try:
-                self._event_callback(event_type, data)
-            except Exception as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
-
-    def _record_metric(
-        self,
-        operation: str,
-        success: bool,
-        latency: float,
-        extra_labels: Optional[dict[str, str]] = None,
-    ) -> None:
-        """Record Prometheus metric for adapter operation and check SLOs.
-
-        Args:
-            operation: Operation name (search, store, sync, semantic_search)
-            success: Whether operation succeeded
-            latency: Operation latency in seconds
-            extra_labels: Additional labels for the metric.
-        """
-        latency_ms = latency * 1000  # Convert to milliseconds
-
-        try:
-            from aragora.observability.metrics.km import (
-                record_km_operation,
-                record_km_adapter_sync,
-            )
-
-            record_km_operation(operation, success, latency)
-            if operation in ("store", "sync"):
-                record_km_adapter_sync("continuum", "forward", success)
-        except ImportError:
-            pass  # Metrics not available
-        except Exception as e:
-            logger.debug(f"Failed to record metric: {e}")
-
-        # Check SLOs and alert on violations
-        try:
-            from aragora.observability.metrics.slo import check_and_record_slo_with_recovery
-
-            # Map operation to SLO name
-            slo_mapping = {
-                "search": "adapter_reverse",
-                "store": "adapter_forward_sync",
-                "sync": "adapter_sync",
-                "semantic_search": "adapter_semantic_search",
-            }
-            slo_name = slo_mapping.get(operation, "adapter_sync")
-
-            passed, message = check_and_record_slo_with_recovery(
-                operation=slo_name,
-                latency_ms=latency_ms,
-                context={
-                    "adapter": "continuum",
-                    "operation": operation,
-                    "success": success,
-                },
-            )
-            if not passed:
-                logger.debug(f"Continuum adapter SLO violation: {message}")
-        except ImportError:
-            pass  # SLO metrics not available
-        except Exception as e:
-            logger.debug(f"Failed to check SLO: {e}")
+    # _emit_event, _record_metric inherited from KnowledgeMoundAdapter
 
     @property
     def continuum(self) -> "ContinuumMemory":

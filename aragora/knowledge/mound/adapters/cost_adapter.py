@@ -38,10 +38,10 @@ EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
-from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 
 @dataclass
@@ -88,7 +88,7 @@ class CostAnomaly:
         }
 
 
-class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, ResilientAdapterMixin):
+class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeMoundAdapter):
     """
     Adapter that bridges CostTracker to the Knowledge Mound.
 
@@ -248,9 +248,14 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, ResilientA
             event_callback: Optional callback for emitting events (event_type, data)
             enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._cost_tracker = cost_tracker
-        self._enable_dual_write = enable_dual_write
-        self._event_callback = event_callback
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._alerts: dict[str, dict[str, Any]] = {}
@@ -262,21 +267,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, ResilientA
         self._workspace_anomalies: dict[str, list[str]] = {}  # workspace -> [anomaly_ids]
         self._agent_costs: dict[str, list[str]] = {}  # agent -> [snapshot_ids]
 
-        # Initialize resilience patterns (circuit breaker, bulkhead, retry)
-        if enable_resilience:
-            self._init_resilience(adapter_name=self.adapter_name)
-
-    def set_event_callback(self, callback: EventCallback) -> None:
-        """Set the event callback for WebSocket notifications."""
-        self._event_callback = callback
-
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event if callback is configured."""
-        if self._event_callback:
-            try:
-                self._event_callback(event_type, data)
-            except Exception as e:
-                logger.warning(f"Failed to emit event {event_type}: {e}")
+    # set_event_callback, _emit_event inherited from KnowledgeMoundAdapter
 
     # ReverseFlowMixin required methods
     def _get_record_for_validation(self, source_id: str) -> Any | None:
