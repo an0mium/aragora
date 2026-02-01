@@ -82,7 +82,16 @@ Same as `/.well-known/agent.json` but accessible under the versioned API path.
 Useful when the well-known path is not accessible.""",
             "operationId": "getAgentDiscoveryApi",
             "responses": {
-                "200": _ok_response("Agent card"),
+                "200": _ok_response(
+                    "Agent card",
+                    {
+                        "name": {"type": "string", "description": "Agent name"},
+                        "version": {"type": "string", "description": "Agent version"},
+                        "description": {"type": "string", "description": "Agent description"},
+                        "capabilities": {"type": "array", "items": {"type": "string"}},
+                        "endpoint": {"type": "string", "format": "uri"},
+                    },
+                ),
             },
             "security": [{"bearerAuth": []}],
         },
@@ -155,7 +164,17 @@ and endpoint information.""",
                 },
             ],
             "responses": {
-                "200": _ok_response("Agent details"),
+                "200": _ok_response(
+                    "Agent details",
+                    {
+                        "name": {"type": "string", "description": "Agent name"},
+                        "version": {"type": "string", "description": "Agent version"},
+                        "description": {"type": "string", "description": "Agent description"},
+                        "capabilities": {"type": "array", "items": {"type": "string"}},
+                        "endpoint": {"type": "string", "format": "uri"},
+                        "status": {"type": "string", "enum": ["available", "busy", "offline"]},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
             },

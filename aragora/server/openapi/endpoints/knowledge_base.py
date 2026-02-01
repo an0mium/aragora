@@ -210,7 +210,13 @@ KNOWLEDGE_BASE_ENDPOINTS = {
                 {"name": "fact_id", "in": "path", "required": True, "schema": {"type": "string"}},
             ],
             "responses": {
-                "200": _ok_response("Deleted fact"),
+                "200": _ok_response(
+                    "Deleted fact",
+                    {
+                        "deleted": {"type": "boolean", "description": "Whether deletion succeeded"},
+                        "fact_id": {"type": "string", "description": "ID of deleted fact"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -234,7 +240,18 @@ KNOWLEDGE_BASE_ENDPOINTS = {
                 {"name": "fact_id", "in": "path", "required": True, "schema": {"type": "string"}},
             ],
             "responses": {
-                "200": _ok_response("Fact verification started"),
+                "200": _ok_response(
+                    "Fact verification started",
+                    {
+                        "fact_id": {"type": "string", "description": "Fact ID being verified"},
+                        "verification_id": {"type": "string", "description": "Verification job ID"},
+                        "status": {
+                            "type": "string",
+                            "enum": ["pending", "running"],
+                            "description": "Verification status",
+                        },
+                    },
+                ),
                 "500": STANDARD_ERRORS["500"],
             },
         }
@@ -339,7 +356,15 @@ KNOWLEDGE_BASE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Relation added"),
+                "200": _ok_response(
+                    "Relation added",
+                    {
+                        "relation_id": {"type": "string", "description": "Created relation ID"},
+                        "source_fact_id": {"type": "string", "description": "Source fact ID"},
+                        "target_fact_id": {"type": "string", "description": "Target fact ID"},
+                        "relation_type": {"type": "string", "description": "Type of relation"},
+                    },
+                ),
                 "500": STANDARD_ERRORS["500"],
             },
         },
@@ -390,7 +415,15 @@ KNOWLEDGE_BASE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Relation added"),
+                "200": _ok_response(
+                    "Relation added",
+                    {
+                        "relation_id": {"type": "string", "description": "Created relation ID"},
+                        "source_fact_id": {"type": "string", "description": "Source fact ID"},
+                        "target_fact_id": {"type": "string", "description": "Target fact ID"},
+                        "relation_type": {"type": "string", "description": "Type of relation"},
+                    },
+                ),
                 "500": STANDARD_ERRORS["500"],
             },
         }

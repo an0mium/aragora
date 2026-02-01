@@ -12,7 +12,36 @@ CODEBASE_QUICK_SCAN_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "repository_url": {
+                                    "type": "string",
+                                    "description": "Repository URL to scan",
+                                },
+                                "branch": {"type": "string", "description": "Branch to scan"},
+                                "paths": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Specific paths to scan",
+                                },
+                                "scan_types": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Types of scans to run",
+                                },
+                                "depth": {
+                                    "type": "string",
+                                    "enum": ["shallow", "deep"],
+                                    "description": "Scan depth",
+                                },
+                            },
+                            "required": ["repository_url"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Scan started", "StandardSuccessResponse"),

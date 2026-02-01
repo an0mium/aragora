@@ -167,7 +167,24 @@ VERIFICATION_ENDPOINTS = {
                     }
                 }
             },
-            "responses": {"200": _ok_response("Probe results")},
+            "responses": {
+                "200": _ok_response(
+                    "Probe results",
+                    {
+                        "probe_id": {"type": "string", "description": "Probe execution ID"},
+                        "agent_id": {"type": "string", "description": "Probed agent ID"},
+                        "capabilities": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Assessed capability results",
+                        },
+                        "overall_score": {
+                            "type": "number",
+                            "description": "Overall capability score",
+                        },
+                    },
+                ),
+            },
             "security": [{"bearerAuth": []}],
         },
     },

@@ -100,7 +100,30 @@ DECISION_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Decision explanation"),
+                "200": _ok_response(
+                    "Decision explanation",
+                    {
+                        "request_id": {"type": "string", "description": "Decision request ID"},
+                        "summary": {
+                            "type": "string",
+                            "description": "Natural language explanation summary",
+                        },
+                        "factors": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "Contributing factors to the decision",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "description": "Confidence score (0.0-1.0)",
+                        },
+                        "counterfactuals": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Alternative outcomes under different conditions",
+                        },
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },

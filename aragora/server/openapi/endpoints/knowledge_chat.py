@@ -46,7 +46,30 @@ KNOWLEDGE_CHAT_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_id": {
+                                    "type": "string",
+                                    "description": "Conversation ID",
+                                },
+                                "workspace_id": {"type": "string", "description": "Workspace ID"},
+                                "channel_id": {"type": "string", "description": "Channel ID"},
+                                "topic": {
+                                    "type": "string",
+                                    "description": "Topic for context retrieval",
+                                },
+                                "max_context_items": {
+                                    "type": "integer",
+                                    "description": "Max items to inject",
+                                },
+                            },
+                            "required": ["conversation_id"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Injected context", "StandardSuccessResponse"),
@@ -64,7 +87,35 @@ KNOWLEDGE_CHAT_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_id": {
+                                    "type": "string",
+                                    "description": "Conversation ID",
+                                },
+                                "workspace_id": {"type": "string", "description": "Workspace ID"},
+                                "channel_id": {"type": "string", "description": "Channel ID"},
+                                "messages": {
+                                    "type": "array",
+                                    "items": {"type": "object"},
+                                    "description": "Messages to store as knowledge",
+                                },
+                                "extract_facts": {
+                                    "type": "boolean",
+                                    "description": "Extract facts from messages",
+                                },
+                                "metadata": {
+                                    "type": "object",
+                                    "description": "Additional metadata",
+                                },
+                            },
+                            "required": ["conversation_id", "messages"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Knowledge stored", "StandardSuccessResponse"),

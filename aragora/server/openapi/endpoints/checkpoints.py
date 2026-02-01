@@ -113,7 +113,13 @@ CHECKPOINT_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Checkpoint deleted"),
+                "200": _ok_response(
+                    "Checkpoint deleted",
+                    {
+                        "deleted": {"type": "boolean", "description": "Whether deletion succeeded"},
+                        "name": {"type": "string", "description": "Name of deleted checkpoint"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
             },
