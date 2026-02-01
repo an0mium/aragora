@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -46,9 +48,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_RETENTION_DAYS = int(
     os.environ.get("ARAGORA_INBOX_ACTIVITY_RETENTION_DAYS", "90")
 )  # 90 days default
-DEFAULT_DB_PATH = (
-    Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "inbox_activities.db"
-)
+DEFAULT_DB_PATH = Path(resolve_db_path("inbox_activities.db"))
 
 
 class InboxActivityAction:

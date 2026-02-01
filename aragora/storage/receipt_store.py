@@ -32,6 +32,8 @@ from pathlib import Path
 import builtins
 from typing import Any, Optional
 
+from aragora.config import resolve_db_path
+
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -43,9 +45,7 @@ logger = logging.getLogger(__name__)
 
 # Default configuration
 DEFAULT_RETENTION_DAYS = int(os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2555"))  # ~7 years
-DEFAULT_DB_PATH = (
-    Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "receipts.db"
-)
+DEFAULT_DB_PATH = Path(resolve_db_path("receipts.db"))
 
 # Global singleton
 _receipt_store: Optional["ReceiptStore"] = None

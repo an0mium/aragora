@@ -31,13 +31,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Storage configuration
-TEAMS_TENANT_DB_PATH = os.environ.get(
-    "TEAMS_TENANT_DB_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "..", "data", "teams_tenants.db"),
-)
+TEAMS_TENANT_DB_PATH = resolve_db_path(os.environ.get("TEAMS_TENANT_DB_PATH", "teams_tenants.db"))
 
 # Encryption key for tokens (optional but recommended)
 ENCRYPTION_KEY = os.environ.get("ARAGORA_ENCRYPTION_KEY", "")
@@ -150,7 +149,7 @@ class TeamsTenantStore:
         Args:
             db_path: Path to SQLite database file
         """
-        self._db_path = db_path or TEAMS_TENANT_DB_PATH
+        self._db_path = resolve_db_path(db_path or TEAMS_TENANT_DB_PATH)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
             f"teamstenantstore_conn_{id(self)}", default=None

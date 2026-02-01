@@ -18,6 +18,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config import resolve_db_path
+
 from aragora.evidence.metadata import MetadataEnricher
 from aragora.evidence.quality import QualityContext, QualityScorer
 from aragora.storage.base_store import SQLiteStore
@@ -83,7 +85,7 @@ class EvidenceStore(SQLiteStore):
         CREATE INDEX IF NOT EXISTS idx_debate_evidence_debate ON debate_evidence(debate_id);
     """
 
-    DEFAULT_DB_PATH = Path.home() / ".aragora" / "evidence.db"
+    DEFAULT_DB_PATH = Path(resolve_db_path("evidence.db"))
 
     def __init__(
         self,
@@ -96,7 +98,7 @@ class EvidenceStore(SQLiteStore):
         """Initialize the evidence store.
 
         Args:
-            db_path: Path to SQLite database (default: ~/.aragora/evidence.db)
+            db_path: Path to SQLite database (default: ARAGORA_DATA_DIR/evidence.db)
             enricher: Optional metadata enricher
             scorer: Optional quality scorer
             km_adapter: Optional Knowledge Mound adapter for bidirectional sync

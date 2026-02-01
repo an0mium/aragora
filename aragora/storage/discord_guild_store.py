@@ -31,12 +31,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Storage configuration
-DISCORD_GUILD_DB_PATH = os.environ.get(
-    "DISCORD_GUILD_DB_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "..", "data", "discord_guilds.db"),
+DISCORD_GUILD_DB_PATH = resolve_db_path(
+    os.environ.get("DISCORD_GUILD_DB_PATH", "discord_guilds.db")
 )
 
 # Encryption key for tokens (optional but recommended)
@@ -150,7 +151,7 @@ class DiscordGuildStore:
         Args:
             db_path: Path to SQLite database file
         """
-        self._db_path = db_path or DISCORD_GUILD_DB_PATH
+        self._db_path = resolve_db_path(db_path or DISCORD_GUILD_DB_PATH)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
             f"discordguild_conn_{id(self)}", default=None

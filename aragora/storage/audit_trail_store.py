@@ -30,6 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config import resolve_db_path
+
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -43,9 +45,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_RETENTION_DAYS = int(
     os.environ.get("ARAGORA_AUDIT_TRAIL_RETENTION_DAYS", "365")
 )  # 1 year default
-DEFAULT_DB_PATH = (
-    Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "audit_trails.db"
-)
+DEFAULT_DB_PATH = Path(resolve_db_path("audit_trails.db"))
 
 
 @dataclass

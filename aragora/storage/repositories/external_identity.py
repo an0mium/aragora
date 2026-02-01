@@ -35,6 +35,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,11 +117,10 @@ class ExternalIdentityRepository:
             db_path: Path to SQLite database
         """
         if db_path is None:
-            data_dir = Path.home() / ".aragora"
-            data_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(data_dir / "external_identities.db")
+            db_path = "external_identities.db"
 
-        self._db_path = db_path
+        self._db_path = resolve_db_path(db_path)
+        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
             f"externalidentityrepo_conn_{id(self)}", default=None

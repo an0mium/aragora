@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Union, TYPE_CHECKING
 
+from aragora.config import resolve_db_path
+
 from aragora.workflow.types import WorkflowDefinition
 
 if TYPE_CHECKING:
@@ -34,7 +36,7 @@ logger = logging.getLogger(__name__)
 WorkflowStoreType = Union["PersistentWorkflowStore", "PostgresWorkflowStore"]
 
 # Default database path
-DEFAULT_DB_PATH = Path(os.getenv("ARAGORA_WORKFLOW_DB", Path.home() / ".aragora" / "workflows.db"))
+DEFAULT_DB_PATH = Path(resolve_db_path(os.getenv("ARAGORA_WORKFLOW_DB", "workflows.db")))
 
 # Schema definition
 WORKFLOW_SCHEMA = """

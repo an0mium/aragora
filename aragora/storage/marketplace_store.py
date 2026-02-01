@@ -210,7 +210,7 @@ class MarketplaceStore(SQLiteStore):
             auto_init: If True, initialize schema on construction.
         """
         if db_path is None:
-            db_path = Path.home() / ".aragora" / "marketplace.db"
+            db_path = "marketplace.db"
 
         super().__init__(db_path, auto_init=auto_init)
 

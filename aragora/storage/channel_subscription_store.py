@@ -35,12 +35,13 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Storage configuration
-CHANNEL_SUBSCRIPTION_DB_PATH = os.environ.get(
-    "CHANNEL_SUBSCRIPTION_DB_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "..", "data", "channel_subscriptions.db"),
+CHANNEL_SUBSCRIPTION_DB_PATH = resolve_db_path(
+    os.environ.get("CHANNEL_SUBSCRIPTION_DB_PATH", "channel_subscriptions.db")
 )
 
 
@@ -150,7 +151,7 @@ class ChannelSubscriptionStore:
         Args:
             db_path: Path to SQLite database. Defaults to CHANNEL_SUBSCRIPTION_DB_PATH.
         """
-        self.db_path = db_path or CHANNEL_SUBSCRIPTION_DB_PATH
+        self.db_path = resolve_db_path(db_path or CHANNEL_SUBSCRIPTION_DB_PATH)
         self._conn: sqlite3.Connection | None = None
         self._ensure_schema()
 

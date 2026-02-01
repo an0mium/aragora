@@ -117,10 +117,10 @@ class ProvenanceStore(SQLiteStore):
         """Initialize the provenance store.
 
         Args:
-            db_path: Path to SQLite database. Defaults to ~/.aragora/provenance.db
+            db_path: Path to SQLite database. Defaults to ARAGORA_DATA_DIR/provenance.db
         """
         if db_path is None:
-            db_path = Path.home() / ".aragora" / "provenance.db"
+            db_path = "provenance.db"
 
         super().__init__(db_path, **kwargs)
         logger.debug(f"ProvenanceStore initialized at {db_path}")

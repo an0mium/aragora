@@ -540,7 +540,8 @@ def resolve_db_path(path_str: str | Path) -> str:
     Resolve a database path with a guard against stray root-level files.
 
     - Absolute paths are returned as-is.
-    - Bare filenames are redirected under ARAGORA_DATA_DIR.
+    - Bare filenames are redirected under ARAGORA_DATA_DIR (with consolidated mapping).
+    - Relative paths with subdirectories are rooted under ARAGORA_DATA_DIR.
     - Special SQLite paths (":memory:", "file:...") are preserved.
     """
     raw = str(path_str)
@@ -563,7 +564,17 @@ def resolve_db_path(path_str: str | Path) -> str:
             )
         return str(resolved)
 
-    return str(path)
+    # Preserve relative subpaths but keep them under ARAGORA_DATA_DIR
+    resolved = validate_db_path(path.as_posix())
+    if resolved != path:
+        import logging
+
+        logging.getLogger(__name__).debug(
+            "Redirecting SQLite DB path %s -> %s (ARAGORA_DATA_DIR)",
+            path,
+            resolved,
+        )
+    return str(resolved)
 
 
 # Database name constants (for use with get_db_path)
@@ -643,7 +654,7 @@ DB_LAB_PATH = _env_str("ARAGORA_DB_LAB", "persona_lab.db")
 DB_PERSONAS_PATH = _env_str("ARAGORA_DB_PERSONAS", "agent_personas.db")
 DB_POSITIONS_PATH = _env_str("ARAGORA_DB_POSITIONS", "grounded_positions.db")
 DB_GENESIS_PATH = _env_str("ARAGORA_DB_GENESIS", "genesis.db")
-DB_KNOWLEDGE_PATH = Path(_env_str("ARAGORA_DB_KNOWLEDGE", "knowledge"))
+DB_KNOWLEDGE_PATH = Path(_env_str("ARAGORA_DB_KNOWLEDGE", str(DATA_DIR / "knowledge")))
 DB_CULTURE_PATH = _env_str("ARAGORA_DB_CULTURE", "culture.db")
 
 # === Evidence Collection ===

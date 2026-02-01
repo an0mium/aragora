@@ -29,6 +29,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -252,9 +254,10 @@ class NotificationConfigStore:
         from the factory function.
         """
         if db_path is None:
-            data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".aragora"))
-            data_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(data_dir / "notification_config.db")
+            db_path = "notification_config.db"
+
+        db_path = resolve_db_path(db_path)
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
         self._db_path = db_path
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)

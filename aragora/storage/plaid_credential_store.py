@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
@@ -201,14 +203,13 @@ class SQLitePlaidCredentialStore(PlaidCredentialStore):
         """Initialize the store.
 
         Args:
-            db_path: Path to SQLite database file. Defaults to data/plaid_credentials.db
+            db_path: Path to SQLite database file. Defaults to ARAGORA_DATA_DIR/plaid_credentials.db
         """
         if db_path is None:
-            data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", "data"))
-            data_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(data_dir / "plaid_credentials.db")
+            db_path = "plaid_credentials.db"
 
-        self._db_path = db_path
+        self._db_path = resolve_db_path(db_path)
+        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn: sqlite3.Connection | None = None
         self._init_db()
 

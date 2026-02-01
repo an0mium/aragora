@@ -18,7 +18,6 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
-import os
 import sqlite3
 import threading
 import time
@@ -28,12 +27,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Default configuration
-DEFAULT_DB_PATH = (
-    Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "receipt_deletions.db"
-)
+DEFAULT_DB_PATH = Path(resolve_db_path("receipt_deletions.db"))
 
 
 @dataclass

@@ -30,12 +30,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Storage configuration
-SLACK_WORKSPACE_DB_PATH = os.environ.get(
-    "SLACK_WORKSPACE_DB_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "..", "data", "slack_workspaces.db"),
+SLACK_WORKSPACE_DB_PATH = resolve_db_path(
+    os.environ.get("SLACK_WORKSPACE_DB_PATH", "slack_workspaces.db")
 )
 
 # Encryption key for tokens (required in production)
@@ -194,7 +195,7 @@ class SlackWorkspaceStore:
                 )
                 _encryption_warning_shown = True
 
-        self._db_path = db_path or SLACK_WORKSPACE_DB_PATH
+        self._db_path = resolve_db_path(db_path or SLACK_WORKSPACE_DB_PATH)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
             f"slackworkspacestore_conn_{id(self)}", default=None

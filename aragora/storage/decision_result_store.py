@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config import resolve_db_path
+
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -50,9 +52,7 @@ DEFAULT_MAX_ENTRIES = int(
     os.environ.get("ARAGORA_DECISION_MAX_ENTRIES", "10000")
 )  # Maximum entries before LRU eviction
 DEFAULT_CACHE_SIZE = 1000  # In-memory cache size
-DEFAULT_DB_PATH = (
-    Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "decision_results.db"
-)
+DEFAULT_DB_PATH = Path(resolve_db_path("decision_results.db"))
 DEFAULT_CLEANUP_INTERVAL = 300  # 5 minutes
 
 

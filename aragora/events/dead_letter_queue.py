@@ -45,6 +45,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Default retention period (7 days)
@@ -164,12 +166,10 @@ class EventDLQPersistence:
                      $ARAGORA_DATA_DIR/.nomic/event_dlq.db
         """
         if db_path is None:
-            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".")
-            db_dir = Path(data_dir) / ".nomic"
-            db_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(db_dir / "event_dlq.db")
+            db_path = "event_dlq.db"
 
-        self._db_path = db_path
+        self._db_path = resolve_db_path(db_path)
+        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._connections: list[sqlite3.Connection] = []
         self._init_schema()
 
