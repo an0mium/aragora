@@ -140,6 +140,7 @@ def _run_variant(
     context_timeout: int | None,
     skip_gemini: bool,
     skip_grok: bool,
+    skip_codex: bool,
 ) -> dict:
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     task_dir = output_dir / task.task_id
@@ -177,6 +178,7 @@ def _run_variant(
         "NOMIC_CONTEXT_TIMEOUT": str(context_timeout) if context_timeout else None,
         "NOMIC_CONTEXT_SKIP_GEMINI": "1" if skip_gemini else "0",
         "NOMIC_CONTEXT_SKIP_GROK": "1" if skip_grok else "0",
+        "NOMIC_CONTEXT_SKIP_CODEX": "1" if skip_codex else "0",
     }
     env = _build_env(os.environ, env_overrides)
 
@@ -277,6 +279,11 @@ def main() -> int:
         default=600,
         help="Timeout for Nomic context phase (seconds)",
     )
+    parser.add_argument(
+        "--skip-codex-context",
+        action="store_true",
+        help="Skip Codex during context gathering",
+    )
     parser.add_argument("--skip-gemini", action="store_true", help="Skip Gemini in context")
     parser.add_argument("--skip-grok", action="store_true", help="Skip Grok in context")
     args = parser.parse_args()
@@ -322,6 +329,7 @@ def main() -> int:
                 context_timeout=args.context_timeout,
                 skip_gemini=args.skip_gemini,
                 skip_grok=args.skip_grok,
+                skip_codex=args.skip_codex_context,
             )
         if args.mode in ("multi", "shadow"):
             task_entry["multi"] = _run_variant(
@@ -336,6 +344,7 @@ def main() -> int:
                 context_timeout=args.context_timeout,
                 skip_gemini=args.skip_gemini,
                 skip_grok=args.skip_grok,
+                skip_codex=args.skip_codex_context,
             )
         task_entry["comparison"] = _compare_results(task_entry["single"], task_entry["multi"])
         report["tasks"].append(task_entry)

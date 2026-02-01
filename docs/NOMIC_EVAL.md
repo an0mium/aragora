@@ -31,6 +31,7 @@ Optional flags:
 - `--single-agent codex` to change the baseline agent
 - `--timeout 3600` to cap each run
 - `--context-timeout 600` to cap the context phase
+- `--skip-codex-context` to skip Codex during context gathering
 - `--skip-gemini` / `--skip-grok` to skip providers without keys
 - `--cleanup` to remove worktrees after runs
 
