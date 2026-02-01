@@ -1,7 +1,7 @@
 # Aragora v2.5.0+ Comprehensive Development Plan
 
 *Generated: January 29, 2026*
-*Current Version: v2.4.0*
+*Current Version: v2.5.0*
 
 ## Executive Summary
 

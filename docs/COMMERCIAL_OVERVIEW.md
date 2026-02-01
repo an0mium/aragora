@@ -1,6 +1,6 @@
 # Aragora - Control Plane for Multi-Agent Vetted Decisionmaking
 
-*Version 2.4.0 | Commercial Overview*
+*Version 2.5.0 | Commercial Overview*
 *Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
 
 ## Executive Summary

@@ -9,7 +9,7 @@ Status legend:
 - experimental: implemented but evolving or guarded by feature flags
 - planned: documented elsewhere but not implemented (do not claim as current)
 
-Version baseline: v2.4.0 (see `pyproject.toml` and `aragora/__version__.py`).
+Version baseline: v2.5.0 (see `pyproject.toml` and `aragora/__version__.py`).
 
 ## Core Debate & Consensus
 

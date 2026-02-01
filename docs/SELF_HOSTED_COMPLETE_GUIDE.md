@@ -1,6 +1,6 @@
 # Aragora Self-Hosted Complete Guide
 
-**Version:** 2.4.0
+**Version:** 2.5.0
 **Last Updated:** 2026-01-27
 
 The definitive guide for deploying Aragora on your own infrastructure—from 5-minute quick starts to enterprise-grade high availability.
@@ -186,7 +186,7 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "database": "connected",
   "agents_available": 15
 }
@@ -1302,7 +1302,7 @@ deploy:
 docker compose down
 
 # Checkout previous version
-git checkout v2.4.0
+git checkout v2.5.0
 
 # Rebuild and start
 docker compose up -d --build
@@ -1781,4 +1781,4 @@ See `docs/ENVIRONMENT.md` for the complete reference (70+ variables).
 
 ---
 
-*Version: 2.4.0 | Updated: 2026-01-27*
+*Version: 2.5.0 | Updated: 2026-01-27*
