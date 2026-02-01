@@ -46,9 +46,13 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Feedback](#feedback)
 - [Gallery](#gallery)
 - [Gastown Dashboard](#gastown-dashboard)
+- [GatewayAgents](#gatewayagents)
+- [GatewayCredentials](#gatewaycredentials)
 - [Gateway](#gateway)
+- [GatewayHealth](#gatewayhealth)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
+- [HybridDebate](#hybriddebate)
 - [Inbox Command](#inbox-command)
 - [Integration Management](#integration-management)
 - [Introspection](#introspection)
@@ -210,23 +214,23 @@ Analytics Dashboard endpoint handlers.
 
 ### `GET` `/api/analytics/summary`
 
-Dashboard summary
+Dashboard summary (cached: 60s)
 
 ### `GET` `/api/analytics/trends/findings`
 
-Finding trends over time
+Finding trends over time (cached: 300s)
 
 ### `GET` `/api/analytics/remediation`
 
-Remediation metrics
+Remediation metrics (cached: 300s)
 
 ### `GET` `/api/analytics/agents`
 
-Agent performance metrics
+Agent performance metrics (cached: 300s)
 
 ### `GET` `/api/analytics/cost`
 
-Cost analysis
+Cost analysis (cached: 300s)
 
 ### `GET` `/api/analytics/compliance`
 
@@ -1480,6 +1484,34 @@ Get throughput metrics
 
 ---
 
+## GatewayAgents
+
+HTTP request handler for external agent registration endpoints.
+
+### `GET` `/api/v1/gateway/agents`
+
+Extract agent name from path like /api/v1/gateway/agents/{name}
+
+### `GET` `/api/v1/gateway/agents/*`
+
+GET /api/v1/gateway/agents/*
+
+---
+
+## GatewayCredentials
+
+HTTP request handler for gateway credential management endpoints.
+
+### `GET` `/api/v1/gateway/credentials`
+
+Extract credential ID from path like /api/v1/gateway/credentials/{id}
+
+### `GET` `/api/v1/gateway/credentials/*`
+
+GET /api/v1/gateway/credentials/*
+
+---
+
 ## Gateway
 
 HTTP request handler for gateway API endpoints.
@@ -1511,6 +1543,20 @@ Handle POST /api/v1/gateway/messages/route
 ### `GET` `/api/v1/gateway/messages/*`
 
 GET /api/v1/gateway/messages/*
+
+---
+
+## GatewayHealth
+
+HTTP handler for gateway health endpoints.
+
+### `GET` `/api/v1/gateway/health` 🔒
+
+Handle GET /api/v1/gateway/agents/{name}/health
+
+### `GET` `/api/v1/gateway/agents/*/health` 🔒
+
+Handle GET /api/v1/gateway/agents/{name}/health
 
 ---
 
@@ -1579,6 +1625,20 @@ Get top genomes by fitness
 ### `GET` `/api/genesis/genomes/:genome_id`
 
 Get single genome details
+
+---
+
+## HybridDebate
+
+HTTP request handler for hybrid debate API endpoints.
+
+### `GET` `/api/v1/debates/hybrid` 🔒
+
+Handle POST /api/v1/debates/hybrid
+
+### `GET` `/api/v1/debates/hybrid/*`
+
+GET /api/v1/debates/hybrid/*
 
 ---
 
