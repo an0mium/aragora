@@ -847,3 +847,30 @@ class TemplateMarketplaceHandler(BaseHandler):
                 "total": len(categories),
             }
         )
+
+
+class TemplateRecommendationsHandler(BaseHandler):
+    """Handler for template recommendations API endpoints."""
+
+    ROUTES: list[str] = ["/api/v1/marketplace/recommendations"]
+
+    def can_handle(self, path: str) -> bool:
+        return path == "/api/v1/marketplace/recommendations"
+
+    @require_permission("marketplace:read")
+    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+        _seed_marketplace_templates()
+
+        limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
+        templates = sorted(
+            _marketplace_templates.values(),
+            key=lambda t: (t.is_featured, t.download_count),
+            reverse=True,
+        )[:limit]
+
+        return json_response(
+            {
+                "recommendations": [t.to_summary() for t in templates],
+                "total": len(templates),
+            }
+        )

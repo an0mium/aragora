@@ -431,6 +431,18 @@ class RateLimiter:
                 "X-Real-IP": handler.headers.get("X-Real-IP", ""),
             }
 
+        if remote_ip == "anonymous" and headers:
+            forwarded = headers.get("X-Forwarded-For", "")
+            if forwarded:
+                candidate = str(forwarded).split(",")[0].strip()
+                if candidate:
+                    return sanitize_rate_limit_key_component(candidate)
+            real_ip = headers.get("X-Real-IP", "")
+            if real_ip:
+                candidate = str(real_ip).strip()
+                if candidate:
+                    return sanitize_rate_limit_key_component(candidate)
+
         # Only trust XFF from configured trusted proxies
         client_ip = _extract_client_ip(headers, remote_ip)
         return sanitize_rate_limit_key_component(client_ip)

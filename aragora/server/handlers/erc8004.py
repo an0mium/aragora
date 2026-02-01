@@ -18,6 +18,8 @@ import logging
 from typing import Any, Optional
 
 from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
     error_response,
     success_response,
 )
@@ -345,6 +347,7 @@ BLOCKCHAIN_HANDLERS = {
 
 __all__ = [
     "BLOCKCHAIN_HANDLERS",
+    "ERC8004Handler",
     "handle_blockchain_config",
     "handle_get_agent",
     "handle_get_reputation",
@@ -352,3 +355,76 @@ __all__ = [
     "handle_blockchain_sync",
     "handle_blockchain_health",
 ]
+
+
+def _get_query_param(query_params: dict[str, Any], name: str, default: str = "") -> str:
+    value = query_params.get(name, default)
+    if isinstance(value, list):
+        return value[0] if value else default
+    return value if value is not None else default
+
+
+class ERC8004Handler(BaseHandler):
+    """Handler for ERC-8004 blockchain API endpoints."""
+
+    ROUTES = [
+        "/api/v1/blockchain/config",
+        "/api/v1/blockchain/health",
+        "/api/v1/blockchain/sync",
+        "/api/v1/blockchain/agents",
+        "/api/v1/blockchain/agents/*",
+    ]
+
+    def can_handle(self, path: str) -> bool:
+        return path.startswith("/api/v1/blockchain/")
+
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        method = handler.command if hasattr(handler, "command") else "GET"
+
+        if path == "/api/v1/blockchain/config" and method == "GET":
+            return handle_blockchain_config()
+
+        if path == "/api/v1/blockchain/health" and method == "GET":
+            return handle_blockchain_health()
+
+        if path == "/api/v1/blockchain/sync" and method == "POST":
+            body = self.read_json_body(handler) or {}
+            return handle_blockchain_sync(
+                sync_identities=bool(body.get("sync_identities", True)),
+                sync_reputation=bool(body.get("sync_reputation", True)),
+                sync_validations=bool(body.get("sync_validations", True)),
+                agent_ids=body.get("agent_ids"),
+            )
+
+        if path == "/api/v1/blockchain/agents":
+            if method == "GET":
+                return error_response("Agent listing not implemented", status_code=501)
+            if method == "POST":
+                return error_response("Agent registration not implemented", status_code=501)
+            return error_response(f"Method {method} not allowed", status_code=405)
+
+        if path.startswith("/api/v1/blockchain/agents/"):
+            suffix = path[len("/api/v1/blockchain/agents/") :]
+            parts = [p for p in suffix.split("/") if p]
+            if not parts:
+                return error_response("Invalid agent path", status_code=400)
+            try:
+                token_id = int(parts[0])
+            except ValueError:
+                return error_response("Invalid token_id", status_code=400)
+
+            if len(parts) == 1 and method == "GET":
+                return handle_get_agent(token_id)
+
+            if len(parts) == 2 and parts[1] == "reputation" and method == "GET":
+                tag1 = _get_query_param(query_params, "tag1", "")
+                tag2 = _get_query_param(query_params, "tag2", "")
+                return handle_get_reputation(token_id, tag1=tag1, tag2=tag2)
+
+            if len(parts) == 2 and parts[1] == "validations" and method == "GET":
+                tag = _get_query_param(query_params, "tag", "")
+                return handle_get_validations(token_id, tag=tag)
+
+            return error_response("Invalid blockchain agent endpoint", status_code=400)
+
+        return error_response("Invalid path", status_code=400)
