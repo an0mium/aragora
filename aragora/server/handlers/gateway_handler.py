@@ -24,6 +24,8 @@ from __future__ import annotations
 import logging
 from typing import Any, cast, Callable, Coroutine
 
+from aragora.rbac.decorators import require_permission
+
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -145,6 +147,7 @@ class GatewayHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/gateway/")
 
+    @require_permission("gateway:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
@@ -177,6 +180,7 @@ class GatewayHandler(BaseHandler):
 
         return None
 
+    @require_permission("gateway:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

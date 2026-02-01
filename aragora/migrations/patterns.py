@@ -324,10 +324,12 @@ def backfill_column(
     Returns:
         Total number of rows updated
     """
+    qt = quote_identifier(table, "table")
+    qc = quote_identifier(column, "column")
     total_updated = 0
 
     # Build base query
-    condition = f"{column} IS NULL"
+    condition = f"{qc} IS NULL"
     if where_clause:
         condition = f"{condition} AND ({where_clause})"
 
@@ -338,13 +340,13 @@ def backfill_column(
                 f"""
                 WITH batch AS (
                     SELECT ctid
-                    FROM {table}
+                    FROM {qt}
                     WHERE {condition}
                     LIMIT {batch_size}
                     FOR UPDATE SKIP LOCKED
                 )
-                UPDATE {table}
-                SET {column} = {value}
+                UPDATE {qt}
+                SET {qc} = {value}
                 WHERE ctid IN (SELECT ctid FROM batch)
                 RETURNING 1
                 """
@@ -352,7 +354,7 @@ def backfill_column(
 
             if not result:
                 # No more rows to update
-                count = backend.fetch_one(f"SELECT COUNT(*) FROM {table} WHERE {condition}")
+                count = backend.fetch_one(f"SELECT COUNT(*) FROM {qt} WHERE {condition}")
                 if count and count[0] == 0:
                     break
                 # Retry if there were locked rows
@@ -375,10 +377,10 @@ def backfill_column(
         while True:
             backend.execute_write(
                 f"""
-                UPDATE {table}
-                SET {column} = {value}
+                UPDATE {qt}
+                SET {qc} = {value}
                 WHERE rowid IN (
-                    SELECT rowid FROM {table}
+                    SELECT rowid FROM {qt}
                     WHERE {condition}
                     LIMIT {batch_size}
                 )
@@ -386,7 +388,7 @@ def backfill_column(
             )
 
             # Check how many were updated (SQLite doesn't have RETURNING in older versions)
-            remaining = backend.fetch_one(f"SELECT COUNT(*) FROM {table} WHERE {condition}")
+            remaining = backend.fetch_one(f"SELECT COUNT(*) FROM {qt} WHERE {condition}")
 
             if not remaining or remaining[0] == 0:
                 break
@@ -418,12 +420,15 @@ def safe_set_not_null(
         column: Column to make NOT NULL
         default: Default value for any remaining NULLs (safety)
     """
+    qt = quote_identifier(table, "table")
+    qc = quote_identifier(column, "column")
+
     # First, ensure no NULLs remain
-    null_count = backend.fetch_one(f"SELECT COUNT(*) FROM {table} WHERE {column} IS NULL")
+    null_count = backend.fetch_one(f"SELECT COUNT(*) FROM {qt} WHERE {qc} IS NULL")
     if null_count and null_count[0] > 0:
         if default is not None:
             # Backfill remaining NULLs with default
-            backend.execute_write(f"UPDATE {table} SET {column} = {default} WHERE {column} IS NULL")
+            backend.execute_write(f"UPDATE {qt} SET {qc} = {default} WHERE {qc} IS NULL")
             logger.info(f"Backfilled {null_count[0]} remaining NULLs in {table}.{column}")
         else:
             raise ValueError(
@@ -431,7 +436,7 @@ def safe_set_not_null(
             )
 
     if is_postgresql(backend):
-        backend.execute_write(f"ALTER TABLE {table} ALTER COLUMN {column} SET NOT NULL")
+        backend.execute_write(f"ALTER TABLE {qt} ALTER COLUMN {qc} SET NOT NULL")
     else:
         # SQLite doesn't support ALTER COLUMN, would need table recreation
         logger.warning(
