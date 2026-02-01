@@ -136,7 +136,41 @@ GMAIL_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "criteria": {
+                                    "type": "object",
+                                    "properties": {
+                                        "from": {"type": "string"},
+                                        "to": {"type": "string"},
+                                        "subject": {"type": "string"},
+                                        "query": {"type": "string"},
+                                        "has_attachment": {"type": "boolean"},
+                                    },
+                                },
+                                "action": {
+                                    "type": "object",
+                                    "properties": {
+                                        "add_label_ids": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                        "remove_label_ids": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                        "forward": {"type": "string"},
+                                    },
+                                },
+                                "user_id": {"type": "string"},
+                            },
+                            "required": ["criteria", "action"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Filter created", "StandardSuccessResponse"),
@@ -187,7 +221,18 @@ GMAIL_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "add_label_ids": {"type": "array", "items": {"type": "string"}},
+                                "remove_label_ids": {"type": "array", "items": {"type": "string"}},
+                                "user_id": {"type": "string"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Labels updated", "StandardSuccessResponse"),

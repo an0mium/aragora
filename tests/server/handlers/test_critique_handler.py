@@ -562,11 +562,14 @@ class TestErrorHandling:
 
 
 class TestNomicDirNone:
-    """Test behavior when nomic_dir is None."""
+    """Test behavior when nomic_dir is None (store returns None)."""
 
-    def test_patterns_nomic_dir_none(self):
-        """Should return empty patterns when nomic_dir is None."""
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_patterns_nomic_dir_none(self, mock_get_store):
+        """Should return empty patterns when get_critique_store returns None."""
         import json
+
+        mock_get_store.return_value = None
 
         handler = CritiqueHandler({"nomic_dir": None})
         mock_handler = MagicMock()
@@ -580,9 +583,12 @@ class TestNomicDirNone:
         assert body["patterns"] == []
         assert body["count"] == 0
 
-    def test_archive_nomic_dir_none(self):
-        """Should return empty archive stats when nomic_dir is None."""
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_archive_nomic_dir_none(self, mock_get_store):
+        """Should return empty archive stats when get_critique_store returns None."""
         import json
+
+        mock_get_store.return_value = None
 
         handler = CritiqueHandler({"nomic_dir": None})
         mock_handler = MagicMock()

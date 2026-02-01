@@ -5,9 +5,20 @@ Tests for OpenAPI stability manifest alignment with SDK coverage.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-from scripts.sdk_parity_audit import Endpoint, iter_files, load_openapi, parse_python_sdk, parse_ts_sdk
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+from scripts.sdk_parity_audit import (
+    Endpoint,
+    iter_files,
+    load_openapi,
+    parse_python_sdk,
+    parse_ts_sdk,
+)
 
 
 def _load_manifest(path: Path) -> set[Endpoint]:

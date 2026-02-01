@@ -73,6 +73,52 @@ def load_openapi(path: Path) -> tuple[set[Endpoint], int]:
     return endpoints, deprecated_count
 
 
+def openapi_response_schema_endpoints(spec: dict[str, object]) -> set[Endpoint]:
+    """Return endpoints that define a 2xx response schema (or 204)."""
+
+    def has_schema(response: dict[str, object]) -> bool:
+        content = response.get("content")
+        if not isinstance(content, dict):
+            return False
+        for payload in content.values():
+            if isinstance(payload, dict) and payload.get("schema"):
+                return True
+        return False
+
+    endpoints: set[Endpoint] = set()
+    paths = spec.get("paths", {})
+    if not isinstance(paths, dict):
+        return endpoints
+    for raw_path, methods in paths.items():
+        if not isinstance(methods, dict):
+            continue
+        path_deprecated = methods.get("deprecated") is True
+        for method, operation in methods.items():
+            method_upper = str(method).upper()
+            if method_upper not in HTTP_METHODS:
+                continue
+            if not isinstance(operation, dict):
+                continue
+            if path_deprecated or operation.get("deprecated") is True:
+                continue
+            responses = operation.get("responses", {})
+            if not isinstance(responses, dict):
+                continue
+            success_codes = [code for code in responses if str(code).startswith("2")]
+            ok = False
+            for code in success_codes:
+                response = responses.get(code, {})
+                if str(code) == "204":
+                    ok = True
+                    break
+                if isinstance(response, dict) and has_schema(response):
+                    ok = True
+                    break
+            if ok:
+                endpoints.add(Endpoint(method_upper, raw_path).normalized())
+    return endpoints
+
+
 REQUEST_RE = re.compile(
     r"\brequest[^\n]*?\(\s*['\"](?P<method>GET|POST|PUT|PATCH|DELETE)['\"]\s*,\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")",
     re.MULTILINE,
@@ -363,6 +409,10 @@ def main() -> None:
         else:
             stable = openapi & py_sdk
             criteria = "OpenAPI endpoints covered by Python SDK"
+        spec = json.loads(openapi_path.read_text())
+        schema_covered = openapi_response_schema_endpoints(spec)
+        stable = stable & schema_covered
+        criteria = f"{criteria}; includes 2xx response schema coverage"
         manifest = render_stability_manifest(stable, criteria=criteria)
         Path(args.stable_out).write_text(json.dumps(manifest, indent=2))
         print(f"Wrote {args.stable_out}")

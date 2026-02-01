@@ -153,11 +153,14 @@ class TestPatternsEndpoint:
         assert result.status_code == 503
 
     def test_patterns_no_db_returns_empty(self, handler_context, mock_http_handler):
-        """Test empty response when no database exists."""
+        """Test empty response when get_critique_store returns None."""
         handler_context["nomic_dir"] = None
         handler = CritiqueHandler(handler_context)
 
-        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+        with (
+            patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=None),
+        ):
             result = handler.handle("/api/critiques/patterns", {}, mock_http_handler)
 
         assert result is not None
@@ -196,7 +199,7 @@ class TestPatternsEndpoint:
 
         with (
             patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
-            patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=mock_store),
         ):
             result = handler.handle("/api/critiques/patterns", {}, mock_http_handler)
 
@@ -225,11 +228,14 @@ class TestArchiveEndpoint:
         assert result.status_code == 503
 
     def test_archive_no_db_returns_empty(self, handler_context, mock_http_handler):
-        """Test empty response when no database exists."""
+        """Test empty response when get_critique_store returns None."""
         handler_context["nomic_dir"] = None
         handler = CritiqueHandler(handler_context)
 
-        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+        with (
+            patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=None),
+        ):
             result = handler.handle("/api/critiques/archive", {}, mock_http_handler)
 
         assert result is not None
@@ -256,11 +262,14 @@ class TestAllReputationsEndpoint:
         assert result.status_code == 503
 
     def test_reputations_no_db_returns_empty(self, handler_context, mock_http_handler):
-        """Test empty response when no database exists."""
+        """Test empty response when get_critique_store returns None."""
         handler_context["nomic_dir"] = None
         handler = CritiqueHandler(handler_context)
 
-        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+        with (
+            patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=None),
+        ):
             result = handler.handle("/api/reputation/all", {}, mock_http_handler)
 
         assert result is not None
@@ -288,7 +297,7 @@ class TestAllReputationsEndpoint:
 
         with (
             patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
-            patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=mock_store),
         ):
             result = handler.handle("/api/reputation/all", {}, mock_http_handler)
 
@@ -324,11 +333,14 @@ class TestAgentReputationEndpoint:
         assert result.status_code == 400
 
     def test_agent_reputation_no_db_returns_no_data(self, handler_context, mock_http_handler):
-        """Test response when no database exists."""
+        """Test response when get_critique_store returns None."""
         handler_context["nomic_dir"] = None
         handler = CritiqueHandler(handler_context)
 
-        with patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True):
+        with (
+            patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=None),
+        ):
             result = handler.handle("/api/agent/claude/reputation", {}, mock_http_handler)
 
         assert result is not None
@@ -356,7 +368,7 @@ class TestAgentReputationEndpoint:
 
         with (
             patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
-            patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=mock_store),
         ):
             result = handler.handle("/api/agent/claude/reputation", {}, mock_http_handler)
 
@@ -378,7 +390,7 @@ class TestAgentReputationEndpoint:
 
         with (
             patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True),
-            patch("aragora.server.handlers.critique.CritiqueStore", return_value=mock_store),
+            patch("aragora.server.handlers.critique.get_critique_store", return_value=mock_store),
         ):
             result = handler.handle("/api/agent/unknown_agent/reputation", {}, mock_http_handler)
 
