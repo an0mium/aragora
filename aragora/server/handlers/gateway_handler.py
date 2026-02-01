@@ -55,11 +55,13 @@ try:
         DeviceStatus,
         AgentRouter,
     )
+    from aragora.stores import get_canonical_gateway_stores
 
     GATEWAY_AVAILABLE = True
 except ImportError:
     GATEWAY_AVAILABLE = False
     DeviceRegistry = None  # type: ignore[misc, no-redef]
+    get_canonical_gateway_stores = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -86,13 +88,23 @@ class GatewayHandler(BaseHandler):
         super().__init__(server_context)
         self._device_registry: DeviceRegistry | None = None
         self._agent_router: AgentRouter | None = None
+        self._gateway_stores = None
+
+    def _get_gateway_stores(self):
+        if not GATEWAY_AVAILABLE or get_canonical_gateway_stores is None:
+            return None
+        if self._gateway_stores is None:
+            self._gateway_stores = get_canonical_gateway_stores()
+        return self._gateway_stores
 
     def _get_device_registry(self) -> DeviceRegistry | None:
         """Get or create device registry."""
         if not GATEWAY_AVAILABLE:
             return None
         if self._device_registry is None:
-            self._device_registry = DeviceRegistry()
+            stores = self._get_gateway_stores()
+            store = stores.gateway_store() if stores else None
+            self._device_registry = DeviceRegistry(store=store)
         return self._device_registry
 
     def _get_agent_router(self) -> AgentRouter | None:
@@ -100,7 +112,9 @@ class GatewayHandler(BaseHandler):
         if not GATEWAY_AVAILABLE:
             return None
         if self._agent_router is None:
-            self._agent_router = AgentRouter()
+            stores = self._get_gateway_stores()
+            store = stores.gateway_store() if stores else None
+            self._agent_router = AgentRouter(store=store)
         return self._agent_router
 
     def _get_user_store(self) -> Any:

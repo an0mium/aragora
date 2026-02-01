@@ -21,6 +21,7 @@ from aragora.gateway.device_registry import (
     DeviceRegistry,
     DeviceStatus,
 )
+from aragora.stores.canonical import get_canonical_gateway_stores
 
 from .models import DeviceNode, DeviceNodeConfig
 
@@ -160,11 +161,17 @@ class LocalGateway:
         self._gateway_id = gateway_id or str(uuid.uuid4())
         self._storage_path = Path(storage_path) if storage_path else None
         self._heartbeat_timeout = heartbeat_timeout
-        self._registry = registry or DeviceRegistry()
         if mirror_registry is None:
             mirror_registry = (
                 True if registry is not None else os.getenv("MOLTBOT_GATEWAY_REGISTRY", "0") == "1"
             )
+        if registry is None:
+            if mirror_registry:
+                store = get_canonical_gateway_stores().gateway_store()
+                registry = DeviceRegistry(store=store)
+            else:
+                registry = DeviceRegistry()
+        self._registry = registry
         self._mirror_registry = mirror_registry
 
         self._devices: dict[str, DeviceNode] = {}

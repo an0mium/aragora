@@ -18,6 +18,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Callable
 
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry, DeviceStatus
+from aragora.stores.canonical import get_canonical_gateway_stores
 
 if TYPE_CHECKING:
     pass
@@ -75,7 +76,10 @@ class SecureDeviceRegistry:
         offline_threshold: float = 90.0,  # 3 missed heartbeats
         on_device_offline: Callable[[str], None] | None = None,
     ) -> None:
-        self._registry = registry or DeviceRegistry()
+        if registry is None:
+            store = get_canonical_gateway_stores().gateway_store()
+            registry = DeviceRegistry(store=store)
+        self._registry = registry
         self._pairing_timeout = pairing_timeout
         self._max_requests_per_minute = max_requests_per_minute
         self._heartbeat_interval = heartbeat_interval

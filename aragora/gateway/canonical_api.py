@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from aragora.gateway.capability_router import CapabilityRouter, RoutingResult
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry, DeviceStatus
 from aragora.gateway.inbox import InboxAggregator, InboxMessage, MessagePriority
+from aragora.stores.canonical import GatewayStores, get_canonical_gateway_stores
 
 
 @runtime_checkable
@@ -54,15 +55,22 @@ class GatewayRuntime(GatewayAPI):
     default_agent: str = "default"
     max_inbox_size: int = 10000
     store: "GatewayStore | None" = None
+    canonical_stores: GatewayStores | None = None
     registry: DeviceRegistry = field(init=False)
     inbox: InboxAggregator = field(init=False)
     router: CapabilityRouter = field(init=False)
 
     def __post_init__(self) -> None:
+        if self.store is None:
+            if self.canonical_stores is None:
+                self.canonical_stores = get_canonical_gateway_stores()
+            self.store = self.canonical_stores.gateway_store()
         self.registry = DeviceRegistry(store=self.store)
         self.inbox = InboxAggregator(max_size=self.max_inbox_size, store=self.store)
         self.router = CapabilityRouter(
-            default_agent=self.default_agent, device_registry=self.registry
+            default_agent=self.default_agent,
+            device_registry=self.registry,
+            store=self.store,
         )
 
     async def hydrate(self) -> None:

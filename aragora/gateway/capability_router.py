@@ -36,6 +36,7 @@ from aragora.gateway.router import AgentRouter, RoutingRule
 
 if TYPE_CHECKING:
     from aragora.gateway.device_registry import DeviceRegistry
+    from aragora.gateway.persistence import GatewayStore
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +72,9 @@ class CapabilityRouter(AgentRouter):
         self,
         default_agent: str = "default",
         device_registry: "DeviceRegistry | None" = None,
+        store: "GatewayStore | None" = None,
     ) -> None:
-        super().__init__(default_agent)
+        super().__init__(default_agent, store)
         self._device_registry = device_registry
         self._capability_rules: dict[str, CapabilityRule] = {}
 
