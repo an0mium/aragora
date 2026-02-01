@@ -69,6 +69,21 @@ from aragora.workflow.engine import (
     WorkflowEngine,
     get_workflow_engine,
     reset_workflow_engine,
+    get_workflow_executor,
+)
+from aragora.workflow.executor_protocol import (
+    WorkflowExecutor,
+    ResumableExecutor,
+    ResourceAwareExecutor,
+)
+from aragora.workflow.resource_tracker import (
+    ResourceTracker,
+    MODEL_PRICING,
+)
+from aragora.workflow.queue_adapter import (
+    TaskQueueExecutorAdapter,
+    get_queue_adapter,
+    reset_queue_adapter,
 )
 from aragora.workflow.engine_v2 import (
     EnhancedWorkflowEngine,
@@ -115,12 +130,23 @@ __all__ = [
     "get_workflow_engine",
     "reset_workflow_engine",
     "EnhancedWorkflowEngine",
+    # Unified executor interface
+    "get_workflow_executor",
+    "WorkflowExecutor",
+    "ResumableExecutor",
+    "ResourceAwareExecutor",
+    # Queue adapter
+    "TaskQueueExecutorAdapter",
+    "get_queue_adapter",
+    "reset_queue_adapter",
     # Resource management
+    "ResourceTracker",
     "ResourceLimits",
     "ResourceUsage",
     "ResourceType",
     "ResourceExhaustedError",
     "EnhancedWorkflowResult",
+    "MODEL_PRICING",
     # Validation
     "validate_workflow",
     "validate_workflow_file",

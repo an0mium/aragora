@@ -851,3 +851,67 @@ def reset_workflow_engine() -> None:
 
 # Backward-compatible alias
 Workflow = WorkflowEngine
+
+
+# =========================================================================
+# Unified Executor Factory
+# =========================================================================
+
+
+def get_workflow_executor(
+    mode: str = "default",
+    config: WorkflowConfig | None = None,
+    resource_limits: Any = None,
+) -> Any:
+    """
+    Get a workflow executor by mode.
+
+    This factory provides a unified way to obtain different workflow
+    execution backends through a common interface.
+
+    Args:
+        mode: Executor mode - one of:
+            - "default": WorkflowEngine (DAG-based with checkpointing)
+            - "enhanced": EnhancedWorkflowEngine (resource-aware)
+            - "queue": TaskQueueExecutorAdapter (priority queue-based)
+        config: Optional WorkflowConfig for customization
+        resource_limits: Optional ResourceLimits for enhanced mode
+
+    Returns:
+        A workflow executor implementing the WorkflowExecutor protocol
+
+    Example:
+        # Get default engine
+        executor = get_workflow_executor()
+
+        # Get resource-aware engine
+        from aragora.workflow import ResourceLimits
+        executor = get_workflow_executor(
+            mode="enhanced",
+            resource_limits=ResourceLimits(max_cost_usd=5.0)
+        )
+
+        # Get queue-based executor
+        executor = get_workflow_executor(mode="queue")
+
+        # All executors share the same interface
+        result = await executor.execute(definition, inputs)
+    """
+    if mode == "default":
+        return get_workflow_engine(config)
+
+    elif mode == "enhanced":
+        from aragora.workflow.engine_v2 import EnhancedWorkflowEngine, ResourceLimits
+
+        limits = resource_limits or ResourceLimits()
+        return EnhancedWorkflowEngine(config=config, limits=limits)
+
+    elif mode == "queue":
+        from aragora.workflow.queue_adapter import get_queue_adapter
+
+        return get_queue_adapter()
+
+    else:
+        raise ValueError(
+            f"Unknown executor mode: {mode}. Valid modes are: 'default', 'enhanced', 'queue'"
+        )
