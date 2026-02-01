@@ -1025,6 +1025,29 @@ class AragoraClient:
         """Async context manager exit."""
         await self.close_async()
 
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        json: dict | None = None,
+        headers: dict | None = None,
+    ) -> dict:
+        """Generic synchronous request helper for SDK namespaces."""
+        verb = method.upper()
+        if verb == "GET":
+            return self._get(path, params=params)
+        if verb == "POST":
+            return self._post(path, json or {}, headers=headers)
+        if verb == "PUT":
+            return self._put(path, json or {}, headers=headers)
+        if verb == "PATCH":
+            return self._patch(path, json or {}, headers=headers)
+        if verb == "DELETE":
+            return self._delete(path, params=params)
+        raise ValueError(f"Unsupported HTTP method: {method}")
+
     async def close_async(self) -> None:
         """Close async HTTP session."""
         if self._session:
@@ -1035,3 +1058,30 @@ class AragoraClient:
         """Close any open resources."""
         # Sync client cleanup if needed
         self._sync_client = None
+
+
+class AragoraAsyncClient(AragoraClient):
+    """Compatibility alias for async-first client usage."""
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        json: dict | None = None,
+        headers: dict | None = None,
+    ) -> dict:
+        """Generic async request helper for SDK namespaces."""
+        verb = method.upper()
+        if verb == "GET":
+            return await self._get_async(path, params=params)
+        if verb == "POST":
+            return await self._post_async(path, json or {}, headers=headers)
+        if verb == "PUT":
+            return await self._put_async(path, json or {}, headers=headers)
+        if verb == "PATCH":
+            return await self._patch_async(path, json or {}, headers=headers)
+        if verb == "DELETE":
+            return await self._delete_async(path, params=params)
+        raise ValueError(f"Unsupported HTTP method: {method}")

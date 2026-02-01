@@ -423,34 +423,53 @@ class SAMLProvider(SSOProvider):
         saml_response: str,
         relay_state: str | None,
     ) -> SSOUser:
-        """Authenticate using python3-saml library."""
+        """Authenticate using python3-saml library.
+
+        SECURITY: The python3-saml library (with strict=True) enforces:
+        - XML signature verification against the IdP's X.509 certificate
+        - Audience restriction validation
+        - NotBefore/NotOnOrAfter time window validation
+        - Destination attribute validation
+        - Issuer validation
+        - Protection against XML signature wrapping attacks
+        - Rejection of deprecated signature algorithms (SHA-1)
+        """
         if not HAS_SAML_LIB:
             raise SAMLError("python3-saml not installed. Install with: pip install python3-saml")
-        settings = self._get_onelogin_settings()
 
-        # Create mock request object
-        request_data = {
-            "https": "on",
-            "http_host": self._get_host_from_url(self.config.callback_url),
-            "script_name": self._get_path_from_url(self.config.callback_url),
-            "post_data": {
-                "SAMLResponse": saml_response,
-                "RelayState": relay_state or "",
-            },
-        }
+        try:
+            settings = self._get_onelogin_settings()
 
-        auth = OneLogin_Saml2_Auth(request_data, settings)
-        auth.process_response()
+            # Create mock request object
+            request_data = {
+                "https": "on",
+                "http_host": self._get_host_from_url(self.config.callback_url),
+                "script_name": self._get_path_from_url(self.config.callback_url),
+                "post_data": {
+                    "SAMLResponse": saml_response,
+                    "RelayState": relay_state or "",
+                },
+            }
 
-        errors = auth.get_errors()
-        if errors:
-            raise SSOAuthenticationError(
-                f"SAML validation failed: {', '.join(errors)}",
-                {"errors": errors, "reason": auth.get_last_error_reason()},
-            )
+            auth = OneLogin_Saml2_Auth(request_data, settings)
+            auth.process_response()
 
-        if not auth.is_authenticated():
-            raise SSOAuthenticationError("User not authenticated")
+            errors = auth.get_errors()
+            if errors:
+                raise SSOAuthenticationError(
+                    f"SAML validation failed: {', '.join(errors)}",
+                    {"errors": errors, "reason": auth.get_last_error_reason()},
+                )
+
+            if not auth.is_authenticated():
+                raise SSOAuthenticationError("User not authenticated")
+
+        except SSOAuthenticationError:
+            raise
+        except Exception as e:
+            # Catch XML parsing errors, lxml errors, and other library exceptions
+            logger.error(f"SAML library authentication error: {e}")
+            raise SSOAuthenticationError(f"Invalid SAML response: {e}")
 
         # Get user data
         name_id = auth.get_nameid()

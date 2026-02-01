@@ -183,9 +183,10 @@ class AuthConfig:
         except ValueError as e:
             _logger.warning(f"Invalid ARAGORA_TOKEN_TTL '{ttl_str}', using default: {e}")
 
-        origins = os.getenv("ARAGORA_ALLOWED_ORIGINS")
-        if origins:
-            self.allowed_origins = [o.strip() for o in origins.split(",")]
+        # Re-read validated origins from centralized CORS config.
+        # CORSConfig already validates origins at init time (wildcard
+        # rejection in production, URL format, trailing slash stripping).
+        self.allowed_origins = cors_config.get_origins_list()
 
     def generate_token(self, loop_id: str = "", expires_in: int | None = None) -> str:
         """Generate a signed token for access."""
@@ -204,7 +205,7 @@ class AuthConfig:
     def revoke_token(self, token: str, reason: str = "") -> bool:
         """Revoke a token to prevent further use.
 
-        Uses truncated hash to minimize storage while preventing timing attacks.
+        Uses full SHA-256 hash to ensure collision resistance and prevent timing attacks.
 
         Args:
             token: The token to revoke
@@ -216,8 +217,8 @@ class AuthConfig:
         if not token:
             return False
 
-        # Use truncated hash for storage efficiency
-        token_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+        # Use full SHA-256 hash for collision resistance (64 hex chars = 256 bits)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
 
         with self._revocation_lock:
             # Clean up expired revocations to prevent unbounded growth
@@ -242,7 +243,7 @@ class AuthConfig:
         if not token:
             return False
 
-        token_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
 
         with self._revocation_lock:
             return token_hash in self._revoked_tokens

@@ -417,8 +417,8 @@ class SharingHandler(BaseHandler):
                 db_user = user_store.get_user_by_id(user.user_id)
                 if db_user:
                     return db_user
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("User store lookup failed: %s", e)
         return user
 
     def _list_social_shares(

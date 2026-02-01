@@ -6,6 +6,7 @@ Provides generic OpenID Connect authentication methods for the OAuthHandler.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from urllib.parse import urlencode
@@ -51,7 +52,14 @@ class OIDCOAuthMixin:
         state = impl._generate_state(user_id=user_id, redirect_url=redirect_url)
 
         # Discover OIDC endpoints
-        discovery = await self._get_oidc_discovery(oidc_issuer)
+        try:
+            discovery = await asyncio.wait_for(
+                self._get_oidc_discovery(oidc_issuer),
+                timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"OIDC discovery timed out for issuer: {oidc_issuer}")
+            return error_response("OIDC provider discovery timed out", 504)
         auth_endpoint = discovery.get("authorization_endpoint")
 
         if not auth_endpoint:

@@ -86,9 +86,9 @@ class ResponseHelpersMixin:
             path = getattr(self, "path", "")
             if path:
                 add_v1_headers_to_handler(self, path)
-        except Exception:
+        except Exception as e:
             # Never let deprecation header injection break a response
-            pass
+            logger.debug("Deprecation header injection failed: %s", e)
 
     def _add_trace_headers(self) -> None:
         """Add trace ID header to response for correlation."""

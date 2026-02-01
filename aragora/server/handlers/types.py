@@ -1,12 +1,21 @@
 """
-TypedDict definitions for handler request/response types.
+Shared type definitions for HTTP handlers.
 
-These TypedDicts provide static type checking for API request bodies
-and response payloads. They mirror the validation schemas in
-aragora/server/validation/schema.py.
+This module provides:
+1. TypedDict definitions for API request bodies and response payloads
+2. Protocol classes for handler interfaces
+3. Type aliases for handler functions and middleware
+4. Common parameter types (pagination, filtering, sorting)
+
+These types improve type safety across handler files and reduce duplication.
 
 Usage:
-    from aragora.server.handlers.types import CreateDebateRequest
+    from aragora.server.handlers.types import (
+        CreateDebateRequest,
+        HandlerFunction,
+        PaginationParams,
+        FilterParams,
+    )
 
     def handle_create(self, body: CreateDebateRequest) -> DebateResponse:
         task = body.get("task", "")
@@ -16,9 +25,276 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Protocol,
+    TypedDict,
+    TypeVar,
+    Union,
+    runtime_checkable,
+)
 
 from typing_extensions import NotRequired
+
+if TYPE_CHECKING:
+    from aragora.server.handlers.utils.responses import HandlerResult
+
+
+# =============================================================================
+# Type Variables
+# =============================================================================
+
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+
+
+# =============================================================================
+# Handler Protocol
+# =============================================================================
+
+
+@runtime_checkable
+class HandlerProtocol(Protocol):
+    """Protocol defining the interface for HTTP request handlers.
+
+    This protocol specifies the contract that all endpoint handlers must implement.
+    It allows handlers to be type-checked without importing the full BaseHandler
+    implementation, reducing circular dependencies.
+
+    Example:
+        def register_handler(handler: HandlerProtocol) -> None:
+            result = handler.handle("/api/v1/test", {}, mock_handler)
+
+    See Also:
+        aragora.server.handlers.interface.HandlerInterface for the full interface.
+    """
+
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+        """Handle a GET request."""
+        ...
+
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+        """Handle a POST request."""
+        ...
+
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+        """Handle a DELETE request."""
+        ...
+
+    def handle_patch(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+        """Handle a PATCH request."""
+        ...
+
+    def handle_put(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+        """Handle a PUT request."""
+        ...
+
+
+# =============================================================================
+# Request Context Types
+# =============================================================================
+
+
+class RequestContext(TypedDict, total=False):
+    """Type for request context objects passed through middleware and handlers.
+
+    This captures the common fields that may be attached to a request as it
+    flows through the handler pipeline. Not all fields are always present.
+
+    Attributes:
+        user_id: Authenticated user ID (if authenticated)
+        org_id: Organization/tenant ID for multi-tenancy
+        workspace_id: Workspace ID within the organization
+        trace_id: Distributed tracing ID for request correlation
+        request_id: Unique request identifier
+        client_ip: Client IP address
+        user_agent: User-Agent header value
+        auth_method: How the request was authenticated (e.g., "bearer", "api_key")
+        permissions: List of permissions the user has
+        roles: List of roles assigned to the user
+        metadata: Additional request-specific metadata
+    """
+
+    user_id: str
+    org_id: str
+    workspace_id: str
+    trace_id: str
+    request_id: str
+    client_ip: str
+    user_agent: str
+    auth_method: str
+    permissions: list[str]
+    roles: list[str]
+    metadata: dict[str, Any]
+
+
+# =============================================================================
+# Response Type Aliases
+# =============================================================================
+
+# Union type for all valid handler response types
+# Handlers may return:
+# - HandlerResult: A complete response object
+# - None: Indicates the handler did not handle the request
+# - Awaitable[HandlerResult | None]: For async handlers
+ResponseType = Union["HandlerResult", None, Awaitable[Union["HandlerResult", None]]]
+
+
+# =============================================================================
+# Handler Function Type Aliases
+# =============================================================================
+
+# Type for synchronous handler functions
+# Takes path, query params, and HTTP handler; returns response or None
+HandlerFunction = Callable[
+    [str, dict[str, Any], Any],
+    Union["HandlerResult", None],
+]
+
+# Type for async handler functions
+AsyncHandlerFunction = Callable[
+    [str, dict[str, Any], Any],
+    Awaitable[Union["HandlerResult", None]],
+]
+
+# Type for handler functions that may be sync or async
+MaybeAsyncHandlerFunction = Callable[
+    [str, dict[str, Any], Any],
+    Union["HandlerResult", None, Awaitable[Union["HandlerResult", None]]],
+]
+
+
+# =============================================================================
+# Middleware Function Type Aliases
+# =============================================================================
+
+# Type for middleware that wraps a handler function
+# Takes a handler function and returns a wrapped handler function
+MiddlewareFunction = Callable[[HandlerFunction], HandlerFunction]
+
+# Type for async middleware
+AsyncMiddlewareFunction = Callable[[AsyncHandlerFunction], AsyncHandlerFunction]
+
+# Type for middleware that can wrap both sync and async handlers
+MaybeAsyncMiddlewareFunction = Callable[[MaybeAsyncHandlerFunction], MaybeAsyncHandlerFunction]
+
+# Type for decorator factories (e.g., @rate_limit(requests_per_minute=30))
+MiddlewareFactory = Callable[..., MiddlewareFunction]
+
+
+# =============================================================================
+# Common Parameter Types
+# =============================================================================
+
+
+class PaginationParams(TypedDict, total=False):
+    """Standard pagination parameters used across list endpoints.
+
+    These parameters control how results are paginated. All fields are optional
+    with sensible defaults applied by handlers.
+
+    Attributes:
+        limit: Maximum number of items to return (default: 20, max: 100)
+        offset: Number of items to skip (default: 0)
+        page: Page number (1-indexed, alternative to offset)
+        cursor: Opaque cursor for cursor-based pagination
+    """
+
+    limit: int
+    offset: int
+    page: int
+    cursor: str
+
+
+class FilterParams(TypedDict, total=False):
+    """Common filtering parameters used across list endpoints.
+
+    These parameters allow filtering results by various criteria.
+    All fields are optional and interpreted by each handler.
+
+    Attributes:
+        status: Filter by status (e.g., "active", "completed", "archived")
+        agent: Filter by agent name
+        user_id: Filter by user ID
+        org_id: Filter by organization ID
+        created_after: Filter items created after this ISO timestamp
+        created_before: Filter items created before this ISO timestamp
+        updated_after: Filter items updated after this ISO timestamp
+        updated_before: Filter items updated before this ISO timestamp
+        tags: Filter by tags (comma-separated or list)
+        search: Full-text search query
+        ids: Filter by specific IDs (comma-separated or list)
+    """
+
+    status: str
+    agent: str
+    user_id: str
+    org_id: str
+    created_after: str
+    created_before: str
+    updated_after: str
+    updated_before: str
+    tags: str | list[str]
+    search: str
+    ids: str | list[str]
+
+
+class SortParams(TypedDict, total=False):
+    """Sorting parameters for list endpoints.
+
+    Attributes:
+        sort_by: Field name to sort by
+        sort_order: Sort direction ("asc" or "desc")
+        order_by: Alternative field name format
+    """
+
+    sort_by: str
+    sort_order: str  # "asc" | "desc"
+    order_by: str
+
+
+class QueryParams(TypedDict, total=False):
+    """Combined query parameters including pagination, filtering, and sorting.
+
+    This is a convenience type that combines all common query parameter types
+    for handlers that support pagination, filtering, and sorting together.
+    """
+
+    # Pagination
+    limit: int
+    offset: int
+    page: int
+    cursor: str
+    # Filtering
+    status: str
+    agent: str
+    user_id: str
+    org_id: str
+    created_after: str
+    created_before: str
+    updated_after: str
+    updated_before: str
+    tags: str | list[str]
+    search: str
+    ids: str | list[str]
+    # Sorting
+    sort_by: str
+    sort_order: str
+    order_by: str
+
 
 # =============================================================================
 # Debate Request/Response Types
@@ -530,6 +806,26 @@ class StatusResponse(TypedDict):
 
 
 __all__ = [
+    # Handler protocol
+    "HandlerProtocol",
+    # Request context
+    "RequestContext",
+    # Response type aliases
+    "ResponseType",
+    # Handler function type aliases
+    "HandlerFunction",
+    "AsyncHandlerFunction",
+    "MaybeAsyncHandlerFunction",
+    # Middleware function type aliases
+    "MiddlewareFunction",
+    "AsyncMiddlewareFunction",
+    "MaybeAsyncMiddlewareFunction",
+    "MiddlewareFactory",
+    # Common parameter types
+    "PaginationParams",
+    "FilterParams",
+    "SortParams",
+    "QueryParams",
     # Debate types
     "CreateDebateRequest",
     "DebateUpdateRequest",

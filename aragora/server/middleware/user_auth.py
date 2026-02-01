@@ -290,9 +290,9 @@ class SupabaseAuthValidator:
                     return None
 
                 # Fallback: decode without verification (dev only!)
-                logger.warning(
+                logger.error(
                     "INSECURE: Decoding JWT without signature verification. "
-                    "This is only acceptable in development!"
+                    "This is only acceptable in development! Install PyJWT: pip install pyjwt"
                 )
                 payload = self._decode_jwt_unsafe(token)
                 if not payload:
@@ -386,8 +386,11 @@ class SupabaseAuthValidator:
             payload_json = base64.urlsafe_b64decode(payload_b64)
             payload = json.loads(payload_json)
 
-            # Check expiration
-            if "exp" in payload and payload["exp"] < time.time():
+            # Require expiration claim
+            if "exp" not in payload:
+                logger.warning("JWT missing required exp claim - rejecting")
+                return None
+            if payload["exp"] < time.time():
                 logger.debug("JWT expired")
                 return None
 

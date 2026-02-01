@@ -51,6 +51,7 @@ Gauntlet Usage:
 
 from .client import (
     AgentsAPI,
+    AragoraAsyncClient,
     AragoraClient,
     DebatesAPI,
     GauntletAPI,
@@ -136,6 +137,7 @@ from .websocket import (
 
 __all__ = [
     # Client
+    "AragoraAsyncClient",
     "AragoraClient",
     "AragoraAPIError",
     "RetryConfig",

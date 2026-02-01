@@ -53,6 +53,30 @@ from .interface import (
     is_authenticated_handler,
 )
 
+# Shared types for handlers (protocols, type aliases, common parameters)
+from .types import (
+    # Handler protocol
+    HandlerProtocol,
+    # Request context
+    RequestContext,
+    # Response type aliases
+    ResponseType,
+    # Handler function type aliases
+    HandlerFunction,
+    AsyncHandlerFunction,
+    MaybeAsyncHandlerFunction,
+    # Middleware function type aliases
+    MiddlewareFunction,
+    AsyncMiddlewareFunction,
+    MaybeAsyncMiddlewareFunction,
+    MiddlewareFactory,
+    # Common parameter types
+    PaginationParams,
+    FilterParams,
+    SortParams,
+    QueryParams,
+)
+
 # Standalone utilities that don't require full server infrastructure
 from .utilities import (
     get_host_header,
@@ -674,6 +698,21 @@ __all__ = [
     "HandlerRegistration",
     "is_handler",
     "is_authenticated_handler",
+    # Shared types (from types.py)
+    "HandlerProtocol",
+    "RequestContext",
+    "ResponseType",
+    "HandlerFunction",
+    "AsyncHandlerFunction",
+    "MaybeAsyncHandlerFunction",
+    "MiddlewareFunction",
+    "AsyncMiddlewareFunction",
+    "MaybeAsyncMiddlewareFunction",
+    "MiddlewareFactory",
+    "PaginationParams",
+    "FilterParams",
+    "SortParams",
+    "QueryParams",
     # Standalone utilities (from utilities.py)
     "get_host_header",
     "get_agent_name",
