@@ -345,10 +345,15 @@ class TestModuleLevelValidation:
         monkeypatch.setenv("ARAGORA_ENV", "production")
         monkeypatch.setenv("ARAGORA_SSRF_ALLOW_LOCALHOST", "true")
 
-        # Get the exception class before reload (reload may invalidate module refs)
-        from aragora.security.ssrf_protection import SecurityConfigurationError
         import aragora.security.ssrf_protection as ssrf_module
 
         # Should raise SecurityConfigurationError on reload
-        with pytest.raises(SecurityConfigurationError):
+        # Note: We catch Exception because importlib.reload() redefines the class,
+        # making it a different class object than the one we'd import before reload
+        with pytest.raises(Exception) as exc_info:
             importlib.reload(ssrf_module)
+
+        # Verify it's the right exception type by name
+        assert exc_info.type.__name__ == "SecurityConfigurationError"
+        assert "production" in str(exc_info.value).lower()
+        assert "ARAGORA_SSRF_ALLOW_LOCALHOST" in str(exc_info.value)

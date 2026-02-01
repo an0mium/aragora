@@ -254,6 +254,48 @@ spec:
               pod=~"aragora-.*"
             }[10m]))
 
+    # Metric 5: Debate success rate (consensus reached) must be > 85%
+    # Business metric: tracks debates that successfully reach consensus
+    - name: debate-success-rate
+      interval: 2m
+      successCondition: result[0] >= 0.85 || isNaN(result[0])
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            (
+              sum(rate(aragora_debate_completed_total{
+                namespace="{{args.namespace}}",
+                service="{{args.service-name}}",
+                outcome="consensus"
+              }[10m]))
+              /
+              sum(rate(aragora_debate_completed_total{
+                namespace="{{args.namespace}}",
+                service="{{args.service-name}}"
+              }[10m]))
+            ) or vector(1)
+
+    # Metric 6: Knowledge Mound query P99 latency must be < 200ms
+    # Business metric: tracks core knowledge retrieval performance
+    - name: km-query-p99
+      interval: 2m
+      successCondition: result[0] < 200 || isNaN(result[0])
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            (
+              histogram_quantile(0.99,
+                sum(rate(aragora_km_query_duration_seconds_bucket{
+                  namespace="{{args.namespace}}",
+                  service="{{args.service-name}}"
+                }[10m])) by (le)
+              ) * 1000
+            ) or vector(0)
+
 ---
 # Ingress for stable traffic
 apiVersion: networking.k8s.io/v1

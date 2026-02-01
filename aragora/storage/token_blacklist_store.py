@@ -182,13 +182,16 @@ class SQLiteBlacklist(BlacklistBackend):
         logger.info(f"SQLiteBlacklist initialized: {self.db_path}")
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn"):
+        """Get per-context database connection (async-safe)."""
+        conn = self._conn_var.get()
+        if conn is None:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
-            self._local.conn = conn
-        return self._local.conn
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
@@ -257,10 +260,14 @@ class SQLiteBlacklist(BlacklistBackend):
         return row[0] if row else 0
 
     def close(self) -> None:
-        """Close database connection."""
-        if hasattr(self._local, "conn"):
-            self._local.conn.close()
-            del self._local.conn
+        """Close all database connections."""
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
 
 
 # Optional Redis backend for multi-instance deployments

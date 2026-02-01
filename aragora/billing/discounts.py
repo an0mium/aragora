@@ -24,6 +24,7 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import sqlite3
 import threading
@@ -253,6 +254,10 @@ class DiscountManager:
         VolumeTier(min_spend_cents=500000_00, discount_percent=20.0),  # $500k+ = 20%
     ]
 
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "discount_manager_conn", default=None
+    )
+
     def __init__(self, db_path: str | None = None):
         """
         Initialize discount manager.
@@ -266,15 +271,17 @@ class DiscountManager:
             db_path = str(db_dir / "discounts.db")
 
         self.db_path = db_path
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_db()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(self.db_path)
-            self._local.conn.row_factory = sqlite3.Row
-        conn: sqlite3.Connection = self._local.conn
+        """Get context-local database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            self._conn_var.set(conn)
+            self._connections.append(conn)
         return conn
 
     def _init_db(self) -> None:

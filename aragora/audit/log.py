@@ -35,13 +35,13 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
 import csv
 import hashlib
 import json
 import logging
 import os
 import sqlite3
-import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
@@ -297,22 +297,27 @@ class AuditQuery:
 class SQLiteBackend:
     """SQLite backend for audit log storage.
 
-    Uses thread-local storage for connections to ensure thread safety.
-    Each thread gets its own connection to the database.
+    Uses context variables for connections to ensure context safety.
+    Each async context gets its own connection to the database.
     """
+
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "sqlite_audit_conn", default=None
+    )
 
     def __init__(self, db_path: Path):
         self.db_path = db_path
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get or create thread-local database connection."""
-        conn = getattr(self._local, "conn", None)
+        """Get or create context-local database connection."""
+        conn = self._conn_var.get()
         if conn is None:
             conn = sqlite3.connect(str(self.db_path), timeout=30.0)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.row_factory = sqlite3.Row
-            self._local.conn = conn
+            self._conn_var.set(conn)
+            self._connections.append(conn)
         return conn
 
     def execute_write(self, sql: str, params: tuple = ()) -> None:
@@ -334,26 +339,43 @@ class SQLiteBackend:
         return cursor.fetchall()
 
     def close(self) -> None:
-        """Close the current thread's database connection."""
-        conn = getattr(self._local, "conn", None)
+        """Close the current context's database connection."""
+        conn = self._conn_var.get()
         if conn is not None:
             conn.close()
-            self._local.conn = None
+            self._conn_var.set(None)
+            if conn in self._connections:
+                self._connections.remove(conn)
+
+    def close_all(self) -> None:
+        """Close all tracked connections."""
+        for conn in self._connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._connections.clear()
+        self._conn_var.set(None)
 
 
 class PostgreSQLBackend:
     """PostgreSQL backend for audit log storage (enterprise deployments)."""
 
+    _conn_var: contextvars.ContextVar[Any] = contextvars.ContextVar(
+        "postgres_audit_conn", default=None
+    )
+
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self._local = threading.local()
+        self._connections: list[Any] = []
 
     def _get_connection(self) -> Any:
-        """Get or create thread-local database connection."""
-        conn = getattr(self._local, "conn", None)
+        """Get or create context-local database connection."""
+        conn = self._conn_var.get()
         if conn is None:
             conn = psycopg2.connect(self.database_url)
-            self._local.conn = conn
+            self._conn_var.set(conn)
+            self._connections.append(conn)
         return conn
 
     def execute_write(self, sql: str, params: tuple = ()) -> None:
@@ -382,11 +404,23 @@ class PostgreSQLBackend:
             return cursor.fetchall()
 
     def close(self) -> None:
-        """Close the current thread's database connection."""
-        conn = getattr(self._local, "conn", None)
+        """Close the current context's database connection."""
+        conn = self._conn_var.get()
         if conn is not None:
             conn.close()
-            self._local.conn = None
+            self._conn_var.set(None)
+            if conn in self._connections:
+                self._connections.remove(conn)
+
+    def close_all(self) -> None:
+        """Close all tracked connections."""
+        for conn in self._connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._connections.clear()
+        self._conn_var.set(None)
 
 
 class AuditLog:

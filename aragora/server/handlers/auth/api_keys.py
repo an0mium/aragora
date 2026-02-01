@@ -17,7 +17,7 @@ from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors
 from ..openapi_decorator import api_endpoint
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import auth_rate_limit
 
 if TYPE_CHECKING:
     from .handler import AuthHandler
@@ -48,7 +48,9 @@ logger = logging.getLogger(__name__)
         "503": {"description": "Service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=3, limiter_name="auth_api_key_gen")
+@auth_rate_limit(
+    requests_per_minute=3, limiter_name="auth_api_key_gen", endpoint_name="API key generation"
+)
 @handle_errors("generate API key")
 def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> HandlerResult:
     """Generate a new API key for the user."""
@@ -125,7 +127,9 @@ def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> Handler
         "503": {"description": "Service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=5, limiter_name="auth_revoke_api_key")
+@auth_rate_limit(
+    requests_per_minute=5, limiter_name="auth_revoke_api_key", endpoint_name="API key revocation"
+)
 @handle_errors("revoke API key")
 def handle_revoke_api_key(handler_instance: "AuthHandler", handler) -> HandlerResult:
     """Revoke the user's API key."""
@@ -182,7 +186,9 @@ def handle_revoke_api_key(handler_instance: "AuthHandler", handler) -> HandlerRe
         "503": {"description": "Service unavailable"},
     },
 )
-@rate_limit(requests_per_minute=10, limiter_name="auth_list_api_keys")
+@auth_rate_limit(
+    requests_per_minute=10, limiter_name="auth_list_api_keys", endpoint_name="API key listing"
+)
 @handle_errors("list API keys")
 def handle_list_api_keys(handler_instance: "AuthHandler", handler) -> HandlerResult:
     """List API keys for the current user."""
@@ -217,7 +223,11 @@ def handle_list_api_keys(handler_instance: "AuthHandler", handler) -> HandlerRes
     return json_response({"keys": keys, "count": len(keys)})
 
 
-@rate_limit(requests_per_minute=5, limiter_name="auth_revoke_api_key_prefix")
+@auth_rate_limit(
+    requests_per_minute=5,
+    limiter_name="auth_revoke_api_key_prefix",
+    endpoint_name="API key revocation",
+)
 @handle_errors("revoke API key (prefix)")
 def handle_revoke_api_key_prefix(
     handler_instance: "AuthHandler", handler, prefix: str

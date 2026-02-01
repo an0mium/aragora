@@ -27,15 +27,12 @@ from aragora.debate.batch_loaders import debate_loader_context
 from aragora.debate.budget_coordinator import BudgetCoordinator
 from aragora.debate.knowledge_manager import ArenaKnowledgeManager
 from aragora.debate.context import DebateContext
-from aragora.debate.context_delegation import ContextDelegator
 from aragora.debate.grounded_operations import GroundedOperations
 from aragora.debate.hierarchy import AgentHierarchy, HierarchyConfig
-from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
 from aragora.debate.judge_selector import JudgeSelector
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.debate.sanitization import OutputSanitizer
-from aragora.debate.termination_checker import TerminationChecker
 from aragora.logging_config import get_logger as get_structured_logger
 from aragora.observability.n1_detector import n1_detection_scope
 from aragora.observability.tracing import add_span_attributes, get_tracer
@@ -74,8 +71,15 @@ from aragora.debate.orchestrator_participation import (
     init_event_bus as _participation_init_event_bus,
     init_user_participation as _participation_init_user_participation,
 )
+from aragora.debate.orchestrator_context import (
+    init_context_delegator as _context_init_context_delegator,
+    init_prompt_context_builder as _context_init_prompt_context_builder,
+)
 from aragora.debate.orchestrator_roles import (
     init_roles_and_stances as _roles_init_roles_and_stances,
+)
+from aragora.debate.orchestrator_termination import (
+    init_termination_checker as _termination_init_termination_checker,
 )
 from aragora.debate.orchestrator_delegates import ArenaDelegatesMixin
 from aragora.debate.orchestrator_domains import (
@@ -1033,29 +1037,11 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_prompt_context_builder(self) -> None:
         """Initialize PromptContextBuilder for agent prompt context."""
-        self._prompt_context = PromptContextBuilder(
-            persona_manager=self.persona_manager,
-            flip_detector=self.flip_detector,
-            protocol=self.protocol,
-            prompt_builder=self.prompt_builder,
-            audience_manager=self.audience_manager,
-            spectator=self.spectator,
-            notify_callback=self._notify_spectator,
-            vertical=getattr(self, "vertical", None),
-            vertical_persona_manager=getattr(self, "vertical_persona_manager", None),
-        )
+        _context_init_prompt_context_builder(self)
 
     def _init_context_delegator(self) -> None:
         """Initialize ContextDelegator for context gathering operations."""
-        self._context_delegator = ContextDelegator(
-            context_gatherer=self.context_gatherer,
-            memory_manager=self.memory_manager,
-            cache=self._cache,
-            evidence_grounder=getattr(self, "evidence_grounder", None),
-            continuum_memory=self.continuum_memory,
-            env=self.env,
-            extract_domain_fn=self._extract_debate_domain,
-        )
+        _context_init_context_delegator(self)
 
     def _init_phases(self) -> None:
         """Initialize phase classes for orchestrator decomposition."""
@@ -1068,21 +1054,7 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_termination_checker(self) -> None:
         """Initialize the termination checker for early debate termination."""
-
-        async def generate_fn(agent: Agent, prompt: str, ctx: list[Message]) -> str:
-            return await self.autonomic.generate(agent, prompt, ctx)
-
-        async def select_judge_fn(proposals: dict[str, str], context: list[Message]) -> Agent:
-            return await self._select_judge(proposals, context)
-
-        self.termination_checker = TerminationChecker(
-            protocol=self.protocol,
-            agents=self._require_agents() if self.agents else [],
-            generate_fn=generate_fn,
-            task=self.env.task if self.env else "",
-            select_judge_fn=select_judge_fn,
-            hooks=self.hooks,
-        )
+        _termination_init_termination_checker(self)
 
     def _init_cross_subscriber_bridge(self) -> None:
         """Initialize cross-subscriber bridge. Delegates to orchestrator_memory."""

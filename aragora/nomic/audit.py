@@ -26,6 +26,7 @@ Features:
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import json
 import logging
@@ -151,6 +152,10 @@ class AuditLogger:
     CREATE INDEX IF NOT EXISTS idx_audit_phase ON audit_events(phase);
     """
 
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "nomic_audit_conn", default=None
+    )
+
     def __init__(
         self,
         db_path: Path | None = None,
@@ -172,7 +177,7 @@ class AuditLogger:
             db_path = Path(".nomic/audit.db")
 
         self.db_path = db_path
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._lock = threading.Lock()
 
         # Ensure directory exists
@@ -181,11 +186,13 @@ class AuditLogger:
             self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = sqlite3.connect(str(self.db_path), timeout=30)
-            self._local.conn.row_factory = sqlite3.Row
-        conn: sqlite3.Connection = self._local.conn
+        """Get context-local database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(str(self.db_path), timeout=30)
+            conn.row_factory = sqlite3.Row
+            self._conn_var.set(conn)
+            self._connections.append(conn)
         return conn
 
     def _init_db(self) -> None:
@@ -532,10 +539,23 @@ class AuditLogger:
         }
 
     def close(self) -> None:
-        """Close database connection."""
-        if hasattr(self._local, "conn") and self._local.conn:
-            self._local.conn.close()
-            self._local.conn = None
+        """Close the current context's database connection."""
+        conn = self._conn_var.get()
+        if conn is not None:
+            conn.close()
+            self._conn_var.set(None)
+            if conn in self._connections:
+                self._connections.remove(conn)
+
+    def close_all(self) -> None:
+        """Close all tracked connections."""
+        for conn in self._connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._connections.clear()
+        self._conn_var.set(None)
 
 
 # Global audit logger instance

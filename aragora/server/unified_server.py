@@ -313,6 +313,12 @@ class UnifiedHandler(
                     status=401,
                 )
                 return
+            # Return 404 for unhandled API endpoints (don't fall through to static files)
+            self._send_json(
+                {"error": f"API endpoint not found: {path}", "code": "not_found"},
+                status=404,
+            )
+            return
 
         # Static file serving (non-API routes)
         if path in ("/", "/index.html"):

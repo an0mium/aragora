@@ -32,6 +32,7 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -151,6 +152,10 @@ class DLQStats:
 class EventDLQPersistence:
     """SQLite-backed persistence for the event DLQ."""
 
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "event_dlq_conn", default=None
+    )
+
     def __init__(self, db_path: str | None = None):
         """Initialize persistence layer.
 
@@ -165,16 +170,19 @@ class EventDLQPersistence:
             db_path = str(db_dir / "event_dlq.db")
 
         self._db_path = db_path
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local connection."""
-        if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(self._db_path, check_same_thread=False)
-            self._local.conn.row_factory = sqlite3.Row
-            self._local.conn.execute("PRAGMA journal_mode=WAL")
-        return self._local.conn
+        """Get context-local connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            self._conn_var.set(conn)
+            self._connections.append(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

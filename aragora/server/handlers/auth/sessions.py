@@ -16,7 +16,7 @@ from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors
 from ..openapi_decorator import api_endpoint
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import auth_rate_limit
 
 if TYPE_CHECKING:
     from .handler import AuthHandler
@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
         "401": {"description": "Unauthorized"},
     },
 )
-@rate_limit(requests_per_minute=30, limiter_name="auth_sessions")
+@auth_rate_limit(
+    requests_per_minute=30, limiter_name="auth_sessions", endpoint_name="session listing"
+)
 @handle_errors("list sessions")
 def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerResult:
     """List all active sessions for the current user.
@@ -102,7 +104,9 @@ def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerRes
         "404": {"description": "Session not found"},
     },
 )
-@rate_limit(requests_per_minute=10, limiter_name="auth_revoke_session")
+@auth_rate_limit(
+    requests_per_minute=10, limiter_name="auth_revoke_session", endpoint_name="session revocation"
+)
 @handle_errors("revoke session")
 def handle_revoke_session(
     handler_instance: "AuthHandler", handler, session_id: str

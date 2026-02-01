@@ -31,11 +31,11 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import hashlib
 import logging
 import os
 import sqlite3
-import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -363,8 +363,12 @@ class OAuthTokenStore:
     Persistent storage for OAuth tokens.
 
     Supports SQLite for local storage with encryption for sensitive data.
-    Thread-safe for multi-worker deployments.
+    Context-safe for async and multi-worker deployments.
     """
+
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "oauth_token_conn", default=None
+    )
 
     def __init__(
         self,
@@ -380,15 +384,18 @@ class OAuthTokenStore:
         """
         self._storage_path = storage_path or ":memory:"
         self._encryption_key = encryption_key or os.environ.get("ARAGORA_ENCRYPTION_KEY")
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local connection."""
-        if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(self._storage_path, check_same_thread=False)
-            self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+        """Get context-local connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(self._storage_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._conn_var.set(conn)
+            self._connections.append(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

@@ -182,8 +182,10 @@ class TestValidateUrl:
         result = validate_url("http://172.16.0.1/secret")
         assert result.is_safe is False
 
-    def test_loopback_blocked(self):
+    def test_loopback_blocked(self, monkeypatch):
         """Test rejection of loopback addresses."""
+        # Ensure localhost override is not set for this test
+        monkeypatch.delenv("ARAGORA_SSRF_ALLOW_LOCALHOST", raising=False)
         result = validate_url("http://127.0.0.1:8080/api")
         assert result.is_safe is False
 

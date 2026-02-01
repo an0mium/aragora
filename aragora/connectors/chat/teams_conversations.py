@@ -41,6 +41,7 @@ Schema:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import sqlite3
@@ -214,6 +215,10 @@ class TeamsConversationStore:
         ON teams_conversations(created_at DESC);
     """
 
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "teams_conversation_conn", default=None
+    )
+
     def __init__(self, db_path: str | None = None):
         """Initialize the conversation store.
 
@@ -226,21 +231,24 @@ class TeamsConversationStore:
             db_path = str(data_dir / "teams_conversations.db")
 
         self._db_path = db_path
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_lock = threading.Lock()
         self._initialized = False
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection") or self._local.connection is None:
+        """Get context-local database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
             db_dir = Path(self._db_path).parent
             db_dir.mkdir(parents=True, exist_ok=True)
 
-            self._local.connection = sqlite3.connect(self._db_path, check_same_thread=False)
-            self._local.connection.row_factory = sqlite3.Row
-            self._ensure_schema(self._local.connection)
+            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._ensure_schema(conn)
+            self._conn_var.set(conn)
+            self._connections.append(conn)
 
-        return self._local.connection
+        return conn
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
         """Ensure database schema exists."""

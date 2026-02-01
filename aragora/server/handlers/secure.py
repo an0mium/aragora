@@ -371,7 +371,17 @@ def secure_endpoint(
             ) as e:
                 return self.handle_security_error(e, request)
 
-            except Exception as e:
+            except (
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                RuntimeError,
+                OSError,
+                IOError,
+                ConnectionError,
+                TimeoutError,
+            ) as e:
                 logger.exception(f"Error in secure endpoint {func.__name__}: {e}")
                 raise
 

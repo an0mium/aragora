@@ -26,14 +26,14 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
 import sqlite3
-import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from aragora.workflow.queue.queue import TaskQueue, TaskQueueConfig
 from aragora.workflow.queue.task import (
@@ -116,6 +116,10 @@ class PersistentTaskQueue(TaskQueue):
     enabling recovery after server restarts.
     """
 
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "persistent_task_queue_conn", default=None
+    )
+
     def __init__(
         self,
         config: TaskQueueConfig | None = None,
@@ -139,7 +143,7 @@ class PersistentTaskQueue(TaskQueue):
             self._db_path = data_dir / "task_queue.db"
 
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_schema()
 
         logger.info(f"PersistentTaskQueue initialized: {self._db_path}")
@@ -188,14 +192,16 @@ class PersistentTaskQueue(TaskQueue):
                 # Don't fail start if recovery fails - queue is still functional
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn"):
+        """Get context-local database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
             conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
-            self._local.conn = conn
-        return cast(sqlite3.Connection, self._local.conn)
+            self._conn_var.set(conn)
+            self._connections.append(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
@@ -544,9 +550,22 @@ class PersistentTaskQueue(TaskQueue):
     async def close(self) -> None:
         """Close database connections."""
         await self.stop(drain=True)
-        if hasattr(self._local, "conn"):
-            self._local.conn.close()
-            del self._local.conn
+        conn = self._conn_var.get()
+        if conn is not None:
+            conn.close()
+            self._conn_var.set(None)
+            if conn in self._connections:
+                self._connections.remove(conn)
+
+    def close_all(self) -> None:
+        """Close all tracked connections."""
+        for conn in self._connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._connections.clear()
+        self._conn_var.set(None)
 
 
 # Global queue instance

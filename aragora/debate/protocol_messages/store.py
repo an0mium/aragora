@@ -9,6 +9,7 @@ Inspired by gastown's beads storage pattern for persistent work state.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import sqlite3
@@ -66,8 +67,12 @@ class ProtocolMessageStore:
     - Indexed queries by debate, agent, type, round
     - Time-range queries for audit trails
     - JSONL export for replay
-    - Thread-safe operations
+    - Context-safe operations
     """
+
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "protocol_message_conn", default=None
+    )
 
     def __init__(self, db_path: str | None = None):
         """
@@ -77,20 +82,23 @@ class ProtocolMessageStore:
             db_path: Path to SQLite database. If None, uses in-memory database.
         """
         self.db_path = db_path or ":memory:"
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_schema()
         logger.info(f"ProtocolMessageStore initialized: {self.db_path}")
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = sqlite3.connect(
+        """Get context-local database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(
                 self.db_path,
                 check_same_thread=False,
                 detect_types=sqlite3.PARSE_DECLTYPES,
             )
-            self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+            conn.row_factory = sqlite3.Row
+            self._conn_var.set(conn)
+            self._connections.append(conn)
+        return conn
 
     @contextmanager
     def _cursor(self) -> Iterator[sqlite3.Cursor]:
@@ -521,7 +529,20 @@ class ProtocolMessageStore:
         )
 
     def close(self) -> None:
-        """Close database connection."""
-        if hasattr(self._local, "conn") and self._local.conn:
-            self._local.conn.close()
-            self._local.conn = None
+        """Close the current context's database connection."""
+        conn = self._conn_var.get()
+        if conn is not None:
+            conn.close()
+            self._conn_var.set(None)
+            if conn in self._connections:
+                self._connections.remove(conn)
+
+    def close_all(self) -> None:
+        """Close all tracked connections."""
+        for conn in self._connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._connections.clear()
+        self._conn_var.set(None)

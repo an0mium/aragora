@@ -457,11 +457,18 @@ class TestEdgeCases:
         assert valid is True
 
     def test_password_whitespace_only(self) -> None:
-        """Password with only whitespace characters."""
-        # 8 spaces - meets length but is it treated as empty?
-        valid, err = validate_password("        ")
-        # Should pass length check if whitespace counts as characters
-        assert valid is True or "required" in err.lower()
+        """Password with only whitespace characters fails complexity requirements."""
+        # 12 spaces - meets length but fails complexity (no uppercase, lowercase, digit, special)
+        valid, err = validate_password("            ")
+        # Whitespace-only password will fail complexity checks
+        assert valid is False
+        # Will fail one of the complexity checks (uppercase, lowercase, digit, or special)
+        assert (
+            "uppercase" in err.lower()
+            or "lowercase" in err.lower()
+            or "digit" in err.lower()
+            or "special" in err.lower()
+        )
 
 
 class TestModuleExports:

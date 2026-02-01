@@ -285,11 +285,15 @@ class NotificationConfigStore:
         self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local database connection (legacy)."""
-        if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = sqlite3.connect(self._db_path, check_same_thread=False)
-            self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+        """Get per-context database connection (async-safe, legacy)."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
@@ -723,9 +727,14 @@ class NotificationConfigStore:
         if self._backend is not None:
             self._backend.close()
             self._backend = None
-        elif hasattr(self._local, "conn") and self._local.conn is not None:
-            self._local.conn.close()
-            self._local.conn = None
+        else:
+            with self._connections_lock:
+                for conn in self._connections:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                self._connections.clear()
 
 
 # =============================================================================

@@ -1725,9 +1725,25 @@ class HandlerRegistryMixin:
                     json.dumps({"error": "Permission denied", "code": "forbidden"}).encode()
                 )
                 return True
-            logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}")
-            # Fall through to legacy handler on error
-            return False
+            logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}", exc_info=True)
+            # Return 500 error instead of falling through to static file serving
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self._add_cors_headers()
+            self._add_security_headers()
+            self.end_headers()
+            import json
+
+            self.wfile.write(
+                json.dumps(
+                    {
+                        "error": "Internal server error",
+                        "code": "handler_error",
+                        "handler": handler.__class__.__name__,
+                    }
+                ).encode()
+            )
+            return True
 
         return False
 

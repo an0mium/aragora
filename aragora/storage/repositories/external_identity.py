@@ -131,16 +131,30 @@ class ExternalIdentityRepository:
         self._initialized = False
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection") or self._local.connection is None:
+        """Get per-context database connection (async-safe)."""
+        conn = self._conn_var.get()
+        if conn is None:
             db_dir = Path(self._db_path).parent
             db_dir.mkdir(parents=True, exist_ok=True)
 
-            self._local.connection = sqlite3.connect(self._db_path, check_same_thread=False)
-            self._local.connection.row_factory = sqlite3.Row
-            self._ensure_schema(self._local.connection)
+            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._ensure_schema(conn)
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
 
-        return self._local.connection
+        return conn
+
+    def close(self) -> None:
+        """Close all database connections."""
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
         """Ensure database schema exists."""

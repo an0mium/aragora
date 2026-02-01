@@ -106,17 +106,20 @@ class AuditStore:
             self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection (legacy SQLite mode)."""
+        """Get per-context database connection (async-safe, legacy SQLite mode)."""
         if self._external_get_connection:
             return self._external_get_connection()
 
-        if not hasattr(self._local, "connection"):
+        conn = self._conn_var.get()
+        if conn is None:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
-            self._local.connection = conn
-        return self._local.connection
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Cursor]:
@@ -492,9 +495,14 @@ class AuditStore:
         if self._backend is not None:
             self._backend.close()
             self._backend = None
-        elif self._external_get_connection is None and hasattr(self._local, "connection"):
-            self._local.connection.close()
-            del self._local.connection
+        elif self._external_get_connection is None:
+            with self._connections_lock:
+                for conn in self._connections:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                self._connections.clear()
 
 
 # Module-level singleton

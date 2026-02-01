@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import sqlite3
 import threading
@@ -201,18 +202,25 @@ class AccessReviewConfig:
 class AccessReviewStorage:
     """SQLite-backed storage for access reviews."""
 
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "access_review_conn", default=None
+    )
+
     def __init__(self, db_path: str | None = None):
         """Initialize storage."""
         self._db_path = db_path or ":memory:"
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local connection."""
-        if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(self._db_path, check_same_thread=False)
-            self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+        """Get context-local connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._conn_var.set(conn)
+            self._connections.append(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

@@ -239,6 +239,17 @@ class SentryConfig:
     )
     server_name: str | None = field(default_factory=lambda: os.getenv("SENTRY_SERVER_NAME"))
 
+    def __post_init__(self) -> None:
+        """Validate Sentry configuration values."""
+        if not 0 <= self.traces_sample_rate <= 1:
+            raise ValueError(
+                f"traces_sample_rate must be between 0 and 1, got {self.traces_sample_rate}"
+            )
+        if not 0 <= self.profiles_sample_rate <= 1:
+            raise ValueError(
+                f"profiles_sample_rate must be between 0 and 1, got {self.profiles_sample_rate}"
+            )
+
     @property
     def is_configured(self) -> bool:
         """Check if Sentry DSN is configured."""
@@ -332,6 +343,17 @@ class TimeoutConfig:
     timeout_workers: int = field(
         default_factory=lambda: int(os.getenv("ARAGORA_TIMEOUT_WORKERS", "10"))
     )
+
+    def __post_init__(self) -> None:
+        """Validate timeout configuration values."""
+        if self.default_timeout <= 0:
+            raise ValueError(f"default_timeout must be positive, got {self.default_timeout}")
+        if self.max_timeout < self.default_timeout:
+            raise ValueError(
+                f"max_timeout ({self.max_timeout}) must be >= default_timeout ({self.default_timeout})"
+            )
+        if self.timeout_workers < 1:
+            raise ValueError(f"timeout_workers must be >= 1, got {self.timeout_workers}")
 
 
 def get_timeout_config() -> TimeoutConfig:
@@ -427,6 +449,17 @@ class RateLimitConfig:
         )
     )
 
+    def __post_init__(self) -> None:
+        """Validate rate limit configuration values."""
+        if self.redis_failure_threshold < 1:
+            raise ValueError(
+                f"redis_failure_threshold must be >= 1, got {self.redis_failure_threshold}"
+            )
+        if self.metrics_aggregation_interval < 1:
+            raise ValueError(
+                f"metrics_aggregation_interval must be >= 1, got {self.metrics_aggregation_interval}"
+            )
+
 
 def get_rate_limit_config() -> RateLimitConfig:
     """Factory function for RateLimitConfig."""
@@ -489,6 +522,13 @@ class ServerAuthConfig:
     cleanup_interval: int = field(
         default_factory=lambda: int(os.getenv("ARAGORA_AUTH_CLEANUP_INTERVAL", "300"))
     )
+
+    def __post_init__(self) -> None:
+        """Validate server auth configuration values."""
+        if self.token_ttl < 1:
+            raise ValueError(f"token_ttl must be >= 1, got {self.token_ttl}")
+        if self.cleanup_interval < 1:
+            raise ValueError(f"cleanup_interval must be >= 1, got {self.cleanup_interval}")
 
     @property
     def is_production(self) -> bool:

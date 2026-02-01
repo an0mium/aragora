@@ -10,6 +10,7 @@ Provides SQLite-backed storage for inbox routing rules with:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -29,8 +30,12 @@ class RulesStore:
     """
     SQLite-backed persistent storage for routing rules.
 
-    Thread-safe with connection pooling per thread.
+    Context-safe with connection pooling per context.
     """
+
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "rules_store_conn", default=None
+    )
 
     def __init__(self, db_path: str | None = None):
         """
@@ -40,7 +45,7 @@ class RulesStore:
             db_path: Path to SQLite database file. Defaults to ~/.aragora/data/rules.db
         """
         self.db_path = db_path or DEFAULT_DB_PATH
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_lock = threading.Lock()
         self._initialized = False
 
@@ -52,17 +57,20 @@ class RulesStore:
         self._ensure_schema()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection") or self._local.connection is None:
-            self._local.connection = sqlite3.connect(
+        """Get context-local database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(
                 self.db_path,
                 check_same_thread=False,
                 timeout=30.0,
             )
-            self._local.connection.row_factory = sqlite3.Row
+            conn.row_factory = sqlite3.Row
             # Enable foreign keys
-            self._local.connection.execute("PRAGMA foreign_keys = ON")
-        return self._local.connection
+            conn.execute("PRAGMA foreign_keys = ON")
+            self._conn_var.set(conn)
+            self._connections.append(conn)
+        return conn
 
     @contextmanager
     def _cursor(self) -> Generator[sqlite3.Cursor, None, None]:
@@ -842,10 +850,23 @@ class RulesStore:
             return any(results) if results else False
 
     def close(self) -> None:
-        """Close the database connection."""
-        if hasattr(self._local, "connection") and self._local.connection:
-            self._local.connection.close()
-            self._local.connection = None
+        """Close the current context's database connection."""
+        conn = self._conn_var.get()
+        if conn is not None:
+            conn.close()
+            self._conn_var.set(None)
+            if conn in self._connections:
+                self._connections.remove(conn)
+
+    def close_all(self) -> None:
+        """Close all tracked connections."""
+        for conn in self._connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._connections.clear()
+        self._conn_var.set(None)
 
 
 # Singleton instance for shared use

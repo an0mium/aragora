@@ -376,29 +376,38 @@ class TestAudioTranscriptionSecurity:
 
     @pytest.mark.asyncio
     async def test_oversized_body_rejected(self, handler, mock_transcription_available):
-        """Test oversized file body is rejected even with small Content-Length."""
-        # Create a file larger than max size
-        # Use valid MP3 header to pass magic byte check
-        file_data = b"ID3" + b"\x00" * (MAX_AUDIO_SIZE_MB * 1024 * 1024 + 1000)
-        boundary = "----TestBoundary"
-        body = create_multipart_body("audio.mp3", file_data, boundary)
+        """Test oversized file body is rejected even with small Content-Length.
 
-        mock_http = MockHandler(
-            headers={
-                "Content-Type": f"multipart/form-data; boundary=----{boundary}",
-                # Lie about content length
-                "Content-Length": "1000",
-            },
-            body=body,
-            method="POST",
-        )
+        Note: This test verifies actual body size checking. The handler reads Content-Length
+        bytes from rfile, so to test actual body size verification, we create a mock
+        that simulates a multipart parser returning oversized data.
+        """
+        # Create a file larger than max size (100MB + 1KB)
+        over_limit_size = MAX_AUDIO_SIZE_MB * 1024 * 1024 + 1024
+        oversized_file_data = b"ID3" + b"\x00" * (over_limit_size - 3)
 
-        result = await handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
+        # Mock _parse_multipart to return oversized data despite Content-Length header
+        with patch.object(
+            handler,
+            "_parse_multipart",
+            return_value=(oversized_file_data, "audio.mp3", {}),
+        ):
+            mock_http = MockHandler(
+                headers={
+                    "Content-Type": "multipart/form-data; boundary=----TestBoundary",
+                    # Lie about content length (smaller than actual)
+                    "Content-Length": "1000",
+                },
+                body=b"small body",
+                method="POST",
+            )
 
-        assert result is not None
-        assert result.status_code == 413
-        data = json.loads(result.body)
-        assert "too large" in data.get("error", "").lower()
+            result = await handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
+
+            assert result is not None
+            assert result.status_code == 413
+            data = json.loads(result.body)
+            assert "too large" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_empty_file_rejected(self, handler, mock_transcription_available):
@@ -490,7 +499,7 @@ class TestAudioTranscriptionSecurity:
         )
 
         # Mock the transcription to avoid actually processing
-        with patch("aragora.server.handlers.transcription.transcribe_audio") as mock_transcribe:
+        with patch("aragora.transcription.transcribe_audio") as mock_transcribe:
             mock_result = MagicMock()
             mock_result.text = "Test transcription"
             mock_result.language = "en"
@@ -584,7 +593,7 @@ class TestVideoTranscriptionSecurity:
         )
 
         # Mock the transcription to avoid actually processing
-        with patch("aragora.server.handlers.transcription.transcribe_video") as mock_transcribe:
+        with patch("aragora.transcription.transcribe_video") as mock_transcribe:
             mock_result = MagicMock()
             mock_result.text = "Test transcription"
             mock_result.language = "en"
@@ -630,6 +639,11 @@ class TestVideoTranscriptionSecurity:
     @pytest.mark.asyncio
     async def test_video_null_bytes_rejected(self, handler, mock_transcription_available):
         """Test null bytes in video filename are rejected."""
+        # Reset rate limiter to avoid rate limit issues
+        from aragora.server.handlers.transcription import _audio_limiter
+
+        _audio_limiter._buckets.clear()
+
         file_data = b"\x00\x00\x00\x00ftyp" + b"\x00" * 100  # Valid MP4 header
         boundary = "----TestBoundary"
         body = create_multipart_body("video\x00.mp4", file_data, boundary)

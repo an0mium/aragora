@@ -11,6 +11,7 @@ Provides:
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import sqlite3
 import threading
@@ -19,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -415,6 +416,10 @@ class BudgetManager:
     CREATE INDEX IF NOT EXISTS idx_transactions_budget ON budget_transactions(budget_id);
     """
 
+    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+        "budget_manager_conn", default=None
+    )
+
     def __init__(self, db_path: str = "data/budgets.db"):
         """Initialize budget manager.
 
@@ -422,26 +427,29 @@ class BudgetManager:
             db_path: Path to SQLite database
         """
         self._db_path = db_path
-        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
         self._init_lock = threading.Lock()
         self._initialized = False
         self._alert_callbacks: list[Callable[[BudgetAlert], None]] = []
         self._alert_cooldowns: dict[str, float] = {}  # budget_id -> last alert time
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection") or self._local.connection is None:
+        """Get context-local database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
             import os
 
             db_dir = os.path.dirname(self._db_path)
             if db_dir and not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
 
-            self._local.connection = sqlite3.connect(self._db_path, check_same_thread=False)
-            self._local.connection.row_factory = sqlite3.Row
-            self._ensure_schema(self._local.connection)
+            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._ensure_schema(conn)
+            self._conn_var.set(conn)
+            self._connections.append(conn)
 
-        return cast(sqlite3.Connection, self._local.connection)
+        return conn
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
         """Ensure database schema exists."""

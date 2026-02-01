@@ -422,18 +422,21 @@ class QBOQueryBuilder:
         """
         Sanitize string value for QBO query.
 
-        - Max 500 characters
-        - Only safe characters allowed
-        - Single quotes escaped by doubling
+        Security measures:
+        - Max 500 characters (raises ValueError if exceeded)
+        - Only safe characters allowed (defined in _SAFE_CHARS)
+        - Single quotes are filtered out (not in _SAFE_CHARS), preventing
+          quote-based injection attacks entirely
+
+        Note: The _SAFE_CHARS allowlist intentionally excludes single quotes.
+        This prevents injection by removing quotes rather than escaping them,
+        which is a more robust defense-in-depth approach.
         """
         if len(value) > 500:
             raise ValueError(f"String value exceeds 500 character limit: {len(value)}")
 
-        # Filter to safe characters
+        # Filter to safe characters (single quotes NOT included - prevents injection)
         sanitized = "".join(c for c in value if c in self._SAFE_CHARS)
-
-        # Escape single quotes (QBO's escape mechanism)
-        sanitized = sanitized.replace("'", "''")
 
         return sanitized
 

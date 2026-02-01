@@ -46,9 +46,9 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_deliberation_started = None  # type: Any
-    log_deliberation_completed = None  # type: Any
-    log_deliberation_sla_event = None  # type: Any
+    log_deliberation_started = None  # type: ignore[no-redef]
+    log_deliberation_completed = None  # type: ignore[no-redef]
+    log_deliberation_sla_event = None  # type: ignore[no-redef]
 
 # Prometheus metrics (optional)
 try:
@@ -61,9 +61,9 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    record_deliberation_complete = None  # type: Any
-    record_deliberation_sla = None  # type: Any
-    record_agent_utilization = None  # type: Any
+    record_deliberation_complete = None  # type: ignore[no-redef]
+    record_deliberation_sla = None  # type: ignore[no-redef]
+    record_agent_utilization = None  # type: ignore[no-redef]
 
 if TYPE_CHECKING:
     from aragora.control_plane.shared_state import SharedControlPlaneState

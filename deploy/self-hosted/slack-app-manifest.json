@@ -1,0 +1,126 @@
+{
+  "_metadata": {
+    "major_version": 2,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "Aragora",
+    "description": "Multi-agent vetted decisionmaking platform for your organization",
+    "background_color": "#0D0D0D",
+    "long_description": "Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. It orchestrates 15+ AI models to debate your organization's knowledge and deliver defensible decisions to any channel.\n\nFeatures:\n- Start debates from Slack with /debate command\n- Receive consensus notifications in channels\n- View decision receipts with full audit trail\n- Integrate with your existing knowledge bases"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "Aragora Bot",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/debate",
+        "url": "{{YOUR_DOMAIN}}/api/integrations/slack/commands",
+        "description": "Start a new debate on a topic",
+        "usage_hint": "[topic] - Start debating a decision",
+        "should_escape": false
+      },
+      {
+        "command": "/aragora",
+        "url": "{{YOUR_DOMAIN}}/api/integrations/slack/commands",
+        "description": "Aragora commands and help",
+        "usage_hint": "[help|status|recent] - Manage Aragora",
+        "should_escape": false
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Start Debate",
+        "type": "message",
+        "callback_id": "start_debate_from_message",
+        "description": "Start a debate based on this message"
+      },
+      {
+        "name": "Quick Decision",
+        "type": "global",
+        "callback_id": "quick_decision",
+        "description": "Start a quick team decision"
+      }
+    ]
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "{{YOUR_DOMAIN}}/api/integrations/slack/callback"
+    ],
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "channels:history",
+        "channels:read",
+        "chat:write",
+        "chat:write.customize",
+        "commands",
+        "files:read",
+        "files:write",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "im:read",
+        "im:write",
+        "links:read",
+        "links:write",
+        "mpim:history",
+        "mpim:read",
+        "reactions:read",
+        "reactions:write",
+        "team:read",
+        "users:read",
+        "users:read.email"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "{{YOUR_DOMAIN}}/api/integrations/slack/events",
+      "bot_events": [
+        "app_home_opened",
+        "app_mention",
+        "message.channels",
+        "message.groups",
+        "message.im",
+        "message.mpim",
+        "reaction_added"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "{{YOUR_DOMAIN}}/api/integrations/slack/interactive",
+      "message_menu_options_url": "{{YOUR_DOMAIN}}/api/integrations/slack/options"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  },
+  "_instructions": {
+    "setup_steps": [
+      "1. Go to https://api.slack.com/apps and click 'Create New App'",
+      "2. Choose 'From an app manifest' option",
+      "3. Select your workspace",
+      "4. Copy this manifest (replace {{YOUR_DOMAIN}} with your actual domain first)",
+      "5. Review and create the app",
+      "6. Go to 'OAuth & Permissions' and install to workspace",
+      "7. Copy the Bot User OAuth Token to your .env file as SLACK_BOT_TOKEN",
+      "8. Go to 'Basic Information' and copy the Signing Secret to SLACK_SIGNING_SECRET"
+    ],
+    "environment_variables": [
+      "SLACK_CLIENT_ID=<from Basic Information page>",
+      "SLACK_CLIENT_SECRET=<from Basic Information page>",
+      "SLACK_SIGNING_SECRET=<from Basic Information page>",
+      "SLACK_BOT_TOKEN=xoxb-<from OAuth & Permissions page>",
+      "SLACK_REDIRECT_URI={{YOUR_DOMAIN}}/api/integrations/slack/callback"
+    ],
+    "verification": "After setup, visit {{YOUR_DOMAIN}}/api/integrations/slack/test to verify the connection"
+  }
+}
