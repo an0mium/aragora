@@ -82,9 +82,9 @@ class TestExternalFrameworkConfig:
         """Should have sensible default values."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkConfig
 
-        config = ExternalFrameworkConfig(base_url="http://localhost:8000")
+        config = ExternalFrameworkConfig(base_url="https://api.example.com:8000")
 
-        assert config.base_url == "http://localhost:8000"
+        assert config.base_url == "https://api.example.com:8000"
         assert config.generate_endpoint == "/generate"
         assert config.critique_endpoint == "/critique"
         assert config.vote_endpoint == "/vote"
@@ -133,7 +133,7 @@ class TestExternalFrameworkAgentInitialization:
         """Should initialize with default values."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         assert agent.name == "external-framework"
         assert agent.model == "external"
@@ -173,17 +173,19 @@ class TestExternalFrameworkAgentInitialization:
             ExternalFrameworkConfig,
         )
 
-        config = ExternalFrameworkConfig(base_url="http://config-url.com")
+        config = ExternalFrameworkConfig(base_url="https://config-url.com")
 
-        agent = ExternalFrameworkAgent(config=config, base_url="http://override-url.com")
+        agent = ExternalFrameworkAgent(config=config, base_url="https://override-url.com")
 
-        assert agent.base_url == "http://override-url.com"
+        assert agent.base_url == "https://override-url.com"
 
     def test_init_with_api_key(self):
         """Should accept API key."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent(api_key="test-api-key-123")
+        agent = ExternalFrameworkAgent(
+            api_key="test-api-key-123", base_url="https://api.example.com"
+        )
 
         assert agent.api_key == "test-api-key-123"
 
@@ -191,12 +193,12 @@ class TestExternalFrameworkAgentInitialization:
         """Should read base_url and api_key from environment variables."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        monkeypatch.setenv("EXTERNAL_FRAMEWORK_URL", "http://env-url.com")
+        monkeypatch.setenv("EXTERNAL_FRAMEWORK_URL", "https://env-url.com")
         monkeypatch.setenv("EXTERNAL_FRAMEWORK_API_KEY", "env-api-key")
 
         agent = ExternalFrameworkAgent()
 
-        assert agent.base_url == "http://env-url.com"
+        assert agent.base_url == "https://env-url.com"
         assert agent.api_key == "env-api-key"
 
     def test_agent_registry_registration(self):
@@ -215,6 +217,7 @@ class TestExternalFrameworkAgentInitialization:
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
         agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com",
             enable_circuit_breaker=True,
             circuit_breaker_threshold=10,
             circuit_breaker_cooldown=120.0,
@@ -226,7 +229,9 @@ class TestExternalFrameworkAgentInitialization:
         """Should allow disabling circuit breaker."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent(enable_circuit_breaker=False)
+        agent = ExternalFrameworkAgent(
+            base_url="https://api.example.com", enable_circuit_breaker=False
+        )
 
         assert agent._circuit_breaker is None
 
@@ -238,7 +243,7 @@ class TestExternalFrameworkHeaders:
         """Should build basic headers."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         headers = agent._build_headers()
 
         assert headers["Content-Type"] == "application/json"
@@ -249,7 +254,7 @@ class TestExternalFrameworkHeaders:
         """Should include API key in headers."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent(api_key="test-key-123")
+        agent = ExternalFrameworkAgent(api_key="test-key-123", base_url="https://api.example.com")
         headers = agent._build_headers()
 
         assert headers["Authorization"] == "Bearer test-key-123"
@@ -262,7 +267,7 @@ class TestExternalFrameworkHeaders:
         )
 
         config = ExternalFrameworkConfig(
-            base_url="http://localhost",
+            base_url="https://api.example.com",
             api_key_header="X-API-Key",
             api_key_prefix="",
         )
@@ -279,7 +284,7 @@ class TestExternalFrameworkHeaders:
         )
 
         config = ExternalFrameworkConfig(
-            base_url="http://localhost",
+            base_url="https://api.example.com",
             extra_headers={"X-Custom": "value", "X-Another": "header"},
         )
         agent = ExternalFrameworkAgent(config=config)
@@ -297,7 +302,7 @@ class TestExternalFrameworkIsAvailable:
         """Should return True when server is healthy."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -322,7 +327,7 @@ class TestExternalFrameworkIsAvailable:
         """Should return True on 204 No Content."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_response = MagicMock()
         mock_response.status = 204
@@ -347,7 +352,7 @@ class TestExternalFrameworkIsAvailable:
         """Should return False on connection error."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_session = MagicMock()
         mock_session.get = MagicMock(side_effect=aiohttp.ClientError())
@@ -367,7 +372,7 @@ class TestExternalFrameworkIsAvailable:
         """Should return False on server error."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_response = MagicMock()
         mock_response.status = 500
@@ -396,7 +401,7 @@ class TestExternalFrameworkGenerate:
         """Should parse OpenAI-compatible response format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -422,7 +427,7 @@ class TestExternalFrameworkGenerate:
         """Should parse simple response format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -448,7 +453,7 @@ class TestExternalFrameworkGenerate:
         """Should include context in request."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -481,7 +486,7 @@ class TestExternalFrameworkGenerate:
         """Should include system prompt."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         agent.system_prompt = "You are a helpful assistant."
 
         mock_response = MagicMock()
@@ -515,7 +520,7 @@ class TestExternalFrameworkGenerate:
         """Should include generation parameters in request."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         agent.set_generation_params(temperature=0.7, top_p=0.9)
 
         mock_response = MagicMock()
@@ -552,7 +557,7 @@ class TestExternalFrameworkResponseExtraction:
         """Should extract from OpenAI chat completion format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         data = {
             "choices": [{"message": {"content": "Hello from chat"}}],
         }
@@ -564,7 +569,7 @@ class TestExternalFrameworkResponseExtraction:
         """Should extract from OpenAI completion format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         data = {
             "choices": [{"text": "Hello from completion"}],
         }
@@ -576,7 +581,7 @@ class TestExternalFrameworkResponseExtraction:
         """Should extract from simple response format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         data = {"response": "Simple response"}
 
         result = agent._extract_response_text(data)
@@ -586,7 +591,7 @@ class TestExternalFrameworkResponseExtraction:
         """Should extract from text format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         data = {"text": "Text response"}
 
         result = agent._extract_response_text(data)
@@ -596,7 +601,7 @@ class TestExternalFrameworkResponseExtraction:
         """Should extract from content format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         data = {"content": "Content response"}
 
         result = agent._extract_response_text(data)
@@ -606,7 +611,7 @@ class TestExternalFrameworkResponseExtraction:
         """Should extract from output format."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         data = {"output": "Output response"}
 
         result = agent._extract_response_text(data)
@@ -616,7 +621,7 @@ class TestExternalFrameworkResponseExtraction:
         """Should fall back to JSON stringification for unknown formats."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         data = {"unknown_field": "value", "another": 123}
 
         result = agent._extract_response_text(data)
@@ -635,7 +640,7 @@ class TestExternalFrameworkResponseSanitization:
         )
 
         config = ExternalFrameworkConfig(
-            base_url="http://localhost",
+            base_url="https://api.example.com",
             max_response_length=100,
         )
         agent = ExternalFrameworkAgent(config=config)
@@ -650,7 +655,7 @@ class TestExternalFrameworkResponseSanitization:
         """Should remove null bytes."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         text = "Hello\x00World"
         result = agent._sanitize_response(text)
@@ -662,7 +667,7 @@ class TestExternalFrameworkResponseSanitization:
         """Should remove ANSI escape sequences."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         text = "Hello \x1b[31mRed\x1b[0m World"
         result = agent._sanitize_response(text)
@@ -678,7 +683,7 @@ class TestExternalFrameworkResponseSanitization:
         )
 
         config = ExternalFrameworkConfig(
-            base_url="http://localhost",
+            base_url="https://api.example.com",
             enable_response_sanitization=False,
             max_response_length=100,
         )
@@ -698,7 +703,7 @@ class TestExternalFrameworkCritique:
         """Should return structured critique."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         with patch.object(agent, "generate", new_callable=AsyncMock) as mock_generate:
             mock_generate.return_value = """ISSUES:
@@ -729,7 +734,7 @@ REASONING: The proposal addresses the task but needs refinement."""
         """Should include context when critiquing."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         with patch.object(agent, "generate", new_callable=AsyncMock) as mock_generate:
             mock_generate.return_value = """ISSUES:
@@ -756,7 +761,7 @@ REASONING: Needs better context integration."""
         """Should try dedicated critique endpoint first."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -802,7 +807,7 @@ class TestExternalFrameworkVote:
         """Should vote for best proposal."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         proposals = {
             "agent1": "Proposal A: Simple implementation",
@@ -828,7 +833,7 @@ REASONING: Proposal B is more comprehensive and production-ready."""
         """Should indicate debate should continue when appropriate."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         proposals = {
             "agent1": "Partial solution A",
@@ -851,7 +856,7 @@ REASONING: Both proposals have merit but need refinement."""
         """Should handle unknown agent choice gracefully."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
 
         proposals = {
             "agent1": "Proposal A",
@@ -880,7 +885,9 @@ class TestExternalFrameworkErrorHandling:
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
         # Use unique name to avoid circuit breaker state from other tests
-        agent = ExternalFrameworkAgent(name="test-api-error", enable_circuit_breaker=False)
+        agent = ExternalFrameworkAgent(
+            name="test-api-error", base_url="https://api.example.com", enable_circuit_breaker=False
+        )
 
         mock_response = MagicMock()
         mock_response.status = 500
@@ -908,7 +915,9 @@ class TestExternalFrameworkErrorHandling:
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
         # Disable circuit breaker to test raw rate limit error
-        agent = ExternalFrameworkAgent(name="test-rate-limit", enable_circuit_breaker=False)
+        agent = ExternalFrameworkAgent(
+            name="test-rate-limit", base_url="https://api.example.com", enable_circuit_breaker=False
+        )
 
         mock_response = MagicMock()
         mock_response.status = 429
@@ -937,7 +946,9 @@ class TestExternalFrameworkErrorHandling:
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
         # Use unique name and disable circuit breaker
-        agent = ExternalFrameworkAgent(name="test-conn-error", enable_circuit_breaker=False)
+        agent = ExternalFrameworkAgent(
+            name="test-conn-error", base_url="https://api.example.com", enable_circuit_breaker=False
+        )
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(
@@ -961,7 +972,11 @@ class TestExternalFrameworkErrorHandling:
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
         # Use unique name and disable circuit breaker
-        agent = ExternalFrameworkAgent(name="test-invalid-json", enable_circuit_breaker=False)
+        agent = ExternalFrameworkAgent(
+            name="test-invalid-json",
+            base_url="https://api.example.com",
+            enable_circuit_breaker=False,
+        )
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -992,6 +1007,7 @@ class TestExternalFrameworkErrorHandling:
         # Create agent with unique name to get fresh circuit breaker
         agent = ExternalFrameworkAgent(
             name="test-cb-failure",
+            base_url="https://api.example.com",
             enable_circuit_breaker=True,
             circuit_breaker_threshold=10,  # High threshold to avoid opening
         )
@@ -1029,7 +1045,7 @@ class TestExternalFrameworkTokenUsage:
         """Should track token usage."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         agent._record_token_usage(100, 50)
 
         usage = agent.get_token_usage()
@@ -1043,7 +1059,7 @@ class TestExternalFrameworkTokenUsage:
         """Should reset token counters."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         agent._record_token_usage(100, 50)
         agent.reset_token_usage()
 
@@ -1060,7 +1076,7 @@ class TestExternalFrameworkGenerationParams:
         """Should set generation parameters."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         agent.set_generation_params(temperature=0.7, top_p=0.9)
 
         assert agent.temperature == 0.7
@@ -1070,7 +1086,7 @@ class TestExternalFrameworkGenerationParams:
         """Should return non-None generation parameters."""
         from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
 
-        agent = ExternalFrameworkAgent()
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
         agent.temperature = 0.8
         agent.top_p = None
 

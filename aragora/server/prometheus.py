@@ -345,6 +345,38 @@ if PROMETHEUS_AVAILABLE:
         buckets=[2, 3, 4, 5, 6, 8, 10],
     )
 
+    # External agent gateway metrics
+    EXTERNAL_AGENT_TASKS_TOTAL = Counter(
+        "aragora_external_agent_tasks_total",
+        "Total external agent tasks",
+        ["adapter", "status"],
+    )
+
+    EXTERNAL_AGENT_TASK_DURATION = Histogram(
+        "aragora_external_agent_task_duration_seconds",
+        "External agent task execution time",
+        ["adapter", "task_type"],
+        buckets=[1, 5, 10, 30, 60, 300, 600, 1800],
+    )
+
+    EXTERNAL_AGENT_TOKENS_TOTAL = Counter(
+        "aragora_external_agent_tokens_total",
+        "Tokens used by external agents",
+        ["adapter"],
+    )
+
+    EXTERNAL_AGENT_TOOLS_BLOCKED = Counter(
+        "aragora_external_agent_tools_blocked_total",
+        "Tool calls blocked by security policy",
+        ["adapter", "tool"],
+    )
+
+    EXTERNAL_AGENT_COST_TOTAL = Counter(
+        "aragora_external_agent_cost_microdollars_total",
+        "Cost in micro-dollars for external agent tasks",
+        ["adapter"],
+    )
+
     DELIBERATION_TOTAL = Counter(
         "aragora_deliberation_total",
         "Total deliberations",
@@ -1148,6 +1180,98 @@ def record_memory_operation(operation: str) -> None:
         _simple_metrics.inc_counter(
             "aragora_memory_operations_total",
             {"operation": operation},
+        )
+
+
+# ============================================================================
+# External Agent Gateway Metrics
+# ============================================================================
+
+
+def record_external_agent_task(adapter: str, status: str) -> None:
+    """Record an external agent task event.
+
+    Args:
+        adapter: Adapter name (e.g., 'openhands', 'autogpt')
+        status: Task status (submitted, completed, failed, cancelled)
+    """
+    if PROMETHEUS_AVAILABLE:
+        EXTERNAL_AGENT_TASKS_TOTAL.labels(adapter=adapter, status=status).inc()
+    else:
+        _simple_metrics.inc_counter(
+            "aragora_external_agent_tasks_total",
+            {"adapter": adapter, "status": status},
+        )
+
+
+def record_external_agent_duration(adapter: str, task_type: str, seconds: float) -> None:
+    """Record external agent task duration.
+
+    Args:
+        adapter: Adapter name
+        task_type: Type of task (code, research, analysis)
+        seconds: Duration in seconds
+    """
+    if PROMETHEUS_AVAILABLE:
+        EXTERNAL_AGENT_TASK_DURATION.labels(adapter=adapter, task_type=task_type).observe(seconds)
+    else:
+        _simple_metrics.observe_histogram(
+            "aragora_external_agent_task_duration_seconds",
+            seconds,
+            {"adapter": adapter, "task_type": task_type},
+        )
+
+
+def record_external_agent_tokens(adapter: str, tokens: int) -> None:
+    """Record tokens used by an external agent.
+
+    Args:
+        adapter: Adapter name
+        tokens: Number of tokens consumed
+    """
+    if PROMETHEUS_AVAILABLE:
+        EXTERNAL_AGENT_TOKENS_TOTAL.labels(adapter=adapter).inc(tokens)
+    else:
+        _simple_metrics.inc_counter(
+            "aragora_external_agent_tokens_total",
+            {"adapter": adapter},
+            tokens,
+        )
+
+
+def record_external_agent_tool_blocked(adapter: str, tool: str) -> None:
+    """Record a blocked tool invocation.
+
+    Args:
+        adapter: Adapter name
+        tool: Tool name that was blocked
+    """
+    if PROMETHEUS_AVAILABLE:
+        EXTERNAL_AGENT_TOOLS_BLOCKED.labels(adapter=adapter, tool=tool).inc()
+    else:
+        _simple_metrics.inc_counter(
+            "aragora_external_agent_tools_blocked_total",
+            {"adapter": adapter, "tool": tool},
+        )
+
+
+def record_external_agent_cost(adapter: str, cost_usd: float) -> None:
+    """Record cost for an external agent task.
+
+    Cost is stored as micro-dollars (1e-6) for precision with counters.
+
+    Args:
+        adapter: Adapter name
+        cost_usd: Cost in USD
+    """
+    micro_dollars = int(cost_usd * 1_000_000)
+    if PROMETHEUS_AVAILABLE:
+        EXTERNAL_AGENT_COST_TOTAL.labels(adapter=adapter).inc(micro_dollars)
+    else:
+        _simple_metrics.inc_counter(
+            "aragora_external_agent_cost_microdollars_total",
+            {"adapter": adapter},
+            micro_dollars,
         )
 
 

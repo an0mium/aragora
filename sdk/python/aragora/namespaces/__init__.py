@@ -44,6 +44,7 @@ from .email_services import AsyncEmailServicesAPI, EmailServicesAPI
 from .evolution import AsyncEvolutionAPI, EvolutionAPI
 from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
+from .external_agents import AsyncExternalAgentsAPI, ExternalAgentsAPI
 from .feedback import AsyncFeedbackAPI, FeedbackAPI
 from .flips import AsyncFlipsAPI, FlipsAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
@@ -186,6 +187,8 @@ __all__ = [
     "AsyncEmailServicesAPI",
     "EvolutionAPI",
     "AsyncEvolutionAPI",
+    "ExternalAgentsAPI",
+    "AsyncExternalAgentsAPI",
     "ExpensesAPI",
     "AsyncExpensesAPI",
     "ExplainabilityAPI",

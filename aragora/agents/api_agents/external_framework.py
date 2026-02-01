@@ -36,6 +36,7 @@ from aragora.agents.api_agents.common import (
 )
 from aragora.agents.registry import AgentRegistry
 from aragora.core_types import AgentRole
+from aragora.security.ssrf_protection import validate_url, SSRFValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -173,12 +174,31 @@ class ExternalFrameworkAgent(APIAgent):
         self.config = config
         self.agent_type = "external-framework"
 
+        # Validate base URL against SSRF attacks
+        self._validate_endpoint_url(config.base_url)
+
     @staticmethod
     def _get_api_key_from_env() -> str | None:
         """Get API key from environment variable."""
         import os
 
         return os.environ.get("EXTERNAL_FRAMEWORK_API_KEY")
+
+    def _validate_endpoint_url(self, url: str) -> None:
+        """Validate URL is safe from SSRF attacks."""
+        import os
+
+        allowed_domains_str = os.environ.get("ARAGORA_GATEWAY_ALLOWED_DOMAINS", "")
+        allowed_domains = (
+            set(d.strip() for d in allowed_domains_str.split(",") if d.strip()) or None
+        )
+
+        result = validate_url(url, allowed_domains=allowed_domains)
+        if not result.is_safe:
+            raise SSRFValidationError(
+                f"Unsafe external framework URL blocked: {result.error}",
+                url=url,
+            )
 
     def _build_headers(self) -> dict[str, str]:
         """Build request headers including authentication."""
@@ -236,6 +256,11 @@ class ExternalFrameworkAgent(APIAgent):
         url = f"{self.base_url}{self.config.health_endpoint}"
 
         try:
+            self._validate_endpoint_url(url)
+        except SSRFValidationError:
+            return False
+
+        try:
             async with create_client_session(timeout=10.0) as session:
                 async with session.get(url, headers=self._build_headers()) as response:
                     return response.status in (200, 204)
@@ -279,6 +304,9 @@ class ExternalFrameworkAgent(APIAgent):
             full_prompt = f"System: {self.system_prompt}\n\n{full_prompt}"
 
         url = f"{self.base_url}{self.config.generate_endpoint}"
+
+        # Validate URL against SSRF attacks
+        self._validate_endpoint_url(url)
 
         # Build request payload (OpenAI-compatible format)
         payload = {
@@ -450,6 +478,9 @@ REASONING: explanation"""
         # Try to use dedicated critique endpoint if available
         critique_url = f"{self.base_url}{self.config.critique_endpoint}"
 
+        # Validate URL against SSRF attacks
+        self._validate_endpoint_url(critique_url)
+
         try:
             async with create_client_session(timeout=float(self.timeout)) as session:
                 payload = {
@@ -512,6 +543,9 @@ REASONING: [your explanation]"""
 
         # Try dedicated vote endpoint first
         vote_url = f"{self.base_url}{self.config.vote_endpoint}"
+
+        # Validate URL against SSRF attacks
+        self._validate_endpoint_url(vote_url)
 
         try:
             async with create_client_session(timeout=float(self.timeout)) as session:

@@ -231,6 +231,7 @@ from .email_services import EmailServicesHandler  # Email services (follow-up, s
 from .dependency_analysis import DependencyAnalysisHandler  # Dependency analysis API
 from .computer_use_handler import ComputerUseHandler  # Computer use tasks API
 from .gateway_handler import GatewayHandler  # IoT gateway API
+from .external_agents import ExternalAgentsHandler  # External agent gateway API
 
 # Accounting handlers
 from .expenses import ExpenseHandler  # Expense tracking API
@@ -445,6 +446,7 @@ ALL_HANDLERS = [
     # Computer use and IoT gateway
     ComputerUseHandler,  # Computer use tasks, actions, and policies
     GatewayHandler,  # IoT gateway devices, channels, routing, messages
+    ExternalAgentsHandler,  # External agent framework gateway (OpenHands, AutoGPT, CrewAI)
     # Additional handlers for API documentation coverage
     OnboardingHandler,  # Onboarding flow endpoints
     BackupHandler,  # Backup management endpoints
@@ -625,6 +627,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "CRMHandler": Stability.EXPERIMENTAL,  # Unified CRM platforms API - new
     "SupportHandler": Stability.EXPERIMENTAL,  # Unified support platforms API - new
     "EcommerceHandler": Stability.EXPERIMENTAL,  # Unified ecommerce platforms API - new
+    # External agent gateway
+    "ExternalAgentsHandler": Stability.EXPERIMENTAL,  # External agent framework gateway
 }
 
 
