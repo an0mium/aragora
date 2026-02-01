@@ -108,12 +108,13 @@ class PluginsHandler(BaseHandler):
     def _get_plugin_name_index(self, path: str) -> int:
         """Get the path segment index for plugin name.
 
-        Always returns index 2 since we normalize paths before extraction.
-        Uses path.strip("/").split("/") indexing:
-        Normalized path /api/plugins/{name}: ['api', 'plugins', '{name}'] -> index 2
+        Always returns index 3 since we normalize paths before extraction.
+        Uses path.split("/") indexing (note: leading slash preserved):
+        Normalized path /api/plugins/{name}: ['', 'api', 'plugins', '{name}'] -> index 3
         """
-        # Always use index 2 since we normalize paths before extraction
-        return 2
+        # Always use index 3 since we normalize paths before extraction
+        # extract_path_param does path.split("/") which preserves leading slash
+        return 3
 
     def _get_original_path(self, handler: Any) -> str | None:
         """Get the original request path from the HTTP handler.

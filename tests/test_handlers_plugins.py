@@ -524,6 +524,7 @@ class TestPluginSubmissionSecurity:
         import uuid
 
         from aragora.billing.auth.context import UserAuthContext
+        from aragora.rbac.models import AuthorizationContext
 
         body = {"manifest": manifest_data}
 
@@ -552,16 +553,16 @@ class TestPluginSubmissionSecurity:
             token_type="api_key",
         )
 
+        # Create RBAC AuthorizationContext with roles and permissions for decorator
+        mock_rbac_ctx = AuthorizationContext(
+            user_id=user_id,
+            roles={"admin"},
+            permissions={"plugins:submit", "plugins:write", "plugins:read"},
+        )
+
         # Patch the inline permission check, decorator-level auth, and RBAC
         from aragora.server.auth import auth_config
         from aragora.rbac import decorators as rbac_decorators
-
-        # Make the RBAC require_permission a no-op for test
-        def _noop_require_permission(*args, **kwargs):
-            def decorator(func):
-                return func
-
-            return decorator
 
         with (
             patch.object(
@@ -571,7 +572,7 @@ class TestPluginSubmissionSecurity:
             ),
             patch.object(auth_config, "api_token", "test-api-token-12345"),
             patch.object(auth_config, "validate_token", return_value=True),
-            patch.object(rbac_decorators, "_get_context_from_args", return_value=mock_user),
+            patch.object(rbac_decorators, "_get_context_from_args", return_value=mock_rbac_ctx),
             patch.object(plugins_handler, "get_user_id", return_value=user_id),
             patch.object(plugins_handler, "read_json_body", return_value=body),
         ):
