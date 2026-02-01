@@ -497,7 +497,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
                     queue = await create_redis_queue()
                     await queue.enqueue(job)
-                    logger.info(f"WhatsApp debate job enqueued: {job.job_id}")
+                    logger.info(f"WhatsApp debate job enqueued: {job.id}")
                 except (RuntimeError, OSError, ConnectionError) as e:
                     logger.error(f"Failed to enqueue debate job: {e}")
                     self._send_message(
@@ -512,7 +512,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 # No event loop, create one
                 asyncio.run(enqueue_job())
 
-            return job.job_id
+            return job.id
 
         except ImportError:
             logger.warning("Queue system not available, using direct execution")

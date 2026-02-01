@@ -23,6 +23,16 @@ import pytest
 from aragora.blockchain.config import ChainConfig
 from aragora.blockchain.provider import RPCHealth, Web3Provider
 
+# Check if web3 is available
+try:
+    import web3 as _web3_mod
+
+    HAS_WEB3 = True
+except ImportError:
+    HAS_WEB3 = False
+
+requires_web3 = pytest.mark.skipif(not HAS_WEB3, reason="web3 package required")
+
 
 class TestRPCHealth:
     """Tests for RPCHealth tracking."""
@@ -258,9 +268,8 @@ class TestWeb3Provider:
         provider = Web3Provider(configs={1: config})
         mock_w3 = MagicMock()
         mock_w3.is_connected.return_value = True
-        provider._web3_instances["https://eth.rpc"] = mock_w3
 
-        with patch("aragora.blockchain.provider._require_web3"):
+        with patch.object(provider, "get_web3", return_value=mock_w3):
             assert provider.is_connected() is True
             mock_w3.is_connected.assert_called_once()
 
@@ -338,6 +347,7 @@ class TestWeb3Provider:
         assert provider.get_config(137).rpc_url == "https://polygon.rpc"
 
 
+@requires_web3
 class TestWeb3ProviderGetWeb3:
     """Tests for get_web3 method."""
 

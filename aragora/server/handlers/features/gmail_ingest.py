@@ -22,10 +22,10 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aragora.connectors.enterprise.communication.gmail import GmailConnector
+    pass
 
 from aragora.billing.auth import extract_user_from_request
 from aragora.storage.gmail_token_store import (
@@ -620,7 +620,7 @@ class GmailIngestHandler(SecureHandler):
                 GmailConnector as GmailConnectorCls,
             )
 
-            connector = cast("GmailConnector", GmailConnectorCls(max_results=limit))
+            connector = GmailConnectorCls(max_results=limit)
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
@@ -693,7 +693,7 @@ class GmailIngestHandler(SecureHandler):
                 GmailConnector as GmailConnectorCls,
             )
 
-            connector = cast("GmailConnector", GmailConnectorCls(max_results=limit))
+            connector = GmailConnectorCls(max_results=limit)
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry

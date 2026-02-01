@@ -26,10 +26,14 @@ from aragora.core.embeddings.types import EmbeddingConfig, EmbeddingResult
 from aragora.core.embeddings.backends import EmbeddingBackend
 from aragora.core.embeddings.service import UnifiedEmbeddingService, get_embedding_service
 
+# Backward-compatible alias
+get_default_provider = get_embedding_service
+
 __all__ = [
     "EmbeddingBackend",
     "EmbeddingConfig",
     "EmbeddingResult",
     "UnifiedEmbeddingService",
     "get_embedding_service",
+    "get_default_provider",
 ]

@@ -797,6 +797,7 @@ class DecisionResult:
     completed_at: datetime = field(default_factory=datetime.utcnow)
 
     # Engine-specific results
+    debate_id: str | None = None  # ID of associated debate
     debate_result: Any | None = None  # DebateResult
     workflow_result: Any | None = None  # WorkflowResult
     gauntlet_result: Any | None = None  # GauntletResult
