@@ -141,7 +141,10 @@ OAUTH_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Account linked successfully"),
+                "200": _ok_response(
+                    "Account linked successfully",
+                    {"linked": {"type": "boolean"}, "provider": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
             },
@@ -164,7 +167,10 @@ OAUTH_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Account unlinked successfully"),
+                "200": _ok_response(
+                    "Account unlinked successfully",
+                    {"unlinked": {"type": "boolean"}, "provider": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
@@ -190,7 +196,21 @@ OAUTH_ENDPOINTS = {
             "description": "Get list of OAuth providers linked to the current user's account.",
             "security": [{"bearerAuth": []}],
             "responses": {
-                "200": _ok_response("List of linked providers"),
+                "200": _ok_response(
+                    "List of linked providers",
+                    {
+                        "providers": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "provider": {"type": "string"},
+                                    "linked_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        }
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
             },
         },

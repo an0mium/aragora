@@ -22,6 +22,7 @@ from aragora.config import (
 )
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.stores.canonical import get_critique_store
 
 logger = logging.getLogger(__name__)
 
@@ -277,19 +278,11 @@ class LeaderboardViewHandler(SecureHandler):
     @ttl_cache(ttl_seconds=CACHE_TTL_LB_REPUTATION, key_prefix="lb_reputation", skip_first=True)
     def _fetch_reputations(self) -> dict:
         """Fetch all agent reputations."""
-        try:
-            from aragora.memory.store import CritiqueStore
-        except ImportError:
-            return {"reputations": [], "count": 0}
-
         nomic_dir = self.get_nomic_dir()
-        if not nomic_dir:
-            return {"reputations": [], "count": 0}
-        db_path = get_db_path(DatabaseType.AGORA_MEMORY, nomic_dir)
-        if not db_path.exists():
+        store = get_critique_store(nomic_dir)
+        if store is None:
             return {"reputations": [], "count": 0}
 
-        store = CritiqueStore(str(db_path))
         reputations = store.get_all_reputations()
 
         return {
@@ -355,7 +348,6 @@ class LeaderboardViewHandler(SecureHandler):
         """Fetch agent introspection data."""
         try:
             from aragora.introspection import get_agent_introspection
-            from aragora.memory.store import CritiqueStore
         except ImportError:
             return {"agents": {}, "count": 0}
 
@@ -363,13 +355,10 @@ class LeaderboardViewHandler(SecureHandler):
 
         # Get known agents from reputation store
         agents = []
-        memory = None
-        if nomic_dir:
-            db_path = get_db_path(DatabaseType.AGORA_MEMORY, nomic_dir)
-            if db_path.exists():
-                memory = CritiqueStore(str(db_path))
-                reputations = memory.get_all_reputations()
-                agents = [r.agent_name for r in reputations]
+        memory = get_critique_store(nomic_dir)
+        if memory is not None:
+            reputations = memory.get_all_reputations()
+            agents = [r.agent_name for r in reputations]
 
         if not agents:
             agents = ["gemini", "claude", "codex", "grok", "deepseek"]

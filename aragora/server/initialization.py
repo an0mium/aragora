@@ -294,7 +294,7 @@ def init_elo_system(nomic_dir: Path) -> Any | None:
         try:
             from aragora.knowledge.mound.adapters.elo_adapter import EloAdapter
 
-            adapter = EloAdapter(elo_system=system, enable_dual_write=True)
+            adapter = EloAdapter(elo_system=system, enable_dual_write=True) # type: ignore[abstract]
             system.set_km_adapter(adapter)
             logger.info("[init] EloSystem KM adapter wired for skill tracking")
         except ImportError:

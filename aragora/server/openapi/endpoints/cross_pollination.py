@@ -13,7 +13,14 @@ CROSS_POLLINATION_ENDPOINTS = {
                 "event counts, success/failure rates, circuit breaker status, and latency metrics."
             ),
             "responses": {
-                "200": _ok_response("Subscriber statistics with totals and per-handler metrics"),
+                "200": _ok_response(
+                    "Subscriber statistics with totals and per-handler metrics",
+                    {
+                        "total_events": {"type": "integer"},
+                        "success_rate": {"type": "number"},
+                        "handlers": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
             },
         },
     },
@@ -27,7 +34,13 @@ CROSS_POLLINATION_ENDPOINTS = {
                 "with their subscribed event types and handler metadata."
             ),
             "responses": {
-                "200": _ok_response("List of subscribers with event types and descriptions"),
+                "200": _ok_response(
+                    "List of subscribers with event types and descriptions",
+                    {
+                        "subscribers": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                ),
             },
         },
     },
@@ -41,7 +54,14 @@ CROSS_POLLINATION_ENDPOINTS = {
                 "connection state, event mappings, and throughput statistics."
             ),
             "responses": {
-                "200": _ok_response("Bridge status with connection state and event mappings"),
+                "200": _ok_response(
+                    "Bridge status with connection state and event mappings",
+                    {
+                        "connected": {"type": "boolean"},
+                        "event_mappings": {"type": "array", "items": {"type": "object"}},
+                        "throughput": {"type": "number"},
+                    },
+                ),
             },
         },
     },
@@ -72,7 +92,10 @@ CROSS_POLLINATION_ENDPOINTS = {
                 "Useful for testing and debugging."
             ),
             "responses": {
-                "200": _ok_response("Statistics reset confirmation with handler count"),
+                "200": _ok_response(
+                    "Statistics reset confirmation with handler count",
+                    {"reset": {"type": "boolean"}, "handlers_reset": {"type": "integer"}},
+                ),
             },
         },
     },
@@ -92,7 +115,14 @@ CROSS_POLLINATION_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Circuit breaker status with state and failure count"),
+                "200": _ok_response(
+                    "Circuit breaker status with state and failure count",
+                    {
+                        "state": {"type": "string"},
+                        "failure_count": {"type": "integer"},
+                        "cooldown_remaining_ms": {"type": "integer"},
+                    },
+                ),
                 "404": {"description": "Handler not found"},
             },
         },
@@ -111,7 +141,10 @@ CROSS_POLLINATION_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Circuit breaker reset confirmation"),
+                "200": _ok_response(
+                    "Circuit breaker reset confirmation",
+                    {"reset": {"type": "boolean"}, "handler_name": {"type": "string"}},
+                ),
                 "404": {"description": "Handler not found"},
             },
         },
@@ -162,7 +195,10 @@ CROSS_POLLINATION_ENDPOINTS = {
             "operationId": "createCrossPollinationKmSync",
             "description": "Manually trigger synchronization of cross-pollination data to the Knowledge Mound.",
             "responses": {
-                "200": _ok_response("Sync triggered with job ID"),
+                "200": _ok_response(
+                    "Sync triggered with job ID",
+                    {"triggered": {"type": "boolean"}, "job_id": {"type": "string"}},
+                ),
                 "503": {"description": "Knowledge Mound unavailable"},
             },
         },
@@ -174,7 +210,13 @@ CROSS_POLLINATION_ENDPOINTS = {
             "operationId": "listCrossPollinationKmStalenessCheck",
             "description": "Check for stale cross-pollination data in the Knowledge Mound that needs revalidation.",
             "responses": {
-                "200": _ok_response("Staleness report with entries needing refresh"),
+                "200": _ok_response(
+                    "Staleness report with entries needing refresh",
+                    {
+                        "stale_entries": {"type": "array", "items": {"type": "object"}},
+                        "total_stale": {"type": "integer"},
+                    },
+                ),
             },
         },
     },
@@ -185,7 +227,14 @@ CROSS_POLLINATION_ENDPOINTS = {
             "operationId": "listCrossPollinationKmCulture",
             "description": "Get learned debate culture patterns from cross-pollination analysis across debates.",
             "responses": {
-                "200": _ok_response("Culture patterns with collaboration and dissent metrics"),
+                "200": _ok_response(
+                    "Culture patterns with collaboration and dissent metrics",
+                    {
+                        "patterns": {"type": "array", "items": {"type": "object"}},
+                        "collaboration_score": {"type": "number"},
+                        "dissent_rate": {"type": "number"},
+                    },
+                ),
             },
         },
     },

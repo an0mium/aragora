@@ -147,7 +147,10 @@ WORKFLOW_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Workflow deleted"),
+                "200": _ok_response(
+                    "Workflow deleted",
+                    {"deleted": {"type": "boolean"}, "workflow_id": {"type": "string"}},
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
         },
@@ -188,7 +191,14 @@ WORKFLOW_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Workflow execution result or execution ID"),
+                "200": _ok_response(
+                    "Workflow execution result or execution ID",
+                    {
+                        "execution_id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "result": {"type": "object"},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
@@ -215,7 +225,13 @@ WORKFLOW_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("List of workflow versions"),
+                "200": _ok_response(
+                    "List of workflow versions",
+                    {
+                        "versions": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
         },
@@ -307,7 +323,16 @@ WORKFLOW_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Execution details with step progress"),
+                "200": _ok_response(
+                    "Execution details with step progress",
+                    {
+                        "execution_id": {"type": "string"},
+                        "workflow_id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "progress": {"type": "number"},
+                        "steps": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
         },
@@ -325,7 +350,10 @@ WORKFLOW_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Execution cancelled"),
+                "200": _ok_response(
+                    "Execution cancelled",
+                    {"cancelled": {"type": "boolean"}, "execution_id": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
             },
@@ -347,7 +375,15 @@ WORKFLOW_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Workflow execution details"),
+                "200": _ok_response(
+                    "Workflow execution details",
+                    {
+                        "execution_id": {"type": "string"},
+                        "workflow_id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "result": {"type": "object"},
+                    },
+                ),
                 "404": STANDARD_ERRORS["404"],
             },
             "security": [{"bearerAuth": []}],
@@ -367,7 +403,10 @@ WORKFLOW_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Workflow execution deleted"),
+                "200": _ok_response(
+                    "Workflow execution deleted",
+                    {"deleted": {"type": "boolean"}, "execution_id": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
             },
@@ -459,7 +498,10 @@ WORKFLOW_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Workflow template deleted"),
+                "200": _ok_response(
+                    "Workflow template deleted",
+                    {"deleted": {"type": "boolean"}, "template_id": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "404": STANDARD_ERRORS["404"],
             },
@@ -474,7 +516,13 @@ WORKFLOW_ENDPOINTS = {
             "description": "Get list of workflow steps awaiting human approval.",
             "security": [{"bearerAuth": []}],
             "responses": {
-                "200": _ok_response("List of pending approvals"),
+                "200": _ok_response(
+                    "List of pending approvals",
+                    {
+                        "approvals": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
             },
         },
@@ -513,7 +561,14 @@ WORKFLOW_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Approval submitted"),
+                "200": _ok_response(
+                    "Approval submitted",
+                    {
+                        "approved": {"type": "boolean"},
+                        "approval_id": {"type": "string"},
+                        "execution_id": {"type": "string"},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],

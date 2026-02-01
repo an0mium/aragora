@@ -99,7 +99,10 @@ WORKSPACE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Workspace deleted"),
+                "200": _ok_response(
+                    "Workspace deleted",
+                    {"deleted": {"type": "boolean"}, "workspace_id": {"type": "string"}},
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -140,7 +143,10 @@ WORKSPACE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Member added"),
+                "200": _ok_response(
+                    "Member added",
+                    {"added": {"type": "boolean"}, "user_id": {"type": "string"}, "permission": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
@@ -162,7 +168,21 @@ WORKSPACE_ENDPOINTS = {
             "operationId": "listWorkspaceProfiles",
             "security": [{"bearerAuth": []}],
             "responses": {
-                "200": _ok_response("Available RBAC profiles with role details"),
+                "200": _ok_response(
+                    "Available RBAC profiles with role details",
+                    {
+                        "profiles": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "roles": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                        }
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
             },
         },
@@ -194,7 +214,14 @@ WORKSPACE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Workspace roles with assignment permissions"),
+                "200": _ok_response(
+                    "Workspace roles with assignment permissions",
+                    {
+                        "roles": {"type": "array", "items": {"type": "string"}},
+                        "assignable_roles": {"type": "array", "items": {"type": "string"}},
+                        "current_role": {"type": "string"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -255,7 +282,10 @@ WORKSPACE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Role updated successfully"),
+                "200": _ok_response(
+                    "Role updated successfully",
+                    {"updated": {"type": "boolean"}, "user_id": {"type": "string"}, "new_role": {"type": "string"}},
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
@@ -329,7 +359,14 @@ WORKSPACE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Execution result with affected items count"),
+                "200": _ok_response(
+                    "Execution result with affected items count",
+                    {
+                        "executed": {"type": "boolean"},
+                        "affected_count": {"type": "integer"},
+                        "policy_id": {"type": "string"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -352,7 +389,13 @@ WORKSPACE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("List of expiring items"),
+                "200": _ok_response(
+                    "List of expiring items",
+                    {
+                        "items": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
             },
         },
@@ -380,7 +423,14 @@ WORKSPACE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Classification result with level and confidence"),
+                "200": _ok_response(
+                    "Classification result with level and confidence",
+                    {
+                        "level": {"type": "string"},
+                        "confidence": {"type": "number"},
+                        "reasoning": {"type": "string"},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
             },
@@ -405,7 +455,14 @@ WORKSPACE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Policy details for the sensitivity level"),
+                "200": _ok_response(
+                    "Policy details for the sensitivity level",
+                    {
+                        "level": {"type": "string"},
+                        "handling_rules": {"type": "array", "items": {"type": "string"}},
+                        "access_restrictions": {"type": "array", "items": {"type": "string"}},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
             },
@@ -440,7 +497,13 @@ WORKSPACE_ENDPOINTS = {
                 {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}},
             ],
             "responses": {
-                "200": _ok_response("Filtered audit entries"),
+                "200": _ok_response(
+                    "Filtered audit entries",
+                    {
+                        "entries": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
             },
@@ -473,7 +536,15 @@ WORKSPACE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Compliance report"),
+                "200": _ok_response(
+                    "Compliance report",
+                    {
+                        "report": {"type": "object"},
+                        "generated_at": {"type": "string", "format": "date-time"},
+                        "period_start": {"type": "string", "format": "date"},
+                        "period_end": {"type": "string", "format": "date"},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
@@ -500,7 +571,14 @@ WORKSPACE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Verification result with integrity status"),
+                "200": _ok_response(
+                    "Verification result with integrity status",
+                    {
+                        "verified": {"type": "boolean"},
+                        "integrity_status": {"type": "string"},
+                        "entries_checked": {"type": "integer"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
             },

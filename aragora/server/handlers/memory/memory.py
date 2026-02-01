@@ -57,14 +57,10 @@ except ImportError:
     ContinuumMemory = None  # type: ignore[misc, no-redef]
     MemoryTier = None  # type: ignore[misc, no-redef]
 
-# Optional import for critique store
-try:
-    from aragora.memory.store import CritiqueStore
+# Optional import for critique store - use canonical helper
+from aragora.stores.canonical import get_critique_store, is_critique_store_available
 
-    CRITIQUE_STORE_AVAILABLE = True
-except ImportError:
-    CRITIQUE_STORE_AVAILABLE = False
-    CritiqueStore = None  # type: ignore[misc, no-redef]
+CRITIQUE_STORE_AVAILABLE = is_critique_store_available()
 
 
 class MemoryHandler(SecureHandler):
@@ -701,7 +697,9 @@ class MemoryHandler(SecureHandler):
         offset = get_clamped_int_param(params, "offset", 0, min_val=0, max_val=10000)
 
         try:
-            store = CritiqueStore(str(nomic_dir))
+            store = get_critique_store(nomic_dir)
+            if store is None:
+                return error_response("Critique store not available", 503)
 
             # Get recent critiques - CritiqueStore only supports get_recent()
             # Fetch extra to account for filtering and offset

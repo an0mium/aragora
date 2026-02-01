@@ -53,7 +53,18 @@ INTEGRATION_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _response("Integration details", {"type": "object"}),
+                "200": _response(
+                    "Integration details",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "status": {"type": "string"},
+                            "config": {"type": "object"},
+                            "connected_at": {"type": "string", "format": "date-time"},
+                        },
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
@@ -78,7 +89,17 @@ INTEGRATION_ENDPOINTS = {
                 "content": {"application/json": {"schema": {"type": "object"}}},
             },
             "responses": {
-                "200": _response("Integration configured", {"type": "object"}),
+                "200": _response(
+                    "Integration configured",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "configured": {"type": "boolean"},
+                            "message": {"type": "string"},
+                        },
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "500": STANDARD_ERRORS["500"],
@@ -103,7 +124,17 @@ INTEGRATION_ENDPOINTS = {
                 "content": {"application/json": {"schema": {"type": "object"}}},
             },
             "responses": {
-                "200": _response("Integration updated", {"type": "object"}),
+                "200": _response(
+                    "Integration updated",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "updated": {"type": "boolean"},
+                            "message": {"type": "string"},
+                        },
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "500": STANDARD_ERRORS["500"],
@@ -124,7 +155,17 @@ INTEGRATION_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _response("Integration deleted", {"type": "object"}),
+                "200": _response(
+                    "Integration deleted",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "deleted": {"type": "boolean"},
+                            "message": {"type": "string"},
+                        },
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -146,7 +187,18 @@ INTEGRATION_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _response("Integration config", {"type": "object"}),
+                "200": _response(
+                    "Integration config",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "integration_id": {"type": "string"},
+                            "type": {"type": "string"},
+                            "config": {"type": "object"},
+                            "enabled": {"type": "boolean"},
+                        },
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
@@ -171,7 +223,17 @@ INTEGRATION_ENDPOINTS = {
                 "content": {"application/json": {"schema": {"type": "object"}}},
             },
             "responses": {
-                "200": _response("Integration config updated", {"type": "object"}),
+                "200": _response(
+                    "Integration config updated",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "integration_id": {"type": "string"},
+                            "updated": {"type": "boolean"},
+                            "message": {"type": "string"},
+                        },
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
@@ -193,7 +255,17 @@ INTEGRATION_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _response("Integration config deleted", {"type": "object"}),
+                "200": _response(
+                    "Integration config deleted",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "integration_id": {"type": "string"},
+                            "deleted": {"type": "boolean"},
+                            "message": {"type": "string"},
+                        },
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
@@ -216,7 +288,18 @@ INTEGRATION_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _response("Test results", {"type": "object"}),
+                "200": _response(
+                    "Test results",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "success": {"type": "boolean"},
+                            "message": {"type": "string"},
+                            "latency_ms": {"type": "number"},
+                        },
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -880,7 +963,16 @@ INTEGRATION_ENDPOINTS = {
             "description": "Called by Slack when app is uninstalled from a workspace. Verified via Slack signature.",
             "operationId": "slackUninstallWebhook",
             "responses": {
-                "200": _response("Uninstall acknowledged"),
+                "200": _response(
+                    "Uninstall acknowledged",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "acknowledged": {"type": "boolean"},
+                            "workspace_id": {"type": "string"},
+                        },
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -991,7 +1083,16 @@ INTEGRATION_ENDPOINTS = {
             "description": "Called when bot is removed from a Discord server.",
             "operationId": "discordUninstallWebhook",
             "responses": {
-                "200": _response("Uninstall acknowledged"),
+                "200": _response(
+                    "Uninstall acknowledged",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "acknowledged": {"type": "boolean"},
+                            "guild_id": {"type": "string"},
+                        },
+                    },
+                ),
                 "500": STANDARD_ERRORS["500"],
             },
         },
@@ -1047,7 +1148,16 @@ INTEGRATION_ENDPOINTS = {
             "description": "Refresh the OAuth token for a Teams integration.",
             "operationId": "refreshTeamsToken",
             "responses": {
-                "200": _response("Token refreshed"),
+                "200": _response(
+                    "Token refreshed",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "refreshed": {"type": "boolean"},
+                            "expires_at": {"type": "string", "format": "date-time"},
+                        },
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "500": STANDARD_ERRORS["500"],
             },

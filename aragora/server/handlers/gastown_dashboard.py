@@ -105,6 +105,17 @@ class GasTownDashboardHandler(SecureHandler):
         "/api/v1/dashboard/gastown/metrics",
     ]
 
+    def _get_canonical_workspace_stores(self):
+        stores = getattr(self, "_canonical_workspace_stores", None)
+        if stores is None:
+            try:
+                from aragora.stores import get_canonical_workspace_stores
+            except ImportError:
+                return None
+            stores = get_canonical_workspace_stores()
+            setattr(self, "_canonical_workspace_stores", stores)
+        return stores
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
         path = strip_version_prefix(path)
@@ -193,20 +204,19 @@ class GasTownDashboardHandler(SecureHandler):
                         overview["convoys"]["failed"] += 1
             else:
                 from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
-                from aragora.stores import get_canonical_workspace_stores
 
-                stores = get_canonical_workspace_stores()
-                bead_store = await stores.bead_store()
-                manager = await stores.convoy_manager()
-                convoys = await manager.list_convoys()
-                overview["convoys"]["total"] = len(convoys)
-                for c in convoys:
-                    if c.status == ConvoyStatus.ACTIVE:
-                        overview["convoys"]["active"] += 1
-                    elif c.status == ConvoyStatus.COMPLETED:
-                        overview["convoys"]["completed"] += 1
-                    elif c.status == ConvoyStatus.FAILED:
-                        overview["convoys"]["failed"] += 1
+                stores = self._get_canonical_workspace_stores()
+                if stores:
+                    manager = await stores.convoy_manager()
+                    convoys = await manager.list_convoys()
+                    overview["convoys"]["total"] = len(convoys)
+                    for c in convoys:
+                        if c.status == ConvoyStatus.ACTIVE:
+                            overview["convoys"]["active"] += 1
+                        elif c.status == ConvoyStatus.COMPLETED:
+                            overview["convoys"]["completed"] += 1
+                        elif c.status == ConvoyStatus.FAILED:
+                            overview["convoys"]["failed"] += 1
         except ImportError:
             logger.debug("Convoy module not available")
         except (AttributeError, TypeError, ValueError) as e:
@@ -223,15 +233,15 @@ class GasTownDashboardHandler(SecureHandler):
         # Get bead stats
         try:
             from aragora.nomic.stores import BeadStatus
-            from aragora.stores import get_canonical_workspace_stores
 
-            stores = get_canonical_workspace_stores()
-            bead_store = await stores.bead_store()
-            for status in BeadStatus:
-                beads = await bead_store.list_beads(status=status, limit=1000)
-                count = len(beads)
-                overview["beads"][status.value] = count
-                overview["beads"]["total"] += count
+            stores = self._get_canonical_workspace_stores()
+            if stores:
+                bead_store = await stores.bead_store()
+                for status in BeadStatus:
+                    beads = await bead_store.list_beads(status=status, limit=1000)
+                    count = len(beads)
+                    overview["beads"][status.value] = count
+                    overview["beads"]["total"] += count
         except ImportError:
             logger.debug("Bead module not available")
         except (AttributeError, TypeError, ValueError) as e:
@@ -370,10 +380,11 @@ class GasTownDashboardHandler(SecureHandler):
                 total = len(convoys)
             else:
                 from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
-                from aragora.nomic.stores import get_bead_store, get_convoy_manager
-
-                bead_store = await get_bead_store()
-                convoy_manager = await get_convoy_manager(bead_store)
+                stores = self._get_canonical_workspace_stores()
+                if not stores:
+                    return json_response({"convoys": [], "total": 0, "showing": 0})
+                bead_store = await stores.bead_store()
+                convoy_manager = await stores.convoy_manager()
 
                 filter_status = None
                 if status_filter:
@@ -522,9 +533,19 @@ class GasTownDashboardHandler(SecureHandler):
         - Average completion time
         """
         try:
-            from aragora.nomic.stores import BeadPriority, BeadStatus, get_bead_store
+            from aragora.nomic.stores import BeadPriority, BeadStatus
 
-            bead_store = await get_bead_store()
+            stores = self._get_canonical_workspace_stores()
+            if not stores:
+                return json_response(
+                    {
+                        "by_status": {},
+                        "queue_depth": 0,
+                        "processing": 0,
+                        "total": 0,
+                    }
+                )
+            bead_store = await stores.bead_store()
 
             stats: dict[str, Any] = {
                 "by_status": {},
@@ -632,15 +653,14 @@ class GasTownDashboardHandler(SecureHandler):
                         metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
                 else:
                     from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
-                    from aragora.nomic.stores import get_bead_store, get_convoy_manager
-
-                    bead_store = await get_bead_store()
-                    mgr = await get_convoy_manager(bead_store)
-                    convoys = await mgr.list_convoys()
-                    completed = sum(1 for c in convoys if c.status == ConvoyStatus.COMPLETED)
-                    total = len(convoys)
-                    if total > 0:
-                        metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
+                    stores = self._get_canonical_workspace_stores()
+                    if stores:
+                        mgr = await stores.convoy_manager()
+                        convoys = await mgr.list_convoys()
+                        completed = sum(1 for c in convoys if c.status == ConvoyStatus.COMPLETED)
+                        total = len(convoys)
+                        if total > 0:
+                            metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
             except (ImportError, AttributeError, TypeError, RuntimeError, OSError) as e:
                 logger.debug(
                     "Could not get convoy metrics",

@@ -141,7 +141,19 @@ AUTH_ENDPOINTS = {
             "operationId": "logoutUser",
             "description": "Invalidate the current session token.",
             "responses": {
-                "200": {"description": "Logged out successfully"},
+                "200": {
+                    "description": "Logged out successfully",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "logged_out": {"type": "boolean"},
+                                },
+                            }
+                        }
+                    },
+                },
                 "401": {"description": "Not authenticated"},
             },
             "security": [{"bearerAuth": []}],
@@ -237,7 +249,19 @@ AUTH_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": {"description": "Token revoked"},
+                "200": {
+                    "description": "Token revoked",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "revoked": {"type": "boolean"},
+                                },
+                            }
+                        }
+                    },
+                },
                 "401": {"description": "Not authenticated"},
             },
             "security": [{"bearerAuth": []}],
@@ -309,7 +333,19 @@ AUTH_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": {"description": "Password changed successfully"},
+                "200": {
+                    "description": "Password changed successfully",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "changed": {"type": "boolean"},
+                                },
+                            }
+                        }
+                    },
+                },
                 "401": {"description": "Invalid current password"},
             },
             "security": [{"bearerAuth": []}],
@@ -428,7 +464,19 @@ AUTH_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": {"description": "API key deleted"},
+                "200": {
+                    "description": "API key deleted",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "deleted": {"type": "boolean"},
+                                },
+                            }
+                        }
+                    },
+                },
                 "401": {"description": "Not authenticated"},
                 "404": {"description": "API key not found"},
             },
@@ -640,7 +688,19 @@ AUTH_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": {"description": "MFA disabled"},
+                "200": {
+                    "description": "MFA disabled",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "disabled": {"type": "boolean"},
+                                },
+                            }
+                        }
+                    },
+                },
                 "400": {"description": "Invalid code"},
                 "401": {"description": "Not authenticated"},
             },
@@ -783,7 +843,20 @@ AUTH_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": {"description": "Session revoked"},
+                "200": {
+                    "description": "Session revoked",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "revoked": {"type": "boolean"},
+                                    "session_id": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
                 "401": {"description": "Not authenticated"},
                 "404": {"description": "Session not found"},
             },
@@ -903,7 +976,14 @@ AUTH_ENDPOINTS = {
                     "description": "SCIM Group resource replaced",
                     "content": {
                         "application/scim+json": {
-                            "schema": {"type": "object"},
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "schemas": {"type": "array", "items": {"type": "string"}},
+                                    "id": {"type": "string"},
+                                    "displayName": {"type": "string"},
+                                },
+                            },
                         },
                     },
                 },
@@ -965,7 +1045,14 @@ AUTH_ENDPOINTS = {
                     "description": "SCIM Group resource patched",
                     "content": {
                         "application/scim+json": {
-                            "schema": {"type": "object"},
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "schemas": {"type": "array", "items": {"type": "string"}},
+                                    "id": {"type": "string"},
+                                    "displayName": {"type": "string"},
+                                },
+                            },
                         },
                     },
                 },
@@ -1141,7 +1228,15 @@ AUTH_ENDPOINTS = {
                     "description": "SCIM User resource replaced",
                     "content": {
                         "application/scim+json": {
-                            "schema": {"type": "object"},
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "schemas": {"type": "array", "items": {"type": "string"}},
+                                    "id": {"type": "string"},
+                                    "userName": {"type": "string"},
+                                    "active": {"type": "boolean"},
+                                },
+                            },
                         },
                     },
                 },
@@ -1203,7 +1298,15 @@ AUTH_ENDPOINTS = {
                     "description": "SCIM User resource patched",
                     "content": {
                         "application/scim+json": {
-                            "schema": {"type": "object"},
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "schemas": {"type": "array", "items": {"type": "string"}},
+                                    "id": {"type": "string"},
+                                    "userName": {"type": "string"},
+                                    "active": {"type": "boolean"},
+                                },
+                            },
                         },
                     },
                 },

@@ -105,7 +105,13 @@ CONTROL_PLANE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Agent unregistered"),
+                "200": _ok_response(
+                    "Agent unregistered",
+                    {
+                        "agent_id": {"type": "string"},
+                        "unregistered": {"type": "boolean"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -142,7 +148,14 @@ CONTROL_PLANE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Heartbeat accepted"),
+                "200": _ok_response(
+                    "Heartbeat accepted",
+                    {
+                        "agent_id": {"type": "string"},
+                        "accepted": {"type": "boolean"},
+                        "next_heartbeat_ms": {"type": "integer"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -246,7 +259,14 @@ CONTROL_PLANE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Task completed"),
+                "200": _ok_response(
+                    "Task completed",
+                    {
+                        "task_id": {"type": "string"},
+                        "completed": {"type": "boolean"},
+                        "completed_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -285,7 +305,14 @@ CONTROL_PLANE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Task failed"),
+                "200": _ok_response(
+                    "Task failed",
+                    {
+                        "task_id": {"type": "string"},
+                        "failed": {"type": "boolean"},
+                        "failed_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -309,7 +336,14 @@ CONTROL_PLANE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Task cancelled"),
+                "200": _ok_response(
+                    "Task cancelled",
+                    {
+                        "task_id": {"type": "string"},
+                        "cancelled": {"type": "boolean"},
+                        "cancelled_at": {"type": "string", "format": "date-time"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -434,7 +468,16 @@ CONTROL_PLANE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Agent health"),
+                "200": _ok_response(
+                    "Agent health",
+                    {
+                        "agent_id": {"type": "string"},
+                        "healthy": {"type": "boolean"},
+                        "status": {"type": "string"},
+                        "last_heartbeat": {"type": "string", "format": "date-time"},
+                        "latency_ms": {"type": "number"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -596,7 +639,13 @@ CONTROL_PLANE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Policy deleted"),
+                "200": _ok_response(
+                    "Policy deleted",
+                    {
+                        "policy_id": {"type": "string"},
+                        "deleted": {"type": "boolean"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],

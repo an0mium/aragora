@@ -9,7 +9,16 @@ VERIFICATION_ENDPOINTS = {
             "summary": "Verification status",
             "operationId": "listVerificationStatus",
             "description": "Get the current status of verification services and backend availability.",
-            "responses": {"200": _ok_response("Verification status")},
+            "responses": {
+                "200": _ok_response(
+                    "Verification status",
+                    {
+                        "available": {"type": "boolean"},
+                        "backends": {"type": "array", "items": {"type": "string"}},
+                        "z3_version": {"type": "string"},
+                    },
+                )
+            },
         },
     },
     "/api/verification/formal-verify": {
@@ -19,7 +28,16 @@ VERIFICATION_ENDPOINTS = {
             "operationId": "createVerificationFormalVerify",
             "description": "Run formal verification on claims",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {"200": _ok_response("Verification result")},
+            "responses": {
+                "200": _ok_response(
+                    "Verification result",
+                    {
+                        "verified": {"type": "boolean"},
+                        "proofs": {"type": "array", "items": {"type": "object"}},
+                        "counterexamples": {"type": "array", "items": {"type": "object"}},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -30,7 +48,16 @@ VERIFICATION_ENDPOINTS = {
             "operationId": "createDebatesCapabilityProbe",
             "description": "Run a capability probe to test agent abilities and identify potential limitations.",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {"200": _ok_response("Probe results")},
+            "responses": {
+                "200": _ok_response(
+                    "Probe results",
+                    {
+                        "probe_id": {"type": "string"},
+                        "results": {"type": "array", "items": {"type": "object"}},
+                        "limitations": {"type": "array", "items": {"type": "string"}},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -41,7 +68,16 @@ VERIFICATION_ENDPOINTS = {
             "operationId": "createDebatesDeepAudit",
             "description": "Run a comprehensive deep audit on debate results to identify quality issues.",
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
-            "responses": {"200": _ok_response("Audit results")},
+            "responses": {
+                "200": _ok_response(
+                    "Audit results",
+                    {
+                        "audit_id": {"type": "string"},
+                        "issues": {"type": "array", "items": {"type": "object"}},
+                        "severity_counts": {"type": "object"},
+                    },
+                )
+            },
             "security": [{"bearerAuth": []}],
         },
     },

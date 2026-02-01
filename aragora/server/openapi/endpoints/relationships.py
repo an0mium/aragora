@@ -9,7 +9,16 @@ RELATIONSHIP_ENDPOINTS = {
             "summary": "Relationship summary",
             "operationId": "listRelationshipsSummary",
             "description": "Get a summary of all agent relationships including collaboration scores and interaction history.",
-            "responses": {"200": _ok_response("Relationship summary")},
+            "responses": {
+                "200": _ok_response(
+                    "Relationship summary",
+                    {
+                        "total_relationships": {"type": "integer"},
+                        "avg_collaboration_score": {"type": "number"},
+                        "top_pairs": {"type": "array", "items": {"type": "object"}},
+                    },
+                )
+            },
         },
     },
     "/api/relationships/graph": {
@@ -18,7 +27,15 @@ RELATIONSHIP_ENDPOINTS = {
             "summary": "Relationship graph",
             "operationId": "listRelationshipsGraph",
             "description": "Get graph data for agent relationships",
-            "responses": {"200": _ok_response("Graph data")},
+            "responses": {
+                "200": _ok_response(
+                    "Graph data",
+                    {
+                        "nodes": {"type": "array", "items": {"type": "object"}},
+                        "edges": {"type": "array", "items": {"type": "object"}},
+                    },
+                )
+            },
         },
     },
     "/api/relationships/stats": {
@@ -27,7 +44,16 @@ RELATIONSHIP_ENDPOINTS = {
             "summary": "Relationship statistics",
             "operationId": "listRelationshipsStats",
             "description": "Get aggregate statistics about agent relationships across all debates.",
-            "responses": {"200": _ok_response("Relationship stats")},
+            "responses": {
+                "200": _ok_response(
+                    "Relationship stats",
+                    {
+                        "total_interactions": {"type": "integer"},
+                        "unique_pairs": {"type": "integer"},
+                        "avg_interaction_count": {"type": "number"},
+                    },
+                )
+            },
         },
     },
     "/api/relationship/{agent_a}/{agent_b}": {

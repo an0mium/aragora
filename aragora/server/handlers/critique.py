@@ -14,12 +14,9 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    pass
-
 from aragora.server.validation import validate_agent_name_with_version
 from aragora.server.versioning.compat import strip_version_prefix
-from aragora.utils.optional_imports import try_import_class
+from aragora.stores.canonical import get_critique_store, is_critique_store_available
 
 from .base import (
     BaseHandler,
@@ -37,8 +34,8 @@ logger = logging.getLogger(__name__)
 # Rate limiter for critique endpoints (60 requests per minute - read-heavy)
 _critique_limiter = RateLimiter(requests_per_minute=60)
 
-# Lazy import for optional dependency using centralized utility
-CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class("aragora.memory.store", "CritiqueStore")
+# Check if CritiqueStore is available
+CRITIQUE_STORE_AVAILABLE = is_critique_store_available()
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
@@ -122,11 +119,10 @@ class CritiqueHandler(BaseHandler):
             return error_response("Critique store not available", 503)
 
         try:
-            db_path = nomic_dir / "debates.db" if nomic_dir else None
-            if not db_path or not db_path.exists():
+            store = get_critique_store(nomic_dir)
+            if store is None:
                 return json_response({"patterns": [], "count": 0})
 
-            store = CritiqueStore(str(db_path))
             patterns = store.retrieve_patterns(min_success_rate=min_success, limit=limit)
             stats = store.get_stats()
 
@@ -154,11 +150,10 @@ class CritiqueHandler(BaseHandler):
             return error_response("Critique store not available", 503)
 
         try:
-            db_path = nomic_dir / "debates.db" if nomic_dir else None
-            if not db_path or not db_path.exists():
+            store = get_critique_store(nomic_dir)
+            if store is None:
                 return json_response({"archived": 0, "by_type": {}})
 
-            store = CritiqueStore(str(db_path))
             stats = store.get_archive_stats()
             return json_response(stats)
         except Exception as e:
@@ -170,11 +165,10 @@ class CritiqueHandler(BaseHandler):
             return error_response("Critique store not available", 503)
 
         try:
-            db_path = nomic_dir / "debates.db" if nomic_dir else None
-            if not db_path or not db_path.exists():
+            store = get_critique_store(nomic_dir)
+            if store is None:
                 return json_response({"reputations": [], "count": 0})
 
-            store = CritiqueStore(str(db_path))
             reputations = store.get_all_reputations()
             return json_response(
                 {
@@ -201,13 +195,12 @@ class CritiqueHandler(BaseHandler):
             return error_response("Critique store not available", 503)
 
         try:
-            db_path = nomic_dir / "debates.db" if nomic_dir else None
-            if not db_path or not db_path.exists():
+            store = get_critique_store(nomic_dir)
+            if store is None:
                 return json_response(
                     {"agent": agent, "reputation": None, "message": "No reputation data available"}
                 )
 
-            store = CritiqueStore(str(db_path))
             rep = store.get_reputation(agent)
 
             if rep:

@@ -64,7 +64,7 @@ async def _get_orchestrator() -> Any | None:
 
             # Initialize with default mound
             # Use cast since KnowledgeMound is a concrete class composed from mixins
-            mound = KnowledgeMound()
+            mound = KnowledgeMound() # type: ignore[abstract]
             await mound.initialize()
 
             _orchestrator_instance = RepositoryOrchestrator(

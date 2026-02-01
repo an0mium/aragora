@@ -129,7 +129,13 @@ GAUNTLET_ENDPOINTS = {
                     "description": "Exported receipt content",
                     "content": {
                         "application/json": {
-                            "schema": {"type": "object"},
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "receipt": {"type": "object"},
+                                    "metadata": {"type": "object"},
+                                },
+                            },
                         },
                         "text/markdown": {
                             "schema": {"type": "string"},
@@ -179,7 +185,14 @@ GAUNTLET_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Bundle of exported receipts"),
+                "200": _ok_response(
+                    "Bundle of exported receipts",
+                    {
+                        "receipts": {"type": "array", "items": {"type": "object"}},
+                        "exported_count": {"type": "integer"},
+                        "format": {"type": "string"},
+                    },
+                ),
                 "400": STANDARD_ERRORS["400"],
             },
         },
@@ -220,7 +233,10 @@ GAUNTLET_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _ok_response("Gauntlet run deleted"),
+                "200": _ok_response(
+                    "Gauntlet run deleted",
+                    {"deleted": {"type": "boolean"}, "gauntlet_id": {"type": "string"}},
+                ),
                 "404": STANDARD_ERRORS["404"],
                 "500": STANDARD_ERRORS["500"],
             },
@@ -335,7 +351,13 @@ GAUNTLET_ENDPOINTS = {
                     "description": "Exported heatmap content",
                     "content": {
                         "application/json": {
-                            "schema": {"type": "object"},
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "heatmap": {"type": "object"},
+                                    "cells": {"type": "array", "items": {"type": "object"}},
+                                },
+                            },
                         },
                         "text/csv": {
                             "schema": {"type": "string"},
