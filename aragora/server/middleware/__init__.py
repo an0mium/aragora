@@ -258,6 +258,20 @@ from .deprecation import (
     reset_v1_usage_tracker,
     v1_sunset_middleware,
 )
+from .security_headers import (
+    DEFAULT_CSP,
+    DEFAULT_HSTS,
+    DEFAULT_REFERRER_POLICY,
+    DEFAULT_X_CONTENT_TYPE_OPTIONS,
+    DEFAULT_X_FRAME_OPTIONS,
+    DEFAULT_X_XSS_PROTECTION,
+    HSTS_MAX_AGE,
+    SecurityHeadersConfig,
+    SecurityHeadersMiddleware,
+    apply_security_headers_to_handler,
+    create_security_headers_config,
+    get_security_response_headers,
+)
 
 __all__ = [
     # Auth
@@ -474,4 +488,17 @@ __all__ = [
     "is_v1_request",
     "reset_v1_usage_tracker",
     "v1_sunset_middleware",
+    # Security headers
+    "DEFAULT_CSP",
+    "DEFAULT_HSTS",
+    "DEFAULT_REFERRER_POLICY",
+    "DEFAULT_X_CONTENT_TYPE_OPTIONS",
+    "DEFAULT_X_FRAME_OPTIONS",
+    "DEFAULT_X_XSS_PROTECTION",
+    "HSTS_MAX_AGE",
+    "SecurityHeadersConfig",
+    "SecurityHeadersMiddleware",
+    "apply_security_headers_to_handler",
+    "create_security_headers_config",
+    "get_security_response_headers",
 ]
