@@ -123,15 +123,21 @@ class IntegrationsHandler(BaseHandler):
                         code="UNSUPPORTED_INTEGRATION",
                     )
 
-                # Health endpoint (GET)
-                if len(parts) > 5 and parts[5] == "health" and method == "GET":
-                    workspace_id = query_params.get("workspace_id")
-                    return await self._get_health(integration_type, workspace_id, tenant_id)
+                if len(parts) > 5:
+                    subpath = parts[5]
+                    # Health endpoint (GET)
+                    if subpath == "health" and method == "GET":
+                        workspace_id = query_params.get("workspace_id")
+                        return await self._get_health(integration_type, workspace_id, tenant_id)
 
-                # Test endpoint (POST - legacy, calls health check)
-                if len(parts) > 5 and parts[5] == "test" and method == "POST":
-                    workspace_id = body.get("workspace_id") or query_params.get("workspace_id")
-                    return await self._test_integration(integration_type, workspace_id, tenant_id)
+                    # Test endpoint (POST - legacy, calls health check)
+                    if subpath == "test" and method == "POST":
+                        workspace_id = body.get("workspace_id") or query_params.get("workspace_id")
+                        return await self._test_integration(
+                            integration_type, workspace_id, tenant_id
+                        )
+
+                    return error_response("Invalid integration path", 400, code="INVALID_PATH")
 
                 # Get specific integration
                 if method == "GET":

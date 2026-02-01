@@ -19,6 +19,14 @@ def parse_body(result: HandlerResult) -> dict:
     return json.loads(result.body.decode("utf-8"))
 
 
+def get_error_fields(body: dict) -> tuple[str | None, str | None]:
+    """Extract error message/code from either legacy or structured format."""
+    error = body.get("error")
+    if isinstance(error, dict):
+        return error.get("message"), error.get("code")
+    return error, body.get("code")
+
+
 @pytest.fixture
 def server_context():
     """Create mock server context."""
@@ -85,7 +93,8 @@ class TestSLOHandlerRateLimiting:
 
         assert result.status_code == 429
         body = parse_body(result)
-        assert body["code"] == "RATE_LIMITED"
+        _, code = get_error_fields(body)
+        assert code == "RATE_LIMITED"
 
 
 class TestSLOStatusEndpoint:
@@ -125,7 +134,8 @@ class TestSLOStatusEndpoint:
 
         assert result.status_code == 500
         body = parse_body(result)
-        assert body["code"] == "SLO_STATUS_ERROR"
+        _, code = get_error_fields(body)
+        assert code == "SLO_STATUS_ERROR"
 
 
 class TestSLODetailEndpoint:
@@ -139,7 +149,8 @@ class TestSLODetailEndpoint:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "UNKNOWN_SLO"
+        _, code = get_error_fields(body)
+        assert code == "UNKNOWN_SLO"
 
     def test_slo_detail_availability_success(self, handler):
         """Test that availability SLO returns successfully."""
@@ -179,7 +190,8 @@ class TestUnknownEndpoint:
         # Unknown SLO name should return 404
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "UNKNOWN_ENDPOINT"
+        _, code = get_error_fields(body)
+        assert code == "UNKNOWN_SLO"
 
 
 class TestErrorBudgetEndpoint:
@@ -228,7 +240,8 @@ class TestErrorBudgetEndpoint:
 
         assert result.status_code == 500
         body = parse_body(result)
-        assert body["code"] == "ERROR_BUDGET_ERROR"
+        _, code = get_error_fields(body)
+        assert code == "ERROR_BUDGET_ERROR"
 
 
 class TestViolationsEndpoint:
@@ -247,7 +260,8 @@ class TestViolationsEndpoint:
 
         assert result.status_code == 500
         body = parse_body(result)
-        assert body["code"] == "VIOLATIONS_ERROR"
+        _, code = get_error_fields(body)
+        assert code == "VIOLATIONS_ERROR"
 
 
 class TestTargetsEndpoint:
@@ -266,4 +280,5 @@ class TestTargetsEndpoint:
 
         assert result.status_code == 500
         body = parse_body(result)
-        assert body["code"] == "TARGETS_ERROR"
+        _, code = get_error_fields(body)
+        assert code == "TARGETS_ERROR"

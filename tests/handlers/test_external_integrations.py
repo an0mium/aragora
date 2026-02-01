@@ -18,6 +18,14 @@ def parse_body(result: HandlerResult) -> dict:
     return json.loads(result.body.decode("utf-8"))
 
 
+def get_error_fields(body: dict) -> tuple[str | None, str | None]:
+    """Extract error message/code from either legacy or structured format."""
+    error = body.get("error")
+    if isinstance(error, dict):
+        return error.get("message"), error.get("code")
+    return error, body.get("code")
+
+
 @pytest.fixture
 def server_context():
     """Create mock server context."""
@@ -80,8 +88,9 @@ class TestZapierAppValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["error"] == "workspace_id is required"
-        assert body["code"] == "MISSING_WORKSPACE_ID"
+        message, code = get_error_fields(body)
+        assert message == "workspace_id is required"
+        assert code == "MISSING_WORKSPACE_ID"
 
     def test_delete_app_not_found(self, handler):
         """Test that deleting non-existent app returns proper error code."""
@@ -94,7 +103,8 @@ class TestZapierAppValidation:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert "ZAPIER_APP_NOT_FOUND" in body["code"]
+        _, code = get_error_fields(body)
+        assert code == "ZAPIER_APP_NOT_FOUND"
 
 
 class TestZapierTriggerValidation:
@@ -112,7 +122,8 @@ class TestZapierTriggerValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_APP_ID"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_APP_ID"
 
     def test_subscribe_trigger_missing_trigger_type(self, handler):
         """Test that subscribing trigger without trigger_type returns proper error code."""
@@ -126,7 +137,8 @@ class TestZapierTriggerValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_TRIGGER_TYPE"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_TRIGGER_TYPE"
 
     def test_subscribe_trigger_missing_webhook_url(self, handler):
         """Test that subscribing trigger without webhook_url returns proper error code."""
@@ -140,7 +152,8 @@ class TestZapierTriggerValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_WEBHOOK_URL"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_WEBHOOK_URL"
 
     def test_subscribe_trigger_failed(self, handler):
         """Test that failed subscription returns proper error code."""
@@ -160,7 +173,8 @@ class TestZapierTriggerValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "TRIGGER_SUBSCRIBE_FAILED"
+        _, code = get_error_fields(body)
+        assert code == "TRIGGER_SUBSCRIBE_FAILED"
 
     def test_unsubscribe_trigger_missing_app_id(self, handler):
         """Test that unsubscribing trigger without app_id returns proper error code."""
@@ -171,7 +185,8 @@ class TestZapierTriggerValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_APP_ID"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_APP_ID"
 
 
 class TestMakeWebhookValidation:
@@ -189,7 +204,8 @@ class TestMakeWebhookValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_CONNECTION_ID"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_CONNECTION_ID"
 
     def test_register_webhook_missing_module_type(self, handler):
         """Test that registering webhook without module_type returns proper error code."""
@@ -203,7 +219,8 @@ class TestMakeWebhookValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_MODULE_TYPE"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_MODULE_TYPE"
 
 
 class TestN8nWebhookValidation:
@@ -221,7 +238,8 @@ class TestN8nWebhookValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_CREDENTIAL_ID"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_CREDENTIAL_ID"
 
     def test_register_webhook_missing_events(self, handler):
         """Test that registering webhook without events returns proper error code."""
@@ -235,7 +253,8 @@ class TestN8nWebhookValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_EVENTS"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_EVENTS"
 
 
 class TestTestIntegrationEndpoint:
@@ -250,7 +269,8 @@ class TestTestIntegrationEndpoint:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "UNKNOWN_PLATFORM"
+        _, code = get_error_fields(body)
+        assert code == "UNKNOWN_PLATFORM"
 
     def test_test_zapier_success(self, handler):
         """Test that testing Zapier returns success."""

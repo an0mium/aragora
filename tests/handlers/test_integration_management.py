@@ -19,6 +19,14 @@ def parse_body(result: HandlerResult) -> dict:
     return json.loads(result.body.decode("utf-8"))
 
 
+def get_error_fields(body: dict) -> tuple[str | None, str | None]:
+    """Extract error message/code from either legacy or structured format."""
+    error = body.get("error")
+    if isinstance(error, dict):
+        return error.get("message"), error.get("code")
+    return error, body.get("code")
+
+
 @pytest.fixture
 def server_context():
     """Create mock server context."""
@@ -78,7 +86,8 @@ class TestIntegrationsHandlerValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "INVALID_PATH"
+        _, code = get_error_fields(body)
+        assert code == "INVALID_PATH"
 
     @pytest.mark.asyncio
     async def test_unsupported_integration(self, handler):
@@ -95,7 +104,8 @@ class TestIntegrationsHandlerValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "UNSUPPORTED_INTEGRATION"
+        _, code = get_error_fields(body)
+        assert code == "UNSUPPORTED_INTEGRATION"
 
     @pytest.mark.asyncio
     async def test_not_found(self, handler):
@@ -112,7 +122,8 @@ class TestIntegrationsHandlerValidation:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "NOT_FOUND"
+        _, code = get_error_fields(body)
+        assert code == "NOT_FOUND"
 
 
 class TestIntegrationTypeValidation:
@@ -125,7 +136,8 @@ class TestIntegrationTypeValidation:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "UNKNOWN_INTEGRATION_TYPE"
+        _, code = get_error_fields(body)
+        assert code == "UNKNOWN_INTEGRATION_TYPE"
 
 
 class TestSlackIntegrationValidation:
@@ -140,7 +152,8 @@ class TestSlackIntegrationValidation:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "SLACK_WORKSPACE_NOT_FOUND"
+        _, code = get_error_fields(body)
+        assert code == "SLACK_WORKSPACE_NOT_FOUND"
 
 
 class TestTeamsIntegrationValidation:
@@ -155,7 +168,8 @@ class TestTeamsIntegrationValidation:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "TEAMS_TENANT_NOT_FOUND"
+        _, code = get_error_fields(body)
+        assert code == "TEAMS_TENANT_NOT_FOUND"
 
 
 class TestDisconnectIntegration:
@@ -168,7 +182,8 @@ class TestDisconnectIntegration:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_WORKSPACE_ID"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_WORKSPACE_ID"
 
     @pytest.mark.asyncio
     async def test_disconnect_slack_not_found(self, handler):
@@ -179,7 +194,8 @@ class TestDisconnectIntegration:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "SLACK_WORKSPACE_NOT_FOUND"
+        _, code = get_error_fields(body)
+        assert code == "SLACK_WORKSPACE_NOT_FOUND"
 
     @pytest.mark.asyncio
     async def test_disconnect_slack_failed(self, handler):
@@ -194,7 +210,8 @@ class TestDisconnectIntegration:
 
         assert result.status_code == 500
         body = parse_body(result)
-        assert body["code"] == "DISCONNECT_FAILED"
+        _, code = get_error_fields(body)
+        assert code == "DISCONNECT_FAILED"
 
     @pytest.mark.asyncio
     async def test_disconnect_unsupported(self, handler):
@@ -203,7 +220,8 @@ class TestDisconnectIntegration:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "UNSUPPORTED_DISCONNECT"
+        _, code = get_error_fields(body)
+        assert code == "UNSUPPORTED_DISCONNECT"
 
 
 class TestTestIntegration:
@@ -216,7 +234,8 @@ class TestTestIntegration:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_WORKSPACE_ID"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_WORKSPACE_ID"
 
     @pytest.mark.asyncio
     async def test_slack_workspace_not_found(self, handler):
@@ -227,7 +246,8 @@ class TestTestIntegration:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "SLACK_WORKSPACE_NOT_FOUND"
+        _, code = get_error_fields(body)
+        assert code == "SLACK_WORKSPACE_NOT_FOUND"
 
     @pytest.mark.asyncio
     async def test_teams_missing_workspace_id(self, handler):
@@ -236,7 +256,8 @@ class TestTestIntegration:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "MISSING_WORKSPACE_ID"
+        _, code = get_error_fields(body)
+        assert code == "MISSING_WORKSPACE_ID"
 
     @pytest.mark.asyncio
     async def test_unsupported_test(self, handler):
@@ -245,7 +266,8 @@ class TestTestIntegration:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "UNSUPPORTED_TEST"
+        _, code = get_error_fields(body)
+        assert code == "UNSUPPORTED_TEST"
 
 
 class TestHealthEndpoint:
@@ -258,7 +280,8 @@ class TestHealthEndpoint:
 
         assert result.status_code == 400
         body = parse_body(result)
-        assert body["code"] == "UNKNOWN_INTEGRATION_TYPE"
+        _, code = get_error_fields(body)
+        assert code == "UNKNOWN_INTEGRATION_TYPE"
 
     @pytest.mark.asyncio
     async def test_health_slack_workspace_not_found(self, handler):
@@ -269,7 +292,8 @@ class TestHealthEndpoint:
 
         assert result.status_code == 404
         body = parse_body(result)
-        assert body["code"] == "SLACK_WORKSPACE_NOT_FOUND"
+        _, code = get_error_fields(body)
+        assert code == "SLACK_WORKSPACE_NOT_FOUND"
 
 
 class TestInternalError:
@@ -292,4 +316,5 @@ class TestInternalError:
 
         assert result.status_code == 500
         body = parse_body(result)
-        assert body["code"] == "INTERNAL_ERROR"
+        _, code = get_error_fields(body)
+        assert code == "INTERNAL_ERROR"
