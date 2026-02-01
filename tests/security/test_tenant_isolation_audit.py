@@ -137,7 +137,7 @@ def isolation_strict():
         encrypt_at_rest=True,
         per_tenant_keys=True,
         strict_validation=True,
-        shared_resources=[],
+        shared_resources=frozenset(),
     )
     return TenantDataIsolation(config)
 
