@@ -39,12 +39,12 @@ class TestDebateProtocol:
 
         # Early stopping defaults (higher thresholds for structured debates)
         assert protocol.early_stopping is True
-        assert protocol.early_stop_threshold == 0.95
+        assert protocol.early_stop_threshold == 0.85
         assert protocol.min_rounds_before_early_stop == max(DEFAULT_ROUNDS - 1, 1)
 
         # Convergence defaults (higher threshold for quality)
         assert protocol.convergence_detection is True
-        assert protocol.convergence_threshold == 0.95
+        assert protocol.convergence_threshold == 0.85
         assert protocol.divergence_threshold == 0.40
 
         # Role rotation defaults
