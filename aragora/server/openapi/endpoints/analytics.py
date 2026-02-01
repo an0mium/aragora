@@ -87,7 +87,27 @@ ANALYTICS_ENDPOINTS = {
             "summary": "Extract detailed insights",
             "operationId": "createInsightsExtractDetailed",
             "description": "Computationally expensive insight extraction (requires auth).",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Debate IDs to analyze",
+                                },
+                                "depth": {
+                                    "type": "string",
+                                    "enum": ["basic", "detailed", "comprehensive"],
+                                    "description": "Analysis depth",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
             "responses": {"200": _ok_response("Detailed insights", "InsightsDetailed")},
             "security": [{"bearerAuth": []}],
         },

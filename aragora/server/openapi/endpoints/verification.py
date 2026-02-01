@@ -27,7 +27,28 @@ VERIFICATION_ENDPOINTS = {
             "summary": "Formal verification",
             "operationId": "createVerificationFormalVerify",
             "description": "Run formal verification on claims",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "claims": {
+                                    "type": "array",
+                                    "items": {"type": "object"},
+                                    "description": "Claims to formally verify",
+                                },
+                                "backend": {
+                                    "type": "string",
+                                    "enum": ["z3", "lean"],
+                                    "description": "Verification backend to use",
+                                },
+                            },
+                            "required": ["claims"],
+                        }
+                    }
+                }
+            },
             "responses": {
                 "200": _ok_response(
                     "Verification result",
@@ -47,7 +68,27 @@ VERIFICATION_ENDPOINTS = {
             "summary": "Run capability probe",
             "operationId": "createDebatesCapabilityProbe",
             "description": "Run a capability probe to test agent abilities and identify potential limitations.",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "agent_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Agents to probe",
+                                },
+                                "probe_type": {
+                                    "type": "string",
+                                    "enum": ["reasoning", "knowledge", "creativity", "full"],
+                                    "description": "Type of capability probe",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
             "responses": {
                 "200": _ok_response(
                     "Probe results",
@@ -67,7 +108,29 @@ VERIFICATION_ENDPOINTS = {
             "summary": "Deep audit",
             "operationId": "createDebatesDeepAudit",
             "description": "Run a comprehensive deep audit on debate results to identify quality issues.",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string", "description": "Debate to audit"},
+                                "depth": {
+                                    "type": "string",
+                                    "enum": ["shallow", "medium", "deep"],
+                                    "description": "Audit depth level",
+                                },
+                                "focus_areas": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Areas to focus on",
+                                },
+                            },
+                            "required": ["debate_id"],
+                        }
+                    }
+                }
+            },
             "responses": {
                 "200": _ok_response(
                     "Audit results",
@@ -87,7 +150,23 @@ VERIFICATION_ENDPOINTS = {
             "summary": "Capability probe",
             "operationId": "createProbesCapability",
             "description": "Execute a capability probe to assess agent performance across various dimensions.",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "agent_id": {"type": "string", "description": "Agent to probe"},
+                                "capabilities": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Specific capabilities to test",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
             "responses": {"200": _ok_response("Probe results")},
             "security": [{"bearerAuth": []}],
         },

@@ -28,7 +28,26 @@ AUDIT_SESSIONS_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Session name"},
+                                "description": {
+                                    "type": "string",
+                                    "description": "Session description",
+                                },
+                                "scope": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Audit scope areas",
+                                },
+                            },
+                            "required": ["name"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Session created", "StandardSuccessResponse"),
@@ -229,7 +248,26 @@ AUDIT_SESSIONS_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": ["approve", "reject", "modify", "escalate"],
+                                    "description": "Intervention action type",
+                                },
+                                "reason": {
+                                    "type": "string",
+                                    "description": "Reason for intervention",
+                                },
+                                "notes": {"type": "string", "description": "Additional notes"},
+                            },
+                            "required": ["action"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Intervention recorded", "StandardSuccessResponse"),

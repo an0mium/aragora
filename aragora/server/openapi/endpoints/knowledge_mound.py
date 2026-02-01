@@ -12,7 +12,26 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Role name"},
+                                "description": {
+                                    "type": "string",
+                                    "description": "Role description",
+                                },
+                                "permissions": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "List of permission identifiers",
+                                },
+                            },
+                            "required": ["name", "permissions"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Role created", "StandardSuccessResponse"),
@@ -30,7 +49,30 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "user_id": {
+                                    "type": "string",
+                                    "description": "User to assign role to",
+                                },
+                                "role_id": {"type": "string", "description": "Role to assign"},
+                                "scope": {
+                                    "type": "string",
+                                    "enum": ["global", "workspace", "resource"],
+                                    "description": "Assignment scope",
+                                },
+                                "resource_id": {
+                                    "type": "string",
+                                    "description": "Resource ID for scoped assignment",
+                                },
+                            },
+                            "required": ["user_id", "role_id"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Role assigned", "StandardSuccessResponse"),
@@ -48,7 +90,25 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "user_id": {
+                                    "type": "string",
+                                    "description": "User to revoke role from",
+                                },
+                                "role_id": {"type": "string", "description": "Role to revoke"},
+                                "resource_id": {
+                                    "type": "string",
+                                    "description": "Resource ID for scoped revocation",
+                                },
+                            },
+                            "required": ["user_id", "role_id"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Role revoked", "StandardSuccessResponse"),
@@ -83,7 +143,28 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "user_id": {
+                                    "type": "string",
+                                    "description": "User to check permissions for",
+                                },
+                                "permission": {
+                                    "type": "string",
+                                    "description": "Permission identifier to check",
+                                },
+                                "resource_id": {
+                                    "type": "string",
+                                    "description": "Resource ID for scoped check",
+                                },
+                            },
+                            "required": ["user_id", "permission"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Permission check", "StandardSuccessResponse"),

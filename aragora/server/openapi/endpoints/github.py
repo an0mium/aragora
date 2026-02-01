@@ -153,7 +153,30 @@ GITHUB_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "finding_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Audit finding IDs to create issues for",
+                                },
+                                "repo": {
+                                    "type": "string",
+                                    "description": "Target repository (owner/name)",
+                                },
+                                "labels": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Labels to apply to issues",
+                                },
+                            },
+                            "required": ["finding_ids", "repo"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Issues created", "StandardSuccessResponse"),
@@ -172,7 +195,29 @@ GITHUB_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "findings": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "finding_id": {"type": "string"},
+                                            "title": {"type": "string"},
+                                            "description": {"type": "string"},
+                                        },
+                                    },
+                                    "description": "Bulk audit findings to create issues for",
+                                },
+                                "repo": {"type": "string", "description": "Target repository"},
+                            },
+                            "required": ["findings", "repo"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Issues created", "StandardSuccessResponse"),
@@ -191,7 +236,24 @@ GITHUB_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "finding_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Findings to address in PR",
+                                },
+                                "repo": {"type": "string", "description": "Target repository"},
+                                "branch": {"type": "string", "description": "Branch name for PR"},
+                                "title": {"type": "string", "description": "PR title"},
+                            },
+                            "required": ["finding_ids", "repo"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("PR created", "StandardSuccessResponse"),

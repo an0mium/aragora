@@ -57,7 +57,25 @@ DOCUMENT_ENDPOINTS = {
             "summary": "Upload document",
             "description": "Upload a document to be used as context in debates.",
             "operationId": "createDocumentsUpload",
-            "requestBody": {"content": {"multipart/form-data": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "file": {
+                                    "type": "string",
+                                    "format": "binary",
+                                    "description": "Document file to upload",
+                                },
+                                "filename": {"type": "string", "description": "Override filename"},
+                                "content_type": {"type": "string", "description": "MIME type"},
+                            },
+                            "required": ["file"],
+                        }
+                    }
+                }
+            },
             "responses": {
                 "201": _ok_response(
                     "Document uploaded",

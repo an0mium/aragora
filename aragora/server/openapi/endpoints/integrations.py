@@ -86,7 +86,24 @@ INTEGRATION_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "config": {
+                                    "type": "object",
+                                    "description": "Integration configuration",
+                                },
+                                "enabled": {"type": "boolean", "description": "Enable integration"},
+                                "credentials": {
+                                    "type": "object",
+                                    "description": "Authentication credentials",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _response(
@@ -121,7 +138,23 @@ INTEGRATION_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "config": {
+                                    "type": "object",
+                                    "description": "Updated configuration",
+                                },
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable/disable integration",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _response(
@@ -220,7 +253,20 @@ INTEGRATION_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "config": {"type": "object", "description": "New configuration"},
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable/disable integration",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _response(

@@ -163,7 +163,29 @@ KNOWLEDGE_BASE_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "content": {
+                                    "type": "string",
+                                    "description": "Updated fact content",
+                                },
+                                "confidence": {
+                                    "type": "number",
+                                    "description": "Confidence score (0.0-1.0)",
+                                },
+                                "topics": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Associated topic tags",
+                                },
+                                "metadata": {"type": "object", "description": "Custom metadata"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Updated fact", "KnowledgeFact"),
@@ -283,7 +305,38 @@ KNOWLEDGE_BASE_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "target_fact_id": {
+                                    "type": "string",
+                                    "description": "ID of the related fact",
+                                },
+                                "relation_type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "supports",
+                                        "contradicts",
+                                        "supersedes",
+                                        "derived_from",
+                                    ],
+                                    "description": "Type of relation",
+                                },
+                                "confidence": {
+                                    "type": "number",
+                                    "description": "Confidence in the relation",
+                                },
+                                "evidence": {
+                                    "type": "string",
+                                    "description": "Supporting evidence",
+                                },
+                            },
+                            "required": ["target_fact_id", "relation_type"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Relation added"),
@@ -307,7 +360,34 @@ KNOWLEDGE_BASE_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "source_fact_id": {
+                                    "type": "string",
+                                    "description": "ID of the source fact",
+                                },
+                                "target_fact_id": {
+                                    "type": "string",
+                                    "description": "ID of the target fact",
+                                },
+                                "relation_type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "supports",
+                                        "contradicts",
+                                        "supersedes",
+                                        "derived_from",
+                                    ],
+                                    "description": "Type of relation",
+                                },
+                            },
+                            "required": ["source_fact_id", "target_fact_id", "relation_type"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Relation added"),

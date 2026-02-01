@@ -172,7 +172,37 @@ OUTLOOK_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "to": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "Recipient email addresses",
+                                },
+                                "cc": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "CC email addresses",
+                                },
+                                "bcc": {
+                                    "type": "array",
+                                    "items": {"type": "string", "format": "email"},
+                                    "description": "BCC email addresses",
+                                },
+                                "subject": {"type": "string", "description": "Email subject"},
+                                "body": {
+                                    "type": "string",
+                                    "description": "Email body (HTML or plain text)",
+                                },
+                                "workspace_id": {"type": "string", "description": "Workspace ID"},
+                            },
+                            "required": ["to", "subject", "body"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Message sent", "StandardSuccessResponse"),
@@ -191,7 +221,29 @@ OUTLOOK_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message_id": {
+                                    "type": "string",
+                                    "description": "ID of message to reply to",
+                                },
+                                "body": {
+                                    "type": "string",
+                                    "description": "Reply body (HTML or plain text)",
+                                },
+                                "reply_all": {
+                                    "type": "boolean",
+                                    "description": "Reply to all recipients",
+                                },
+                                "workspace_id": {"type": "string", "description": "Workspace ID"},
+                            },
+                            "required": ["message_id", "body"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Reply sent", "StandardSuccessResponse"),
@@ -236,7 +288,20 @@ OUTLOOK_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": False,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "is_read": {
+                                    "type": "boolean",
+                                    "description": "True to mark as read, false for unread",
+                                },
+                                "workspace_id": {"type": "string", "description": "Workspace ID"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Message updated", "StandardSuccessResponse"),
@@ -262,7 +327,21 @@ OUTLOOK_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": True,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "destination_folder_id": {
+                                    "type": "string",
+                                    "description": "Target folder ID",
+                                },
+                                "workspace_id": {"type": "string", "description": "Workspace ID"},
+                            },
+                            "required": ["destination_folder_id"],
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Message moved", "StandardSuccessResponse"),

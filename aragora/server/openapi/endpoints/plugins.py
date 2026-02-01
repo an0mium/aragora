@@ -96,7 +96,25 @@ def _plugin_run_endpoint(deprecated: bool = False, versioned: bool = True) -> di
             if not deprecated
             else None,
             "parameters": [_PLUGIN_NAME_PARAM],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "params": {
+                                    "type": "object",
+                                    "description": "Plugin-specific parameters",
+                                },
+                                "async_exec": {
+                                    "type": "boolean",
+                                    "description": "Execute asynchronously",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
             "responses": {
                 "200": _ok_response(
                     "Plugin result", {"status": {"type": "string"}, "output": {"type": "object"}}
@@ -126,7 +144,25 @@ def _plugin_install_endpoint(deprecated: bool = False, versioned: bool = True) -
             if not deprecated
             else None,
             "parameters": [_PLUGIN_NAME_PARAM],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "config": {
+                                    "type": "object",
+                                    "description": "Plugin-specific configuration",
+                                },
+                                "auto_enable": {
+                                    "type": "boolean",
+                                    "description": "Enable plugin after installation",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
             "responses": {
                 "200": _ok_response(
                     "Installation result",
@@ -248,7 +284,30 @@ def _plugin_submit_endpoint(deprecated: bool = False, versioned: bool = True) ->
             "description": (
                 "Submit a new plugin for marketplace review." if not deprecated else None
             ),
-            "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Plugin name"},
+                                "version": {"type": "string", "description": "Plugin version"},
+                                "description": {
+                                    "type": "string",
+                                    "description": "Plugin description",
+                                },
+                                "repository_url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "description": "Source code URL",
+                                },
+                                "category": {"type": "string", "description": "Plugin category"},
+                            },
+                            "required": ["name", "version", "description"],
+                        }
+                    }
+                }
+            },
             "responses": {
                 "200": _ok_response(
                     "Submission confirmation",

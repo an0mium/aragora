@@ -91,7 +91,30 @@ ACCOUNTING_ENDPOINTS = {
             "security": AUTH_REQUIREMENTS["optional"]["security"],
             "requestBody": {
                 "required": False,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "report_type": {
+                                    "type": "string",
+                                    "enum": ["summary", "detailed", "tax", "audit"],
+                                    "description": "Type of report to generate",
+                                },
+                                "start_date": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "description": "Report start date",
+                                },
+                                "end_date": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "description": "Report end date",
+                                },
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Report", "StandardSuccessResponse"),
@@ -227,7 +250,28 @@ ACCOUNTING_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": False,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "accounts": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "account_id": {"type": "string"},
+                                            "debit": {"type": "number"},
+                                            "credit": {"type": "number"},
+                                        },
+                                    },
+                                    "description": "Account entries",
+                                },
+                                "memo": {"type": "string", "description": "Journal entry memo"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Journal entry", "StandardSuccessResponse"),

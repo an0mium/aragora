@@ -301,7 +301,23 @@ Receives updates including:
                 "required": True,
                 "content": {
                     "application/json": {
-                        "schema": {"type": "object"},
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "update_id": {
+                                    "type": "integer",
+                                    "description": "Telegram update ID",
+                                },
+                                "message": {
+                                    "type": "object",
+                                    "description": "Telegram message object",
+                                },
+                                "callback_query": {
+                                    "type": "object",
+                                    "description": "Callback query data",
+                                },
+                            },
+                        },
                     }
                 },
             },

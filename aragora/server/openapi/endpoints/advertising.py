@@ -386,7 +386,24 @@ and Microsoft Ads into a unified format.""",
             "responses": {
                 "200": {
                     "description": "Campaign details",
-                    "content": {"application/json": {"schema": {"type": "object"}}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "campaign_id": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "status": {
+                                        "type": "string",
+                                        "enum": ["active", "paused", "completed"],
+                                    },
+                                    "budget": {"type": "number"},
+                                    "start_date": {"type": "string", "format": "date-time"},
+                                    "end_date": {"type": "string", "format": "date-time"},
+                                },
+                            }
+                        }
+                    },
                 },
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
@@ -552,7 +569,22 @@ and Microsoft Ads into a unified format.""",
             "responses": {
                 "200": {
                     "description": "Performance metrics",
-                    "content": {"application/json": {"schema": {"type": "object"}}},
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "platform": {"type": "string"},
+                                    "impressions": {"type": "integer"},
+                                    "clicks": {"type": "integer"},
+                                    "conversions": {"type": "integer"},
+                                    "spend": {"type": "number"},
+                                    "ctr": {"type": "number"},
+                                    "roi": {"type": "number"},
+                                },
+                            }
+                        }
+                    },
                 },
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
