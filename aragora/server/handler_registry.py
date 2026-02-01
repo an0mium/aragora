@@ -19,8 +19,10 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import glob as glob_mod
 import importlib
 import logging
+import os
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Optional
 
@@ -62,7 +64,7 @@ def _safe_import(module_path: str, class_name: str) -> HandlerType:
     try:
         mod = importlib.import_module(module_path)
         return getattr(mod, class_name)
-    except (ImportError, AttributeError) as e:
+    except Exception as e:
         logger.warning(f"Failed to import {class_name} from {module_path}: {e}")
         return None
 
@@ -637,11 +639,78 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_zoom_handler", ZoomHandler),
     # Skills handler
     ("_skills_handler", SkillsHandler),
-    # Shared inbox handler
-    ("_shared_inbox_handler", SharedInboxHandler),
+    # SharedInboxHandler omitted - circular import prevents loading
     # Template marketplace handlers
     ("_template_marketplace_handler", TemplateMarketplaceHandler),
     ("_template_recommendations_handler", TemplateRecommendationsHandler),
+    # Cross-pollination (KM federation)
+    ("_cross_pollination_bridge_handler", CrossPollinationBridgeHandler),
+    # RLM and ML
+    ("_rlm_handler", RLMHandler),
+    ("_ml_handler", MLHandler),
+    # Notifications and SSO
+    ("_notifications_handler", NotificationsHandler),
+    ("_sso_handler", SSOHandler),
+    # GitHub integration
+    ("_pr_review_handler", PRReviewHandler),
+    ("_audit_github_bridge_handler", AuditGitHubBridgeHandler),
+    # Privacy and audit
+    ("_privacy_handler", PrivacyHandler),
+    ("_audit_trail_handler", AuditTrailHandler),
+    # Public
+    ("_status_page_handler", StatusPageHandler),
+    # Speech and selection
+    ("_speech_handler", SpeechHandler),
+    ("_selection_handler", SelectionHandler),
+    # Repository and scheduler
+    ("_repository_handler", RepositoryHandler),
+    ("_scheduler_handler", SchedulerHandler),
+    # Threat intelligence
+    ("_threat_intel_handler", ThreatIntelHandler),
+    # SME workflows
+    ("_sme_workflows_handler", SMEWorkflowsHandler),
+    # Gauntlet v1 sub-handlers
+    ("_gauntlet_secure_handler", GauntletSecureHandler),
+    ("_gauntlet_schema_handler", GauntletSchemaHandler),
+    ("_gauntlet_template_handler", GauntletTemplateHandler),
+    ("_gauntlet_validate_receipt_handler", GauntletValidateReceiptHandler),
+    # Feature handlers
+    ("_finding_workflow_handler", FindingWorkflowHandler),
+    ("_receipt_delivery_handler", ReceiptDeliveryHandler),
+    ("_code_review_handler", CodeReviewHandler),
+    ("_evidence_enrichment_handler", EvidenceEnrichmentHandler),
+    ("_email_debate_handler", EmailDebateHandler),
+    ("_km_checkpoint_handler", KMCheckpointHandler),
+    ("_usage_metering_handler", UsageMeteringHandler),
+    # Agent config
+    ("_agent_config_handler", AgentConfigHandler),
+    # Platform analytics and routing
+    ("_cross_platform_analytics_handler", CrossPlatformAnalyticsHandler),
+    ("_routing_rules_handler", RoutingRulesHandler),
+    ("_document_query_handler", DocumentQueryHandler),
+    # SME handlers
+    ("_budget_controls_handler", BudgetControlsHandler),
+    ("_sme_success_dashboard_handler", SMESuccessDashboardHandler),
+    # Automation and credits
+    ("_automation_handler", AutomationHandler),
+    ("_credits_admin_handler", CreditsAdminHandler),
+    # Gateway sub-handlers
+    ("_gateway_agents_handler", GatewayAgentsHandler),
+    ("_gateway_credentials_handler", GatewayCredentialsHandler),
+    ("_gateway_health_handler", GatewayHealthHandler),
+    # Knowledge sharing
+    ("_sharing_handler", SharingHandler),
+    ("_sharing_notifications_handler", SharingNotificationsHandler),
+    # Skill marketplace
+    ("_skill_marketplace_handler", SkillMarketplaceHandler),
+    # Miscellaneous
+    ("_bindings_handler", BindingsHandler),
+    ("_dependency_analysis_handler", DependencyAnalysisHandler),
+    ("_email_webhooks_handler", EmailWebhooksHandler),
+    # Workspace handlers (Teams/Slack)
+    ("_slack_workspace_handler", SlackWorkspaceHandler),
+    ("_teams_handler", TeamsHandler),
+    ("_teams_workspace_handler", TeamsWorkspaceHandler),
 ]
 
 
@@ -1116,6 +1185,70 @@ def validate_all_handlers(raise_on_error: bool = False) -> dict[str, Any]:
     return results
 
 
+def check_handler_coverage() -> None:
+    """Log warnings for handler classes that exist in the codebase but aren't registered.
+
+    Scans aragora/server/handlers/ for classes ending in 'Handler' and compares
+    against HANDLER_REGISTRY. Unregistered handlers are logged as warnings.
+    Called during _init_handlers to surface gaps early.
+    """
+    import ast
+
+    registered_names = {
+        handler_class.__name__ for _, handler_class in HANDLER_REGISTRY if handler_class is not None
+    }
+
+    # Also include base/abstract classes that shouldn't be registered
+    skip_names = {
+        "BaseHandler",
+        "BaseHTTPRequestHandler",
+        "SecureHandler",
+        "AuthenticatedHandler",
+        "AsyncTypedHandler",
+        "TypedHandler",
+        "ResourceHandler",
+        "VersionedAPIHandler",
+        "CompositeHandler",
+        "PermissionHandler",
+        "ExampleAsyncHandler",
+        "ExampleAuthenticatedHandler",
+        "ExamplePermissionHandler",
+        "ExampleResourceHandler",
+        "ExampleTypedHandler",
+        "HandlerResult",
+        "MockHandler",
+        "MyHandler",
+        "MyResourceHandler",
+        "MyBotHandler",
+    }
+
+    handler_dir = os.path.join(os.path.dirname(__file__), "handlers")
+    if not os.path.isdir(handler_dir):
+        return
+
+    unregistered = []
+    for py_file in glob_mod.glob(os.path.join(handler_dir, "**", "*.py"), recursive=True):
+        try:
+            with open(py_file) as f:
+                tree = ast.parse(f.read(), filename=py_file)
+        except SyntaxError:
+            continue
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name.endswith("Handler"):
+                name = node.name
+                if name not in registered_names and name not in skip_names:
+                    rel_path = os.path.relpath(py_file, handler_dir)
+                    unregistered.append((name, rel_path))
+
+    if unregistered:
+        logger.warning(
+            f"[handlers] {len(unregistered)} handler class(es) found but not registered:"
+        )
+        for name, path in sorted(unregistered):
+            logger.warning(f"[handlers]   - {name} ({path})")
+
+
 def validate_handlers_on_init(registry_mixin: Any) -> dict[str, Any]:
     """
     Validate instantiated handlers after initialization.
@@ -1334,6 +1467,12 @@ class HandlerRegistryMixin:
 
         cls._handlers_initialized = True
         logger.info(f"[handlers] Modular handlers initialized ({len(HANDLER_REGISTRY)} handlers)")
+
+        # Check for unregistered handler classes in the codebase
+        try:
+            check_handler_coverage()
+        except Exception as e:
+            logger.debug(f"[handlers] Handler coverage check failed: {e}")
 
         # Validate instantiated handlers
         validation_results = validate_handlers_on_init(cls)
