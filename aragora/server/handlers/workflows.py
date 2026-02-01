@@ -558,16 +558,14 @@ def register_template(workflow: WorkflowDefinition) -> None:
     registered via this function will be loaded during server startup.
     """
     workflow.is_template = True
-    store = _get_store()
+    from aragora.storage.factory import get_storage_backend, StorageBackend
 
-    # Skip for async stores at import time
-    from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
-
-    if isinstance(store, PostgresWorkflowStore):
-        # Store will be populated during server startup
+    backend = get_storage_backend()
+    if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
         logger.debug(f"Deferring template registration for {workflow.id} to server startup")
         return
 
+    store = _get_store()
     store.save_template(workflow)
 
 
@@ -844,17 +842,17 @@ def _load_yaml_templates() -> None:
     """
     try:
         from aragora.workflow.template_loader import load_templates
-        from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
+        from aragora.storage.factory import get_storage_backend, StorageBackend
 
-        store = _get_store()
-
-        # Skip sync loading for async stores - will be loaded at server startup
-        if isinstance(store, PostgresWorkflowStore):
+        backend = get_storage_backend()
+        if backend in (StorageBackend.POSTGRES, StorageBackend.SUPABASE):
             logger.debug(
                 "Skipping YAML template loading at import time for PostgreSQL backend. "
                 "Templates will be loaded during server startup."
             )
             return
+
+        store = _get_store()
 
         templates = load_templates()
         loaded = 0
