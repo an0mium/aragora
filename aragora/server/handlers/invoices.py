@@ -43,7 +43,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
-from aragora.server.handlers.utils.decorators import require_permission
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 

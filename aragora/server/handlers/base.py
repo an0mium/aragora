@@ -167,6 +167,7 @@ from aragora.server.handlers.utils.database import (
     get_db_connection,
     table_exists,
 )
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.decorators import (
     PERMISSION_MATRIX,
     auto_error_response,
@@ -177,7 +178,6 @@ from aragora.server.handlers.utils.decorators import (
     log_request,
     require_auth,
     require_feature,
-    require_permission,
     require_storage,
     require_user_auth,
     safe_fetch,

@@ -43,7 +43,7 @@ from ..base import (
     json_response,
     log_request,
 )
-from ..utils.decorators import require_permission
+from aragora.rbac.decorators import require_permission
 from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 

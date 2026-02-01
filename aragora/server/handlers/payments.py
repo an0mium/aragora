@@ -52,7 +52,7 @@ from aragora.resilience import (
     with_retry,
 )
 from aragora.observability.metrics import track_handler
-from aragora.server.handlers.utils.decorators import require_permission
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 

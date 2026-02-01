@@ -30,7 +30,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
-from aragora.server.handlers.utils.decorators import require_permission
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import auth_rate_limit
 from aragora.server.oauth_state_store import (
     OAUTH_STATE_TTL_SECONDS,
