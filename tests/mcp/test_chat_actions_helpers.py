@@ -13,6 +13,8 @@ from aragora.mcp.tools_module.chat_actions import (
     _format_receipt,
 )
 
+pytest.importorskip("mcp")
+
 
 # =============================================================================
 # Progress Bar Tests

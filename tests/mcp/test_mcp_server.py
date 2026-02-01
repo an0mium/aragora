@@ -30,6 +30,8 @@ from aragora.mcp.server import (
     MCP_AVAILABLE,
 )
 
+pytest.importorskip("mcp")
+
 
 class TestRateLimiter:
     """Tests for RateLimiter class."""

@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 
 import asyncpg
 
+pytest.importorskip("asyncpg")
+
 
 class TestMigrationStats:
     """Tests for MigrationStats dataclass."""

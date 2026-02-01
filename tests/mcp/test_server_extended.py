@@ -36,6 +36,8 @@ from aragora.mcp.server import (
     create_rate_limiter,
 )
 
+pytest.importorskip("mcp")
+
 
 # ---------------------------------------------------------------------------
 # Helpers

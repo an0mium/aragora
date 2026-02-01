@@ -12,6 +12,8 @@ import json
 
 import asyncpg
 
+pytest.importorskip("asyncpg")
+
 
 class TestPostgresConsensusSchema:
     """Tests for schema definitions (no asyncpg required)."""

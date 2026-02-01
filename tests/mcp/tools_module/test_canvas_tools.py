@@ -15,6 +15,8 @@ from aragora.mcp.tools_module.canvas import (
     canvas_list_tool,
 )
 
+pytest.importorskip("mcp")
+
 
 @pytest.fixture(autouse=True)
 def reset_canvas_manager():
@@ -161,11 +163,13 @@ class TestCanvasAddNodeTool:
         mock_node.node_type = MagicMock(value="text")
         mock_manager.add_node.return_value = mock_node
 
-        with patch(
-            "aragora.mcp.tools_module.canvas._get_manager",
-            return_value=mock_manager,
-        ), patch("aragora.mcp.tools_module.canvas.CanvasNodeType", create=True) as mock_type, patch(
-            "aragora.mcp.tools_module.canvas.Position", create=True
+        with (
+            patch(
+                "aragora.mcp.tools_module.canvas._get_manager",
+                return_value=mock_manager,
+            ),
+            patch("aragora.mcp.tools_module.canvas.CanvasNodeType", create=True) as mock_type,
+            patch("aragora.mcp.tools_module.canvas.Position", create=True),
         ):
             mock_type.__getitem__ = MagicMock()
             result = await canvas_add_node_tool(
@@ -185,11 +189,13 @@ class TestCanvasAddNodeTool:
         mock_manager = AsyncMock()
         mock_manager.add_node.return_value = None
 
-        with patch(
-            "aragora.mcp.tools_module.canvas._get_manager",
-            return_value=mock_manager,
-        ), patch("aragora.mcp.tools_module.canvas.CanvasNodeType", create=True), patch(
-            "aragora.mcp.tools_module.canvas.Position", create=True
+        with (
+            patch(
+                "aragora.mcp.tools_module.canvas._get_manager",
+                return_value=mock_manager,
+            ),
+            patch("aragora.mcp.tools_module.canvas.CanvasNodeType", create=True),
+            patch("aragora.mcp.tools_module.canvas.Position", create=True),
         ):
             result = await canvas_add_node_tool(
                 canvas_id="canvas-001",
@@ -225,10 +231,13 @@ class TestCanvasAddEdgeTool:
         mock_edge.target_id = "n2"
         mock_manager.add_edge.return_value = mock_edge
 
-        with patch(
-            "aragora.mcp.tools_module.canvas._get_manager",
-            return_value=mock_manager,
-        ), patch("aragora.mcp.tools_module.canvas.EdgeType", create=True):
+        with (
+            patch(
+                "aragora.mcp.tools_module.canvas._get_manager",
+                return_value=mock_manager,
+            ),
+            patch("aragora.mcp.tools_module.canvas.EdgeType", create=True),
+        ):
             result = await canvas_add_edge_tool(
                 canvas_id="canvas-001",
                 source_id="n1",

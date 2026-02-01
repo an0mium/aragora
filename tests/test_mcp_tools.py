@@ -23,6 +23,8 @@ from aragora.mcp.tools import (
     TOOLS_METADATA,
 )
 
+pytest.importorskip("mcp")
+
 
 class TestToolsMetadata:
     """Test TOOLS_METADATA structure."""

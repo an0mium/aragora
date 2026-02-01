@@ -20,6 +20,8 @@ from aragora.mcp.tools_module.context_tools import (
     get_user_context_tool,
 )
 
+pytest.importorskip("mcp")
+
 
 # =============================================================================
 # Activity Analysis Tests

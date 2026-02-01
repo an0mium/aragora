@@ -16,6 +16,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 import pytest
 
+
 from aragora.billing.invoice_export import (
     InvoiceExporter,
     InvoiceCompanyInfo,
@@ -25,6 +26,8 @@ from aragora.billing.invoice_export import (
     export_invoice_pdf,
     HAS_REPORTLAB,
 )
+
+pytest.importorskip("reportlab")
 
 
 @pytest.fixture

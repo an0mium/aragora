@@ -13,6 +13,8 @@ from aragora.mcp.tools_module.workflow import (
     run_workflow_tool,
 )
 
+pytest.importorskip("mcp")
+
 
 def _make_engine_module(mock_engine_instance):
     """Create a mock module for aragora.workflow.engine with WorkflowEngine returning mock_engine_instance."""

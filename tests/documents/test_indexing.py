@@ -21,6 +21,8 @@ from aragora.documents.indexing.hybrid_search import (
 )
 from aragora.documents.models import DocumentChunk, ChunkType
 
+pytest.importorskip("weaviate")
+
 
 class TestWeaviateConfig:
     """Tests for WeaviateConfig dataclass."""
@@ -116,6 +118,8 @@ class TestWeaviateStore:
 
     def test_weaviate_available(self):
         """Test that weaviate library is detected when installed."""
+        if not WEAVIATE_AVAILABLE:
+            pytest.skip("weaviate not installed")
         assert WEAVIATE_AVAILABLE is True
 
 

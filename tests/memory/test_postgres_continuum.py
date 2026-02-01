@@ -12,6 +12,8 @@ import json
 
 import asyncpg
 
+pytest.importorskip("asyncpg")
+
 
 # Tests that don't require asyncpg
 class TestPostgresContinuumSchema:

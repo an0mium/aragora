@@ -16,6 +16,8 @@ import pytest
 
 import asyncpg
 
+pytest.importorskip("asyncpg")
+
 
 # ===========================================================================
 # Test Fixtures

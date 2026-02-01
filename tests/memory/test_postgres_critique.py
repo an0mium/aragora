@@ -12,6 +12,8 @@ from contextlib import asynccontextmanager
 
 import asyncpg
 
+pytest.importorskip("asyncpg")
+
 
 class TestPostgresCritiqueSchema:
     """Tests for schema definitions (no asyncpg required)."""

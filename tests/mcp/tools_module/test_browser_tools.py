@@ -20,6 +20,8 @@ from aragora.mcp.tools_module.browser import (
     browser_wait_for_tool,
 )
 
+pytest.importorskip("mcp")
+
 
 @pytest.fixture(autouse=True)
 def reset_browser_connector():
@@ -291,9 +293,7 @@ class TestBrowserExtractTool:
             "aragora.mcp.tools_module.browser._get_connector",
             return_value=mock_connector,
         ):
-            result = await browser_extract_tool(
-                selectors='{"title": "h1", "price": ".price"}'
-            )
+            result = await browser_extract_tool(selectors='{"title": "h1", "price": ".price"}')
 
         assert result["success"] is True
         assert result["data"]["title"] == "Test Page"

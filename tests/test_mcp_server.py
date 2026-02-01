@@ -38,6 +38,8 @@ import aragora.debate.orchestrator  # noqa: F401
 # Import MAX_ROUNDS for test assertions
 from aragora.config import MAX_ROUNDS
 
+pytest.importorskip("mcp")
+
 
 async def _get_tools(server):
     """Helper to get tools using the correct MCP API."""
