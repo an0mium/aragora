@@ -90,6 +90,7 @@ class AragoraClient:
         from .namespaces.analytics import AnalyticsAPI
         from .namespaces.ap_automation import APAutomationAPI
         from .namespaces.ar_automation import ARAutomationAPI
+        from .namespaces.audio import AudioAPI
         from .namespaces.audit import AuditAPI
         from .namespaces.auth import AuthAPI
         from .namespaces.backups import BackupsAPI
@@ -100,6 +101,7 @@ class AragoraClient:
         from .namespaces.budgets import BudgetsAPI
         from .namespaces.calibration import CalibrationAPI
         from .namespaces.chat import ChatAPI
+        from .namespaces.checkpoints import CheckpointsAPI
         from .namespaces.classify import ClassifyAPI
         from .namespaces.code_review import CodeReviewAPI
         from .namespaces.codebase import CodebaseAPI
@@ -135,6 +137,7 @@ class AragoraClient:
         from .namespaces.health import HealthAPI
         from .namespaces.hybrid_debates import HybridDebatesAPI
         from .namespaces.inbox_command import InboxCommandAPI
+        from .namespaces.index import IndexAPI
         from .namespaces.insights import InsightsAPI
         from .namespaces.integrations import IntegrationsAPI
         from .namespaces.invoice_processing import InvoiceProcessingAPI
@@ -142,6 +145,7 @@ class AragoraClient:
         from .namespaces.knowledge_chat import KnowledgeChatAPI
         from .namespaces.marketplace import MarketplaceAPI
         from .namespaces.matches import MatchesAPI
+        from .namespaces.media import MediaAPI
         from .namespaces.memory import MemoryAPI
         from .namespaces.metrics import MetricsAPI
         from .namespaces.ml import MLAPI
@@ -173,6 +177,7 @@ class AragoraClient:
         from .namespaces.rlm import RLMAPI
         from .namespaces.routing import RoutingAPI
         from .namespaces.scim import SCIMAPI
+        from .namespaces.security import SecurityAPI
         from .namespaces.slo import SLOAPI
         from .namespaces.sme import SMEAPI
         from .namespaces.sso import SSOAPI
@@ -200,6 +205,7 @@ class AragoraClient:
         self.analytics = AnalyticsAPI(self)
         self.ap_automation = APAutomationAPI(self)
         self.ar_automation = ARAutomationAPI(self)
+        self.audio = AudioAPI(self)
         self.audit = AuditAPI(self)
         self.auth = AuthAPI(self)
         self.backups = BackupsAPI(self)
@@ -210,6 +216,7 @@ class AragoraClient:
         self.budgets = BudgetsAPI(self)
         self.calibration = CalibrationAPI(self)
         self.chat = ChatAPI(self)
+        self.checkpoints = CheckpointsAPI(self)
         self.classify = ClassifyAPI(self)
         self.code_review = CodeReviewAPI(self)
         self.codebase = CodebaseAPI(self)
@@ -245,6 +252,7 @@ class AragoraClient:
         self.health = HealthAPI(self)
         self.hybrid_debates = HybridDebatesAPI(self)
         self.inbox_command = InboxCommandAPI(self)
+        self.index = IndexAPI(self)
         self.integrations = IntegrationsAPI(self)
         self.insights = InsightsAPI(self)
         self.invoice_processing = InvoiceProcessingAPI(self)
@@ -253,6 +261,7 @@ class AragoraClient:
         self.marketplace = MarketplaceAPI(self)
         self.memory = MemoryAPI(self)
         self.matches = MatchesAPI(self)
+        self.media = MediaAPI(self)
         self.metrics = MetricsAPI(self)
         self.ml = MLAPI(self)
         self.monitoring = MonitoringAPI(self)
@@ -283,6 +292,7 @@ class AragoraClient:
         self.rlm = RLMAPI(self)
         self.routing = RoutingAPI(self)
         self.scim = SCIMAPI(self)
+        self.security = SecurityAPI(self)
         self.slo = SLOAPI(self)
         self.sme = SMEAPI(self)
         self.sso = SSOAPI(self)
@@ -530,6 +540,7 @@ class AragoraAsyncClient:
         from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.ap_automation import AsyncAPAutomationAPI
         from .namespaces.ar_automation import AsyncARAutomationAPI
+        from .namespaces.audio import AsyncAudioAPI
         from .namespaces.audit import AsyncAuditAPI
         from .namespaces.auth import AsyncAuthAPI
         from .namespaces.backups import AsyncBackupsAPI
@@ -540,6 +551,7 @@ class AragoraAsyncClient:
         from .namespaces.budgets import AsyncBudgetsAPI
         from .namespaces.calibration import AsyncCalibrationAPI
         from .namespaces.chat import AsyncChatAPI
+        from .namespaces.checkpoints import AsyncCheckpointsAPI
         from .namespaces.classify import AsyncClassifyAPI
         from .namespaces.code_review import AsyncCodeReviewAPI
         from .namespaces.codebase import AsyncCodebaseAPI
@@ -575,6 +587,7 @@ class AragoraAsyncClient:
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.hybrid_debates import AsyncHybridDebatesAPI
         from .namespaces.inbox_command import AsyncInboxCommandAPI
+        from .namespaces.index import AsyncIndexAPI
         from .namespaces.insights import AsyncInsightsAPI
         from .namespaces.integrations import AsyncIntegrationsAPI
         from .namespaces.invoice_processing import AsyncInvoiceProcessingAPI
@@ -582,6 +595,7 @@ class AragoraAsyncClient:
         from .namespaces.knowledge_chat import AsyncKnowledgeChatAPI
         from .namespaces.marketplace import AsyncMarketplaceAPI
         from .namespaces.matches import AsyncMatchesAPI
+        from .namespaces.media import AsyncMediaAPI
         from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.metrics import AsyncMetricsAPI
         from .namespaces.ml import AsyncMLAPI
@@ -613,6 +627,7 @@ class AragoraAsyncClient:
         from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.routing import AsyncRoutingAPI
         from .namespaces.scim import AsyncSCIMAPI
+        from .namespaces.security import AsyncSecurityAPI
         from .namespaces.slo import AsyncSLOAPI
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.sso import AsyncSSOAPI
@@ -640,6 +655,7 @@ class AragoraAsyncClient:
         self.analytics = AsyncAnalyticsAPI(self)
         self.ap_automation = AsyncAPAutomationAPI(self)
         self.ar_automation = AsyncARAutomationAPI(self)
+        self.audio = AsyncAudioAPI(self)
         self.audit = AsyncAuditAPI(self)
         self.auth = AsyncAuthAPI(self)
         self.backups = AsyncBackupsAPI(self)
@@ -650,6 +666,7 @@ class AragoraAsyncClient:
         self.budgets = AsyncBudgetsAPI(self)
         self.calibration = AsyncCalibrationAPI(self)
         self.chat = AsyncChatAPI(self)
+        self.checkpoints = AsyncCheckpointsAPI(self)
         self.classify = AsyncClassifyAPI(self)
         self.code_review = AsyncCodeReviewAPI(self)
         self.codebase = AsyncCodebaseAPI(self)
@@ -685,6 +702,7 @@ class AragoraAsyncClient:
         self.health = AsyncHealthAPI(self)
         self.hybrid_debates = AsyncHybridDebatesAPI(self)
         self.inbox_command = AsyncInboxCommandAPI(self)
+        self.index = AsyncIndexAPI(self)
         self.integrations = AsyncIntegrationsAPI(self)
         self.insights = AsyncInsightsAPI(self)
         self.invoice_processing = AsyncInvoiceProcessingAPI(self)
@@ -693,6 +711,7 @@ class AragoraAsyncClient:
         self.marketplace = AsyncMarketplaceAPI(self)
         self.memory = AsyncMemoryAPI(self)
         self.matches = AsyncMatchesAPI(self)
+        self.media = AsyncMediaAPI(self)
         self.metrics = AsyncMetricsAPI(self)
         self.ml = AsyncMLAPI(self)
         self.monitoring = AsyncMonitoringAPI(self)
@@ -723,6 +742,7 @@ class AragoraAsyncClient:
         self.rlm = AsyncRLMAPI(self)
         self.routing = AsyncRoutingAPI(self)
         self.scim = AsyncSCIMAPI(self)
+        self.security = AsyncSecurityAPI(self)
         self.slo = AsyncSLOAPI(self)
         self.sme = AsyncSMEAPI(self)
         self.sso = AsyncSSOAPI(self)
