@@ -41,6 +41,10 @@ class UsageMeteringHandler(SecureHandler):
     for ENTERPRISE_PLUS tier customers.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "billing_usage"
 
     ROUTES = [

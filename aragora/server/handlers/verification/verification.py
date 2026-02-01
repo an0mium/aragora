@@ -45,6 +45,10 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 class VerificationHandler(BaseHandler):
     """Handler for formal verification endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/verification/status",
         "/api/v1/verification/formal-verify",

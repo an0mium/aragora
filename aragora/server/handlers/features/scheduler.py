@@ -39,6 +39,10 @@ logger = logging.getLogger(__name__)
 class SchedulerHandler(BaseHandler):
     """Handler for audit scheduler endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     BASE_ROUTES = [
         "/api/v1/scheduler/jobs",
         "/api/v1/scheduler/webhooks",

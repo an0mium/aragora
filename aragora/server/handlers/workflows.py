@@ -964,6 +964,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         POST   /api/workflow-approvals/{id}/resolve - Resolve approval
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/workflows",
         "/api/v1/workflows/*",

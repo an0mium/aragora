@@ -135,6 +135,10 @@ class TranscriptionJob:
 class TranscriptionHandler(BaseHandler):
     """Handler for audio/video transcription endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/transcription/upload",
         "/api/v1/transcription/formats",

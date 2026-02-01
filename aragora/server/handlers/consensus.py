@@ -66,6 +66,10 @@ DissentRetriever = _consensus_imports["DissentRetriever"]
 class ConsensusHandler(BaseHandler):
     """Handler for consensus memory endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/consensus/similar",
         "/api/consensus/settled",

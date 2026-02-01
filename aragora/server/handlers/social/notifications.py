@@ -324,6 +324,10 @@ class NotificationsHandler(SecureHandler):
         POST /api/notifications/send - Send a notification
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "notification"
 
     def can_handle(self, path: str) -> bool:

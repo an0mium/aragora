@@ -73,6 +73,10 @@ class MemoryHandler(SecureHandler):
     Requires authentication and memory:read/write permissions (RBAC).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/memory/continuum/retrieve",
         "/api/v1/memory/continuum/consolidate",

@@ -62,6 +62,10 @@ class GatewayHealthHandler(BaseHandler):
     overall gateway status and individual agent health checks.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/gateway/health",
         "/api/v1/gateway/agents/*/health",

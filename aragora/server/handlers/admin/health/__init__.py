@@ -101,6 +101,10 @@ class HealthHandler(SecureHandler):
     - All other endpoints: Require authentication and system.health.read permission
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/healthz",
         "/readyz",

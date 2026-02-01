@@ -49,6 +49,10 @@ from aragora.server.prometheus import (
 class MetricsHandler(BaseHandler):
     """Handler for operational metrics endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/metrics",
         "/api/metrics/health",

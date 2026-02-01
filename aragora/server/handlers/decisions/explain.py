@@ -97,6 +97,10 @@ class DecisionExplainHandler(SecureHandler):
     Requires authentication and decision:read permission (RBAC).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: list[str] = [
         "/api/v1/decisions/*/explain",
         "/api/v1/decisions/*/explain",

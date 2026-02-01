@@ -94,6 +94,10 @@ class MatrixDebatesHandler(SecureHandler):
     - debates:create - required for POST endpoints
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/debates/matrix",
         "/api/v1/debates/matrix/",

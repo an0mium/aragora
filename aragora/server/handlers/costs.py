@@ -365,6 +365,10 @@ def _generate_mock_summary(time_range: str) -> CostSummary:
 class CostHandler:
     """Handler for cost visibility API endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     @rate_limit(requests_per_minute=60)  # Read operation
     @require_permission("costs:read")
     async def handle_get_costs(self, request: web.Request) -> web.Response:

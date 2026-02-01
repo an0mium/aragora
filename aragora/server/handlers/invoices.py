@@ -733,6 +733,10 @@ async def handle_get_overdue_invoices(
 class InvoiceHandler(BaseHandler):
     """Handler for invoice-related routes."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = {
         "/api/v1/accounting/invoices/upload": ["POST"],
         "/api/v1/accounting/invoices": ["GET", "POST"],

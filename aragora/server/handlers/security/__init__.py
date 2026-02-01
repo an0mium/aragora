@@ -75,6 +75,7 @@ class CSPReportHandler:
 
     def __init__(
         self,
+        ctx: dict | None = None,
         *,
         log_violations: bool = True,
         store_violations: bool = False,
@@ -84,11 +85,13 @@ class CSPReportHandler:
         """Initialize the CSP report handler.
 
         Args:
+            ctx: Handler context (unused, for compatibility)
             log_violations: Whether to log violations to the application logger
             store_violations: Whether to store violations in memory for analysis
             max_violations_stored: Maximum violations to keep in memory
             on_violation: Optional callback called for each violation
         """
+        self.ctx = ctx or {}
         self.log_violations = log_violations
         self.store_violations = store_violations
         self.max_violations_stored = max_violations_stored

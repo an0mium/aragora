@@ -92,6 +92,10 @@ class AgentDashboardHandler(SecureHandler):
     - control_plane:write - required for POST endpoints (pause, resume, prioritize)
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         # New canonical routes
         "/api/v1/agent-dashboard/agents",

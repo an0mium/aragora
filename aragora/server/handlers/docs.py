@@ -44,6 +44,10 @@ CACHE_TTL_OPENAPI = 3600
 class DocsHandler(BaseHandler):
     """Handler for API documentation endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/openapi",
         "/api/v1/openapi.json",

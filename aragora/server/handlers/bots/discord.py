@@ -191,6 +191,10 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
     not RBAC, since they are called by Discord servers directly.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # BotHandlerMixin configuration
     bot_platform = "discord"
 

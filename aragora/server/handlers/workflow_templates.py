@@ -170,6 +170,10 @@ _template_limiter = RateLimiter(requests_per_minute=60)
 class WorkflowTemplatesHandler(BaseHandler):
     """Handler for workflow templates API endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: list[str] = [
         "/api/v1/workflow/templates",
         "/api/v1/workflow/templates/*",
@@ -427,6 +431,10 @@ class WorkflowTemplatesHandler(BaseHandler):
 class WorkflowCategoriesHandler(BaseHandler):
     """Handler for workflow template categories."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: list[str] = [
         "/api/v1/workflow/categories",
         "/api/v1/workflow/categories",
@@ -462,6 +470,10 @@ class WorkflowCategoriesHandler(BaseHandler):
 # Patterns endpoint
 class WorkflowPatternsHandler(BaseHandler):
     """Handler for workflow patterns listing."""
+
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
 
     ROUTES: list[str] = [
         "/api/v1/workflow/patterns",
@@ -779,6 +791,10 @@ USE_CASE_TEMPLATES = {
 class TemplateRecommendationsHandler(BaseHandler):
     """Handler for template recommendations based on use case."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: list[str] = [
         "/api/v1/templates/recommended",
     ]
@@ -848,6 +864,10 @@ class SMEWorkflowsHandler(BaseHandler):
     - Inventory alerts
     - Report scheduling
     """
+
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
 
     ROUTES: list[str] = [
         "/api/v1/sme/workflows",

@@ -37,6 +37,10 @@ class CrossPollinationStatsHandler(BaseHandler):
     - Enabled status
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = ["/api/v1/cross-pollination/stats"]
 
     @require_permission("cross_pollination:read")
@@ -130,6 +134,10 @@ class CrossPollinationBridgeHandler(BaseHandler):
 
     Returns status of the Arena event bridge connection.
     """
+
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
 
     ROUTES = ["/api/v1/cross-pollination/bridge"]
 

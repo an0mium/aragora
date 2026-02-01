@@ -59,6 +59,10 @@ def _safe_int(value: Any, default: int = 0) -> int:
 class ProbesHandler(BaseHandler):
     """Handler for capability probing endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/probes/capability",
         "/api/v1/probes/run",  # Legacy route

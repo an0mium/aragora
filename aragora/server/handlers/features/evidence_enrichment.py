@@ -45,6 +45,10 @@ def _set_evidence_enrichment(finding: "AuditFinding", enrichment: Any) -> None:
 class EvidenceEnrichmentHandler(BaseHandler):
     """Handler for evidence enrichment endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/findings/batch-evidence",
     ]

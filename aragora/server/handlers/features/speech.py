@@ -47,6 +47,10 @@ SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".wav", ".webm", ".mpga", ".mpeg", ".ogg
 class SpeechHandler(BaseHandler):
     """Handler for speech-to-text endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/speech/transcribe",
         "/api/v1/speech/transcribe-url",

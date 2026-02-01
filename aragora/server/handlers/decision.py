@@ -104,6 +104,10 @@ class DecisionHandler(BaseHandler):
     and quick decisions via the DecisionRouter.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/decisions",
         "/api/v1/decisions/*",

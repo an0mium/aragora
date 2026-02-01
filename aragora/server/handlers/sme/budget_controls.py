@@ -45,6 +45,10 @@ class BudgetControlsHandler(SecureHandler):
     viewing alerts, and checking spending limits.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "budget"
 
     ROUTES = [

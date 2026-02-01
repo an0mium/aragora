@@ -53,6 +53,10 @@ _slo_limiter = RateLimiter(requests_per_minute=30)
 class SLOHandler(BaseHandler):
     """Handler for SLO monitoring endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/slos/status",
         "/api/slos/error-budget",

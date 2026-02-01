@@ -45,6 +45,10 @@ PersonaLaboratory = _lab_imports.get("PersonaLaboratory")
 class LaboratoryHandler(BaseHandler):
     """Handler for persona laboratory endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/laboratory/emergent-traits",
         "/api/v1/laboratory/cross-pollinations/suggest",

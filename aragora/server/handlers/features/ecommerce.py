@@ -150,6 +150,10 @@ class UnifiedProduct:
 class EcommerceHandler(SecureHandler):
     """Handler for e-commerce platform API endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "ecommerce"
 
     ROUTES = [

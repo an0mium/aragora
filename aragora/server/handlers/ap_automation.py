@@ -477,6 +477,10 @@ async def handle_get_discounts(
 class APAutomationHandler(BaseHandler):
     """Handler class for AP automation endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: dict[str, Any] = {
         "POST /api/v1/accounting/ap/invoices": handle_add_invoice,
         "GET /api/v1/accounting/ap/invoices": handle_list_invoices,

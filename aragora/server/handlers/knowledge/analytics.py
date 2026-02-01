@@ -111,6 +111,10 @@ class AnalyticsHandler(BaseHandler):
         GET /api/knowledge/analytics/summary - Get combined summary
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return (

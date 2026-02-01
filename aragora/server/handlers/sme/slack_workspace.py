@@ -49,6 +49,10 @@ class SlackWorkspaceHandler(SecureHandler):
     listing channels, and subscribing to notifications.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "slack_workspace"
 
     ROUTES = [

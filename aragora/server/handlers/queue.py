@@ -85,6 +85,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):
     - queue:admin - DLQ management, cleanup operations
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "queue"
 
     ROUTES = [

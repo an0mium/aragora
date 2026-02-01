@@ -56,6 +56,10 @@ PersonaManager, PERSONA_MANAGER_AVAILABLE = try_import_class(
 class IntrospectionHandler(BaseHandler):
     """Handler for introspection-related endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/introspection/all",
         "/api/introspection/leaderboard",

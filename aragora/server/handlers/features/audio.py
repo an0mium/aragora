@@ -80,6 +80,10 @@ class AudioHandler(BaseHandler):
     Audio file serving checks debate access for private debates.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "audio"  # For audit logging
 
     ROUTES = [

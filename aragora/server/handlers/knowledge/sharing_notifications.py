@@ -60,6 +60,10 @@ class SharingNotificationsHandler(BaseHandler):
         PUT  /api/knowledge/notifications/preferences - Update preferences
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/knowledge/notifications")

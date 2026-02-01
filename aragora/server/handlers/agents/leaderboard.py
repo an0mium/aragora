@@ -56,6 +56,10 @@ class LeaderboardViewHandler(SecureHandler):
     Requires authentication and agent:read permission (RBAC).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = ["/api/leaderboard-view"]
 
     def can_handle(self, path: str) -> bool:

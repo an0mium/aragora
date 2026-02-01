@@ -32,6 +32,10 @@ logger = logging.getLogger(__name__)
 class DocumentQueryHandler(BaseHandler):
     """Handler for natural language document query endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/documents/query",
         "/api/v1/documents/summarize",

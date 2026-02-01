@@ -61,6 +61,10 @@ class AnalyticsHandler(SecureHandler):
     Requires authentication and analytics:read permission (RBAC).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/analytics/disagreements",
         "/api/analytics/role-rotation",

@@ -41,6 +41,10 @@ class DashboardHandler(SecureHandler):
     Requires authentication and dashboard.read permission (RBAC).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/dashboard/debates",
         "/api/v1/dashboard",

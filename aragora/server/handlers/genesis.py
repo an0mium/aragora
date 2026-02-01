@@ -63,6 +63,10 @@ from aragora.server.errors import safe_error_message as _safe_error_message
 class GenesisHandler(BaseHandler):
     """Handler for genesis (evolution visibility) endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/genesis/stats",
         "/api/genesis/events",

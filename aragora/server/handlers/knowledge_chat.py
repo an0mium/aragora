@@ -318,6 +318,10 @@ class KnowledgeChatHandler(BaseHandler):
     HTTP handler for Knowledge + Chat bridge endpoints.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # RBAC permission keys
     KNOWLEDGE_READ_PERMISSION = "knowledge.read"
     KNOWLEDGE_WRITE_PERMISSION = "knowledge.write"

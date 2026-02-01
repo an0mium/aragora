@@ -58,6 +58,10 @@ HISTORY_PERMISSION = "introspection:export_history"
 class SystemHandler(BaseHandler):
     """Handler for system-related endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         # Debug endpoint
         "/api/debug/test",

@@ -53,6 +53,10 @@ class CalibrationHandler(SecureHandler):
     Requires authentication and agent:read permission (RBAC).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/agent/*/calibration-curve",
         "/api/agent/*/calibration-summary",

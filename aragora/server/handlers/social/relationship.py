@@ -191,6 +191,10 @@ def require_tracker(func: Callable) -> Callable:
 class RelationshipHandler(BaseHandler):
     """Handler for relationship endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/relationships/summary",
         "/api/v1/relationships/graph",

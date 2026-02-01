@@ -43,6 +43,10 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
     not RBAC, since they are called by Slack servers directly.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/integrations/slack/commands",
         "/api/v1/integrations/slack/interactive",

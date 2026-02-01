@@ -47,6 +47,10 @@ class RLMHandler(BaseHandler):
     - analytics.read: Access RLM metrics
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "rlm"  # For audit logging
 
     ROUTES = [

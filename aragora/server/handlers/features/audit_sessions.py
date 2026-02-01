@@ -68,6 +68,10 @@ class AuditSessionsHandler(SecureHandler):
     - audit:intervene - human intervention in audits
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/audit/sessions",
         "/api/v1/audit/sessions/{session_id}",

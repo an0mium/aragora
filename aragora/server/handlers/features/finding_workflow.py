@@ -49,6 +49,10 @@ class FindingWorkflowHandler(BaseHandler):
     assignment, comments, and bulk operations.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/audit/findings/{finding_id}/status",
         "/api/v1/audit/findings/{finding_id}/assign",

@@ -48,6 +48,10 @@ except ImportError:
 class EvolutionHandler(BaseHandler):
     """Handler for prompt evolution endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/evolution/patterns",
         "/api/evolution/summary",

@@ -421,6 +421,10 @@ def _seed_marketplace_templates() -> None:
 class TemplateMarketplaceHandler(BaseHandler):
     """Handler for template marketplace API endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: list[str] = [
         "/api/v1/marketplace/templates",
         "/api/v1/marketplace/templates/*",
@@ -851,6 +855,10 @@ class TemplateMarketplaceHandler(BaseHandler):
 
 class TemplateRecommendationsHandler(BaseHandler):
     """Handler for template recommendations API endpoints."""
+
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
 
     ROUTES: list[str] = ["/api/v1/marketplace/recommendations"]
 

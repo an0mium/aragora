@@ -79,6 +79,10 @@ class CanvasHandler(SecureHandler):
         - canvas.run: Execute actions
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "canvas"  # For audit logging
 
     def can_handle(self, path: str) -> bool:

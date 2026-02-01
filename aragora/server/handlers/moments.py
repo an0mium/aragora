@@ -63,6 +63,10 @@ from aragora.server.errors import safe_error_message as _safe_error_message
 class MomentsHandler(SecureHandler):
     """Handler for moments endpoints with RBAC protection."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "moments"
 
     ROUTES = [

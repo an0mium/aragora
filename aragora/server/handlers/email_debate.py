@@ -31,6 +31,10 @@ class EmailDebateHandler(BaseHandler):
     Provides multi-agent email prioritization and triage.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/email/prioritize",
         "/api/v1/email/prioritize/batch",

@@ -46,6 +46,10 @@ MAX_TOTAL_BATCH_SIZE_MB = 500
 class DocumentBatchHandler(BaseHandler):
     """Handler for batch document upload and processing endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/documents/batch",
         "/api/v1/documents/processing/stats",

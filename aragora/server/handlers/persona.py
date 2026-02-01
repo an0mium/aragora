@@ -56,6 +56,10 @@ PositionTracker, POSITION_TRACKER_AVAILABLE = try_import_class(
 class PersonaHandler(BaseHandler):
     """Handler for persona-related endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/personas",
         "/api/personas/options",

@@ -352,6 +352,10 @@ async def handle_quick_security_scan(
 class CodeReviewHandler(BaseHandler):
     """Handler class for code review endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: dict[str, Any] = {
         "POST /api/v1/code-review/review": handle_review_code,
         "POST /api/v1/code-review/diff": handle_review_diff,

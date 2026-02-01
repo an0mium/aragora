@@ -49,6 +49,10 @@ BUDGET_DELETE_PERMISSION = "budget.delete"
 class BudgetHandler(BaseHandler):
     """Handler for budget management endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/budgets",
         "/api/v1/budgets/summary",

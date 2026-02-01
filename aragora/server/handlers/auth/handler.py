@@ -100,6 +100,10 @@ class AuthHandler(SecureHandler):
     enforcement, and security audit logging.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # Resource type for audit logging
     RESOURCE_TYPE = "auth"
 

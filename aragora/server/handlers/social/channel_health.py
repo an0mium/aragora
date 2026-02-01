@@ -38,7 +38,8 @@ class ChannelHealthHandler:
         ("GET", "/api/v1/channels/{channel}/health", "get_channel_health"),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, ctx: dict | None = None) -> None:
+        self.ctx = ctx or {}
         self._connectors: dict[str, Any] = {}
         self._initialized = False
 

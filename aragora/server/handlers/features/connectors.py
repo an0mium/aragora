@@ -175,6 +175,10 @@ class ConnectorsHandler(SecureHandler):
     Provides CRUD operations and sync management for data source connectors.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "connector"
 
     ROUTES = [

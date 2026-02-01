@@ -33,6 +33,10 @@ _security_limiter = RateLimiter(requests_per_minute=10)
 class SecurityHandler(SecureHandler):
     """Handler for security-related admin endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         # Versioned routes
         "/api/v1/admin/security/status",

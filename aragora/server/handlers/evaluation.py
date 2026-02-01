@@ -58,6 +58,10 @@ DEFAULT_WEIGHTS = _judge_imports.get("DEFAULT_WEIGHTS")
 class EvaluationHandler(BaseHandler):
     """Handler for LLM-as-Judge evaluation endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/evaluate",
         "/api/v1/evaluate/compare",

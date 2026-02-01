@@ -82,6 +82,10 @@ def _get_ml_component(name: str):
 class MLHandler(BaseHandler):
     """Handler for ML endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/ml/route",
         "/api/v1/ml/score",

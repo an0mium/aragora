@@ -76,6 +76,10 @@ class RoutingRulesHandler(SecureHandler):
     - policies.delete: Delete rules
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/routing-rules",
         "/api/v1/routing-rules/{rule_id}",

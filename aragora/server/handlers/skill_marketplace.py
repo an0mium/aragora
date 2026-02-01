@@ -42,6 +42,10 @@ logger = logging.getLogger(__name__)
 class SkillMarketplaceHandler(SecureHandler):
     """Handler for skill marketplace endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "skills"
 
     ROUTES = [

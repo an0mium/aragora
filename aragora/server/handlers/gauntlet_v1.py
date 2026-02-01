@@ -176,6 +176,10 @@ class GauntletSchemaHandler(GauntletSecureHandler):
         JSON Schema document
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/schema/(?P<schema_type>[a-z-]+)"
 
@@ -360,6 +364,10 @@ class GauntletTemplateHandler(GauntletSecureHandler):
     Returns:
         Full template definition
     """
+
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
 
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/templates/(?P<template_id>[a-z0-9-]+)"
@@ -771,6 +779,10 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
     Returns:
         Validation result with any errors
     """
+
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
 
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/validate/receipt"

@@ -46,6 +46,10 @@ from aragora.server.errors import safe_error_message as _safe_error_message
 class CritiqueHandler(BaseHandler):
     """Handler for critique pattern and reputation endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/critiques/patterns",
         "/api/critiques/archive",

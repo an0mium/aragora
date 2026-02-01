@@ -51,6 +51,10 @@ _replays_limiter = RateLimiter(requests_per_minute=30)
 class ReplaysHandler(BaseHandler):
     """Handler for replays and learning evolution endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/replays",
         "/api/learning/evolution",

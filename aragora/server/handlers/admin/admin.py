@@ -211,6 +211,10 @@ class AdminHandler(SecureHandler):
     All admin operations are audited to the immutable log.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # Resource type for audit logging
     RESOURCE_TYPE = "admin"
 

@@ -65,6 +65,10 @@ class AgentConfigHandler(SecureHandler):
     - POST /create: requires agents.create permission
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/agents/configs",
         "/api/v1/agents/configs/reload",

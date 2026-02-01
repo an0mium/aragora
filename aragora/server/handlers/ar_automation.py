@@ -498,6 +498,10 @@ async def handle_get_customer_balance(
 class ARAutomationHandler(BaseHandler):
     """Handler class for AR automation endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES: dict[str, Any] = {
         "POST /api/v1/accounting/ar/invoices": handle_create_invoice,
         "GET /api/v1/accounting/ar/invoices": handle_list_invoices,

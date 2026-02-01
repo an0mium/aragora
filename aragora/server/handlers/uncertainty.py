@@ -33,6 +33,10 @@ logger = logging.getLogger(__name__)
 class UncertaintyHandler(BaseHandler):
     """Handler for uncertainty estimation endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/uncertainty/estimate",
         "/api/v1/uncertainty/followups",

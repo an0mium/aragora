@@ -40,6 +40,10 @@ class ReceiptDeliveryHandler(SecureHandler):
     channels (Slack, Teams, email, webhooks).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "receipt_delivery"
 
     ROUTES = [

@@ -87,6 +87,10 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
     not RBAC, since they are called by Meta servers directly.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # BotHandlerMixin configuration
     bot_platform = "whatsapp"
 

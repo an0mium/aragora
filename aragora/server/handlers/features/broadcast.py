@@ -67,6 +67,10 @@ def _run_async(coro: Coroutine[Any, Any, T]) -> T:
 class BroadcastHandler(BaseHandler):
     """Handler for broadcast generation endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/debates/*/broadcast",
         "/api/v1/debates/*/broadcast/full",

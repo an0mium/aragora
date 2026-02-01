@@ -727,6 +727,10 @@ async def handle_export_expenses(
 class ExpenseHandler(BaseHandler):
     """Handler for expense-related routes."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # RBAC permission keys
     EXPENSE_READ_PERMISSION = "expense.read"
     EXPENSE_WRITE_PERMISSION = "expense.write"

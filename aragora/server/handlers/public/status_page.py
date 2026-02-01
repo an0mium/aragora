@@ -78,6 +78,10 @@ class Incident:
 class StatusPageHandler(BaseHandler):
     """Handler for public status page endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/status",
         "/api/status",

@@ -175,6 +175,10 @@ def get_pulse_scheduler() -> Any:
 class PulseHandler(BaseHandler):
     """Handler for pulse/trending topic endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/pulse/trending",
         "/api/v1/pulse/suggest",

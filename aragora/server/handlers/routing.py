@@ -57,6 +57,10 @@ DEFAULT_AGENT_EXPERTISE = _routing_imports.get("DEFAULT_AGENT_EXPERTISE")
 class RoutingHandler(BaseHandler):
     """Handler for agent routing endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/routing/best-teams",
         "/api/routing/recommendations",

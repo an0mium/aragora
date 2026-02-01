@@ -84,6 +84,10 @@ def generate_stable_id(debate_id: str, loop_id: str | None = None) -> str:
 class GalleryHandler(BaseHandler):
     """Handler for public gallery endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/gallery",
     ]

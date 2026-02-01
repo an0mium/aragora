@@ -87,6 +87,10 @@ class DebatesHandler(
 ):
     """Handler for debate-related endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # Route patterns this handler manages
     ROUTES = [
         "/api/v1/debate",  # POST - create new debate (legacy endpoint)

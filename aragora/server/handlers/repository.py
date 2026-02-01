@@ -94,6 +94,10 @@ async def _get_relationship_builder(repository_name: str) -> Any | None:
 class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for repository indexing endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/repository/index",
         "/api/v1/repository/incremental",

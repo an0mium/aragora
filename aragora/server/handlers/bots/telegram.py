@@ -134,6 +134,10 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
     not RBAC, since they are called by Telegram servers directly.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     # BotHandlerMixin configuration
     bot_platform = "telegram"
 

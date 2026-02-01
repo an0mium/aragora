@@ -36,6 +36,10 @@ REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
 class ReviewsHandler(BaseHandler):
     """Handler for serving shareable code reviews."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/reviews",
         "/api/reviews/*",

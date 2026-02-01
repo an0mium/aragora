@@ -73,6 +73,10 @@ def _create_agent_pool() -> dict[str, "AgentProfile"]:
 class SelectionHandler(BaseHandler):
     """Handler for selection plugin endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/selection/plugins",
         "/api/v1/selection/defaults",

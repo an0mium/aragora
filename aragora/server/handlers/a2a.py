@@ -224,6 +224,10 @@ def get_a2a_server():
 class A2AHandler(BaseHandler):
     """Handler for A2A protocol endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         # Discovery
         "/api/v1/a2a/.well-known/agent.json",
@@ -362,8 +366,10 @@ class A2AHandler(BaseHandler):
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
+            logger.exception("Invalid JSON in task submission request")
             return error_response(f"Invalid JSON: {e}", 400)
         except UnicodeDecodeError:
+            logger.exception("Invalid UTF-8 encoding in task submission request")
             return error_response("Request body must be valid UTF-8", 400)
 
         # Validate request body schema

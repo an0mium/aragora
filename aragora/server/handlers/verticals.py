@@ -42,6 +42,10 @@ logger = logging.getLogger(__name__)
 class VerticalsHandler(SecureHandler):
     """Handler for vertical specialist endpoints with RBAC protection."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "verticals"
 
     ROUTES = [

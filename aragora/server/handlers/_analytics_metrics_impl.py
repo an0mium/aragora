@@ -131,6 +131,10 @@ class AnalyticsMetricsHandler(SecureHandler):
     Requires authentication and analytics:read permission (RBAC).
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     def _validate_org_access(
         self,
         auth_context: Any,

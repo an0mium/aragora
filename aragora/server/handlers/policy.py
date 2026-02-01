@@ -46,6 +46,10 @@ logger = logging.getLogger(__name__)
 class PolicyHandler(BaseHandler):
     """Handler for policy and compliance endpoints."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/policies",
         "/api/v1/policies/*",

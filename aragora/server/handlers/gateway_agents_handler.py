@@ -53,6 +53,10 @@ class GatewayAgentsHandler(BaseHandler):
     external framework agents that can participate in debates.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     ROUTES = [
         "/api/v1/gateway/agents",
         "/api/v1/gateway/agents/*",

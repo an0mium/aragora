@@ -176,6 +176,10 @@ class SMESuccessDashboardHandler(SecureHandler):
     and actionable insights for SME customers.
     """
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     RESOURCE_TYPE = "success_dashboard"
 
     ROUTES = [
