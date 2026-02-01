@@ -237,7 +237,7 @@ class ThreeTierWatchdog:
         - Global policy enforcement
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the three-tier watchdog."""
         self._configs: dict[WatchdogTier, WatchdogConfig] = {
             WatchdogTier.MECHANICAL: WatchdogConfig(tier=WatchdogTier.MECHANICAL),
@@ -253,7 +253,7 @@ class ThreeTierWatchdog:
         self._lock = asyncio.Lock()
 
         # Statistics
-        self._stats = {
+        self._stats: dict[str, Any] = {
             "issues_detected": 0,
             "issues_resolved": 0,
             "escalations": 0,
@@ -298,7 +298,7 @@ class ThreeTierWatchdog:
         """
         self._handlers[tier].append(handler)
 
-        def unregister():
+        def unregister() -> None:
             if handler in self._handlers[tier]:
                 self._handlers[tier].remove(handler)
 

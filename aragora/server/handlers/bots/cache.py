@@ -109,7 +109,7 @@ class BoundedTTLDict:
 
     def __contains__(self, key: object) -> bool:
         with self._lock:
-            entry = self._data.get(key)  # type: ignore[arg-type]
+            entry = self._data.get(key)  # type: ignore[arg-type, call-overload]
             if entry is None:
                 return False
             _, ts = entry

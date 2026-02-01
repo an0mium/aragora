@@ -328,6 +328,7 @@ def setup_otel(config: OTelConfig | None = None) -> bool:
         )
 
         # Choose processor based on mode
+        processor: SimpleSpanProcessor | BatchSpanProcessor
         if config.dev_mode:
             processor = SimpleSpanProcessor(exporter)
             processor_type = "SimpleSpanProcessor (dev mode)"

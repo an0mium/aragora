@@ -730,7 +730,7 @@ async def _create_async_cluster_client(config: RedisHAConfig) -> Any:
     client = RedisCluster(**async_cluster_args)
 
     # Verify connection
-    await client.ping()
+    await client.ping()  # type: ignore[misc]
     logger.info(f"Connected to async Redis Cluster ({len(cluster_nodes)} startup nodes)")
 
     return client

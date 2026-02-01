@@ -281,7 +281,7 @@ MIGRATION_MAP: dict[str, MigrationConfig] = {
                     "created_at",
                     "updated_at",
                 ],
-                "transform": "_transform_continuum_memory",
+                "transform": "_transform_continuum_memory",  # type: ignore[typeddict-item]
             },
             "tier_transitions": {
                 "target_table": "tier_transitions",
@@ -1260,7 +1260,7 @@ class DatabaseConsolidator:
         for db_name in ["core.db", "memory.db", "analytics.db", "agents.db"]:
             db_path = self.target_dir / db_name
             if not db_path.exists():
-                report["issues"].append(f"Missing database: {db_name}")
+                report["issues"].append(f"Missing database: {db_name}")  # type: ignore[union-attr]
                 continue
 
             conn = self._get_connection(db_path)
@@ -1280,12 +1280,12 @@ class DatabaseConsolidator:
 
                     cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")
                     count = cursor.fetchone()[0]
-                    db_report["tables"][table] = count
+                    db_report["tables"][table] = count  # type: ignore[index]
 
-                report["databases"][db_name] = db_report
+                report["databases"][db_name] = db_report  # type: ignore[index]
 
             except Exception as e:
-                report["issues"].append(f"Error verifying {db_name}: {e}")
+                report["issues"].append(f"Error verifying {db_name}: {e}")  # type: ignore[union-attr]
             finally:
                 conn.close()
 

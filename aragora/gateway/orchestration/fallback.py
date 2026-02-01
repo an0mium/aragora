@@ -252,7 +252,7 @@ class FallbackChain:
 
             for retry in range(self._max_retries):
                 try:
-                    result = await adapter.execute(task)
+                    result = await adapter.execute(task)  # type: ignore[call-arg]
                     last_result = result
 
                     if result.success:

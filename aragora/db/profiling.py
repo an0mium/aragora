@@ -299,7 +299,7 @@ class ProfiledConnection:
         params_tuple = tuple(parameters) if not isinstance(parameters, tuple) else parameters
         start = time.perf_counter()
         try:
-            result = self._conn.execute(sql, parameters)
+            result = self._conn.execute(sql, parameters)  # type: ignore[arg-type]
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
                 profiler.record(sql, params_tuple, duration_ms, result.rowcount or 0)
@@ -318,7 +318,7 @@ class ProfiledConnection:
         params_list = list(seq_of_parameters)
         start = time.perf_counter()
         try:
-            result = self._conn.executemany(sql, params_list)
+            result = self._conn.executemany(sql, params_list)  # type: ignore[arg-type]
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
                 profiler.record(

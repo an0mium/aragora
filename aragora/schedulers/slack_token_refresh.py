@@ -318,7 +318,7 @@ class SlackTokenRefreshScheduler:
 
         try:
             # Call async refresh directly
-            result = await self.store.refresh_workspace_token(
+            result = await self.store.refresh_workspace_token(  # type: ignore[misc]
                 workspace_id,
                 self.client_id,
                 self.client_secret,

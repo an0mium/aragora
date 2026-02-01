@@ -294,7 +294,7 @@ def with_telemetry(
                 return result
 
             except BaseException as e:
-                telemetry.complete(success=False, error=e)
+                telemetry.complete(success=False, error=e)  # type: ignore[arg-type]
                 raise
 
             finally:
@@ -348,7 +348,7 @@ def with_telemetry(
                 return result
 
             except BaseException as e:
-                telemetry.complete(success=False, error=e)
+                telemetry.complete(success=False, error=e)  # type: ignore[arg-type]
                 raise
 
             finally:

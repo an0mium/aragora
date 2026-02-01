@@ -721,7 +721,7 @@ class GracefulShutdown:
             await process_messages()
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize shutdown handler."""
         self._shutting_down = False
         self._cleanup_tasks: list[Callable[[], Awaitable[None]]] = []

@@ -125,7 +125,7 @@ class FileMetrics:
         }
 
     @staticmethod
-    def _format_size(size_bytes: int) -> str:
+    def _format_size(size_bytes: float) -> str:
         """Format byte size to human readable."""
         for unit in ["B", "KB", "MB", "GB"]:
             if size_bytes < 1024:

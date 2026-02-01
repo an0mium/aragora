@@ -1687,16 +1687,16 @@ class AuditInterceptor:
             return redacted, redacted_fields
 
         elif isinstance(body, list):
-            redacted = []
+            redacted_list: list[Any] = []
             for i, item in enumerate(body):
                 field_path = f"{prefix}[{i}]"
                 if isinstance(item, (dict, list)):
                     redacted_item, nested_fields = self._redact_body(item, field_path)
-                    redacted.append(redacted_item)
+                    redacted_list.append(redacted_item)
                     redacted_fields.extend(nested_fields)
                 else:
-                    redacted.append(item)
-            return redacted, redacted_fields
+                    redacted_list.append(item)
+            return redacted_list, redacted_fields
 
         return body, redacted_fields
 

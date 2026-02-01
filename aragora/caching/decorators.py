@@ -151,11 +151,11 @@ def _make_cache_key(
         all_args.update(kwargs)
 
         # Only use specified arguments for the key
-        key_parts = []
+        key_parts: list[tuple[str, Any]] = []
         for key in key_args:
             if key in all_args:
                 key_parts.append((key, all_args[key]))
-        key_data = tuple(key_parts)
+        key_data: Any = tuple(key_parts)
     else:
         # Use all arguments
         key_data = (args, tuple(sorted(kwargs.items())))
@@ -293,7 +293,7 @@ def cached(
 ) -> Callable[[F], F]: ...
 
 
-def cached(
+def cached(  # type: ignore[misc]
     func: Optional[F] = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,
@@ -375,7 +375,7 @@ def async_cached(
 ) -> Callable[[F], F]: ...
 
 
-def async_cached(
+def async_cached(  # type: ignore[misc]
     func: Optional[F] = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,

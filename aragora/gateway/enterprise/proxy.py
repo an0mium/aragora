@@ -1309,9 +1309,9 @@ class EnterpriseProxy:
             )
         except Exception as e:
             # Run error hooks
-            for hook in self._error_hooks:
+            for error_hook in self._error_hooks:
                 try:
-                    await hook(proxy_request, e)
+                    await error_hook(proxy_request, e)
                 except Exception as hook_error:
                     logger.error(f"Error hook failed: {hook_error}")
             raise

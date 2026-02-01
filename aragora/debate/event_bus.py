@@ -48,7 +48,7 @@ class DebateEvent:
     correlation_id: str | None = field(default=None)
     span_id: str | None = field(default=None)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Auto-populate correlation_id from current trace context if not provided."""
         if self.correlation_id is None:
             self.correlation_id = get_trace_id()
