@@ -1,0 +1,38 @@
+"""
+Tests for OpenAPI stability manifest alignment with SDK coverage.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from scripts.sdk_parity_audit import Endpoint, iter_files, load_openapi, parse_python_sdk, parse_ts_sdk
+
+
+def _load_manifest(path: Path) -> set[Endpoint]:
+    data = json.loads(path.read_text())
+    entries = data.get("stable", [])
+    stable: set[Endpoint] = set()
+    for entry in entries:
+        if not isinstance(entry, str) or " " not in entry:
+            continue
+        method, raw_path = entry.split(" ", 1)
+        stable.add(Endpoint(method.upper(), raw_path).normalized())
+    return stable
+
+
+def test_stability_manifest_matches_sdk_coverage() -> None:
+    manifest_path = Path("aragora/server/openapi/stability_manifest.json")
+    assert manifest_path.exists(), "Stability manifest missing"
+
+    stable = _load_manifest(manifest_path)
+    assert stable, "Stability manifest is empty"
+
+    openapi, _deprecated_count = load_openapi(Path("docs/api/openapi.json"))
+    ts_sdk = parse_ts_sdk(iter_files(Path("sdk/typescript/src"), ".ts"))
+    py_sdk = parse_python_sdk(iter_files(Path("sdk/python/aragora/namespaces"), ".py"))
+
+    assert stable.issubset(openapi), "Stability manifest includes endpoints not in OpenAPI"
+    assert stable.issubset(ts_sdk), "Stability manifest includes endpoints missing in TS SDK"
+    assert stable.issubset(py_sdk), "Stability manifest includes endpoints missing in Python SDK"
