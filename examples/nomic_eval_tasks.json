@@ -1,0 +1,219 @@
+{
+  "tasks": [
+    {
+      "task_id": "data-dir-enforcement",
+      "title": "Enforce ARAGORA_DATA_DIR for runtime databases",
+      "description": "Ensure runtime SQLite files are created under ARAGORA_DATA_DIR instead of repo root. Add a safe migration helper and update guard_repo_clean to detect new root DB artifacts.",
+      "acceptance_criteria": [
+        "All default DB paths resolve under ARAGORA_DATA_DIR",
+        "A migration helper exists to relocate root DB files",
+        "guard_repo_clean flags root DB artifacts"
+      ],
+      "scope": [
+        "aragora/persistence",
+        "scripts/guard_repo_clean.py",
+        "docs/DEVELOPMENT.md"
+      ],
+      "constraints": [
+        "No destructive operations in migration helper",
+        "Prefer resolve_db_path/get_db_path helpers"
+      ],
+      "test_commands": [
+        "python scripts/guard_repo_clean.py --check"
+      ],
+      "labels": [
+        "p0",
+        "data-dir"
+      ]
+    },
+    {
+      "task_id": "canonical-stores-workspace",
+      "title": "Route workspace/Gastown callsites to canonical stores",
+      "description": "Migrate workspace and Gastown callsites to use canonical store helpers for convoys/beads/workspaces. Avoid direct instantiation of legacy stores.",
+      "acceptance_criteria": [
+        "Workspace manager uses canonical store helpers",
+        "Gastown adapters do not instantiate legacy stores directly",
+        "No direct NomicBeadStore instantiations in workspace paths"
+      ],
+      "scope": [
+        "aragora/workspace",
+        "aragora/extensions/gastown",
+        "aragora/stores"
+      ],
+      "constraints": [
+        "Keep backward compatibility",
+        "No breaking API changes"
+      ],
+      "test_commands": [
+        "python -m pytest tests/nomic/test_gastown_debate_integration.py -q"
+      ],
+      "labels": [
+        "p0",
+        "canonical-store"
+      ]
+    },
+    {
+      "task_id": "canonical-stores-gateway",
+      "title": "Route gateway/inbox callsites to canonical gateway stores",
+      "description": "Update gateway and inbox callsites to use canonical gateway store helpers. Deprecate direct store instantiation paths.",
+      "acceptance_criteria": [
+        "Gateway handlers use canonical gateway store accessors",
+        "Inbox store references use canonical helper",
+        "Legacy direct store usage emits warnings"
+      ],
+      "scope": [
+        "aragora/gateway",
+        "aragora/server/handlers/features/unified_inbox.py",
+        "aragora/stores"
+      ],
+      "constraints": [
+        "No change to runtime behavior",
+        "Preserve existing APIs"
+      ],
+      "test_commands": [
+        "python -m pytest tests/gateway/test_gateway.py -q"
+      ],
+      "labels": [
+        "p0",
+        "canonical-store"
+      ]
+    },
+    {
+      "task_id": "api-sdk-contract-smoke",
+      "title": "Add contract test smoke for new SDK namespaces",
+      "description": "Create minimal contract tests ensuring SDK namespaces map to actual API routes. Gate new namespaces on contract failures.",
+      "acceptance_criteria": [
+        "Contract test file added",
+        "CI fails on missing endpoints",
+        "At least 3 namespaces covered"
+      ],
+      "scope": [
+        "sdk/typescript",
+        "tests/server",
+        "openapi.json"
+      ],
+      "constraints": [
+        "No regeneration of entire SDKs",
+        "Use existing OpenAPI artifacts"
+      ],
+      "test_commands": [
+        "python -m pytest tests/server/handlers/utils/test_error_responses.py -q"
+      ],
+      "labels": [
+        "p1",
+        "sdk"
+      ]
+    },
+    {
+      "task_id": "security-approval-unification",
+      "title": "Unify policy approval for gateway/device/computer-use",
+      "description": "Create a single approval enforcement path for gateway, device actions, and computer_use execution. Ensure audit events are emitted.",
+      "acceptance_criteria": [
+        "Single approval function used in all three paths",
+        "Audit events are emitted for approvals/denials",
+        "No bypass path remains"
+      ],
+      "scope": [
+        "aragora/security",
+        "aragora/computer_use",
+        "aragora/gateway"
+      ],
+      "constraints": [
+        "Preserve existing policy semantics",
+        "No breaking API changes"
+      ],
+      "labels": [
+        "p1",
+        "security"
+      ]
+    },
+    {
+      "task_id": "debate-defaults-alignment",
+      "title": "Align debate defaults across entry points",
+      "description": "Ensure all debate entry points (CLI, API, Nomic) consume defaults from aragora/config/settings.py rather than local overrides.",
+      "acceptance_criteria": [
+        "CLI and Nomic use shared defaults",
+        "No hard-coded rounds in entry points",
+        "Settings change propagates everywhere"
+      ],
+      "scope": [
+        "aragora/config",
+        "scripts/nomic_loop.py",
+        "aragora/cli"
+      ],
+      "constraints": [
+        "Maintain backward compatibility",
+        "No behavior change unless defaults updated"
+      ],
+      "labels": [
+        "p2",
+        "debate"
+      ]
+    },
+    {
+      "task_id": "nomic-true-test-wiring",
+      "title": "Wire RLM/KM context and convoys into Nomic implement",
+      "description": "Enable true RLM/KM context in Nomic and route implement phase through convoy/bead execution with cross-checks.",
+      "acceptance_criteria": [
+        "Nomic context uses RLM/KM index when enabled",
+        "Implement phase uses convoy/bead executor",
+        "Cross-checks recorded in logs"
+      ],
+      "scope": [
+        "aragora/nomic",
+        "scripts/nomic_loop.py"
+      ],
+      "constraints": [
+        "No regression in existing Nomic runs",
+        "Feature gated by env flags"
+      ],
+      "labels": [
+        "p2",
+        "nomic"
+      ]
+    },
+    {
+      "task_id": "test-tier-tuning",
+      "title": "Tune test tiers and isolate benchmarks",
+      "description": "Keep test-fast fast by isolating benchmarks and slow tests; update markers and CI tiers accordingly.",
+      "acceptance_criteria": [
+        "Benchmarks excluded from test-fast",
+        "Slow tests moved to nightly tier",
+        "test-fast runtime reduced"
+      ],
+      "scope": [
+        ".github/workflows",
+        "tests"
+      ],
+      "constraints": [
+        "No loss of coverage in nightly runs"
+      ],
+      "labels": [
+        "p1",
+        "ci"
+      ]
+    },
+    {
+      "task_id": "version-alignment-ui-roadmap",
+      "title": "Align versioning across ROADMAP and live UI",
+      "description": "Update ROADMAP.md and aragora/live/package.json to match the canonical core version and extend the version check script to include these surfaces.",
+      "acceptance_criteria": [
+        "ROADMAP version matches core",
+        "Live UI package version matches core",
+        "Version alignment script checks these files"
+      ],
+      "scope": [
+        "ROADMAP.md",
+        "aragora/live/package.json",
+        "scripts/check_version_alignment.py"
+      ],
+      "constraints": [
+        "No changes to release process"
+      ],
+      "labels": [
+        "p2",
+        "docs"
+      ]
+    }
+  ]
+}

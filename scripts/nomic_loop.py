@@ -5521,6 +5521,23 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             ordered_agents = [a for a in agent_pool.values() if a is not None]
         all_agents = ordered_agents
 
+        # Single-agent mode for evaluation baselines
+        if os.environ.get("NOMIC_SINGLE_AGENT", "0") == "1":
+            target_name = os.environ.get("NOMIC_SINGLE_AGENT_NAME", "").strip()
+            if target_name:
+                for agent in all_agents:
+                    if agent.name == target_name:
+                        self._log(f"  [selector] Single-agent mode: {agent.name}")
+                        return [agent]
+                self._log(
+                    f"  [selector] Single-agent target '{target_name}' not found, using first available"
+                )
+            if all_agents:
+                self._log(f"  [selector] Single-agent mode: {all_agents[0].name}")
+                return [all_agents[0]]
+            self._log("  [selector] Single-agent mode: no agents available")
+            return []
+
         # Filter out agents in circuit breaker cooldown
         default_team = []
         for agent in all_agents:
