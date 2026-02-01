@@ -1260,7 +1260,7 @@ class DatabaseConsolidator:
         for db_name in ["core.db", "memory.db", "analytics.db", "agents.db"]:
             db_path = self.target_dir / db_name
             if not db_path.exists():
-                report["issues"].append(f"Missing database: {db_name}")  # type: ignore[union-attr]
+                report["issues"].append(f"Missing database: {db_name}")  # type: ignore[attr-defined]
                 continue
 
             conn = self._get_connection(db_path)
@@ -1285,7 +1285,7 @@ class DatabaseConsolidator:
                 report["databases"][db_name] = db_report  # type: ignore[index]
 
             except Exception as e:
-                report["issues"].append(f"Error verifying {db_name}: {e}")  # type: ignore[union-attr]
+                report["issues"].append(f"Error verifying {db_name}: {e}")  # type: ignore[attr-defined]
             finally:
                 conn.close()
 

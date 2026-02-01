@@ -751,6 +751,8 @@ class SupabaseSlackWorkspaceStore:
         );
     """
 
+    _client: Any
+
     def __init__(self) -> None:
         """Initialize Supabase workspace store."""
         self._client = None

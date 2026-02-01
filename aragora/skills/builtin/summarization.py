@@ -313,16 +313,16 @@ TL;DR:"""
         """Get an LLM instance for summarization."""
         try:
             # Try to get a lightweight LLM from the agent system
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            return AnthropicAgent(model="claude-3-haiku-20240307")
+            return AnthropicAPIAgent(model="claude-3-haiku-20240307")
         except ImportError:
             pass
 
         try:
-            from aragora.agents.api_agents.openai import OpenAIAgent
+            from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-            return OpenAIAgent(model="gpt-4o-mini")
+            return OpenAIAPIAgent(model="gpt-4o-mini")
         except ImportError:
             pass
 

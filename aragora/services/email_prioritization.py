@@ -386,7 +386,7 @@ class EmailPrioritizer:
         # Process results, handling any exceptions
         scored_results: list[EmailPriorityResult] = []
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning(f"Failed to score email {emails[i].id}: {result}")
                 # Create a default low-priority result for failed emails
                 scored_results.append(
@@ -398,7 +398,7 @@ class EmailPrioritizer:
                         rationale=f"Scoring failed: {result}",
                     )
                 )
-            else:
+            elif isinstance(result, EmailPriorityResult):
                 scored_results.append(result)
 
         return scored_results

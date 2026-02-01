@@ -29,6 +29,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+import builtins
 from typing import Any, Optional
 
 from aragora.storage.backends import (
@@ -469,7 +470,7 @@ class ReceiptStore:
         signed_only: bool = False,
         sort_by: str = "created_at",
         order: str = "desc",
-    ) -> list[StoredReceipt]:
+    ) -> builtins.list[StoredReceipt]:
         """
         List receipts with filtering and pagination.
 
@@ -583,7 +584,7 @@ class ReceiptStore:
         offset: int = 0,
         verdict: str | None = None,
         risk_level: str | None = None,
-    ) -> list[StoredReceipt]:
+    ) -> builtins.list[StoredReceipt]:
         """
         Full-text search across receipt content.
 
@@ -843,8 +844,8 @@ class ReceiptStore:
             )
 
     def verify_batch(
-        self, receipt_ids: list[str]
-    ) -> tuple[list[SignatureVerificationResult], dict[str, int]]:
+        self, receipt_ids: builtins.list[str]
+    ) -> tuple[builtins.list[SignatureVerificationResult], dict[str, int]]:
         """
         Verify signatures for multiple receipts.
 
@@ -1030,7 +1031,7 @@ class ReceiptStore:
         limit: int = 100,
         offset: int = 0,
         include_data: bool = True,
-    ) -> tuple[list[StoredReceipt], int]:
+    ) -> tuple[builtins.list[StoredReceipt], int]:
         """
         Get all receipts associated with a user (GDPR DSAR support).
 

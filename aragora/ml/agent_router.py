@@ -538,7 +538,7 @@ class AgentRouter:
         return RoutingDecision(
             selected_agents=selected,
             task_type=task_type,
-            confidence=final_confidence,
+            confidence=float(final_confidence),
             reasoning=reasoning,
             agent_scores=agent_scores,
             diversity_score=diversity_score,

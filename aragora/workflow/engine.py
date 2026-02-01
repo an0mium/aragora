@@ -19,7 +19,7 @@ import json
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.types import (
@@ -630,9 +630,8 @@ class WorkflowEngine:
         try:
             # Create step instance with config
             # Step classes are registered dynamically and may have various signatures
-            # Use cast to assert the class has the expected constructor signature
-            step_constructor = cast(type[WorkflowStep], step_class)
-            step = step_constructor(name=step_def.name, config=step_def.config)
+            # Try to call the constructor, letting it handle its own argument parsing
+            step = step_class(name=step_def.name, config=step_def.config)  # type: ignore[call-arg]
             self._step_instances[cache_key] = step
             return step
         except Exception as e:

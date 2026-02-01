@@ -658,11 +658,9 @@ class FeatureSettings(BaseSettings):
     pulse_scheduler: bool = Field(default=True, alias="ARAGORA_FEATURE_PULSE_SCHEDULER")
     agent_recommender: bool = Field(default=True, alias="ARAGORA_FEATURE_AGENT_RECOMMENDER")
 
-    # Beta features (enabled but may have issues)
+    # Stable features (graduated from beta)
     batch_debates: bool = Field(default=True, alias="ARAGORA_FEATURE_BATCH_DEBATES")
     evidence_explorer: bool = Field(default=True, alias="ARAGORA_FEATURE_EVIDENCE_EXPLORER")
-
-    # Beta features (promoted from alpha, enabled by default)
     graph_debates: bool = Field(default=True, alias="ARAGORA_FEATURE_GRAPH_DEBATES")
     matrix_debates: bool = Field(default=True, alias="ARAGORA_FEATURE_MATRIX_DEBATES")
     formal_verification: bool = Field(default=True, alias="ARAGORA_FEATURE_FORMAL_VERIFICATION")

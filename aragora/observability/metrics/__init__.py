@@ -77,6 +77,8 @@ from aragora.observability.metrics.bridge import (  # noqa: F401, E402
 
 from aragora.observability.metrics.km import (  # noqa: F401, E402
     init_km_metrics,
+    record_km_federated_query,
+    set_km_active_adapters,
 )
 
 from aragora.observability.metrics.notification import (  # noqa: F401, E402
@@ -401,4 +403,12 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     track_handler,
     # Metrics server control
     stop_metrics_server,
+    # Backup metrics
+    BACKUP_DURATION,
+    BACKUP_SIZE,
+    BACKUP_SUCCESS,
+    LAST_BACKUP_TIMESTAMP,
+    BACKUP_VERIFICATION_DURATION,
+    BACKUP_VERIFICATION_SUCCESS,
+    BACKUP_RESTORE_SUCCESS,
 )

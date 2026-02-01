@@ -785,7 +785,7 @@ class SoftwareAuditor(BaseAuditor):
         findings.extend(self._check_license_compatibility(all_licenses))
 
         # Check for dependency patterns across files
-        findings.extend(self._check_dependency_patterns(chunks))
+        findings.extend(self._check_dependency_patterns(list(chunks)))
 
         return findings
 

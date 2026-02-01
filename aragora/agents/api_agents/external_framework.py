@@ -352,7 +352,7 @@ class ExternalFrameworkAgent(APIAgent):
         self._validate_endpoint_url(url)
 
         # Build request payload (OpenAI-compatible format)
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "prompt": full_prompt,
             "messages": [{"role": "user", "content": full_prompt}],
@@ -544,8 +544,8 @@ REASONING: explanation"""
             pass
 
         # Fallback: use generate endpoint with critique prompt
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, target_agent or "proposal", proposal)
+        generated_response = await self.generate(critique_prompt, context)
+        return self._parse_critique(generated_response, target_agent or "proposal", proposal)
 
     async def vote(
         self,
@@ -609,8 +609,8 @@ REASONING: [your explanation]"""
             pass
 
         # Fallback: use generate endpoint with vote prompt
-        response = await self.generate(vote_prompt, context)
-        return self._parse_vote(response, proposals)
+        generated_response = await self.generate(vote_prompt, context)
+        return self._parse_vote(generated_response, proposals)
 
     def _parse_vote(self, response: str, proposals: dict[str, str]) -> Any:
         """Parse vote response into Vote object.

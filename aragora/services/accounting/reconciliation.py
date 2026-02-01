@@ -503,10 +503,10 @@ class ReconciliationService:
                 )
             )
 
-        # Unmatched book transactions
+        # Unmatched book transactions (QBOTransaction, not BankTransaction)
         for txn in unmatched_book:
             severity = DiscrepancySeverity.MEDIUM
-            if abs(txn.total_amount) > 1000:
+            if abs(txn.total_amount) > 1000:  # type: ignore[attr-defined]
                 severity = DiscrepancySeverity.HIGH
 
             discrepancies.append(
@@ -514,11 +514,11 @@ class ReconciliationService:
                     discrepancy_id=f"disc_{uuid.uuid4().hex[:8]}",
                     discrepancy_type=DiscrepancyType.UNMATCHED_BOOK,
                     severity=severity,
-                    description=f"Book transaction not found in bank: {txn.memo or txn.doc_number} ${abs(txn.total_amount):.2f}",
-                    book_txn_id=txn.id,
-                    book_amount=Decimal(str(txn.total_amount)),
-                    book_date=txn.txn_date.date() if txn.txn_date else None,
-                    book_description=txn.memo or txn.doc_number or "",
+                    description=f"Book transaction not found in bank: {txn.memo or txn.doc_number} ${abs(txn.total_amount):.2f}",  # type: ignore[attr-defined]
+                    book_txn_id=txn.id,  # type: ignore[attr-defined]
+                    book_amount=Decimal(str(txn.total_amount)),  # type: ignore[attr-defined]
+                    book_date=txn.txn_date.date() if txn.txn_date else None,  # type: ignore[attr-defined]
+                    book_description=txn.memo or txn.doc_number or "",  # type: ignore[attr-defined]
                 )
             )
 

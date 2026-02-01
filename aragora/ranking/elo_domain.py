@@ -61,13 +61,15 @@ class KMAdapterMixin:
             return []
 
         try:
-            # The adapter's get_agent_skill_history method may have different signatures
-            # depending on the adapter implementation, so we attempt to call with known parameters
+            # The adapter's get_agent_skill_history method takes agent_name and limit.
+            # Domain filtering is done post-query on the returned results.
             result = self._km_adapter.get_agent_skill_history(
                 agent_name=agent_name,
-                domain=domain,
                 limit=limit,
             )
+            # Filter by domain if specified
+            if domain and isinstance(result, list):
+                result = [r for r in result if r.get("domain") == domain]
             if isinstance(result, list):
                 return result
             return []

@@ -384,16 +384,16 @@ Language code:"""
     async def _get_llm(self) -> Any | None:
         """Get an LLM instance for translation."""
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-            return AnthropicAgent(model="claude-3-haiku-20240307")
+            return AnthropicAPIAgent(model="claude-3-haiku-20240307")
         except ImportError:
             pass
 
         try:
-            from aragora.agents.api_agents.openai import OpenAIAgent
+            from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-            return OpenAIAgent(model="gpt-4o-mini")
+            return OpenAIAPIAgent(model="gpt-4o-mini")
         except ImportError:
             pass
 

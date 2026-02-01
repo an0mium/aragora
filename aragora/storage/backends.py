@@ -81,6 +81,11 @@ class DatabaseBackend(ABC):
         pass
 
     @abstractmethod
+    def execute_read(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        """Execute a read query and return results as dicts."""
+        pass
+
+    @abstractmethod
     def executemany(self, sql: str, params_list: list[tuple]) -> None:
         """Execute a SQL statement with multiple parameter sets."""
         pass
@@ -257,6 +262,13 @@ class SQLiteBackend(DatabaseBackend):
         with self.connection() as conn:
             conn.execute(sql, params)
 
+    def execute_read(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        """Execute a read query and return results as dicts."""
+        with self.connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
+
     def executemany(self, sql: str, params_list: list[tuple]) -> None:
         """Execute a SQL statement with multiple parameter sets."""
         with self.connection() as conn:
@@ -384,6 +396,14 @@ class PostgreSQLBackend(DatabaseBackend):
         with self.connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(sql, params)
+
+    def execute_read(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        """Execute a read query and return results as dicts."""
+        sql = self.convert_placeholder(sql)
+        with self.connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(sql, params)
+                return [dict(row) for row in cursor.fetchall()]
 
     def executemany(self, sql: str, params_list: list[tuple]) -> None:
         """Execute a SQL statement with multiple parameter sets."""

@@ -64,6 +64,8 @@ RBAC_DECISIONS_TOTAL: Any = None
 RBAC_DENIED_TOTAL: Any = None
 RBAC_EVALUATION_LATENCY: Any = None
 PERMISSIONS_CHECKED_TOTAL: Any = None
+RBAC_CACHE_HITS_TOTAL: Any = None
+RBAC_CACHE_MISSES_TOTAL: Any = None
 
 # Secret access metrics
 SECRET_ACCESS_TOTAL: Any = None
@@ -92,6 +94,7 @@ def init_security_metrics() -> bool:
     global AUTH_LATENCY, ACTIVE_SESSIONS_GAUGE
     global RBAC_DECISIONS_TOTAL, RBAC_DENIED_TOTAL
     global RBAC_EVALUATION_LATENCY, PERMISSIONS_CHECKED_TOTAL
+    global RBAC_CACHE_HITS_TOTAL, RBAC_CACHE_MISSES_TOTAL
     global SECRET_ACCESS_TOTAL, SECRET_DECRYPTION_TOTAL
     global SENSITIVE_FIELD_OPERATIONS
     global SECURITY_INCIDENTS_TOTAL, SECURITY_ALERTS_TOTAL
@@ -199,6 +202,16 @@ def init_security_metrics() -> bool:
             "Total permissions checked",
             ["permission"],
         )
+        RBAC_CACHE_HITS_TOTAL = Counter(
+            "aragora_security_rbac_cache_hits_total",
+            "Total RBAC cache hits",
+            ["cache_type", "level"],
+        )
+        RBAC_CACHE_MISSES_TOTAL = Counter(
+            "aragora_security_rbac_cache_misses_total",
+            "Total RBAC cache misses",
+            ["cache_type"],
+        )
 
         # Secret access metrics
         SECRET_ACCESS_TOTAL = Counter(
@@ -272,6 +285,7 @@ def _init_noop_metrics() -> None:
     global AUTH_LATENCY, ACTIVE_SESSIONS_GAUGE
     global RBAC_DECISIONS_TOTAL, RBAC_DENIED_TOTAL
     global RBAC_EVALUATION_LATENCY, PERMISSIONS_CHECKED_TOTAL
+    global RBAC_CACHE_HITS_TOTAL, RBAC_CACHE_MISSES_TOTAL
     global SECRET_ACCESS_TOTAL, SECRET_DECRYPTION_TOTAL
     global SENSITIVE_FIELD_OPERATIONS
     global SECURITY_INCIDENTS_TOTAL, SECURITY_ALERTS_TOTAL
@@ -295,6 +309,8 @@ def _init_noop_metrics() -> None:
     RBAC_DENIED_TOTAL = noop
     RBAC_EVALUATION_LATENCY = noop
     PERMISSIONS_CHECKED_TOTAL = noop
+    RBAC_CACHE_HITS_TOTAL = noop
+    RBAC_CACHE_MISSES_TOTAL = noop
     SECRET_ACCESS_TOTAL = noop
     SECRET_DECRYPTION_TOTAL = noop
     SENSITIVE_FIELD_OPERATIONS = noop
@@ -540,6 +556,27 @@ def track_rbac_evaluation() -> Generator[None, None, None]:
     finally:
         latency = time.perf_counter() - start
         record_rbac_evaluation_latency(latency)
+
+
+def record_rbac_cache_hit(cache_type: str, level: str) -> None:
+    """Record an RBAC cache hit.
+
+    Args:
+        cache_type: Type of cache (e.g., "permission", "role")
+        level: Cache level (e.g., "l1", "l2")
+    """
+    _ensure_init()
+    RBAC_CACHE_HITS_TOTAL.labels(cache_type=cache_type, level=level).inc()
+
+
+def record_rbac_cache_miss(cache_type: str) -> None:
+    """Record an RBAC cache miss.
+
+    Args:
+        cache_type: Type of cache (e.g., "permission", "role")
+    """
+    _ensure_init()
+    RBAC_CACHE_MISSES_TOTAL.labels(cache_type=cache_type).inc()
 
 
 # =============================================================================

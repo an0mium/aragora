@@ -970,9 +970,9 @@ def get_default_agents() -> list[Agent]:
         List of Agent instances (ClaudeAgent, CodexAgent, GeminiCLIAgent, etc.)
     """
     agents: list[Agent] = [
-        ClaudeAgent(),
-        CodexAgent(),
-        GeminiCLIAgent(),
+        ClaudeAgent(name="claude", model="claude-sonnet-4"),
+        CodexAgent(name="codex", model="gpt-5.2-codex"),
+        GeminiCLIAgent(name="gemini-cli", model="gemini-3-pro-preview"),
     ]
     return agents
 

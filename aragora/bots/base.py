@@ -24,6 +24,8 @@ class Platform(Enum):
     DISCORD = "discord"
     TEAMS = "teams"
     ZOOM = "zoom"
+    TELEGRAM = "telegram"
+    WHATSAPP = "whatsapp"
 
 
 @dataclass

@@ -611,7 +611,7 @@ class EmailPriorityAnalyzer:
         # Handle any exceptions by returning default scores
         final_results: list[EmailPriorityScore] = []
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning(
                     f"[EmailPriority] Failed to score email {emails[i].get('id', 'unknown')}: {result}"
                 )
@@ -623,7 +623,7 @@ class EmailPriorityAnalyzer:
                         factors={},
                     )
                 )
-            else:
+            elif isinstance(result, EmailPriorityScore):
                 final_results.append(result)
 
         return final_results

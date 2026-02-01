@@ -34,6 +34,7 @@ from .schemas import (
     SCIMMeta,
     SCIMPatchOp,
     SCIMPatchRequest,
+    SCIMResource,
     SCIMUser,
 )
 
@@ -608,9 +609,11 @@ class SCIMServer:
 
         users, total = await self.user_store.list_users(start_index, count, filter_expr)
 
+        from typing import cast
+
         response = SCIMListResponse(
             total_results=total,
-            resources=users,
+            resources=cast(list[SCIMResource], users),
             start_index=start_index,
             items_per_page=len(users),
         )
@@ -805,9 +808,11 @@ class SCIMServer:
 
         groups, total = await self.group_store.list_groups(start_index, count, filter_expr)
 
+        from typing import cast
+
         response = SCIMListResponse(
             total_results=total,
-            resources=groups,
+            resources=cast(list[SCIMResource], groups),
             start_index=start_index,
             items_per_page=len(groups),
         )

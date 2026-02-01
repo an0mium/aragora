@@ -390,7 +390,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                 Platform.TELEGRAM: InputSource.TELEGRAM,
                 Platform.WHATSAPP: InputSource.WHATSAPP,
             }
-            source = platform_to_source.get(ctx.platform, InputSource.API)
+            source = platform_to_source.get(ctx.platform, InputSource.HTTP_API)
 
             response_channel = ResponseChannel(
                 platform=ctx.platform.value,
