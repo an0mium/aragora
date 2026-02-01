@@ -34,7 +34,8 @@ if TYPE_CHECKING:
 __all__ = [
     "T",
     "T_co",
-    "Agent",
-    "FallbackAgent",
-    "AgentCallback",
+    # Note: Agent, FallbackAgent, and AgentCallback are defined inside TYPE_CHECKING
+    # and are only available for type annotations, not runtime imports.
+    # For runtime isinstance() checks, use aragora.core_types.Agent (ABC) or
+    # aragora.core_protocols.Agent (Protocol).
 ]

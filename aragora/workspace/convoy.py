@@ -18,6 +18,7 @@ from typing import Any
 
 from datetime import datetime, timezone
 
+from aragora.nomic.convoys import ConvoyManager
 from aragora.nomic.stores import (
     BeadStore as NomicBeadStore,
     Convoy as NomicConvoy,
@@ -228,7 +229,7 @@ class ConvoyTracker:
                 auto_commit=False,
                 bead_store=self._bead_store,
             )
-        self._nomic_manager = None
+        self._nomic_manager: ConvoyManager | None = None
         self._nomic_initialized = False
 
     async def _ensure_nomic_manager(self) -> None:
