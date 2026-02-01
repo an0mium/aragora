@@ -689,6 +689,7 @@ class TestSAMLSecurityWarnings:
         """Test that a warning is logged when python3-saml is not available.
 
         Note: This test uses mocking since python3-saml is now always installed.
+        Requires both ARAGORA_ALLOW_UNSAFE_SAML and ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED.
         """
         from aragora.auth.saml import SAMLProvider, SAMLConfig
         from aragora.auth.sso import SSOProviderType
@@ -704,7 +705,14 @@ class TestSAMLSecurityWarnings:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            with patch.dict("os.environ", {"ARAGORA_ENV": "development"}):
+            with patch.dict(
+                "os.environ",
+                {
+                    "ARAGORA_ENV": "development",
+                    "ARAGORA_ALLOW_UNSAFE_SAML": "true",
+                    "ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED": "true",
+                },
+            ):
                 with patch("aragora.auth.saml.logger") as mock_logger:
                     SAMLProvider(config)
                     mock_logger.warning.assert_called()
@@ -716,7 +724,6 @@ class TestSAMLSecurityWarnings:
 
         Note: This test uses mocking since python3-saml is now always installed.
         """
-        import os
         from aragora.auth.saml import SAMLProvider, SAMLConfig
         from aragora.auth.sso import SSOProviderType, SSOConfigurationError
 
@@ -731,13 +738,10 @@ class TestSAMLSecurityWarnings:
         )
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
-            os.environ["ARAGORA_ENV"] = "production"
-            try:
+            with patch.dict("os.environ", {"ARAGORA_ENV": "production"}):
                 with pytest.raises(SSOConfigurationError) as exc:
                     SAMLProvider(config)
-                assert "python3-saml required for SAML in production" in str(exc.value)
-            finally:
-                os.environ.pop("ARAGORA_ENV", None)
+                assert "python3-saml required" in str(exc.value)
 
 
 class TestHTTPSEnforcement:

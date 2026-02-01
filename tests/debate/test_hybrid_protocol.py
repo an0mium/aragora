@@ -938,3 +938,176 @@ class TestURLValidation:
 
         with pytest.raises(ValueError, match="consensus_threshold must be between 0.0 and 1.0"):
             HybridDebateProtocol(config)
+
+
+class TestParallelHealthChecks:
+    """Tests for _check_agents_health() parallel health checking."""
+
+    @pytest.mark.asyncio
+    async def test_parallel_health_check_all_healthy(self):
+        """All agents healthy returns all True."""
+
+        class HealthyExternal(MockExternalAgent):
+            async def is_available(self) -> bool:
+                return True
+
+        class HealthyVerifier(MockAgent):
+            async def is_available(self) -> bool:
+                return True
+
+        external = HealthyExternal()
+        verifiers = [HealthyVerifier("v1"), HealthyVerifier("v2")]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        health = await protocol._check_agents_health()
+
+        assert health == {"external": True, "v1": True, "v2": True}
+
+    @pytest.mark.asyncio
+    async def test_parallel_health_check_mixed(self):
+        """Mix of healthy and unhealthy agents."""
+
+        class HealthyExternal(MockExternalAgent):
+            async def is_available(self) -> bool:
+                return True
+
+        class HealthyVerifier(MockAgent):
+            async def is_available(self) -> bool:
+                return True
+
+        class UnhealthyVerifier(MockAgent):
+            async def is_available(self) -> bool:
+                return False
+
+        external = HealthyExternal()
+        verifiers = [HealthyVerifier("healthy-v"), UnhealthyVerifier("unhealthy-v")]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        health = await protocol._check_agents_health()
+
+        assert health["external"] is True
+        assert health["healthy-v"] is True
+        assert health["unhealthy-v"] is False
+
+    @pytest.mark.asyncio
+    async def test_parallel_health_check_exception_handling(self):
+        """Exception in one agent doesn't affect others."""
+
+        class HealthyVerifier(MockAgent):
+            async def is_available(self) -> bool:
+                return True
+
+        class ExplodingVerifier(MockAgent):
+            async def is_available(self) -> bool:
+                raise RuntimeError("Connection refused")
+
+        external = MockExternalAgent()  # No is_available, will be skipped
+        verifiers = [HealthyVerifier("ok-v"), ExplodingVerifier("bad-v")]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        health = await protocol._check_agents_health()
+
+        # Healthy verifier is True; exploding verifier is caught and marked False
+        assert health["ok-v"] is True
+        assert health["bad-v"] is False
+
+    @pytest.mark.asyncio
+    async def test_parallel_health_check_no_is_available(self):
+        """Agents without is_available are skipped."""
+        external = MockExternalAgent()  # No is_available
+        verifiers = [MockAgent("v1")]  # No is_available
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        health = await protocol._check_agents_health()
+
+        # Both lack is_available, so nothing to check
+        assert health == {}
+
+    @pytest.mark.asyncio
+    async def test_health_check_called_during_run_with_external(self):
+        """run_with_external invokes _check_agents_health before proposing."""
+
+        class HealthyExternal(MockExternalAgent):
+            async def is_available(self) -> bool:
+                return True
+
+        class UnhealthyVerifier(MockAgent):
+            async def is_available(self) -> bool:
+                return False
+
+        external = HealthyExternal(initial_response="proposal")
+        verifiers = [
+            UnhealthyVerifier("unhealthy-v", critique_content="Agree and valid."),
+        ]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        # Patch _check_agents_health to verify it is called
+        original_check = protocol._check_agents_health
+        call_log: list[dict[str, bool]] = []
+
+        async def tracking_check() -> dict[str, bool]:
+            result = await original_check()
+            call_log.append(result)
+            return result
+
+        protocol._check_agents_health = tracking_check  # type: ignore[assignment]
+
+        await protocol.run_with_external("task")
+
+        assert len(call_log) == 1
+        assert call_log[0]["unhealthy-v"] is False
+
+    @pytest.mark.asyncio
+    async def test_parallel_health_check_runs_concurrently(self):
+        """Health checks execute concurrently, not sequentially."""
+        import asyncio
+        import time
+
+        class SlowHealthAgent(MockAgent):
+            async def is_available(self) -> bool:
+                await asyncio.sleep(0.05)
+                return True
+
+        external = MockExternalAgent()
+        verifiers = [SlowHealthAgent(f"slow-{i}") for i in range(5)]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        start = time.monotonic()
+        health = await protocol._check_agents_health()
+        elapsed = time.monotonic() - start
+
+        # 5 agents * 0.05s each sequentially = 0.25s
+        # Parallel should complete well under 0.2s
+        assert elapsed < 0.2
+        assert len(health) == 5
+        assert all(v is True for v in health.values())

@@ -8,6 +8,7 @@ from .a2a import A2AAPI, AsyncA2AAPI
 from .accounting import AccountingAPI, AsyncAccountingAPI
 from .admin import AdminAPI, AsyncAdminAPI
 from .advertising import AdvertisingAPI, AsyncAdvertisingAPI
+from .agent_selection import AgentSelectionAPI, AsyncAgentSelectionAPI
 from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
 from .ap_automation import APAutomationAPI, AsyncAPAutomationAPI
@@ -37,14 +38,19 @@ from .dashboard import AsyncDashboardAPI, DashboardAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .decisions import AsyncDecisionsAPI, DecisionsAPI
 from .deliberations import AsyncDeliberationsAPI, DeliberationsAPI
+from .dependency_analysis import AsyncDependencyAnalysisAPI, DependencyAnalysisAPI
 from .devices import AsyncDevicesAPI, DevicesAPI
+from .disaster_recovery import AsyncDisasterRecoveryAPI, DisasterRecoveryAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
+from .email_debate import AsyncEmailDebateAPI, EmailDebateAPI
 from .email_priority import AsyncEmailPriorityAPI, EmailPriorityAPI
 from .email_services import AsyncEmailServicesAPI, EmailServicesAPI
+from .evaluation import AsyncEvaluationAPI, EvaluationAPI
 from .evolution import AsyncEvolutionAPI, EvolutionAPI
 from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .external_agents import AsyncExternalAgentsAPI, ExternalAgentsAPI
+from .facts import AsyncFactsAPI, FactsAPI
 from .feedback import AsyncFeedbackAPI, FeedbackAPI
 from .flips import AsyncFlipsAPI, FlipsAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
@@ -69,6 +75,7 @@ from .monitoring import AsyncMonitoringAPI, MonitoringAPI
 from .nomic import AsyncNomicAPI, NomicAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .oauth import AsyncOAuthAPI, OAuthAPI
+from .oauth_wizard import AsyncOAuthWizardAPI, OAuthWizardAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .openapi import AsyncOpenApiAPI, OpenApiAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
@@ -87,12 +94,15 @@ from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
 from .relationships import AsyncRelationshipsAPI, RelationshipsAPI
 from .replays import AsyncReplaysAPI, ReplaysAPI
+from .repository import AsyncRepositoryAPI, RepositoryAPI
 from .reputation import AsyncReputationAPI, ReputationAPI
 from .retention import AsyncRetentionAPI, RetentionAPI
 from .rlm import RLMAPI, AsyncRLMAPI
 from .routing import AsyncRoutingAPI, RoutingAPI
 from .skills import AsyncSkillsAPI, SkillsAPI
+from .slo import SLOAPI, AsyncSLOAPI
 from .sme import SMEAPI, AsyncSMEAPI
+from .sso import SSOAPI, AsyncSSOAPI
 from .system import AsyncSystemAPI, SystemAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
 from .tenants import AsyncTenantsAPI, TenantsAPI
@@ -119,6 +129,8 @@ __all__ = [
     "AsyncAdvertisingAPI",
     "AdminAPI",
     "AsyncAdminAPI",
+    "AgentSelectionAPI",
+    "AsyncAgentSelectionAPI",
     "AgentsAPI",
     "AsyncAgentsAPI",
     "AnalyticsAPI",
@@ -177,14 +189,22 @@ __all__ = [
     "AsyncDecisionsAPI",
     "DeliberationsAPI",
     "AsyncDeliberationsAPI",
+    "DependencyAnalysisAPI",
+    "AsyncDependencyAnalysisAPI",
     "DevicesAPI",
     "AsyncDevicesAPI",
+    "DisasterRecoveryAPI",
+    "AsyncDisasterRecoveryAPI",
     "DocumentsAPI",
     "AsyncDocumentsAPI",
+    "EmailDebateAPI",
+    "AsyncEmailDebateAPI",
     "EmailPriorityAPI",
     "AsyncEmailPriorityAPI",
     "EmailServicesAPI",
     "AsyncEmailServicesAPI",
+    "EvaluationAPI",
+    "AsyncEvaluationAPI",
     "EvolutionAPI",
     "AsyncEvolutionAPI",
     "ExternalAgentsAPI",
@@ -193,6 +213,8 @@ __all__ = [
     "AsyncExpensesAPI",
     "ExplainabilityAPI",
     "AsyncExplainabilityAPI",
+    "FactsAPI",
+    "AsyncFactsAPI",
     "FeedbackAPI",
     "AsyncFeedbackAPI",
     "FlipsAPI",
@@ -243,6 +265,8 @@ __all__ = [
     "AsyncOpenApiAPI",
     "OAuthAPI",
     "AsyncOAuthAPI",
+    "OAuthWizardAPI",
+    "AsyncOAuthWizardAPI",
     "OnboardingAPI",
     "AsyncOnboardingAPI",
     "OrganizationsAPI",
@@ -277,6 +301,8 @@ __all__ = [
     "AsyncRelationshipsAPI",
     "ReplaysAPI",
     "AsyncReplaysAPI",
+    "RepositoryAPI",
+    "AsyncRepositoryAPI",
     "ReputationAPI",
     "AsyncReputationAPI",
     "RetentionAPI",
@@ -287,8 +313,12 @@ __all__ = [
     "AsyncRoutingAPI",
     "SkillsAPI",
     "AsyncSkillsAPI",
+    "SLOAPI",
+    "AsyncSLOAPI",
     "SMEAPI",
     "AsyncSMEAPI",
+    "SSOAPI",
+    "AsyncSSOAPI",
     "SystemAPI",
     "AsyncSystemAPI",
     "TeamsAPI",

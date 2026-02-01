@@ -110,6 +110,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             return True
         return False
 
+    @require_permission("repository:read")
     @rate_limit(requests_per_minute=30)
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any = None
@@ -145,6 +146,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         return error_response("Repository endpoint not found", 404)
 
+    @require_permission("repository:write")
     @rate_limit(requests_per_minute=30)
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any = None
@@ -176,6 +178,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         return error_response("Repository POST endpoint not found", 404)
 
+    @require_permission("repository:delete")
     @rate_limit(requests_per_minute=30)
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any = None

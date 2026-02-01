@@ -544,8 +544,8 @@ def record_span_error(span: Any, exception: BaseException) -> None:
     try:
         if hasattr(span, "record_exception"):
             span.record_exception(exception)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to record exception on span: %s", e)
 
     try:
         from opentelemetry.trace import StatusCode
@@ -557,8 +557,8 @@ def record_span_error(span: Any, exception: BaseException) -> None:
         try:
             if hasattr(span, "set_status"):
                 span.set_status("ERROR")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to set span error status: %s", e)
 
 
 def set_span_ok(span: Any) -> None:

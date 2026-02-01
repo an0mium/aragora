@@ -416,10 +416,11 @@ class OAuthTokenStore:
     def _encrypt(self, plaintext: str) -> str:
         """Encrypt sensitive data."""
         if not self._encryption_key:
-            # Fallback: base64 encode (not secure, but better than plaintext)
-            import base64
-
-            return base64.b64encode(plaintext.encode()).decode()
+            raise RuntimeError(
+                "Encryption key required for OAuth token storage. "
+                "Set ARAGORA_ENCRYPTION_KEY environment variable or pass "
+                "encryption_key to OAuthTokenStore constructor."
+            )
 
         try:
             from cryptography.fernet import Fernet
@@ -439,18 +440,19 @@ class OAuthTokenStore:
             return fernet.encrypt(plaintext.encode()).decode()
 
         except ImportError:
-            # Fallback without cryptography
-            import base64
-
-            logger.warning("cryptography not installed, using base64 encoding for tokens")
-            return base64.b64encode(plaintext.encode()).decode()
+            raise RuntimeError(
+                "cryptography package required for OAuth token encryption. "
+                "Install with: pip install cryptography"
+            )
 
     def _decrypt(self, ciphertext: str) -> str:
         """Decrypt sensitive data."""
         if not self._encryption_key:
-            import base64
-
-            return base64.b64decode(ciphertext.encode()).decode()
+            raise RuntimeError(
+                "Encryption key required for OAuth token storage. "
+                "Set ARAGORA_ENCRYPTION_KEY environment variable or pass "
+                "encryption_key to OAuthTokenStore constructor."
+            )
 
         try:
             from cryptography.fernet import Fernet
@@ -469,9 +471,10 @@ class OAuthTokenStore:
             return fernet.decrypt(ciphertext.encode()).decode()
 
         except ImportError:
-            import base64
-
-            return base64.b64decode(ciphertext.encode()).decode()
+            raise RuntimeError(
+                "cryptography package required for OAuth token encryption. "
+                "Install with: pip install cryptography"
+            )
 
     def _token_key(self, provider: str, tenant_id: str, user_id: str) -> str:
         """Generate unique key for a token."""

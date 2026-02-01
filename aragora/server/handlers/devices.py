@@ -24,6 +24,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -55,12 +56,14 @@ class DeviceHandler(SecureHandler):
             return True
         return normalized.startswith("/api/devices/")
 
+    @require_permission("devices:read")
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route GET requests."""
         return await self._route_request(path, "GET", query_params, handler, None)
 
+    @require_permission("devices:write")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -70,6 +73,7 @@ class DeviceHandler(SecureHandler):
             return err
         return await self._route_request(path, "POST", query_params, handler, body)
 
+    @require_permission("devices:delete")
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

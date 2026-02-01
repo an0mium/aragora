@@ -76,6 +76,7 @@ class TrainingHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("training:read")
     def handle(
         self,
         path: str,

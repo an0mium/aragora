@@ -4,6 +4,7 @@ Database credential rotation handler.
 Supports rotation for PostgreSQL, Supabase, and other database credentials.
 """
 
+import re
 import secrets
 import string
 from typing import Any
@@ -12,6 +13,51 @@ import logging
 from .base import RotationHandler, RotationError
 
 logger = logging.getLogger(__name__)
+
+# PostgreSQL identifier: letters, digits, underscores; must start with letter/underscore; max 63 chars
+_VALID_PG_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
+# Supabase project refs: alphanumeric with hyphens
+_VALID_PROJECT_REF = re.compile(r"^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}$")
+
+
+def _validate_pg_identifier(value: str, kind: str = "identifier") -> str:
+    """Validate a PostgreSQL identifier to prevent SQL injection.
+
+    Args:
+        value: The identifier to validate
+        kind: Description for error messages (e.g. 'username', 'database')
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        RotationError: If the identifier is invalid
+    """
+    if not value or not _VALID_PG_IDENTIFIER.match(value):
+        raise RotationError(
+            f"Invalid {kind}: must be 1-63 chars, start with letter/underscore, "
+            f"contain only letters, digits, underscores. Got: {value!r}",
+            kind,
+        )
+    return value
+
+
+def _quote_pg_identifier(value: str) -> str:
+    """Quote a PostgreSQL identifier (defense-in-depth after validation).
+
+    Escapes double quotes and wraps in double quotes per SQL standard.
+    """
+    return '"' + value.replace('"', '""') + '"'
+
+
+def _validate_project_ref(value: str) -> str:
+    """Validate a Supabase project reference."""
+    if not value or not _VALID_PROJECT_REF.match(value):
+        raise RotationError(
+            f"Invalid project_ref: must be alphanumeric with hyphens. Got: {value!r}",
+            "project_ref",
+        )
+    return value
 
 
 class DatabaseRotationHandler(RotationHandler):
@@ -131,8 +177,10 @@ class DatabaseRotationHandler(RotationHandler):
             )
 
             try:
-                # Update user password
-                await conn.execute(f"ALTER USER {username} WITH PASSWORD $1", new_password)
+                # Validate and quote username to prevent SQL injection
+                _validate_pg_identifier(username, "username")
+                quoted = _quote_pg_identifier(username)
+                await conn.execute(f"ALTER USER {quoted} WITH PASSWORD $1", new_password)
                 logger.info(f"Updated PostgreSQL password for user {username}")
             finally:
                 await conn.close()
@@ -162,6 +210,9 @@ class DatabaseRotationHandler(RotationHandler):
         api_key = metadata.get("service_role_key")
 
         if project_ref and api_key:
+            # Validate project ref before URL interpolation
+            _validate_project_ref(project_ref)
+
             # Use Supabase Management API if available
             try:
                 from aragora.server.http_client_pool import get_http_pool

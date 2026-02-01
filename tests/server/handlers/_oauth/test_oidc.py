@@ -14,6 +14,7 @@ SECURITY CRITICAL: These tests ensure OIDC authentication is secure.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from dataclasses import dataclass
@@ -355,6 +356,48 @@ class TestOIDCAuthStart:
         result = await oidc_handler._handle_oidc_auth_start(mock_request_handler, {})
 
         assert result.status_code == 503
+
+    @pytest.mark.asyncio
+    @patch("aragora.server.handlers._oauth_impl._validate_redirect_url")
+    @patch("aragora.server.handlers._oauth_impl._generate_state")
+    @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_redirect_uri")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_client_id")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_issuer")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    async def test_auth_start_discovery_timeout_returns_504(
+        self,
+        mock_extract,
+        mock_issuer,
+        mock_client_id,
+        mock_redirect_uri,
+        mock_success_url,
+        mock_generate_state,
+        mock_validate_redirect,
+        oidc_handler,
+        mock_request_handler,
+    ):
+        """Test auth start returns 504 when OIDC discovery times out."""
+        mock_issuer.return_value = "https://slow-provider.example.com"
+        mock_client_id.return_value = "oidc-client-id"
+        mock_redirect_uri.return_value = "https://example.com/callback"
+        mock_success_url.return_value = "https://example.com/success"
+        mock_generate_state.return_value = "test-state"
+        mock_validate_redirect.return_value = True
+        mock_extract.return_value = MagicMock(is_authenticated=False)
+
+        # Mock discovery that hangs indefinitely (simulating unresponsive provider)
+        async def slow_discovery(issuer):
+            await asyncio.sleep(60)  # Much longer than the 10s timeout
+            return {}
+
+        oidc_handler._get_oidc_discovery = slow_discovery
+
+        # The asyncio.wait_for wrapper should trigger TimeoutError well before 60s
+        result = await oidc_handler._handle_oidc_auth_start(mock_request_handler, {})
+
+        assert result.status_code == 504
+        assert b"timed out" in result.body
 
 
 # ===========================================================================

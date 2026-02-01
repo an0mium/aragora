@@ -172,13 +172,8 @@ class TestSSRFIsAvailable:
 
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.is_available()
 
         assert result is True
@@ -214,13 +209,8 @@ class TestSSRFGenerate:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.generate("Test prompt")
 
         assert result == "test output"

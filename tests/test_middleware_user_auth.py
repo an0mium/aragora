@@ -248,6 +248,22 @@ class TestSupabaseAuthValidator:
 
         assert result is None
 
+    def test_decode_jwt_unsafe_missing_exp(self):
+        """_decode_jwt_unsafe rejects tokens without exp claim."""
+        validator = SupabaseAuthValidator()
+
+        # Create JWT without exp claim
+        payload = {
+            "sub": "user-123",
+            "email": "test@example.com",
+        }
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        token = f"header.{payload_b64}.signature"
+
+        result = validator._decode_jwt_unsafe(token)
+
+        assert result is None
+
     def test_decode_jwt_unsafe_invalid_format(self):
         """_decode_jwt_unsafe rejects invalid token format."""
         validator = SupabaseAuthValidator()

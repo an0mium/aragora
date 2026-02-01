@@ -34,7 +34,6 @@ from aragora.agents.api_agents.common import (
     Critique,
     Message,
     _sanitize_error_message,
-    create_client_session,
     handle_agent_errors,
 )
 from aragora.agents.registry import AgentRegistry
@@ -183,6 +182,7 @@ class ExternalFrameworkAgent(APIAgent):
         self.agent_type = "external-framework"
         self._credential_proxy = credential_proxy
         self._credential_id = credential_id
+        self._session: aiohttp.ClientSession | None = None
 
         # Validate base URL against SSRF attacks
         self._validate_endpoint_url(config.base_url)
@@ -248,6 +248,21 @@ class ExternalFrameworkAgent(APIAgent):
 
         return headers
 
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create a reusable HTTP session."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=float(self.timeout)),
+                headers=self._build_headers(),
+            )
+        return self._session
+
+    async def close(self) -> None:
+        """Close the HTTP session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
+
     def _sanitize_response(self, text: str) -> str:
         """Sanitize response text.
 
@@ -289,9 +304,9 @@ class ExternalFrameworkAgent(APIAgent):
             return False
 
         try:
-            async with create_client_session(timeout=10.0) as session:
-                async with session.get(url, headers=self._build_headers()) as response:
-                    return response.status in (200, 204)
+            session = await self._get_session()
+            async with session.get(url, headers=self._build_headers()) as response:
+                return response.status in (200, 204)
         except (aiohttp.ClientError, OSError, TimeoutError):
             return False
 
@@ -348,62 +363,60 @@ class ExternalFrameworkAgent(APIAgent):
         if gen_params:
             payload.update(gen_params)
 
-        async with create_client_session(timeout=float(self.timeout)) as session:
-            try:
-                async with session.post(
-                    url, json=payload, headers=self._build_headers()
-                ) as response:
-                    if response.status == 429:
-                        error_text = await response.text()
-                        raise AgentRateLimitError(
-                            f"Rate limited by external framework: {_sanitize_error_message(error_text)}",
-                            agent_name=self.name,
-                            retry_after=self._parse_retry_after(response),
-                        )
+        session = await self._get_session()
+        try:
+            async with session.post(url, json=payload, headers=self._build_headers()) as response:
+                if response.status == 429:
+                    error_text = await response.text()
+                    raise AgentRateLimitError(
+                        f"Rate limited by external framework: {_sanitize_error_message(error_text)}",
+                        agent_name=self.name,
+                        retry_after=self._parse_retry_after(response),
+                    )
 
-                    if response.status != 200:
-                        error_text = await response.text()
-                        sanitized = _sanitize_error_message(error_text)
-                        if self._circuit_breaker:
-                            self._circuit_breaker.record_failure()
-                        raise AgentAPIError(
-                            f"External framework API error {response.status}: {sanitized}",
-                            agent_name=self.name,
-                            status_code=response.status,
-                        )
-
-                    try:
-                        data = await response.json()
-                    except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
-                        raise AgentAPIError(
-                            f"External framework returned invalid JSON: {e}",
-                            agent_name=self.name,
-                        )
-
-                    # Record success for circuit breaker
+                if response.status != 200:
+                    error_text = await response.text()
+                    sanitized = _sanitize_error_message(error_text)
                     if self._circuit_breaker:
-                        self._circuit_breaker.record_success()
+                        self._circuit_breaker.record_failure()
+                    raise AgentAPIError(
+                        f"External framework API error {response.status}: {sanitized}",
+                        agent_name=self.name,
+                        status_code=response.status,
+                    )
 
-                    # Extract response (support multiple formats)
-                    text = self._extract_response_text(data)
-                    return self._sanitize_response(text)
+                try:
+                    data = await response.json()
+                except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
+                    raise AgentAPIError(
+                        f"External framework returned invalid JSON: {e}",
+                        agent_name=self.name,
+                    )
 
-            except aiohttp.ClientConnectorError as e:
+                # Record success for circuit breaker
                 if self._circuit_breaker:
-                    self._circuit_breaker.record_failure()
-                raise AgentConnectionError(
-                    f"Cannot connect to external framework at {self.base_url}: {e}",
-                    agent_name=self.name,
-                    cause=e,
-                )
-            except TimeoutError as e:
-                if self._circuit_breaker:
-                    self._circuit_breaker.record_failure()
-                raise AgentTimeoutError(
-                    f"External framework request timed out after {self.timeout}s",
-                    agent_name=self.name,
-                    cause=e,
-                )
+                    self._circuit_breaker.record_success()
+
+                # Extract response (support multiple formats)
+                text = self._extract_response_text(data)
+                return self._sanitize_response(text)
+
+        except aiohttp.ClientConnectorError as e:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
+            raise AgentConnectionError(
+                f"Cannot connect to external framework at {self.base_url}: {e}",
+                agent_name=self.name,
+                cause=e,
+            )
+        except TimeoutError as e:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
+            raise AgentTimeoutError(
+                f"External framework request timed out after {self.timeout}s",
+                agent_name=self.name,
+                cause=e,
+            )
 
     def _extract_response_text(self, data: dict[str, Any]) -> str:
         """Extract response text from various response formats.
@@ -510,22 +523,22 @@ REASONING: explanation"""
         self._validate_endpoint_url(critique_url)
 
         try:
-            async with create_client_session(timeout=float(self.timeout)) as session:
-                payload = {
-                    "model": self.model,
-                    "proposal": proposal,
-                    "task": task,
-                    "target_agent": target_agent,
-                    "prompt": critique_prompt,
-                }
+            session = await self._get_session()
+            payload = {
+                "model": self.model,
+                "proposal": proposal,
+                "task": task,
+                "target_agent": target_agent,
+                "prompt": critique_prompt,
+            }
 
-                async with session.post(
-                    critique_url, json=payload, headers=self._build_headers()
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        text = self._extract_response_text(data)
-                        return self._parse_critique(text, target_agent or "proposal", proposal)
+            async with session.post(
+                critique_url, json=payload, headers=self._build_headers()
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    text = self._extract_response_text(data)
+                    return self._parse_critique(text, target_agent or "proposal", proposal)
         except (aiohttp.ClientError, OSError):
             # Fall back to generate endpoint
             pass
@@ -576,21 +589,21 @@ REASONING: [your explanation]"""
         self._validate_endpoint_url(vote_url)
 
         try:
-            async with create_client_session(timeout=float(self.timeout)) as session:
-                payload = {
-                    "model": self.model,
-                    "proposals": proposals,
-                    "task": task,
-                    "prompt": vote_prompt,
-                }
+            session = await self._get_session()
+            payload = {
+                "model": self.model,
+                "proposals": proposals,
+                "task": task,
+                "prompt": vote_prompt,
+            }
 
-                async with session.post(
-                    vote_url, json=payload, headers=self._build_headers()
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        text = self._extract_response_text(data)
-                        return self._parse_vote(text, proposals)
+            async with session.post(
+                vote_url, json=payload, headers=self._build_headers()
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    text = self._extract_response_text(data)
+                    return self._parse_vote(text, proposals)
         except (aiohttp.ClientError, OSError):
             # Fall back to generate endpoint
             pass

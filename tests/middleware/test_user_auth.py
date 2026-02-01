@@ -590,6 +590,20 @@ class TestSupabaseAuthValidator:
 
         assert result is None
 
+    def test_decode_jwt_unsafe_missing_exp(self):
+        """Unsafe decode should reject tokens without exp claim."""
+        validator = SupabaseAuthValidator(jwt_secret=None)
+        payload_no_exp = {
+            "sub": "user-123",
+            "email": "test@example.com",
+            "role": "user",
+        }
+        token = create_unsigned_jwt(payload_no_exp)
+
+        result = validator._decode_jwt_unsafe(token)
+
+        assert result is None
+
     def test_decode_jwt_unsafe_malformed(self):
         """Unsafe decode should handle malformed tokens."""
         validator = SupabaseAuthValidator(jwt_secret=None)

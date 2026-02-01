@@ -81,6 +81,8 @@ except ImportError:
     PROFILES_AVAILABLE = False
     RBACProfile: Any = None
 
+from aragora.rbac.decorators import require_permission
+
 from .base import (
     HandlerResult,
     error_response,
@@ -221,6 +223,7 @@ class WorkspaceHandler(SecureHandler):
         normalized = strip_version_prefix(path)
         return any(normalized.startswith(strip_version_prefix(route)) for route in self.ROUTES)
 
+    @require_permission("workspace:read")
     def handle(
         self, path: str, query_params: dict, handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
@@ -246,14 +249,17 @@ class WorkspaceHandler(SecureHandler):
 
         return None
 
+    @require_permission("workspace:write")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests."""
         return self.handle(path, query_params, handler, method="POST")
 
+    @require_permission("workspace:delete")
     def handle_delete(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route DELETE requests."""
         return self.handle(path, query_params, handler, method="DELETE")
 
+    @require_permission("workspace:write")
     def handle_put(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route PUT requests."""
         return self.handle(path, query_params, handler, method="PUT")

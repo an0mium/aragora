@@ -218,6 +218,9 @@ AdminHandler = _safe_import("aragora.server.handlers", "AdminHandler")
 ControlPlaneHandler = _safe_import("aragora.server.handlers", "ControlPlaneHandler")
 PolicyHandler = _safe_import("aragora.server.handlers", "PolicyHandler")
 GatewayHandler = _safe_import("aragora.server.handlers.gateway_handler", "GatewayHandler")
+OpenClawGatewayHandler = _safe_import(
+    "aragora.server.handlers.openclaw_gateway", "OpenClawGatewayHandler"
+)
 
 # Email handlers
 EmailHandler = _safe_import("aragora.server.handlers", "EmailHandler")
@@ -428,6 +431,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_onboarding_handler", OnboardingHandler),
     ("_sme_usage_dashboard_handler", SMEUsageDashboardHandler),
     ("_canvas_handler", CanvasHandler),
+    ("_openclaw_gateway_handler", OpenClawGatewayHandler),
     ("_gateway_handler", GatewayHandler),
     ("_scim_handler", SCIMHandler),
     ("_computer_use_handler", ComputerUseHandler),

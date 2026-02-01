@@ -5,6 +5,7 @@ Tests AuthConfig class including token generation, validation,
 revocation, and rate limiting.
 """
 
+import hashlib
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -252,6 +253,46 @@ class TestTokenRevocation:
 
         auth_config.revoke_token("token2")
         assert auth_config.get_revocation_count() == 2
+
+    def test_revocation_uses_full_sha256_hash(self, auth_config):
+        """Token revocation should use full 64-char SHA-256 hash, not truncated."""
+        token = "test_token_for_hash_check"
+        auth_config.revoke_token(token)
+
+        # Compute the expected full SHA-256 hash
+        expected_hash = hashlib.sha256(token.encode()).hexdigest()
+        assert len(expected_hash) == 64  # Full SHA-256 is 64 hex chars
+
+        # The stored hash should be the full 64-character hash
+        with auth_config._revocation_lock:
+            stored_hashes = list(auth_config._revoked_tokens.keys())
+            assert len(stored_hashes) == 1
+            assert stored_hashes[0] == expected_hash
+            assert len(stored_hashes[0]) == 64
+
+    def test_is_revoked_uses_full_sha256_hash(self, auth_config):
+        """is_revoked should check against full SHA-256 hash."""
+        token = "test_token_full_hash"
+        full_hash = hashlib.sha256(token.encode()).hexdigest()
+
+        # Manually insert with full hash
+        with auth_config._revocation_lock:
+            auth_config._revoked_tokens[full_hash] = time.time()
+
+        # is_revoked should find it using full hash
+        assert auth_config.is_revoked(token) is True
+
+    def test_truncated_hash_not_used(self, auth_config):
+        """Verify that truncated 16-char hashes are NOT used for revocation."""
+        token = "test_token_no_truncation"
+        truncated_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+
+        # Insert with truncated hash (simulating old behavior)
+        with auth_config._revocation_lock:
+            auth_config._revoked_tokens[truncated_hash] = time.time()
+
+        # is_revoked should NOT find it since it uses full hash now
+        assert auth_config.is_revoked(token) is False
 
 
 # =============================================================================
@@ -700,14 +741,11 @@ class TestAuthConfiguration:
         assert config.token_ttl == original_ttl
 
     def test_configure_origins_from_env(self):
-        """Should load origins from environment."""
-        import os
-
+        """Should load origins from centralized CORS config."""
         config = AuthConfig()
-        with patch.dict(
-            os.environ,
-            {"ARAGORA_ALLOWED_ORIGINS": "http://localhost:3000, http://example.com"},
-        ):
+        expected_origins = ["http://localhost:3000", "http://example.com"]
+        with patch("aragora.server.auth.cors_config") as mock_cors:
+            mock_cors.get_origins_list.return_value = expected_origins
             config.configure_from_env()
 
         assert "http://localhost:3000" in config.allowed_origins

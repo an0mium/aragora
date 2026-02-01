@@ -11,6 +11,7 @@ Tests cover:
 
 import base64
 import pytest
+from unittest.mock import patch, MagicMock
 from urllib.parse import parse_qs, urlparse
 
 from aragora.auth.saml import (
@@ -319,8 +320,26 @@ class TestAuthentication:
 
     @pytest.mark.asyncio
     async def test_authenticate_success(self, provider: SAMLProvider, sample_saml_response: str):
-        """Successful authentication returns user."""
-        user = await provider.authenticate(saml_response=sample_saml_response)
+        """Successful authentication returns user.
+
+        Uses a mock for the OneLogin library since the test SAML response
+        is not cryptographically signed. In production, python3-saml
+        validates XML signatures against the IdP certificate.
+        """
+        mock_auth = MagicMock()
+        mock_auth.get_errors.return_value = []
+        mock_auth.is_authenticated.return_value = True
+        mock_auth.get_nameid.return_value = "test@example.com"
+        mock_auth.get_attributes.return_value = {
+            "email": ["test@example.com"],
+            "name": ["Test User"],
+            "firstName": ["Test"],
+            "lastName": ["User"],
+            "groups": ["admin", "developers"],
+        }
+
+        with patch("aragora.auth.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+            user = await provider.authenticate(saml_response=sample_saml_response)
 
         assert user.id == "test@example.com"
         assert user.email == "test@example.com"
@@ -335,9 +354,16 @@ class TestAuthentication:
         self, provider: SAMLProvider, failed_saml_response: str
     ):
         """Failed SAML status raises error."""
-        with pytest.raises(SSOAuthenticationError) as exc_info:
-            await provider.authenticate(saml_response=failed_saml_response)
-        assert "AuthnFailed" in str(exc_info.value)
+        mock_auth = MagicMock()
+        mock_auth.get_errors.return_value = ["invalid_response"]
+        mock_auth.get_last_error_reason.return_value = "AuthnFailed"
+
+        with patch("aragora.auth.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+            with pytest.raises(SSOAuthenticationError) as exc_info:
+                await provider.authenticate(saml_response=failed_saml_response)
+            assert (
+                "invalid_response" in str(exc_info.value) or "failed" in str(exc_info.value).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_authenticate_invalid_xml_raises(self, provider: SAMLProvider):
@@ -360,9 +386,18 @@ class TestAuthentication:
         valid_config.allowed_domains = ["allowed.com"]
         provider = SAMLProvider(valid_config)
 
-        with pytest.raises(SSOAuthenticationError) as exc_info:
-            await provider.authenticate(saml_response=sample_saml_response)
-        assert "domain not allowed" in str(exc_info.value).lower()
+        mock_auth = MagicMock()
+        mock_auth.get_errors.return_value = []
+        mock_auth.is_authenticated.return_value = True
+        mock_auth.get_nameid.return_value = "test@example.com"
+        mock_auth.get_attributes.return_value = {
+            "email": ["test@example.com"],
+        }
+
+        with patch("aragora.auth.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+            with pytest.raises(SSOAuthenticationError) as exc_info:
+                await provider.authenticate(saml_response=sample_saml_response)
+            assert "domain not allowed" in str(exc_info.value).lower()
 
 
 # =============================================================================

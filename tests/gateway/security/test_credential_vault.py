@@ -195,14 +195,26 @@ class TestCredentialVaultBasic:
         assert vault._encryption_key == key
 
     def test_vault_creation_with_env_key(self) -> None:
-        """Test vault creation with environment key."""
-        with patch.dict(os.environ, {"ARAGORA_CREDENTIAL_VAULT_KEY": "test-env-key"}):
-            vault = CredentialVault()
-            # Key should be SHA-256 of the env key
-            import hashlib
+        """Test vault creation with environment key uses PBKDF2."""
+        import hashlib
 
-            expected = hashlib.sha256(b"test-env-key").digest()
-            assert vault._encryption_key == expected
+        env = {"ARAGORA_CREDENTIAL_VAULT_KEY": "test-env-key"}
+        with patch.dict(os.environ, env):
+            # Temporarily remove salt env var if present
+            salt_val = os.environ.pop("ARAGORA_CREDENTIAL_VAULT_SALT", None)
+            try:
+                vault = CredentialVault()
+                # Key should be PBKDF2-HMAC-SHA256 with default salt
+                expected = hashlib.pbkdf2_hmac(
+                    "sha256",
+                    b"test-env-key",
+                    b"aragora-vault-default-salt",
+                    iterations=600_000,
+                )
+                assert vault._encryption_key == expected
+            finally:
+                if salt_val is not None:
+                    os.environ["ARAGORA_CREDENTIAL_VAULT_SALT"] = salt_val
 
     def test_vault_creation_with_storage_backend(self) -> None:
         """Test vault creation with storage backend."""

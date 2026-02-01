@@ -31,6 +31,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -40,6 +41,50 @@ if TYPE_CHECKING:
     from aragora.storage.backends import DatabaseBackend
 
 logger = logging.getLogger(__name__)
+
+# SQL identifier: letters, digits, underscores; must start with letter/underscore
+_VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def validate_identifier(name: str, kind: str = "identifier") -> str:
+    """Validate a SQL identifier to prevent injection.
+
+    Args:
+        name: The identifier to validate
+        kind: Description for error messages (e.g. 'table', 'column')
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        ValueError: If the identifier is invalid
+    """
+    if not name:
+        raise ValueError(f"Empty {kind}")
+    if len(name) > 128:
+        raise ValueError(f"{kind} too long (max 128): {name!r}")
+    if not _VALID_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid {kind}: must start with letter/underscore, "
+            f"contain only letters, digits, underscores. Got: {name!r}"
+        )
+    return name
+
+
+def quote_identifier(name: str, kind: str = "identifier") -> str:
+    """Validate and quote a SQL identifier (defense-in-depth).
+
+    First validates the name, then wraps in double quotes with proper escaping.
+
+    Args:
+        name: The identifier to quote
+        kind: Description for error messages
+
+    Returns:
+        The quoted identifier (e.g. '"my_table"')
+    """
+    validate_identifier(name, kind)
+    return '"' + name.replace('"', '""') + '"'
 
 
 class MigrationRisk(Enum):
@@ -71,6 +116,7 @@ def get_table_row_count(backend: "DatabaseBackend", table: str) -> int:
 
     Uses pg_class for PostgreSQL (fast estimate) or COUNT(*) for SQLite.
     """
+    qt = quote_identifier(table, "table")
     if is_postgresql(backend):
         # Fast estimate from pg_class (doesn't lock table)
         result = backend.fetch_one(
@@ -84,7 +130,7 @@ def get_table_row_count(backend: "DatabaseBackend", table: str) -> int:
         return int(result[0]) if result and result[0] >= 0 else 0
     else:
         # SQLite - COUNT(*) is the only option
-        result = backend.fetch_one(f"SELECT COUNT(*) FROM {table}")
+        result = backend.fetch_one(f"SELECT COUNT(*) FROM {qt}")
         return int(result[0]) if result else 0
 
 
@@ -110,9 +156,15 @@ def safe_add_column(
         nullable: Whether column allows NULL (True = safer for large tables)
         default: Default value expression (e.g., "0", "'pending'", "NOW()")
     """
+    qt = quote_identifier(table, "table")
+    qc = quote_identifier(column, "column")
+    # Validate base type keyword (the part before parenthesized size e.g. VARCHAR(255))
+    base_type = data_type.split("(")[0].strip()
+    validate_identifier(base_type, "data_type")
+
     if is_postgresql(backend):
         # PostgreSQL: Use ADD COLUMN IF NOT EXISTS (idempotent)
-        parts = [f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {data_type}"]
+        parts = [f"ALTER TABLE {qt} ADD COLUMN IF NOT EXISTS {qc} {data_type}"]
 
         if default is not None:
             parts.append(f"DEFAULT {default}")
@@ -126,11 +178,11 @@ def safe_add_column(
         logger.info(f"Added column {table}.{column} ({data_type})")
     else:
         # SQLite: Check if column exists first
-        columns = backend.fetch_all(f"PRAGMA table_info({table})")
+        columns = backend.fetch_all(f"PRAGMA table_info({qt})")
         existing_columns = {row[1] for row in columns}
 
         if column not in existing_columns:
-            parts = [f"ALTER TABLE {table} ADD COLUMN {column} {data_type}"]
+            parts = [f"ALTER TABLE {qt} ADD COLUMN {qc} {data_type}"]
 
             if default is not None:
                 parts.append(f"DEFAULT {default}")
@@ -180,6 +232,9 @@ def safe_drop_column(
         column: Column to drop
         verify_unused: If True, checks that column is not referenced by indexes/constraints
     """
+    qt = quote_identifier(table, "table")
+    qc = quote_identifier(column, "column")
+
     if is_postgresql(backend):
         if verify_unused:
             # Check for indexes using this column
@@ -200,16 +255,16 @@ def safe_drop_column(
                 raise ValueError(f"Column {column} is still referenced by indexes")
 
         # PostgreSQL: Use IF EXISTS for idempotency
-        backend.execute_write(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column}")
+        backend.execute_write(f"ALTER TABLE {qt} DROP COLUMN IF EXISTS {qc}")
         logger.info(f"Dropped column {table}.{column}")
     else:
         # SQLite: Check if column exists
-        columns = backend.fetch_all(f"PRAGMA table_info({table})")
+        columns = backend.fetch_all(f"PRAGMA table_info({qt})")
         existing_columns = {row[1] for row in columns}
 
         if column in existing_columns:
             # SQLite 3.35+ supports DROP COLUMN
-            backend.execute_write(f"ALTER TABLE {table} DROP COLUMN {column}")
+            backend.execute_write(f"ALTER TABLE {qt} DROP COLUMN {qc}")
             logger.info(f"Dropped column {table}.{column}")
         else:
             logger.debug(f"Column {table}.{column} does not exist")
@@ -235,10 +290,14 @@ def safe_rename_column(
         old_name: Current column name
         new_name: New column name
     """
+    qt = quote_identifier(table, "table")
+    qo = quote_identifier(old_name, "column")
+    qn = quote_identifier(new_name, "column")
+
     if is_postgresql(backend):
-        backend.execute_write(f"ALTER TABLE {table} RENAME COLUMN {old_name} TO {new_name}")
+        backend.execute_write(f"ALTER TABLE {qt} RENAME COLUMN {qo} TO {qn}")
     else:
-        backend.execute_write(f"ALTER TABLE {table} RENAME COLUMN {old_name} TO {new_name}")
+        backend.execute_write(f"ALTER TABLE {qt} RENAME COLUMN {qo} TO {qn}")
     logger.info(f"Renamed column {table}.{old_name} to {new_name}")
 
 

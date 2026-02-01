@@ -12,6 +12,7 @@ Tests cover:
 - Response sanitization
 - Circuit breaker integration
 - Header building and authentication
+- Session reuse (_get_session, close)
 """
 
 import asyncio
@@ -311,13 +312,8 @@ class TestExternalFrameworkIsAvailable:
 
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.is_available()
 
         assert result is True
@@ -336,13 +332,8 @@ class TestExternalFrameworkIsAvailable:
 
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.is_available()
 
         assert result is True
@@ -356,13 +347,8 @@ class TestExternalFrameworkIsAvailable:
 
         mock_session = MagicMock()
         mock_session.get = MagicMock(side_effect=aiohttp.ClientError())
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.is_available()
 
         assert result is False
@@ -381,13 +367,8 @@ class TestExternalFrameworkIsAvailable:
 
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.is_available()
 
         assert result is False
@@ -411,13 +392,8 @@ class TestExternalFrameworkGenerate:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.generate("Test prompt")
 
         assert "test response from the external framework" in result
@@ -437,13 +413,8 @@ class TestExternalFrameworkGenerate:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             result = await agent.generate("Test prompt")
 
         assert result == "Simple response text."
@@ -469,13 +440,8 @@ class TestExternalFrameworkGenerate:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(side_effect=capture_post)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             await agent.generate("Test prompt", context=sample_context)
 
         # Should include context in prompt
@@ -503,13 +469,8 @@ class TestExternalFrameworkGenerate:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(side_effect=capture_post)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             await agent.generate("Test prompt")
 
         assert "System:" in captured_payload["json"]["prompt"]
@@ -537,13 +498,8 @@ class TestExternalFrameworkGenerate:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(side_effect=capture_post)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             await agent.generate("Test prompt")
 
         assert captured_payload["json"]["temperature"] == 0.7
@@ -782,13 +738,8 @@ REASONING: Critique from dedicated endpoint."""
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             critique = await agent.critique(
                 proposal="Test proposal",
                 task="Test task",
@@ -897,13 +848,8 @@ class TestExternalFrameworkErrorHandling:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             with pytest.raises(AgentAPIError) as exc_info:
                 await agent.generate("Test prompt")
 
@@ -928,13 +874,8 @@ class TestExternalFrameworkErrorHandling:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             with pytest.raises(AgentRateLimitError) as exc_info:
                 await agent.generate("Test prompt")
 
@@ -954,13 +895,8 @@ class TestExternalFrameworkErrorHandling:
         mock_session.post = MagicMock(
             side_effect=aiohttp.ClientConnectorError(MagicMock(), OSError("Connection refused"))
         )
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             with pytest.raises(AgentConnectionError) as exc_info:
                 await agent.generate("Test prompt")
 
@@ -986,13 +922,8 @@ class TestExternalFrameworkErrorHandling:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             with pytest.raises(AgentAPIError) as exc_info:
                 await agent.generate("Test prompt")
 
@@ -1025,13 +956,8 @@ class TestExternalFrameworkErrorHandling:
 
         mock_session = MagicMock()
         mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "aragora.agents.api_agents.external_framework.create_client_session",
-            return_value=mock_session,
-        ):
+        with patch.object(agent, "_get_session", new_callable=AsyncMock, return_value=mock_session):
             with pytest.raises(AgentAPIError):
                 await agent.generate("Test prompt")
 
@@ -1213,3 +1139,68 @@ class TestCredentialProxyIntegration:
             credential_id="test-cred",
         )
         assert agent._resolve_api_key() == "fallback"
+
+
+class TestSessionReuse:
+    """Tests for HTTP session reuse."""
+
+    def test_session_initially_none(self):
+        """Session should be None after initialization."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
+        assert agent._session is None
+
+    @pytest.mark.asyncio
+    async def test_get_session_creates_session(self):
+        """_get_session should create a new session when none exists."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
+        session = await agent._get_session()
+        assert session is not None
+        assert not session.closed
+        await agent.close()
+
+    @pytest.mark.asyncio
+    async def test_get_session_reuses_existing(self):
+        """_get_session should return the same session on repeated calls."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
+        session1 = await agent._get_session()
+        session2 = await agent._get_session()
+        assert session1 is session2
+        await agent.close()
+
+    @pytest.mark.asyncio
+    async def test_close_cleans_up_session(self):
+        """close() should clean up the session and set it to None."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
+        await agent._get_session()
+        assert agent._session is not None
+        await agent.close()
+        assert agent._session is None
+
+    @pytest.mark.asyncio
+    async def test_get_session_after_close_creates_new(self):
+        """_get_session should create a new session after close."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
+        session1 = await agent._get_session()
+        await agent.close()
+        session2 = await agent._get_session()
+        assert session1 is not session2
+        await agent.close()
+
+    @pytest.mark.asyncio
+    async def test_close_idempotent(self):
+        """close() should be safe to call multiple times."""
+        from aragora.agents.api_agents.external_framework import ExternalFrameworkAgent
+
+        agent = ExternalFrameworkAgent(base_url="https://api.example.com")
+        await agent.close()  # Should not raise
+        await agent.close()  # Still should not raise

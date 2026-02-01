@@ -255,6 +255,7 @@ from .email_services import EmailServicesHandler  # Email services (follow-up, s
 from .dependency_analysis import DependencyAnalysisHandler  # Dependency analysis API
 from .computer_use_handler import ComputerUseHandler  # Computer use tasks API
 from .gateway_handler import GatewayHandler  # IoT gateway API
+from .openclaw_gateway import OpenClawGatewayHandler  # OpenClaw enterprise gateway API
 from .external_agents import ExternalAgentsHandler  # External agent gateway API
 
 # Accounting handlers
@@ -470,6 +471,7 @@ ALL_HANDLERS = [
     # Computer use and IoT gateway
     ComputerUseHandler,  # Computer use tasks, actions, and policies
     GatewayHandler,  # IoT gateway devices, channels, routing, messages
+    OpenClawGatewayHandler,  # OpenClaw enterprise gateway sessions, actions, policy
     ExternalAgentsHandler,  # External agent framework gateway (OpenHands, AutoGPT, CrewAI)
     # Additional handlers for API documentation coverage
     OnboardingHandler,  # Onboarding flow endpoints
@@ -653,6 +655,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "EcommerceHandler": Stability.EXPERIMENTAL,  # Unified ecommerce platforms API - new
     # External agent gateway
     "ExternalAgentsHandler": Stability.EXPERIMENTAL,  # External agent framework gateway
+    # OpenClaw enterprise gateway
+    "OpenClawGatewayHandler": Stability.EXPERIMENTAL,  # OpenClaw enterprise gateway
 }
 
 
@@ -908,6 +912,8 @@ __all__ = [
     "CRMHandler",
     "SupportHandler",
     "EcommerceHandler",
+    # OpenClaw enterprise gateway
+    "OpenClawGatewayHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

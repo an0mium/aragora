@@ -26,6 +26,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -60,6 +62,7 @@ class BudgetHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("budget:read")
     @track_handler("budgets/main", method="GET")
     @rate_limit(requests_per_minute=60)
     async def handle(

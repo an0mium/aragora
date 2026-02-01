@@ -28,6 +28,7 @@ Example:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -176,6 +177,54 @@ class HybridDebateProtocol:
         self.external_agent = config.external_agent
         self.verification_agents = config.verification_agents
 
+    async def _check_agents_health(self) -> dict[str, bool]:
+        """Check health of all agents in parallel.
+
+        Queries the ``is_available`` method on the external agent and each
+        verification agent concurrently.  Agents that do not expose
+        ``is_available`` are silently skipped.
+
+        Returns:
+            Dict mapping agent name to health status (True = healthy).
+        """
+        agents_to_check: list[tuple[str, Any]] = []
+
+        # External agent
+        if hasattr(self.external_agent, "is_available"):
+            agents_to_check.append(("external", self.external_agent))
+
+        # Verification agents
+        for agent in self.verification_agents:
+            if hasattr(agent, "is_available"):
+                name = agent.name if hasattr(agent, "name") else str(agent)
+                agents_to_check.append((name, agent))
+
+        if not agents_to_check:
+            return {}
+
+        async def _check_one(name: str, agent: Any) -> tuple[str, bool]:
+            try:
+                available = await agent.is_available()
+                return name, available
+            except Exception as exc:
+                logger.warning("Health check failed for %s: %s", name, exc)
+                return name, False
+
+        results = await asyncio.gather(
+            *[_check_one(name, agent) for name, agent in agents_to_check],
+            return_exceptions=True,
+        )
+
+        health: dict[str, bool] = {}
+        for result in results:
+            if isinstance(result, Exception):
+                # gather with return_exceptions=True wraps unexpected errors
+                continue
+            name, available = result
+            health[name] = available
+
+        return health
+
     async def run_with_external(
         self,
         task: str,
@@ -206,6 +255,24 @@ class HybridDebateProtocol:
         consensus_score = 0.0
 
         logger.info(f"Starting hybrid debate {debate_id[:8]} for task: {task[:100]}...")
+
+        # 0. Parallel health check on all agents
+        health = await self._check_agents_health()
+        if health:
+            unhealthy = [name for name, ok in health.items() if not ok]
+            if unhealthy:
+                logger.warning(
+                    "[%s] Unhealthy agents detected before debate: %s",
+                    debate_id[:8],
+                    ", ".join(unhealthy),
+                )
+            healthy_count = sum(1 for ok in health.values() if ok)
+            logger.debug(
+                "[%s] Agent health: %d/%d healthy",
+                debate_id[:8],
+                healthy_count,
+                len(health),
+            )
 
         # 1. Get initial proposal from external agent
         try:
@@ -327,8 +394,6 @@ class HybridDebateProtocol:
         Returns:
             List of critique strings from all verification agents.
         """
-        import asyncio
-
         critiques: list[str] = []
 
         # Run critiques concurrently

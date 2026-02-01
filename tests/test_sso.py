@@ -670,32 +670,25 @@ class TestSAMLAuthentication:
 
     @pytest.mark.asyncio
     async def test_authenticate_parses_valid_response(self, saml_provider):
-        """Test authentication parses valid SAML response."""
-        # Create a minimal valid SAML response
-        saml_response_xml = """<?xml version="1.0" encoding="UTF-8"?>
-        <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
-                        xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">
-            <samlp:Status>
-                <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
-            </samlp:Status>
-            <saml:Assertion>
-                <saml:Subject>
-                    <saml:NameID>user@example.com</saml:NameID>
-                </saml:Subject>
-                <saml:AttributeStatement>
-                    <saml:Attribute Name="email">
-                        <saml:AttributeValue>user@example.com</saml:AttributeValue>
-                    </saml:Attribute>
-                    <saml:Attribute Name="name">
-                        <saml:AttributeValue>Test User</saml:AttributeValue>
-                    </saml:Attribute>
-                </saml:AttributeStatement>
-            </saml:Assertion>
-        </samlp:Response>"""
+        """Test authentication parses valid SAML response.
 
-        encoded_response = base64.b64encode(saml_response_xml.encode()).decode()
+        Uses a mock for the OneLogin library since the test SAML response
+        is not cryptographically signed. In production, python3-saml
+        validates XML signatures against the IdP certificate.
+        """
+        encoded_response = base64.b64encode(b"<mock/>").decode()
 
-        user = await saml_provider.authenticate(saml_response=encoded_response)
+        mock_auth = MagicMock()
+        mock_auth.get_errors.return_value = []
+        mock_auth.is_authenticated.return_value = True
+        mock_auth.get_nameid.return_value = "user@example.com"
+        mock_auth.get_attributes.return_value = {
+            "email": ["user@example.com"],
+            "name": ["Test User"],
+        }
+
+        with patch("aragora.auth.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+            user = await saml_provider.authenticate(saml_response=encoded_response)
 
         assert user.id == "user@example.com"
         assert user.email == "user@example.com"

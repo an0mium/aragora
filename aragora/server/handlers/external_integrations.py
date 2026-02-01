@@ -35,6 +35,7 @@ import logging
 from typing import Any
 
 from aragora.audit.unified import audit_data
+from aragora.rbac.decorators import require_permission
 
 from aragora.integrations.zapier import ZapierIntegration, get_zapier_integration
 from aragora.integrations.make import MakeIntegration, get_make_integration
@@ -248,6 +249,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     # GET Handlers
     # =========================================================================
 
+    @require_permission("integrations:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for external integrations endpoints."""
         # Rate limit check for list operations
@@ -280,6 +282,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     # POST Handlers
     # =========================================================================
 
+    @require_permission("integrations:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -339,6 +342,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     # DELETE Handlers
     # =========================================================================
 
+    @require_permission("integrations:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

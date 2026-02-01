@@ -87,6 +87,7 @@ class AragoraClient:
         from .namespaces.accounting import AccountingAPI
         from .namespaces.admin import AdminAPI
         from .namespaces.advertising import AdvertisingAPI
+        from .namespaces.agent_selection import AgentSelectionAPI
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
         from .namespaces.ap_automation import APAutomationAPI
@@ -115,12 +116,17 @@ class AragoraClient:
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
         from .namespaces.deliberations import DeliberationsAPI
+        from .namespaces.dependency_analysis import DependencyAnalysisAPI
         from .namespaces.devices import DevicesAPI
+        from .namespaces.disaster_recovery import DisasterRecoveryAPI
         from .namespaces.documents import DocumentsAPI
+        from .namespaces.email_debate import EmailDebateAPI
         from .namespaces.email_services import EmailServicesAPI
+        from .namespaces.evaluation import EvaluationAPI
         from .namespaces.evolution import EvolutionAPI
         from .namespaces.expenses import ExpensesAPI
         from .namespaces.explainability import ExplainabilityAPI
+        from .namespaces.facts import FactsAPI
         from .namespaces.feedback import FeedbackAPI
         from .namespaces.flips import FlipsAPI
         from .namespaces.gauntlet import GauntletAPI
@@ -138,6 +144,7 @@ class AragoraClient:
         from .namespaces.monitoring import MonitoringAPI
         from .namespaces.nomic import NomicAPI
         from .namespaces.notifications import NotificationsAPI
+        from .namespaces.oauth_wizard import OAuthWizardAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.openapi import OpenApiAPI
         from .namespaces.organizations import OrganizationsAPI
@@ -155,10 +162,13 @@ class AragoraClient:
         from .namespaces.receipts import ReceiptsAPI
         from .namespaces.relationships import RelationshipsAPI
         from .namespaces.replays import ReplaysAPI
+        from .namespaces.repository import RepositoryAPI
         from .namespaces.reputation import ReputationAPI
         from .namespaces.rlm import RLMAPI
         from .namespaces.routing import RoutingAPI
+        from .namespaces.slo import SLOAPI
         from .namespaces.sme import SMEAPI
+        from .namespaces.sso import SSOAPI
         from .namespaces.system import SystemAPI
         from .namespaces.teams import TeamsAPI
         from .namespaces.tenants import TenantsAPI
@@ -178,6 +188,7 @@ class AragoraClient:
         self.accounting = AccountingAPI(self)
         self.admin = AdminAPI(self)
         self.advertising = AdvertisingAPI(self)
+        self.agent_selection = AgentSelectionAPI(self)
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
         self.ap_automation = APAutomationAPI(self)
@@ -206,12 +217,17 @@ class AragoraClient:
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
         self.deliberations = DeliberationsAPI(self)
+        self.dependency_analysis = DependencyAnalysisAPI(self)
         self.devices = DevicesAPI(self)
+        self.disaster_recovery = DisasterRecoveryAPI(self)
         self.documents = DocumentsAPI(self)
+        self.email_debate = EmailDebateAPI(self)
         self.email_services = EmailServicesAPI(self)
+        self.evaluation = EvaluationAPI(self)
+        self.evolution = EvolutionAPI(self)
         self.expenses = ExpensesAPI(self)
         self.explainability = ExplainabilityAPI(self)
-        self.evolution = EvolutionAPI(self)
+        self.facts = FactsAPI(self)
         self.feedback = FeedbackAPI(self)
         self.flips = FlipsAPI(self)
         self.gauntlet = GauntletAPI(self)
@@ -229,6 +245,7 @@ class AragoraClient:
         self.monitoring = MonitoringAPI(self)
         self.nomic = NomicAPI(self)
         self.notifications = NotificationsAPI(self)
+        self.oauth_wizard = OAuthWizardAPI(self)
         self.openapi = OpenApiAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
@@ -247,9 +264,12 @@ class AragoraClient:
         self.reputation = ReputationAPI(self)
         self.relationships = RelationshipsAPI(self)
         self.replays = ReplaysAPI(self)
+        self.repository = RepositoryAPI(self)
         self.rlm = RLMAPI(self)
         self.routing = RoutingAPI(self)
+        self.slo = SLOAPI(self)
         self.sme = SMEAPI(self)
+        self.sso = SSOAPI(self)
         self.system = SystemAPI(self)
         self.teams = TeamsAPI(self)
         self.tenants = TenantsAPI(self)
@@ -450,6 +470,7 @@ class AragoraAsyncClient:
         from .namespaces.accounting import AsyncAccountingAPI
         from .namespaces.admin import AsyncAdminAPI
         from .namespaces.advertising import AsyncAdvertisingAPI
+        from .namespaces.agent_selection import AsyncAgentSelectionAPI
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.ap_automation import AsyncAPAutomationAPI
@@ -478,12 +499,17 @@ class AragoraAsyncClient:
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
         from .namespaces.deliberations import AsyncDeliberationsAPI
+        from .namespaces.dependency_analysis import AsyncDependencyAnalysisAPI
         from .namespaces.devices import AsyncDevicesAPI
+        from .namespaces.disaster_recovery import AsyncDisasterRecoveryAPI
         from .namespaces.documents import AsyncDocumentsAPI
+        from .namespaces.email_debate import AsyncEmailDebateAPI
         from .namespaces.email_services import AsyncEmailServicesAPI
+        from .namespaces.evaluation import AsyncEvaluationAPI
         from .namespaces.evolution import AsyncEvolutionAPI
         from .namespaces.expenses import AsyncExpensesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
+        from .namespaces.facts import AsyncFactsAPI
         from .namespaces.feedback import AsyncFeedbackAPI
         from .namespaces.flips import AsyncFlipsAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
@@ -501,6 +527,7 @@ class AragoraAsyncClient:
         from .namespaces.monitoring import AsyncMonitoringAPI
         from .namespaces.nomic import AsyncNomicAPI
         from .namespaces.notifications import AsyncNotificationsAPI
+        from .namespaces.oauth_wizard import AsyncOAuthWizardAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
         from .namespaces.openapi import AsyncOpenApiAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
@@ -541,6 +568,7 @@ class AragoraAsyncClient:
         self.accounting = AsyncAccountingAPI(self)
         self.admin = AsyncAdminAPI(self)
         self.advertising = AsyncAdvertisingAPI(self)
+        self.agent_selection = AsyncAgentSelectionAPI(self)
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
         self.ap_automation = AsyncAPAutomationAPI(self)
@@ -569,12 +597,17 @@ class AragoraAsyncClient:
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
         self.deliberations = AsyncDeliberationsAPI(self)
+        self.dependency_analysis = AsyncDependencyAnalysisAPI(self)
         self.devices = AsyncDevicesAPI(self)
+        self.disaster_recovery = AsyncDisasterRecoveryAPI(self)
         self.documents = AsyncDocumentsAPI(self)
+        self.email_debate = AsyncEmailDebateAPI(self)
         self.email_services = AsyncEmailServicesAPI(self)
+        self.evaluation = AsyncEvaluationAPI(self)
+        self.evolution = AsyncEvolutionAPI(self)
         self.expenses = AsyncExpensesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
-        self.evolution = AsyncEvolutionAPI(self)
+        self.facts = AsyncFactsAPI(self)
         self.feedback = AsyncFeedbackAPI(self)
         self.flips = AsyncFlipsAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
@@ -592,6 +625,7 @@ class AragoraAsyncClient:
         self.monitoring = AsyncMonitoringAPI(self)
         self.nomic = AsyncNomicAPI(self)
         self.notifications = AsyncNotificationsAPI(self)
+        self.oauth_wizard = AsyncOAuthWizardAPI(self)
         self.openapi = AsyncOpenApiAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)

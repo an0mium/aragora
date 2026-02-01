@@ -77,15 +77,19 @@ class TestSAMLSignatureValidationSecurity:
                 assert "ARAGORA_ALLOW_UNSAFE_SAML" in str(exc.value)
 
     def test_saml_explicit_opt_in_works_in_dev(self):
-        """Test explicit opt-in allows unsafe parser in development."""
+        """Test explicit opt-in allows unsafe parser in development (requires both env vars)."""
         config = make_saml_config()
 
         with patch("aragora.auth.saml.HAS_SAML_LIB", False):
             with patch.dict(
                 os.environ,
-                {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"},
+                {
+                    "ARAGORA_ENV": "development",
+                    "ARAGORA_ALLOW_UNSAFE_SAML": "true",
+                    "ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED": "true",
+                },
             ):
-                # With explicit opt-in, should work
+                # With explicit double-confirmation opt-in, should work
                 provider = SAMLProvider(config)
                 assert provider is not None
 

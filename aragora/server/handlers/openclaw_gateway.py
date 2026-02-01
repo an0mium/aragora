@@ -564,14 +564,18 @@ class OpenClawGatewayHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/gateway/openclaw/") or path.startswith(
-            "/api/v1/gateway/openclaw/"
+        return (
+            path.startswith("/api/gateway/openclaw/")
+            or path.startswith("/api/v1/gateway/openclaw/")
+            or path.startswith("/api/v1/openclaw/")
         )
 
     def _normalize_path(self, path: str) -> str:
         """Normalize versioned paths to base form."""
         if path.startswith("/api/v1/gateway/openclaw/"):
             return path.replace("/api/v1/gateway/openclaw/", "/api/gateway/openclaw/", 1)
+        if path.startswith("/api/v1/openclaw/"):
+            return path.replace("/api/v1/openclaw/", "/api/gateway/openclaw/", 1)
         return path
 
     def _get_user_id(self, handler: Any) -> str:
@@ -626,6 +630,18 @@ class OpenClawGatewayHandler(BaseHandler):
         # GET /api/gateway/openclaw/audit
         if path == "/api/gateway/openclaw/audit":
             return self._handle_audit(query_params, handler)
+
+        # GET /api/gateway/openclaw/policy/rules
+        if path == "/api/gateway/openclaw/policy/rules":
+            return self._handle_get_policy_rules(query_params, handler)
+
+        # GET /api/gateway/openclaw/approvals
+        if path == "/api/gateway/openclaw/approvals":
+            return self._handle_list_approvals(query_params, handler)
+
+        # GET /api/gateway/openclaw/stats
+        if path == "/api/gateway/openclaw/stats":
+            return self._handle_stats(handler)
 
         return None
 
@@ -877,6 +893,40 @@ class OpenClawGatewayHandler(BaseHandler):
             if len(parts) >= 5:
                 action_id = parts[-2]
                 return self._handle_cancel_action(action_id, handler)
+
+        # POST /api/gateway/openclaw/sessions/:id/end
+        if path.endswith("/end") and "/sessions/" in path:
+            parts = path.split("/")
+            if len(parts) >= 5:
+                session_id = parts[-2]
+                return self._handle_end_session(session_id, handler)
+
+        # POST /api/gateway/openclaw/policy/rules
+        if path == "/api/gateway/openclaw/policy/rules":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_add_policy_rule(body, handler)
+
+        # POST /api/gateway/openclaw/approvals/:id/approve
+        if path.endswith("/approve") and "/approvals/" in path:
+            parts = path.split("/")
+            if len(parts) >= 5:
+                approval_id = parts[-2]
+                body, err = self.read_json_body_validated(handler)
+                if err:
+                    return err
+                return self._handle_approve_action(approval_id, body, handler)
+
+        # POST /api/gateway/openclaw/approvals/:id/deny
+        if path.endswith("/deny") and "/approvals/" in path:
+            parts = path.split("/")
+            if len(parts) >= 5:
+                approval_id = parts[-2]
+                body, err = self.read_json_body_validated(handler)
+                if err:
+                    return err
+                return self._handle_deny_action(approval_id, body, handler)
 
         # POST /api/gateway/openclaw/credentials
         if path == "/api/gateway/openclaw/credentials":
@@ -1181,6 +1231,289 @@ class OpenClawGatewayHandler(BaseHandler):
             return error_response(safe_error_message(e, "gateway"), 500)
 
     # =========================================================================
+    # Policy, Approvals, Stats, and End Session Handlers
+    # =========================================================================
+
+    @require_permission("gateway:policy.read")
+    @rate_limit(requests_per_minute=60, limiter_name="openclaw_gateway_get_policy")
+    def _handle_get_policy_rules(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+        """Get active policy rules."""
+        try:
+            store = _get_store()
+            rules = store.get_policy_rules() if hasattr(store, "get_policy_rules") else []
+
+            return json_response(
+                {
+                    "rules": [r.to_dict() if hasattr(r, "to_dict") else r for r in rules],
+                    "total": len(rules),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting policy rules: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    @require_permission("gateway:policy.write")
+    @rate_limit(requests_per_minute=30, limiter_name="openclaw_gateway_add_policy")
+    def _handle_add_policy_rule(self, body: dict[str, Any], handler: Any) -> HandlerResult:
+        """Add a policy rule."""
+        try:
+            store = _get_store()
+            user_id = self._get_user_id(handler)
+
+            name = body.get("name")
+            if not name:
+                return error_response("name is required", 400)
+
+            action_types = body.get("action_types", [])
+            decision = body.get("decision", "deny")
+            priority = body.get("priority", 0)
+            description = body.get("description", "")
+            enabled = body.get("enabled", True)
+            config = body.get("config", {})
+
+            if hasattr(store, "add_policy_rule"):
+                rule = store.add_policy_rule(
+                    name=name,
+                    action_types=action_types,
+                    decision=decision,
+                    priority=priority,
+                    description=description,
+                    enabled=enabled,
+                    config=config,
+                )
+            else:
+                rule = {
+                    "name": name,
+                    "action_types": action_types,
+                    "decision": decision,
+                    "priority": priority,
+                    "description": description,
+                    "enabled": enabled,
+                    "config": config,
+                }
+
+            # Audit
+            store.add_audit_entry(
+                action="policy.rule.add",
+                actor_id=user_id,
+                resource_type="policy_rule",
+                resource_id=name,
+                result="success",
+                details={"decision": decision, "action_types": action_types},
+            )
+
+            logger.info(f"Added policy rule {name}")
+            result = rule.to_dict() if hasattr(rule, "to_dict") else rule
+            return json_response(result, status=201)
+
+        except Exception as e:
+            logger.error(f"Error adding policy rule: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    @require_permission("gateway:policy.write")
+    @rate_limit(requests_per_minute=30, limiter_name="openclaw_gateway_remove_policy")
+    def _handle_remove_policy_rule(self, rule_name: str, handler: Any) -> HandlerResult:
+        """Remove a policy rule."""
+        try:
+            store = _get_store()
+            user_id = self._get_user_id(handler)
+
+            if hasattr(store, "remove_policy_rule"):
+                removed = store.remove_policy_rule(rule_name)
+            else:
+                removed = True
+
+            # Audit
+            store.add_audit_entry(
+                action="policy.rule.remove",
+                actor_id=user_id,
+                resource_type="policy_rule",
+                resource_id=rule_name,
+                result="success",
+            )
+
+            logger.info(f"Removed policy rule {rule_name}")
+            return json_response({"success": removed, "name": rule_name})
+
+        except Exception as e:
+            logger.error(f"Error removing policy rule {rule_name}: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    @require_permission("gateway:approvals.read")
+    @rate_limit(requests_per_minute=60, limiter_name="openclaw_gateway_list_approvals")
+    def _handle_list_approvals(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+        """List pending approval requests."""
+        try:
+            store = _get_store()
+            tenant_id = self._get_tenant_id(handler)
+
+            limit = safe_query_int(query_params, "limit", default=50, max_val=500)
+            offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=100000)
+
+            if hasattr(store, "list_approvals"):
+                approvals, total = store.list_approvals(
+                    tenant_id=tenant_id,
+                    limit=limit,
+                    offset=offset,
+                )
+            else:
+                approvals, total = [], 0
+
+            return json_response(
+                {
+                    "approvals": [a.to_dict() if hasattr(a, "to_dict") else a for a in approvals],
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error listing approvals: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    @require_permission("gateway:approvals.write")
+    @rate_limit(requests_per_minute=30, limiter_name="openclaw_gateway_approve")
+    def _handle_approve_action(
+        self, approval_id: str, body: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Approve a pending action."""
+        try:
+            store = _get_store()
+            user_id = self._get_user_id(handler)
+
+            approver_id = body.get("approver_id", user_id)
+            reason = body.get("reason", "")
+
+            if hasattr(store, "approve_action"):
+                result = store.approve_action(
+                    approval_id=approval_id,
+                    approver_id=approver_id,
+                    reason=reason,
+                )
+                success = result if isinstance(result, bool) else True
+            else:
+                success = True
+
+            # Audit
+            store.add_audit_entry(
+                action="approval.approve",
+                actor_id=user_id,
+                resource_type="approval",
+                resource_id=approval_id,
+                result="success",
+                details={"approver_id": approver_id, "reason": reason},
+            )
+
+            logger.info(f"Approved action {approval_id} by {approver_id}")
+            return json_response({"success": success, "approval_id": approval_id})
+
+        except Exception as e:
+            logger.error(f"Error approving action {approval_id}: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    @require_permission("gateway:approvals.write")
+    @rate_limit(requests_per_minute=30, limiter_name="openclaw_gateway_deny")
+    def _handle_deny_action(
+        self, approval_id: str, body: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Deny a pending action."""
+        try:
+            store = _get_store()
+            user_id = self._get_user_id(handler)
+
+            approver_id = body.get("approver_id", user_id)
+            reason = body.get("reason", "")
+
+            if hasattr(store, "deny_action"):
+                result = store.deny_action(
+                    approval_id=approval_id,
+                    approver_id=approver_id,
+                    reason=reason,
+                )
+                success = result if isinstance(result, bool) else True
+            else:
+                success = True
+
+            # Audit
+            store.add_audit_entry(
+                action="approval.deny",
+                actor_id=user_id,
+                resource_type="approval",
+                resource_id=approval_id,
+                result="success",
+                details={"approver_id": approver_id, "reason": reason},
+            )
+
+            logger.info(f"Denied action {approval_id} by {approver_id}")
+            return json_response({"success": success, "approval_id": approval_id})
+
+        except Exception as e:
+            logger.error(f"Error denying action {approval_id}: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    @require_permission("gateway:metrics.read")
+    @rate_limit(requests_per_minute=30, limiter_name="openclaw_gateway_stats")
+    def _handle_stats(self, handler: Any) -> HandlerResult:
+        """Get proxy statistics."""
+        try:
+            store = _get_store()
+            metrics = store.get_metrics()
+
+            return json_response(
+                {
+                    "active_sessions": metrics.get("sessions", {}).get("active", 0),
+                    "actions_allowed": metrics.get("actions", {}).get("completed", 0),
+                    "actions_denied": metrics.get("actions", {}).get("failed", 0),
+                    "pending_approvals": metrics.get("actions", {}).get("pending", 0),
+                    "policy_rules": 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting stats: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    @require_permission("gateway:sessions.delete")
+    @rate_limit(requests_per_minute=30, limiter_name="openclaw_gateway_end_session")
+    def _handle_end_session(self, session_id: str, handler: Any) -> HandlerResult:
+        """End a session via POST (SDK-compatible endpoint)."""
+        try:
+            store = _get_store()
+            user_id = self._get_user_id(handler)
+
+            session = store.get_session(session_id)
+            if not session:
+                return error_response(f"Session not found: {session_id}", 404)
+
+            # Verify ownership
+            if session.user_id != user_id:
+                user = self.get_current_user(handler)
+                is_admin = user and has_permission(
+                    user.role if hasattr(user, "role") else None, "gateway:admin"
+                )
+                if not is_admin:
+                    return error_response("Access denied", 403)
+
+            # Close the session
+            store.update_session_status(session_id, SessionStatus.CLOSED)
+
+            # Audit
+            store.add_audit_entry(
+                action="session.end",
+                actor_id=user_id,
+                resource_type="session",
+                resource_id=session_id,
+                result="success",
+            )
+
+            logger.info(f"Ended session {session_id}")
+            return json_response({"success": True, "session_id": session_id})
+
+        except Exception as e:
+            logger.error(f"Error ending session {session_id}: {e}")
+            return error_response(safe_error_message(e, "gateway"), 500)
+
+    # =========================================================================
     # DELETE Handlers
     # =========================================================================
 
@@ -1195,6 +1528,11 @@ class OpenClawGatewayHandler(BaseHandler):
         if path.startswith("/api/gateway/openclaw/sessions/") and path.count("/") == 4:
             session_id = path.split("/")[-1]
             return self._handle_close_session(session_id, handler)
+
+        # DELETE /api/gateway/openclaw/policy/rules/:name
+        if path.startswith("/api/gateway/openclaw/policy/rules/"):
+            rule_name = path.split("/")[-1]
+            return self._handle_remove_policy_rule(rule_name, handler)
 
         # DELETE /api/gateway/openclaw/credentials/:id
         if path.startswith("/api/gateway/openclaw/credentials/") and path.count("/") == 4:

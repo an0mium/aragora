@@ -23,6 +23,8 @@ from aragora.config import DEFAULT_ROUNDS
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.versioning.compat import strip_version_prefix
 
+from aragora.rbac.decorators import require_permission
+
 from .base import (
     HandlerResult,
     error_response,
@@ -64,6 +66,7 @@ class VerticalsHandler(SecureHandler):
             return True
         return False
 
+    @require_permission("verticals:read")
     @rate_limit(requests_per_minute=60)
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any = None

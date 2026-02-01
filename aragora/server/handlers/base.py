@@ -44,7 +44,7 @@ import os
 import re
 from functools import wraps
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypeAlias, TypedDict
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
@@ -466,7 +466,7 @@ from aragora.server.handlers.utils.responses import (
 # Type alias for handlers that may be sync or async.
 # This allows child classes to override with async methods while maintaining
 # type safety. The registry dynamically awaits coroutines at runtime.
-MaybeAsyncHandlerResult = HandlerResult | None | Awaitable[HandlerResult | None]
+MaybeAsyncHandlerResult: TypeAlias = HandlerResult | None | Awaitable[HandlerResult | None]
 
 
 def safe_error_response(
@@ -1343,7 +1343,7 @@ class BaseHandler:
 
     def require_permission_or_error(
         self, handler: HTTPRequestHandler, permission: str
-    ) -> tuple[UserAuthContext | None, Optional["HandlerResult"]]:
+    ) -> tuple[UserAuthContext, None] | tuple[None, "HandlerResult"]:
         """Require authentication and specific permission.
 
         Checks that the user is authenticated and has the required permission.
@@ -1940,7 +1940,7 @@ class AdminHandler(AuthenticatedHandler):
 
             if audit_admin:
                 audit_admin(
-                    actor_id=user_id,
+                    admin_id=user_id,
                     action=action,
                     resource_id=resource_id,
                     details=details or {},
