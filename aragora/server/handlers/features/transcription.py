@@ -544,9 +544,9 @@ class TranscriptionHandler(BaseHandler):
         """Parse multipart form data upload."""
         # Extract boundary
         boundary = None
-        for part in content_type.split(";"):
-            if "boundary=" in part:
-                parts = part.split("=", 1)
+        for header_part in content_type.split(";"):
+            if "boundary=" in header_part:
+                parts = header_part.split("=", 1)
                 if len(parts) == 2 and parts[1].strip():
                     boundary = parts[1].strip().strip('"')
                 break
@@ -588,13 +588,13 @@ class TranscriptionHandler(BaseHandler):
             )
 
         for part_raw in body_parts:
-            part = bytes(part_raw)  # Ensure part is bytes
+            part: bytes = part_raw  # Already bytes from split
             if b"Content-Disposition" not in part:
                 continue
 
             try:
                 header_end = part.index(b"\r\n\r\n")
-                headers_raw = part[:header_end].decode("utf-8", errors="ignore")  # type: ignore[attr-defined]
+                headers_raw = part[:header_end].decode("utf-8", errors="ignore")
                 file_data = part[header_end + 4 :]
 
                 # Remove trailing boundary markers

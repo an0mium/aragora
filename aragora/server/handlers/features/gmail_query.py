@@ -240,8 +240,14 @@ class GmailQueryHandler(SecureHandler):
         # Try RLM first
         try:
             from aragora.rlm.streaming import StreamingRLMQuery
+            from aragora.rlm.types import RLMContext
 
-            rlm = StreamingRLMQuery()
+            # Create an RLM context from the email content
+            rlm_context = RLMContext(
+                original_content=context,
+                original_tokens=len(context) // 4,  # Rough token estimate
+            )
+            rlm = StreamingRLMQuery(rlm_context)
 
             # Compress context if too long
             if len(context) > 4000 and hasattr(rlm, "compress"):
@@ -378,7 +384,7 @@ class GmailQueryHandler(SecureHandler):
             from aragora.connectors.whisper import WhisperConnector
 
             whisper = WhisperConnector()
-            result = await whisper.transcribe(audio_bytes)
+            result = await whisper.transcribe(audio_bytes, filename="audio.webm")
 
             return result.text if result else None
 
@@ -486,10 +492,15 @@ class GmailQueryHandler(SecureHandler):
             )
 
         # Sort by priority score
-        emails.sort(
-            key=lambda x: float(x.get("priority_score", 0) or 0),
-            reverse=True,
-        )
+        def get_priority(email: dict[str, Any]) -> float:
+            score = email.get("priority_score")
+            if score is None:
+                return 0.0
+            if isinstance(score, (int, float)):
+                return float(score)
+            return 0.0
+
+        emails.sort(key=get_priority, reverse=True)
 
         return emails[:limit]
 

@@ -64,7 +64,6 @@ class NodeOperationsMixin:
 
         workspace_id = data.get("workspace_id", "default")
         limit = data.get("limit", 10)
-        node_types = data.get("node_types")
         min_confidence = data.get("min_confidence", 0.0)
 
         mound = self._get_mound()
@@ -74,9 +73,8 @@ class NodeOperationsMixin:
         try:
             result = _run_async(
                 mound.query_semantic(
-                    query=query,
+                    text=query,
                     limit=limit,
-                    node_types=node_types,
                     min_confidence=min_confidence,
                     workspace_id=workspace_id,
                 )
@@ -208,16 +206,34 @@ class NodeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
+            # Note: query_nodes only supports node_type (singular), workspace_id, limit, offset
+            # We filter by the first node_type if multiple are provided
+            # min_confidence and tier filtering would need to be done post-query
+            node_type = node_types[0] if node_types else None
             nodes = _run_async(
                 mound.query_nodes(  # type: ignore[misc]
+                    node_type=node_type,
                     workspace_id=workspace_id,
-                    node_types=node_types,
-                    min_confidence=min_confidence,
-                    tier=tier,
                     limit=limit,
                     offset=offset,
                 )
             )
+            # Apply additional filters that query_nodes doesn't support natively
+            if min_confidence > 0.0:
+                nodes = [n for n in nodes if getattr(n, "confidence", 1.0) >= min_confidence]
+            if tier:
+                tier_value = tier.value if hasattr(tier, "value") else str(tier)
+                nodes = [
+                    n
+                    for n in nodes
+                    if getattr(n, "tier", None) == tier_value
+                    or str(getattr(n, "tier", "")) == tier_value
+                ]
+            if node_types and len(node_types) > 1:
+                # Filter for any of the requested node types
+                nodes = [
+                    n for n in nodes if getattr(n, "metadata", {}).get("node_type") in node_types
+                ]
         except Exception as e:
             logger.error(f"Failed to list nodes: {e}")
             return error_response(f"Failed to list nodes: {e}", 500)
