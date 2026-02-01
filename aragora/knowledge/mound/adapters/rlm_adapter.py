@@ -24,10 +24,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
     pass
+
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +61,7 @@ class ContentPriority:
     content_type: str = "general"
 
 
-class RlmAdapter:
+class RlmAdapter(KnowledgeMoundAdapter):
     """
     Adapter that bridges RLM Compressor to the Knowledge Mound.
 
@@ -85,6 +89,8 @@ class RlmAdapter:
         priorities = adapter.get_priority_content(limit=20)
     """
 
+    adapter_name = "rlm"
+
     PATTERN_PREFIX = "cp_"
     PRIORITY_PREFIX = "pr_"
 
@@ -96,6 +102,8 @@ class RlmAdapter:
         self,
         compressor: Any | None = None,
         enable_dual_write: bool = False,
+        event_callback: EventCallback | None = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -103,9 +111,17 @@ class RlmAdapter:
         Args:
             compressor: Optional RLM Compressor instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._compressor = compressor
-        self._enable_dual_write = enable_dual_write
 
         # In-memory storage for queries (will be replaced by KM backend)
         self._patterns: dict[str, dict[str, Any]] = {}

@@ -24,7 +24,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -32,6 +34,8 @@ if TYPE_CHECKING:
         CulturePatternType,
         CultureProfile,
     )
+
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +67,7 @@ class StoredCulturePattern:
     metadata: dict[str, Any]
 
 
-class CultureAdapter:
+class CultureAdapter(KnowledgeMoundAdapter):
     """
     Adapter that bridges CultureAccumulator to the Knowledge Mound.
 
@@ -85,6 +89,8 @@ class CultureAdapter:
         patterns = adapter.load_patterns("workspace_001")
     """
 
+    adapter_name = "culture"
+
     PATTERN_PREFIX = "cp_"
     PROFILE_PREFIX = "cpr_"
 
@@ -92,13 +98,29 @@ class CultureAdapter:
     MIN_OBSERVATIONS_FOR_STORAGE = 3  # Minimum observations to persist
     MIN_CONFIDENCE_FOR_PROMOTION = 0.8  # Confidence needed for org promotion
 
-    def __init__(self, mound: Any | None = None):
+    def __init__(
+        self,
+        mound: Any | None = None,
+        enable_dual_write: bool = False,
+        event_callback: EventCallback | None = None,
+        enable_resilience: bool = True,
+    ):
         """Initialize the culture adapter.
 
         Args:
             mound: Optional KnowledgeMound instance. If not provided,
                    will attempt to get singleton on first use.
+            enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._mound = mound
         self._pattern_cache: dict[str, dict[str, StoredCulturePattern]] = {}
 

@@ -16,11 +16,15 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
     from aragora.memory.store import CritiqueStore, Pattern, AgentReputation
     from aragora.knowledge.mound.types import KnowledgeItem
+
+EventCallback = Callable[[str, dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +91,7 @@ class CritiqueSearchResult:
     matched_category: bool = False
 
 
-class CritiqueAdapter:
+class CritiqueAdapter(KnowledgeMoundAdapter):
     """
     Adapter that bridges CritiqueStore to the Knowledge Mound.
 
@@ -110,10 +114,14 @@ class CritiqueAdapter:
         items = [adapter.to_knowledge_item(r) for r in results]
     """
 
+    adapter_name = "critique"
+
     def __init__(
         self,
         store: "CritiqueStore",
         enable_dual_write: bool = False,
+        event_callback: EventCallback | None = None,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -121,9 +129,17 @@ class CritiqueAdapter:
         Args:
             store: The CritiqueStore instance to wrap
             enable_dual_write: If True, writes go to both systems during migration
+            event_callback: Optional callback for emitting events (event_type, data)
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._store = store
-        self._enable_dual_write = enable_dual_write
 
     @property
     def store(self) -> "CritiqueStore":

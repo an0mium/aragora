@@ -44,7 +44,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional, Protocol, TypedDict
 
 from aragora.knowledge.mound.ops.fusion import (
     FusionStrategy,
@@ -55,6 +55,30 @@ from aragora.knowledge.mound.ops.fusion import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _FusionMixinProtocol(Protocol):
+    """Protocol defining methods expected from the base adapter class.
+
+    This protocol declares methods that FusionMixin expects to be available
+    via inheritance from KnowledgeMoundAdapter or similar base class.
+    """
+
+    adapter_name: str
+
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
+        """Emit an event via the configured callback."""
+        ...
+
+    def _record_metric(
+        self,
+        operation: str,
+        success: bool,
+        latency: float,
+        extra_labels: dict[str, str] | None = None,
+    ) -> None:
+        """Record a Prometheus metric for the operation."""
+        ...
 
 
 class FusionSyncResult(TypedDict):
@@ -136,10 +160,27 @@ class FusionMixin:
         """Initialize fusion state tracking."""
         self._fusion_state = FusionState()
 
-    # Note: _emit_event and _record_metric are expected from KnowledgeMoundAdapter
-    # via inheritance. Do NOT add stub implementations here as they would
-    # shadow the real implementations due to MRO when this mixin is listed
-    # before KnowledgeMoundAdapter in the inheritance chain.
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
+        """Emit an event via the configured callback.
+
+        This stub is overridden by KnowledgeMoundAdapter when used as a mixin.
+        Provides a no-op default for standalone use or testing.
+        """
+        pass
+
+    def _record_metric(
+        self,
+        operation: str,
+        success: bool,
+        latency: float,
+        extra_labels: dict[str, str] | None = None,
+    ) -> None:
+        """Record a Prometheus metric for the operation.
+
+        This stub is overridden by KnowledgeMoundAdapter when used as a mixin.
+        Provides a no-op default for standalone use or testing.
+        """
+        pass
 
     def _get_fusion_sources(self) -> list[str]:
         """Return list of source adapter names this adapter can fuse data from.

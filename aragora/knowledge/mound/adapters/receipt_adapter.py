@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         ReceiptVerification,
     )
 
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 from aragora.knowledge.unified.types import (
     ConfidenceLevel,
     KnowledgeItem,
@@ -88,7 +89,7 @@ class ReceiptIngestionResult:
         }
 
 
-class ReceiptAdapter:
+class ReceiptAdapter(KnowledgeMoundAdapter):
     """
     Adapter that bridges Decision Receipts to the Knowledge Mound.
 
@@ -113,6 +114,8 @@ class ReceiptAdapter:
         related = await adapter.find_related_decisions("contract terms", limit=5)
     """
 
+    adapter_name = "receipt"
+
     ID_PREFIX = "rcpt_"
     CLAIM_PREFIX = "claim_"
     FINDING_PREFIX = "find_"
@@ -124,6 +127,7 @@ class ReceiptAdapter:
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         auto_ingest: bool = True,
+        enable_resilience: bool = True,
     ):
         """
         Initialize the adapter.
@@ -133,16 +137,20 @@ class ReceiptAdapter:
             enable_dual_write: If True, writes go to both receipt store and KM
             event_callback: Optional callback for emitting events
             auto_ingest: If True, automatically ingest receipts on creation
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._mound = mound
-        self._enable_dual_write = enable_dual_write
-        self._event_callback = event_callback
         self._auto_ingest = auto_ingest
         self._ingested_receipts: dict[str, ReceiptIngestionResult] = {}
 
-    def set_event_callback(self, callback: EventCallback) -> None:
-        """Set the event callback for WebSocket notifications."""
-        self._event_callback = callback
+    # set_event_callback inherited from KnowledgeMoundAdapter
 
     def set_mound(self, mound: Any) -> None:
         """Set the Knowledge Mound instance."""

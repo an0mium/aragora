@@ -90,10 +90,13 @@ class ReverseFlowMixin:
     # Expected from KnowledgeMoundAdapter or subclass
     adapter_name: str
 
-    # Note: _emit_event and _init_reverse_flow_state are expected from
-    # KnowledgeMoundAdapter via inheritance. Do NOT add stub implementations
-    # here as they would shadow the real implementations due to MRO when
-    # this mixin is listed before KnowledgeMoundAdapter in the inheritance chain.
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
+        """Emit an event via the configured callback.
+
+        This stub is overridden by KnowledgeMoundAdapter when used as a mixin.
+        Provides a no-op default for standalone use or testing.
+        """
+        pass
 
     @abstractmethod
     def _get_record_for_validation(self, source_id: str) -> Any | None:

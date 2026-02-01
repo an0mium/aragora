@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
+from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
     from aragora.control_plane.coordinator import ControlPlaneCoordinator
@@ -71,7 +73,7 @@ class CrossWorkspaceInsight:
     created_at: str
 
 
-class ControlPlaneAdapter:
+class ControlPlaneAdapter(KnowledgeMoundAdapter):
     """
     Adapter that bridges Control Plane to the Knowledge Mound.
 
@@ -93,12 +95,16 @@ class ControlPlaneAdapter:
         recommendations = await adapter.get_capability_recommendations("debate")
     """
 
+    adapter_name = "control_plane"
+
     def __init__(
         self,
         coordinator: Optional["ControlPlaneCoordinator"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         workspace_id: str = "default",
         event_callback: EventCallback | None = None,
+        enable_dual_write: bool = False,
+        enable_resilience: bool = True,
         min_task_confidence: float = 0.6,
         min_capability_sample_size: int = 5,
     ):
@@ -110,13 +116,21 @@ class ControlPlaneAdapter:
             knowledge_mound: Optional KnowledgeMound for direct storage
             workspace_id: Workspace ID for multi-tenancy
             event_callback: Optional callback for emitting events
+            enable_dual_write: If True, writes go to both systems during migration
+            enable_resilience: If True, enables circuit breaker and bulkhead protection
             min_task_confidence: Minimum confidence to store task outcomes
             min_capability_sample_size: Minimum samples before capability recommendations
         """
+        # Initialize base adapter (handles dual_write, event_callback, resilience, metrics, tracing)
+        super().__init__(
+            enable_dual_write=enable_dual_write,
+            event_callback=event_callback,
+            enable_resilience=enable_resilience,
+        )
+
         self._coordinator = coordinator
         self._knowledge_mound = knowledge_mound
         self._workspace_id = workspace_id
-        self._event_callback = event_callback
         self._min_task_confidence = min_task_confidence
         self._min_capability_sample_size = min_capability_sample_size
 
@@ -133,17 +147,7 @@ class ControlPlaneAdapter:
             "cross_workspace_shares": 0,
         }
 
-    def set_event_callback(self, callback: EventCallback) -> None:
-        """Set the event callback for WebSocket notifications."""
-        self._event_callback = callback
-
-    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Emit an event if callback is configured."""
-        if self._event_callback:
-            try:
-                self._event_callback(event_type, data)
-            except Exception as e:
-                logger.debug(f"Event emission failed: {e}")
+    # set_event_callback, _emit_event inherited from KnowledgeMoundAdapter
 
     # =========================================================================
     # Forward Sync: Control Plane → KM
