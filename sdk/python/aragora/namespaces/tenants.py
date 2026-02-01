@@ -7,13 +7,19 @@ resource quotas, and tenant-level configuration.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
+
+
+_List = list  # Preserve builtin list for type annotations
 
 
 class TenantsAPI:
     """Synchronous tenants API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def list(
@@ -21,7 +27,7 @@ class TenantsAPI:
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """
         List tenants.
 
@@ -195,7 +201,7 @@ class TenantsAPI:
         """
         return self._client._request("PUT", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas)
 
-    def list_members(self, tenant_id: str) -> list[dict[str, Any]]:
+    def list_members(self, tenant_id: str) -> _List[dict[str, Any]]:
         """
         List tenant members.
 
@@ -229,7 +235,7 @@ class TenantsAPI:
 class AsyncTenantsAPI:
     """Asynchronous tenants API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def list(
@@ -237,7 +243,7 @@ class AsyncTenantsAPI:
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """List tenants."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -323,7 +329,7 @@ class AsyncTenantsAPI:
             "PUT", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas
         )
 
-    async def list_members(self, tenant_id: str) -> list[dict[str, Any]]:
+    async def list_members(self, tenant_id: str) -> _List[dict[str, Any]]:
         """List tenant members."""
         return await self._client._request("GET", f"/api/v1/tenants/{tenant_id}/members")
 

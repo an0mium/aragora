@@ -7,13 +7,16 @@ Critical for SME cost control and preventing unexpected charges.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
 
 
 class BudgetsAPI:
     """Synchronous budgets API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     # =========================================================================
@@ -356,7 +359,7 @@ class BudgetsAPI:
 class AsyncBudgetsAPI:
     """Asynchronous budgets API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     # =========================================================================

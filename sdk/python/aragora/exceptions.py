@@ -27,7 +27,7 @@ class AragoraError(Exception):
         error_code: str | None = None,
         trace_id: str | None = None,
         response_body: Any = None,
-    ):
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -55,8 +55,8 @@ class AuthenticationError(AragoraError):
         message: str = "Authentication failed",
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             message, status_code=401, error_code=error_code, trace_id=trace_id, **kwargs
         )
@@ -70,8 +70,8 @@ class AuthorizationError(AragoraError):
         message: str = "Access denied",
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             message, status_code=403, error_code=error_code, trace_id=trace_id, **kwargs
         )
@@ -85,8 +85,8 @@ class NotFoundError(AragoraError):
         message: str = "Resource not found",
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             message, status_code=404, error_code=error_code, trace_id=trace_id, **kwargs
         )
@@ -101,8 +101,8 @@ class RateLimitError(AragoraError):
         retry_after: int | None = None,
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             message, status_code=429, error_code=error_code, trace_id=trace_id, **kwargs
         )
@@ -121,11 +121,11 @@ class ValidationError(AragoraError):
     def __init__(
         self,
         message: str = "Validation failed",
-        errors: list[dict] | None = None,
+        errors: list[dict[str, Any]] | None = None,
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             message, status_code=400, error_code=error_code, trace_id=trace_id, **kwargs
         )
@@ -140,8 +140,8 @@ class ServerError(AragoraError):
         message: str = "Server error",
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(message, error_code=error_code, trace_id=trace_id, **kwargs)
 
 
@@ -153,8 +153,8 @@ class TimeoutError(AragoraError):
         message: str = "Request timed out",
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(message, error_code=error_code, trace_id=trace_id, **kwargs)
 
 
@@ -166,6 +166,6 @@ class ConnectionError(AragoraError):
         message: str = "Connection failed",
         error_code: str | None = None,
         trace_id: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(message, error_code=error_code, trace_id=trace_id, **kwargs)

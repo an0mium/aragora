@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
 VerticalId = Literal[
     "software",
     "legal",
@@ -130,7 +132,7 @@ class VerticalsAPI:
         name: str,
         model: str | None = None,
         role: str | None = None,
-        traits: list[str] | None = None,
+        traits: _List[str] | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -165,7 +167,7 @@ class VerticalsAPI:
         agent_name: str | None = None,
         rounds: int | None = None,
         consensus: ConsensusType | None = None,
-        additional_agents: list[str] | None = None,
+        additional_agents: _List[str] | None = None,
         context: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -201,7 +203,7 @@ class VerticalsAPI:
         vertical_id: VerticalId,
         enabled: bool | None = None,
         model_config: dict[str, Any] | None = None,
-        default_traits: list[str] | None = None,
+        default_traits: _List[str] | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -276,7 +278,7 @@ class AsyncVerticalsAPI:
         name: str,
         model: str | None = None,
         role: str | None = None,
-        traits: list[str] | None = None,
+        traits: _List[str] | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
         """Create a vertical-specialized agent."""
@@ -298,7 +300,7 @@ class AsyncVerticalsAPI:
         agent_name: str | None = None,
         rounds: int | None = None,
         consensus: ConsensusType | None = None,
-        additional_agents: list[str] | None = None,
+        additional_agents: _List[str] | None = None,
         context: str | None = None,
     ) -> dict[str, Any]:
         """Create a vertical-specialized debate."""
@@ -320,7 +322,7 @@ class AsyncVerticalsAPI:
         vertical_id: VerticalId,
         enabled: bool | None = None,
         model_config: dict[str, Any] | None = None,
-        default_traits: list[str] | None = None,
+        default_traits: _List[str] | None = None,
         description: str | None = None,
     ) -> dict[str, Any]:
         """Update vertical configuration."""

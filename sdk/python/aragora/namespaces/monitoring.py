@@ -7,13 +7,16 @@ system health monitoring.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
 
 
 class MonitoringAPI:
     """Synchronous monitoring API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def get_metrics(
@@ -209,7 +212,7 @@ class MonitoringAPI:
 class AsyncMonitoringAPI:
     """Asynchronous monitoring API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def get_metrics(

@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
 SkillCapability = Literal[
     "READ_LOCAL",
     "WRITE_LOCAL",
@@ -120,7 +122,7 @@ class SkillsAPI:
         skill: str,
         input: dict[str, Any] | None = None,
         user_id: str | None = None,
-        permissions: list[str] | None = None,
+        permissions: _List[str] | None = None,
         metadata: dict[str, Any] | None = None,
         timeout: int | None = None,
     ) -> dict[str, Any]:
@@ -186,7 +188,7 @@ class AsyncSkillsAPI:
         skill: str,
         input: dict[str, Any] | None = None,
         user_id: str | None = None,
-        permissions: list[str] | None = None,
+        permissions: _List[str] | None = None,
         metadata: dict[str, Any] | None = None,
         timeout: int | None = None,
     ) -> dict[str, Any]:

@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
+
 class WorkflowsAPI:
     """
     Synchronous Workflows API.
@@ -60,7 +63,7 @@ class WorkflowsAPI:
     def create(
         self,
         name: str,
-        steps: list[dict[str, Any]],
+        steps: _List[dict[str, Any]],
         description: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:
@@ -291,7 +294,7 @@ class AsyncWorkflowsAPI:
     async def create(
         self,
         name: str,
-        steps: list[dict[str, Any]],
+        steps: _List[dict[str, Any]],
         description: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:

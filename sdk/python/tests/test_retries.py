@@ -370,8 +370,8 @@ class TestRetryConfiguration:
 class TestEmptyResponseHandling:
     """Tests for handling empty responses."""
 
-    def test_empty_response_returns_none(self) -> None:
-        """Empty response content returns None."""
+    def test_empty_response_returns_empty_dict(self) -> None:
+        """Empty response content returns empty dict."""
         with patch("httpx.Client.request") as mock_request:
             mock_response = MagicMock()
             mock_response.is_success = True
@@ -381,12 +381,12 @@ class TestEmptyResponseHandling:
             client = AragoraClient(base_url="https://api.aragora.ai")
             result = client.request("DELETE", "/api/v1/debates/deb_123")
 
-            assert result is None
+            assert result == {}
             client.close()
 
     @pytest.mark.asyncio
-    async def test_async_empty_response_returns_none(self) -> None:
-        """Async empty response returns None."""
+    async def test_async_empty_response_returns_empty_dict(self) -> None:
+        """Async empty response returns empty dict."""
         with patch("httpx.AsyncClient.request") as mock_request:
             mock_response = MagicMock()
             mock_response.is_success = True
@@ -396,4 +396,4 @@ class TestEmptyResponseHandling:
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
                 result = await client.request("DELETE", "/api/v1/debates/deb_123")
 
-                assert result is None
+                assert result == {}

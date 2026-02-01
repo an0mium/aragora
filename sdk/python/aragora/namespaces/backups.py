@@ -7,13 +7,18 @@ and disaster recovery functionality.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
+
+_List = list  # Preserve builtin list for type annotations
 
 
 class BackupsAPI:
     """Synchronous backups API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def list(
@@ -22,7 +27,7 @@ class BackupsAPI:
         offset: int = 0,
         backup_type: str | None = None,
         status: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """
         List backups.
 
@@ -59,8 +64,8 @@ class BackupsAPI:
         self,
         backup_type: str = "full",
         description: str | None = None,
-        include_data: list[str] | None = None,
-        exclude_data: list[str] | None = None,
+        include_data: _List[str] | None = None,
+        exclude_data: _List[str] | None = None,
     ) -> dict[str, Any]:
         """
         Create a new backup.
@@ -100,7 +105,7 @@ class BackupsAPI:
         self,
         backup_id: str,
         target_namespace: str | None = None,
-        data_types: list[str] | None = None,
+        data_types: _List[str] | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
         """
@@ -165,7 +170,7 @@ class BackupsAPI:
             },
         )
 
-    def list_schedules(self) -> list[dict[str, Any]]:
+    def list_schedules(self) -> _List[dict[str, Any]]:
         """
         List backup schedules.
 
@@ -259,7 +264,7 @@ class BackupsAPI:
 class AsyncBackupsAPI:
     """Asynchronous backups API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def list(
@@ -268,7 +273,7 @@ class AsyncBackupsAPI:
         offset: int = 0,
         backup_type: str | None = None,
         status: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """List backups."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if backup_type:
@@ -286,8 +291,8 @@ class AsyncBackupsAPI:
         self,
         backup_type: str = "full",
         description: str | None = None,
-        include_data: list[str] | None = None,
-        exclude_data: list[str] | None = None,
+        include_data: _List[str] | None = None,
+        exclude_data: _List[str] | None = None,
     ) -> dict[str, Any]:
         """Create a new backup."""
         data: dict[str, Any] = {"backup_type": backup_type}
@@ -308,7 +313,7 @@ class AsyncBackupsAPI:
         self,
         backup_id: str,
         target_namespace: str | None = None,
-        data_types: list[str] | None = None,
+        data_types: _List[str] | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
         """Restore from a backup."""
@@ -345,7 +350,7 @@ class AsyncBackupsAPI:
             },
         )
 
-    async def list_schedules(self) -> list[dict[str, Any]]:
+    async def list_schedules(self) -> _List[dict[str, Any]]:
         """List backup schedules."""
         return await self._client._request("GET", "/api/v1/backups/schedules")
 

@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+_List = list  # Preserve builtin list for type annotations
+
 ExportFormat = Literal["json", "html", "markdown", "pdf", "sarif", "csv"]
 
 
@@ -127,7 +129,7 @@ class ReceiptsAPI:
         """
         return self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify-signature")
 
-    def verify_batch(self, receipt_ids: list[str]) -> dict[str, Any]:
+    def verify_batch(self, receipt_ids: _List[str]) -> dict[str, Any]:
         """
         Verify multiple receipts in batch.
 
@@ -329,7 +331,7 @@ class ReceiptsAPI:
             params={"format": format_value},
         )
 
-    def sign_batch(self, receipt_ids: list[str]) -> dict[str, Any]:
+    def sign_batch(self, receipt_ids: _List[str]) -> dict[str, Any]:
         """
         Sign multiple receipts in batch.
 
@@ -347,7 +349,7 @@ class ReceiptsAPI:
 
     def batch_export(
         self,
-        receipt_ids: list[str],
+        receipt_ids: _List[str],
         format: ExportFormat = "json",
     ) -> dict[str, Any]:
         """
@@ -462,7 +464,7 @@ class AsyncReceiptsAPI:
         """Verify a receipt's cryptographic signature."""
         return await self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify-signature")
 
-    async def verify_batch(self, receipt_ids: list[str]) -> dict[str, Any]:
+    async def verify_batch(self, receipt_ids: _List[str]) -> dict[str, Any]:
         """Verify multiple receipts in batch."""
         return await self._client.request(
             "POST",
@@ -573,7 +575,7 @@ class AsyncReceiptsAPI:
             params={"format": format_value},
         )
 
-    async def sign_batch(self, receipt_ids: list[str]) -> dict[str, Any]:
+    async def sign_batch(self, receipt_ids: _List[str]) -> dict[str, Any]:
         """Sign multiple receipts in batch."""
         return await self._client.request(
             "POST",
@@ -583,7 +585,7 @@ class AsyncReceiptsAPI:
 
     async def batch_export(
         self,
-        receipt_ids: list[str],
+        receipt_ids: _List[str],
         format: ExportFormat = "json",
     ) -> dict[str, Any]:
         """Export multiple receipts as a ZIP archive."""

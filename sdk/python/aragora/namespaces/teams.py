@@ -7,13 +7,19 @@ and team-level permissions.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
+
+
+_List = list  # Preserve builtin list for type annotations
 
 
 class TeamsAPI:
     """Synchronous teams API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def list(
@@ -21,7 +27,7 @@ class TeamsAPI:
         limit: int = 50,
         offset: int = 0,
         organization_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """
         List teams.
 
@@ -121,7 +127,7 @@ class TeamsAPI:
         """
         return self._client._request("DELETE", f"/api/v1/teams/{team_id}")
 
-    def list_members(self, team_id: str) -> list[dict[str, Any]]:
+    def list_members(self, team_id: str) -> _List[dict[str, Any]]:
         """
         List team members.
 
@@ -198,7 +204,7 @@ class TeamsAPI:
 class AsyncTeamsAPI:
     """Asynchronous teams API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def list(
@@ -206,7 +212,7 @@ class AsyncTeamsAPI:
         limit: int = 50,
         offset: int = 0,
         organization_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """List teams."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if organization_id:
@@ -258,7 +264,7 @@ class AsyncTeamsAPI:
         """Delete a team."""
         return await self._client._request("DELETE", f"/api/v1/teams/{team_id}")
 
-    async def list_members(self, team_id: str) -> list[dict[str, Any]]:
+    async def list_members(self, team_id: str) -> _List[dict[str, Any]]:
         """List team members."""
         return await self._client._request("GET", f"/api/v1/teams/{team_id}/members")
 

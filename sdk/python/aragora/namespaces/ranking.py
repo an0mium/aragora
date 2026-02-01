@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
+
 class RankingAPI:
     """Synchronous Ranking API for agent performance rankings."""
 
@@ -26,7 +29,7 @@ class RankingAPI:
         min_debates: int | None = None,
         sort_by: Literal["elo", "wins", "win_rate", "recent_activity"] = "elo",
         order: Literal["asc", "desc"] = "desc",
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """List agent rankings.
 
         Args:
@@ -79,7 +82,7 @@ class RankingAPI:
         domain: str,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """Get rankings for a specific domain.
 
         Args:
@@ -92,7 +95,7 @@ class RankingAPI:
         """
         return self.list(domain=domain, limit=limit, offset=offset)
 
-    def get_top(self, n: int = 10) -> list[dict[str, Any]]:
+    def get_top(self, n: int = 10) -> _List[dict[str, Any]]:
         """Get the top N agents by ELO.
 
         Args:
@@ -103,7 +106,7 @@ class RankingAPI:
         """
         return self.list(limit=n, sort_by="elo", order="desc")
 
-    def get_recently_active(self, limit: int = 20) -> list[dict[str, Any]]:
+    def get_recently_active(self, limit: int = 20) -> _List[dict[str, Any]]:
         """Get recently active agents' rankings.
 
         Args:
@@ -132,7 +135,7 @@ class RankingAPI:
         self,
         agent_name: str,
         days: int = 30,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """Get ELO history for an agent.
 
         Args:
@@ -163,7 +166,7 @@ class AsyncRankingAPI:
         min_debates: int | None = None,
         sort_by: Literal["elo", "wins", "win_rate", "recent_activity"] = "elo",
         order: Literal["asc", "desc"] = "desc",
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """List agent rankings."""
         params: dict[str, Any] = {
             "limit": limit,
@@ -193,15 +196,15 @@ class AsyncRankingAPI:
         domain: str,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """Get rankings for a specific domain."""
         return await self.list(domain=domain, limit=limit, offset=offset)
 
-    async def get_top(self, n: int = 10) -> list[dict[str, Any]]:
+    async def get_top(self, n: int = 10) -> _List[dict[str, Any]]:
         """Get the top N agents by ELO."""
         return await self.list(limit=n, sort_by="elo", order="desc")
 
-    async def get_recently_active(self, limit: int = 20) -> list[dict[str, Any]]:
+    async def get_recently_active(self, limit: int = 20) -> _List[dict[str, Any]]:
         """Get recently active agents' rankings."""
         return await self.list(limit=limit, sort_by="recent_activity", order="desc")
 
@@ -216,7 +219,7 @@ class AsyncRankingAPI:
         self,
         agent_name: str,
         days: int = 30,
-    ) -> list[dict[str, Any]]:
+    ) -> _List[dict[str, Any]]:
         """Get ELO history for an agent."""
         params = {"days": days}
         response = await self._client.request(

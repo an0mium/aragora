@@ -7,13 +7,16 @@ deploying, and managing workflow templates.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
 
 
 class MarketplaceAPI:
     """Synchronous marketplace API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def list_templates(
@@ -203,7 +206,7 @@ class MarketplaceAPI:
 class AsyncMarketplaceAPI:
     """Asynchronous marketplace API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def list_templates(

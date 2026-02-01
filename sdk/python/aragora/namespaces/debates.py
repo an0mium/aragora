@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
+
 class DebatesAPI:
     """
     Synchronous Debates API.
@@ -28,7 +31,7 @@ class DebatesAPI:
     def create(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: _List[str] | None = None,
         protocol: dict[str, Any] | None = None,
         **kwargs,
     ) -> dict[str, Any]:
@@ -255,21 +258,21 @@ class DebatesAPI:
         """Get red team analysis."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")
 
-    def capability_probe(self, task: str, agents: list[str] | None = None) -> dict[str, Any]:
+    def capability_probe(self, task: str, agents: _List[str] | None = None) -> dict[str, Any]:
         """Run a capability probe debate."""
         data: dict[str, Any] = {"task": task}
         if agents:
             data["agents"] = agents
         return self._client.request("POST", "/api/v1/debates/capability-probe", json=data)
 
-    def deep_audit(self, task: str, agents: list[str] | None = None) -> dict[str, Any]:
+    def deep_audit(self, task: str, agents: _List[str] | None = None) -> dict[str, Any]:
         """Run a deep audit debate."""
         data: dict[str, Any] = {"task": task}
         if agents:
             data["agents"] = agents
         return self._client.request("POST", "/api/v1/debates/deep-audit", json=data)
 
-    def broadcast(self, debate_id: str, channels: list[str] | None = None) -> dict[str, Any]:
+    def broadcast(self, debate_id: str, channels: _List[str] | None = None) -> dict[str, Any]:
         """Broadcast debate to channels."""
         data: dict[str, Any] = {"channels": channels} if channels else {}
         return self._client.request("POST", f"/api/v1/debates/{debate_id}/broadcast", json=data)
@@ -477,7 +480,7 @@ class DebatesAPI:
 
     # ========== Batch Operations ==========
 
-    def submit_batch(self, requests: list[dict[str, Any]]) -> dict[str, Any]:
+    def submit_batch(self, requests: _List[dict[str, Any]]) -> dict[str, Any]:
         """Submit multiple debates for batch processing."""
         return self._client.request("POST", "/api/v1/debates/batch", json={"requests": requests})
 
@@ -531,7 +534,7 @@ class AsyncDebatesAPI:
     async def create(
         self,
         task: str,
-        agents: list[str] | None = None,
+        agents: _List[str] | None = None,
         protocol: dict[str, Any] | None = None,
         **kwargs,
     ) -> dict[str, Any]:
@@ -729,21 +732,21 @@ class AsyncDebatesAPI:
         """Get red team analysis."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")
 
-    async def capability_probe(self, task: str, agents: list[str] | None = None) -> dict[str, Any]:
+    async def capability_probe(self, task: str, agents: _List[str] | None = None) -> dict[str, Any]:
         """Run a capability probe debate."""
         data: dict[str, Any] = {"task": task}
         if agents:
             data["agents"] = agents
         return await self._client.request("POST", "/api/v1/debates/capability-probe", json=data)
 
-    async def deep_audit(self, task: str, agents: list[str] | None = None) -> dict[str, Any]:
+    async def deep_audit(self, task: str, agents: _List[str] | None = None) -> dict[str, Any]:
         """Run a deep audit debate."""
         data: dict[str, Any] = {"task": task}
         if agents:
             data["agents"] = agents
         return await self._client.request("POST", "/api/v1/debates/deep-audit", json=data)
 
-    async def broadcast(self, debate_id: str, channels: list[str] | None = None) -> dict[str, Any]:
+    async def broadcast(self, debate_id: str, channels: _List[str] | None = None) -> dict[str, Any]:
         """Broadcast debate to channels."""
         data: dict[str, Any] = {"channels": channels} if channels else {}
         return await self._client.request(
@@ -961,7 +964,7 @@ class AsyncDebatesAPI:
 
     # ========== Batch Operations ==========
 
-    async def submit_batch(self, requests: list[dict[str, Any]]) -> dict[str, Any]:
+    async def submit_batch(self, requests: _List[dict[str, Any]]) -> dict[str, Any]:
         """Submit multiple debates for batch processing."""
         return await self._client.request(
             "POST", "/api/v1/debates/batch", json={"requests": requests}

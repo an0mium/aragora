@@ -7,7 +7,10 @@ across all decision types (debates, gauntlets, workflows).
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
 
 DecisionType = Literal["debate", "gauntlet", "workflow", "quick"]
 DecisionPriority = Literal["low", "normal", "high", "urgent"]
@@ -17,7 +20,7 @@ DecisionStatus = Literal["pending", "processing", "completed", "failed", "cancel
 class DecisionsAPI:
     """Synchronous decisions API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def submit(
@@ -204,7 +207,7 @@ class DecisionsAPI:
 class AsyncDecisionsAPI:
     """Asynchronous decisions API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def submit(

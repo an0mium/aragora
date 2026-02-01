@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+_List = list  # Preserve builtin list for type annotations
+
 PersonaTrait = Literal[
     "analytical",
     "creative",
@@ -115,7 +117,7 @@ class PersonaAPI:
     def get_identity_prompt(
         self,
         agent_name: str,
-        sections: list[IdentitySection] | None = None,
+        sections: _List[IdentitySection] | None = None,
     ) -> dict[str, Any]:
         """
         Generate identity prompt for an agent.
@@ -184,8 +186,8 @@ class PersonaAPI:
         self,
         agent_name: str,
         description: str | None = None,
-        traits: list[PersonaTrait] | None = None,
-        expertise: list[ExpertiseDomain] | None = None,
+        traits: _List[PersonaTrait] | None = None,
+        expertise: _List[ExpertiseDomain] | None = None,
         model: str | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:
@@ -221,8 +223,8 @@ class PersonaAPI:
         self,
         agent_name: str,
         description: str | None = None,
-        traits: list[PersonaTrait] | None = None,
-        expertise: list[ExpertiseDomain] | None = None,
+        traits: _List[PersonaTrait] | None = None,
+        expertise: _List[ExpertiseDomain] | None = None,
         model: str | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:
@@ -292,7 +294,7 @@ class AsyncPersonaAPI:
     async def get_identity_prompt(
         self,
         agent_name: str,
-        sections: list[IdentitySection] | None = None,
+        sections: _List[IdentitySection] | None = None,
     ) -> dict[str, Any]:
         """Generate identity prompt for an agent."""
         params: dict[str, Any] = {}
@@ -327,8 +329,8 @@ class AsyncPersonaAPI:
         self,
         agent_name: str,
         description: str | None = None,
-        traits: list[PersonaTrait] | None = None,
-        expertise: list[ExpertiseDomain] | None = None,
+        traits: _List[PersonaTrait] | None = None,
+        expertise: _List[ExpertiseDomain] | None = None,
         model: str | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:
@@ -351,8 +353,8 @@ class AsyncPersonaAPI:
         self,
         agent_name: str,
         description: str | None = None,
-        traits: list[PersonaTrait] | None = None,
-        expertise: list[ExpertiseDomain] | None = None,
+        traits: _List[PersonaTrait] | None = None,
+        expertise: _List[ExpertiseDomain] | None = None,
         model: str | None = None,
         temperature: float | None = None,
     ) -> dict[str, Any]:

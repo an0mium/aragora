@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+_List = list  # Preserve builtin list for type annotations
+
 TournamentFormat = Literal["single_elimination", "double_elimination", "round_robin", "swiss"]
 TournamentStatus = Literal["pending", "active", "completed", "cancelled"]
 
@@ -78,7 +80,7 @@ class TournamentsAPI:
         self,
         name: str,
         format: TournamentFormat = "single_elimination",
-        participants: list[str] | None = None,
+        participants: _List[str] | None = None,
         description: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:
@@ -281,7 +283,7 @@ class AsyncTournamentsAPI:
         self,
         name: str,
         format: TournamentFormat = "single_elimination",
-        participants: list[str] | None = None,
+        participants: _List[str] | None = None,
         description: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:

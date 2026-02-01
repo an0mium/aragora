@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+_List = list  # Preserve builtin list for type annotations
+
 ExpenseCategory = Literal[
     "travel",
     "meals",
@@ -94,7 +96,7 @@ class ExpensesAPI:
         description: str | None = None,
         employee_id: str | None = None,
         is_reimbursable: bool = False,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
     ) -> dict[str, Any]:
         """
         Create an expense manually.
@@ -195,7 +197,7 @@ class ExpensesAPI:
         description: str | None = None,
         status: ExpenseStatus | None = None,
         is_reimbursable: bool | None = None,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
     ) -> dict[str, Any]:
         """
         Update an expense.
@@ -297,7 +299,7 @@ class ExpensesAPI:
 
     def categorize(
         self,
-        expense_ids: list[str] | None = None,
+        expense_ids: _List[str] | None = None,
     ) -> dict[str, Any]:
         """
         Auto-categorize expenses using AI.
@@ -320,7 +322,7 @@ class ExpensesAPI:
 
     def sync_to_qbo(
         self,
-        expense_ids: list[str] | None = None,
+        expense_ids: _List[str] | None = None,
     ) -> dict[str, Any]:
         """
         Sync expenses to QuickBooks Online.
@@ -432,7 +434,7 @@ class AsyncExpensesAPI:
         description: str | None = None,
         employee_id: str | None = None,
         is_reimbursable: bool = False,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
     ) -> dict[str, Any]:
         """Create an expense manually."""
         data: dict[str, Any] = {"vendor_name": vendor_name, "amount": amount}
@@ -494,7 +496,7 @@ class AsyncExpensesAPI:
         description: str | None = None,
         status: ExpenseStatus | None = None,
         is_reimbursable: bool | None = None,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
     ) -> dict[str, Any]:
         """Update an expense."""
         data: dict[str, Any] = {}
@@ -555,7 +557,7 @@ class AsyncExpensesAPI:
 
     async def categorize(
         self,
-        expense_ids: list[str] | None = None,
+        expense_ids: _List[str] | None = None,
     ) -> dict[str, Any]:
         """Auto-categorize expenses using AI."""
         data: dict[str, Any] = {}
@@ -572,7 +574,7 @@ class AsyncExpensesAPI:
 
     async def sync_to_qbo(
         self,
-        expense_ids: list[str] | None = None,
+        expense_ids: _List[str] | None = None,
     ) -> dict[str, Any]:
         """Sync expenses to QuickBooks Online."""
         data: dict[str, Any] = {}

@@ -19,6 +19,9 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
+
 class WorkspacesAPI:
     """
     Synchronous Workspaces API.
@@ -177,7 +180,7 @@ class WorkspacesAPI:
         self,
         name: str,
         retention_days: int,
-        data_types: list[str] | None = None,
+        data_types: _List[str] | None = None,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -205,7 +208,7 @@ class WorkspacesAPI:
         policy_id: str,
         name: str | None = None,
         retention_days: int | None = None,
-        data_types: list[str] | None = None,
+        data_types: _List[str] | None = None,
     ) -> dict[str, Any]:
         """
         Update a retention policy.
@@ -464,7 +467,7 @@ class AsyncWorkspacesAPI:
         self,
         name: str,
         retention_days: int,
-        data_types: list[str] | None = None,
+        data_types: _List[str] | None = None,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a retention policy."""
@@ -481,7 +484,7 @@ class AsyncWorkspacesAPI:
         policy_id: str,
         name: str | None = None,
         retention_days: int | None = None,
-        data_types: list[str] | None = None,
+        data_types: _List[str] | None = None,
     ) -> dict[str, Any]:
         """Update a retention policy."""
         data: dict[str, Any] = {}

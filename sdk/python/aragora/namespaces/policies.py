@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
+
 class PoliciesAPI:
     """
     Synchronous Policies API.
@@ -94,7 +97,7 @@ class PoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: list[dict[str, Any]] | None = None,
+        rules: _List[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
@@ -135,7 +138,7 @@ class PoliciesAPI:
         description: str | None = None,
         level: str | None = None,
         enabled: bool | None = None,
-        rules: list[dict[str, Any]] | None = None,
+        rules: _List[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
@@ -311,7 +314,7 @@ class PoliciesAPI:
     def check_compliance(
         self,
         content: str,
-        frameworks: list[str] | None = None,
+        frameworks: _List[str] | None = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",
@@ -413,7 +416,7 @@ class AsyncPoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: list[dict[str, Any]] | None = None,
+        rules: _List[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create a policy."""
@@ -438,7 +441,7 @@ class AsyncPoliciesAPI:
         description: str | None = None,
         level: str | None = None,
         enabled: bool | None = None,
-        rules: list[dict[str, Any]] | None = None,
+        rules: _List[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update a policy."""
@@ -539,7 +542,7 @@ class AsyncPoliciesAPI:
     async def check_compliance(
         self,
         content: str,
-        frameworks: list[str] | None = None,
+        frameworks: _List[str] | None = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",

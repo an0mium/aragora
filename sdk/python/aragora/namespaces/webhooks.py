@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+_List = list  # Preserve builtin list for type annotations
+
+
 class WebhooksAPI:
     """
     Synchronous Webhooks API.
@@ -70,7 +73,7 @@ class WebhooksAPI:
     def create(
         self,
         url: str,
-        events: list[str],
+        events: _List[str],
         secret: str | None = None,
         description: str | None = None,
         headers: dict[str, str] | None = None,
@@ -102,7 +105,7 @@ class WebhooksAPI:
         self,
         webhook_id: str,
         url: str | None = None,
-        events: list[str] | None = None,
+        events: _List[str] | None = None,
         active: bool | None = None,
         description: str | None = None,
         headers: dict[str, str] | None = None,
@@ -279,7 +282,7 @@ class AsyncWebhooksAPI:
     async def create(
         self,
         url: str,
-        events: list[str],
+        events: _List[str],
         secret: str | None = None,
         description: str | None = None,
         headers: dict[str, str] | None = None,
@@ -299,7 +302,7 @@ class AsyncWebhooksAPI:
         self,
         webhook_id: str,
         url: str | None = None,
-        events: list[str] | None = None,
+        events: _List[str] | None = None,
         active: bool | None = None,
         description: str | None = None,
         headers: dict[str, str] | None = None,

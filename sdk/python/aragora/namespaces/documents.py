@@ -7,7 +7,12 @@ that can be used as context for debates and decisions.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
+
+_List = list  # Preserve builtin list for type annotations
 
 DocumentFormat = Literal["pdf", "docx", "txt", "md", "html", "csv", "json"]
 
@@ -15,7 +20,7 @@ DocumentFormat = Literal["pdf", "docx", "txt", "md", "html", "csv", "json"]
 class DocumentsAPI:
     """Synchronous documents API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def list(
@@ -50,7 +55,7 @@ class DocumentsAPI:
         content: bytes,
         filename: str,
         format: DocumentFormat,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -110,7 +115,7 @@ class DocumentsAPI:
     def update(
         self,
         document_id: str,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
@@ -202,7 +207,7 @@ class DocumentsAPI:
 class AsyncDocumentsAPI:
     """Asynchronous documents API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def list(
@@ -226,7 +231,7 @@ class AsyncDocumentsAPI:
         content: bytes,
         filename: str,
         format: DocumentFormat,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """Upload a document."""
@@ -258,7 +263,7 @@ class AsyncDocumentsAPI:
     async def update(
         self,
         document_id: str,
-        tags: list[str] | None = None,
+        tags: _List[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update document metadata."""

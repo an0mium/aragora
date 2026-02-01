@@ -7,13 +7,19 @@ like Slack, Discord, GitHub, Jira, and other platforms.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..client import AragoraAsyncClient, AragoraClient
+
+
+_List = list  # Preserve builtin list for type annotations
 
 
 class IntegrationsAPI:
     """Synchronous integrations API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
     def list(
@@ -270,7 +276,7 @@ class IntegrationsAPI:
         trigger_type: str,
         webhook_url: str,
         workspace_id: str | None = None,
-        debate_tags: list[str] | None = None,
+        debate_tags: _List[str] | None = None,
         min_confidence: float | None = None,
     ) -> dict[str, Any]:
         """Subscribe to Zapier trigger."""
@@ -387,7 +393,7 @@ class IntegrationsAPI:
     def register_n8n_webhook(
         self,
         credential_id: str,
-        events: list[str],
+        events: _List[str],
         workflow_id: str | None = None,
         node_id: str | None = None,
         workspace_id: str | None = None,
@@ -483,7 +489,7 @@ class IntegrationsAPI:
 class AsyncIntegrationsAPI:
     """Asynchronous integrations API."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
 
     async def list(
@@ -678,7 +684,7 @@ class AsyncIntegrationsAPI:
         trigger_type: str,
         webhook_url: str,
         workspace_id: str | None = None,
-        debate_tags: list[str] | None = None,
+        debate_tags: _List[str] | None = None,
         min_confidence: float | None = None,
     ) -> dict[str, Any]:
         """Subscribe to Zapier trigger."""
@@ -801,7 +807,7 @@ class AsyncIntegrationsAPI:
     async def register_n8n_webhook(
         self,
         credential_id: str,
-        events: list[str],
+        events: _List[str],
         workflow_id: str | None = None,
         node_id: str | None = None,
         workspace_id: str | None = None,

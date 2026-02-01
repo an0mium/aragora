@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+_List = list  # Preserve builtin list for type annotations
+
 InvoiceProcessingStatus = Literal["pending", "approved", "rejected", "paid", "processing"]
 AnomalySeverity = Literal["critical", "high", "medium", "low"]
 
@@ -73,7 +75,7 @@ class InvoiceProcessingAPI:
         invoice_number: str | None = None,
         invoice_date: str | None = None,
         tax_amount: float | None = None,
-        line_items: list[dict[str, Any]] | None = None,
+        line_items: _List[dict[str, Any]] | None = None,
         po_number: str | None = None,
         notes: str | None = None,
     ) -> dict[str, Any]:
@@ -247,7 +249,7 @@ class InvoiceProcessingAPI:
         self,
         vendor_id: str,
         vendor_name: str,
-        line_items: list[dict[str, Any]],
+        line_items: _List[dict[str, Any]],
         notes: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -418,7 +420,7 @@ class AsyncInvoiceProcessingAPI:
         invoice_number: str | None = None,
         invoice_date: str | None = None,
         tax_amount: float | None = None,
-        line_items: list[dict[str, Any]] | None = None,
+        line_items: _List[dict[str, Any]] | None = None,
         po_number: str | None = None,
         notes: str | None = None,
     ) -> dict[str, Any]:
@@ -522,7 +524,7 @@ class AsyncInvoiceProcessingAPI:
         self,
         vendor_id: str,
         vendor_name: str,
-        line_items: list[dict[str, Any]],
+        line_items: _List[dict[str, Any]],
         notes: str | None = None,
     ) -> dict[str, Any]:
         """Create a purchase order."""
