@@ -82,6 +82,13 @@ class DeviceRegistry:
             await self._store.save_device(device)
         return device.device_id
 
+    async def save(self, device: DeviceNode) -> None:
+        """Persist a device without resetting status metadata."""
+        if device.device_id:
+            self._devices[device.device_id] = device
+            if self._store:
+                await self._store.save_device(device)
+
     async def unregister(self, device_id: str) -> bool:
         """Unregister a device."""
         if device_id in self._devices:

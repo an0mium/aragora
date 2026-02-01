@@ -28,7 +28,7 @@ Status legend:
 
 | Capability | Status | Code refs | Notes |
 | --- | --- | --- | --- |
-| Local Gateway server | partial | `aragora/gateway/server.py`, `aragora/gateway/router.py` | OpenClaw WS adapter partial (connect/presence); routing commands pending; canonical runtime now default, but LocalGateway still keeps its own device state |
+| Local Gateway server | partial | `aragora/gateway/server.py`, `aragora/gateway/router.py` | OpenClaw WS adapter partial (connect/presence); routing commands pending; canonical runtime default and registry mirrored |
 | Unified inbox | partial | `aragora/gateway/inbox.py`, `aragora/extensions/moltbot/inbox.py`, `aragora/storage/unified_inbox_store.py` | Multiple inbox layers |
 | Device registry + pairing | partial | `aragora/gateway/device_registry.py`, `aragora/server/handlers/devices.py`, `aragora/onboarding/wizard.py` | No device runtime clients |
 | Capability routing | partial | `aragora/gateway/capability_router.py`, `aragora/extensions/moltbot/capabilities.py` | Needs device node telemetry |
