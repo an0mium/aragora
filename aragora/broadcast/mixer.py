@@ -9,15 +9,25 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import warnings
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 try:
-    from pydub import AudioSegment
+    with warnings.catch_warnings():
+        # audioop is deprecated in Python 3.11+ and removed in 3.13.
+        # Suppress the warning when pydub imports it.
+        warnings.filterwarnings(
+            "ignore",
+            category=DeprecationWarning,
+            message=".*audioop.*",
+        )
+        from pydub import AudioSegment
 
     PYDUB_AVAILABLE = True
-except ImportError:
+except Exception:
+    AudioSegment = None  # type: ignore[assignment]
     PYDUB_AVAILABLE = False
 
 # Maximum audio files for FFmpeg filter_complex to prevent command overflow
@@ -88,13 +98,17 @@ def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -
     Returns:
         True if successful, False otherwise
     """
-    if not PYDUB_AVAILABLE:
-        logger.error("pydub not available. Install with: pip install pydub")
-        return False
-
     if not audio_files:
         logger.warning("No audio files to mix")
         return False
+
+    # Prefer ffmpeg when pydub is unavailable (Python 3.13+ compatibility).
+    if not PYDUB_AVAILABLE:
+        existing_files = [audio_file for audio_file in audio_files if audio_file.exists()]
+        if not existing_files:
+            logger.error("No valid audio files to mix")
+            return False
+        return mix_audio_with_ffmpeg(existing_files, output_path)
 
     try:
         # Load and concatenate audio segments

@@ -222,17 +222,28 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Pa
     """
     # Create safe filename using stable hash (sha256 is deterministic across sessions)
     text_hash = hashlib.sha256(segment.text.encode("utf-8")).hexdigest()[:12]
-    backend = get_audio_backend()
-    backend_ext = ".wav" if backend.name == "xtts" else ".mp3"
+    try:
+        backend = get_audio_backend()
+    except Exception as e:
+        logger.warning("TTS backend initialization failed: %s", e)
+        backend = None
+
+    backend_ext = ".wav" if backend and backend.name == "xtts" else ".mp3"
     safe_name = f"{segment.speaker}_{text_hash}{backend_ext}"
     output_path = output_dir / safe_name
 
     # Use the TTS backend abstraction
-    result = await backend.synthesize(
-        text=segment.text,
-        voice=segment.voice_id or segment.speaker,
-        output_path=output_path,
-    )
+    result = None
+    if backend is not None:
+        try:
+            result = await backend.synthesize(
+                text=segment.text,
+                voice=segment.voice_id or segment.speaker,
+                output_path=output_path,
+            )
+        except Exception as e:
+            logger.warning("Primary TTS backend failed: %s", e)
+            result = None
 
     if result:
         return result
