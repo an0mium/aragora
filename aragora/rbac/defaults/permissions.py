@@ -1924,3 +1924,65 @@ PERM_GATEWAY_ADMIN = _permission(
     "Administer Gateway",
     "Full administrative access to gateway (allowlists, security policies)",
 )
+
+# Gateway - External Agent Management
+PERM_GATEWAY_AGENT_CREATE = _permission(
+    ResourceType.GATEWAY,
+    Action.AGENT_CREATE,
+    "Register Gateway Agents",
+    "Register external agents with the gateway",
+)
+PERM_GATEWAY_AGENT_READ = _permission(
+    ResourceType.GATEWAY,
+    Action.AGENT_READ,
+    "View Gateway Agents",
+    "View registered external agents and status",
+)
+PERM_GATEWAY_AGENT_DELETE = _permission(
+    ResourceType.GATEWAY,
+    Action.AGENT_DELETE,
+    "Remove Gateway Agents",
+    "Remove external agents from the gateway",
+)
+
+# Gateway - Credential Management
+PERM_GATEWAY_CREDENTIAL_CREATE = _permission(
+    ResourceType.GATEWAY,
+    Action.CREDENTIAL_CREATE,
+    "Store Gateway Credentials",
+    "Store credentials in the gateway vault",
+)
+PERM_GATEWAY_CREDENTIAL_READ = _permission(
+    ResourceType.GATEWAY,
+    Action.CREDENTIAL_READ,
+    "View Gateway Credentials",
+    "View credential metadata (not values)",
+)
+PERM_GATEWAY_CREDENTIAL_DELETE = _permission(
+    ResourceType.GATEWAY,
+    Action.CREDENTIAL_DELETE,
+    "Delete Gateway Credentials",
+    "Delete credentials from the gateway vault",
+)
+PERM_GATEWAY_CREDENTIAL_ROTATE = _permission(
+    ResourceType.GATEWAY,
+    Action.CREDENTIAL_ROTATE,
+    "Rotate Gateway Credentials",
+    "Rotate credentials in the gateway vault",
+)
+
+# Gateway - Hybrid Debate
+PERM_GATEWAY_HYBRID_DEBATE = _permission(
+    ResourceType.GATEWAY,
+    Action.HYBRID_DEBATE,
+    "Hybrid Gateway Debate",
+    "Execute hybrid debates with external agents",
+)
+
+# Gateway - Health
+PERM_GATEWAY_HEALTH = _permission(
+    ResourceType.GATEWAY,
+    Action.HEALTH_READ,
+    "View Gateway Health",
+    "View gateway health status",
+)

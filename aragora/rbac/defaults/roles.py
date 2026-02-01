@@ -231,6 +231,16 @@ from .permissions import (
     PERM_COMPUTER_USE_SCREENSHOT,
     PERM_COMPUTER_USE_NETWORK,
     PERM_COMPUTER_USE_ADMIN,
+    # Gateway - Secure Gateway
+    PERM_GATEWAY_AGENT_CREATE,
+    PERM_GATEWAY_AGENT_READ,
+    PERM_GATEWAY_AGENT_DELETE,
+    PERM_GATEWAY_CREDENTIAL_CREATE,
+    PERM_GATEWAY_CREDENTIAL_READ,
+    PERM_GATEWAY_CREDENTIAL_DELETE,
+    PERM_GATEWAY_CREDENTIAL_ROTATE,
+    PERM_GATEWAY_HYBRID_DEBATE,
+    PERM_GATEWAY_HEALTH,
 )
 
 
@@ -433,6 +443,16 @@ ROLE_ADMIN = Role(
         PERM_COMPUTER_USE_SCREENSHOT.key,
         PERM_COMPUTER_USE_NETWORK.key,
         PERM_COMPUTER_USE_ADMIN.key,
+        # Gateway - Secure Gateway (all operations)
+        PERM_GATEWAY_AGENT_CREATE.key,
+        PERM_GATEWAY_AGENT_READ.key,
+        PERM_GATEWAY_AGENT_DELETE.key,
+        PERM_GATEWAY_CREDENTIAL_CREATE.key,
+        PERM_GATEWAY_CREDENTIAL_READ.key,
+        PERM_GATEWAY_CREDENTIAL_DELETE.key,
+        PERM_GATEWAY_CREDENTIAL_ROTATE.key,
+        PERM_GATEWAY_HYBRID_DEBATE.key,
+        PERM_GATEWAY_HEALTH.key,
     },
     parent_roles=[],
     priority=80,
@@ -534,6 +554,8 @@ ROLE_VIEWER = Role(
         PERM_AGENT_READ.key,
         PERM_ORG_READ.key,
         PERM_FINDINGS_READ.key,
+        # Gateway - Secure Gateway (viewer-level)
+        PERM_GATEWAY_HEALTH.key,
     },
     priority=10,
     is_system=True,
@@ -610,6 +632,11 @@ ROLE_MEMBER = Role(
         PERM_CANVAS_CREATE.key,
         PERM_CANVAS_RUN.key,
         PERM_NOMIC_READ.key,
+        # Gateway - Secure Gateway (operator-level)
+        PERM_GATEWAY_AGENT_READ.key,
+        PERM_GATEWAY_CREDENTIAL_READ.key,
+        PERM_GATEWAY_HEALTH.key,
+        PERM_GATEWAY_HYBRID_DEBATE.key,
     },
     parent_roles=[],
     priority=40,

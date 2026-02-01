@@ -202,7 +202,7 @@ def nomic_convoy_to_workspace(
 ) -> WorkspaceConvoyT:
     metadata = convoy.metadata or {}
     status = resolve_workspace_convoy_status(convoy.status, metadata, status_cls)
-    return convoy_cls(
+    return convoy_cls(  # type: ignore[call-arg]  # generic factory; concrete cls accepts these kwargs
         convoy_id=convoy.id,
         workspace_id=metadata.get("workspace_id", ""),
         rig_id=metadata.get("rig_id", ""),

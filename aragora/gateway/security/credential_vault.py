@@ -114,9 +114,20 @@ class CredentialVault:
         """Get encryption key from environment or create ephemeral key."""
         env_key = os.environ.get("ARAGORA_CREDENTIAL_VAULT_KEY")
         if env_key:
-            return hashlib.sha256(env_key.encode()).digest()
-        # Ephemeral key - credentials won't persist across restarts
-        logger.warning("Using ephemeral credential vault key - credentials will not persist")
+            # Use PBKDF2 with salt for proper key derivation
+            salt = os.environ.get(
+                "ARAGORA_CREDENTIAL_VAULT_SALT", "aragora-vault-default-salt"
+            ).encode()
+            return hashlib.pbkdf2_hmac(
+                "sha256",
+                env_key.encode(),
+                salt,
+                iterations=600_000,  # OWASP 2023 recommendation
+            )
+        # Ephemeral key for development
+        logger.warning(
+            "Using ephemeral credential vault key - credentials will not persist across restarts"
+        )
         return secrets.token_bytes(32)
 
     def _encrypt(self, value: str) -> bytes:
@@ -151,6 +162,42 @@ class CredentialVault:
         aesgcm = AESGCM(self._encryption_key)
         plaintext = aesgcm.decrypt(nonce, ciphertext, None)
         return plaintext.decode("utf-8")
+
+    def _decrypt_with_key(self, encrypted: bytes, key: bytes) -> str:
+        """Decrypt a credential value using a specific key."""
+        try:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        except ImportError:
+            raise RuntimeError(
+                "cryptography library is required for credential vault. "
+                "Install with: pip install cryptography"
+            )
+
+        nonce = encrypted[:12]
+        ciphertext = encrypted[12:]
+        aesgcm = AESGCM(key)
+        plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+        return plaintext.decode("utf-8")
+
+    def _try_decrypt_with_migration(self, encrypted_data: bytes, key: bytes) -> str | None:
+        """Try to decrypt data, falling back to legacy SHA-256 key if needed."""
+        try:
+            return self._decrypt_with_key(encrypted_data, key)
+        except Exception:
+            # Try legacy SHA-256 key derivation
+            env_key = os.environ.get("ARAGORA_CREDENTIAL_VAULT_KEY")
+            if env_key:
+                legacy_key = hashlib.sha256(env_key.encode()).digest()
+                try:
+                    decrypted = self._decrypt_with_key(encrypted_data, legacy_key)
+                    logger.warning(
+                        "Credential decrypted with legacy SHA-256 key - "
+                        "will be re-encrypted with PBKDF2 on next write"
+                    )
+                    return decrypted
+                except Exception:
+                    pass
+            return None
 
     def store(
         self,

@@ -308,6 +308,16 @@ class Action(str, Enum):
     INSTALL = "install"  # Install a plugin
     UNINSTALL = "uninstall"  # Uninstall a plugin
 
+    # Gateway sub-operations
+    AGENT_CREATE = "agent.create"  # Register external agents
+    AGENT_READ = "agent.read"  # View registered agents
+    AGENT_DELETE = "agent.delete"  # Remove external agents
+    CREDENTIAL_CREATE = "credential.create"  # Store credentials
+    CREDENTIAL_READ = "credential.read"  # View credential metadata
+    CREDENTIAL_DELETE = "credential.delete"  # Delete credentials
+    CREDENTIAL_ROTATE = "credential.rotate"  # Rotate credentials
+    HYBRID_DEBATE = "hybrid_debate"  # Execute hybrid debates
+
     # Wildcard
     ALL = "*"
 

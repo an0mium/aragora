@@ -571,7 +571,7 @@ class SupabaseTeamsTenantStore:
 
     def __init__(self) -> None:
         """Initialize Supabase client."""
-        self._client = None
+        self._client: Any = None
         self._encryption_key = ENCRYPTION_KEY
         self._init_client()
 

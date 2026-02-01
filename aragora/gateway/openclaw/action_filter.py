@@ -605,7 +605,7 @@ class ActionFilter:
         self._audit_lock = threading.Lock()
 
         # Statistics
-        self._stats = {
+        self._stats: dict[str, Any] = {
             "total_checks": 0,
             "allowed": 0,
             "blocked": 0,
