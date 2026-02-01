@@ -28,8 +28,22 @@ except ImportError:
     HTTPX_AVAILABLE = False
 
 from aragora.connectors.exceptions import (
+    ConnectorError,
     classify_connector_error,
 )
+
+
+def _classify_telegram_error(
+    error_str: str,
+    error_code: int | None = None,
+) -> ConnectorError:
+    """Classify a Telegram API error into a typed ConnectorError."""
+    return classify_connector_error(
+        error_str,
+        connector_name="telegram",
+        status_code=error_code,
+    )
+
 
 # Distributed tracing support
 try:
