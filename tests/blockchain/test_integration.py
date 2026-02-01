@@ -7,7 +7,7 @@ components without requiring actual blockchain connectivity.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 import pytest
 
 
@@ -59,26 +59,12 @@ class TestBlockchainIntegration:
     @pytest.mark.asyncio
     async def test_adapter_to_handler_flow(self, mock_web3_environment, sample_agent_identities):
         """Test data flow from adapter to handler."""
-        from aragora.knowledge.mound.adapters.erc8004_adapter import ERC8004Adapter
         from aragora.server.handlers.erc8004 import ERC8004Handler
 
-        with patch.object(ERC8004Adapter, "__init__", lambda self, **kw: None):
-            mock_adapter = MagicMock(spec=ERC8004Adapter)
-            mock_adapter.search = AsyncMock(
-                return_value=[
-                    MagicMock(
-                        id=f"identity:1:{a['token_id']}",
-                        title=a["agent_name"],
-                    )
-                    for a in sample_agent_identities
-                ]
-            )
+        handler = ERC8004Handler({"blockchain_enabled": True})
 
-            with patch("aragora.server.handlers.erc8004.ERC8004Adapter", return_value=mock_adapter):
-                handler = ERC8004Handler({"blockchain_enabled": True})
-
-                # Verify handler can use adapter
-                # The actual test depends on handler implementation
+        assert handler.can_handle("/api/v1/blockchain/agents")
+        assert handler.can_handle("/api/v1/blockchain/config")
 
     @pytest.mark.asyncio
     async def test_bridge_links_registry_to_chain(
@@ -94,26 +80,18 @@ class TestBlockchainIntegration:
             blockchain_agent_id=None,
         )
 
-        with patch(
-            "aragora.control_plane.blockchain_identity.ERC8004Connector"
-        ) as mock_connector_cls:
-            mock_connector = MagicMock()
-            mock_connector.fetch.return_value = MagicMock(
-                id="identity:1:42",
-                metadata={
-                    "token_id": 42,
-                    "owner": sample_agent_identity["owner"],
-                },
-            )
-            mock_connector_cls.return_value = mock_connector
+        with patch.object(BlockchainIdentityBridge, "_get_identity_contract") as mock_get_contract:
+            mock_contract = MagicMock()
+            mock_contract.get_agent.return_value = MagicMock(owner=sample_agent_identity["owner"])
+            mock_get_contract.return_value = mock_contract
 
-            bridge = BlockchainIdentityBridge(registry=mock_registry)
+            bridge = BlockchainIdentityBridge(agent_registry=mock_registry)
             result = await bridge.link_agent(
                 aragora_agent_id="agent_123",
-                blockchain_token_id=42,
+                token_id=42,
             )
 
-            assert result["linked"] is True
+            assert result.verified is True
 
 
 class TestBlockchainFactoryIntegration:

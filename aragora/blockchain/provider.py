@@ -21,11 +21,15 @@ logger = logging.getLogger(__name__)
 
 # Lazy web3 import to keep blockchain optional
 _web3_available: bool | None = None
+Web3: Any | None = None
 
 
 def _check_web3() -> bool:
     """Check if web3 is available."""
     global _web3_available
+    if Web3 is not None:
+        _web3_available = True
+        return True
     if _web3_available is None:
         try:
             import web3  # noqa: F401
@@ -171,7 +175,11 @@ class Web3Provider:
             ConnectionError: If no healthy RPC endpoints are available.
         """
         _require_web3()
-        from web3 import Web3
+        global Web3
+        if Web3 is None:
+            from web3 import Web3 as Web3Class
+
+            Web3 = Web3Class
 
         cid = chain_id or self.default_chain_id
         config = self.configs.get(cid)

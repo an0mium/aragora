@@ -38,7 +38,9 @@ def _reset_storage_guard_config():
 @pytest.fixture
 def mock_audit_log(tmp_path):
     """Create a real AuditLog backed by a temporary SQLite database."""
-    db_path = tmp_path / "test_audit.db"
+    from uuid import uuid4
+
+    db_path = tmp_path / f"test_audit_{uuid4().hex}.db"
     audit = AuditLog(db_path=db_path)
     return audit
 

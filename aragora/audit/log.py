@@ -301,12 +301,11 @@ class SQLiteBackend:
     Each async context gets its own connection to the database.
     """
 
-    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
-        "sqlite_audit_conn", default=None
-    )
-
     def __init__(self, db_path: Path):
         self.db_path = db_path
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"sqlite_audit_conn_{id(self)}", default=None
+        )
         self._connections: list[sqlite3.Connection] = []
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -361,12 +360,11 @@ class SQLiteBackend:
 class PostgreSQLBackend:
     """PostgreSQL backend for audit log storage (enterprise deployments)."""
 
-    _conn_var: contextvars.ContextVar[Any] = contextvars.ContextVar(
-        "postgres_audit_conn", default=None
-    )
-
     def __init__(self, database_url: str):
         self.database_url = database_url
+        self._conn_var: contextvars.ContextVar[Any] = contextvars.ContextVar(
+            f"postgres_audit_conn_{id(self)}", default=None
+        )
         self._connections: list[Any] = []
 
     def _get_connection(self) -> Any:
