@@ -168,17 +168,21 @@ class AnalyticsMetricsHandler(SecureHandler):
         client_ip = get_client_ip(handler)
         if not _analytics_metrics_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for analytics metrics: {client_ip}")
-            return error_response("Rate limit exceeded. Please try again later.", 429)
+            return error_response(
+                "Rate limit exceeded. Please try again later.",
+                429,
+                code="RATE_LIMIT_EXCEEDED",
+            )
 
         # RBAC: Require authentication and analytics:read permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
             self.check_permission(auth_context, ANALYTICS_METRICS_PERMISSION)
         except UnauthorizedError:
-            return error_response("Authentication required", 401)
+            return error_response("Authentication required", 401, code="AUTH_REQUIRED")
         except ForbiddenError as e:
             logger.warning(f"Analytics metrics access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response(str(e), 403, code="PERMISSION_DENIED")
 
         # Debate Analytics
         if normalized == "/api/analytics/debates/overview":
@@ -878,13 +882,13 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         elo_system = self.get_elo_system()
         if not elo_system:
-            return error_response("ELO system not available", 503)
+            return error_response("ELO system not available", 503, code="SERVICE_UNAVAILABLE")
 
         # Get agent rating
         try:
             agent = elo_system.get_rating(agent_id)
         except (ValueError, KeyError):
-            return error_response(f"Agent not found: {agent_id}", 404)
+            return error_response(f"Agent not found: {agent_id}", 404, code="AGENT_NOT_FOUND")
 
         # Get ELO history
         elo_history = elo_system.get_elo_history(agent_id, limit=50)
@@ -979,17 +983,29 @@ class AnalyticsMetricsHandler(SecureHandler):
         """
         agents_param = query_params.get("agents", "")
         if not agents_param:
-            return error_response("agents parameter is required (comma-separated list)", 400)
+            return error_response(
+                "agents parameter is required (comma-separated list)",
+                400,
+                code="MISSING_AGENTS",
+            )
 
         agent_names = [a.strip() for a in agents_param.split(",") if a.strip()]
         if len(agent_names) < 2:
-            return error_response("At least 2 agents required for comparison", 400)
+            return error_response(
+                "At least 2 agents required for comparison",
+                400,
+                code="INSUFFICIENT_AGENTS",
+            )
         if len(agent_names) > 10:
-            return error_response("Maximum 10 agents allowed for comparison", 400)
+            return error_response(
+                "Maximum 10 agents allowed for comparison",
+                400,
+                code="TOO_MANY_AGENTS",
+            )
 
         elo_system = self.get_elo_system()
         if not elo_system:
-            return error_response("ELO system not available", 503)
+            return error_response("ELO system not available", 503, code="SERVICE_UNAVAILABLE")
 
         # Get ratings for all agents
         comparison = []
@@ -1079,7 +1095,7 @@ class AnalyticsMetricsHandler(SecureHandler):
 
         elo_system = self.get_elo_system()
         if not elo_system:
-            return error_response("ELO system not available", 503)
+            return error_response("ELO system not available", 503, code="SERVICE_UNAVAILABLE")
 
         # Get agents to track
         agents_param = query_params.get("agents", "")
@@ -1189,7 +1205,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         time_range = query_params.get("time_range", "30d")
         if time_range not in VALID_TIME_RANGES:
@@ -1284,7 +1300,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         time_range = query_params.get("time_range", "30d")
         if time_range not in VALID_TIME_RANGES:

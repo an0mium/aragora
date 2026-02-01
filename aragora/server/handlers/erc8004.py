@@ -87,7 +87,7 @@ def _get_adapter():
 )
 @require_permission("blockchain:read")
 @with_timeout(10.0)
-async def handle_blockchain_config() -> dict[str, Any]:
+async def handle_blockchain_config() -> HandlerResult:
     """Get blockchain configuration and connectivity status."""
     try:
         provider = _get_provider()
@@ -108,7 +108,7 @@ async def handle_blockchain_config() -> dict[str, Any]:
             }
         )
     except ImportError as e:
-        return error_response(str(e), status_code=501)
+        return error_response(str(e), status=501)
     except Exception as e:
         logger.error(f"Error getting blockchain config: {e}")
         return error_response(f"Configuration error: {str(e)}")

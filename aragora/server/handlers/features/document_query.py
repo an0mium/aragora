@@ -46,7 +46,9 @@ class DocumentQueryHandler(BaseHandler):
     @require_permission("documents:read")
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Handle GET requests - not supported for query endpoints."""
-        return error_response("Use POST method for document queries", 405)
+        return error_response(
+            "Use POST method for document queries", 405, code="METHOD_NOT_ALLOWED"
+        )
 
     @require_permission("documents:read")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:

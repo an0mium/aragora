@@ -1455,7 +1455,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting consensus rates: {e}")
-            return error_response(safe_error_message(e, "consensus rates"), 500)
+            return error_response(
+                safe_error_message(e, "consensus rates"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get deliberation performance")
@@ -1557,4 +1559,6 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting deliberation performance: {e}")
-            return error_response(safe_error_message(e, "deliberation performance"), 500)
+            return error_response(
+                safe_error_message(e, "deliberation performance"), 500, code="INTERNAL_ERROR"
+            )
