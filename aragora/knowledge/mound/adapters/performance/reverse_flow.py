@@ -36,8 +36,11 @@ class _ReverseFlowHostProtocol(Protocol):
     _km_adjustments_applied: int
 
 
-class ReverseFlowMixin(_ReverseFlowHostProtocol):
+class ReverseFlowMixin:
     """Mixin providing KM-to-ELO reverse flow methods.
+
+    NOTE: Does NOT inherit from Protocol to preserve cooperative inheritance.
+    Type checking uses _ReverseFlowHostProtocol via cast() as needed.
 
     Expects the following attributes on the host class:
     - _elo_system: Optional[EloSystem]
@@ -46,6 +49,13 @@ class ReverseFlowMixin(_ReverseFlowHostProtocol):
     - _applied_km_adjustments: list[EloAdjustmentRecommendation]
     - _km_adjustments_applied: int
     """
+
+    # Attribute declarations for mypy (provided by host class)
+    _elo_system: Optional[Any]
+    _km_patterns: dict[str, list[KMEloPattern]]
+    _pending_km_adjustments: list[EloAdjustmentRecommendation]
+    _applied_km_adjustments: list[EloAdjustmentRecommendation]
+    _km_adjustments_applied: int
 
     def _ReverseFlowMixin__init_reverse_flow_state(self) -> None:
         """Initialize state for reverse flow tracking."""

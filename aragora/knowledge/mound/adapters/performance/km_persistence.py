@@ -28,8 +28,10 @@ class _KMPersistenceHostProtocol(Protocol):
     _agent_domains: dict[str, list[str]]
 
 
-class KMPersistenceMixin(_KMPersistenceHostProtocol):
+class KMPersistenceMixin:
     """Mixin providing Knowledge Mound sync/load and conversion methods.
+
+    NOTE: Does NOT inherit from Protocol to preserve cooperative inheritance.
 
     Expects the following attributes on the host class:
     - EXPERTISE_PREFIX: str

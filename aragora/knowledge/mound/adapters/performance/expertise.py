@@ -37,8 +37,11 @@ class _ExpertiseHostProtocol(Protocol):
     _cache_ttl_seconds: float
 
 
-class ExpertiseMixin(_ExpertiseHostProtocol):
+class ExpertiseMixin:
     """Mixin providing expertise storage, retrieval, and caching methods.
+
+    NOTE: Does NOT inherit from Protocol to preserve cooperative inheritance.
+    Type checking uses _ExpertiseHostProtocol via cast() as needed.
 
     Expects the following attributes on the host class:
     - EXPERTISE_PREFIX: str
@@ -54,6 +57,20 @@ class ExpertiseMixin(_ExpertiseHostProtocol):
     - _cache_misses: int
     - _cache_ttl_seconds: float
     """
+
+    # Attribute declarations for mypy (provided by host class)
+    EXPERTISE_PREFIX: str
+    MIN_ELO_CHANGE: int
+    MIN_DEBATES_FOR_CONFIDENCE: int
+    DOMAIN_KEYWORDS: dict[str, list[str]]
+    _expertise: dict[str, dict[str, Any]]
+    _agent_history: dict[str, list[dict[str, Any]]]
+    _domain_agents: dict[str, list[str]]
+    _agent_domains: dict[str, list[str]]
+    _domain_experts_cache: dict[str, tuple[float, Any]]
+    _cache_hits: int
+    _cache_misses: int
+    _cache_ttl_seconds: float
 
     # =========================================================================
     # Expertise Storage Methods

@@ -153,6 +153,10 @@ class FusionMixin:
     # Expected from KnowledgeMoundAdapter or subclass
     adapter_name: str
 
+    # Methods expected from host class (defaults to no-op if not provided)
+    _emit_event: Any
+    _record_metric: Any
+
     # Fusion-specific state
     _fusion_state: FusionState
 

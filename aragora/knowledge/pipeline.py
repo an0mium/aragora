@@ -274,7 +274,7 @@ class KnowledgePipeline:
             try:
                 mound_config = self.config.mound_config or (MoundConfig() if MoundConfig else None)
                 if KnowledgeMound is not None and mound_config is not None:
-                    self._knowledge_mound = KnowledgeMound(
+                    self._knowledge_mound = KnowledgeMound( # type: ignore[abstract]
                         config=mound_config,
                         workspace_id=self.config.workspace_id,
                     )

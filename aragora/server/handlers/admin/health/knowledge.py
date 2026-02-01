@@ -79,7 +79,7 @@ class KnowledgeMixin:
         # 2. Check core mound initialization
         mound: KnowledgeMound | None = None
         try:
-            mound = KnowledgeMound(workspace_id="health_check")
+            mound = KnowledgeMound(workspace_id="health_check") # type: ignore[abstract]
 
             components["core"] = {
                 "healthy": True,

@@ -45,8 +45,10 @@ class _SearchHostProtocol(Protocol):
     def _get_record_by_id(self, record_id: str) -> Optional[dict[str, Any]]: ...
 
 
-class FusionImplementationMixin(_FusionHostProtocol):
+class FusionImplementationMixin:
     """Implements FusionMixin abstract methods for PerformanceAdapter.
+
+    NOTE: Does NOT inherit from Protocol to preserve cooperative inheritance.
 
     Expects the following attributes on the host class:
     - _emit_event(event_type, data): method for event emission
@@ -162,8 +164,10 @@ class FusionImplementationMixin(_FusionHostProtocol):
             return False
 
 
-class SemanticSearchImplementationMixin(_SemanticSearchHostProtocol):
+class SemanticSearchImplementationMixin:
     """Implements SemanticSearchMixin abstract methods for PerformanceAdapter.
+
+    NOTE: Does NOT inherit from Protocol to preserve cooperative inheritance.
 
     Expects the following attributes on the host class:
     - ELO_PREFIX: str
@@ -234,8 +238,10 @@ class SemanticSearchImplementationMixin(_SemanticSearchHostProtocol):
         return source_id
 
 
-class SearchMixin(_SearchHostProtocol):
+class SearchMixin:
     """Mixin providing search and record retrieval methods.
+
+    NOTE: Does NOT inherit from Protocol to preserve cooperative inheritance.
 
     Expects the following attributes on the host class:
     - _ratings: dict[str, dict[str, Any]]
