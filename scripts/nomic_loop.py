@@ -3395,9 +3395,14 @@ The most valuable proposals combine deep analysis with actionable implementation
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
 
+        # Check if hybrid implementation is enabled (default: yes)
+        # When ARAGORA_HYBRID_IMPLEMENT=0, skip convoy executor creation entirely
+        # This is used by nomic_eval.py for single-agent baseline evaluations
+        use_hybrid = os.environ.get("ARAGORA_HYBRID_IMPLEMENT", "1") == "1"
+
         # Create convoy executor for multi-agent implementation if available
         executor = getattr(self, "implement_executor", None)
-        if executor is None:
+        if executor is None and use_hybrid:
             try:
                 from aragora.nomic.convoy_executor import GastownConvoyExecutor
                 from aragora.nomic.debate_profile import NomicDebateProfile
@@ -3420,7 +3425,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             except ImportError:
                 pass
 
-        if executor is None:
+        if executor is None and use_hybrid:
             try:
                 from aragora.nomic.implement_executor import ConvoyImplementExecutor
                 from aragora.nomic.debate_profile import NomicDebateProfile
@@ -3440,6 +3445,9 @@ The most valuable proposals combine deep analysis with actionable implementation
                 )
             except ImportError:
                 pass
+
+        if not use_hybrid:
+            self._log("  [implement] Hybrid mode disabled, using legacy implementation")
 
         return ImplementPhase(
             aragora_path=self.aragora_path,
@@ -3481,6 +3489,11 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         When NomicContextBuilder is available, it also builds a TRUE RLM-powered
         codebase index for deep context that agents can query programmatically.
+
+        Single-Agent Mode:
+            When NOMIC_SINGLE_AGENT=1, only the target agent (specified by
+            NOMIC_SINGLE_AGENT_NAME) participates in context gathering.
+            This is used by nomic_eval.py for single-agent baseline evaluations.
         """
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
@@ -3498,14 +3511,66 @@ The most valuable proposals combine deep analysis with actionable implementation
         except ImportError:
             pass
 
+        # Determine agent assignments based on single-agent mode
+        claude_agent = getattr(self, "claude", None)
+        codex_agent = getattr(self, "codex", None)
+        gemini_agent = getattr(self, "gemini", None)
+        grok_agent = getattr(self, "grok", None)
+        kilocode_available = self._resolve_kilocode_available()
+        skip_kilocode = self._resolve_kilocode_skip()
+
+        # Single-agent mode: only pass the target agent to context phase
+        # This ensures context gathering uses only one agent for fair evaluation
+        if os.environ.get("NOMIC_SINGLE_AGENT", "0") == "1":
+            target_name = os.environ.get("NOMIC_SINGLE_AGENT_NAME", "").strip().lower()
+            self._log(f"  [context] Single-agent mode: target={target_name or 'first available'}")
+
+            # Map target names to agent attributes
+            agent_map = {
+                "claude": "claude",
+                "anthropic": "claude",
+                "anthropic-api": "claude",
+                "codex": "codex",
+                "openai": "codex",
+                "openai-api": "codex",
+                "gemini": "gemini",
+                "google": "gemini",
+                "grok": "grok",
+                "xai": "grok",
+            }
+
+            # Determine which agent to keep
+            target_attr = agent_map.get(target_name)
+            if target_attr:
+                # Null out non-target agents
+                if target_attr != "claude":
+                    claude_agent = None
+                if target_attr != "codex":
+                    codex_agent = None
+                if target_attr != "gemini":
+                    gemini_agent = None
+                if target_attr != "grok":
+                    grok_agent = None
+                # Disable kilocode if target is claude or codex (they use native CLI)
+                if target_attr in ("claude", "codex"):
+                    kilocode_available = False
+                    skip_kilocode = True
+            else:
+                # No valid target specified, use first available (claude or codex)
+                codex_agent = None
+                gemini_agent = None
+                grok_agent = None
+                kilocode_available = False
+                skip_kilocode = True
+
         return ContextPhase(
             aragora_path=self.aragora_path,
-            claude_agent=getattr(self, "claude", None),
-            codex_agent=getattr(self, "codex", None),
-            gemini_agent=getattr(self, "gemini", None),
-            grok_agent=getattr(self, "grok", None),
-            kilocode_available=self._resolve_kilocode_available(),
-            skip_kilocode=self._resolve_kilocode_skip(),
+            claude_agent=claude_agent,
+            codex_agent=codex_agent,
+            gemini_agent=gemini_agent,
+            grok_agent=grok_agent,
+            kilocode_available=kilocode_available,
+            skip_kilocode=skip_kilocode,
             kilocode_agent_factory=KiloCodeAgent,
             cycle_count=self.cycle_count,
             log_fn=self._log,
