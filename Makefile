@@ -15,6 +15,7 @@ help:
 	@echo "Testing:"
 	@echo "  make test         Run all tests"
 	@echo "  make test-fast    Run fast tests only (no slow/e2e/integration/benchmarks/load/performance)"
+	@echo "  make test-fast-log Run fast tests with tee'd log under .nomic/logs"
 	@echo "  make test-unit    Run unit tests only (fastest)"
 	@echo "  make test-core    Run core module tests (debate/core/memory)"
 	@echo "  make test-parallel Run tests in parallel (-n auto)"
@@ -64,6 +65,13 @@ test:
 
 test-fast:
 	pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load" --ignore=tests/integration --ignore=tests/benchmarks --ignore=tests/load --ignore=tests/performance
+
+test-fast-log:
+	@mkdir -p .nomic/logs
+	@LOG_FILE=.nomic/logs/test-fast-$$(date +%Y%m%d-%H%M%S).log; \
+		echo "Logging to $$LOG_FILE"; \
+		bash -lc 'set -o pipefail; pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load" --ignore=tests/integration --ignore=tests/benchmarks --ignore=tests/load --ignore=tests/performance 2>&1 | tee "$$LOG_FILE"'; \
+		echo "Done. Log: $$LOG_FILE"
 
 test-unit:
 	pytest tests/ -v --timeout=30 -m unit --ignore=tests/integration --ignore=tests/e2e -q
