@@ -9,6 +9,7 @@ Optionally checks the working tree for untracked artifacts.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 from pathlib import Path
 
@@ -33,6 +34,21 @@ TRACKED_SUFFIXES = (
     ".sqlite3",
     ".log",
 )
+
+
+def _get_data_dir(repo_root: Path) -> Path:
+    env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser().resolve()
+    return (repo_root / ".nomic").resolve()
+
+
+def _is_under(path: Path, base: Path) -> bool:
+    try:
+        path.resolve().relative_to(base.resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def _git_ls_files() -> list[str]:
@@ -84,6 +100,9 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    repo_root = Path(__file__).resolve().parents[1]
+    data_dir = _get_data_dir(repo_root)
+
     tracked = [path for path in _git_ls_files() if _matches(path)]
     if tracked:
         _report("Tracked runtime artifacts detected:", tracked)
@@ -92,6 +111,12 @@ def main() -> int:
 
     if args.check_working_tree:
         untracked = [path for path in _git_status_untracked() if _matches(path)]
+        # Ignore artifacts under ARAGORA_DATA_DIR
+        untracked = [
+            path
+            for path in untracked
+            if not _is_under(repo_root / path, data_dir)
+        ]
         if untracked:
             _report("Untracked runtime artifacts detected:", untracked)
             print("Move runtime data under .nomic/ or delete these artifacts.")

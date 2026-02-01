@@ -2006,7 +2006,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
         return path in self.ROUTES
 
     @rate_limit(requests_per_minute=30, limiter_name="teams_status")
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> "MaybeAsyncHandlerResult":
         """Route Teams requests with RBAC for status endpoint."""

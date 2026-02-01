@@ -118,7 +118,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         return path in self.ROUTES
 
     @rate_limit(requests_per_minute=30)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> "MaybeAsyncHandlerResult":
         """Route Zoom requests with RBAC for status endpoint."""

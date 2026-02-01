@@ -137,7 +137,7 @@ class ConfidenceDecayOperationsMixin:
             return error_response(f"Invalid event. Valid events: {valid_events}", status=400)
 
         try:
-            adjustment = await mound.record_confidence_event(
+            adjustment = await mound.record_confidence_event(  # type: ignore[misc]
                 item_id=item_id,
                 event=event_enum,
                 reason=reason,
@@ -202,7 +202,7 @@ class ConfidenceDecayOperationsMixin:
                 )
 
         try:
-            history = await mound.get_confidence_history(
+            history = await mound.get_confidence_history(  # type: ignore[misc]
                 item_id=item_id,
                 event_type=event_enum,
                 limit=limit,
@@ -238,7 +238,7 @@ class ConfidenceDecayOperationsMixin:
             return error_response("Knowledge mound not available", status=503)
 
         try:
-            stats = mound.get_decay_stats()
+            stats = mound.get_decay_stats()  # type: ignore[misc]
             return json_response(stats)
         except Exception as e:
             logger.error(f"Error getting decay stats: {e}")

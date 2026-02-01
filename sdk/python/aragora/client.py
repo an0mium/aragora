@@ -133,6 +133,7 @@ class AragoraClient:
         from .namespaces.genesis import GenesisAPI
         from .namespaces.gmail import GmailAPI
         from .namespaces.health import HealthAPI
+        from .namespaces.hybrid_debates import HybridDebatesAPI
         from .namespaces.inbox_command import InboxCommandAPI
         from .namespaces.insights import InsightsAPI
         from .namespaces.integrations import IntegrationsAPI
@@ -242,6 +243,7 @@ class AragoraClient:
         self.genesis = GenesisAPI(self)
         self.gmail = GmailAPI(self)
         self.health = HealthAPI(self)
+        self.hybrid_debates = HybridDebatesAPI(self)
         self.inbox_command = InboxCommandAPI(self)
         self.integrations = IntegrationsAPI(self)
         self.insights = InsightsAPI(self)
@@ -571,6 +573,7 @@ class AragoraAsyncClient:
         from .namespaces.genesis import AsyncGenesisAPI
         from .namespaces.gmail import AsyncGmailAPI
         from .namespaces.health import AsyncHealthAPI
+        from .namespaces.hybrid_debates import AsyncHybridDebatesAPI
         from .namespaces.inbox_command import AsyncInboxCommandAPI
         from .namespaces.insights import AsyncInsightsAPI
         from .namespaces.integrations import AsyncIntegrationsAPI
@@ -680,6 +683,7 @@ class AragoraAsyncClient:
         self.genesis = AsyncGenesisAPI(self)
         self.gmail = AsyncGmailAPI(self)
         self.health = AsyncHealthAPI(self)
+        self.hybrid_debates = AsyncHybridDebatesAPI(self)
         self.inbox_command = AsyncInboxCommandAPI(self)
         self.integrations = AsyncIntegrationsAPI(self)
         self.insights = AsyncInsightsAPI(self)

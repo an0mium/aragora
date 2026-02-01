@@ -695,7 +695,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         # No-op: HTTP sessions are managed by the HTTPClientPool
         pass
 
-    async def sync(
+    async def sync(  # type: ignore[override]
         self,
         full_sync: bool = False,
         batch_size: int = 100,

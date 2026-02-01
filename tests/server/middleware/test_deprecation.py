@@ -776,3 +776,319 @@ class TestVersioningConstants:
 
         assert headers["Sunset"] == V1_SUNSET_HTTP_DATE
         assert headers["X-API-Sunset"] == V1_SUNSET_ISO
+
+
+# =============================================================================
+# Additional Coverage Tests
+# =============================================================================
+
+
+class TestUsageTrackerSummaryLogging:
+    """Tests for V1UsageTracker periodic summary logging."""
+
+    def test_summary_logged_every_n_requests(self):
+        """Should log summary every _log_interval requests."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+        tracker._log_interval = 10
+
+        with patch("aragora.server.middleware.deprecation.logger") as mock_logger:
+            for i in range(10):
+                tracker.record(f"/api/v1/test{i}", "GET")
+
+            # Should have logged 10 warnings (one per record) + 1 info (summary)
+            assert mock_logger.info.call_count == 1
+
+    def test_summary_not_logged_before_interval(self):
+        """Should not log summary before reaching interval."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+        tracker._log_interval = 100
+
+        with patch("aragora.server.middleware.deprecation.logger") as mock_logger:
+            for i in range(5):
+                tracker.record("/api/v1/test", "GET")
+
+            assert mock_logger.info.call_count == 0
+
+    def test_summary_top_paths_limited(self):
+        """Summary should show top 10 paths."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+        tracker._log_interval = 50
+
+        with patch("aragora.server.middleware.deprecation.logger"):
+            for i in range(50):
+                tracker.record(f"/api/v1/endpoint{i}", "GET")
+
+        # get_stats returns top 20
+        stats = tracker.get_stats()
+        assert len(stats["top_endpoints"]) <= 20
+
+    def test_record_with_client_info(self):
+        """Should accept and log client info."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+
+        with patch("aragora.server.middleware.deprecation.logger") as mock_logger:
+            tracker.record("/api/v1/test", "GET", client_info="my-client-app")
+
+            call_args = mock_logger.warning.call_args
+            assert "my-client-app" in str(call_args)
+
+
+class TestGetV1DeprecationHeadersExtended:
+    """Extended tests for header generation edge cases."""
+
+    def test_headers_without_path_no_successor_version(self):
+        """Without path, Link should not include successor-version."""
+        from aragora.server.middleware.deprecation import get_v1_deprecation_headers
+
+        headers = get_v1_deprecation_headers()
+        assert 'rel="successor-version"' not in headers["Link"]
+
+    def test_headers_with_non_v1_path_no_successor(self):
+        """With path not starting with /api/v1/, no successor link."""
+        from aragora.server.middleware.deprecation import get_v1_deprecation_headers
+
+        headers = get_v1_deprecation_headers(path="/api/v2/debates")
+        assert 'rel="successor-version"' not in headers["Link"]
+
+    def test_headers_v2_equivalent_for_nested_path(self):
+        """Should compute correct v2 equivalent for nested paths."""
+        from aragora.server.middleware.deprecation import get_v1_deprecation_headers
+
+        headers = get_v1_deprecation_headers(path="/api/v1/debates/123/rounds/4")
+        assert "/api/v2/debates/123/rounds/4" in headers["Link"]
+
+    def test_all_required_headers_present(self):
+        """All 7 required deprecation headers should be present."""
+        from aragora.server.middleware.deprecation import get_v1_deprecation_headers
+
+        headers = get_v1_deprecation_headers()
+
+        required = {
+            "Sunset", "Deprecation", "Link",
+            "X-API-Version", "X-API-Version-Warning",
+            "X-API-Sunset", "X-Deprecation-Level",
+        }
+        assert required.issubset(headers.keys())
+
+    def test_critical_level_urgent_warning(self):
+        """Should produce urgent warning at critical level."""
+        from aragora.server.middleware.deprecation import get_v1_deprecation_headers
+
+        with patch("aragora.server.middleware.deprecation.deprecation_level", return_value="critical"):
+            with patch("aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=15):
+                headers = get_v1_deprecation_headers()
+
+                assert "URGENT" in headers["X-API-Version-Warning"]
+                assert "15 days" in headers["X-API-Version-Warning"]
+
+    def test_sunset_level_warning_message(self):
+        """Should produce sunset warning at sunset level."""
+        from aragora.server.middleware.deprecation import get_v1_deprecation_headers
+
+        with patch("aragora.server.middleware.deprecation.deprecation_level", return_value="sunset"):
+            with patch("aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=-5):
+                headers = get_v1_deprecation_headers()
+
+                assert "passed its sunset date" in headers["X-API-Version-Warning"]
+
+    def test_warning_level_standard_message(self):
+        """Should produce standard warning at warning level."""
+        from aragora.server.middleware.deprecation import get_v1_deprecation_headers
+
+        with patch("aragora.server.middleware.deprecation.deprecation_level", return_value="warning"):
+            with patch("aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=120):
+                headers = get_v1_deprecation_headers()
+
+                assert "deprecated" in headers["X-API-Version-Warning"].lower()
+                assert "URGENT" not in headers["X-API-Version-Warning"]
+
+
+class TestIsV1RequestExtended:
+    """Extended tests for v1 path detection."""
+
+    def test_v1_with_trailing_slash(self):
+        """Should detect /api/v1/ with trailing slash."""
+        from aragora.server.middleware.deprecation import is_v1_request
+
+        assert is_v1_request("/api/v1/") is True
+
+    def test_v1_with_deep_nesting(self):
+        """Should detect deeply nested v1 paths."""
+        from aragora.server.middleware.deprecation import is_v1_request
+
+        assert is_v1_request("/api/v1/debates/123/rounds/4/votes") is True
+
+    def test_v1_case_sensitive(self):
+        """Path matching should be case-sensitive."""
+        from aragora.server.middleware.deprecation import is_v1_request
+
+        assert is_v1_request("/API/V1/debates") is False
+        assert is_v1_request("/Api/V1/debates") is False
+
+    def test_v1_with_special_characters(self):
+        """Should handle special characters in path."""
+        from aragora.server.middleware.deprecation import is_v1_request
+
+        assert is_v1_request("/api/v1/debates?q=test&page=1") is True
+
+
+class TestInjectV1DeprecationHeadersExtended:
+    """Extended tests for header injection."""
+
+    def test_inject_overwrites_existing_headers(self):
+        """Should overwrite existing deprecation headers."""
+        from aragora.server.middleware.deprecation import inject_v1_deprecation_headers
+
+        headers = {"Sunset": "old-value", "X-API-Version": "old"}
+        inject_v1_deprecation_headers(headers)
+
+        assert headers["Sunset"] != "old-value"
+        assert headers["X-API-Version"] == "v1"
+
+    def test_inject_preserves_non_deprecation_headers(self):
+        """Should not remove non-deprecation headers."""
+        from aragora.server.middleware.deprecation import inject_v1_deprecation_headers
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-Custom-Header": "custom",
+        }
+        inject_v1_deprecation_headers(headers)
+
+        assert headers["Content-Type"] == "application/json"
+        assert headers["X-Custom-Header"] == "custom"
+        assert "Sunset" in headers
+
+
+class TestUsageTrackerStats:
+    """Tests for V1UsageTracker.get_stats edge cases."""
+
+    def test_get_stats_includes_all_fields(self):
+        """get_stats should include all expected fields."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+        stats = tracker.get_stats()
+
+        required_fields = {
+            "total_v1_requests",
+            "top_endpoints",
+            "requests_by_method",
+            "tracking_since",
+            "last_request",
+            "days_until_sunset",
+            "deprecation_level",
+            "sunset_date",
+        }
+        assert required_fields.issubset(stats.keys())
+
+    def test_get_stats_tracking_since_set_at_init(self):
+        """tracking_since should be set at initialization time."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        before = time.time()
+        tracker = V1UsageTracker()
+        after = time.time()
+
+        stats = tracker.get_stats()
+        assert before <= stats["tracking_since"] <= after
+
+    def test_get_stats_last_request_zero_initially(self):
+        """last_request should be 0 before any requests."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+        stats = tracker.get_stats()
+        assert stats["last_request"] == 0.0
+
+    def test_get_stats_methods_are_regular_dict(self):
+        """requests_by_method should be a regular dict."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+        tracker.record("/api/v1/test", "GET")
+        tracker.record("/api/v1/test", "POST")
+
+        stats = tracker.get_stats()
+        assert isinstance(stats["requests_by_method"], dict)
+        assert stats["requests_by_method"]["GET"] == 1
+        assert stats["requests_by_method"]["POST"] == 1
+
+    def test_top_endpoints_limited_to_20(self):
+        """Top endpoints should be limited to 20."""
+        from aragora.server.middleware.deprecation import V1UsageTracker
+
+        tracker = V1UsageTracker()
+        for i in range(30):
+            tracker.record(f"/api/v1/endpoint{i}", "GET")
+
+        stats = tracker.get_stats()
+        assert len(stats["top_endpoints"]) == 20
+
+
+class TestAddV1HeadersToHandlerExtended:
+    """Extended tests for BaseHTTPRequestHandler support."""
+
+    def test_adds_all_seven_headers(self):
+        """Should add all 7 deprecation headers."""
+        from aragora.server.middleware.deprecation import add_v1_headers_to_handler
+
+        handler = MagicMock()
+        handler.send_header = MagicMock()
+
+        with patch.dict(os.environ, {}, clear=True):
+            add_v1_headers_to_handler(handler, "/api/v1/debates")
+
+        assert handler.send_header.call_count == 7
+
+        header_names = [call[0][0] for call in handler.send_header.call_args_list]
+        assert "Sunset" in header_names
+        assert "Deprecation" in header_names
+        assert "Link" in header_names
+        assert "X-API-Version" in header_names
+        assert "X-API-Version-Warning" in header_names
+        assert "X-API-Sunset" in header_names
+        assert "X-Deprecation-Level" in header_names
+
+    def test_skips_root_path(self):
+        """Should not add headers for root path."""
+        from aragora.server.middleware.deprecation import add_v1_headers_to_handler
+
+        handler = MagicMock()
+        add_v1_headers_to_handler(handler, "/")
+        handler.send_header.assert_not_called()
+
+    def test_skips_health_endpoint(self):
+        """Should not add headers for health endpoint."""
+        from aragora.server.middleware.deprecation import add_v1_headers_to_handler
+
+        handler = MagicMock()
+        add_v1_headers_to_handler(handler, "/healthz")
+        handler.send_header.assert_not_called()
+
+
+class TestV1PathRegex:
+    """Tests for the V1 path regex pattern."""
+
+    def test_regex_pattern_anchored_to_start(self):
+        """Regex should be anchored to the start of the string."""
+        from aragora.server.middleware.deprecation import _V1_PATH_RE
+
+        assert _V1_PATH_RE.pattern.startswith("^")
+
+    def test_regex_requires_api_v1(self):
+        """Regex should require /api/v1."""
+        from aragora.server.middleware.deprecation import _V1_PATH_RE
+
+        assert _V1_PATH_RE.match("/api/v1/") is not None
+        assert _V1_PATH_RE.match("/api/v1") is not None
+        assert _V1_PATH_RE.match("/api/v2/") is None
+        assert _V1_PATH_RE.match("/api/") is None

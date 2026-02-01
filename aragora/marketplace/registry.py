@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Generator, Optional
 
+from aragora.config import resolve_db_path
+
 from .models import (
     AgentTemplate,
     DebateTemplate,
@@ -35,7 +37,7 @@ class TemplateRegistry:
     def __init__(self, db_path: Path | None = None):
         """Initialize the template registry."""
         if db_path is None:
-            db_path = Path.home() / ".aragora" / "marketplace.db"
+            db_path = Path(resolve_db_path("marketplace.db"))
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()

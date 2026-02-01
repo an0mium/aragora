@@ -601,7 +601,7 @@ class RabbitMQConnector(EnterpriseConnector):
             _channel=message.channel,
         )
 
-    async def sync(self, batch_size: int | None = None) -> AsyncIterator[SyncItem]:
+    async def sync(self, batch_size: int | None = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync messages as SyncItems for Knowledge Mound ingestion.
 

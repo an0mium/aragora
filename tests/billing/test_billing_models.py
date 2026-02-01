@@ -1112,8 +1112,10 @@ class TestPasswordHashingExtended:
         """Test hash_password raises ConfigurationError when bcrypt missing and insecure not allowed."""
         from aragora.exceptions import ConfigurationError
 
-        with patch("aragora.billing.models.HAS_BCRYPT", False), \
-             patch("aragora.billing.models.ALLOW_INSECURE_PASSWORDS", False):
+        with (
+            patch("aragora.billing.models.HAS_BCRYPT", False),
+            patch("aragora.billing.models.ALLOW_INSECURE_PASSWORDS", False),
+        ):
             with pytest.raises(ConfigurationError):
                 hash_password("test_password")
 
@@ -1168,8 +1170,10 @@ class TestPasswordHashingExtended:
     @patch.dict(os.environ, {"ARAGORA_ALLOW_INSECURE_PASSWORDS": "1"})
     def test_hash_password_sha256_fallback_produces_prefixed_hash(self):
         """Test SHA-256 fallback produces properly prefixed hash."""
-        with patch("aragora.billing.models.HAS_BCRYPT", False), \
-             patch("aragora.billing.models.ALLOW_INSECURE_PASSWORDS", True):
+        with (
+            patch("aragora.billing.models.HAS_BCRYPT", False),
+            patch("aragora.billing.models.ALLOW_INSECURE_PASSWORDS", True),
+        ):
             from aragora.billing.models import _hash_password_sha256
 
             legacy_hash, salt = _hash_password_sha256("test")
@@ -1644,7 +1648,9 @@ class TestSubscriptionExtended:
             ("past_due", False),
         ]:
             sub = Subscription(status=status)
-            assert sub.is_active is expected_active, f"Status '{status}' expected active={expected_active}"
+            assert sub.is_active is expected_active, (
+                f"Status '{status}' expected active={expected_active}"
+            )
 
 
 # =============================================================================
@@ -1802,7 +1808,11 @@ class TestTierLimitsExtended:
 
     def test_tier_limits_default_enterprise_features(self):
         """Test default enterprise features are False for standard tiers."""
-        for tier in [SubscriptionTier.FREE, SubscriptionTier.STARTER, SubscriptionTier.PROFESSIONAL]:
+        for tier in [
+            SubscriptionTier.FREE,
+            SubscriptionTier.STARTER,
+            SubscriptionTier.PROFESSIONAL,
+        ]:
             limits = TIER_LIMITS[tier]
             assert limits.dedicated_infrastructure is False
             assert limits.sla_guarantee is False
@@ -1826,7 +1836,7 @@ class TestTierLimitsExtended:
             lower = TIER_LIMITS[tier_order[i]].price_monthly_cents
             higher = TIER_LIMITS[tier_order[i + 1]].price_monthly_cents
             assert higher > lower, (
-                f"{tier_order[i+1].value} price ({higher}) should be greater "
+                f"{tier_order[i + 1].value} price ({higher}) should be greater "
                 f"than {tier_order[i].value} price ({lower})"
             )
 

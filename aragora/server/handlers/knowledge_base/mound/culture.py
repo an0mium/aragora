@@ -118,7 +118,7 @@ class CultureOperationsMixin:
                 metadata={"document_type": document_type, **metadata},
             )
 
-            node_id = _run_async(mound.add_node(node))
+            node_id = _run_async(mound.add_node(node))  # type: ignore[misc]
         except Exception as e:
             logger.error(f"Failed to add culture document: {e}")
             return error_response(f"Failed to add culture document: {e}", 500)
@@ -160,7 +160,7 @@ class CultureOperationsMixin:
             from aragora.memory.tier_manager import MemoryTier
 
             updated = _run_async(
-                mound.update(
+                mound.update(  # type: ignore[misc]
                     node_id,
                     {
                         "node_type": "culture",

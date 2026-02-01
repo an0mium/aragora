@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast, TYPE_CHECKING
 
+from aragora.config import resolve_db_path
+
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -445,9 +447,8 @@ def get_batch_job_store() -> BatchJobStore:
         db_path = Path(db_override)
         db_path.parent.mkdir(parents=True, exist_ok=True)
     else:
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora")))
-        data_dir.mkdir(parents=True, exist_ok=True)
-        db_path = data_dir / "explainability_batch_jobs.db"
+        db_path = Path(resolve_db_path("explainability_batch_jobs.db"))
+        db_path.parent.mkdir(parents=True, exist_ok=True)
 
     def _require_distributed(mode: str, reason: str) -> None:
         from aragora.storage.production_guards import require_distributed_store, StorageMode

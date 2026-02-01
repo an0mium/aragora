@@ -478,7 +478,7 @@ Use `aragora.config.resolve_db_path()` to keep legacy SQLite files under
 If you ran Aragora in the repo root, stray `.db` files may land there. Move them under `ARAGORA_DATA_DIR` with:
 
 ```bash
-scripts/cleanup_runtime_artifacts.sh
+python scripts/cleanup_runtime_artifacts.py --apply
 ```
 
 ## Receipt Retention

@@ -22,6 +22,7 @@ services:
       # Database
       - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD:-aragora}@db:5432/aragora
       - ARAGORA_POSTGRES_DSN=postgresql://aragora:${POSTGRES_PASSWORD:-aragora}@db:5432/aragora
+      - ARAGORA_DATA_DIR=/app/data
       # Redis
       - ARAGORA_REDIS_URL=redis://redis:6379
       # Server settings

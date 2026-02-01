@@ -106,8 +106,12 @@ logger = get_structured_logger(__name__)
 # TYPE_CHECKING imports for type hints without runtime import overhead
 if TYPE_CHECKING:
     from aragora.debate.checkpoint_manager import CheckpointManager
+    from aragora.debate.checkpoint_ops import CheckpointOperations
     from aragora.debate.context_gatherer import ContextGatherer
+    from aragora.debate.event_emission import EventEmitter as _EventEmitter
+    from aragora.debate.lifecycle_manager import LifecycleManager
     from aragora.debate.memory_manager import MemoryManager
+    from aragora.debate.state_cache import DebateStateCache
     from aragora.debate.phases import (
         AnalyticsPhase,
         ConsensusPhase,
@@ -120,7 +124,7 @@ if TYPE_CHECKING:
     from aragora.debate.prompt_builder import PromptBuilder
     from aragora.debate.revalidation_scheduler import RevalidationScheduler
     from aragora.debate.strategy import DebateStrategy
-    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.knowledge.mound.facade import KnowledgeMound
     from aragora.memory.consensus import ConsensusMemory
     from aragora.memory.continuum import ContinuumMemory
     from aragora.ml.delegation import MLDelegationStrategy
@@ -195,6 +199,12 @@ class Arena(ArenaDelegatesMixin):
     consensus_phase: "ConsensusPhase"
     analytics_phase: "AnalyticsPhase"
     feedback_phase: "FeedbackPhase"
+
+    # Lifecycle/cache attributes (initialized by orchestrator_lifecycle helpers)
+    _cache: "DebateStateCache"
+    _lifecycle: "LifecycleManager"
+    _event_emitter: "_EventEmitter"
+    _checkpoint_ops: "CheckpointOperations"
 
     # Convergence attributes (initialized by orchestrator_convergence.init_convergence)
     convergence_detector: Optional[Any]

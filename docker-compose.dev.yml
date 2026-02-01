@@ -43,6 +43,7 @@ services:
       - ARAGORA_PORT=8080
       - ARAGORA_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000
       - ARAGORA_CANONICAL_STORE_PERSIST=1
+      - ARAGORA_DATA_DIR=/app/data
       - ARAGORA_STORE_DIR=/app/data/.aragora_beads
       # Redis
       - REDIS_URL=redis://redis:6379/0

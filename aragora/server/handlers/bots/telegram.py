@@ -170,7 +170,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         }
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> "MaybeAsyncHandlerResult":
         """Route Telegram GET requests with RBAC for status endpoint."""

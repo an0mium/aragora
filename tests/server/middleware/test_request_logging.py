@@ -960,3 +960,339 @@ class TestEdgeCases:
 
         ip = _extract_ip(mock_request)
         assert ip == "192.168.1.1"  # Should be trimmed
+
+    def test_x_forwarded_for_single_ip(self):
+        """Should handle single IP in X-Forwarded-For."""
+        from aragora.server.middleware.request_logging import _extract_ip
+
+        mock_request = MagicMock()
+        mock_request.headers = MagicMock()
+        mock_request.headers.get = lambda k, d="": (
+            "10.0.0.5" if k == "X-Forwarded-For" else d
+        )
+
+        ip = _extract_ip(mock_request)
+        assert ip == "10.0.0.5"
+
+    def test_transport_peername_none(self):
+        """Should return unknown when transport peername is None."""
+        from aragora.server.middleware.request_logging import _extract_ip
+
+        mock_request = MagicMock()
+        mock_request.headers = MagicMock()
+        mock_request.headers.get = lambda k, d="": ""
+        del mock_request.remote
+
+        mock_transport = MagicMock()
+        mock_transport.get_extra_info.return_value = None
+        mock_request.transport = mock_transport
+
+        ip = _extract_ip(mock_request)
+        assert ip == "unknown"
+
+    def test_request_context_elapsed_at_zero(self):
+        """elapsed_ms should be near zero right after creation."""
+        from aragora.server.middleware.request_logging import RequestContext
+
+        ctx = RequestContext(
+            request_id="req-imm",
+            method="GET",
+            path="/",
+            client_ip="127.0.0.1",
+            start_time=time.time(),
+        )
+
+        elapsed = ctx.elapsed_ms()
+        assert elapsed < 100  # Should be very small
+
+    def test_log_response_custom_log_level(self, caplog):
+        """Should respect custom log level for response."""
+        from aragora.server.middleware.request_logging import RequestContext, log_response
+
+        ctx = RequestContext(
+            request_id="req-custom",
+            method="GET",
+            path="/api/test",
+            client_ip="127.0.0.1",
+            start_time=time.time(),
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            log_response(ctx, status_code=200, log_level=logging.DEBUG)
+
+        assert caplog.records[0].levelno == logging.DEBUG
+
+    def test_log_response_3xx_is_info(self, caplog):
+        """3xx responses should be logged at INFO level."""
+        from aragora.server.middleware.request_logging import RequestContext, log_response
+
+        ctx = RequestContext(
+            request_id="req-redirect",
+            method="GET",
+            path="/api/redirect",
+            client_ip="127.0.0.1",
+            start_time=time.time(),
+        )
+
+        with caplog.at_level(logging.INFO):
+            log_response(ctx, status_code=301)
+
+        assert caplog.records[0].levelno == logging.INFO
+
+    def test_log_response_404_is_warning(self, caplog):
+        """404 responses should be logged at WARNING level."""
+        from aragora.server.middleware.request_logging import RequestContext, log_response
+
+        ctx = RequestContext(
+            request_id="req-notfound",
+            method="GET",
+            path="/api/missing",
+            client_ip="127.0.0.1",
+            start_time=time.time(),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            log_response(ctx, status_code=404)
+
+        assert caplog.records[0].levelno == logging.WARNING
+
+    def test_log_response_429_is_warning(self, caplog):
+        """429 responses should be logged at WARNING level."""
+        from aragora.server.middleware.request_logging import RequestContext, log_response
+
+        ctx = RequestContext(
+            request_id="req-ratelimited",
+            method="POST",
+            path="/api/debates",
+            client_ip="127.0.0.1",
+            start_time=time.time(),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            log_response(ctx, status_code=429)
+
+        assert caplog.records[0].levelno == logging.WARNING
+
+    def test_log_request_no_query_params(self, caplog):
+        """Should handle None query_params."""
+        from aragora.server.middleware.request_logging import RequestContext, log_request
+
+        ctx = RequestContext(
+            request_id="req-noq",
+            method="GET",
+            path="/api/test",
+            client_ip="127.0.0.1",
+            start_time=time.time(),
+        )
+
+        with caplog.at_level(logging.INFO):
+            log_request(ctx, query_params=None, headers=None)
+
+        assert len(caplog.records) == 1
+
+    def test_sanitize_set_cookie_header(self):
+        """Should mask Set-Cookie header value."""
+        from aragora.server.middleware.request_logging import sanitize_headers
+
+        headers = {"Set-Cookie": "session=very-long-secret-session-id-here"}
+        sanitized = sanitize_headers(headers)
+
+        assert "****" in sanitized["Set-Cookie"]
+        assert "very-long-secret" not in sanitized["Set-Cookie"]
+
+    def test_sanitize_x_auth_token_header(self):
+        """Should mask X-Auth-Token header value."""
+        from aragora.server.middleware.request_logging import sanitize_headers
+
+        headers = {"X-Auth-Token": "auth-token-123456789"}
+        sanitized = sanitize_headers(headers)
+
+        assert "****" in sanitized["X-Auth-Token"]
+
+    def test_sanitize_secret_param(self):
+        """Should mask 'secret' query parameter."""
+        from aragora.server.middleware.request_logging import sanitize_params
+
+        params = {"secret": "my-secret-value"}
+        sanitized = sanitize_params(params)
+
+        assert sanitized["secret"] == "****"
+
+    def test_mask_single_character_value(self):
+        """Should fully mask single character value."""
+        from aragora.server.middleware.request_logging import mask_sensitive_value
+
+        masked = mask_sensitive_value("x")
+        assert masked == "****"
+
+    def test_hash_token_hex_output(self):
+        """Hash token should return hex characters only."""
+        from aragora.server.middleware.request_logging import hash_token
+
+        hashed = hash_token("test-api-key")
+        assert all(c in "0123456789abcdef" for c in hashed)
+
+    def test_sanitize_headers_preserves_order(self):
+        """Should preserve header key names exactly."""
+        from aragora.server.middleware.request_logging import sanitize_headers
+
+        headers = {"Content-Type": "text/html", "X-Custom": "value"}
+        sanitized = sanitize_headers(headers)
+
+        assert set(sanitized.keys()) == {"Content-Type", "X-Custom"}
+
+    def test_decorator_async_logs_errors(self, caplog):
+        """Async decorator should log exceptions as 500."""
+        from aragora.server.middleware.request_logging import request_logging
+
+        @request_logging()
+        async def handler(self, request):
+            raise RuntimeError("Async error")
+
+        mock_request = MagicMock()
+        mock_request.method = "POST"
+        mock_request.path = "/api/async-error"
+        mock_request.headers = {}
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(RuntimeError):
+                asyncio.run(handler(None, mock_request))
+
+    def test_decorator_adds_request_id_to_response(self):
+        """Async decorator should add X-Request-ID to response headers."""
+        from aragora.server.middleware.request_logging import request_logging
+
+        @request_logging()
+        async def handler(self, request):
+            response = MagicMock()
+            response.status = 200
+            response.content_length = 100
+            response.headers = {}
+            return response
+
+        mock_request = MagicMock()
+        mock_request.method = "GET"
+        mock_request.path = "/api/test"
+        mock_request.headers = {}
+
+        result = asyncio.run(handler(None, mock_request))
+        assert "X-Request-ID" in result.headers
+
+    def test_decorator_respects_existing_request_id_async(self):
+        """Async decorator should use existing X-Request-ID from headers."""
+        from aragora.server.middleware.request_logging import request_logging
+
+        @request_logging()
+        async def handler(self, request):
+            response = MagicMock()
+            response.status = 200
+            response.content_length = None
+            response.headers = {}
+            return response
+
+        mock_request = MagicMock()
+        mock_request.method = "GET"
+        mock_request.path = "/api/test"
+        mock_request.headers = {"X-Request-ID": "custom-req-id-42"}
+        mock_request.headers.get = lambda k, d=None: (
+            "custom-req-id-42" if k == "X-Request-ID" else
+            "" if k == "Authorization" else d
+        )
+
+        result = asyncio.run(handler(None, mock_request))
+        assert result.headers["X-Request-ID"] == "custom-req-id-42"
+
+    def test_decorator_handles_none_response(self):
+        """Should handle None response from handler."""
+        from aragora.server.middleware.request_logging import request_logging
+
+        @request_logging()
+        async def handler(self, request):
+            return None
+
+        mock_request = MagicMock()
+        mock_request.method = "GET"
+        mock_request.path = "/api/test"
+        mock_request.headers = {}
+
+        result = asyncio.run(handler(None, mock_request))
+        assert result is None
+
+    def test_decorator_sync_error_truncates_message(self, caplog):
+        """Sync decorator should truncate error message to 200 chars."""
+        from aragora.server.middleware.request_logging import request_logging
+
+        @request_logging()
+        def handler(self, request):
+            raise ValueError("x" * 500)
+
+        mock_request = MagicMock()
+        mock_request.method = "POST"
+        mock_request.path = "/api/test"
+        mock_request.headers = {}
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(ValueError):
+                handler(None, mock_request)
+
+    def test_decorator_sync_without_request(self):
+        """Sync handler called without request should use defaults."""
+        from aragora.server.middleware.request_logging import request_logging
+
+        @request_logging()
+        def handler(self):
+            return {"status": "ok"}
+
+        result = handler(None)
+        assert result == {"status": "ok"}
+
+    def test_set_and_get_request_id_roundtrip(self):
+        """Should roundtrip request ID through context variables."""
+        from aragora.server.middleware.request_logging import (
+            get_current_request_id,
+            set_current_request_id,
+        )
+
+        original = get_current_request_id()
+        try:
+            set_current_request_id("test-req-roundtrip")
+            assert get_current_request_id() == "test-req-roundtrip"
+
+            set_current_request_id("test-req-updated")
+            assert get_current_request_id() == "test-req-updated"
+        finally:
+            set_current_request_id(original)
+
+    def test_request_id_suffix_is_lowercase_hex(self):
+        """Request ID suffix should be lowercase hex characters."""
+        from aragora.server.middleware.request_logging import generate_request_id
+
+        for _ in range(50):
+            req_id = generate_request_id()
+            suffix = req_id[4:]  # After "req-"
+            assert all(c in "0123456789abcdef" for c in suffix)
+
+    def test_sanitize_mixed_sensitive_and_non_sensitive(self):
+        """Should correctly sanitize a mix of sensitive and non-sensitive headers."""
+        from aragora.server.middleware.request_logging import sanitize_headers
+
+        headers = {
+            "Authorization": "Bearer very-long-secret-bearer-token-here",
+            "Content-Type": "application/json",
+            "Cookie": "session=also-a-long-secret-session-value",
+            "Accept": "*/*",
+            "X-Api-Key": "api-key-should-be-masked-too",
+        }
+        sanitized = sanitize_headers(headers)
+
+        # Non-sensitive preserved
+        assert sanitized["Content-Type"] == "application/json"
+        assert sanitized["Accept"] == "*/*"
+
+        # Sensitive masked
+        assert "****" in sanitized["Authorization"]
+        assert "****" in sanitized["Cookie"]
+        assert "****" in sanitized["X-Api-Key"]
+
+        # Original not modified
+        assert headers["Authorization"] == "Bearer very-long-secret-bearer-token-here"

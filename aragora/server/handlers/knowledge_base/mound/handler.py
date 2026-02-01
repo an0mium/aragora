@@ -153,7 +153,7 @@ logger = logging.getLogger(__name__)
 _knowledge_limiter = RateLimiter(requests_per_minute=100)
 
 
-class _KnowledgeMoundMixins(
+class _KnowledgeMoundMixins(  # type: ignore[misc]
     NodeOperationsMixin,
     RelationshipOperationsMixin,
     GraphOperationsMixin,
@@ -178,7 +178,7 @@ class _KnowledgeMoundMixins(
     """Intermediate base combining all Knowledge Mound operation mixins."""
 
 
-class KnowledgeMoundHandler(
+class KnowledgeMoundHandler(  # type: ignore[misc]
     _KnowledgeMoundMixins,
     BaseHandler,
 ):

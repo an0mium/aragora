@@ -444,7 +444,7 @@ class PostgreSQLConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str) -> dict[str, Any] | None:
+    async def fetch(self, evidence_id: str) -> dict[str, Any] | None:  # type: ignore[override]
         """Fetch a specific row by evidence ID."""
         from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
 

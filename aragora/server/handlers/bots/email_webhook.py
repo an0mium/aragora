@@ -112,7 +112,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         }
 
     @rate_limit(requests_per_minute=30)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> "MaybeAsyncHandlerResult":
         """Route email GET requests with RBAC for status endpoint."""

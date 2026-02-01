@@ -162,7 +162,7 @@ class ERC8004Connector(BaseConnector):
             logger.debug(f"Health check failed: {e}")
             return False
 
-    async def search(
+    async def search(  # type: ignore[override]
         self,
         query: str,
         max_results: int = 10,

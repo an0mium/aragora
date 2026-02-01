@@ -34,6 +34,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Default retention: 90 days
@@ -115,9 +117,9 @@ class SLOHistoryStore:
 
     @staticmethod
     def _default_db_path() -> str:
-        data_dir = Path.home() / ".aragora" / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        return str(data_dir / "slo_history.db")
+        db_path = resolve_db_path("slo_history.db")
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        return str(db_path)
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:

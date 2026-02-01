@@ -11,6 +11,11 @@ Tests cover:
 - Double-submit cookie pattern validation
 - csrf_protect decorator functionality
 - Cookie header generation
+- Security edge cases (timing attacks, secret rotation, path traversal)
+- Handler method/path extraction fallbacks
+- Dict-style handler support
+- No-cookie and no-header edge cases
+- binascii error handling
 """
 
 from __future__ import annotations
@@ -121,6 +126,70 @@ class TestCSRFConfig:
         assert config.is_path_excluded("/api/webhooks/stripe") is True
         assert config.is_path_excluded("/api/debates") is False
 
+    def test_excluded_prefixes_from_environment(self):
+        """Should configure excluded prefixes from environment variable."""
+        from aragora.server.middleware.csrf import CSRFConfig
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_CSRF_EXCLUDED_PREFIXES": "/internal/,/metrics/"},
+            clear=True,
+        ):
+            config = CSRFConfig()
+            assert "/internal/" in config.excluded_prefixes
+            assert "/metrics/" in config.excluded_prefixes
+
+    def test_enabled_with_various_truthy_values(self):
+        """Should recognize various truthy values for CSRF enabled."""
+        from aragora.server.middleware.csrf import CSRFConfig
+
+        for val in ["true", "1", "yes", "True", "TRUE", "YES"]:
+            with patch.dict(os.environ, {"ARAGORA_CSRF_ENABLED": val}, clear=True):
+                config = CSRFConfig()
+                assert config.enabled is True, f"Expected enabled=True for value '{val}'"
+
+    def test_disabled_with_various_falsy_values(self):
+        """Should recognize various falsy values for CSRF disabled."""
+        from aragora.server.middleware.csrf import CSRFConfig
+
+        for val in ["false", "0", "no", "False", "FALSE"]:
+            with patch.dict(os.environ, {"ARAGORA_CSRF_ENABLED": val}, clear=True):
+                config = CSRFConfig()
+                assert config.enabled is False, f"Expected enabled=False for value '{val}'"
+
+    def test_auto_generated_secret_when_not_configured(self):
+        """Should auto-generate a secret when not provided."""
+        from aragora.server.middleware.csrf import CSRFConfig
+
+        with patch.dict(os.environ, {}, clear=True):
+            config1 = CSRFConfig()
+            config2 = CSRFConfig()
+            # Auto-generated secrets should differ each time (random)
+            assert len(config1.secret) > 0
+            assert len(config2.secret) > 0
+
+    def test_is_path_excluded_no_match(self):
+        """Should return False when path does not match any exclusion."""
+        from aragora.server.middleware.csrf import CSRFConfig
+
+        config = CSRFConfig()
+        config.excluded_paths = frozenset({"/api/webhooks/"})
+        config.excluded_prefixes = frozenset({"/internal/"})
+
+        assert config.is_path_excluded("/api/debates") is False
+        assert config.is_path_excluded("/api/v2/debates") is False
+        assert config.is_path_excluded("/") is False
+
+    def test_cookie_samesite_from_environment(self):
+        """Should read SameSite from environment."""
+        from aragora.server.middleware.csrf import CSRFConfig
+
+        with patch.dict(
+            os.environ, {"ARAGORA_CSRF_COOKIE_SAMESITE": "None"}, clear=True
+        ):
+            config = CSRFConfig()
+            assert config.cookie_samesite == "None"
+
 
 # =============================================================================
 # Test Token Generation
@@ -187,6 +256,34 @@ class TestTokenGeneration:
         token = generate_csrf_token()
         assert isinstance(token, str)
         assert len(token) > 0
+
+    def test_internal_generate_token_value_with_explicit_timestamp(self):
+        """_generate_token_value should accept explicit timestamp."""
+        from aragora.server.middleware.csrf import _generate_token_value
+
+        fixed_ts = 1700000000
+        token = _generate_token_value("test-secret", timestamp=fixed_ts)
+        decoded = base64.urlsafe_b64decode(token.encode()).decode()
+        parts = decoded.split(":")
+        assert int(parts[0]) == fixed_ts
+
+    def test_token_has_hmac_signature(self):
+        """Token should include a valid HMAC signature component."""
+        from aragora.server.middleware.csrf import CSRFConfig, generate_csrf_token
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+
+        token = generate_csrf_token(config)
+        decoded = base64.urlsafe_b64decode(token.encode()).decode()
+        parts = decoded.split(":")
+
+        # Third part should be hex-encoded HMAC
+        signature_hex = parts[2]
+        # SHA256 HMAC produces 64 hex characters
+        assert len(signature_hex) == 64
+        # Should be valid hex
+        bytes.fromhex(signature_hex)
 
 
 # =============================================================================
@@ -328,6 +425,81 @@ class TestTokenValidation:
 
         assert is_valid is False
 
+    def test_validate_default_config(self):
+        """Should work with default config for validation."""
+        from aragora.server.middleware.csrf import (
+            generate_csrf_token,
+            validate_csrf_token,
+        )
+
+        # Uses default config internally
+        token = generate_csrf_token()
+        # Validation with a different default config may fail since secrets auto-generate
+        # Just ensure it doesn't crash
+        is_valid, error = validate_csrf_token(token)
+        # Result depends on whether the same secret is used
+        assert isinstance(is_valid, bool)
+
+    def test_validate_token_within_clock_skew_tolerance(self):
+        """Token within 60 second clock skew should be accepted."""
+        from aragora.server.middleware.csrf import (
+            CSRFConfig,
+            _generate_token_value,
+            validate_csrf_token,
+        )
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+
+        # Token 30 seconds in the future (within 60s tolerance)
+        slight_future = int(time.time()) + 30
+        token = _generate_token_value(config.secret, slight_future)
+
+        is_valid, error = validate_csrf_token(token, config)
+        assert is_valid is True
+
+    def test_validate_token_with_invalid_timestamp(self):
+        """Should reject token with non-numeric timestamp."""
+        from aragora.server.middleware.csrf import CSRFConfig, validate_csrf_token
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+
+        # Create a token with non-numeric timestamp
+        bad_data = "not_a_number:abcdef0123456789:0" * 2
+        token = base64.urlsafe_b64encode(bad_data.encode()).decode()
+
+        is_valid, error = validate_csrf_token(token, config)
+        assert is_valid is False
+
+    def test_validate_token_with_two_parts_only(self):
+        """Should reject token with only two parts instead of three."""
+        from aragora.server.middleware.csrf import CSRFConfig, validate_csrf_token
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+
+        bad_data = "12345:abcdef"
+        token = base64.urlsafe_b64encode(bad_data.encode()).decode()
+
+        is_valid, error = validate_csrf_token(token, config)
+        assert is_valid is False
+        assert "Invalid token format" in error
+
+    def test_validate_token_with_invalid_hex_signature(self):
+        """Should reject token with non-hex signature."""
+        from aragora.server.middleware.csrf import CSRFConfig, validate_csrf_token
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+
+        ts = str(int(time.time()))
+        bad_data = f"{ts}:abcdef0123456789:NOT_HEX_VALUE!!!"
+        token = base64.urlsafe_b64encode(bad_data.encode()).decode()
+
+        is_valid, error = validate_csrf_token(token, config)
+        assert is_valid is False
+
 
 # =============================================================================
 # Test Cookie Header Generation
@@ -380,6 +552,40 @@ class TestCookieHeaderGeneration:
         parts = cookie.split("; ")
         assert "Secure" not in parts
 
+    def test_get_csrf_cookie_value_no_samesite(self):
+        """Should omit SameSite when empty string."""
+        from aragora.server.middleware.csrf import CSRFConfig, get_csrf_cookie_value
+
+        config = CSRFConfig()
+        config.cookie_name = "_csrf"
+        config.cookie_samesite = ""
+        config.cookie_httponly = False
+        config.cookie_secure = False
+
+        cookie = get_csrf_cookie_value("test-token", config)
+        assert "SameSite" not in cookie
+
+    def test_get_csrf_cookie_value_no_httponly(self):
+        """Should omit HttpOnly when disabled."""
+        from aragora.server.middleware.csrf import CSRFConfig, get_csrf_cookie_value
+
+        config = CSRFConfig()
+        config.cookie_name = "_csrf"
+        config.cookie_httponly = False
+        config.cookie_secure = False
+        config.cookie_samesite = ""
+
+        cookie = get_csrf_cookie_value("test-token", config)
+        assert "HttpOnly" not in cookie
+
+    def test_get_csrf_cookie_value_default_config(self):
+        """Should work with default config."""
+        from aragora.server.middleware.csrf import get_csrf_cookie_value
+
+        cookie = get_csrf_cookie_value("test-token")
+        assert "test-token" in cookie
+        assert "Path=/" in cookie
+
 
 # =============================================================================
 # Test CSRFMiddleware
@@ -418,6 +624,29 @@ class TestCSRFMiddleware:
         config.enabled = False
         middleware = CSRFMiddleware(config)
         assert middleware.enabled is False
+
+    def test_middleware_generate_token(self):
+        """Should generate a valid token via middleware."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+        middleware = CSRFMiddleware(config)
+
+        token = middleware.generate_token()
+        assert isinstance(token, str)
+        assert len(token) > 0
+
+    def test_middleware_get_cookie_header_without_token(self):
+        """Should generate new token when none provided."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+        middleware = CSRFMiddleware(config)
+
+        header = middleware.get_cookie_header()
+        assert config.cookie_name in header
 
 
 class TestCSRFMiddlewareShouldValidate:
@@ -486,6 +715,17 @@ class TestCSRFMiddlewareShouldValidate:
         assert middleware.should_validate("POST", "/api/webhooks/") is False
         assert middleware.should_validate("POST", "/api/debates") is True
 
+    def test_should_validate_unknown_method(self):
+        """Should not validate unknown HTTP methods (not in STATE_CHANGING_METHODS)."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.enabled = True
+        middleware = CSRFMiddleware(config)
+
+        assert middleware.should_validate("TRACE", "/api/debates") is False
+        assert middleware.should_validate("CONNECT", "/api/debates") is False
+
 
 class TestCSRFMiddlewareTokenExtraction:
     """Tests for token extraction methods."""
@@ -526,6 +766,59 @@ class TestCSRFMiddlewareTokenExtraction:
 
         handler = MagicMock()
         handler.headers = {"Cookie": "session=abc"}
+
+        token = middleware.extract_cookie_token(handler)
+        assert token is None
+
+    def test_extract_cookie_token_empty_cookie_header(self):
+        """Should return None when cookie header is empty."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.cookie_name = "_csrf_token"
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock()
+        handler.headers = {"Cookie": ""}
+
+        token = middleware.extract_cookie_token(handler)
+        assert token is None
+
+    def test_extract_cookie_token_no_cookie_header(self):
+        """Should return None when no Cookie header exists."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.cookie_name = "_csrf_token"
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock()
+        handler.headers = {}
+
+        token = middleware.extract_cookie_token(handler)
+        assert token is None
+
+    def test_extract_cookie_token_from_dict_lowercase_key(self):
+        """Should extract token from dict with lowercase 'cookie' key."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.cookie_name = "_csrf_token"
+        middleware = CSRFMiddleware(config)
+
+        headers = {"cookie": "_csrf_token=lowertoken"}
+        token = middleware.extract_cookie_token(headers)
+        assert token == "lowertoken"
+
+    def test_extract_cookie_token_no_headers_attr(self):
+        """Should return None for handler without headers attribute."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        middleware = CSRFMiddleware(config)
+
+        # An object with no headers attribute and not a dict
+        handler = object()
 
         token = middleware.extract_cookie_token(handler)
         assert token is None
@@ -571,6 +864,45 @@ class TestCSRFMiddlewareTokenExtraction:
         headers = {"X-CSRF-Token": "dict-token"}
         token = middleware.extract_header_token(headers)
         assert token == "dict-token"
+
+    def test_extract_header_token_dict_alternative_names(self):
+        """Should check alternative header names in dict-style headers."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.header_name = "X-CSRF-Token"
+        middleware = CSRFMiddleware(config)
+
+        # Only has the alternative name
+        headers = {"x-xsrf-token": "alt-dict-token"}
+        token = middleware.extract_header_token(headers)
+        assert token == "alt-dict-token"
+
+    def test_extract_header_token_none_when_missing(self):
+        """Should return None when no header token found."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.header_name = "X-CSRF-Token"
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock()
+        handler.headers = MagicMock()
+        handler.headers.get = lambda k: None
+
+        token = middleware.extract_header_token(handler)
+        assert token is None
+
+    def test_extract_header_token_no_headers_attr(self):
+        """Should return None for handler without headers attribute."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        middleware = CSRFMiddleware(config)
+
+        handler = object()
+        token = middleware.extract_header_token(handler)
+        assert token is None
 
 
 class TestCSRFMiddlewareValidateRequest:
@@ -740,6 +1072,55 @@ class TestCSRFMiddlewareValidateRequest:
         assert result.valid is False
         assert "invalid" in result.reason.lower()
 
+    def test_validate_request_extracts_path_from_handler(self):
+        """Should extract path from handler when not provided explicitly."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.enabled = True
+        config.excluded_paths = frozenset({"/api/webhooks/"})
+        config.excluded_prefixes = frozenset()
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock()
+        handler.command = "POST"
+        handler.path = "/api/webhooks/?key=value"  # With query string
+        handler.headers = {}
+
+        # Should strip query string and match excluded path
+        result = middleware.validate_request(handler)
+        assert result.valid is True
+
+    def test_validate_request_uses_method_attribute(self):
+        """Should use 'method' attribute when 'command' is not present."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.enabled = True
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock(spec=[])
+        handler.method = "GET"
+        handler.headers = {}
+
+        result = middleware.validate_request(handler, path="/api/test")
+        assert result.valid is True
+
+    def test_validate_request_default_method_and_path(self):
+        """Should use defaults when handler has no method or path."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.enabled = True
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock(spec=[])
+        handler.headers = {}
+
+        # No command, no method, no path -> defaults to GET, /
+        result = middleware.validate_request(handler)
+        assert result.valid is True  # GET is safe
+
 
 class TestCSRFMiddlewareCookieSetting:
     """Tests for set_token_cookie method."""
@@ -789,6 +1170,19 @@ class TestCSRFMiddlewareCookieSetting:
         assert "Secure" in header
         assert "SameSite=Strict" in header
 
+    def test_set_token_cookie_handler_without_send_header(self):
+        """Should handle handler without send_header gracefully."""
+        from aragora.server.middleware.csrf import CSRFMiddleware
+
+        middleware = CSRFMiddleware()
+
+        handler = MagicMock(spec=[])  # No send_header method
+        token = middleware.set_token_cookie(handler)
+
+        # Should still return a token even if send_header is not available
+        assert token is not None
+        assert len(token) > 0
+
 
 # =============================================================================
 # Test csrf_protect Decorator
@@ -800,9 +1194,8 @@ class TestCSRFProtectDecorator:
 
     def test_decorator_without_arguments(self):
         """Should work as @csrf_protect without arguments."""
-        from aragora.server.middleware.csrf import CSRFConfig, csrf_protect
+        from aragora.server.middleware.csrf import csrf_protect
 
-        # Create a mock config that's disabled
         with patch.dict(os.environ, {"ARAGORA_CSRF_ENABLED": "false"}, clear=True):
 
             @csrf_protect
@@ -894,6 +1287,44 @@ class TestCSRFProtectDecorator:
         result = handler(mock_handler)
         assert result == {"status": "success"}
 
+    def test_decorator_handler_in_kwargs(self):
+        """Should find handler in kwargs."""
+        from aragora.server.middleware.csrf import CSRFConfig, csrf_protect
+
+        config = CSRFConfig()
+        config.enabled = True
+
+        @csrf_protect(config=config)
+        def handler_func(handler=None):
+            return {"status": "success"}
+
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.command = "GET"
+        mock_handler.path = "/"
+
+        result = handler_func(handler=mock_handler)
+        assert result == {"status": "success"}
+
+    def test_decorator_no_handler_found(self):
+        """Should return error when no handler found in arguments."""
+        from aragora.server.middleware.csrf import CSRFConfig, csrf_protect
+
+        config = CSRFConfig()
+        config.enabled = True
+
+        @csrf_protect(config=config)
+        def handler_func(x, y):
+            return {"status": "success"}
+
+        with patch("aragora.server.handlers.base.error_response") as mock_error_response:
+            mock_error_response.return_value = {"error": "Internal error"}
+            result = handler_func(42, "string_arg")
+            assert mock_error_response.called
+            # Should be called with 500 status
+            args = mock_error_response.call_args
+            assert args[0][1] == 500
+
 
 # =============================================================================
 # Test CSRFValidationResult
@@ -924,6 +1355,13 @@ class TestCSRFValidationResult:
         assert result.is_valid is False
         assert result.reason == "Token mismatch"
         assert result.error == "CSRF token mismatch"
+
+    def test_default_error_empty(self):
+        """Default error should be empty string."""
+        from aragora.server.middleware.csrf import CSRFValidationResult
+
+        result = CSRFValidationResult(valid=False, reason="Failed")
+        assert result.error == ""
 
 
 # =============================================================================
@@ -957,6 +1395,15 @@ class TestModuleExports:
         assert "POST" in STATE_CHANGING_METHODS
         assert "GET" in SAFE_METHODS
 
+    def test_alternative_header_names(self):
+        """ALTERNATIVE_HEADER_NAMES should include common CSRF header variants."""
+        from aragora.server.middleware.csrf import ALTERNATIVE_HEADER_NAMES
+
+        assert "X-CSRF-Token" in ALTERNATIVE_HEADER_NAMES
+        assert "x-csrf-token" in ALTERNATIVE_HEADER_NAMES
+        assert "X-XSRF-Token" in ALTERNATIVE_HEADER_NAMES
+        assert "x-xsrf-token" in ALTERNATIVE_HEADER_NAMES
+
 
 # =============================================================================
 # Test Security Edge Cases
@@ -979,8 +1426,6 @@ class TestSecurityEdgeCases:
 
         token = middleware.generate_token()
 
-        # This test verifies the code uses hmac.compare_digest
-        # by checking behavior is consistent (timing attacks are hard to test directly)
         handler = MagicMock()
         handler.command = "POST"
         handler.path = "/api/test"
@@ -989,7 +1434,6 @@ class TestSecurityEdgeCases:
             config.header_name: token,
         }
 
-        # Should succeed
         result = middleware.validate_request(handler)
         assert result.valid is True
 
@@ -1046,3 +1490,62 @@ class TestSecurityEdgeCases:
         # These should NOT be excluded
         assert config.is_path_excluded("/webhooks/../api/secret") is False
         assert config.is_path_excluded("/../webhooks/") is False
+
+    def test_token_with_only_four_parts(self):
+        """Should reject token with more than three parts."""
+        from aragora.server.middleware.csrf import CSRFConfig, validate_csrf_token
+
+        config = CSRFConfig()
+        config.secret = "test-secret"
+
+        bad_data = "12345:abcdef:ghijkl:extra"
+        token = base64.urlsafe_b64encode(bad_data.encode()).decode()
+
+        is_valid, error = validate_csrf_token(token, config)
+        assert is_valid is False
+
+    def test_empty_secret_still_generates_token(self):
+        """Should still generate tokens even with empty secret."""
+        from aragora.server.middleware.csrf import CSRFConfig, generate_csrf_token
+
+        config = CSRFConfig()
+        config.secret = ""
+
+        token = generate_csrf_token(config)
+        assert isinstance(token, str)
+        assert len(token) > 0
+
+    def test_multiple_cookies_extraction(self):
+        """Should correctly extract CSRF token from multiple cookies."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.cookie_name = "_csrf_token"
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock()
+        handler.headers = {
+            "Cookie": "session=abc; _csrf_token=correcttoken; other=xyz"
+        }
+
+        token = middleware.extract_cookie_token(handler)
+        assert token == "correcttoken"
+
+    def test_validate_request_with_explicit_path(self):
+        """validate_request should accept explicit path parameter."""
+        from aragora.server.middleware.csrf import CSRFConfig, CSRFMiddleware
+
+        config = CSRFConfig()
+        config.enabled = True
+        config.excluded_paths = frozenset({"/excluded/"})
+        config.excluded_prefixes = frozenset()
+        middleware = CSRFMiddleware(config)
+
+        handler = MagicMock()
+        handler.command = "POST"
+        handler.path = "/not-excluded/"
+        handler.headers = {}
+
+        # Path parameter overrides handler.path
+        result = middleware.validate_request(handler, path="/excluded/")
+        assert result.valid is True

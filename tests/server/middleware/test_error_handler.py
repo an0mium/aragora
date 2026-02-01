@@ -834,3 +834,212 @@ class TestEdgeCases:
 
         # Timestamp ends with Z (UTC)
         assert result["error"]["timestamp"].endswith("Z")
+
+    def test_validation_error_only_value_no_field(self):
+        """Should handle value without field in validation_error."""
+        from aragora.server.middleware.error_handler import validation_error
+
+        error = validation_error("Invalid", value="test-value")
+        assert error.details is not None
+        assert error.details["value"] == "test-value"
+
+    def test_not_found_error_without_id_has_no_details(self):
+        """not_found_error without resource_id should have no details."""
+        from aragora.server.middleware.error_handler import not_found_error
+
+        error = not_found_error("Agent")
+        assert error.details is None
+
+    def test_permission_error_without_resource_has_no_details(self):
+        """permission_error without resource should have no details."""
+        from aragora.server.middleware.error_handler import permission_error
+
+        error = permission_error("read")
+        assert error.details is None
+        assert "read" in error.message
+
+    def test_rate_limit_error_without_retry_after_no_headers(self):
+        """rate_limit_error without retry_after should have empty headers."""
+        from aragora.server.middleware.error_handler import rate_limit_error
+
+        error = rate_limit_error()
+        assert error.headers == {}
+        assert error.details is None
+
+    def test_rate_limit_error_without_retry_after_no_details(self):
+        """rate_limit_error without retry_after should have no details."""
+        from aragora.server.middleware.error_handler import rate_limit_error
+
+        error = rate_limit_error()
+        assert error.details is None
+
+    def test_api_error_to_dict_no_optional_fields(self):
+        """to_dict with no optional args should omit request_id, path, details."""
+        from aragora.server.middleware.error_handler import APIError
+        from aragora.server.error_codes import ErrorCode
+
+        error = APIError(code=ErrorCode.VALIDATION_ERROR, message="Test")
+        result = error.to_dict()
+
+        assert "request_id" not in result["error"]
+        assert "path" not in result["error"]
+        assert "details" not in result["error"]
+
+    def test_api_error_inherits_from_exception(self):
+        """APIError should be catchable as Exception."""
+        from aragora.server.middleware.error_handler import APIError
+        from aragora.server.error_codes import ErrorCode
+
+        try:
+            raise APIError(code=ErrorCode.NOT_FOUND, message="Not found")
+        except Exception as e:
+            assert isinstance(e, APIError)
+            assert str(e) == "Not found"
+
+    def test_handle_exception_logs_api_error_when_enabled(self):
+        """Should log APIError when log_errors is True."""
+        from aragora.server.middleware.error_handler import APIError, ErrorHandlerMiddleware
+        from aragora.server.error_codes import ErrorCode
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, log_errors=True)
+
+        error = APIError(code=ErrorCode.NOT_FOUND, message="Test")
+
+        with patch("aragora.server.middleware.error_handler.logger") as mock_logger:
+            middleware.handle_exception(error, "req_log", "/api/test")
+            mock_logger.warning.assert_called_once()
+
+    def test_handle_exception_logs_5xx_when_enabled(self):
+        """Should log 5xx errors when log_errors is True."""
+        from aragora.server.middleware.error_handler import ErrorHandlerMiddleware
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, log_errors=True)
+
+        error = RuntimeError("Unexpected crash")
+
+        with patch("aragora.server.middleware.error_handler.logger") as mock_logger:
+            middleware.handle_exception(error, "req_5xx", "/api/test")
+            mock_logger.exception.assert_called_once()
+
+    def test_handle_exception_no_log_when_disabled(self):
+        """Should not log when log_errors is False."""
+        from aragora.server.middleware.error_handler import ErrorHandlerMiddleware
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, log_errors=False)
+
+        error = RuntimeError("Error")
+
+        with patch("aragora.server.middleware.error_handler.logger") as mock_logger:
+            middleware.handle_exception(error, "req_nolog", "/api/test")
+            mock_logger.warning.assert_not_called()
+            mock_logger.exception.assert_not_called()
+
+    def test_handle_exception_no_traceback_for_4xx(self):
+        """Should not include traceback for 4xx errors even in dev mode."""
+        from aragora.server.middleware.error_handler import ErrorHandlerMiddleware
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, include_traceback=True, log_errors=False)
+
+        try:
+            raise ValueError("Bad input")
+        except Exception as e:
+            response = middleware.handle_exception(e, "req_4xx", "/api/test")
+
+        # 400 errors should not have traceback
+        assert "traceback" not in response.body["error"]
+
+    def test_handle_api_error_with_none_status_defaults_to_400(self):
+        """APIError with auto-derived status should map correctly."""
+        from aragora.server.middleware.error_handler import APIError, ErrorHandlerMiddleware
+        from aragora.server.error_codes import ErrorCode
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, log_errors=False)
+
+        error = APIError(code=ErrorCode.FORBIDDEN, message="Forbidden", status=None)
+        response = middleware.handle_exception(error, "req_nil_status", "/test")
+
+        assert response.status == 403
+
+    def test_create_error_response_with_empty_details(self):
+        """create_error_response with empty dict details should still include details."""
+        from aragora.server.middleware.error_handler import create_error_response
+        from aragora.server.error_codes import ErrorCode
+
+        result = create_error_response(
+            code=ErrorCode.VALIDATION_ERROR,
+            message="Test",
+            details={},
+        )
+        # Empty dict is falsy, so details should NOT be included
+        assert "details" not in result["error"]
+
+    def test_exception_error_map_length(self):
+        """Should have 7 exception mappings."""
+        from aragora.server.middleware.error_handler import EXCEPTION_ERROR_MAP
+
+        assert len(EXCEPTION_ERROR_MAP) == 7
+
+    def test_error_response_default_headers(self):
+        """ErrorResponse should default to empty headers dict."""
+        from aragora.server.middleware.error_handler import ErrorResponse
+
+        response = ErrorResponse(status=200, body={})
+        assert isinstance(response.headers, dict)
+        assert len(response.headers) == 0
+
+    def test_multiple_request_ids_are_unique(self):
+        """Multiple request IDs generated in succession should all be unique."""
+        from aragora.server.middleware.error_handler import ErrorHandlerMiddleware
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app)
+
+        ids = set()
+        for _ in range(1000):
+            ids.add(middleware.generate_request_id())
+
+        assert len(ids) == 1000
+
+    def test_handle_exception_api_error_with_empty_headers(self):
+        """APIError with None headers should result in empty response headers."""
+        from aragora.server.middleware.error_handler import APIError, ErrorHandlerMiddleware
+        from aragora.server.error_codes import ErrorCode
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, log_errors=False)
+
+        error = APIError(code=ErrorCode.NOT_FOUND, message="Not found", headers=None)
+        response = middleware.handle_exception(error, "req_nh", "/test")
+
+        assert response.headers == {}
+
+    def test_handle_exception_response_has_path_and_request_id(self):
+        """Non-APIError exceptions should include path and request_id in response."""
+        from aragora.server.middleware.error_handler import ErrorHandlerMiddleware
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, log_errors=False)
+
+        error = ValueError("bad value")
+        response = middleware.handle_exception(error, "req_meta", "/api/v1/debates")
+
+        assert response.body["error"]["request_id"] == "req_meta"
+        assert response.body["error"]["path"] == "/api/v1/debates"
+
+    def test_handle_exception_response_has_timestamp(self):
+        """Non-APIError exception responses should include a timestamp."""
+        from aragora.server.middleware.error_handler import ErrorHandlerMiddleware
+
+        app = MagicMock()
+        middleware = ErrorHandlerMiddleware(app, log_errors=False)
+
+        error = ValueError("timestamp test")
+        response = middleware.handle_exception(error, "req_ts", "/test")
+
+        assert "timestamp" in response.body["error"]
+        assert response.body["error"]["timestamp"].endswith("Z")

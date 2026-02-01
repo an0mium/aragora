@@ -55,6 +55,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.decorators import has_permission, require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 from aragora.server.validation.query_params import safe_query_int
@@ -264,6 +265,12 @@ class ControlPlaneHandler(BaseHandler):
 
         return None
 
+    @api_endpoint(
+        method="GET",
+        path="/api/control-plane/agents",
+        summary="List registered agents",
+        tags=["Control Plane"],
+    )
     @require_permission("controlplane:agents.read")
     def _handle_list_agents(self, query_params: dict[str, Any]) -> HandlerResult:
         """List registered agents."""
@@ -298,6 +305,12 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error listing agents: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/control-plane/agents/{agent_id}",
+        summary="Get agent by ID",
+        tags=["Control Plane"],
+    )
     @require_permission("controlplane:agents.read")
     def _handle_get_agent(self, agent_id: str) -> HandlerResult:
         """Get agent by ID."""
@@ -319,6 +332,12 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting agent {agent_id}: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/control-plane/tasks/{task_id}",
+        summary="Get task by ID",
+        tags=["Control Plane"],
+    )
     @require_permission("controlplane:tasks.read")
     def _handle_get_task(self, task_id: str) -> HandlerResult:
         """Get task by ID."""
@@ -340,6 +359,12 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error getting task {task_id}: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/control-plane/deliberations/{request_id}",
+        summary="Get deliberation result",
+        tags=["Control Plane"],
+    )
     def _handle_get_deliberation(self, request_id: str, handler: Any) -> HandlerResult:
         """Get a deliberation result by request ID."""
         user, err = self.require_auth_or_error(handler)
@@ -356,6 +381,12 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(result)
         return error_response("Deliberation not found", 404)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/control-plane/deliberations/{request_id}/status",
+        summary="Get deliberation status",
+        tags=["Control Plane"],
+    )
     def _handle_get_deliberation_status(self, request_id: str, handler: Any) -> HandlerResult:
         """Get deliberation status for polling."""
         user, err = self.require_auth_or_error(handler)

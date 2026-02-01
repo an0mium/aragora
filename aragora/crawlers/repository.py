@@ -165,7 +165,7 @@ class RepositoryCrawler(BaseCrawler):
         logger.info(f"Discovered {len(files)} files in {source}")
         return files
 
-    async def crawl(
+    async def crawl(  # type: ignore[override]
         self,
         source: str,
     ) -> AsyncIterator[CrawlResult]:

@@ -2,7 +2,8 @@
 Health Check Endpoints.
 
 Provides Kubernetes-compatible health endpoints:
-- /healthz - Liveness probe
+- /healthz - Basic health check
+- /livez - Liveness probe (no dependency checks)
 - /readyz - Readiness probe
 - /api/v2/health - Detailed health status
 """
@@ -53,6 +54,17 @@ async def healthz() -> dict[str, str]:
     Returns 200 if the server is running.
     """
     return {"status": "ok"}
+
+
+@router.get("/livez", include_in_schema=False)
+async def livez() -> dict[str, str]:
+    """
+    Kubernetes liveness probe (strict).
+
+    Returns 200 immediately with no dependency checks.
+    Proves the process is responding to HTTP requests.
+    """
+    return {"status": "alive"}
 
 
 @router.get("/readyz", include_in_schema=False)

@@ -431,7 +431,12 @@ class TestPaymentFailedNotification:
         """Test urgency levels for different attempt counts."""
         notifier = BillingNotifier(webhook_url="https://hooks.example.com")
 
-        for attempt, expected_urgency in [(1, "NOTICE"), (2, "IMPORTANT"), (3, "URGENT"), (4, "URGENT")]:
+        for attempt, expected_urgency in [
+            (1, "NOTICE"),
+            (2, "IMPORTANT"),
+            (3, "URGENT"),
+            (4, "URGENT"),
+        ]:
             with patch.object(notifier, "_send_email") as mock_email:
                 mock_email.return_value = NotificationResult(
                     success=False, method="email", error="failed"
@@ -1332,14 +1337,10 @@ class TestFallbackChain:
                 )
 
                 # All should fall back to log
-                r1 = notifier.notify_trial_ending(
-                    "org-1", "Org", "e@e.com", 5, trial_end
-                )
+                r1 = notifier.notify_trial_ending("org-1", "Org", "e@e.com", 5, trial_end)
                 assert r1.method == "log"
 
-                r2 = notifier.notify_subscription_canceled(
-                    "org-1", "Org", "e@e.com"
-                )
+                r2 = notifier.notify_subscription_canceled("org-1", "Org", "e@e.com")
                 assert r2.method == "log"
 
                 r3 = notifier.notify_downgraded(
@@ -1347,14 +1348,18 @@ class TestFallbackChain:
                 )
                 assert r3.method == "log"
 
-                r4 = notifier.notify_budget_alert(
-                    "t-1", "e@e.com", "info", "$50", "$100", 50.0
-                )
+                r4 = notifier.notify_budget_alert("t-1", "e@e.com", "info", "$50", "$100", 50.0)
                 assert r4.method == "log"
 
                 r5 = notifier.notify_forecast_overage(
-                    "org-1", "e@e.com", "Org", "Budget", 500.0, 1000.0,
-                    projected_date, 1200.0,
+                    "org-1",
+                    "e@e.com",
+                    "Org",
+                    "Budget",
+                    500.0,
+                    1000.0,
+                    projected_date,
+                    1200.0,
                 )
                 assert r5.method == "log"
 

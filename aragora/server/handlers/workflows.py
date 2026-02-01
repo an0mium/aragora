@@ -941,6 +941,7 @@ from aragora.server.handlers.base import (
     get_int_param,
     get_string_param,
 )
+from aragora.server.handlers.openapi_decorator import api_endpoint
 
 
 class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
@@ -1318,6 +1319,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     # Request Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflows",
+        summary="List workflows",
+        tags=["Workflows"],
+    )
     def _handle_list_workflows(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows."""
         # RBAC check
@@ -1341,6 +1348,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing workflows: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflows/{workflow_id}",
+        summary="Get workflow details",
+        tags=["Workflows"],
+    )
     def _handle_get_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1364,6 +1377,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error getting workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflows",
+        summary="Create a new workflow",
+        tags=["Workflows"],
+    )
     def _handle_create_workflow(
         self, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1399,6 +1418,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error creating workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="PATCH",
+        path="/api/v1/workflows/{workflow_id}",
+        summary="Update a workflow",
+        tags=["Workflows"],
+    )
     def _handle_update_workflow(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
