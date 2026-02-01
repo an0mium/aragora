@@ -18,6 +18,23 @@ from unittest.mock import MagicMock, patch, AsyncMock
 import uuid
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiters():
+    """Reset rate limiters before and after each test.
+
+    This prevents flaky test failures from rate limit accumulation
+    when tests run in parallel.
+    """
+    try:
+        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+        clear_all_limiters()
+        yield
+        clear_all_limiters()
+    except ImportError:
+        yield
+
+
 def parse_response(result):
     """Parse HandlerResult body as JSON."""
     if result is None:
@@ -523,14 +540,8 @@ class TestEdgeCases:
         assert result is not None
 
     @pytest.mark.asyncio
-    @pytest.mark.flaky(reruns=2)
     async def test_empty_search_results(self, handler, mock_http_handler, mock_evidence_store):
-        """Test handling of empty search results.
-
-        Marked flaky(reruns=2) because rate limiting (429) can occur under
-        heavy parallel test load. A rerun typically succeeds once the rate
-        limit window resets.
-        """
+        """Test handling of empty search results."""
         mock_evidence_store.search_evidence.return_value = []
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
@@ -538,7 +549,6 @@ class TestEdgeCases:
             result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
-        assert result.status_code != 429, "Rate limited - will retry via flaky rerun"
         data = parse_response(result)
         assert data["results"] == []
         assert data["count"] == 0
