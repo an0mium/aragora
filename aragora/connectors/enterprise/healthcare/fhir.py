@@ -555,7 +555,6 @@ class FHIRConnector(EnterpriseConnector):
 
     async def _ensure_authenticated(self) -> None:
         """Ensure authentication is current."""
-        from aragora.server.http_client_pool import get_http_pool
 
         # Check token expiration
         if self._access_token and self._token_expires_at:
@@ -565,8 +564,6 @@ class FHIRConnector(EnterpriseConnector):
         # Get new token if needed
         if not self._access_token:
             await self._authenticate()
-
-        return get_http_pool()
 
     async def _request(
         self,

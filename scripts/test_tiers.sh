@@ -2,11 +2,15 @@
 # Test Tier Runner for Aragora
 #
 # Tiers:
+#   smoke    - Critical smoke tests
 #   fast     - Quick unit tests (<5 min) - no slow/load/e2e/integration
 #   unit     - Unit tests only with extended timeout
 #   ci       - CI tests with coverage (no slow/e2e tests)
 #   full     - All tests with extended timeouts
 #   slow     - Only slow-marked tests
+#   integration - Integration tests (require services)
+#   nightly  - Slow/load/e2e/benchmark suite (scheduled)
+#   benchmark - Benchmark-only tests
 #   handlers - Only handler tests
 #   security - Only security tests
 #   lint     - Linting checks
@@ -29,28 +33,47 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}Running test tier: ${tier}${NC}"
 
 case "$tier" in
+  smoke)
+    pytest -m smoke \
+      --timeout=60 \
+      -v \
+      --tb=short \
+      -x \
+      --no-header
+    ;;
+
   fast)
     # Quick tests for local dev - exclude slow, load, e2e, integration
-    pytest tests/ -m "not slow and not load and not e2e and not integration" \
+    pytest tests/ -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
       --timeout=30 \
       -q \
-      --tb=line
+      --tb=line \
+      --ignore=tests/integration \
+      --ignore=tests/e2e \
+      --ignore=tests/benchmarks \
+      --ignore=tests/load \
+      --ignore=tests/performance
     ;;
 
   unit)
     # Unit tests with extended timeout - ideal for quick feedback
-    pytest tests/ -m "not slow and not load and not e2e and not integration" \
+    pytest tests/ -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
       --timeout=120 \
       -v \
-      --tb=short
+      --tb=short \
+      --ignore=tests/integration \
+      --ignore=tests/e2e \
+      --ignore=tests/benchmarks \
+      --ignore=tests/load \
+      --ignore=tests/performance
     ;;
 
   ci)
     # CI tier - balanced coverage vs speed
-    # Skip slow and e2e tests, but include integration tests
+    # Skip slow/e2e/load/benchmark/integration tests
     # Coverage threshold: 50% (raised from 30%)
     pytest tests/ \
-      -m "not slow and not load and not e2e" \
+      -m "not slow and not load and not e2e and not benchmark and not integration and not integration_minimal" \
       --timeout=120 \
       --cov=aragora \
       --cov-report=term-missing \
@@ -79,6 +102,31 @@ case "$tier" in
       --timeout=600 \
       -v \
       --tb=short
+    ;;
+
+  integration)
+    # Integration tests (services required)
+    pytest tests/integration/ -m "integration or integration_minimal" \
+      --timeout=180 \
+      -v \
+      --tb=short
+    ;;
+
+  nightly)
+    # Nightly tier: slow/load/e2e/benchmark
+    pytest tests/ -m "slow or load or e2e or benchmark" \
+      --timeout=600 \
+      -v \
+      --tb=short
+    ;;
+
+  benchmark)
+    # Benchmark-only tests
+    pytest tests/ -m "benchmark" \
+      --benchmark-only \
+      --benchmark-sort=mean \
+      --benchmark-warmup=on \
+      -v
     ;;
 
   handlers)
@@ -164,11 +212,15 @@ case "$tier" in
     echo "Usage: $0 <tier>"
     echo ""
     echo "Available tiers:"
+    echo "  smoke     Critical smoke tests"
     echo "  fast      Quick unit tests, 30s timeout (~2 min)"
     echo "  unit      Unit tests, 120s timeout (~5 min)"
     echo "  ci        CI tests with coverage, excludes slow/e2e (~10 min)"
     echo "  full      All tests, 300s timeout (~30 min)"
     echo "  slow      Only slow-marked tests"
+    echo "  integration Integration tests (services required)"
+    echo "  nightly   Slow/load/e2e/benchmark suite (scheduled)"
+    echo "  benchmark Benchmark-only tests"
     echo "  handlers  Handler tests only"
     echo "  security  Security-related tests"
     echo "  storage   Storage/database tests"

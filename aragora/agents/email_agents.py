@@ -111,7 +111,7 @@ class SenderReputationAgent(BaseDebateAgent):
             system_prompt=persona.get_system_prompt(),
             **kwargs,
         )
-        self.persona = persona
+        self._email_persona = persona
 
     def analyze_sender(self, sender_info: dict[str, Any]) -> dict[str, Any]:
         """

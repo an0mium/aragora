@@ -13,6 +13,7 @@ from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
 from .ap_automation import APAutomationAPI, AsyncAPAutomationAPI
 from .ar_automation import ARAutomationAPI, AsyncARAutomationAPI
+from .audio import AsyncAudioAPI, AudioAPI
 from .audit import AsyncAuditAPI, AuditAPI
 from .auth import AsyncAuthAPI, AuthAPI
 from .backups import AsyncBackupsAPI, BackupsAPI
@@ -24,6 +25,7 @@ from .bots import AsyncBotsAPI, BotsAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .calibration import AsyncCalibrationAPI, CalibrationAPI
 from .chat import AsyncChatAPI, ChatAPI
+from .checkpoints import AsyncCheckpointsAPI, CheckpointsAPI
 from .classify import AsyncClassifyAPI, ClassifyAPI
 from .code_review import AsyncCodeReviewAPI, CodeReviewAPI
 from .codebase import AsyncCodebaseAPI, CodebaseAPI
@@ -59,6 +61,7 @@ from .gmail import AsyncGmailAPI, GmailAPI
 from .health import AsyncHealthAPI, HealthAPI
 from .history import AsyncHistoryAPI, HistoryAPI
 from .hybrid_debates import AsyncHybridDebatesAPI, HybridDebatesAPI
+from .index import AsyncIndexAPI, IndexAPI
 from .insights import AsyncInsightsAPI, InsightsAPI
 from .integrations import AsyncIntegrationsAPI, IntegrationsAPI
 from .introspection import AsyncIntrospectionAPI, IntrospectionAPI
@@ -69,6 +72,7 @@ from .leaderboard import AsyncLeaderboardAPI, LeaderboardAPI
 from .learning import AsyncLearningAPI, LearningAPI
 from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .matches import AsyncMatchesAPI, MatchesAPI
+from .media import AsyncMediaAPI, MediaAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
 from .metrics import AsyncMetricsAPI, MetricsAPI
 from .moments import AsyncMomentsAPI, MomentsAPI
@@ -100,6 +104,7 @@ from .reputation import AsyncReputationAPI, ReputationAPI
 from .retention import AsyncRetentionAPI, RetentionAPI
 from .rlm import RLMAPI, AsyncRLMAPI
 from .routing import AsyncRoutingAPI, RoutingAPI
+from .security import AsyncSecurityAPI, SecurityAPI
 from .skills import AsyncSkillsAPI, SkillsAPI
 from .slo import SLOAPI, AsyncSLOAPI
 from .sme import SMEAPI, AsyncSMEAPI
@@ -140,6 +145,8 @@ __all__ = [
     "AsyncAPAutomationAPI",
     "ARAutomationAPI",
     "AsyncARAutomationAPI",
+    "AudioAPI",
+    "AsyncAudioAPI",
     "AuditAPI",
     "AsyncAuditAPI",
     "AuthAPI",
@@ -162,6 +169,8 @@ __all__ = [
     "AsyncCalibrationAPI",
     "ChatAPI",
     "AsyncChatAPI",
+    "CheckpointsAPI",
+    "AsyncCheckpointsAPI",
     "ClassifyAPI",
     "AsyncClassifyAPI",
     "CodeReviewAPI",
@@ -232,6 +241,8 @@ __all__ = [
     "AsyncHistoryAPI",
     "HybridDebatesAPI",
     "AsyncHybridDebatesAPI",
+    "IndexAPI",
+    "AsyncIndexAPI",
     "IntegrationsAPI",
     "AsyncIntegrationsAPI",
     "InsightsAPI",
@@ -252,6 +263,8 @@ __all__ = [
     "AsyncMarketplaceAPI",
     "MatchesAPI",
     "AsyncMatchesAPI",
+    "MediaAPI",
+    "AsyncMediaAPI",
     "MemoryAPI",
     "AsyncMemoryAPI",
     "MetricsAPI",
@@ -314,6 +327,8 @@ __all__ = [
     "AsyncRLMAPI",
     "RoutingAPI",
     "AsyncRoutingAPI",
+    "SecurityAPI",
+    "AsyncSecurityAPI",
     "SkillsAPI",
     "AsyncSkillsAPI",
     "SLOAPI",

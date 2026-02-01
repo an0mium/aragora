@@ -28,7 +28,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from aragora.config import resolve_db_path
@@ -468,7 +468,9 @@ class SyncStore:
         """)
 
         # Load connectors into cache
-        rows = await self._connection.fetch("SELECT * FROM connectors")
+        # Cast to asyncpg.Connection since we checked database_url above
+        pg_conn = cast("asyncpg.Connection[Any]", self._connection)
+        rows = await pg_conn.fetch("SELECT * FROM connectors")
         for row in rows:
             connector_id = row["id"]
             config_json = row["config_json"]
@@ -578,7 +580,9 @@ class SyncStore:
 
             elif self._database_url.startswith("postgresql"):
                 # PostgreSQL version
-                rows = await self._connection.fetch(
+                # Cast to asyncpg.Connection since we checked database_url above
+                pg_conn = cast("asyncpg.Connection[Any]", self._connection)
+                rows = await pg_conn.fetch(
                     "SELECT id, connector_id, started_at FROM sync_jobs WHERE status = 'running'"
                 )
                 for row in rows:

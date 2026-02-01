@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeAlias
 
 from aragora.agents.types import T
 from aragora.config import ALLOWED_AGENT_TYPES
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
     from aragora.agents.cli_agents import CLIAgent
 
-    Agent = APIAgent | CLIAgent
+    Agent: TypeAlias = APIAgent | CLIAgent
 
 
 # Module-level cache for agent instances with LRU eviction

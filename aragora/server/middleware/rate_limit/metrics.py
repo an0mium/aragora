@@ -278,18 +278,15 @@ def get_rate_limit_metrics() -> dict[str, Any]:
 
     try:
         # Collect samples from counters/gauges
-        metrics = {
-            "prometheus_available": True,
-            "backend_status": {},
-            "circuit_breaker_states": {},
-        }
+        backend_status: dict[str, str] = {}
+        circuit_breaker_states: dict[str, str] = {}
 
         # Get backend status by instance
         backend_status_metrics = list(RATE_LIMIT_BACKEND_STATUS.collect())
         if backend_status_metrics:
             for sample in backend_status_metrics[0].samples:
                 instance_id = sample.labels.get("instance_id", "unknown")
-                metrics["backend_status"][instance_id] = "redis" if sample.value == 1 else "memory"
+                backend_status[instance_id] = "redis" if sample.value == 1 else "memory"
 
         # Get circuit breaker states
         circuit_breaker_metrics = list(RATE_LIMIT_CIRCUIT_BREAKER_STATE.collect())
@@ -297,11 +294,13 @@ def get_rate_limit_metrics() -> dict[str, Any]:
             for sample in circuit_breaker_metrics[0].samples:
                 instance_id = sample.labels.get("instance_id", "unknown")
                 state_map = {0: "closed", 1: "open", 2: "half_open"}
-                metrics["circuit_breaker_states"][instance_id] = state_map.get(
-                    int(sample.value), "unknown"
-                )
+                circuit_breaker_states[instance_id] = state_map.get(int(sample.value), "unknown")
 
-        return metrics
+        return {
+            "prometheus_available": True,
+            "backend_status": backend_status,
+            "circuit_breaker_states": circuit_breaker_states,
+        }
 
     except Exception as e:
         logger.debug(f"Failed to collect rate limit metrics: {e}")

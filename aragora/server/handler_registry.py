@@ -103,6 +103,9 @@ AnalyticsDashboardHandler = _safe_import("aragora.server.handlers", "AnalyticsDa
 EndpointAnalyticsHandler = _safe_import("aragora.server.handlers", "EndpointAnalyticsHandler")
 AnalyticsMetricsHandler = _safe_import("aragora.server.handlers", "AnalyticsMetricsHandler")
 MetricsHandler = _safe_import("aragora.server.handlers", "MetricsHandler")
+UnifiedMetricsHandler = _safe_import(
+    "aragora.server.handlers.metrics_endpoint", "UnifiedMetricsHandler"
+)
 SLOHandler = _safe_import("aragora.server.handlers", "SLOHandler")
 MemoryAnalyticsHandler = _safe_import("aragora.server.handlers", "MemoryAnalyticsHandler")
 
@@ -596,6 +599,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_endpoint_analytics_handler", EndpointAnalyticsHandler),
     ("_analytics_metrics_handler", AnalyticsMetricsHandler),
     ("_metrics_handler", MetricsHandler),
+    ("_unified_metrics_handler", UnifiedMetricsHandler),
     ("_slo_handler", SLOHandler),
     ("_consensus_handler", ConsensusHandler),
     ("_belief_handler", BeliefHandler),
@@ -1462,6 +1466,7 @@ class HandlerRegistryMixin:
     _endpoint_analytics_handler: Optional["BaseHandler"] = None
     _analytics_metrics_handler: Optional["BaseHandler"] = None
     _metrics_handler: Optional["BaseHandler"] = None
+    _unified_metrics_handler: Optional["BaseHandler"] = None
     _slo_handler: Optional["BaseHandler"] = None
     _consensus_handler: Optional["BaseHandler"] = None
     _belief_handler: Optional["BaseHandler"] = None

@@ -45,6 +45,13 @@ class _TeamsConnectorProtocol(Protocol):
         url: str,
         headers: dict[str, str] | None = ...,
         json: dict[str, Any] | None = ...,
+        data: Any | None = ...,
+        content: bytes | None = ...,
+        files: dict[str, Any] | None = ...,
+        max_retries: int = ...,
+        base_delay: float = ...,
+        timeout: float | None = ...,
+        return_raw: bool = ...,
         operation: str = ...,
     ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]: ...
 
@@ -106,6 +113,13 @@ class TeamsMessagingMixin:
         url: str,
         headers: dict[str, str] | None = None,
         json: dict[str, Any] | None = None,
+        data: Any | None = None,
+        content: bytes | None = None,
+        files: dict[str, Any] | None = None,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+        timeout: float | None = None,
+        return_raw: bool = False,
         operation: str = "",
     ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]:
         """Make HTTP request with retry/circuit breaker. Overridden by TeamsConnector."""

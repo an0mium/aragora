@@ -1264,16 +1264,16 @@ class TestTimeoutHandling:
         assert ctx.proposals["agent-1"] == "proposal"
 
     @pytest.mark.asyncio
-    async def test_with_callback_timeout_handles_exception(self):
-        """_with_callback_timeout handles exceptions gracefully."""
+    async def test_with_callback_timeout_handles_timeout(self):
+        """_with_callback_timeout returns default on timeout."""
 
-        async def failing_coro():
-            raise ValueError("Test error")
+        async def slow_coro():
+            await asyncio.sleep(10)
+            return "completed"
 
-        result = await _with_callback_timeout(failing_coro(), timeout=1.0, default="fallback")
-        # When an exception occurs (not timeout), it propagates
-        # Only TimeoutError triggers the default
-        assert result == "fallback" or result is None
+        result = await _with_callback_timeout(slow_coro(), timeout=0.01, default="fallback")
+        # TimeoutError triggers the default
+        assert result == "fallback"
 
 
 # =============================================================================

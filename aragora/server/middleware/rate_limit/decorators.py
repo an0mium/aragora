@@ -15,8 +15,8 @@ import time
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from .limiter import RateLimitResult
-from .registry import get_rate_limiter
+from .limiter import RateLimiter, RateLimitResult
+from .registry import get_rate_limiter, RedisRateLimiter
 from .user_limiter import check_user_rate_limit
 
 if TYPE_CHECKING:
@@ -118,6 +118,7 @@ def rate_limit(
         name = limiter_name or func.__name__
 
         # Get appropriate limiter based on configuration
+        limiter: RateLimiter | RedisRateLimiter | Any
         if should_use_distributed:
             from .distributed import get_distributed_limiter
 

@@ -108,8 +108,8 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
     tier_names = ["fast", "medium", "slow", "glacial"]
     for tier_name in tier_names:
         # Use .get() with default to handle incomplete max_entries dicts (e.g., in tests)
-        limit_val = max_entries.get(tier_name, 0)
-        limit = int(limit_val) if limit_val else 0
+        raw_limit = max_entries.get(tier_name, 0)
+        limit = int(raw_limit) if isinstance(raw_limit, (int, float, str)) else 0
         if limit <= 0:
             continue
         count = tier_counts.get(tier_name, 0)

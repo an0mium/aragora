@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import inspect
 import json
 import logging
 import time
@@ -43,7 +44,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Optional, TypeVar, ParamSpec
+from typing import Any, Awaitable, Callable, Optional, TypeVar, ParamSpec, Coroutine
 
 from aragora.rbac.models import AuthorizationContext
 
@@ -381,7 +382,7 @@ def require_approval(
     resource_type_param: str | None = None,
     resource_id_param: str | None = None,
     auto_approve_roles: set[str] | None = None,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Coroutine[Any, Any, T]]]:
     """
     Decorator to require approval for a sensitive operation.
 
@@ -408,7 +409,7 @@ def require_approval(
     """
     auto_roles = auto_approve_roles or set()
 
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Coroutine[Any, Any, T]]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             # Find auth_context in kwargs
@@ -501,7 +502,7 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
 
         store = get_governance_store()
         if hasattr(store, "save_approval"):
-            await store.save_approval(
+            result = store.save_approval(
                 approval_id=request.id,
                 title=f"{request.operation}: {request.description}",
                 description=request.description,
@@ -526,6 +527,8 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
                     ],
                 },
             )
+            if inspect.isawaitable(result):
+                await result
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         # In distributed mode, persistence failure is critical
         from aragora.control_plane.leader import (

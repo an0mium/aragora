@@ -194,7 +194,7 @@ class BasicHandlersMixin:
         try:
             from aragora.debate.agent_pool import get_agent_pool
 
-            pool: AgentPoolProtocol | None = get_agent_pool()
+            pool: AgentPoolProtocol | None = get_agent_pool()  # type: ignore[assignment]
             if pool and hasattr(pool, "update_calibration"):
                 pool.update_calibration(
                     agent_name=agent_name,

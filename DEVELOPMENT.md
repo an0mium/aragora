@@ -130,11 +130,20 @@ mutmut run --paths-to-mutate=aragora/debate/
 Use the tiered test runner for faster local feedback:
 
 ```bash
-# Fast smoke tier (excludes slow/load/e2e)
+# Smoke tier (critical paths only)
+./scripts/test_tiers.sh smoke
+
+# Fast tier (excludes slow/load/e2e/integration/benchmarks)
 ./scripts/test_tiers.sh fast
+
+# Integration tier (services required)
+./scripts/test_tiers.sh integration
 
 # CI-equivalent tier
 ./scripts/test_tiers.sh ci
+
+# Nightly tier (slow/load/e2e/benchmark)
+./scripts/test_tiers.sh nightly
 ```
 
 ## Infrastructure & Policy Enforcement

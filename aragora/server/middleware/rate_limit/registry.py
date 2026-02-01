@@ -25,7 +25,7 @@ class RateLimiterRegistry:
     """Container for named rate limiters, managed via ServiceRegistry."""
 
     def __init__(self):
-        self._limiters: dict[str, RateLimiter] = {}
+        self._limiters: dict[str, RateLimiter | RedisRateLimiter] = {}
         self._default_limiter: Optional[RateLimiter | RedisRateLimiter] = None
         self._use_redis: bool | None = None
 

@@ -109,6 +109,19 @@ def _get_store() -> PersistentWorkflowStore:
     return cast(PersistentWorkflowStore, get_workflow_store())
 
 
+def _call_store_method(result: Any) -> Any:
+    """Handle both sync and async store method results.
+
+    PostgresWorkflowStore methods are async while PersistentWorkflowStore methods
+    are sync. This helper ensures we properly await async results when needed.
+    """
+    import asyncio
+
+    if asyncio.iscoroutine(result):
+        return _run_async(result)
+    return result
+
+
 _engine: WorkflowEngine | None = None
 
 
@@ -542,7 +555,7 @@ def register_template(workflow: WorkflowDefinition) -> None:
     """Register a workflow as a template."""
     workflow.is_template = True
     store = _get_store()
-    store.save_template(workflow)
+    _call_store_method(store.save_template(workflow))
 
 
 # =============================================================================

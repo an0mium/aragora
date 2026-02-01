@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Protocol
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
@@ -178,22 +178,28 @@ class SyncResult:
 
 
 # Import credential providers from dedicated module
-# Use a type alias that works whether the import succeeds or not
-CredentialProvider: type[CredentialProviderProtocol]
+_CREDENTIALS_MODULE_AVAILABLE = False
 
 try:
     from aragora.connectors.credentials import (
-        CredentialProvider as _ImportedCredentialProvider,
         get_credential_provider,
     )
 
-    CredentialProvider = _ImportedCredentialProvider
+    _CREDENTIALS_MODULE_AVAILABLE = True
 except ImportError:
-    # Fallback for backwards compatibility - use EnvCredentialProvider as the implementation
-    CredentialProvider = cast(type[CredentialProviderProtocol], CredentialProviderProtocol)
+    _CREDENTIALS_MODULE_AVAILABLE = False
 
-    def get_credential_provider(**kwargs: Any) -> "EnvCredentialProvider":
-        return EnvCredentialProvider()
+
+# Define fallback outside try/except to avoid conditional function variant error
+def _fallback_get_credential_provider(
+    provider_type: str | None = None,
+    **kwargs: Any,
+) -> CredentialProviderProtocol:
+    return EnvCredentialProvider()
+
+
+if not _CREDENTIALS_MODULE_AVAILABLE:
+    get_credential_provider = _fallback_get_credential_provider
 
 
 class EnvCredentialProvider:
@@ -211,6 +217,10 @@ class EnvCredentialProvider:
         """Set credential as environment variable (in-memory only)."""
         env_key = f"{self.prefix}{key.upper()}"
         os.environ[env_key] = value
+
+
+# Type alias for backwards compatibility
+CredentialProvider = CredentialProviderProtocol
 
 
 @dataclass
@@ -312,7 +322,7 @@ class EnterpriseConnector(BaseConnector):
         self,
         connector_id: str,
         tenant_id: str = "default",
-        credentials: CredentialProvider | None = None,
+        credentials: CredentialProviderProtocol | None = None,
         state_dir: Path | None = None,
         enable_circuit_breaker: bool = True,
         circuit_breaker_failures: int = DEFAULT_CIRCUIT_BREAKER_FAILURES,

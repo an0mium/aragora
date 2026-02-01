@@ -716,7 +716,7 @@ class SlackMessagesMixin:
         self,
         channel_id: str,
         message_id: str,
-        emoji: str,
+        reaction: str,
         **kwargs: Any,
     ) -> bool:
         """Remove an emoji reaction from a message.
@@ -726,7 +726,7 @@ class SlackMessagesMixin:
         Args:
             channel_id: Channel containing the message
             message_id: Timestamp of the message
-            emoji: Emoji name without colons
+            reaction: Emoji name without colons (e.g., "thumbsup" not ":thumbsup:")
             **kwargs: Additional parameters
 
         Returns:
@@ -738,7 +738,7 @@ class SlackMessagesMixin:
             json_data={
                 "channel": channel_id,
                 "timestamp": message_id,
-                "name": emoji.strip(":"),
+                "name": reaction.strip(":"),
             },
         )
 
@@ -809,33 +809,74 @@ class SlackMessagesMixin:
 
     async def list_users(
         self,
+        channel_id: str | None = None,
         limit: int = 100,
-        include_bots: bool = False,
+        cursor: str | None = None,
         **kwargs: Any,
-    ) -> list[ChatUser]:
-        """List users in the workspace.
+    ) -> tuple[list[ChatUser], str | None]:
+        """List users in a channel or workspace.
 
         Uses _slack_api_request for circuit breaker, retry, and timeout handling.
 
         Args:
+            channel_id: Optional channel to list members of. If provided,
+                lists members of that channel. Otherwise lists workspace members.
             limit: Maximum number of users to return
-            include_bots: Whether to include bot users
-            **kwargs: Additional parameters
+            cursor: Pagination cursor for subsequent requests
+            **kwargs: Additional parameters (include_bots: bool to include bot users)
 
         Returns:
-            List of ChatUser objects
+            Tuple of (list of ChatUser, next_cursor or None)
         """
+        include_bots = kwargs.get("include_bots", False)
+
+        if channel_id:
+            # List channel members
+            params: dict[str, Any] = {"channel": channel_id, "limit": limit}
+            if cursor:
+                params["cursor"] = cursor
+
+            success, data, error = await self._slack_api_request(
+                "conversations.members",
+                operation="list_channel_members",
+                method="GET",
+                params=params,
+            )
+
+            if not success or not data:
+                if error:
+                    logger.error(f"Slack list_users (channel members) error: {error}")
+                return [], None
+
+            # Get user info for each member
+            users = []
+            for user_id in data.get("members", []):
+                user_info = await self.get_user_info(user_id)
+                if user_info:
+                    # Skip bots if not requested
+                    if not include_bots and user_info.is_bot:
+                        continue
+                    users.append(user_info)
+
+            next_cursor = data.get("response_metadata", {}).get("next_cursor") or None
+            return users, next_cursor
+
+        # List workspace users
+        params = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
+
         success, data, error = await self._slack_api_request(
             "users.list",
             operation="list_users",
             method="GET",
-            params={"limit": limit},
+            params=params,
         )
 
         if not success or not data:
             if error:
                 logger.error(f"Slack list_users error: {error}")
-            return []
+            return [], None
 
         users = []
         for member in data.get("members", []):
@@ -863,7 +904,9 @@ class SlackMessagesMixin:
                     },
                 )
             )
-        return users
+
+        next_cursor = data.get("response_metadata", {}).get("next_cursor") or None
+        return users, next_cursor
 
     # =========================================================================
     # User Mention Helpers

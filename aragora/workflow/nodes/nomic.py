@@ -12,9 +12,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Sequence, cast
 
 from aragora.workflow.step import BaseStep, WorkflowContext
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +138,9 @@ class NomicLoopStep(BaseStep):
             agent_instances: list[Any] = []
             for agent_type in agent_types:
                 try:
-                    agent_instances.append(create_agent(agent_type))
+                    from aragora.agents.base import AgentType as AgentTypeLiteral
+
+                    agent_instances.append(create_agent(cast(AgentTypeLiteral, agent_type)))
                 except Exception as exc:
                     logger.warning("Failed to create agent %s: %s", agent_type, exc)
 

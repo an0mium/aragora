@@ -700,7 +700,11 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             if count >= min_occurrences
         ]
 
-        patterns.sort(key=lambda x: int(x.get("occurrence_count") or 0), reverse=True)
+        def _sort_key(x: dict[str, Any]) -> int:
+            val = x.get("occurrence_count", 0)
+            return int(val) if isinstance(val, (int, float, str)) else 0
+
+        patterns.sort(key=_sort_key, reverse=True)
 
         return patterns[:limit]
 

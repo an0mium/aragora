@@ -360,10 +360,15 @@ class AuthChecksMixin:
         Returns:
             True if upload is allowed, False if rate limited
         """
+        from typing import cast
+        from http.server import BaseHTTPRequestHandler
+
         from aragora.server.upload_rate_limit import get_upload_limiter
 
         limiter = get_upload_limiter()
-        client_ip = limiter.get_client_ip(self)
+        # Cast self to BaseHTTPRequestHandler for type checking - the mixin
+        # expects to be mixed with a handler that has client_address and headers
+        client_ip = limiter.get_client_ip(cast(BaseHTTPRequestHandler, self))
         allowed, error_info = limiter.check_allowed(client_ip)
 
         if not allowed and error_info:

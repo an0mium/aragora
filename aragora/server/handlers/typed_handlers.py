@@ -102,7 +102,7 @@ class TypedHandler:
         import json
 
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
+            content_length = int(handler.headers.get("Content-Length", "0"))
             if max_size and content_length > max_size:
                 return None
             if content_length == 0:

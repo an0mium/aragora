@@ -619,3 +619,697 @@ class TestInjectKnowledgeContext:
         await init._inject_knowledge_context(ctx)
 
         assert ctx.env.context == ""
+
+
+# =============================================================================
+# Additional Coverage: Cross-Debate Context Tests
+# =============================================================================
+
+
+class TestInjectCrossDebateContext:
+    """Tests for cross-debate institutional context injection."""
+
+    @pytest.mark.asyncio
+    async def test_injects_cross_debate_context(self):
+        """Injects context from CrossDebateMemory."""
+        ctx = MockDebateContext()
+
+        # Need content >= 50 chars to pass the length check
+        relevant_context = "## Historical Context\nPrevious debates showed X is true. More context here to meet length."
+        cross_debate_memory = AsyncMock()
+        cross_debate_memory.get_relevant_context.return_value = relevant_context
+
+        init = ContextInitializer(
+            cross_debate_memory=cross_debate_memory,
+            enable_cross_debate_memory=True,
+        )
+
+        await init._inject_cross_debate_context(ctx)
+
+        assert "INSTITUTIONAL KNOWLEDGE" in ctx.env.context
+        assert "Previous debates" in ctx.env.context
+
+    @pytest.mark.asyncio
+    async def test_handles_timeout(self):
+        """Handles cross-debate fetch timeout."""
+        ctx = MockDebateContext()
+
+        cross_debate_memory = AsyncMock()
+        cross_debate_memory.get_relevant_context.side_effect = asyncio.TimeoutError
+
+        init = ContextInitializer(
+            cross_debate_memory=cross_debate_memory,
+            enable_cross_debate_memory=True,
+        )
+
+        # Should not raise
+        await init._inject_cross_debate_context(ctx)
+        assert ctx.env.context == ""
+
+    @pytest.mark.asyncio
+    async def test_skips_when_disabled(self):
+        """Skips when cross-debate memory disabled."""
+        ctx = MockDebateContext()
+
+        init = ContextInitializer(
+            cross_debate_memory=AsyncMock(),
+            enable_cross_debate_memory=False,
+        )
+
+        await init._inject_cross_debate_context(ctx)
+        assert ctx.env.context == ""
+
+    @pytest.mark.asyncio
+    async def test_skips_short_context(self):
+        """Skips context that is too short."""
+        ctx = MockDebateContext()
+
+        cross_debate_memory = AsyncMock()
+        cross_debate_memory.get_relevant_context.return_value = "Too short"
+
+        init = ContextInitializer(
+            cross_debate_memory=cross_debate_memory,
+            enable_cross_debate_memory=True,
+        )
+
+        await init._inject_cross_debate_context(ctx)
+        assert ctx.env.context == ""
+
+
+# =============================================================================
+# Additional Coverage: Belief Cruxes Injection Tests
+# =============================================================================
+
+
+class TestInjectBeliefCruxes:
+    """Tests for belief cruxes injection from similar debates."""
+
+    def test_injects_cruxes_from_similar_debates(self):
+        """Injects belief cruxes from similar past debates."""
+        ctx = MockDebateContext()
+        ctx.domain = "testing"
+
+        # Create mock similar debates with cruxes
+        similar = MagicMock()
+        similar.consensus = MagicMock()
+        similar.consensus.metadata = {"belief_cruxes": ["Crux 1", "Crux 2"]}
+        similar.consensus.key_claims = ["Claim A"]
+
+        memory = MagicMock()
+        memory.find_similar_debates.return_value = [similar]
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.memory = memory
+
+        init = ContextInitializer(
+            dissent_retriever=dissent_retriever,
+            enable_belief_guidance=True,
+        )
+
+        init._inject_belief_cruxes(ctx)
+
+        assert "HISTORICAL CRUXES" in ctx.env.context
+        assert "Crux 1" in ctx.env.context
+
+    def test_skips_without_dissent_retriever(self):
+        """Skips when no dissent retriever provided."""
+        ctx = MockDebateContext()
+
+        init = ContextInitializer(enable_belief_guidance=True)
+
+        init._inject_belief_cruxes(ctx)
+        assert ctx.env.context == ""
+
+    def test_skips_without_similar_debates(self):
+        """Skips when no similar debates found."""
+        ctx = MockDebateContext()
+
+        memory = MagicMock()
+        memory.find_similar_debates.return_value = []
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.memory = memory
+
+        init = ContextInitializer(
+            dissent_retriever=dissent_retriever,
+            enable_belief_guidance=True,
+        )
+
+        init._inject_belief_cruxes(ctx)
+        assert ctx.env.context == ""
+
+    def test_handles_missing_cruxes(self):
+        """Handles debates without cruxes or key claims."""
+        ctx = MockDebateContext()
+
+        similar = MagicMock()
+        similar.consensus = MagicMock()
+        similar.consensus.metadata = {}
+        similar.consensus.key_claims = None
+
+        memory = MagicMock()
+        memory.find_similar_debates.return_value = [similar]
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.memory = memory
+
+        init = ContextInitializer(
+            dissent_retriever=dissent_retriever,
+            enable_belief_guidance=True,
+        )
+
+        init._inject_belief_cruxes(ctx)
+        assert ctx.env.context == ""
+
+
+# =============================================================================
+# Additional Coverage: Historical Dissents Injection Tests
+# =============================================================================
+
+
+class TestInjectHistoricalDissents:
+    """Tests for historical dissenting views injection."""
+
+    def test_injects_dissent_context(self):
+        """Injects dissenting views from similar past debates."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.get_debate_preparation_context.return_value = (
+            "## HISTORICAL DISSENTS\n"
+            "In previous debates, Agent-X argued for alternative approach with reasoning..."
+        )
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+
+        init._inject_historical_dissents(ctx)
+
+        assert "HISTORICAL DISSENTS" in ctx.env.context
+
+    def test_skips_short_dissent_context(self):
+        """Skips dissent context that is too short."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.get_debate_preparation_context.return_value = "Short"
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+
+        init._inject_historical_dissents(ctx)
+        assert ctx.env.context == ""
+
+    def test_skips_without_dissent_retriever(self):
+        """Skips when no dissent retriever."""
+        ctx = MockDebateContext()
+
+        init = ContextInitializer()
+
+        init._inject_historical_dissents(ctx)
+        assert ctx.env.context == ""
+
+    def test_handles_dissent_error(self):
+        """Handles dissent retriever errors gracefully."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.get_debate_preparation_context.side_effect = RuntimeError("Error")
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+
+        # Should not raise
+        init._inject_historical_dissents(ctx)
+        assert ctx.env.context == ""
+
+
+# =============================================================================
+# Additional Coverage: Evidence Collection Tests
+# =============================================================================
+
+
+class TestCollectEvidence:
+    """Tests for evidence collection during initialization."""
+
+    @pytest.mark.asyncio
+    async def test_collects_evidence_from_collector(self):
+        """Collects evidence using evidence collector."""
+        ctx = MockDebateContext()
+
+        evidence_pack = MagicMock()
+        evidence_pack.snippets = [MagicMock(content="Evidence 1")]
+        evidence_pack.total_searched = 10
+        evidence_pack.to_context_string.return_value = "## EVIDENCE\nSnippet 1"
+
+        collector = AsyncMock()
+        collector.collect_evidence.return_value = evidence_pack
+
+        protocol = MagicMock()
+        protocol.enable_evidence_collection = True
+
+        init = ContextInitializer(
+            evidence_collector=collector,
+            protocol=protocol,
+        )
+
+        await init._collect_evidence(ctx)
+
+        assert ctx.evidence_pack is not None
+        assert "EVIDENCE" in ctx.env.context
+
+    @pytest.mark.asyncio
+    async def test_handles_evidence_timeout(self):
+        """Handles evidence collection timeout."""
+        ctx = MockDebateContext()
+
+        collector = AsyncMock()
+        collector.collect_evidence.side_effect = asyncio.TimeoutError
+
+        protocol = MagicMock()
+        protocol.enable_evidence_collection = True
+
+        init = ContextInitializer(
+            evidence_collector=collector,
+            protocol=protocol,
+        )
+
+        # Should not raise
+        await init._collect_evidence(ctx)
+
+    @pytest.mark.asyncio
+    async def test_skips_when_disabled(self):
+        """Skips evidence collection when disabled."""
+        ctx = MockDebateContext()
+
+        collector = AsyncMock()
+        protocol = MagicMock()
+        protocol.enable_evidence_collection = False
+
+        init = ContextInitializer(
+            evidence_collector=collector,
+            protocol=protocol,
+        )
+
+        await init._collect_evidence(ctx)
+
+        collector.collect_evidence.assert_not_called()
+
+
+# =============================================================================
+# Additional Coverage: Skill Evidence Collection Tests
+# =============================================================================
+
+
+class TestCollectSkillEvidence:
+    """Tests for skill-based evidence collection."""
+
+    @pytest.mark.asyncio
+    async def test_collects_evidence_from_skills(self):
+        """Collects evidence from debate-compatible skills."""
+        # Create mock skill registry
+        skill_manifest = MagicMock()
+        skill_manifest.name = "web_search"
+        skill_manifest.version = "1.0.0"
+        skill_manifest.capabilities = [MagicMock()]
+        skill_manifest.tags = ["debate"]
+
+        skill_result = MagicMock()
+        skill_result.status = MagicMock()  # SUCCESS
+        skill_result.data = "Search result data"
+        skill_result.duration_seconds = 0.5
+
+        registry = MagicMock()
+        registry.list_skills.return_value = [skill_manifest]
+        registry.invoke = AsyncMock(return_value=skill_result)
+
+        init = ContextInitializer(
+            skill_registry=registry,
+            enable_skills=True,
+        )
+
+        # The _collect_skill_evidence method imports SkillCapability internally
+        # It will handle the import internally, so we test that it runs without error
+        snippets = await init._collect_skill_evidence("test task")
+
+        # Returns empty if skills module not available or no matching skills
+        assert isinstance(snippets, list)
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_without_registry(self):
+        """Returns empty list without skill registry."""
+        init = ContextInitializer(enable_skills=True)
+
+        snippets = await init._collect_skill_evidence("test task")
+
+        assert snippets == []
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_disabled(self):
+        """Returns empty list when skills disabled."""
+        registry = MagicMock()
+        init = ContextInitializer(
+            skill_registry=registry,
+            enable_skills=False,
+        )
+
+        snippets = await init._collect_skill_evidence("test task")
+
+        assert snippets == []
+
+
+# =============================================================================
+# Additional Coverage: RLM Compression Tests
+# =============================================================================
+
+
+class TestCompressContextWithRLM:
+    """Tests for RLM-based context compression."""
+
+    @pytest.mark.asyncio
+    async def test_compresses_long_context(self):
+        """Compresses long context using RLM."""
+        ctx = MockDebateContext()
+        ctx.env.context = "A" * 2000  # Long context
+
+        compression_result = MagicMock()
+        compression_result.answer = "Compressed summary"
+        compression_result.used_true_rlm = True
+        compression_result.used_compression_fallback = False
+
+        rlm = MagicMock()
+        rlm.compress_and_query = AsyncMock(return_value=compression_result)
+
+        init = ContextInitializer()
+        init._rlm = rlm
+        init.enable_rlm_compression = True
+
+        await init._compress_context_with_rlm(ctx)
+
+        rlm.compress_and_query.assert_called_once()
+        assert hasattr(ctx, "rlm_compressed_context")
+
+    @pytest.mark.asyncio
+    async def test_skips_short_context(self):
+        """Skips compression for short context."""
+        ctx = MockDebateContext()
+        ctx.env.context = "Short"
+
+        rlm = MagicMock()
+        rlm.compress_and_query = AsyncMock()
+
+        init = ContextInitializer()
+        init._rlm = rlm
+        init.enable_rlm_compression = True
+
+        await init._compress_context_with_rlm(ctx)
+
+        rlm.compress_and_query.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handles_compression_timeout(self):
+        """Handles RLM compression timeout."""
+        ctx = MockDebateContext()
+        ctx.env.context = "A" * 2000
+
+        rlm = MagicMock()
+        rlm.compress_and_query = AsyncMock(side_effect=asyncio.TimeoutError)
+
+        init = ContextInitializer()
+        init._rlm = rlm
+        init.enable_rlm_compression = True
+
+        # Should not raise
+        await init._compress_context_with_rlm(ctx)
+
+    @pytest.mark.asyncio
+    async def test_handles_compression_error(self):
+        """Handles RLM compression errors."""
+        ctx = MockDebateContext()
+        ctx.env.context = "A" * 2000
+
+        rlm = MagicMock()
+        rlm.compress_and_query = AsyncMock(side_effect=RuntimeError("RLM error"))
+
+        init = ContextInitializer()
+        init._rlm = rlm
+        init.enable_rlm_compression = True
+
+        # Should not raise
+        await init._compress_context_with_rlm(ctx)
+
+    @pytest.mark.asyncio
+    async def test_skips_without_rlm(self):
+        """Skips compression without RLM instance."""
+        ctx = MockDebateContext()
+        ctx.env.context = "A" * 2000
+
+        init = ContextInitializer()
+        init._rlm = None
+
+        # Should not raise
+        await init._compress_context_with_rlm(ctx)
+
+
+# =============================================================================
+# Additional Coverage: Pre-Debate Research Tests
+# =============================================================================
+
+
+class TestPerformPreDebateResearch:
+    """Tests for pre-debate research execution."""
+
+    @pytest.mark.asyncio
+    async def test_performs_research_when_enabled(self):
+        """Performs research when protocol enables it."""
+        ctx = MockDebateContext()
+
+        protocol = MagicMock()
+        protocol.enable_research = True
+
+        research_fn = AsyncMock(return_value="## Research Results\nImportant findings...")
+
+        init = ContextInitializer(
+            protocol=protocol,
+            perform_research=research_fn,
+        )
+
+        await init._perform_pre_debate_research(ctx)
+
+        research_fn.assert_called_once_with("What is the best approach?")
+        assert ctx.research_context == "## Research Results\nImportant findings..."
+
+    @pytest.mark.asyncio
+    async def test_skips_when_disabled(self):
+        """Skips research when protocol disables it."""
+        ctx = MockDebateContext()
+
+        protocol = MagicMock()
+        protocol.enable_research = False
+
+        research_fn = AsyncMock()
+
+        init = ContextInitializer(
+            protocol=protocol,
+            perform_research=research_fn,
+        )
+
+        await init._perform_pre_debate_research(ctx)
+
+        research_fn.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handles_research_error(self):
+        """Handles research errors gracefully."""
+        ctx = MockDebateContext()
+
+        protocol = MagicMock()
+        protocol.enable_research = True
+
+        research_fn = AsyncMock(side_effect=RuntimeError("Research failed"))
+
+        init = ContextInitializer(
+            protocol=protocol,
+            perform_research=research_fn,
+        )
+
+        # Should not raise
+        await init._perform_pre_debate_research(ctx)
+
+    @pytest.mark.asyncio
+    async def test_handles_empty_research_result(self):
+        """Handles empty research result."""
+        ctx = MockDebateContext()
+
+        protocol = MagicMock()
+        protocol.enable_research = True
+
+        research_fn = AsyncMock(return_value="")
+
+        init = ContextInitializer(
+            protocol=protocol,
+            perform_research=research_fn,
+        )
+
+        await init._perform_pre_debate_research(ctx)
+
+        assert not hasattr(ctx, "research_context") or ctx.research_context == ""
+
+
+# =============================================================================
+# Additional Coverage: Knowledge Cache Tests
+# =============================================================================
+
+
+class TestKnowledgeCache:
+    """Tests for knowledge context caching."""
+
+    def test_get_cached_knowledge_returns_cached_value(self):
+        """Returns cached knowledge within TTL."""
+        from aragora.debate.phases import context_init
+
+        # Set up cache
+        context_init._knowledge_cache["test_hash"] = ("Cached content", time.time())
+
+        init = ContextInitializer()
+
+        result = init._get_cached_knowledge("test_hash")
+
+        assert result == "Cached content"
+
+    def test_get_cached_knowledge_returns_none_for_expired(self):
+        """Returns None for expired cache entry."""
+        from aragora.debate.phases import context_init
+
+        # Set up expired cache (6 minutes ago, TTL is 5 minutes)
+        context_init._knowledge_cache["expired_hash"] = ("Old content", time.time() - 400)
+
+        init = ContextInitializer()
+
+        result = init._get_cached_knowledge("expired_hash")
+
+        assert result is None
+
+    def test_get_cached_knowledge_returns_none_for_missing(self):
+        """Returns None for missing cache entry."""
+        init = ContextInitializer()
+
+        result = init._get_cached_knowledge("nonexistent_hash")
+
+        assert result is None
+
+
+# =============================================================================
+# Additional Coverage: Full Initialize Flow Tests
+# =============================================================================
+
+
+class TestFullInitializeFlow:
+    """Tests for the complete initialization flow."""
+
+    @pytest.mark.asyncio
+    async def test_initializes_with_all_options_enabled(self):
+        """Initializes with all optional features enabled."""
+        ctx = MockDebateContext()
+        ctx.agents = [MockAgent("claude", "proposer")]
+
+        protocol = MagicMock()
+        protocol.enable_research = False  # Keep it fast
+        protocol.enable_evidence_collection = False
+
+        init = ContextInitializer(
+            protocol=protocol,
+            enable_knowledge_retrieval=False,  # Keep it fast
+            enable_belief_guidance=False,
+            enable_cross_debate_memory=False,
+        )
+
+        await init.initialize(ctx)
+
+        assert ctx.result is not None
+        assert len(ctx.proposers) == 1
+
+    @pytest.mark.asyncio
+    async def test_initialize_injects_fork_history_first(self):
+        """Initialize injects fork history before other context."""
+        from aragora.core import Message
+
+        msg = Message(role="assistant", agent="claude", content="Previous response")
+        ctx = MockDebateContext()
+        ctx.agents = [MockAgent("claude", "proposer")]
+
+        init = ContextInitializer(initial_messages=[msg])
+
+        await init.initialize(ctx)
+
+        # Fork history should be in partial_messages
+        assert len(ctx.partial_messages) == 1
+        assert ctx.partial_messages[0].content == "Previous response"
+
+    @pytest.mark.asyncio
+    async def test_initialize_creates_background_research_task(self):
+        """Initialize creates background research task when enabled."""
+        ctx = MockDebateContext()
+        ctx.agents = [MockAgent("claude", "proposer")]
+
+        protocol = MagicMock()
+        protocol.enable_research = True
+        protocol.enable_evidence_collection = False
+
+        research_fn = AsyncMock(return_value="Research results")
+
+        init = ContextInitializer(
+            protocol=protocol,
+            perform_research=research_fn,
+            enable_knowledge_retrieval=False,
+            enable_belief_guidance=False,
+            enable_cross_debate_memory=False,
+        )
+
+        await init.initialize(ctx)
+
+        # Background task should have been created
+        assert ctx.background_research_task is not None
+        # Clean up
+        ctx.background_research_task.cancel()
+        try:
+            await ctx.background_research_task
+        except asyncio.CancelledError:
+            pass
+
+    @pytest.mark.asyncio
+    async def test_initialize_creates_background_evidence_task(self):
+        """Initialize creates background evidence task when enabled."""
+        ctx = MockDebateContext()
+        ctx.agents = [MockAgent("claude", "proposer")]
+
+        evidence_pack = MagicMock()
+        evidence_pack.snippets = []
+        evidence_pack.total_searched = 0
+
+        collector = AsyncMock()
+        collector.collect_evidence.return_value = evidence_pack
+
+        protocol = MagicMock()
+        protocol.enable_research = False
+        protocol.enable_evidence_collection = True
+
+        init = ContextInitializer(
+            protocol=protocol,
+            evidence_collector=collector,
+            enable_knowledge_retrieval=False,
+            enable_belief_guidance=False,
+            enable_cross_debate_memory=False,
+        )
+
+        await init.initialize(ctx)
+
+        # Background task should have been created
+        assert ctx.background_evidence_task is not None
+        # Clean up
+        ctx.background_evidence_task.cancel()
+        try:
+            await ctx.background_evidence_task
+        except asyncio.CancelledError:
+            pass
+
+
+# Import required for time-based tests
+import time

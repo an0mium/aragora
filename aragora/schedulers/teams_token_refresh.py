@@ -107,7 +107,7 @@ class TenantStoreProtocol(Protocol):
         """Get tenants with tokens expiring within the specified hours."""
         ...
 
-    def refresh_workspace_token(
+    async def refresh_workspace_token(
         self, tenant_id: str, client_id: str, client_secret: str
     ) -> object | None:
         """Refresh a tenant's access token."""

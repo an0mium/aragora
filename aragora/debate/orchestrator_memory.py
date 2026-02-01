@@ -7,7 +7,7 @@ Supabase sync, and memory outcome storage.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.logging_config import get_logger as get_structured_logger
 
@@ -93,7 +93,7 @@ def setup_belief_network(
 
         network = BeliefNetwork(
             debate_id=debate_id,
-            km_adapter=km_adapter,
+            km_adapter=cast(Any, km_adapter),  # BeliefAdapter implements _BeliefAdapterProtocol
         )
 
         if seed_from_km and km_adapter and topic:

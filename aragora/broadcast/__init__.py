@@ -61,8 +61,8 @@ async def broadcast_debate(
     import tempfile
 
     # Generate script from trace
-    segments = generate_script(trace)
-    if not segments:
+    script = generate_script(trace)
+    if not script.segments:
         return None
 
     # Use TemporaryDirectory context manager for secure cleanup (prevents race conditions)
@@ -70,7 +70,7 @@ async def broadcast_debate(
         temp_dir = Path(temp_dir_str)
 
         # Generate audio for each segment
-        audio_files = await generate_audio(segments, temp_dir)
+        audio_files = await generate_audio(script.segments, temp_dir)
         if not audio_files:
             return None
 

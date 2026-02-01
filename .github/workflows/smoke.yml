@@ -42,12 +42,7 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          pytest -m smoke \
-            --timeout=60 \
-            -v \
-            --tb=short \
-            -x \
-            --no-header
+          bash scripts/test_tiers.sh smoke
         env:
           PYTHONPATH: .
 

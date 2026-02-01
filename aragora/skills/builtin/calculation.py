@@ -12,7 +12,7 @@ import ast
 import logging
 import math
 import operator
-from typing import Any
+from typing import Any, Callable
 
 from ..base import (
     SyncSkill,
@@ -24,8 +24,12 @@ from ..base import (
 logger = logging.getLogger(__name__)
 
 
-# Safe operators for evaluation
-SAFE_OPERATORS = {
+# Type aliases for operators
+BinaryOpFunc = Callable[[Any, Any], Any]
+UnaryOpFunc = Callable[[Any], Any]
+
+# Safe binary operators for evaluation
+SAFE_BINARY_OPERATORS: dict[type[ast.operator], BinaryOpFunc] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -33,12 +37,16 @@ SAFE_OPERATORS = {
     ast.FloorDiv: operator.floordiv,
     ast.Mod: operator.mod,
     ast.Pow: operator.pow,
+}
+
+# Safe unary operators
+SAFE_UNARY_OPERATORS: dict[type[ast.unaryop], UnaryOpFunc] = {
     ast.USub: operator.neg,
     ast.UAdd: operator.pos,
 }
 
 # Safe math functions
-SAFE_FUNCTIONS = {
+SAFE_FUNCTIONS: dict[str, Callable[..., Any]] = {
     "abs": abs,
     "round": round,
     "min": min,
@@ -118,10 +126,10 @@ class SafeEvaluator(ast.NodeVisitor):
         right = self.visit(node.right)
         op_type = type(node.op)
 
-        if op_type not in SAFE_OPERATORS:
+        if op_type not in SAFE_BINARY_OPERATORS:
             raise ValueError(f"Unsupported operator: {op_type.__name__}")
 
-        op = SAFE_OPERATORS[op_type]
+        op = SAFE_BINARY_OPERATORS[op_type]
 
         # Prevent dangerous operations
         if op_type == ast.Pow:
@@ -135,10 +143,10 @@ class SafeEvaluator(ast.NodeVisitor):
         operand = self.visit(node.operand)
         op_type = type(node.op)
 
-        if op_type not in SAFE_OPERATORS:
+        if op_type not in SAFE_UNARY_OPERATORS:
             raise ValueError(f"Unsupported unary operator: {op_type.__name__}")
 
-        return SAFE_OPERATORS[op_type](operand)
+        return SAFE_UNARY_OPERATORS[op_type](operand)
 
     def visit_Call(self, node: ast.Call) -> Any:
         if not isinstance(node.func, ast.Name):
@@ -361,7 +369,7 @@ class CalculationSkill(SyncSkill):
             )
 
         # Unit conversion factors (to base unit)
-        conversions = {
+        conversions: dict[str, dict[str, int | float]] = {
             # Length (base: meters)
             "length": {
                 "m": 1,
@@ -409,15 +417,6 @@ class CalculationSkill(SyncSkill):
                 "ton": 1000,
                 "tons": 1000,
             },
-            # Temperature (special handling)
-            "temperature": {
-                "c": "celsius",
-                "celsius": "celsius",
-                "f": "fahrenheit",
-                "fahrenheit": "fahrenheit",
-                "k": "kelvin",
-                "kelvin": "kelvin",
-            },
             # Time (base: seconds)
             "time": {
                 "s": 1,
@@ -459,12 +458,20 @@ class CalculationSkill(SyncSkill):
             },
         }
 
+        # Temperature units (handled specially)
+        temperature_units: set[str] = {"c", "celsius", "f", "fahrenheit", "k", "kelvin"}
+
         # Find which category the units belong to
-        category = None
-        for cat, units in conversions.items():
-            if from_unit in units and to_unit in units:
-                category = cat
-                break
+        category: str | None = None
+
+        # Check temperature first
+        if from_unit in temperature_units and to_unit in temperature_units:
+            category = "temperature"
+        else:
+            for cat, units in conversions.items():
+                if from_unit in units and to_unit in units:
+                    category = cat
+                    break
 
         if not category:
             return SkillResult.create_failure(

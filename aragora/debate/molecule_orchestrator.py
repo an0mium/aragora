@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.debate.molecules import (
+    AgentProfileLike,
     Molecule,
     MoleculeStatus,
     MoleculeTracker,
@@ -345,7 +346,7 @@ class MoleculeOrchestrator:
             return False
 
         # Find best agent
-        available = list(self._agent_profiles.values())
+        available: list[AgentProfileLike] = list(self._agent_profiles.values())
         best = self._tracker.find_best_agent(molecule, available)
 
         if best:
@@ -478,7 +479,7 @@ class MoleculeOrchestrator:
         for mol in molecules:
             if mol.status == MoleculeStatus.FAILED and mol.can_retry():
                 # Find a different agent
-                available = [
+                available: list[AgentProfileLike] = [
                     p for p in self._agent_profiles.values() if p.name not in mol.assignment_history
                 ]
 

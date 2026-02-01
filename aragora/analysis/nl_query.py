@@ -630,9 +630,17 @@ ANSWER:"""
             agent_type = _MODEL_TO_AGENT_TYPE.get(self.config.model, "anthropic-api")
             agent = create_agent(agent_type, model=self.config.model)
             if agent:
-                # Build messages with context
-                messages = context_messages + [{"role": "user", "content": prompt}]
-                response = await agent.generate(messages if context_messages else prompt)
+                # Build prompt with context if available
+                if context_messages:
+                    # Format context messages into prompt
+                    context_str = "\n".join(
+                        f"{msg.get('role', 'user')}: {msg.get('content', '')}"
+                        for msg in context_messages
+                    )
+                    full_prompt = f"Previous conversation:\n{context_str}\n\n{prompt}"
+                else:
+                    full_prompt = prompt
+                response = await agent.generate(full_prompt)
                 return response, self.config.model
         except (ImportError, RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Primary model failed: {e}, trying fallback")

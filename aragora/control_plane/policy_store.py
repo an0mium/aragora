@@ -740,14 +740,13 @@ class PostgresControlPlanePolicyStore:
 
     def delete_policy(self, policy_id: str) -> bool:
         """Delete a policy."""
-        result = self._backend.execute_write(
+        self._backend.execute_write(
             "DELETE FROM control_plane_policies WHERE id = $1",
             (policy_id,),
         )
-        deleted = int(result) > 0 if result is not None else True
-        if deleted:
-            logger.info("control_plane_policy_deleted", policy_id=policy_id)
-        return deleted
+        # execute_write doesn't return a value, assume success if no exception
+        logger.info("control_plane_policy_deleted", policy_id=policy_id)
+        return True
 
     def toggle_policy(self, policy_id: str, enabled: bool) -> bool:
         """Enable or disable a policy."""

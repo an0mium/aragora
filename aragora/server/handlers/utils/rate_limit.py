@@ -482,14 +482,18 @@ def rate_limit(
         name = limiter_name or f"{func.__module__}.{func.__qualname__}"
 
         # Get appropriate limiter based on configuration
+        # Use separate variables to help mypy with type narrowing in nested functions
+        distributed_limiter_instance: Optional[DistributedRateLimiter] = None
+        local_limiter_instance: Optional[RateLimiter] = None
         if should_use_distributed:
-            distributed_limiter = get_distributed_limiter()
+            distributed_limiter_instance = get_distributed_limiter()
             # Configure endpoint on distributed limiter
             endpoint_key = f"/{name.replace('.', '/')}"
-            distributed_limiter.configure_endpoint(endpoint_key, effective_rpm, key_type="ip")
-            limiter = distributed_limiter
+            distributed_limiter_instance.configure_endpoint(
+                endpoint_key, effective_rpm, key_type="ip"
+            )
         else:
-            limiter = _get_limiter(name, effective_rpm)
+            local_limiter_instance = _get_limiter(name, effective_rpm)
 
         def _get_key_from_args(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
             """Extract rate limit key from function arguments.
@@ -577,10 +581,10 @@ def rate_limit(
             """Check rate limit and return error response if exceeded."""
             from aragora.server.handlers.base import error_response
 
-            if should_use_distributed:
+            if should_use_distributed and distributed_limiter_instance is not None:
                 # Use distributed limiter's allow() method
                 tenant_id = _extract_tenant_id_from_request(args, kwargs)
-                result = limiter.allow(
+                result = distributed_limiter_instance.allow(
                     client_ip=key,
                     endpoint=endpoint_key,
                     tenant_id=tenant_id,
@@ -606,10 +610,10 @@ def rate_limit(
                         headers=headers,
                     )
                 return None
-            else:
+            elif local_limiter_instance is not None:
                 # Use local limiter's is_allowed() method
-                if not limiter.is_allowed(key):
-                    remaining = limiter.get_remaining(key)
+                if not local_limiter_instance.is_allowed(key):
+                    remaining = local_limiter_instance.get_remaining(key)
                     logger.warning(
                         "Rate limit exceeded for %s on %s (remaining: %d)",
                         key,
@@ -621,6 +625,7 @@ def rate_limit(
                         status=429,
                     )
                 return None
+            return None
 
         if asyncio.iscoroutinefunction(func):
 
@@ -634,7 +639,7 @@ def rate_limit(
 
             # Mark wrapper as rate limited for detection by default_limiter
             async_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            async_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+            async_wrapper._rate_limiter = distributed_limiter_instance or local_limiter_instance  # type: ignore[attr-defined]
             async_wrapper._rate_limit_distributed = should_use_distributed  # type: ignore[attr-defined]
 
             return cast(F, async_wrapper)
@@ -650,7 +655,7 @@ def rate_limit(
 
             # Mark wrapper as rate limited for detection by default_limiter
             sync_wrapper._rate_limited = True  # type: ignore[attr-defined]
-            sync_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+            sync_wrapper._rate_limiter = distributed_limiter_instance or local_limiter_instance  # type: ignore[attr-defined]
             sync_wrapper._rate_limit_distributed = should_use_distributed  # type: ignore[attr-defined]
 
             return cast(F, sync_wrapper)

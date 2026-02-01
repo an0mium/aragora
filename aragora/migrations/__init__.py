@@ -74,6 +74,18 @@ from .patterns import (
     safe_set_not_null,
     validate_migration_safety,
 )
+from .templates import (
+    ColumnType,
+    ColumnDefinition,
+    IndexDefinition,
+    TableDefinition,
+    generate_add_column_migration,
+    generate_add_index_migration,
+    generate_add_table_migration,
+    generate_data_migration_template,
+    generate_constraint_migration,
+    create_migration_file,
+)
 
 __all__ = [
     # Runner
@@ -102,4 +114,15 @@ __all__ = [
     "safe_create_index",
     "safe_drop_index",
     "validate_migration_safety",
+    # Templates
+    "ColumnType",
+    "ColumnDefinition",
+    "IndexDefinition",
+    "TableDefinition",
+    "generate_add_column_migration",
+    "generate_add_index_migration",
+    "generate_add_table_migration",
+    "generate_data_migration_template",
+    "generate_constraint_migration",
+    "create_migration_file",
 ]

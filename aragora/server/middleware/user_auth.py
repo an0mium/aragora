@@ -80,8 +80,9 @@ class _JWTModuleProtocol(Protocol):
         self,
         jwt: str,
         key: str,
-        algorithms: list[str],
-        audience: str,
+        algorithms: list[str] | None = None,
+        audience: str | None = None,
+        issuer: str | None = None,
     ) -> dict[str, Any]: ...
 
 
@@ -267,17 +268,16 @@ class SupabaseAuthValidator:
             if HAS_JWT and self.jwt_secret and _jwt_module is not None:
                 # Use PyJWT for proper validation
                 # Build decode options with audience; add issuer if URL is configured
-                decode_options: dict[str, str | list[str]] = {
-                    "algorithms": ["HS256"],
-                    "audience": "authenticated",
-                }
+                issuer: str | None = None
                 if self.supabase_url:
                     # Supabase issuer format: {SUPABASE_URL}/auth/v1
-                    decode_options["issuer"] = f"{self.supabase_url.rstrip('/')}/auth/v1"
+                    issuer = f"{self.supabase_url.rstrip('/')}/auth/v1"
                 payload = _jwt_module.decode(
                     token,
                     self.jwt_secret,
-                    **decode_options,
+                    algorithms=["HS256"],
+                    audience="authenticated",
+                    issuer=issuer,
                 )
             else:
                 # SECURITY: Require proper JWT validation in all environments

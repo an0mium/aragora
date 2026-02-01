@@ -1323,10 +1323,16 @@ class DecisionRouter:
                 span.set_attribute("workflow.id", workflow_id)
 
             # Load workflow definition from workflow store
+            import inspect
             from aragora.workflow.persistent_store import get_workflow_store
 
             workflow_store = get_workflow_store()
-            definition = workflow_store.get_workflow(workflow_id)
+            definition_result = workflow_store.get_workflow(workflow_id)
+            # Handle both sync and async get_workflow implementations
+            if inspect.iscoroutine(definition_result):
+                definition = await definition_result
+            else:
+                definition = definition_result
             if not definition:
                 raise ValueError(f"Workflow not found: {workflow_id}")
 
@@ -1342,8 +1348,8 @@ class DecisionRouter:
             if span:
                 span.set_attribute("workflow.success", workflow_result.success)
 
-            # Extract answer from workflow outputs
-            outputs = workflow_result.outputs if workflow_result.outputs else {}
+            # Extract answer from workflow final_output
+            outputs = workflow_result.final_output if workflow_result.final_output else {}
             answer = outputs.get("answer") or outputs.get("result") or ""
 
             return DecisionResult(
@@ -1437,8 +1443,9 @@ class DecisionRouter:
 
         try:
             from aragora.agents import create_agent
+            from aragora.agents.base import AgentType
 
-            agent = create_agent(agent_name)
+            agent = create_agent(cast(AgentType, agent_name))
 
             response = await agent.generate(request.content)
 

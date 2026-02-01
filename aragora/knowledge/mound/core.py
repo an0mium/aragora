@@ -578,14 +578,15 @@ class KnowledgeMoundCore:
         else:
             from aragora.knowledge.mound import KnowledgeRelationship
 
-            # rel_type may be str or RelationshipType; constructor accepts a Literal string
-            # Cast to the expected Literal type
-            from typing import cast
+            # rel_type may be str or RelationshipType enum; KnowledgeRelationship
+            # expects a Literal string type (LegacyRelationshipType)
+            # Extract the string value for the constructor
+            rel_type_str = rel_type.value if hasattr(rel_type, "value") else rel_type
 
             rel = KnowledgeRelationship(
                 from_node_id=from_id,
                 to_node_id=to_id,
-                relationship_type=cast(RelationshipType, rel_type),
+                relationship_type=rel_type_str,  # type: ignore[arg-type]
             )
             self._meta_store.save_relationship(rel)
 
@@ -634,7 +635,7 @@ class KnowledgeMoundCore:
         # Build result dictionary, handling any errors gracefully
         batch_result: dict[str, list[KnowledgeLink]] = {}
         for node_id, result in zip(node_ids, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 # Log error but don't fail the whole batch
                 batch_result[node_id] = []
             else:

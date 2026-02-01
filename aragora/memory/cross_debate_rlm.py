@@ -217,7 +217,7 @@ class CrossDebateMemory:
         """Initialize cross-debate memory."""
         self.config = config or CrossDebateConfig()
         self._entries: dict[str, DebateMemoryEntry] = {}
-        self._compressor = None
+        self._compressor: Any = None
         self._rlm: Any = None  # Official RLM instance (preferred over compression)
         self._lock = asyncio.Lock()
         self._initialized = False

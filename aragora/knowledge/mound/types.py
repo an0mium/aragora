@@ -346,6 +346,42 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
 
 
+@dataclass
+class PaginatedResult:
+    """Result of a paginated query.
+
+    Supports both offset-based and cursor-based pagination for efficient
+    navigation through large result sets.
+
+    Offset-based pagination:
+        Use `offset` and `limit` for simple page navigation.
+        Good for small-to-medium datasets where random page access is needed.
+
+    Cursor-based pagination:
+        Use `next_cursor` for efficient iteration through large datasets.
+        Better performance for large datasets as it avoids OFFSET scanning.
+        Cursors are opaque strings encoding the position in the result set.
+    """
+
+    items: list[Any]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+    next_cursor: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "items": [item.to_dict() if hasattr(item, "to_dict") else item for item in self.items],
+            "total": self.total,
+            "limit": self.limit,
+            "offset": self.offset,
+            "has_more": self.has_more,
+            "next_cursor": self.next_cursor,
+        }
+
+
 # =============================================================================
 # Enhanced Types for Enterprise Control Plane (Phase 1)
 # =============================================================================
@@ -569,6 +605,7 @@ __all__ = [
     "MoundBackend",
     "MoundConfig",
     "MoundStats",
+    "PaginatedResult",
     "StalenessCheck",
     "StalenessReason",
     "SyncResult",

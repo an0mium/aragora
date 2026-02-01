@@ -507,7 +507,7 @@ class TranslationService:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         # Filter out exceptions and return only successful translations
         # (exceptions are logged in translate() method)
-        return [r for r in results if not isinstance(r, Exception)]
+        return [r for r in results if isinstance(r, TranslationResult)]
 
     def get_stats(self) -> dict[str, Any]:
         """Get service statistics."""

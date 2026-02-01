@@ -40,7 +40,7 @@ def init_convergence(arena: Arena, debate_id: str | None = None) -> None:
             min_rounds_before_check=1,
             debate_id=debate_id,
         )
-    arena._previous_round_responses: dict[str, str] = {}
+    arena._previous_round_responses = {}
 
 
 def reinit_convergence_for_debate(arena: Arena, debate_id: str) -> None:

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence, cast
 
 if TYPE_CHECKING:
     from aragora.control_plane.registry import AgentInfo
@@ -249,10 +249,10 @@ class AgentFactory:
 
         # Create via existing AgentRegistry
         try:
-            from aragora.agents.base import create_agent
+            from aragora.agents.base import AgentType, create_agent
 
             agent = create_agent(
-                model_type=agent_type,
+                model_type=cast(AgentType, agent_type),
                 name=agent_info.agent_id,
                 role=role or self._config.default_role,
                 model=agent_info.model if agent_info.model != "unknown" else None,

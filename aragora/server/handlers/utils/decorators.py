@@ -841,6 +841,7 @@ def require_feature(
 # =============================================================================
 
 
+@contextmanager
 def safe_fetch(
     data_dict: dict[str, Any],
     errors_dict: dict[str, Any],
@@ -855,18 +856,13 @@ def safe_fetch(
         with safe_fetch(data, errors, "rankings", {"agents": [], "count": 0}):
             data["rankings"] = self._fetch_rankings(limit)
     """
-
-    @contextmanager
-    def _safe_fetch() -> Generator[None, None, None]:
-        try:
-            yield
-        except Exception as e:
-            if log_errors:
-                logger.warning(f"safe_fetch '{key}' failed: {type(e).__name__}: {e}")
-            errors_dict[key] = str(e)
-            data_dict[key] = fallback
-
-    return _safe_fetch()
+    try:
+        yield
+    except Exception as e:
+        if log_errors:
+            logger.warning(f"safe_fetch '{key}' failed: {type(e).__name__}: {e}")
+        errors_dict[key] = str(e)
+        data_dict[key] = fallback
 
 
 def with_error_recovery(

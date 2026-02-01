@@ -44,7 +44,11 @@ except ImportError:
             pass
 
     @contextmanager
-    def trace_context(operation: str, **kwargs: Any) -> Iterator[_MockSpan]:
+    def trace_context(  # type: ignore[misc]
+        operation: str,
+        trace_id: str | None = None,
+        parent_span_id: str | None = None,
+    ) -> Iterator[Any]:
         yield _MockSpan()
 
 

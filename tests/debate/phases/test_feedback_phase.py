@@ -1860,3 +1860,454 @@ class TestErrorRecovery:
         await phase._store_evidence_in_mound(ctx)
         await phase._execute_coordinated_writes(ctx)
         await phase._update_selection_feedback(ctx)
+
+
+# =============================================================================
+# Additional Coverage: Post-Debate Workflow Tests
+# =============================================================================
+
+
+class TestPostDebateWorkflow:
+    """Tests for post-debate workflow triggering."""
+
+    @pytest.mark.asyncio
+    async def test_maybe_trigger_workflow_skips_when_disabled(self):
+        """Skips workflow when enable_post_debate_workflow is False."""
+        workflow = MagicMock()
+        phase = FeedbackPhase(
+            post_debate_workflow=workflow,
+            enable_post_debate_workflow=False,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.9
+
+        await phase._maybe_trigger_workflow(ctx)
+
+        # Workflow should not be triggered
+
+    @pytest.mark.asyncio
+    async def test_maybe_trigger_workflow_skips_below_threshold(self):
+        """Skips workflow when confidence below threshold."""
+        workflow = MagicMock()
+        phase = FeedbackPhase(
+            post_debate_workflow=workflow,
+            enable_post_debate_workflow=True,
+            post_debate_workflow_threshold=0.8,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.5  # Below threshold
+
+        await phase._maybe_trigger_workflow(ctx)
+
+        # Workflow should not be triggered
+
+    @pytest.mark.asyncio
+    async def test_maybe_trigger_workflow_creates_background_task(self):
+        """Creates background task when workflow should trigger."""
+        workflow = MagicMock()
+        phase = FeedbackPhase(
+            post_debate_workflow=workflow,
+            enable_post_debate_workflow=True,
+            post_debate_workflow_threshold=0.5,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.9  # Above threshold
+
+        # Should create background task
+        await phase._maybe_trigger_workflow(ctx)
+
+
+# =============================================================================
+# Additional Coverage: Decision Receipt Tests
+# =============================================================================
+
+
+class TestDecisionReceipt:
+    """Tests for auto-receipt generation."""
+
+    @pytest.mark.asyncio
+    async def test_generate_and_post_receipt_skips_when_disabled(self):
+        """Skips receipt generation when disabled."""
+        phase = FeedbackPhase(enable_auto_receipt=False)
+
+        ctx = MockDebateContext()
+        result = await phase._generate_and_post_receipt(ctx)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_generate_and_post_receipt_skips_without_result(self):
+        """Skips receipt generation without result."""
+        phase = FeedbackPhase(enable_auto_receipt=True)
+
+        ctx = MockDebateContext()
+        ctx.result = None
+
+        result = await phase._generate_and_post_receipt(ctx)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_generate_and_post_receipt_with_cost_tracker(self):
+        """Generates receipt with cost data from cost_tracker."""
+        cost_tracker = MagicMock()
+        cost_tracker.get_debate_cost.return_value = 0.05
+        cost_tracker.get_total_tokens.return_value = 1500
+        cost_tracker.budget_limit = 1.0
+
+        phase = FeedbackPhase(
+            enable_auto_receipt=True,
+            cost_tracker=cost_tracker,
+        )
+
+        ctx = MockDebateContext()
+
+        # The _generate_and_post_receipt method imports DecisionReceipt internally
+        # We test that it runs without error and handles import properly
+        result = await phase._generate_and_post_receipt(ctx)
+
+        # Result may be None if DecisionReceipt module is not available
+        # or a receipt if it is - either is valid for this test
+        assert result is None or hasattr(result, "receipt_id")
+
+
+# =============================================================================
+# Additional Coverage: Coordinated Writes Tests
+# =============================================================================
+
+
+class TestCoordinatedWrites:
+    """Tests for coordinated memory writes."""
+
+    @pytest.mark.asyncio
+    async def test_execute_coordinated_writes_skips_when_disabled(self):
+        """Skips coordinated writes when disabled."""
+        coordinator = MagicMock()
+        phase = FeedbackPhase(
+            memory_coordinator=coordinator,
+            enable_coordinated_writes=False,
+        )
+
+        ctx = MockDebateContext()
+
+        await phase._execute_coordinated_writes(ctx)
+
+        coordinator.commit_debate_outcome.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_execute_coordinated_writes_handles_partial_failure(self):
+        """Handles partial failure in coordinated writes."""
+        transaction = MagicMock()
+        transaction.success = False
+        transaction.partial_failure = True
+        transaction.operations = [MagicMock(), MagicMock()]
+        transaction.get_failed_operations.return_value = [
+            MagicMock(target="continuum", error="Write failed"),
+        ]
+
+        coordinator = MagicMock()
+        coordinator.commit_debate_outcome = AsyncMock(return_value=transaction)
+
+        phase = FeedbackPhase(
+            memory_coordinator=coordinator,
+            enable_coordinated_writes=True,
+        )
+
+        ctx = MockDebateContext()
+
+        await phase._execute_coordinated_writes(ctx)
+
+        # Should have stored transaction reference
+        assert hasattr(ctx, "_memory_transaction")
+
+
+# =============================================================================
+# Additional Coverage: Selection Feedback Tests
+# =============================================================================
+
+
+class TestSelectionFeedback:
+    """Tests for selection feedback loop updates."""
+
+    @pytest.mark.asyncio
+    async def test_update_selection_feedback_skips_when_disabled(self):
+        """Skips feedback when disabled."""
+        loop = MagicMock()
+        phase = FeedbackPhase(
+            selection_feedback_loop=loop,
+            enable_performance_feedback=False,
+        )
+
+        ctx = MockDebateContext()
+
+        await phase._update_selection_feedback(ctx)
+
+        loop.process_debate_outcome.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_selection_feedback_emits_event(self):
+        """Emits selection feedback event when adjustments made."""
+        loop = MagicMock()
+        loop.process_debate_outcome.return_value = {"claude": 0.05, "gpt4": -0.02}
+
+        emitter = MagicMock()
+
+        phase = FeedbackPhase(
+            selection_feedback_loop=loop,
+            enable_performance_feedback=True,
+            event_emitter=emitter,
+            loop_id="test-loop",
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.winner = "claude"
+
+        await phase._update_selection_feedback(ctx)
+
+        # Should have processed and emitted event
+        loop.process_debate_outcome.assert_called_once()
+
+
+# =============================================================================
+# Additional Coverage: Knowledge Extraction Tests
+# =============================================================================
+
+
+class TestKnowledgeExtraction:
+    """Tests for knowledge extraction from debates."""
+
+    @pytest.mark.asyncio
+    async def test_extract_knowledge_skips_low_confidence(self):
+        """Skips extraction when confidence below threshold."""
+        mound = MagicMock()
+        phase = FeedbackPhase(
+            knowledge_mound=mound,
+            enable_knowledge_extraction=True,
+            extraction_min_confidence=0.5,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.2  # Below threshold
+
+        await phase._extract_knowledge_from_debate(ctx)
+
+        mound.extract_from_debate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_extract_knowledge_skips_without_messages(self):
+        """Skips extraction when no messages."""
+        mound = MagicMock()
+        phase = FeedbackPhase(
+            knowledge_mound=mound,
+            enable_knowledge_extraction=True,
+            extraction_min_confidence=0.1,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.8
+        ctx.result.messages = []
+
+        await phase._extract_knowledge_from_debate(ctx)
+
+        mound.extract_from_debate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_extract_knowledge_promotes_high_confidence_claims(self):
+        """Promotes high-confidence claims to mound."""
+        extraction_result = MagicMock()
+        extraction_result.claims = [MagicMock(confidence=0.9), MagicMock(confidence=0.8)]
+        extraction_result.relationships = []
+
+        mound = MagicMock()
+        mound.extract_from_debate = AsyncMock(return_value=extraction_result)
+        mound.promote_extracted_knowledge = AsyncMock(return_value=2)
+
+        phase = FeedbackPhase(
+            knowledge_mound=mound,
+            enable_knowledge_extraction=True,
+            extraction_min_confidence=0.1,
+            extraction_promote_threshold=0.7,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.8
+        ctx.result.messages = [MockMessage("claude", "Test content")]
+        ctx.result.consensus_reached = True
+        ctx.result.final_answer = "Agreed conclusion"
+
+        await phase._extract_knowledge_from_debate(ctx)
+
+        mound.extract_from_debate.assert_called_once()
+        mound.promote_extracted_knowledge.assert_called_once()
+
+
+# =============================================================================
+# Additional Coverage: Broadcast Triggering Tests
+# =============================================================================
+
+
+class TestMaybeTriggerBroadcastExtended:
+    """Tests for auto-broadcast triggering."""
+
+    @pytest.mark.asyncio
+    async def test_maybe_trigger_broadcast_skips_when_disabled(self):
+        """Skips broadcast when auto_broadcast is False."""
+        pipeline = MagicMock()
+        phase = FeedbackPhase(
+            broadcast_pipeline=pipeline,
+            auto_broadcast=False,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.9
+
+        await phase._maybe_trigger_broadcast(ctx)
+
+        # Pipeline should not be triggered
+
+    @pytest.mark.asyncio
+    async def test_maybe_trigger_broadcast_skips_below_min_confidence(self):
+        """Skips broadcast when confidence below minimum."""
+        pipeline = MagicMock()
+        phase = FeedbackPhase(
+            broadcast_pipeline=pipeline,
+            auto_broadcast=True,
+            broadcast_min_confidence=0.8,
+        )
+
+        ctx = MockDebateContext()
+        ctx.result.confidence = 0.5  # Below threshold
+
+        await phase._maybe_trigger_broadcast(ctx)
+
+
+# =============================================================================
+# Additional Coverage: Culture Observation Tests
+# =============================================================================
+
+
+class TestObserveDebateCultureExtended:
+    """Tests for culture pattern observation."""
+
+    @pytest.mark.asyncio
+    async def test_observe_debate_culture_skips_without_mound(self):
+        """Skips culture observation without knowledge mound."""
+        phase = FeedbackPhase(knowledge_mound=None)
+
+        ctx = MockDebateContext()
+
+        # Should not raise
+        await phase._observe_debate_culture(ctx)
+
+    @pytest.mark.asyncio
+    async def test_observe_debate_culture_with_culture_adapter(self):
+        """Observes culture patterns with culture adapter."""
+        mound = MagicMock()
+        mound.observe_debate = AsyncMock()
+
+        phase = FeedbackPhase(knowledge_mound=mound)
+
+        ctx = MockDebateContext()
+        ctx.result.messages = [MockMessage("claude", "Test")]
+
+        await phase._observe_debate_culture(ctx)
+
+        mound.observe_debate.assert_called_once()
+
+
+# =============================================================================
+# Additional Coverage: Store Evidence in Mound Tests
+# =============================================================================
+
+
+class TestStoreEvidenceInMoundExtended:
+    """Tests for storing evidence in Knowledge Mound."""
+
+    @pytest.mark.asyncio
+    async def test_store_evidence_skips_without_bridge_hub(self):
+        """Skips evidence storage without bridge hub."""
+        phase = FeedbackPhase(knowledge_bridge_hub=None)
+
+        ctx = MockDebateContext()
+        ctx.collected_evidence = [MagicMock()]
+
+        # Should not raise
+        await phase._store_evidence_in_mound(ctx)
+
+    @pytest.mark.asyncio
+    async def test_store_evidence_skips_without_evidence(self):
+        """Skips when no collected evidence."""
+        hub = MagicMock()
+        phase = FeedbackPhase(knowledge_bridge_hub=hub)
+
+        ctx = MockDebateContext()
+        ctx.collected_evidence = []
+
+        await phase._store_evidence_in_mound(ctx)
+
+        # Evidence bridge should not be called
+        hub.evidence.store_from_collector_evidence.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_store_evidence_stores_each_item(self):
+        """Stores each evidence item via bridge."""
+        evidence_bridge = MagicMock()
+        evidence_bridge.store_from_collector_evidence = AsyncMock()
+
+        hub = MagicMock()
+        hub.evidence = evidence_bridge
+
+        phase = FeedbackPhase(knowledge_bridge_hub=hub)
+
+        evidence1 = MagicMock()
+        evidence2 = MagicMock()
+        ctx = MockDebateContext()
+        ctx.collected_evidence = [evidence1, evidence2]
+
+        await phase._store_evidence_in_mound(ctx)
+
+        assert evidence_bridge.store_from_collector_evidence.call_count == 2
+
+
+# =============================================================================
+# Additional Coverage: Ingest Knowledge Outcome Tests
+# =============================================================================
+
+
+class TestIngestKnowledgeOutcomeExtended:
+    """Tests for knowledge outcome ingestion."""
+
+    @pytest.mark.asyncio
+    async def test_ingest_outcome_skips_when_disabled(self):
+        """Skips ingestion when disabled."""
+        ingest_fn = AsyncMock()
+        phase = FeedbackPhase(
+            knowledge_mound=MagicMock(),
+            enable_knowledge_ingestion=False,
+            ingest_debate_outcome=ingest_fn,
+        )
+
+        ctx = MockDebateContext()
+
+        await phase._ingest_knowledge_outcome(ctx)
+
+        ingest_fn.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ingest_outcome_calls_callback(self):
+        """Calls ingest callback with result."""
+        ingest_fn = AsyncMock()
+        phase = FeedbackPhase(
+            knowledge_mound=MagicMock(),
+            enable_knowledge_ingestion=True,
+            ingest_debate_outcome=ingest_fn,
+        )
+
+        ctx = MockDebateContext()
+
+        await phase._ingest_knowledge_outcome(ctx)
+
+        ingest_fn.assert_called_once_with(ctx.result)

@@ -23,6 +23,7 @@ from aragora.knowledge.mound.types import (
     KnowledgeSource,
     ConfidenceLevel,
     MoundStats,
+    PaginatedResult,
     QueryFilters,
     RelationshipType,
     VisibilityLevel,
@@ -630,8 +631,23 @@ class PostgresStore:
         filters: QueryFilters | None,
         limit: int,
         workspace_id: str,
+        offset: int = 0,
     ) -> list[KnowledgeItem]:
-        """Query nodes with full-text search."""
+        """Query nodes with full-text search.
+
+        Args:
+            query: Full-text search query
+            filters: Optional query filters (not fully implemented yet)
+            limit: Maximum number of items to return (capped at MAX_LIMIT)
+            workspace_id: Workspace to query
+            offset: Number of items to skip (default 0)
+
+        Returns:
+            List of matching KnowledgeItems
+        """
+        # Enforce limits
+        limit = min(limit, self.MAX_LIMIT) if limit > 0 else self.DEFAULT_LIMIT
+
         async with self.connection() as conn:
             # Use PostgreSQL full-text search
             rows = await conn.fetch(
@@ -642,10 +658,12 @@ class PostgresStore:
                 AND to_tsvector('english', content) @@ plainto_tsquery('english', $1)
                 ORDER BY rank DESC
                 LIMIT $3
+                OFFSET $4
                 """,
                 query,
                 workspace_id,
                 limit,
+                offset,
             )
 
             return [
@@ -662,6 +680,481 @@ class PostgresStore:
                 )
                 for row in rows
             ]
+
+    async def query_paginated_async(
+        self,
+        query: str,
+        workspace_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        filters: QueryFilters | None = None,
+    ) -> PaginatedResult:
+        """Query nodes with full-text search and return paginated results.
+
+        Args:
+            query: Full-text search query
+            workspace_id: Workspace to query
+            limit: Maximum number of items to return (default 100, max 1000)
+            offset: Number of items to skip (default 0)
+            filters: Optional query filters
+
+        Returns:
+            PaginatedResult containing matching items and pagination metadata
+        """
+        # Enforce limits
+        limit = min(limit, self.MAX_LIMIT) if limit > 0 else self.DEFAULT_LIMIT
+
+        async with self.connection() as conn:
+            # Get total count for pagination
+            total = (
+                await conn.fetchval(
+                    """
+                SELECT COUNT(*)
+                FROM knowledge_nodes
+                WHERE workspace_id = $1
+                AND to_tsvector('english', content) @@ plainto_tsquery('english', $2)
+                """,
+                    workspace_id,
+                    query,
+                )
+                or 0
+            )
+
+            # Fetch items with one extra to detect has_more
+            rows = await conn.fetch(
+                """
+                SELECT *, ts_rank(to_tsvector('english', content), plainto_tsquery('english', $1)) as rank
+                FROM knowledge_nodes
+                WHERE workspace_id = $2
+                AND to_tsvector('english', content) @@ plainto_tsquery('english', $1)
+                ORDER BY rank DESC
+                LIMIT $3
+                OFFSET $4
+                """,
+                query,
+                workspace_id,
+                limit + 1,
+                offset,
+            )
+
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]
+
+            items = [
+                KnowledgeItem(
+                    id=row["id"],
+                    content=row["content"],
+                    source=KnowledgeSource.FACT,
+                    source_id=row["id"],
+                    confidence=self._validation_to_confidence(row["validation_status"]),
+                    created_at=row["created_at"],
+                    updated_at=row["updated_at"],
+                    metadata=json.loads(row["metadata"]) if row["metadata"] else {},
+                    importance=row["confidence"],
+                )
+                for row in rows
+            ]
+
+            return PaginatedResult(
+                items=items,
+                total=total,
+                limit=limit,
+                offset=offset,
+                has_more=has_more,
+                next_cursor=None,  # FTS queries use offset pagination
+            )
+
+    # =========================================================================
+    # Paginated List Operations
+    # =========================================================================
+
+    DEFAULT_LIMIT: int = 100
+    MAX_LIMIT: int = 1000
+
+    async def list_nodes_async(
+        self,
+        workspace_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
+        node_type: str | None = None,
+        tier: str | None = None,
+        order_by: str = "updated_at",
+        order_dir: str = "DESC",
+    ) -> PaginatedResult:
+        """
+        List knowledge nodes with pagination support.
+
+        Supports both offset-based and cursor-based pagination. For large result sets,
+        cursor-based pagination is recommended as it avoids the performance overhead
+        of OFFSET scans.
+
+        Args:
+            workspace_id: Workspace to query
+            limit: Maximum number of items to return (default 100, max 1000)
+            offset: Number of items to skip (for offset-based pagination)
+            cursor: Opaque cursor for cursor-based pagination (overrides offset)
+            node_type: Optional filter by node type (fact, claim, memory, etc.)
+            tier: Optional filter by tier (fast, medium, slow, glacial)
+            order_by: Column to order by (default: updated_at)
+            order_dir: Order direction - ASC or DESC (default: DESC)
+
+        Returns:
+            PaginatedResult containing items, total count, and pagination metadata
+        """
+        import base64
+
+        # Enforce limits
+        limit = min(limit, self.MAX_LIMIT)
+        if limit <= 0:
+            limit = self.DEFAULT_LIMIT
+
+        # Validate order_by to prevent SQL injection
+        allowed_order_columns = {"updated_at", "created_at", "confidence", "staleness_score", "id"}
+        if order_by not in allowed_order_columns:
+            order_by = "updated_at"
+
+        order_dir = "DESC" if order_dir.upper() != "ASC" else "ASC"
+
+        # Parse cursor if provided (format: base64 encoded "id:timestamp")
+        cursor_id: str | None = None
+        cursor_ts: datetime | None = None
+        if cursor:
+            try:
+                decoded = base64.urlsafe_b64decode(cursor.encode()).decode()
+                parts = decoded.split(":", 1)
+                if len(parts) == 2:
+                    cursor_id = parts[0]
+                    cursor_ts = datetime.fromisoformat(parts[1])
+            except (ValueError, UnicodeDecodeError):
+                # Invalid cursor, ignore and use offset
+                pass
+
+        async with self.connection() as conn:
+            # Build query with optional filters
+            where_clauses = ["workspace_id = $1"]
+            params: list[Any] = [workspace_id]
+            param_idx = 2
+
+            if node_type:
+                where_clauses.append(f"node_type = ${param_idx}")
+                params.append(node_type)
+                param_idx += 1
+
+            if tier:
+                where_clauses.append(f"tier = ${param_idx}")
+                params.append(tier)
+                param_idx += 1
+
+            # Cursor-based pagination (keyset pagination)
+            if cursor_id and cursor_ts:
+                # For DESC ordering, get items "before" the cursor
+                # For ASC ordering, get items "after" the cursor
+                op = "<" if order_dir == "DESC" else ">"
+                where_clauses.append(f"({order_by}, id) {op} (${param_idx}, ${param_idx + 1})")
+                params.append(cursor_ts)
+                params.append(cursor_id)
+                param_idx += 2
+                # With cursor pagination, offset is not used
+                effective_offset = 0
+            else:
+                effective_offset = offset
+
+            where_sql = " AND ".join(where_clauses)
+
+            # Count total matching items (for has_more calculation)
+            count_query = f"SELECT COUNT(*) FROM knowledge_nodes WHERE {' AND '.join(where_clauses[: param_idx - 2 if cursor_id else param_idx])}"
+            # Use only the non-cursor params for count
+            count_params = params[: param_idx - 2] if cursor_id else params
+            total = await conn.fetchval(count_query, *count_params) or 0
+
+            # Fetch items
+            query = f"""
+                SELECT * FROM knowledge_nodes
+                WHERE {where_sql}
+                ORDER BY {order_by} {order_dir}, id {order_dir}
+                LIMIT ${param_idx}
+                OFFSET ${param_idx + 1}
+            """
+            params.append(limit + 1)  # Fetch one extra to detect has_more
+            params.append(effective_offset)
+
+            rows = await conn.fetch(query, *params)
+
+            # Check if there are more items
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]  # Remove the extra item
+
+            # Build next cursor from last item
+            next_cursor: str | None = None
+            if has_more and rows:
+                last_row = rows[-1]
+                cursor_value = f"{last_row['id']}:{last_row[order_by].isoformat()}"
+                next_cursor = base64.urlsafe_b64encode(cursor_value.encode()).decode()
+
+            # Convert rows to KnowledgeItems
+            items = []
+            for row in rows:
+                # Get topics for this node
+                topic_rows = await conn.fetch(
+                    "SELECT topic FROM node_topics WHERE node_id = $1",
+                    row["id"],
+                )
+                topics = [r["topic"] for r in topic_rows]
+
+                items.append(
+                    KnowledgeItem(
+                        id=row["id"],
+                        content=row["content"],
+                        source=KnowledgeSource.FACT,
+                        source_id=row["id"],
+                        confidence=self._validation_to_confidence(row["validation_status"]),
+                        created_at=row["created_at"],
+                        updated_at=row["updated_at"],
+                        metadata={
+                            "node_type": row["node_type"],
+                            "tier": row["tier"],
+                            "topics": topics,
+                            "visibility": row["visibility"],
+                            **(json.loads(row["metadata"]) if row["metadata"] else {}),
+                        },
+                        importance=row["confidence"],
+                    )
+                )
+
+            return PaginatedResult(
+                items=items,
+                total=total,
+                limit=limit,
+                offset=effective_offset,
+                has_more=has_more,
+                next_cursor=next_cursor,
+            )
+
+    async def list_relationships_async(
+        self,
+        workspace_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
+        relationship_type: RelationshipType | None = None,
+    ) -> PaginatedResult:
+        """
+        List knowledge relationships with pagination support.
+
+        Args:
+            workspace_id: Optional workspace filter (via joined nodes)
+            limit: Maximum number of items to return (default 100, max 1000)
+            offset: Number of items to skip (for offset-based pagination)
+            cursor: Opaque cursor for cursor-based pagination
+            relationship_type: Optional filter by relationship type
+
+        Returns:
+            PaginatedResult containing KnowledgeLink items and pagination metadata
+        """
+        import base64
+
+        # Enforce limits
+        limit = min(limit, self.MAX_LIMIT)
+        if limit <= 0:
+            limit = self.DEFAULT_LIMIT
+
+        # Parse cursor
+        cursor_id: str | None = None
+        cursor_ts: datetime | None = None
+        if cursor:
+            try:
+                decoded = base64.urlsafe_b64decode(cursor.encode()).decode()
+                parts = decoded.split(":", 1)
+                if len(parts) == 2:
+                    cursor_id = parts[0]
+                    cursor_ts = datetime.fromisoformat(parts[1])
+            except (ValueError, UnicodeDecodeError):
+                pass
+
+        async with self.connection() as conn:
+            where_clauses: list[str] = []
+            params: list[Any] = []
+            param_idx = 1
+
+            if relationship_type:
+                where_clauses.append(f"r.relationship_type = ${param_idx}")
+                params.append(relationship_type.value)
+                param_idx += 1
+
+            if workspace_id:
+                where_clauses.append(f"n.workspace_id = ${param_idx}")
+                params.append(workspace_id)
+                param_idx += 1
+
+            if cursor_id and cursor_ts:
+                where_clauses.append(f"(r.created_at, r.id) < (${param_idx}, ${param_idx + 1})")
+                params.append(cursor_ts)
+                params.append(cursor_id)
+                param_idx += 2
+                effective_offset = 0
+            else:
+                effective_offset = offset
+
+            where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
+
+            # Count total (excluding cursor filter for accurate total)
+            count_where = [c for c in where_clauses if "created_at" not in c]
+            count_sql = " AND ".join(count_where) if count_where else "TRUE"
+            count_params = params[: param_idx - 2] if cursor_id else params
+
+            if workspace_id:
+                count_query = f"""
+                    SELECT COUNT(DISTINCT r.id)
+                    FROM knowledge_relationships r
+                    JOIN knowledge_nodes n ON r.from_node_id = n.id
+                    WHERE {count_sql}
+                """
+            else:
+                count_query = f"SELECT COUNT(*) FROM knowledge_relationships r WHERE {count_sql}"
+
+            total = await conn.fetchval(count_query, *count_params) or 0
+
+            # Fetch relationships
+            if workspace_id:
+                query = f"""
+                    SELECT DISTINCT r.*
+                    FROM knowledge_relationships r
+                    JOIN knowledge_nodes n ON r.from_node_id = n.id
+                    WHERE {where_sql}
+                    ORDER BY r.created_at DESC, r.id DESC
+                    LIMIT ${param_idx}
+                    OFFSET ${param_idx + 1}
+                """
+            else:
+                query = f"""
+                    SELECT * FROM knowledge_relationships r
+                    WHERE {where_sql}
+                    ORDER BY r.created_at DESC, r.id DESC
+                    LIMIT ${param_idx}
+                    OFFSET ${param_idx + 1}
+                """
+
+            params.append(limit + 1)
+            params.append(effective_offset)
+
+            rows = await conn.fetch(query, *params)
+
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]
+
+            next_cursor: str | None = None
+            if has_more and rows:
+                last_row = rows[-1]
+                cursor_value = f"{last_row['id']}:{last_row['created_at'].isoformat()}"
+                next_cursor = base64.urlsafe_b64encode(cursor_value.encode()).decode()
+
+            items = [
+                KnowledgeLink(
+                    id=row["id"],
+                    source_id=row["from_node_id"],
+                    target_id=row["to_node_id"],
+                    relationship=RelationshipType(row["relationship_type"]),
+                    confidence=row["strength"],
+                    created_at=row["created_at"],
+                    metadata=json.loads(row["metadata"]) if row["metadata"] else {},
+                )
+                for row in rows
+            ]
+
+            return PaginatedResult(
+                items=items,
+                total=total,
+                limit=limit,
+                offset=effective_offset,
+                has_more=has_more,
+                next_cursor=next_cursor,
+            )
+
+    async def list_culture_patterns_async(
+        self,
+        workspace_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        pattern_type: str | None = None,
+    ) -> PaginatedResult:
+        """
+        List culture patterns with pagination support.
+
+        Args:
+            workspace_id: Workspace to query
+            limit: Maximum number of items to return (default 100, max 1000)
+            offset: Number of items to skip
+            pattern_type: Optional filter by pattern type
+
+        Returns:
+            PaginatedResult containing culture pattern dicts
+        """
+        limit = min(limit, self.MAX_LIMIT)
+        if limit <= 0:
+            limit = self.DEFAULT_LIMIT
+
+        async with self.connection() as conn:
+            where_clauses = ["workspace_id = $1"]
+            params: list[Any] = [workspace_id]
+            param_idx = 2
+
+            if pattern_type:
+                where_clauses.append(f"pattern_type = ${param_idx}")
+                params.append(pattern_type)
+                param_idx += 1
+
+            where_sql = " AND ".join(where_clauses)
+
+            # Count total
+            count_query = f"SELECT COUNT(*) FROM culture_patterns WHERE {where_sql}"
+            total = await conn.fetchval(count_query, *params) or 0
+
+            # Fetch with pagination
+            query = f"""
+                SELECT * FROM culture_patterns
+                WHERE {where_sql}
+                ORDER BY confidence DESC, last_observed_at DESC
+                LIMIT ${param_idx}
+                OFFSET ${param_idx + 1}
+            """
+            params.append(limit + 1)
+            params.append(offset)
+
+            rows = await conn.fetch(query, *params)
+
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]
+
+            items = [
+                {
+                    "id": row["id"],
+                    "workspace_id": row["workspace_id"],
+                    "pattern_type": row["pattern_type"],
+                    "pattern_key": row["pattern_key"],
+                    "pattern_value": json.loads(row["pattern_value"]),
+                    "observation_count": row["observation_count"],
+                    "confidence": row["confidence"],
+                    "first_observed_at": row["first_observed_at"],
+                    "last_observed_at": row["last_observed_at"],
+                    "contributing_debates": row["contributing_debates"],
+                    "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+                }
+                for row in rows
+            ]
+
+            return PaginatedResult(
+                items=items,
+                total=total,
+                limit=limit,
+                offset=offset,
+                has_more=has_more,
+                next_cursor=None,  # Culture patterns use offset pagination only
+            )
 
     # =========================================================================
     # Statistics
@@ -938,8 +1431,25 @@ class PostgresStore:
         actor_workspace_id: str,
         actor_org_id: str | None = None,
         limit: int = 20,
+        offset: int = 0,
     ) -> list[KnowledgeItem]:
-        """Query nodes with visibility filtering."""
+        """Query nodes with visibility filtering.
+
+        Args:
+            query: Full-text search query
+            workspace_id: Workspace to query
+            actor_id: ID of the user performing the query
+            actor_workspace_id: Workspace ID of the actor
+            actor_org_id: Organization ID of the actor (optional)
+            limit: Maximum number of items to return (capped at MAX_LIMIT)
+            offset: Number of items to skip (default 0)
+
+        Returns:
+            List of matching KnowledgeItems that are visible to the actor
+        """
+        # Enforce limits
+        limit = min(limit, self.MAX_LIMIT) if limit > 0 else self.DEFAULT_LIMIT
+
         async with self.connection() as conn:
             # Build visibility filter SQL
             # Items are visible if:
@@ -966,12 +1476,14 @@ class PostgresStore:
                 AND to_tsvector('english', n.content) @@ plainto_tsquery('english', $1)
                 ORDER BY rank DESC
                 LIMIT $5
+                OFFSET $6
                 """,
                 query,
                 workspace_id,
                 actor_id,
                 actor_org_id or "",
                 limit,
+                offset,
             )
 
             return [

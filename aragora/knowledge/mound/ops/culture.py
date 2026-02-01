@@ -120,15 +120,20 @@ class CultureOperationsMixin:
         """
         self._ensure_initialized()  # type: ignore[attr-defined]
 
-        if not hasattr(self, "_org_culture_manager") or self._org_culture_manager is None:
+        # Access _org_culture_manager attribute from composed class
+        manager: Optional["OrganizationCultureManager"] = getattr(
+            self, "_org_culture_manager", None
+        )
+        if manager is None:
             from aragora.knowledge.mound.culture import OrganizationCultureManager
 
-            self._org_culture_manager = OrganizationCultureManager(
+            manager = OrganizationCultureManager(
                 mound=self,  # type: ignore[arg-type]
                 culture_accumulator=self._culture_accumulator,  # type: ignore[attr-defined]
             )
+            self._org_culture_manager = manager  # type: ignore[attr-defined]
 
-        return self._org_culture_manager
+        return manager
 
     async def get_org_culture(
         self,

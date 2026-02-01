@@ -28,7 +28,7 @@ from enum import Enum
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    pass
+    from aragora.core.embeddings import UnifiedEmbeddingService
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +152,7 @@ class EmbeddingRelevanceScorer:
         Args:
             cache_size: Max number of embeddings to cache
         """
-        self._provider = None
+        self._provider: Optional["UnifiedEmbeddingService"] = None
         self._initialized = False
         self._cache: dict[str, list[float]] = {}
         self._cache_size = cache_size
@@ -207,7 +207,8 @@ class EmbeddingRelevanceScorer:
             return self._cache[key]
 
         try:
-            embedding = await self._provider.embed_async(text)
+            result = await self._provider.embed(text)
+            embedding = result.embedding
 
             # LRU-style cache management
             if len(self._cache) >= self._cache_size:

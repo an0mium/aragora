@@ -218,7 +218,7 @@ class KnowledgeMoundOperations:
                 )
             )
 
-            success = ingestion_result and getattr(ingestion_result, "node_id", None)
+            success = bool(ingestion_result and getattr(ingestion_result, "node_id", None))
             if success:
                 logger.info(
                     f"  [knowledge_mound] Ingested debate outcome (node_id={ingestion_result.node_id})"

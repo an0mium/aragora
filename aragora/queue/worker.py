@@ -313,13 +313,18 @@ async def create_default_executor() -> DebateExecutor:
 
         # Create environment and protocol
         env = Environment(task=payload.question)
-        protocol = DebateProtocol(
+        protocol = DebateProtocol(  # type: ignore[misc]
             rounds=payload.rounds,
             consensus=cast(Any, payload.consensus),
         )
 
         # Convert agent strings to Agent objects
-        agents = [create_agent(cast("AgentType", agent_type)) for agent_type in payload.agents]
+        agents_list = []
+        for agent_type in payload.agents:
+            agent = create_agent(cast("AgentType", agent_type))
+            if agent is not None:
+                agents_list.append(agent)
+        agents = agents_list
 
         # Run debate
         start_time = time.time()

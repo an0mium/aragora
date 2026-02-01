@@ -700,7 +700,7 @@ class KnowledgeFederationMixin:
 
             coordinator = CrossWorkspaceCoordinator()
             if hasattr(coordinator, "register_workspace"):
-                await coordinator.register_workspace(workspace)
+                coordinator.register_workspace(workspace)
         except ImportError:
             logger.debug("CrossWorkspaceCoordinator not available")
         except Exception as e:

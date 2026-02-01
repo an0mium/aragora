@@ -555,7 +555,7 @@ def get_agent_pool(config: AgentPoolConfig | None = None) -> AgentPool:
     """
     global _default_pool
     if _default_pool is None:
-        _default_pool = AgentPool(config or AgentPoolConfig())
+        _default_pool = AgentPool([], config or AgentPoolConfig())
     return _default_pool
 
 

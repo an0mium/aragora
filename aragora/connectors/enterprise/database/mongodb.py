@@ -185,7 +185,7 @@ class MongoDBConnector(EnterpriseConnector):
                     logger.debug(f"Connecting to MongoDB at {conn_str} without authentication")
 
             self._client = AsyncIOMotorClient(conn_str, **auth_kwargs)
-            self._db = self._client[self.database_name]
+            self._db = self._client[self.database_name]  # type: ignore[index]
             return self._client
 
         except ImportError:

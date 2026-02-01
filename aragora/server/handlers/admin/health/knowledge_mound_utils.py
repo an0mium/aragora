@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -64,10 +64,7 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound |
 
         # KnowledgeMound is a concrete class composed of mixins but mypy sees it as abstract
         # due to how the mixin pattern is implemented. It is instantiable at runtime.
-        mound: KnowledgeMound = cast(
-            "KnowledgeMound",
-            KnowledgeMoundClass(workspace_id="health_check"),  # type: ignore[abstract]
-        )
+        mound: KnowledgeMound = KnowledgeMoundClass(workspace_id="health_check")  # type: ignore[abstract]
 
         result: dict[str, Any] = {
             "healthy": True,
