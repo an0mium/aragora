@@ -473,7 +473,7 @@ def get_provider_retry_config(
     }
     config_dict.update(overrides)
 
-    return RetryConfig(**config_dict)
+    return RetryConfig(**config_dict)  # type: ignore[arg-type]
 
 
 def calculate_backoff_delay(

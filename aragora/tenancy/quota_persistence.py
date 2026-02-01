@@ -168,8 +168,8 @@ class QuotaPersistence:
         self._redis_checked = False
         self._redis_scripts: dict[str, Any] = {}
 
-        # In-memory fallback
-        self._memory: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        # In-memory fallback (stores both count:int and period_key:str)
+        self._memory: dict[str, dict[str, Any]] = defaultdict(dict)
         self._memory_expiry: dict[str, float] = {}
         self._lock = asyncio.Lock()
 

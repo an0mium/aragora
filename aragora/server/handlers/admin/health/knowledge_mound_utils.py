@@ -65,7 +65,8 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound |
         # KnowledgeMound is a concrete class composed of mixins but mypy sees it as abstract
         # due to how the mixin pattern is implemented. It is instantiable at runtime.
         mound: KnowledgeMound = cast(
-            "KnowledgeMound", KnowledgeMoundClass(workspace_id="health_check") # type: ignore[abstract]
+            "KnowledgeMound",
+            KnowledgeMoundClass(workspace_id="health_check"),  # type: ignore[abstract]
         )
 
         result: dict[str, Any] = {
@@ -87,6 +88,7 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound |
         return result, mound
 
     except Exception as e:
+        logger.warning("Knowledge Mound core initialization failed: %s", e)
         return {
             "healthy": False,
             "status": "initialization_failed",
@@ -132,6 +134,7 @@ def check_storage_backend(mound: "KnowledgeMound | None" = None) -> dict[str, An
         return result
 
     except Exception as e:
+        logger.debug("Storage backend check error: %s", e)
         return {
             "healthy": True,
             "status": "unknown",
@@ -181,6 +184,7 @@ def check_culture_accumulator(mound: "KnowledgeMound | None" = None) -> dict[str
         }
 
     except Exception as e:
+        logger.debug("Culture accumulator check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -218,6 +222,7 @@ def check_staleness_tracker(mound: "KnowledgeMound | None" = None) -> dict[str, 
         }
 
     except Exception as e:
+        logger.debug("Staleness tracker check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -254,6 +259,7 @@ def check_rlm_integration() -> dict[str, Any]:
             "note": "RLM module not installed",
         }
     except Exception as e:
+        logger.debug("RLM integration check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -295,6 +301,7 @@ def check_debate_integration() -> dict[str, Any]:
             "note": "knowledge_mound_ops module not available",
         }
     except Exception as e:
+        logger.debug("Debate integration check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -331,6 +338,7 @@ def check_knowledge_mound_redis_cache() -> dict[str, Any]:
             "note": "Redis cache module not installed",
         }
     except Exception as e:
+        logger.debug("Redis cache check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -375,6 +383,7 @@ def check_codebase_context() -> dict[str, Any]:
 
         return info
     except Exception as e:
+        logger.debug("Codebase context check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -430,6 +439,7 @@ def check_bidirectional_adapters() -> dict[str, Any]:
             "error": f"Some adapters not available: {str(e)[:80]}",
         }
     except Exception as e:
+        logger.debug("Bidirectional adapters check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -468,6 +478,7 @@ def check_control_plane_adapter() -> dict[str, Any]:
             "error": str(e)[:80],
         }
     except Exception as e:
+        logger.debug("Control plane adapter check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -500,6 +511,7 @@ def check_km_metrics() -> dict[str, Any]:
             "prometheus_integration": False,
         }
     except Exception as e:
+        logger.debug("KM metrics check error: %s", e)
         return {
             "healthy": True,
             "status": "error",
@@ -575,6 +587,7 @@ def check_confidence_decay_scheduler() -> tuple[dict[str, Any], list[str]]:
             "note": "Confidence decay module not installed",
         }, warnings
     except Exception as e:
+        logger.debug("Confidence decay scheduler check error: %s", e)
         return {
             "healthy": True,
             "status": "error",

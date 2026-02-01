@@ -364,6 +364,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM connect_platform: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         platform = body.get("platform")
@@ -526,6 +527,7 @@ class CRMHandler(SecureHandler):
                 return self._json_response(200, self._normalize_hubspot_contact(contact))
 
         except Exception as e:
+            logger.warning("CRM get_contact failed for %s/%s: %s", platform, contact_id, e)
             return self._error_response(404, f"Contact not found: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -538,6 +540,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM create_contact: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         connector = await self._get_connector(platform)
@@ -561,6 +564,7 @@ class CRMHandler(SecureHandler):
                 return self._json_response(201, self._normalize_hubspot_contact(contact))
 
         except Exception as e:
+            logger.error("CRM create_contact failed for %s: %s", platform, e, exc_info=True)
             return self._error_response(500, f"Failed to create contact: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -578,6 +582,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM update_contact: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         connector = await self._get_connector(platform)
@@ -605,6 +610,9 @@ class CRMHandler(SecureHandler):
                 return self._json_response(200, self._normalize_hubspot_contact(contact))
 
         except Exception as e:
+            logger.error(
+                "CRM update_contact failed for %s/%s: %s", platform, contact_id, e, exc_info=True
+            )
             return self._error_response(500, f"Failed to update contact: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -690,6 +698,7 @@ class CRMHandler(SecureHandler):
                 return self._json_response(200, self._normalize_hubspot_company(company))
 
         except Exception as e:
+            logger.warning("CRM get_company failed for %s/%s: %s", platform, company_id, e)
             return self._error_response(404, f"Company not found: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -702,6 +711,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM create_company: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         connector = await self._get_connector(platform)
@@ -723,6 +733,7 @@ class CRMHandler(SecureHandler):
                 return self._json_response(201, self._normalize_hubspot_company(company))
 
         except Exception as e:
+            logger.error("CRM create_company failed for %s: %s", platform, e, exc_info=True)
             return self._error_response(500, f"Failed to create company: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -814,6 +825,7 @@ class CRMHandler(SecureHandler):
                 return self._json_response(200, self._normalize_hubspot_deal(deal))
 
         except Exception as e:
+            logger.warning("CRM get_deal failed for %s/%s: %s", platform, deal_id, e)
             return self._error_response(404, f"Deal not found: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -826,6 +838,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM create_deal: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         connector = await self._get_connector(platform)
@@ -847,6 +860,7 @@ class CRMHandler(SecureHandler):
                 return self._json_response(201, self._normalize_hubspot_deal(deal))
 
         except Exception as e:
+            logger.error("CRM create_deal failed for %s: %s", platform, e, exc_info=True)
             return self._error_response(500, f"Failed to create deal: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -929,6 +943,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM sync_lead: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         target_platform = body.get("platform", "hubspot")
@@ -975,6 +990,7 @@ class CRMHandler(SecureHandler):
             )
 
         except Exception as e:
+            logger.error("CRM sync_lead failed: %s", e, exc_info=True)
             return self._error_response(500, f"Failed to sync lead: {e}")
 
     # Enrichment
@@ -984,6 +1000,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM enrich_contact: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         email = body.get("email")
@@ -1008,6 +1025,7 @@ class CRMHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("CRM search: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         query = body.get("query", "")

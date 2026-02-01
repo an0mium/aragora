@@ -773,6 +773,8 @@ class UnifiedServer:
                             f"Port {self.http_port} in use, retrying in {retry_delay}s "
                             f"(attempt {attempt + 1}/{max_retries})"
                         )
+                        # Using time.sleep is correct here: this method runs in a dedicated
+                        # thread (see Thread(target=self._run_http_server)), not the async event loop
                         time.sleep(retry_delay)
                         retry_delay *= 2  # Exponential backoff
                     else:

@@ -57,7 +57,7 @@ async def get_auth_context(request: Request) -> AuthorizationContext:
 
     try:
         return await _extract_auth(request, require_auth=False)
-    except (ValueError, RuntimeError, KeyError, TypeError) as e:
+    except Exception as e:
         logger.debug(f"Auth context extraction failed: {e}")
         return AuthorizationContext(
             user_id="anonymous",

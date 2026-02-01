@@ -262,6 +262,7 @@ class SupportHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Support connect_platform: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         platform = body.get("platform")
@@ -462,6 +463,7 @@ class SupportHandler(SecureHandler):
                 )
 
         except Exception as e:
+            logger.warning("Support get_ticket failed for %s/%s: %s", platform, ticket_id, e)
             return self._error_response(404, f"Ticket not found: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -474,6 +476,7 @@ class SupportHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Support create_ticket: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         subject = body.get("subject")
@@ -527,6 +530,7 @@ class SupportHandler(SecureHandler):
                 )
 
         except Exception as e:
+            logger.error("Support create_ticket failed for %s: %s", platform, e, exc_info=True)
             return self._error_response(500, f"Failed to create ticket: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -544,6 +548,7 @@ class SupportHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Support update_ticket: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         connector = await self._get_connector(platform)
@@ -600,6 +605,9 @@ class SupportHandler(SecureHandler):
                 )
 
         except Exception as e:
+            logger.error(
+                "Support update_ticket failed for %s/%s: %s", platform, ticket_id, e, exc_info=True
+            )
             return self._error_response(500, f"Failed to update ticket: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -617,6 +625,7 @@ class SupportHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Support reply_to_ticket: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         message = body.get("message")
@@ -661,6 +670,13 @@ class SupportHandler(SecureHandler):
                 return self._json_response(200, {"message": "Reply added successfully"})
 
         except Exception as e:
+            logger.error(
+                "Support reply_to_ticket failed for %s/%s: %s",
+                platform,
+                ticket_id,
+                e,
+                exc_info=True,
+            )
             return self._error_response(500, f"Failed to add reply: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -735,6 +751,7 @@ class SupportHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Support triage_tickets: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         ticket_ids = body.get("ticket_ids", [])
@@ -794,6 +811,7 @@ class SupportHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Support generate_response: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         ticket_id = body.get("ticket_id")
@@ -821,6 +839,9 @@ class SupportHandler(SecureHandler):
             # Similar for other platforms...
 
         except Exception as e:
+            logger.warning(
+                "Support generate_response: ticket not found for %s/%s: %s", platform, ticket_id, e
+            )
             return self._error_response(404, f"Ticket not found: {e}")
 
         # Generate response suggestions
@@ -864,6 +885,7 @@ class SupportHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Support search_tickets: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         query = body.get("query", "")
