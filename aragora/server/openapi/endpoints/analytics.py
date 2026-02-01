@@ -131,4 +131,153 @@ ANALYTICS_ENDPOINTS = {
             "responses": {"200": _ok_response("Moments of specified type", "MomentsByType")},
         },
     },
+    # =========================================================================
+    # Analytics Metrics (v1) endpoints
+    # =========================================================================
+    "/api/v1/analytics/debates/overview": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Debate overview stats",
+            "operationId": "getAnalyticsDebatesOverview",
+            "description": "Get debate overview statistics for a time range.",
+            "parameters": [
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Debate overview", "AnalyticsDebatesOverview")},
+        },
+    },
+    "/api/v1/analytics/debates/trends": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Debate trends",
+            "operationId": "getAnalyticsDebatesTrends",
+            "description": "Get debate trends over time.",
+            "parameters": [
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+                {"name": "granularity", "in": "query", "schema": {"type": "string"}},
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Debate trends", "AnalyticsDebatesTrends")},
+        },
+    },
+    "/api/v1/analytics/debates/topics": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Debate topics",
+            "operationId": "getAnalyticsDebatesTopics",
+            "description": "Get topic distribution for debates.",
+            "parameters": [
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+                {"name": "limit", "in": "query", "schema": {"type": "integer"}},
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Debate topics", "AnalyticsDebatesTopics")},
+        },
+    },
+    "/api/v1/analytics/debates/outcomes": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Debate outcomes",
+            "operationId": "getAnalyticsDebatesOutcomes",
+            "description": "Get debate outcome distribution.",
+            "parameters": [
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Debate outcomes", "AnalyticsDebatesOutcomes")},
+        },
+    },
+    "/api/v1/analytics/agents/leaderboard": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Agent leaderboard",
+            "operationId": "getAnalyticsAgentsLeaderboard",
+            "description": "Get agent leaderboard with rankings and win rates.",
+            "parameters": [
+                {"name": "limit", "in": "query", "schema": {"type": "integer"}},
+                {"name": "domain", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Agent leaderboard", "AnalyticsAgentsLeaderboard")},
+        },
+    },
+    "/api/v1/analytics/agents/{agent_id}/performance": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Agent performance",
+            "operationId": "getAnalyticsAgentPerformance",
+            "description": "Get individual agent performance stats.",
+            "parameters": [
+                {"name": "agent_id", "in": "path", "required": True, "schema": {"type": "string"}},
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Agent performance", "AnalyticsAgentPerformance")},
+        },
+    },
+    "/api/v1/analytics/agents/comparison": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Agent comparison",
+            "operationId": "getAnalyticsAgentsComparison",
+            "description": "Compare multiple agents.",
+            "parameters": [
+                {"name": "agents", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Agent comparison", "AnalyticsAgentsComparison")},
+        },
+    },
+    "/api/v1/analytics/agents/trends": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Agent trends",
+            "operationId": "getAnalyticsAgentsTrends",
+            "description": "Get agent performance trends over time.",
+            "parameters": [
+                {"name": "agents", "in": "query", "schema": {"type": "string"}},
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+                {"name": "granularity", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Agent trends", "AnalyticsAgentsTrends")},
+        },
+    },
+    "/api/v1/analytics/usage/tokens": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Token usage",
+            "operationId": "getAnalyticsUsageTokens",
+            "description": "Get token usage summaries for an organization.",
+            "parameters": [
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+                {"name": "granularity", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Token usage", "AnalyticsUsageTokens")},
+        },
+    },
+    "/api/v1/analytics/usage/costs": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Usage costs",
+            "operationId": "getAnalyticsUsageCosts",
+            "description": "Get cost breakdown for an organization.",
+            "parameters": [
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Usage costs", "AnalyticsUsageCosts")},
+        },
+    },
+    "/api/v1/analytics/usage/active_users": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Active users",
+            "operationId": "getAnalyticsActiveUsers",
+            "description": "Get active user counts for an organization.",
+            "parameters": [
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+                {"name": "time_range", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Active users", "AnalyticsActiveUsers")},
+        },
+    },
 }

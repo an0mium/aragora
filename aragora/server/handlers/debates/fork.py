@@ -65,7 +65,26 @@ class ForkOperationsMixin:
             {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
         ],
         responses={
-            "200": {"description": "Fork created successfully"},
+            "200": {
+                "description": "Fork created successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "branch_id": {"type": "string"},
+                                "parent_debate_id": {"type": "string"},
+                                "branch_point": {"type": "integer"},
+                                "messages_inherited": {"type": "integer"},
+                                "modified_context": {"type": "string"},
+                                "status": {"type": "string"},
+                                "message": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
             "400": {"description": "Invalid request"},
             "401": {"description": "Unauthorized"},
             "404": {"description": "Debate not found"},
@@ -276,7 +295,22 @@ class ForkOperationsMixin:
             {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
         ],
         responses={
-            "200": {"description": "Follow-up suggestions returned"},
+            "200": {
+                "description": "Follow-up suggestions returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "suggestions": {"type": "array", "items": {"type": "object"}},
+                                "count": {"type": "integer"},
+                                "message": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
             "401": {"description": "Unauthorized"},
             "404": {"description": "Debate not found"},
         },
@@ -536,7 +570,22 @@ class ForkOperationsMixin:
             {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
         ],
         responses={
-            "200": {"description": "List of forks returned"},
+            "200": {
+                "description": "List of forks returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "forks": {"type": "array", "items": {"type": "object"}},
+                                "tree": {"type": "object"},
+                                "total": {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
             "401": {"description": "Unauthorized"},
             "404": {"description": "Debate not found"},
         },

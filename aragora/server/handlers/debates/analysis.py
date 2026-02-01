@@ -57,7 +57,36 @@ class AnalysisOperationsMixin:
             {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
         ],
         responses={
-            "200": {"description": "Meta-critique analysis returned"},
+            "200": {
+                "description": "Meta-critique analysis returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "overall_quality": {"type": "number"},
+                                "productive_rounds": {"type": "integer"},
+                                "unproductive_rounds": {"type": "integer"},
+                                "observations": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "type": {"type": "string"},
+                                            "severity": {"type": "number"},
+                                            "agent": {"type": "string"},
+                                            "round": {"type": "integer"},
+                                            "description": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "recommendations": {"type": "array", "items": {"type": "string"}},
+                            },
+                        },
+                    },
+                },
+            },
             "401": {"description": "Unauthorized"},
             "404": {"description": "Debate trace not found"},
             "503": {"description": "Module not available"},
@@ -138,7 +167,24 @@ class AnalysisOperationsMixin:
             {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
         ],
         responses={
-            "200": {"description": "Graph statistics returned"},
+            "200": {
+                "description": "Graph statistics returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "node_count": {"type": "integer"},
+                                "edge_count": {"type": "integer"},
+                                "depth": {"type": "integer"},
+                                "clusters": {"type": "integer"},
+                                "avg_branching_factor": {"type": "number"},
+                                "avg_path_length": {"type": "number"},
+                            },
+                        },
+                    },
+                },
+            },
             "401": {"description": "Unauthorized"},
             "404": {"description": "Debate not found"},
             "503": {"description": "Module not available"},

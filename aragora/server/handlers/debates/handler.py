@@ -527,7 +527,20 @@ class DebatesHandler(
         description="List recent debates with optional organization filtering. Requires authentication.",
         tags=["Debates"],
         responses={
-            "200": {"description": "List of debates returned"},
+            "200": {
+                "description": "List of debates returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debates": {"type": "array", "items": {"type": "object"}},
+                                "count": {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
             "401": {"description": "Unauthorized"},
             "500": {"description": "Database error"},
         },
@@ -563,7 +576,25 @@ class DebatesHandler(
         tags=["Debates"],
         parameters=[{"name": "slug", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Debate details returned"},
+            "200": {
+                "description": "Debate details returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "debate_id": {"type": "string"},
+                                "task": {"type": "string"},
+                                "status": {"type": "string"},
+                                "agents": {"type": "array", "items": {"type": "string"}},
+                                "rounds": {"type": "integer"},
+                                "in_progress": {"type": "boolean"},
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
         },
     )
@@ -612,7 +643,28 @@ class DebatesHandler(
         tags=["Debates", "Analysis"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Impasse analysis returned"},
+            "200": {
+                "description": "Impasse analysis returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "is_impasse": {"type": "boolean"},
+                                "indicators": {
+                                    "type": "object",
+                                    "properties": {
+                                        "repeated_critiques": {"type": "boolean"},
+                                        "no_convergence": {"type": "boolean"},
+                                        "high_severity_critiques": {"type": "boolean"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
         },
     )
@@ -654,7 +706,23 @@ class DebatesHandler(
         tags=["Debates", "Analysis"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Convergence status returned"},
+            "200": {
+                "description": "Convergence status returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "convergence_status": {"type": "string"},
+                                "convergence_similarity": {"type": "number"},
+                                "consensus_reached": {"type": "boolean"},
+                                "rounds_used": {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
         },
     )
@@ -686,7 +754,25 @@ class DebatesHandler(
         tags=["Debates", "Verification"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Verification report returned"},
+            "200": {
+                "description": "Verification report returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "verification_enabled": {"type": "boolean"},
+                                "verification_results": {"type": "object"},
+                                "verification_bonuses": {"type": "object"},
+                                "summary": {"type": "object"},
+                                "winner": {"type": "string"},
+                                "consensus_reached": {"type": "boolean"},
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
         },
     )
@@ -738,7 +824,23 @@ class DebatesHandler(
         tags=["Debates"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Debate summary returned"},
+            "200": {
+                "description": "Debate summary returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "summary": {"type": "object"},
+                                "task": {"type": "string"},
+                                "consensus_reached": {"type": "boolean"},
+                                "confidence": {"type": "number"},
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
         },
     )
@@ -783,7 +885,27 @@ class DebatesHandler(
         tags=["Debates", "Evidence"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Evidence citations returned"},
+            "200": {
+                "description": "Evidence citations returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "has_citations": {"type": "boolean"},
+                                "message": {"type": "string"},
+                                "grounded_verdict": {"type": "object"},
+                                "grounding_score": {"type": "number"},
+                                "confidence": {"type": "number"},
+                                "claims": {"type": "array", "items": {"type": "object"}},
+                                "all_citations": {"type": "array", "items": {"type": "object"}},
+                                "verdict": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
             "500": {"description": "Database error"},
         },
@@ -864,7 +986,26 @@ class DebatesHandler(
         tags=["Debates", "Evidence"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Evidence trail returned"},
+            "200": {
+                "description": "Evidence trail returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "task": {"type": "string"},
+                                "has_evidence": {"type": "boolean"},
+                                "grounded_verdict": {"type": "object"},
+                                "claims": {"type": "array", "items": {"type": "object"}},
+                                "citations": {"type": "array", "items": {"type": "object"}},
+                                "related_evidence": {"type": "array", "items": {"type": "object"}},
+                                "evidence_count": {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
             "500": {"description": "Database error"},
         },
@@ -973,7 +1114,38 @@ class DebatesHandler(
             {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
         ],
         responses={
-            "200": {"description": "Paginated messages returned"},
+            "200": {
+                "description": "Paginated messages returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debate_id": {"type": "string"},
+                                "messages": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "index": {"type": "integer"},
+                                            "role": {"type": "string"},
+                                            "content": {"type": "string"},
+                                            "agent": {"type": "string"},
+                                            "round": {"type": "integer"},
+                                            "timestamp": {"type": "string"},
+                                            "metadata": {"type": "object"},
+                                        },
+                                    },
+                                },
+                                "total": {"type": "integer"},
+                                "offset": {"type": "integer"},
+                                "limit": {"type": "integer"},
+                                "has_more": {"type": "boolean"},
+                            },
+                        },
+                    },
+                },
+            },
             "404": {"description": "Debate not found"},
             "500": {"description": "Database error"},
         },
@@ -1116,7 +1288,14 @@ class DebatesHandler(
         description="Start an ad-hoc debate with specified question, agents, and configuration. Rate limited and quota enforced.",
         tags=["Debates"],
         responses={
-            "200": {"description": "Debate created successfully"},
+            "200": {
+                "description": "Debate created successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/DebateCreateResponse"}
+                    }
+                },
+            },
             "400": {"description": "Invalid request body or validation error"},
             "401": {"description": "Unauthorized"},
             "402": {"description": "Quota exceeded"},
@@ -1297,7 +1476,22 @@ class DebatesHandler(
         tags=["Debates"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Debate cancelled successfully"},
+            "200": {
+                "description": "Debate cancelled successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "debate_id": {"type": "string"},
+                                "status": {"type": "string"},
+                                "message": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
             "400": {"description": "Debate cannot be cancelled"},
             "404": {"description": "Debate not found"},
         },
@@ -1414,7 +1608,30 @@ class DebatesHandler(
         tags=["Debates"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Debate updated successfully"},
+            "200": {
+                "description": "Debate updated successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "debate_id": {"type": "string"},
+                                "updated_fields": {"type": "array", "items": {"type": "string"}},
+                                "debate": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "status": {"type": "string"},
+                                        "tags": {"type": "array", "items": {"type": "string"}},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
             "400": {"description": "Invalid update data"},
             "403": {"description": "Permission denied"},
             "404": {"description": "Debate not found"},
@@ -1554,7 +1771,20 @@ class DebatesHandler(
         tags=["Debates"],
         parameters=[{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
         responses={
-            "200": {"description": "Debate deleted successfully"},
+            "200": {
+                "description": "Debate deleted successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "deleted": {"type": "boolean"},
+                                "id": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
             "403": {"description": "Permission denied"},
             "404": {"description": "Debate not found"},
             "500": {"description": "Database error"},

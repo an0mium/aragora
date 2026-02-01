@@ -68,7 +68,10 @@ from aragora.server.openapi.endpoints.computer_use import COMPUTER_USE_ENDPOINTS
 from aragora.server.openapi.endpoints.gateway import GATEWAY_ENDPOINTS
 
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 # Import decorator-based endpoints registry
@@ -82,6 +85,9 @@ def _get_decorator_endpoints() -> dict[str, Any]:
 
         return get_registered_endpoints_dict()
     except ImportError:
+        return {}
+    except Exception as exc:
+        logger.warning("Failed to load decorator endpoints: %s", exc)
         return {}
 
 

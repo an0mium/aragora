@@ -1,6 +1,6 @@
 """Debate endpoint definitions."""
 
-from aragora.server.openapi.helpers import _ok_response, _array_response, STANDARD_ERRORS
+from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
 DEBATE_ENDPOINTS = {
     "/api/debates": {
@@ -47,7 +47,16 @@ DEBATE_ENDPOINTS = {
                 },
             ],
             "responses": {
-                "200": _array_response("List of debates", "Debate"),
+                "200": _ok_response(
+                    "List of debates",
+                    {
+                        "debates": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/Debate"},
+                        },
+                        "count": {"type": "integer"},
+                    },
+                ),
                 "401": STANDARD_ERRORS["401"],
                 "429": STANDARD_ERRORS["429"],
             },
