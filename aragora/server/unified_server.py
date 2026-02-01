@@ -848,6 +848,19 @@ class UnifiedServer:
             except (ImportError, OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Store upgrade failed (continuing with SQLite): {e}")
 
+            # Load workflow templates once the async store is ready.
+            try:
+                from aragora.server.handlers.workflows import (
+                    load_yaml_templates_async,
+                    register_builtin_templates_async,
+                )
+
+                await register_builtin_templates_async()
+                await load_yaml_templates_async()
+                logger.info("[workflows] Templates loaded for PostgreSQL backend")
+            except (ImportError, OSError, RuntimeError, ValueError) as e:
+                logger.warning(f"[workflows] Template loading failed: {e}")
+
         # Wire Control Plane coordinator to handler
         self._control_plane_coordinator = startup_status.get("control_plane_coordinator")
         if self._control_plane_coordinator:

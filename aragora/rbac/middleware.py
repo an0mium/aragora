@@ -648,6 +648,76 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/(v1/)?codebase/([^/]+)$", "GET", "codebase.read", 2),
     RoutePermission(r"^/api/(v1/)?codebase/([^/]+)/issues$", "GET", "codebase.read", 2),
     RoutePermission(r"^/api/(v1/)?codebase/([^/]+)/suggestions$", "GET", "codebase.read", 2),
+    # ── Nomic (self-improvement) ──
+    RoutePermission(r"^/api/nomic", "*", "nomic.read"),
+    RoutePermission(r"^/api/modes", "GET", "nomic.read"),
+    # ── Search ──
+    RoutePermission(r"^/api/search", "GET", "debates.read"),
+    RoutePermission(r"^/api/search", "POST", "debates.read"),
+    # ── Leaderboard / Rankings ──
+    RoutePermission(r"^/api/leaderboard", "GET", "agents.read"),
+    RoutePermission(r"^/api/rankings", "GET", "agents.read"),
+    # ── Pulse (trending topics) ──
+    RoutePermission(r"^/api/pulse", "GET", "pulse.read"),
+    RoutePermission(r"^/api/pulse", "POST", "pulse.write"),
+    # ── Versioned analytics ──
+    RoutePermission(r"^/api/v1/analytics", "GET", "analytics.read"),
+    RoutePermission(r"^/api/v1/analytics", "POST", "analytics.read"),
+    # ── Consensus ──
+    RoutePermission(r"^/api/consensus", "GET", "consensus.read"),
+    RoutePermission(r"^/api/consensus", "POST", "consensus.create"),
+    # ── Belief network / Laboratory ──
+    RoutePermission(r"^/api/belief-network", "GET", "belief.read"),
+    RoutePermission(r"^/api/belief-network", "POST", "belief.write"),
+    RoutePermission(r"^/api/laboratory", "GET", "laboratory.read"),
+    RoutePermission(r"^/api/laboratory", "POST", "laboratory.write"),
+    # ── Genesis ──
+    RoutePermission(r"^/api/genesis", "GET", "genesis.read"),
+    RoutePermission(r"^/api/genesis", "POST", "genesis.create"),
+    # ── Replays ──
+    RoutePermission(r"^/api/replays", "GET", "replays.read"),
+    RoutePermission(r"^/api/replays", "POST", "replays.create"),
+    # ── Tournaments ──
+    RoutePermission(r"^/api/tournaments", "GET", "tournaments.read"),
+    RoutePermission(r"^/api/tournaments", "POST", "tournaments.create"),
+    # ── Documents ──
+    RoutePermission(r"^/api/documents", "GET", "documents.read"),
+    RoutePermission(r"^/api/documents", "POST", "documents.write"),
+    RoutePermission(r"^/api/documents", "DELETE", "documents.delete"),
+    # ── Red team / Auditing ──
+    RoutePermission(r"^/api/redteam", "GET", "auditing.read"),
+    RoutePermission(r"^/api/redteam", "POST", "auditing.create"),
+    # ── Relationships ──
+    RoutePermission(r"^/api/relationship", "GET", "relationships.read"),
+    RoutePermission(r"^/api/relationship", "POST", "relationships.write"),
+    # ── Moments ──
+    RoutePermission(r"^/api/moments", "GET", "moments.read"),
+    RoutePermission(r"^/api/moments", "POST", "moments.write"),
+    # ── Personas ──
+    RoutePermission(r"^/api/personas", "GET", "personas.read"),
+    RoutePermission(r"^/api/personas", "POST", "personas.write"),
+    # ── Evolution ──
+    RoutePermission(r"^/api/evolution", "GET", "evolution.read"),
+    RoutePermission(r"^/api/evolution", "POST", "evolution.write"),
+    # ── Plugins ──
+    RoutePermission(r"^/api/(v1/)?plugins", "GET", "plugins.read"),
+    RoutePermission(r"^/api/(v1/)?plugins", "POST", "plugins.install"),
+    RoutePermission(r"^/api/(v1/)?plugins", "DELETE", "plugins.uninstall"),
+    # ── Podcast / Audio API ──
+    RoutePermission(r"^/api/podcast", "GET", "podcast.read"),
+    RoutePermission(r"^/api/podcast", "POST", "podcast.create"),
+    # ── Insights ──
+    RoutePermission(r"^/api/insights", "GET", "insights.read"),
+    # ── Learning ──
+    RoutePermission(r"^/api/learning", "GET", "learning.read"),
+    RoutePermission(r"^/api/learning", "POST", "learning.write"),
+    # ── Gallery ──
+    RoutePermission(r"^/api/gallery", "GET", "gallery.read"),
+    RoutePermission(r"^/api/gallery", "POST", "gallery.write"),
+    # ── Billing ──
+    RoutePermission(r"^/api/(v1/)?billing", "GET", "billing.read"),
+    RoutePermission(r"^/api/(v1/)?billing", "POST", "billing.write"),
+    RoutePermission(r"^/api/(v1/)?billing", "PUT", "billing.write"),
 ]
 
 

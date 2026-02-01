@@ -150,9 +150,12 @@ ALLOWED_WITHOUT_RBAC = {
     "metrics/formatters",
     "metrics/tracking",
     "analytics_metrics",
+    "metrics_endpoint",
     # Doc endpoints (public API docs)
     "docs",
-    # Health probes (public liveness/readiness endpoints)
+    # Health probes and dashboard monitoring (public liveness/readiness endpoints)
+    "admin/dashboard_health",
+    "admin/dashboard_metrics",
     "admin/health/cross_pollination",
     "admin/health/database",
     "admin/health/database_utils",

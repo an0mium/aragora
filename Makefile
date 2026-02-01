@@ -70,7 +70,7 @@ test-fast-log:
 	@mkdir -p .nomic/logs
 	@LOG_FILE=.nomic/logs/test-fast-$$(date +%Y%m%d-%H%M%S).log; \
 		echo "Logging to $$LOG_FILE"; \
-		bash -lc 'set -o pipefail; pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load and not integration and not integration_minimal and not benchmark and not performance" --ignore=tests/integration --ignore=tests/benchmarks --ignore=tests/load --ignore=tests/performance 2>&1 | tee "$$LOG_FILE"'; \
+		LOG_FILE="$$LOG_FILE" bash -lc 'set -o pipefail; pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load and not integration and not integration_minimal and not benchmark and not performance" --ignore=tests/integration --ignore=tests/benchmarks --ignore=tests/load --ignore=tests/performance 2>&1 | tee "$$LOG_FILE"'; \
 		echo "Done. Log: $$LOG_FILE"
 
 test-unit:
