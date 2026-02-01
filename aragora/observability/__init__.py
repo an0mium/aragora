@@ -120,6 +120,24 @@ from aragora.observability.tracing import (
 from aragora.observability.tracing import (
     shutdown as shutdown_tracing,
 )
+from aragora.observability.otel import (
+    OTelConfig,
+    export_debate_span_to_otel,
+    extract_context,
+    get_tracer as otel_get_tracer,
+    inject_context,
+    is_initialized as is_otel_initialized,
+    record_span_error,
+    reset_otel,
+    set_span_ok,
+    setup_otel,
+    shutdown_otel,
+    start_span,
+    trace_agent_operation,
+    trace_consensus_evaluation,
+    trace_debate_lifecycle,
+    trace_debate_round,
+)
 from aragora.observability.siem import (
     SIEMBackend,
     SIEMConfig,
@@ -243,6 +261,23 @@ __all__ = [
     "add_span_attributes",
     "record_exception",
     "shutdown_tracing",
+    # Unified OTel Setup
+    "OTelConfig",
+    "setup_otel",
+    "shutdown_otel",
+    "is_otel_initialized",
+    "reset_otel",
+    "otel_get_tracer",
+    "start_span",
+    "record_span_error",
+    "set_span_ok",
+    "inject_context",
+    "extract_context",
+    "trace_debate_lifecycle",
+    "trace_debate_round",
+    "trace_agent_operation",
+    "trace_consensus_evaluation",
+    "export_debate_span_to_otel",
     # Metrics
     "start_metrics_server",
     "record_request",
