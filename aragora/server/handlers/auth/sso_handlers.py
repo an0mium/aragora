@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -41,12 +42,27 @@ logger = logging.getLogger(__name__)
 _sso_providers: dict[str, Any] = {}
 _sso_providers_lock = threading.Lock()
 
+# In-memory auth sessions (used alongside the state store for session tracking)
+_auth_sessions: dict[str, dict[str, Any]] = {}
+
 # OAuth state store singleton (supports Redis/SQLite/JWT for multi-instance deployments)
 _sso_state_store = None
 _sso_state_store_lock = threading.Lock()
 
 # Session TTL (use OAuth state store TTL for consistency)
 AUTH_SESSION_TTL = OAUTH_STATE_TTL_SECONDS
+
+
+def _cleanup_expired_sessions() -> None:
+    """Remove expired sessions from the in-memory auth sessions dict."""
+    now = time.time()
+    expired = [
+        key
+        for key, session in _auth_sessions.items()
+        if now - session.get("created_at", 0) > AUTH_SESSION_TTL
+    ]
+    for key in expired:
+        del _auth_sessions[key]
 
 
 def _get_sso_state_store():

@@ -196,7 +196,7 @@ def _make_query_params(
 @pytest.fixture
 def handler():
     """Create a SharingNotificationsHandler instance."""
-    return SharingNotificationsHandler()
+    return SharingNotificationsHandler(server_context={})
 
 
 @pytest.fixture

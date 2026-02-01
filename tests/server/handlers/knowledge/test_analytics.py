@@ -37,7 +37,7 @@ def reset_rate_limiter():
     """Reset rate limiter between tests."""
     from aragora.server.handlers.knowledge.analytics import _analytics_limiter
 
-    _analytics_limiter._requests.clear()
+    _analytics_limiter.clear()
     yield
 
 

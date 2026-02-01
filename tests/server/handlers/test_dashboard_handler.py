@@ -49,11 +49,9 @@ def clear_dashboard_cache():
     """Clear dashboard cache before and after each test."""
     import aragora.server.handlers.dashboard as dashboard_module
 
-    original_cache = dashboard_module._dashboard_cache.copy()
     dashboard_module._dashboard_cache.clear()
     yield
     dashboard_module._dashboard_cache.clear()
-    dashboard_module._dashboard_cache.update(original_cache)
 
 
 # ============================================================================

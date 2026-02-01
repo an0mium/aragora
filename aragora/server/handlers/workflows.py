@@ -109,7 +109,15 @@ def _get_store() -> PersistentWorkflowStore:
     return cast(PersistentWorkflowStore, get_workflow_store())
 
 
-_engine = WorkflowEngine()
+_engine: WorkflowEngine | None = None
+
+
+def _get_engine() -> WorkflowEngine:
+    """Lazily initialize the workflow engine to avoid import-time side effects."""
+    global _engine
+    if _engine is None:
+        _engine = WorkflowEngine()
+    return _engine
 
 
 # In-memory template store for built-in and YAML templates
@@ -380,7 +388,7 @@ async def execute_workflow(
     store.save_execution(execution)
 
     try:
-        result = await _engine.execute(workflow, inputs, execution_id)
+        result = await _get_engine().execute(workflow, inputs, execution_id)
 
         execution.update(
             {
@@ -472,7 +480,7 @@ async def terminate_execution(execution_id: str) -> bool:
     if execution.get("status") != "running":
         return False
 
-    _engine.request_termination("User requested")
+    _get_engine().request_termination("User requested")
     execution["status"] = "terminated"
     execution["completed_at"] = datetime.now(timezone.utc).isoformat()
     store.save_execution(execution)
