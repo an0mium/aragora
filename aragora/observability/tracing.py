@@ -912,3 +912,501 @@ def build_trace_headers() -> dict[str, str]:
         pass
 
     return headers
+
+
+# =============================================================================
+# Universal @traced Decorator
+# =============================================================================
+
+
+def traced(
+    name: str | None = None,
+    *,
+    attributes: dict[str, Any] | None = None,
+    record_args: bool = False,
+    record_result: bool = False,
+) -> Callable[[F], F]:
+    """Universal decorator for tracing function execution.
+
+    Works with both sync and async functions. Creates a span around the
+    function execution with optional argument and result recording.
+
+    Args:
+        name: Span name. Defaults to the function's qualified name.
+        attributes: Static attributes to add to every span.
+        record_args: If True, record function arguments as span attributes.
+        record_result: If True, record function return value as span attribute.
+
+    Returns:
+        Decorated function with tracing.
+
+    Example:
+        @traced("user.create")
+        async def create_user(name: str, email: str) -> User:
+            ...
+
+        @traced(record_args=True, record_result=True)
+        def calculate_score(values: list[int]) -> float:
+            ...
+
+        @traced(attributes={"service": "billing"})
+        async def process_payment(amount: float) -> bool:
+            ...
+    """
+    import asyncio
+    import inspect
+
+    def decorator(func: F) -> F:
+        # Determine span name
+        span_name = name
+        if span_name is None:
+            module = getattr(func, "__module__", "")
+            qualname = getattr(func, "__qualname__", func.__name__)
+            span_name = f"{module}.{qualname}" if module else qualname
+
+        is_async = asyncio.iscoroutinefunction(func)
+        sig = inspect.signature(func) if record_args else None
+
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            tracer = get_tracer()
+            with tracer.start_as_current_span(span_name) as span:
+                # Add static attributes
+                if attributes:
+                    add_span_attributes(span, attributes)
+
+                # Record function arguments
+                if record_args and sig:
+                    _record_function_args(span, sig, args, kwargs)
+
+                try:
+                    result = await func(*args, **kwargs)
+
+                    # Record result
+                    if record_result and result is not None:
+                        _record_result(span, result)
+
+                    return result
+                except Exception as e:
+                    span.record_exception(e)
+                    _set_error_status(span)
+                    raise
+
+        @wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            tracer = get_tracer()
+            with tracer.start_as_current_span(span_name) as span:
+                # Add static attributes
+                if attributes:
+                    add_span_attributes(span, attributes)
+
+                # Record function arguments
+                if record_args and sig:
+                    _record_function_args(span, sig, args, kwargs)
+
+                try:
+                    result = func(*args, **kwargs)
+
+                    # Record result
+                    if record_result and result is not None:
+                        _record_result(span, result)
+
+                    return result
+                except Exception as e:
+                    span.record_exception(e)
+                    _set_error_status(span)
+                    raise
+
+        return cast(F, async_wrapper if is_async else sync_wrapper)
+
+    return decorator
+
+
+def _record_function_args(
+    span: Any,
+    sig: Any,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> None:
+    """Record function arguments as span attributes."""
+
+    try:
+        bound = sig.bind(*args, **kwargs)
+        bound.apply_defaults()
+
+        for param_name, value in bound.arguments.items():
+            # Skip self/cls parameters
+            if param_name in ("self", "cls"):
+                continue
+
+            attr_key = f"arg.{param_name}"
+
+            # Handle different types safely
+            if value is None:
+                span.set_attribute(attr_key, "None")
+            elif isinstance(value, (str, int, float, bool)):
+                span.set_attribute(attr_key, value)
+            elif isinstance(value, (list, tuple)):
+                span.set_attribute(f"{attr_key}.length", len(value))
+            elif isinstance(value, dict):
+                span.set_attribute(f"{attr_key}.keys", str(list(value.keys())[:10]))
+            else:
+                span.set_attribute(f"{attr_key}.type", type(value).__name__)
+    except Exception:
+        # Don't fail tracing due to arg recording issues
+        pass
+
+
+def _record_result(span: Any, result: Any) -> None:
+    """Record function result as span attribute."""
+    try:
+        if isinstance(result, (str, int, float, bool)):
+            span.set_attribute("result", result)
+        elif isinstance(result, (list, tuple)):
+            span.set_attribute("result.length", len(result))
+        elif isinstance(result, dict):
+            span.set_attribute("result.keys", str(list(result.keys())[:10]))
+        elif hasattr(result, "__dict__"):
+            span.set_attribute("result.type", type(result).__name__)
+    except Exception:
+        # Don't fail tracing due to result recording issues
+        pass
+
+
+# =============================================================================
+# Auto-Instrumentation Hooks
+# =============================================================================
+
+
+class AutoInstrumentation:
+    """Auto-instrumentation hooks for common libraries and patterns.
+
+    Provides automatic tracing for HTTP clients, database connections,
+    and other common operations without manual instrumentation.
+
+    Usage:
+        from aragora.observability.tracing import AutoInstrumentation
+
+        # At application startup
+        AutoInstrumentation.instrument_httpx()
+        AutoInstrumentation.instrument_aiohttp()
+
+        # To check what's instrumented
+        AutoInstrumentation.get_instrumented_libraries()
+    """
+
+    _instrumented: set[str] = set()
+
+    @classmethod
+    def instrument_httpx(cls) -> bool:
+        """Instrument httpx library for automatic HTTP client tracing.
+
+        Returns:
+            True if instrumentation was applied, False otherwise.
+        """
+        if "httpx" in cls._instrumented:
+            return True
+
+        try:
+            from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentation
+
+            HTTPXClientInstrumentation().instrument()
+            cls._instrumented.add("httpx")
+            logger.info("Auto-instrumented httpx for distributed tracing")
+            return True
+        except ImportError:
+            logger.debug(
+                "httpx instrumentation not available (install opentelemetry-instrumentation-httpx)"
+            )
+            return False
+
+    @classmethod
+    def instrument_aiohttp(cls) -> bool:
+        """Instrument aiohttp library for automatic HTTP client/server tracing.
+
+        Returns:
+            True if instrumentation was applied, False otherwise.
+        """
+        if "aiohttp" in cls._instrumented:
+            return True
+
+        try:
+            from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+
+            AioHttpClientInstrumentor().instrument()
+            cls._instrumented.add("aiohttp")
+            logger.info("Auto-instrumented aiohttp for distributed tracing")
+            return True
+        except ImportError:
+            logger.debug(
+                "aiohttp instrumentation not available (install opentelemetry-instrumentation-aiohttp-client)"
+            )
+            return False
+
+    @classmethod
+    def instrument_requests(cls) -> bool:
+        """Instrument requests library for automatic HTTP client tracing.
+
+        Returns:
+            True if instrumentation was applied, False otherwise.
+        """
+        if "requests" in cls._instrumented:
+            return True
+
+        try:
+            from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+            RequestsInstrumentor().instrument()
+            cls._instrumented.add("requests")
+            logger.info("Auto-instrumented requests for distributed tracing")
+            return True
+        except ImportError:
+            logger.debug(
+                "requests instrumentation not available (install opentelemetry-instrumentation-requests)"
+            )
+            return False
+
+    @classmethod
+    def instrument_asyncpg(cls) -> bool:
+        """Instrument asyncpg library for automatic PostgreSQL tracing.
+
+        Returns:
+            True if instrumentation was applied, False otherwise.
+        """
+        if "asyncpg" in cls._instrumented:
+            return True
+
+        try:
+            from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+
+            AsyncPGInstrumentor().instrument()
+            cls._instrumented.add("asyncpg")
+            logger.info("Auto-instrumented asyncpg for distributed tracing")
+            return True
+        except ImportError:
+            logger.debug(
+                "asyncpg instrumentation not available (install opentelemetry-instrumentation-asyncpg)"
+            )
+            return False
+
+    @classmethod
+    def instrument_redis(cls) -> bool:
+        """Instrument redis library for automatic Redis tracing.
+
+        Returns:
+            True if instrumentation was applied, False otherwise.
+        """
+        if "redis" in cls._instrumented:
+            return True
+
+        try:
+            from opentelemetry.instrumentation.redis import RedisInstrumentor
+
+            RedisInstrumentor().instrument()
+            cls._instrumented.add("redis")
+            logger.info("Auto-instrumented redis for distributed tracing")
+            return True
+        except ImportError:
+            logger.debug(
+                "redis instrumentation not available (install opentelemetry-instrumentation-redis)"
+            )
+            return False
+
+    @classmethod
+    def instrument_all(cls) -> list[str]:
+        """Attempt to instrument all supported libraries.
+
+        Returns:
+            List of successfully instrumented libraries.
+        """
+        instrumented = []
+        if cls.instrument_httpx():
+            instrumented.append("httpx")
+        if cls.instrument_aiohttp():
+            instrumented.append("aiohttp")
+        if cls.instrument_requests():
+            instrumented.append("requests")
+        if cls.instrument_asyncpg():
+            instrumented.append("asyncpg")
+        if cls.instrument_redis():
+            instrumented.append("redis")
+        return instrumented
+
+    @classmethod
+    def get_instrumented_libraries(cls) -> set[str]:
+        """Get the set of currently instrumented libraries.
+
+        Returns:
+            Set of library names that have been instrumented.
+        """
+        return cls._instrumented.copy()
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset instrumentation tracking (for testing)."""
+        cls._instrumented.clear()
+
+
+def instrument_all() -> list[str]:
+    """Convenience function to instrument all supported libraries.
+
+    Returns:
+        List of successfully instrumented libraries.
+
+    Example:
+        from aragora.observability.tracing import instrument_all
+
+        # At application startup
+        instrumented = instrument_all()
+        print(f"Instrumented: {instrumented}")
+    """
+    return AutoInstrumentation.instrument_all()
+
+
+# =============================================================================
+# Queue Worker Tracing Helpers
+# =============================================================================
+
+
+@contextmanager
+def trace_worker_job(
+    job_type: str,
+    job_id: str,
+    worker_id: str | None = None,
+    payload_keys: list[str] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> Iterator[Any]:
+    """Context manager for tracing background worker job execution.
+
+    Creates a span for the job with relevant attributes and handles
+    trace context propagation from the job payload.
+
+    Args:
+        job_type: Type of job being processed (e.g., "routing", "gauntlet")
+        job_id: Unique job identifier
+        worker_id: Optional worker identifier
+        payload_keys: Optional list of payload keys to include as attributes
+        payload: Optional job payload dict
+
+    Yields:
+        The span object
+
+    Example:
+        with trace_worker_job("routing", job.id, worker_id="worker-1") as span:
+            result = await process_job(job)
+            span.set_attribute("job.result", result.status)
+    """
+    tracer = get_tracer()
+
+    with tracer.start_as_current_span(f"worker.job.{job_type}") as span:
+        span.set_attribute("job.type", job_type)
+        span.set_attribute("job.id", job_id)
+        if worker_id:
+            span.set_attribute("worker.id", worker_id)
+
+        # Extract specific payload keys as attributes
+        if payload and payload_keys:
+            for key in payload_keys:
+                if key in payload:
+                    value = payload[key]
+                    if isinstance(value, (str, int, float, bool)):
+                        span.set_attribute(f"job.payload.{key}", value)
+
+        yield span
+
+
+@contextmanager
+def trace_worker_batch(
+    job_type: str,
+    batch_size: int,
+    worker_id: str | None = None,
+) -> Iterator[Any]:
+    """Context manager for tracing a batch of worker jobs.
+
+    Args:
+        job_type: Type of jobs in the batch
+        batch_size: Number of jobs in the batch
+        worker_id: Optional worker identifier
+
+    Yields:
+        The span object
+    """
+    tracer = get_tracer()
+
+    with tracer.start_as_current_span(f"worker.batch.{job_type}") as span:
+        span.set_attribute("job.type", job_type)
+        span.set_attribute("batch.size", batch_size)
+        if worker_id:
+            span.set_attribute("worker.id", worker_id)
+        yield span
+
+
+# =============================================================================
+# External Service Tracing
+# =============================================================================
+
+
+@contextmanager
+def trace_external_call(
+    service: str,
+    operation: str,
+    endpoint: str | None = None,
+) -> Iterator[Any]:
+    """Context manager for tracing calls to external services.
+
+    Args:
+        service: Name of the external service (e.g., "openai", "anthropic")
+        operation: Operation being performed (e.g., "chat.completions")
+        endpoint: Optional endpoint URL (will be redacted)
+
+    Yields:
+        The span object
+
+    Example:
+        with trace_external_call("openai", "chat.completions") as span:
+            response = await client.chat.completions.create(...)
+            span.set_attribute("tokens.total", response.usage.total_tokens)
+    """
+    tracer = get_tracer()
+
+    with tracer.start_as_current_span(f"external.{service}.{operation}") as span:
+        span.set_attribute("external.service", service)
+        span.set_attribute("external.operation", operation)
+        if endpoint:
+            span.set_attribute("external.endpoint", _redact_url(endpoint))
+        yield span
+
+
+@contextmanager
+def trace_llm_call(
+    provider: str,
+    model: str,
+    operation: str = "generate",
+    prompt_tokens: int | None = None,
+) -> Iterator[Any]:
+    """Context manager for tracing LLM API calls.
+
+    Args:
+        provider: LLM provider (e.g., "anthropic", "openai", "google")
+        model: Model name/identifier
+        operation: Operation type (e.g., "generate", "embed", "complete")
+        prompt_tokens: Optional prompt token count
+
+    Yields:
+        The span object
+
+    Example:
+        with trace_llm_call("anthropic", "claude-3-opus", "generate") as span:
+            response = await claude.generate(prompt)
+            span.set_attribute("llm.completion_tokens", response.usage.output_tokens)
+            span.set_attribute("llm.total_tokens", response.usage.total_tokens)
+    """
+    tracer = get_tracer()
+
+    with tracer.start_as_current_span(f"llm.{provider}.{operation}") as span:
+        span.set_attribute("llm.provider", provider)
+        span.set_attribute("llm.model", model)
+        span.set_attribute("llm.operation", operation)
+        if prompt_tokens is not None:
+            span.set_attribute("llm.prompt_tokens", prompt_tokens)
+        yield span
