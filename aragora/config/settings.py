@@ -22,6 +22,13 @@ from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _default_nomic_dir() -> str:
+    """Resolve default data dir for database files."""
+    from aragora.persistence.db_config import get_default_data_dir
+
+    return str(get_default_data_dir())
+
+
 class AuthSettings(BaseSettings):
     """Authentication configuration."""
 
@@ -297,7 +304,7 @@ class DatabaseSettings(BaseSettings):
     timeout_seconds: float = Field(default=30.0, ge=1.0, le=300.0, alias="ARAGORA_DB_TIMEOUT")
     mode: str = Field(default="legacy", alias="ARAGORA_DB_MODE")
     nomic_dir: str = Field(
-        default=".nomic",
+        default_factory=_default_nomic_dir,
         alias="ARAGORA_DATA_DIR",
         validation_alias=AliasChoices("ARAGORA_DATA_DIR", "ARAGORA_NOMIC_DIR"),
     )

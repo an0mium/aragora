@@ -51,10 +51,36 @@ def test_get_nomic_dir_falls_back_to_nomic_dir(tmp_path, monkeypatch):
     assert db_config.get_nomic_dir() == tmp_path
 
 
-def test_get_nomic_dir_default_is_nomic(monkeypatch):
+def test_get_nomic_dir_default_is_nomic(tmp_path, monkeypatch):
     """get_nomic_dir() should default to .nomic when no env var is set."""
     monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
     monkeypatch.delenv("ARAGORA_NOMIC_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    import aragora.persistence.db_config as db_config
+
+    db_config = importlib.reload(db_config)
+    assert db_config.get_nomic_dir() == Path(".nomic")
+
+
+def test_get_nomic_dir_prefers_data_when_present(tmp_path, monkeypatch):
+    """get_nomic_dir() should fall back to data/ if .nomic is absent."""
+    monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
+    monkeypatch.delenv("ARAGORA_NOMIC_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    import aragora.persistence.db_config as db_config
+
+    db_config = importlib.reload(db_config)
+    assert db_config.get_nomic_dir() == Path("data")
+
+
+def test_get_nomic_dir_prefers_nomic_over_data(tmp_path, monkeypatch):
+    """get_nomic_dir() should prefer .nomic when both exist."""
+    monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
+    monkeypatch.delenv("ARAGORA_NOMIC_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / ".nomic").mkdir()
     import aragora.persistence.db_config as db_config
 
     db_config = importlib.reload(db_config)

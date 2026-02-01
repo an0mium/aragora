@@ -29,6 +29,7 @@ __all__ = [
     "get_db_mode",
     "get_db_path",
     "get_db_path_str",
+    "get_default_data_dir",
     "get_elo_db_path",
     "get_genesis_db_path",
     "get_insights_db_path",
@@ -91,6 +92,24 @@ class DatabaseMode(Enum):
 
     LEGACY = "legacy"  # Individual database files (current)
     CONSOLIDATED = "consolidated"  # Four consolidated databases
+
+
+def get_default_data_dir() -> Path:
+    """Resolve the default data directory for SQLite artifacts."""
+    env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
+    if env_dir:
+        return Path(env_dir)
+
+    # Prefer existing .nomic/ for backwards compatibility, otherwise use data/
+    nomic_dir = Path(".nomic")
+    if nomic_dir.exists():
+        return nomic_dir
+
+    data_dir = Path("data")
+    if data_dir.exists():
+        return data_dir
+
+    return nomic_dir
 
 
 # Mapping from DatabaseType to legacy file names
@@ -177,10 +196,7 @@ def get_db_mode() -> DatabaseMode:
 
 def get_nomic_dir() -> Path:
     """Get the base directory for databases."""
-    nomic_dir = os.environ.get("ARAGORA_DATA_DIR")
-    if nomic_dir is None:
-        nomic_dir = os.environ.get("ARAGORA_NOMIC_DIR", ".nomic")
-    return Path(nomic_dir)
+    return get_default_data_dir()
 
 
 def get_db_path(
@@ -255,7 +271,7 @@ def get_genesis_db_path(nomic_dir: Path | None = None) -> Path:
 
 # Database path constants for backwards compatibility
 # These will be deprecated in favor of get_db_path()
-DEFAULT_DATA_DIR = Path(".nomic")
+DEFAULT_DATA_DIR = get_default_data_dir()
 DEFAULT_NOMIC_DIR = DEFAULT_DATA_DIR
 
 # Legacy path constants (for reference during migration)
