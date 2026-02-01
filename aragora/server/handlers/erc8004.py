@@ -152,10 +152,10 @@ async def handle_get_agent(token_id: int) -> dict[str, Any]:
             }
         )
     except ImportError as e:
-        return error_response(str(e), status_code=501)
+        return error_response(str(e), status=501)
     except Exception as e:
         logger.error(f"Error fetching agent {token_id}: {e}")
-        return error_response(f"Agent not found: {str(e)}", status_code=404)
+        return error_response(f"Agent not found: {str(e)}", status=404)
 
 
 @api_endpoint(
@@ -197,10 +197,10 @@ async def handle_get_reputation(
             }
         )
     except ImportError as e:
-        return error_response(str(e), status_code=501)
+        return error_response(str(e), status=501)
     except Exception as e:
         logger.error(f"Error fetching reputation for agent {token_id}: {e}")
-        return error_response(f"Reputation not found: {str(e)}", status_code=404)
+        return error_response(f"Reputation not found: {str(e)}", status=404)
 
 
 @api_endpoint(
@@ -238,10 +238,10 @@ async def handle_get_validations(
             }
         )
     except ImportError as e:
-        return error_response(str(e), status_code=501)
+        return error_response(str(e), status=501)
     except Exception as e:
         logger.error(f"Error fetching validations for agent {token_id}: {e}")
-        return error_response(f"Validations not found: {str(e)}", status_code=404)
+        return error_response(f"Validations not found: {str(e)}", status=404)
 
 
 @api_endpoint(
@@ -283,7 +283,7 @@ async def handle_blockchain_sync(
             }
         )
     except ImportError as e:
-        return error_response(str(e), status_code=501)
+        return error_response(str(e), status=501)
     except Exception as e:
         logger.error(f"Blockchain sync error: {e}")
         return error_response(f"Sync failed: {str(e)}")
@@ -407,11 +407,11 @@ class ERC8004Handler(BaseHandler):
             suffix = path[len("/api/v1/blockchain/agents/") :]
             parts = [p for p in suffix.split("/") if p]
             if not parts:
-                return error_response("Invalid agent path", status_code=400)
+                return error_response("Invalid agent path", status=400)
             try:
                 token_id = int(parts[0])
             except ValueError:
-                return error_response("Invalid token_id", status_code=400)
+                return error_response("Invalid token_id", status=400)
 
             if len(parts) == 1 and method == "GET":
                 return handle_get_agent(token_id)
@@ -425,6 +425,6 @@ class ERC8004Handler(BaseHandler):
                 tag = _get_query_param(query_params, "tag", "")
                 return handle_get_validations(token_id, tag=tag)
 
-            return error_response("Invalid blockchain agent endpoint", status_code=400)
+            return error_response("Invalid blockchain agent endpoint", status=400)
 
-        return error_response("Invalid path", status_code=400)
+        return error_response("Invalid path", status=400)

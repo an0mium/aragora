@@ -89,7 +89,9 @@ class SLOHandler(BaseHandler):
         client_ip = get_client_ip(handler)
         if not _slo_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for SLO endpoint: {client_ip}")
-            return error_response("Rate limit exceeded. Please try again later.", 429)
+            return error_response(
+                "Rate limit exceeded. Please try again later.", 429, code="RATE_LIMITED"
+            )
 
         try:
             if path == "/api/slos/status":
@@ -115,11 +117,11 @@ class SLOHandler(BaseHandler):
                     slo_name = "debate_success"
                 return self._handle_slo_detail(slo_name)
             else:
-                return error_response(f"Unknown SLO endpoint: {path}", 404)
+                return error_response(f"Unknown SLO endpoint: {path}", 404, code="UNKNOWN_ENDPOINT")
 
         except Exception as e:
             logger.exception(f"Error handling SLO request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response(f"Internal error: {str(e)}", 500, code="INTERNAL_ERROR")
 
     def _handle_slo_status(self) -> HandlerResult:
         """GET /api/slos/status - Overall SLO compliance status."""
@@ -128,7 +130,9 @@ class SLOHandler(BaseHandler):
             return json_response(status_json)
         except Exception as e:
             logger.exception(f"Failed to get SLO status: {e}")
-            return error_response(f"Failed to get SLO status: {str(e)}", 500)
+            return error_response(
+                f"Failed to get SLO status: {str(e)}", 500, code="SLO_STATUS_ERROR"
+            )
 
     def _handle_slo_detail(self, slo_name: str) -> HandlerResult:
         """GET /api/slos/{slo_name} - Individual SLO details."""
@@ -140,7 +144,7 @@ class SLOHandler(BaseHandler):
             elif slo_name == "debate_success":
                 result = check_debate_success_slo()
             else:
-                return error_response(f"Unknown SLO: {slo_name}", 404)
+                return error_response(f"Unknown SLO: {slo_name}", 404, code="UNKNOWN_SLO")
 
             return json_response(
                 {
@@ -159,7 +163,9 @@ class SLOHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get SLO detail for {slo_name}: {e}")
-            return error_response(f"Failed to get SLO detail: {str(e)}", 500)
+            return error_response(
+                f"Failed to get SLO detail: {str(e)}", 500, code="SLO_DETAIL_ERROR"
+            )
 
     def _handle_error_budget(self) -> HandlerResult:
         """GET /api/slos/error-budget - Error budget timeline."""
@@ -198,7 +204,9 @@ class SLOHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get error budget: {e}")
-            return error_response(f"Failed to get error budget: {str(e)}", 500)
+            return error_response(
+                f"Failed to get error budget: {str(e)}", 500, code="ERROR_BUDGET_ERROR"
+            )
 
     def _handle_violations(self) -> HandlerResult:
         """GET /api/slos/violations - Recent SLO violations."""
@@ -231,7 +239,9 @@ class SLOHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get violations: {e}")
-            return error_response(f"Failed to get violations: {str(e)}", 500)
+            return error_response(
+                f"Failed to get violations: {str(e)}", 500, code="VIOLATIONS_ERROR"
+            )
 
     def _handle_targets(self) -> HandlerResult:
         """GET /api/slos/targets - Get configured SLO targets."""
@@ -258,7 +268,7 @@ class SLOHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get targets: {e}")
-            return error_response(f"Failed to get targets: {str(e)}", 500)
+            return error_response(f"Failed to get targets: {str(e)}", 500, code="TARGETS_ERROR")
 
     def _calculate_exhaustion_time(self, result: Any) -> str | None:
         """Calculate projected error budget exhaustion time.

@@ -466,7 +466,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         workspace_id = body.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         zapier = self._get_zapier()
         app = zapier.create_app(workspace_id)
@@ -515,7 +515,9 @@ class ExternalIntegrationsHandler(SecureHandler):
             )
             return json_response({"deleted": True, "app_id": app_id})
         else:
-            return error_response(f"Zapier app not found: {app_id}", 404)
+            return error_response(
+                f"Zapier app not found: {app_id}", 404, code="ZAPIER_APP_NOT_FOUND"
+            )
 
     def _handle_subscribe_zapier_trigger(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/triggers - subscribe to trigger."""
@@ -529,11 +531,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         webhook_url = body.get("webhook_url")
 
         if not app_id:
-            return error_response("app_id is required", 400)
+            return error_response("app_id is required", 400, code="MISSING_APP_ID")
         if not trigger_type:
-            return error_response("trigger_type is required", 400)
+            return error_response("trigger_type is required", 400, code="MISSING_TRIGGER_TYPE")
         if not webhook_url:
-            return error_response("webhook_url is required", 400)
+            return error_response("webhook_url is required", 400, code="MISSING_WEBHOOK_URL")
 
         zapier = self._get_zapier()
         trigger = zapier.subscribe_trigger(
@@ -558,7 +560,9 @@ class ExternalIntegrationsHandler(SecureHandler):
                 status=201,
             )
         else:
-            return error_response("Failed to subscribe trigger", 400)
+            return error_response(
+                "Failed to subscribe trigger", 400, code="TRIGGER_SUBSCRIBE_FAILED"
+            )
 
     def _handle_unsubscribe_zapier_trigger(
         self, app_id: str, trigger_id: str, handler: Any
@@ -570,14 +574,14 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not app_id:
-            return error_response("app_id query parameter is required", 400)
+            return error_response("app_id query parameter is required", 400, code="MISSING_APP_ID")
 
         zapier = self._get_zapier()
 
         if zapier.unsubscribe_trigger(app_id, trigger_id):
             return json_response({"deleted": True, "trigger_id": trigger_id})
         else:
-            return error_response(f"Trigger not found: {trigger_id}", 404)
+            return error_response(f"Trigger not found: {trigger_id}", 404, code="TRIGGER_NOT_FOUND")
 
     # =========================================================================
     # Make Handlers
@@ -636,7 +640,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         workspace_id = body.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         make = self._get_make()
         connection = make.create_connection(workspace_id)
@@ -684,7 +688,9 @@ class ExternalIntegrationsHandler(SecureHandler):
             )
             return json_response({"deleted": True, "connection_id": conn_id})
         else:
-            return error_response(f"Make connection not found: {conn_id}", 404)
+            return error_response(
+                f"Make connection not found: {conn_id}", 404, code="MAKE_CONNECTION_NOT_FOUND"
+            )
 
     def _handle_register_make_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/webhooks - register webhook."""
@@ -698,11 +704,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         webhook_url = body.get("webhook_url")
 
         if not conn_id:
-            return error_response("connection_id is required", 400)
+            return error_response("connection_id is required", 400, code="MISSING_CONNECTION_ID")
         if not module_type:
-            return error_response("module_type is required", 400)
+            return error_response("module_type is required", 400, code="MISSING_MODULE_TYPE")
         if not webhook_url:
-            return error_response("webhook_url is required", 400)
+            return error_response("webhook_url is required", 400, code="MISSING_WEBHOOK_URL")
 
         make = self._get_make()
         webhook = make.register_webhook(
@@ -726,7 +732,7 @@ class ExternalIntegrationsHandler(SecureHandler):
                 status=201,
             )
         else:
-            return error_response("Failed to register webhook", 400)
+            return error_response("Failed to register webhook", 400, code="WEBHOOK_REGISTER_FAILED")
 
     def _handle_unregister_make_webhook(
         self, conn_id: str, webhook_id: str, handler: Any
@@ -738,14 +744,16 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not conn_id:
-            return error_response("connection_id query parameter is required", 400)
+            return error_response(
+                "connection_id query parameter is required", 400, code="MISSING_CONNECTION_ID"
+            )
 
         make = self._get_make()
 
         if make.unregister_webhook(conn_id, webhook_id):
             return json_response({"deleted": True, "webhook_id": webhook_id})
         else:
-            return error_response(f"Webhook not found: {webhook_id}", 404)
+            return error_response(f"Webhook not found: {webhook_id}", 404, code="WEBHOOK_NOT_FOUND")
 
     # =========================================================================
     # n8n Handlers
@@ -808,7 +816,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         workspace_id = body.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         n8n = self._get_n8n()
         credential = n8n.create_credential(
@@ -860,7 +868,9 @@ class ExternalIntegrationsHandler(SecureHandler):
             )
             return json_response({"deleted": True, "credential_id": cred_id})
         else:
-            return error_response(f"n8n credential not found: {cred_id}", 404)
+            return error_response(
+                f"n8n credential not found: {cred_id}", 404, code="N8N_CREDENTIAL_NOT_FOUND"
+            )
 
     def _handle_register_n8n_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/webhooks - register webhook."""
@@ -873,9 +883,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         events = body.get("events", [])
 
         if not cred_id:
-            return error_response("credential_id is required", 400)
+            return error_response("credential_id is required", 400, code="MISSING_CREDENTIAL_ID")
         if not events:
-            return error_response("events is required (list of event types)", 400)
+            return error_response(
+                "events is required (list of event types)", 400, code="MISSING_EVENTS"
+            )
 
         n8n = self._get_n8n()
         webhook = n8n.register_webhook(
@@ -899,7 +911,7 @@ class ExternalIntegrationsHandler(SecureHandler):
                 status=201,
             )
         else:
-            return error_response("Failed to register webhook", 400)
+            return error_response("Failed to register webhook", 400, code="WEBHOOK_REGISTER_FAILED")
 
     def _handle_unregister_n8n_webhook(
         self, cred_id: str, webhook_id: str, handler: Any
@@ -911,14 +923,16 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not cred_id:
-            return error_response("credential_id query parameter is required", 400)
+            return error_response(
+                "credential_id query parameter is required", 400, code="MISSING_CREDENTIAL_ID"
+            )
 
         n8n = self._get_n8n()
 
         if n8n.unregister_webhook(cred_id, webhook_id):
             return json_response({"deleted": True, "webhook_id": webhook_id})
         else:
-            return error_response(f"Webhook not found: {webhook_id}", 404)
+            return error_response(f"Webhook not found: {webhook_id}", 404, code="WEBHOOK_NOT_FOUND")
 
     # =========================================================================
     # Test Handler
@@ -966,7 +980,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             )
 
         else:
-            return error_response(f"Unknown platform: {platform}", 400)
+            return error_response(f"Unknown platform: {platform}", 400, code="UNKNOWN_PLATFORM")
 
 
 # =============================================================================

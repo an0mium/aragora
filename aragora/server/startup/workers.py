@@ -9,6 +9,7 @@ workflow checkpoint persistence, and backup scheduler initialization.
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -93,6 +94,14 @@ def init_gauntlet_run_recovery() -> int:
     Returns:
         Number of stale runs recovered/marked as interrupted
     """
+    if os.environ.get("ARAGORA_DISABLE_GAUNTLET_RECOVERY", "0").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        logger.debug("Gauntlet run recovery skipped (ARAGORA_DISABLE_GAUNTLET_RECOVERY)")
+        return 0
+
     try:
         from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
 

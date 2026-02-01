@@ -111,7 +111,7 @@ class IntegrationsHandler(BaseHandler):
             if path.startswith("/api/v2/integrations/"):
                 parts = path.split("/")
                 if len(parts) < 5:
-                    return error_response("Invalid integration path", 400)
+                    return error_response("Invalid integration path", 400, code="INVALID_PATH")
 
                 integration_type = parts[4]
 
@@ -120,6 +120,7 @@ class IntegrationsHandler(BaseHandler):
                         f"Unknown integration: {integration_type}. "
                         f"Supported: {', '.join(sorted(SUPPORTED_INTEGRATIONS))}",
                         400,
+                        code="UNSUPPORTED_INTEGRATION",
                     )
 
                 # Health endpoint (GET)
@@ -144,11 +145,11 @@ class IntegrationsHandler(BaseHandler):
                         integration_type, workspace_id, tenant_id
                     )
 
-            return error_response("Not found", 404)
+            return error_response("Not found", 404, code="NOT_FOUND")
 
         except Exception as e:
             logger.exception(f"Error handling integration request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response(f"Internal error: {str(e)}", 500, code="INTERNAL_ERROR")
 
     @require_permission("integrations.read")
     async def _list_integrations(
@@ -258,7 +259,9 @@ class IntegrationsHandler(BaseHandler):
             if workspace_id:
                 workspace = store.get(workspace_id)
                 if not workspace:
-                    return error_response("Slack workspace not found", 404)
+                    return error_response(
+                        "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
+                    )
 
                 return json_response(
                     {
@@ -289,7 +292,9 @@ class IntegrationsHandler(BaseHandler):
             if workspace_id:
                 workspace = store.get(workspace_id)
                 if not workspace:
-                    return error_response("Teams tenant not found", 404)
+                    return error_response(
+                        "Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND"
+                    )
 
                 return json_response(
                     {
@@ -340,7 +345,9 @@ class IntegrationsHandler(BaseHandler):
                 }
             )
 
-        return error_response(f"Unknown integration type: {integration_type}", 400)
+        return error_response(
+            f"Unknown integration type: {integration_type}", 400, code="UNKNOWN_INTEGRATION_TYPE"
+        )
 
     @require_permission("integrations.delete")
     async def _disconnect_integration(
@@ -351,14 +358,16 @@ class IntegrationsHandler(BaseHandler):
     ) -> HandlerResult:
         """Disconnect an integration."""
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         if integration_type == "slack":
             store = self._get_slack_store()
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response("Slack workspace not found", 404)
+                return error_response(
+                    "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
+                )
 
             # Deactivate (soft delete)
             success = store.deactivate(workspace_id)
@@ -374,14 +383,16 @@ class IntegrationsHandler(BaseHandler):
                     }
                 )
 
-            return error_response("Failed to disconnect Slack workspace", 500)
+            return error_response(
+                "Failed to disconnect Slack workspace", 500, code="DISCONNECT_FAILED"
+            )
 
         elif integration_type == "teams":
             store = self._get_teams_store()
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response("Teams tenant not found", 404)
+                return error_response("Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND")
 
             success = store.deactivate(workspace_id)
 
@@ -396,9 +407,15 @@ class IntegrationsHandler(BaseHandler):
                     }
                 )
 
-            return error_response("Failed to disconnect Teams tenant", 500)
+            return error_response(
+                "Failed to disconnect Teams tenant", 500, code="DISCONNECT_FAILED"
+            )
 
-        return error_response(f"Cannot disconnect {integration_type}: not supported", 400)
+        return error_response(
+            f"Cannot disconnect {integration_type}: not supported",
+            400,
+            code="UNSUPPORTED_DISCONNECT",
+        )
 
     @require_permission("integrations.read")
     async def _test_integration(
@@ -410,13 +427,17 @@ class IntegrationsHandler(BaseHandler):
         """Test integration connectivity."""
         if integration_type == "slack":
             if not workspace_id:
-                return error_response("workspace_id is required for Slack test", 400)
+                return error_response(
+                    "workspace_id is required for Slack test", 400, code="MISSING_WORKSPACE_ID"
+                )
 
             store = self._get_slack_store()
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response("Slack workspace not found", 404)
+                return error_response(
+                    "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
+                )
 
             health = await self._check_slack_health(workspace)
             return json_response(
@@ -430,13 +451,15 @@ class IntegrationsHandler(BaseHandler):
 
         elif integration_type == "teams":
             if not workspace_id:
-                return error_response("workspace_id is required for Teams test", 400)
+                return error_response(
+                    "workspace_id is required for Teams test", 400, code="MISSING_WORKSPACE_ID"
+                )
 
             store = self._get_teams_store()
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response("Teams tenant not found", 404)
+                return error_response("Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND")
 
             health = await self._check_teams_health(workspace)
             return json_response(
@@ -468,7 +491,7 @@ class IntegrationsHandler(BaseHandler):
                 }
             )
 
-        return error_response(f"Cannot test {integration_type}", 400)
+        return error_response(f"Cannot test {integration_type}", 400, code="UNSUPPORTED_TEST")
 
     @require_permission("integrations.read")
     async def _get_health(
@@ -531,7 +554,9 @@ class IntegrationsHandler(BaseHandler):
             store = self._get_slack_store()
             workspace = store.get(workspace_id)
             if not workspace:
-                return error_response("Slack workspace not found", 404)
+                return error_response(
+                    "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
+                )
 
             health = await self._check_slack_health(workspace)
             return json_response(
@@ -585,7 +610,7 @@ class IntegrationsHandler(BaseHandler):
             store = self._get_teams_store()
             workspace = store.get(workspace_id)
             if not workspace:
-                return error_response("Teams tenant not found", 404)
+                return error_response("Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND")
 
             health = await self._check_teams_health(workspace)
             return json_response(
@@ -610,7 +635,9 @@ class IntegrationsHandler(BaseHandler):
                 {"type": "email", "healthy": health.get("status") == "healthy", **health}
             )
 
-        return error_response(f"Unknown integration type: {integration_type}", 400)
+        return error_response(
+            f"Unknown integration type: {integration_type}", 400, code="UNKNOWN_INTEGRATION_TYPE"
+        )
 
     @require_permission("integrations.read")
     async def _get_stats(self, tenant_id: str | None) -> HandlerResult:

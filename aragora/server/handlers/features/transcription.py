@@ -558,7 +558,8 @@ class TranscriptionHandler(BaseHandler):
             )
 
         try:
-            body: bytes = handler.rfile.read(content_length)
+            body_raw = handler.rfile.read(content_length)
+            body: bytes = body_raw if isinstance(body_raw, bytes) else body_raw.encode()
         except Exception as e:
             return (
                 None,
@@ -583,13 +584,13 @@ class TranscriptionHandler(BaseHandler):
             )
 
         for part_raw in body_parts:
-            part: bytes = part_raw
+            part = bytes(part_raw)  # Ensure part is bytes
             if b"Content-Disposition" not in part:
                 continue
 
             try:
                 header_end = part.index(b"\r\n\r\n")
-                headers_raw = part[:header_end].decode("utf-8", errors="ignore")
+                headers_raw = part[:header_end].decode("utf-8", errors="ignore")  # type: ignore[attr-defined]
                 file_data = part[header_end + 4 :]
 
                 # Remove trailing boundary markers

@@ -314,7 +314,7 @@ class DeliveryPersistence:
         conn.execute("DELETE FROM webhook_deliveries WHERE delivery_id = ?", (delivery_id,))
         conn.commit()
 
-    def load_pending_retries(self) -> list[tuple]:
+    def load_pending_retries(self) -> list[sqlite3.Row]:
         """Load all deliveries that need retry (for recovery on startup)."""
         conn = self._get_connection()
         cursor = conn.execute("""
@@ -324,7 +324,7 @@ class DeliveryPersistence:
         """)
         return cursor.fetchall()
 
-    def load_dead_letter_queue(self, limit: int = 100) -> list[tuple]:
+    def load_dead_letter_queue(self, limit: int = 100) -> list[sqlite3.Row]:
         """Load dead-lettered deliveries."""
         conn = self._get_connection()
         cursor = conn.execute(
