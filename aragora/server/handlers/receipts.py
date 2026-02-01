@@ -1037,9 +1037,17 @@ class ReceiptsHandler(BaseHandler):
         Body:
             receipt_ids: List of receipt IDs to sign (max 100)
             algorithm: Signing algorithm (hmac-sha256, rsa-sha256, ed25519)
+            signatory: Optional signatory information for compliance audits
+                - name: Signatory name (required if signatory provided)
+                - email: Signatory email (required if signatory provided)
+                - title: Job title (optional)
+                - organization: Organization name (optional)
+                - role: Role in decision process, e.g., "Architect" (optional)
+                - department: Department name (optional)
         """
         receipt_ids = body.get("receipt_ids", [])
         algorithm = body.get("algorithm", "hmac-sha256")
+        signatory_data = body.get("signatory")
 
         if not receipt_ids:
             return error_response("receipt_ids required", 400)
@@ -1059,8 +1067,26 @@ class ReceiptsHandler(BaseHandler):
                 HMACSigner,
                 ReceiptSigner,
                 RSASigner,
+                SignatoryInfo,
                 SigningBackend,
             )
+
+            # Parse signatory info if provided
+            signatory: SignatoryInfo | None = None
+            if signatory_data:
+                if not signatory_data.get("name") or not signatory_data.get("email"):
+                    return error_response(
+                        "signatory.name and signatory.email are required when signatory is provided",
+                        400,
+                    )
+                signatory = SignatoryInfo(
+                    name=signatory_data["name"],
+                    email=signatory_data["email"],
+                    title=signatory_data.get("title"),
+                    organization=signatory_data.get("organization"),
+                    role=signatory_data.get("role"),
+                    department=signatory_data.get("department"),
+                )
 
             # Create backend based on algorithm
             backend: SigningBackend
@@ -1089,8 +1115,8 @@ class ReceiptsHandler(BaseHandler):
                     continue
 
                 try:
-                    # Sign the receipt
-                    signature = signer.sign(receipt.data)
+                    # Sign the receipt with optional signatory info
+                    signature = signer.sign(receipt.data, signatory=signatory)
                     store.store_signature(receipt_id, signature, algorithm)
                     results.append({"receipt_id": receipt_id, "status": "signed"})
                     signed_count += 1

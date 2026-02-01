@@ -39,6 +39,43 @@ except ImportError:
 
 
 @dataclass
+class SignatoryInfo:
+    """Information about the person/entity signing a receipt.
+
+    Used for compliance and audit trails to establish who authorized
+    the signature and their role in the decision process.
+    """
+
+    name: str
+    email: str
+    title: str | None = None
+    organization: str | None = None
+    role: str | None = None  # e.g., "Architect", "Security Lead", "Approver"
+    department: str | None = None
+
+    def to_dict(self) -> dict[str, str | None]:
+        return {
+            "name": self.name,
+            "email": self.email,
+            "title": self.title,
+            "organization": self.organization,
+            "role": self.role,
+            "department": self.department,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SignatoryInfo":
+        return cls(
+            name=data["name"],
+            email=data["email"],
+            title=data.get("title"),
+            organization=data.get("organization"),
+            role=data.get("role"),
+            department=data.get("department"),
+        )
+
+
+@dataclass
 class SignatureMetadata:
     """Metadata about a signature."""
 
@@ -46,22 +83,30 @@ class SignatureMetadata:
     timestamp: str
     key_id: str
     version: str = "1.0"
+    signatory: SignatoryInfo | None = None
 
-    def to_dict(self) -> dict[str, str]:
-        return {
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
             "algorithm": self.algorithm,
             "timestamp": self.timestamp,
             "key_id": self.key_id,
             "version": self.version,
         }
+        if self.signatory:
+            result["signatory"] = self.signatory.to_dict()
+        return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, str]) -> "SignatureMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> "SignatureMetadata":
+        signatory = None
+        if data.get("signatory"):
+            signatory = SignatoryInfo.from_dict(data["signatory"])
         return cls(
             algorithm=data["algorithm"],
             timestamp=data["timestamp"],
             key_id=data["key_id"],
             version=data.get("version", "1.0"),
+            signatory=signatory,
         )
 
 
@@ -359,12 +404,17 @@ class ReceiptSigner:
         canonical = json.dumps(receipt_data, sort_keys=True, default=str)
         return canonical.encode("utf-8")
 
-    def sign(self, receipt_data: dict[str, Any]) -> SignedReceipt:
+    def sign(
+        self,
+        receipt_data: dict[str, Any],
+        signatory: SignatoryInfo | None = None,
+    ) -> SignedReceipt:
         """
         Sign a receipt and return a SignedReceipt.
 
         Args:
             receipt_data: Receipt data dictionary (from DecisionReceipt.to_dict())
+            signatory: Optional information about the person/entity signing
 
         Returns:
             SignedReceipt with signature and metadata
@@ -381,6 +431,7 @@ class ReceiptSigner:
             algorithm=self._backend.algorithm,
             timestamp=datetime.now(timezone.utc).isoformat(),
             key_id=self._backend.key_id,
+            signatory=signatory,
         )
 
         return SignedReceipt(
@@ -426,17 +477,21 @@ def get_default_signer() -> ReceiptSigner:
     return _default_signer
 
 
-def sign_receipt(receipt_data: dict[str, Any]) -> SignedReceipt:
+def sign_receipt(
+    receipt_data: dict[str, Any],
+    signatory: SignatoryInfo | None = None,
+) -> SignedReceipt:
     """
     Sign a receipt using the default signer.
 
     Args:
         receipt_data: Receipt data dictionary
+        signatory: Optional information about the person/entity signing
 
     Returns:
         SignedReceipt with signature
     """
-    return get_default_signer().sign(receipt_data)
+    return get_default_signer().sign(receipt_data, signatory=signatory)
 
 
 def verify_receipt(signed_receipt: SignedReceipt) -> bool:
