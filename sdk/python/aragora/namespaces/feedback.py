@@ -185,6 +185,32 @@ class FeedbackAPI:
             context=context,
         )
 
+    def submit_debate_quality_feedback(
+        self,
+        debate_id: str,
+        comment: str,
+        score: int | None = None,
+    ) -> dict[str, Any]:
+        """
+        Submit debate quality feedback.
+
+        Convenience method for providing feedback on a specific debate.
+
+        Args:
+            debate_id: ID of the debate being reviewed
+            comment: Quality feedback comment
+            score: Optional quality score
+
+        Returns:
+            Dict with success status and feedback_id
+        """
+        return self.submit_feedback(
+            comment=comment,
+            feedback_type="debate_quality",
+            score=score,
+            context={"debate_id": debate_id},
+        )
+
     # ===========================================================================
     # Feedback Prompts
     # ===========================================================================
@@ -286,6 +312,20 @@ class AsyncFeedbackAPI:
             comment=comment,
             feedback_type="bug_report",
             context=context,
+        )
+
+    async def submit_debate_quality_feedback(
+        self,
+        debate_id: str,
+        comment: str,
+        score: int | None = None,
+    ) -> dict[str, Any]:
+        """Submit debate quality feedback."""
+        return await self.submit_feedback(
+            comment=comment,
+            feedback_type="debate_quality",
+            score=score,
+            context={"debate_id": debate_id},
         )
 
     # ===========================================================================
