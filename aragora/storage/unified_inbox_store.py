@@ -9,6 +9,7 @@ Backends:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import sqlite3
@@ -16,7 +17,7 @@ import threading
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -369,19 +370,28 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
 
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"unifiedinbox_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_schema()
         logger.info(f"SQLiteUnifiedInboxStore initialized: {self.db_path}")
 
     def _get_conn(self) -> sqlite3.Connection:
-        if not hasattr(self._local, "conn"):
+        conn = self._conn_var.get()
+        if conn is None:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA foreign_keys=ON")
-            self._local.conn = conn
-        return cast(sqlite3.Connection, self._local.conn)
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _init_schema(self) -> None:
         conn = sqlite3.connect(str(self.db_path))

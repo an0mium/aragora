@@ -19,9 +19,11 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
+import sqlite3
 import threading
 import time
 from collections import OrderedDict
@@ -152,8 +154,13 @@ class DecisionResultStore:
         self._cache: OrderedDict[str, DecisionResultEntry] = OrderedDict()
         self._cache_lock = threading.Lock()
 
-        # Thread-local SQLite connections (legacy)
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"decisionresult_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._last_cleanup = time.time()
 
         # Determine backend type
@@ -204,19 +211,23 @@ class DecisionResultStore:
         )
 
     def _get_connection(self):
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn"):
+        """Get per-context database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._local.conn = __import__("sqlite3").connect(
+            conn = sqlite3.connect(
                 str(self._db_path),
                 timeout=30.0,
                 check_same_thread=False,
             )
-            self._local.conn.row_factory = __import__("sqlite3").Row
+            conn.row_factory = sqlite3.Row
             # Enable WAL mode for concurrent access
-            self._local.conn.execute("PRAGMA journal_mode=WAL")
-            self._local.conn.execute("PRAGMA synchronous=NORMAL")
-        return self._local.conn
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _init_db(self) -> None:
         """Initialize database schema."""
@@ -636,6 +647,14 @@ class DecisionResultStore:
         if self._backend is not None:
             self._backend.close()
             self._backend = None
+        # Close all tracked connections
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
 
 
 # Global singleton instance

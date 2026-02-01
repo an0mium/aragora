@@ -24,6 +24,7 @@ Schema:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import sqlite3
@@ -119,7 +120,13 @@ class ExternalIdentityRepository:
             db_path = str(data_dir / "external_identities.db")
 
         self._db_path = db_path
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"externalidentityrepo_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_lock = threading.Lock()
         self._initialized = False
 

@@ -18,6 +18,7 @@ Usage:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -256,7 +257,13 @@ class NotificationConfigStore:
             db_path = str(data_dir / "notification_config.db")
 
         self._db_path = db_path
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"notificationconfigstore_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
 
         # Backend selection is now handled by get_notification_config_store()
         # using resolve_database_config(). This __init__ just accepts explicit parameters.

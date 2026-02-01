@@ -21,6 +21,7 @@ maintaining backward compatibility while enabling modular testing.
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import logging
 import sqlite3
@@ -94,7 +95,13 @@ class UserStore:
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"userstore_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_schema()
 
         # Initialize specialized repositories
@@ -107,14 +114,17 @@ class UserStore:
         self._security_repo = SecurityRepository(self._transaction)
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection"):
+        """Get per-context database connection (async-safe)."""
+        conn = self._conn_var.get()
+        if conn is None:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
-            self._local.connection = conn
-        return self._local.connection
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Cursor]:
@@ -758,7 +768,11 @@ class UserStore:
         return stats
 
     def close(self) -> None:
-        """Close database connection."""
-        if hasattr(self._local, "connection"):
-            self._local.connection.close()
-            del self._local.connection
+        """Close all database connections."""
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()

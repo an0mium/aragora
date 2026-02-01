@@ -29,6 +29,7 @@ __all__ = [
     "reset_audit_store",  # noqa: F822
 ]
 
+import contextvars
 import json
 import logging
 import os
@@ -75,7 +76,13 @@ class AuditStore:
             database_url: PostgreSQL connection URL
         """
         self.db_path = Path(db_path)
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"auditstore_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._external_get_connection = get_connection
 
         # Backend selection is now handled by get_audit_store() using resolve_database_config().

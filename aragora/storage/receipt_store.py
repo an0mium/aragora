@@ -227,7 +227,6 @@ class ReceiptStore:
         """
         self.db_path = db_path or DEFAULT_DB_PATH
         self.retention_days = retention_days
-        self._local = threading.local()
 
         # Determine backend type
         env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")

@@ -10,6 +10,7 @@ Backends:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -20,7 +21,7 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -94,19 +95,28 @@ class SQLiteWebhookRegistry:
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"webhookregistry_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_schema()
         logger.info(f"SQLiteWebhookRegistry initialized: {self.db_path}")
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn"):
+        """Get per-context database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.row_factory = sqlite3.Row
-            self._local.conn = conn
-        return cast(sqlite3.Connection, self._local.conn)
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
@@ -395,10 +405,14 @@ class SQLiteWebhookRegistry:
         return webhooks
 
     def close(self) -> None:
-        """Close database connection."""
-        if hasattr(self._local, "conn"):
-            self._local.conn.close()
-            del self._local.conn
+        """Close all database connections."""
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
 
 
 # Global webhook registry instance

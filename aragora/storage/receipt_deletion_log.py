@@ -15,6 +15,7 @@ to maintain audit integrity.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -25,7 +26,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -124,23 +125,32 @@ class ReceiptDeletionLog:
             db_path: Path to SQLite database file
         """
         self._db_path = db_path or DEFAULT_DB_PATH
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"receiptdeletion_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_lock = threading.Lock()
         self._initialized = False
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection") or self._local.connection is None:
+        """Get per-context database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
             # Ensure directory exists
             db_dir = self._db_path.parent
             if not db_dir.exists():
                 db_dir.mkdir(parents=True, exist_ok=True)
 
-            self._local.connection = sqlite3.connect(str(self._db_path), check_same_thread=False)
-            self._local.connection.row_factory = sqlite3.Row
-            self._ensure_schema(self._local.connection)
-
-        return cast(sqlite3.Connection, self._local.connection)
+            conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._ensure_schema(conn)
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
         """Ensure database schema exists."""

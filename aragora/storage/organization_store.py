@@ -16,6 +16,7 @@ __all__ = [
     "reset_organization_store",
 ]
 
+import contextvars
 import json
 import logging
 import os
@@ -86,7 +87,13 @@ class OrganizationStore:
             database_url: PostgreSQL connection URL
         """
         self.db_path = Path(db_path)
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"organization_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._external_get_connection = get_connection
         self._external_update_user = update_user
         self._external_row_to_user = row_to_user
@@ -110,17 +117,20 @@ class OrganizationStore:
                 logger.info(f"OrganizationStore using SQLite backend: {db_path}")
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
+        """Get per-context database connection."""
         if self._external_get_connection:
             return self._external_get_connection()
 
-        if not hasattr(self._local, "connection"):
+        conn = self._conn_var.get()
+        if conn is None:
             conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
-            self._local.connection = conn
-        return self._local.connection
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Cursor]:
@@ -774,9 +784,15 @@ class OrganizationStore:
         if self._backend is not None:
             self._backend.close()
             self._backend = None
-        elif self._external_get_connection is None and hasattr(self._local, "connection"):
-            self._local.connection.close()
-            del self._local.connection
+        elif self._external_get_connection is None:
+            # Close all tracked connections
+            with self._connections_lock:
+                for conn in self._connections:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                self._connections.clear()
 
 
 # =============================================================================

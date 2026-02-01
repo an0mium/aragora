@@ -7,6 +7,7 @@ Supports time-limited tokens with optional access limits.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import sqlite3
 import threading
@@ -46,15 +47,25 @@ class ReceiptShareStore:
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"receiptshare_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_schema()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-            self._local.conn.row_factory = sqlite3.Row
-        return self._local.conn
+        """Get per-context database connection."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._conn_var.set(conn)
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
