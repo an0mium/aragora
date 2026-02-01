@@ -669,8 +669,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_threat_intel_handler", ThreatIntelHandler),
     # SME workflows
     ("_sme_workflows_handler", SMEWorkflowsHandler),
-    # Gauntlet v1 sub-handlers
-    ("_gauntlet_secure_handler", GauntletSecureHandler),
+    # Gauntlet v1 sub-handlers (concrete implementations only, not abstract base)
     ("_gauntlet_schema_handler", GauntletSchemaHandler),
     ("_gauntlet_template_handler", GauntletTemplateHandler),
     ("_gauntlet_validate_receipt_handler", GauntletValidateReceiptHandler),
