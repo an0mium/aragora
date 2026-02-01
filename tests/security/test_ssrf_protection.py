@@ -85,12 +85,20 @@ class TestIsIpPrivate:
 class TestIsHostnameSuspicious:
     """Tests for _is_hostname_suspicious function."""
 
-    def test_localhost_aliases(self):
-        """Test detection of localhost aliases."""
+    def test_localhost_aliases(self, monkeypatch):
+        """Test detection of localhost aliases (when not in test mode)."""
+        # Temporarily disable the localhost allowlist to test the detection logic
+        monkeypatch.delenv("ARAGORA_SSRF_ALLOW_LOCALHOST", raising=False)
         assert _is_hostname_suspicious("localhost")[0] is True
         assert _is_hostname_suspicious("127.0.0.1")[0] is True
         assert _is_hostname_suspicious("::1")[0] is True
         assert _is_hostname_suspicious("0.0.0.0")[0] is True
+
+    def test_localhost_allowed_in_test_mode(self, monkeypatch):
+        """Test that localhost is allowed when ARAGORA_SSRF_ALLOW_LOCALHOST is set."""
+        monkeypatch.setenv("ARAGORA_SSRF_ALLOW_LOCALHOST", "true")
+        assert _is_hostname_suspicious("localhost")[0] is False
+        assert _is_hostname_suspicious("127.0.0.1")[0] is False
 
     def test_cloud_metadata(self):
         """Test detection of cloud metadata hostnames."""
@@ -184,8 +192,10 @@ class TestValidateUrl:
         result = validate_url("http://169.254.169.254/latest/meta-data/")
         assert result.is_safe is False
 
-    def test_localhost_hostname_blocked(self):
-        """Test rejection of localhost hostname."""
+    def test_localhost_hostname_blocked(self, monkeypatch):
+        """Test rejection of localhost hostname (when not in test mode)."""
+        # Temporarily disable the localhost allowlist to test the blocking logic
+        monkeypatch.delenv("ARAGORA_SSRF_ALLOW_LOCALHOST", raising=False)
         result = validate_url("http://localhost:3000/api")
         assert result.is_safe is False
         assert "Localhost" in result.error
@@ -290,8 +300,10 @@ class TestIsUrlSafe:
         """Test that safe URLs return True."""
         assert is_url_safe("https://api.example.com/data") is True
 
-    def test_unsafe_url(self):
-        """Test that unsafe URLs return False."""
+    def test_unsafe_url(self, monkeypatch):
+        """Test that unsafe URLs return False (when not in test mode)."""
+        # Temporarily disable the localhost allowlist to test the blocking logic
+        monkeypatch.delenv("ARAGORA_SSRF_ALLOW_LOCALHOST", raising=False)
         assert is_url_safe("http://127.0.0.1/admin") is False
         assert is_url_safe("file:///etc/passwd") is False
         assert is_url_safe("http://localhost/api") is False

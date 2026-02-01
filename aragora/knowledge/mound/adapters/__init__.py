@@ -141,6 +141,7 @@ from .openclaw_adapter import (
     OpenClawKMSyncResult,
     SyncResult as OpenClawSyncResult,
 )
+from .erc8004_adapter import ERC8004Adapter
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -257,4 +258,6 @@ __all__ = [
     "OpenClawKMValidationResult",
     "OpenClawKMSyncResult",
     "OpenClawSyncResult",
+    # Blockchain adapter (ERC-8004)
+    "ERC8004Adapter",
 ]

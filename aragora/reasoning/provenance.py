@@ -38,6 +38,7 @@ class SourceType(Enum):
     COMPUTATION = "computation"
     SYNTHESIS = "synthesis"  # Combined from multiple sources
     AUDIO_TRANSCRIPT = "audio_transcript"  # Transcribed audio/video content
+    BLOCKCHAIN = "blockchain"  # On-chain data from ERC-8004 registries
     UNKNOWN = "unknown"
 
 

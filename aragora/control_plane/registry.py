@@ -104,6 +104,8 @@ class AgentInfo:
     available_regions: set[str] = field(default_factory=lambda: {"default"})
     region_latency_ms: dict[str, float] = field(default_factory=dict)
     last_heartbeat_by_region: dict[str, float] = field(default_factory=dict)
+    # Blockchain identity (ERC-8004)
+    blockchain_agent_id: int | None = None  # On-chain token ID if linked
 
     def is_available(self) -> bool:
         """Check if agent is available for new tasks."""

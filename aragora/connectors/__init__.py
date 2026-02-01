@@ -120,6 +120,14 @@ from aragora.connectors.devops import (
     WebhookPayload,
 )
 
+# Blockchain connectors (ERC-8004)
+from aragora.connectors.blockchain import (
+    ERC8004Connector,
+    BlockchainCredentials,
+    BlockchainEvidence,
+    BlockchainSearchResult,
+)
+
 __all__ = [
     # Base classes
     "BaseConnector",
@@ -214,4 +222,9 @@ __all__ = [
     "ServiceStatus",
     "User",
     "WebhookPayload",
+    # Blockchain Connectors (ERC-8004)
+    "ERC8004Connector",
+    "BlockchainCredentials",
+    "BlockchainEvidence",
+    "BlockchainSearchResult",
 ]

@@ -240,6 +240,7 @@ def _init_specs() -> None:
     from .culture_adapter import CultureAdapter
     from .receipt_adapter import ReceiptAdapter
     from .rlm_adapter import RlmAdapter
+    from .erc8004_adapter import ERC8004Adapter
 
     register_adapter_spec(
         AdapterSpec(
@@ -323,6 +324,20 @@ def _init_specs() -> None:
             reverse_method="load_from_mound",
             priority=20,  # Lower priority - compression optimization
             config_key="km_rlm_adapter",
+        )
+    )
+
+    # Blockchain adapter (ERC-8004)
+    register_adapter_spec(
+        AdapterSpec(
+            name="erc8004",
+            adapter_class=ERC8004Adapter,
+            required_deps=[],  # Uses Web3Provider from env
+            forward_method="sync_to_km",
+            reverse_method="sync_from_km",
+            priority=80,  # Between receipt (90) and evidence (70)
+            enabled_by_default=False,  # Opt-in (requires blockchain deps)
+            config_key="km_erc8004_adapter",
         )
     )
 
@@ -642,6 +657,10 @@ class AdapterFactory:
                 adapter = adapter_class(
                     compressor=deps.get("compressor"),
                 )
+            elif spec.name == "erc8004":
+                adapter = adapter_class(
+                    event_callback=self._event_callback,
+                )
             else:
                 # Generic construction attempt
                 adapter = adapter_class(
@@ -693,6 +712,8 @@ class AdapterFactory:
                     return adapter_class(mound=deps.get("mound"))
                 elif spec.name == "rlm":
                     return adapter_class(compressor=deps.get("compressor"))
+                elif spec.name == "erc8004":
+                    return adapter_class()
                 else:
                     return adapter_class(**deps)
             except Exception as e2:

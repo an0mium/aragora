@@ -29,7 +29,7 @@ from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 try:
     import httpx
 except ImportError:
-    httpx: Any = None
+    httpx = None  # type: Any
 
 from aragora.server.http_utils import run_async
 

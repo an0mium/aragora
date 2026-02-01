@@ -451,9 +451,11 @@ class KMOutcomeBridge:
                     item_id, new_confidence, validation_metadata
                 )
             elif hasattr(self._knowledge_mound, "update"):
-                return await self._knowledge_mound.update(
-                    item_id, confidence=new_confidence, metadata=validation_metadata
+                # update(node_id, updates: dict) - pass updates as a dict
+                result = await self._knowledge_mound.update(
+                    item_id, {"confidence": new_confidence, "metadata": validation_metadata}
                 )
+                return result is not None
             else:
                 # Log success for testing even without real KM
                 logger.debug(f"Would update {item_id} confidence to {new_confidence}")

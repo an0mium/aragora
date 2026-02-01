@@ -529,11 +529,12 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
         with self._timed_operation("get_pool_performance", pool_id=pool_id):
             try:
-                results = await self._knowledge_mound.query(
+                query_result = await self._knowledge_mound.query(
                     query=f"fabric pool {pool_id}",
                     limit=limit * 2,
                     workspace_id=self._workspace_id,
                 )
+                results = query_result.items if hasattr(query_result, "items") else []
 
                 snapshots = []
                 for result in results:
@@ -601,11 +602,12 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
         with self._timed_operation("get_task_patterns", task_type=task_type):
             try:
-                results = await self._knowledge_mound.query(
+                query_result = await self._knowledge_mound.query(
                     query=f"fabric task {task_type}",
                     limit=limit * 2,
                     workspace_id=self._workspace_id,
                 )
+                results = query_result.items if hasattr(query_result, "items") else []
 
                 outcomes = []
                 for result in results:
@@ -800,11 +802,12 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
         with self._timed_operation("get_budget_forecast", entity_id=entity_id):
             try:
-                results = await self._knowledge_mound.query(
+                query_result = await self._knowledge_mound.query(
                     query=f"fabric budget {entity_id}",
                     limit=30,  # Last 30 snapshots
                     workspace_id=self._workspace_id,
                 )
+                results = query_result.items if hasattr(query_result, "items") else []
 
                 snapshots = []
                 for result in results:

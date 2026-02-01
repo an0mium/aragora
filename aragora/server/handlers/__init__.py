@@ -290,6 +290,7 @@ from .gateway_health_handler import GatewayHealthHandler  # Gateway health endpo
 from .gateway_agents_handler import GatewayAgentsHandler  # Gateway agent registration
 from .gateway_credentials_handler import GatewayCredentialsHandler  # Gateway credential management
 from .hybrid_debate_handler import HybridDebateHandler  # Hybrid debate (external + internal agents)
+from .erc8004 import ERC8004Handler  # ERC-8004 blockchain identity API
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -482,6 +483,7 @@ ALL_HANDLERS = [
     GatewayAgentsHandler,  # Agent registration: /api/v1/gateway/agents
     GatewayCredentialsHandler,  # Credential management: /api/v1/gateway/credentials
     HybridDebateHandler,  # Hybrid debates: /api/v1/debates/hybrid
+    ERC8004Handler,  # ERC-8004: /api/v1/blockchain/*
     # Additional handlers for API documentation coverage
     OnboardingHandler,  # Onboarding flow endpoints
     BackupHandler,  # Backup management endpoints
@@ -671,6 +673,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GatewayAgentsHandler": Stability.EXPERIMENTAL,  # Gateway agent registration
     "GatewayCredentialsHandler": Stability.EXPERIMENTAL,  # Gateway credential management
     "HybridDebateHandler": Stability.EXPERIMENTAL,  # Hybrid debate (external + internal agents)
+    # Blockchain handlers (ERC-8004)
+    "ERC8004Handler": Stability.EXPERIMENTAL,  # ERC-8004 blockchain identity API
 }
 
 
@@ -933,6 +937,8 @@ __all__ = [
     "GatewayAgentsHandler",
     "GatewayCredentialsHandler",
     "HybridDebateHandler",
+    # Blockchain handlers (ERC-8004)
+    "ERC8004Handler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

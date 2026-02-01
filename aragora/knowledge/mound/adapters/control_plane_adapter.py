@@ -348,11 +348,12 @@ class ControlPlaneAdapter:
 
         try:
             # Query KM for capability records
-            results = await self._knowledge_mound.query(
+            query_result = await self._knowledge_mound.query(
                 query=f"agent capability {capability}",
                 limit=limit * 2,  # Query more, then filter
                 workspace_id=self._workspace_id,
             )
+            results = query_result.items if hasattr(query_result, "items") else []
 
             records = []
             for result in results:
@@ -409,11 +410,12 @@ class ControlPlaneAdapter:
             return []
 
         try:
-            results = await self._knowledge_mound.query(
+            query_result = await self._knowledge_mound.query(
                 query=f"task {task_type}",
                 limit=limit,
                 workspace_id=self._workspace_id,
             )
+            results = query_result.items if hasattr(query_result, "items") else []
 
             outcomes = []
             for result in results:

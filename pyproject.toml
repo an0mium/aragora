@@ -134,6 +134,11 @@ monitoring = [
     "prometheus-client>=0.19,<1.0",
     "sentry-sdk>=2.0,<3.0",
 ]
+# Blockchain integration for ERC-8004 support
+blockchain = [
+    "web3>=7.0,<8.0",
+    "eth-account>=0.13,<1.0",
+]
 observability = [
     "opentelemetry-api>=1.20.0,<2.0",
     "opentelemetry-sdk>=1.20.0,<2.0",

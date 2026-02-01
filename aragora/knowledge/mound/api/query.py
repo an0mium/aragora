@@ -230,11 +230,11 @@ class QueryOperationsMixin:
                 if tasks:
                     span.add_event("parallel_queries_start", {"count": len(tasks)})
                     results = await asyncio.gather(*tasks, return_exceptions=True)
-                    for result in results:
-                        if isinstance(result, list):
-                            items.extend(result)
-                        elif isinstance(result, Exception):
-                            logger.warning(f"Query source failed: {result}")
+                    for query_result in results:
+                        if isinstance(query_result, list):
+                            items.extend(query_result)
+                        elif isinstance(query_result, Exception):
+                            logger.warning(f"Query source failed: {query_result}")
                     span.add_event("parallel_queries_complete")
 
             # Sort by importance/relevance, apply offset, and limit

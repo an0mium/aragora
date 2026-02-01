@@ -65,6 +65,8 @@ ADAPTER_CIRCUIT_CONFIGS: dict[str, AdapterCircuitBreakerConfig] = {
     "receipt": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
     "culture": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
     "rlm": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
+    # Blockchain adapter - external with potential network latency
+    "erc8004": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0),
 }
 
 

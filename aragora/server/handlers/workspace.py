@@ -48,7 +48,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext: Any = None
+    AuthorizationContext = None  # type: Any
     check_permission = None
 from aragora.privacy import (
     AccessDeniedException,
@@ -79,7 +79,7 @@ try:
     PROFILES_AVAILABLE = True
 except ImportError:
     PROFILES_AVAILABLE = False
-    RBACProfile: Any = None
+    RBACProfile = None  # type: Any
 
 from aragora.rbac.decorators import require_permission
 

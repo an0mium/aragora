@@ -378,10 +378,22 @@ class TestOAuth:
         )
         assert result is not None
 
-    @pytest.mark.skip(reason="OAuth callback route not yet implemented in TeamsWorkspaceHandler")
     def test_oauth_callback_success(self, teams_handler, mock_user):
-        """Test OAuth callback endpoint (pending route implementation)."""
-        pass
+        """Test OAuth callback endpoint."""
+        http_handler = MockHandler(path="/api/v1/sme/teams/oauth/callback", method="GET")
+        http_handler.user = mock_user
+
+        result = teams_handler.handle(
+            "/api/v1/sme/teams/oauth/callback",
+            {"code": "auth-code-123", "state": "state-123"},
+            http_handler,
+            method="GET",
+        )
+        assert result is not None
+        assert result.status == 200
+        data = result.to_dict()
+        assert data["body"]["status"] == "oauth_callback"
+        assert data["body"]["code"] == "auth-code-123"
 
 
 # ===========================================================================

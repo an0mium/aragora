@@ -280,26 +280,37 @@ class SupabaseAuthValidator:
                     **decode_options,
                 )
             else:
-                # SECURITY: In production, reject tokens if proper validation unavailable
-                env = os.getenv("ARAGORA_ENV", "development").lower()
-                is_production = env not in ("development", "dev", "local", "test")
-                if is_production:
+                # SECURITY: Require proper JWT validation in all environments
+                # Unsafe fallback is ONLY allowed when explicitly opted-in via env var
+                env = os.getenv("ARAGORA_ENVIRONMENT", "").lower()
+                # Check multiple production indicators
+                is_production = env in ("production", "prod", "staging", "live") or not env
+                # Explicit opt-in required for insecure mode (dev/local testing only)
+                allow_insecure = os.getenv("ARAGORA_ALLOW_INSECURE_JWT", "").lower() in (
+                    "1",
+                    "true",
+                    "yes",
+                )
+
+                if is_production or not allow_insecure:
                     if not HAS_JWT:
-                        logger.error(
-                            "JWT validation unavailable in production. "
-                            "Install PyJWT: pip install pyjwt"
-                        )
+                        logger.error("JWT validation unavailable. Install PyJWT: pip install pyjwt")
                     if not self.jwt_secret:
                         logger.error(
-                            "SUPABASE_JWT_SECRET not set in production. "
-                            "JWT validation requires this secret."
+                            "SUPABASE_JWT_SECRET not set. JWT validation requires this secret."
+                        )
+                    if not is_production and not allow_insecure:
+                        logger.warning(
+                            "JWT validation disabled. To enable insecure development mode, "
+                            "set ARAGORA_ALLOW_INSECURE_JWT=1 (NOT for production!)"
                         )
                     return None
 
-                # Fallback: decode without verification (dev only!)
-                logger.error(
+                # Fallback: decode without verification (ONLY with explicit opt-in!)
+                logger.warning(
                     "INSECURE: Decoding JWT without signature verification. "
-                    "This is only acceptable in development! Install PyJWT: pip install pyjwt"
+                    "This should NEVER be used in production! "
+                    "Install PyJWT and set SUPABASE_JWT_SECRET."
                 )
                 payload = self._decode_jwt_unsafe(token)
                 if not payload:

@@ -142,15 +142,15 @@ def check_migrations_pending() -> dict[str, Any]:
     try:
         from aragora.migrations.runner import get_migration_runner
 
-        runner = get_migration_runner()
-        pending = runner.get_pending_migrations()
+        pg_runner = get_migration_runner()
+        pending = pg_runner.get_pending_migrations()
         result["postgresql_pending"] = len(pending)
     except (ImportError, RuntimeError, OSError) as e:
         logger.debug("PostgreSQL migration check skipped: %s", e)
 
     try:
-        runner: MigrationRunner = MigrationRunner()
-        statuses = runner.get_all_status()
+        sqlite_runner: MigrationRunner = MigrationRunner()
+        statuses = sqlite_runner.get_all_status()
         for status in statuses.values():
             if status is not None:
                 result["sqlite_pending"] += len(status.pending_migrations)

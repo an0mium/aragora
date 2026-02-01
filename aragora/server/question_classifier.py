@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional
 
 from aragora.agents.personas import DEFAULT_PERSONAS, EXPERTISE_DOMAINS
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 try:
     from anthropic import AsyncAnthropic
 except ImportError:
-    AsyncAnthropic: Any = None
+    AsyncAnthropic = None  # type: Any
 
 logger = logging.getLogger(__name__)
 

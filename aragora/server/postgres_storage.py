@@ -444,7 +444,7 @@ class PostgresDebateStorage(PostgresStore):
             total = row[0] if row else 0
 
             # Build search query
-            params: list[Any] = []
+            search_params: list[Any] = []
             param_num = 1
             search_sql = """
                 SELECT slug, id, task, agents, consensus_reached,
@@ -454,18 +454,18 @@ class PostgresDebateStorage(PostgresStore):
 
             if org_id:
                 search_sql += f" AND org_id = ${param_num}"
-                params.append(org_id)
+                search_params.append(org_id)
                 param_num += 1
 
             if query:
                 search_sql += f" AND search_vector @@ plainto_tsquery('english', ${param_num})"
-                params.append(query)
+                search_params.append(query)
                 param_num += 1
 
             search_sql += f" ORDER BY created_at DESC LIMIT ${param_num} OFFSET ${param_num + 1}"
-            params.extend([limit, offset])
+            search_params.extend([limit, offset])
 
-            rows = await conn.fetch(search_sql, *params)
+            rows = await conn.fetch(search_sql, *search_params)
             results = [self._row_to_metadata(row) for row in rows]
 
             return results, total

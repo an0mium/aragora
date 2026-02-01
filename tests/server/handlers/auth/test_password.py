@@ -327,7 +327,7 @@ class TestForgotPassword:
         http = mock_http_handler(method="POST")
 
         with (
-            patch("PATCH_RESET_STORE", return_value=mock_password_reset_store),
+            patch(PATCH_RESET_STORE, return_value=mock_password_reset_store),
             patch("aragora.server.handlers.auth.password.send_password_reset_email"),
         ):
             result = handle_forgot_password(mock_handler_instance, http)
@@ -347,7 +347,7 @@ class TestForgotPassword:
 
         http = mock_http_handler(method="POST")
 
-        with patch("PATCH_RESET_STORE", return_value=mock_password_reset_store):
+        with patch(PATCH_RESET_STORE, return_value=mock_password_reset_store):
             result = handle_forgot_password(mock_handler_instance, http)
 
         # Should return 200 to prevent enumeration
@@ -403,7 +403,7 @@ class TestForgotPassword:
         http = mock_http_handler(method="POST")
 
         with (
-            patch("PATCH_RESET_STORE", return_value=mock_password_reset_store),
+            patch(PATCH_RESET_STORE, return_value=mock_password_reset_store),
             patch("aragora.server.handlers.auth.password.send_password_reset_email") as mock_send,
         ):
             result = handle_forgot_password(mock_handler_instance, http)
@@ -440,8 +440,8 @@ class TestResetPassword:
         http = mock_http_handler(method="POST")
 
         with (
-            patch("PATCH_RESET_STORE", return_value=mock_password_reset_store),
-            patch("aragora.server.handlers.auth.password.hash_password") as mock_hash,
+            patch(PATCH_RESET_STORE, return_value=mock_password_reset_store),
+            patch(PATCH_HASH_PASSWORD) as mock_hash,
         ):
             mock_hash.return_value = ("new_hash", "new_salt")
             result = handle_reset_password(mock_handler_instance, http)
@@ -464,7 +464,7 @@ class TestResetPassword:
 
         http = mock_http_handler(method="POST")
 
-        with patch("PATCH_RESET_STORE", return_value=mock_password_reset_store):
+        with patch(PATCH_RESET_STORE, return_value=mock_password_reset_store):
             result = handle_reset_password(mock_handler_instance, http)
 
         assert result.status_code == 400
@@ -490,8 +490,8 @@ class TestResetPassword:
         http = mock_http_handler(method="POST")
 
         with (
-            patch("PATCH_RESET_STORE", return_value=mock_password_reset_store),
-            patch("aragora.server.handlers.auth.password.hash_password") as mock_hash,
+            patch(PATCH_RESET_STORE, return_value=mock_password_reset_store),
+            patch(PATCH_HASH_PASSWORD) as mock_hash,
         ):
             mock_hash.return_value = ("new_hash", "new_salt")
             result = handle_reset_password(mock_handler_instance, http)
@@ -512,7 +512,7 @@ class TestResetPassword:
 
         http = mock_http_handler(method="POST")
 
-        with patch("PATCH_RESET_STORE", return_value=mock_password_reset_store):
+        with patch(PATCH_RESET_STORE, return_value=mock_password_reset_store):
             result = handle_reset_password(mock_handler_instance, http)
 
         assert result.status_code == 400
@@ -536,8 +536,8 @@ class TestResetPassword:
         http = mock_http_handler(method="POST")
 
         with (
-            patch("PATCH_RESET_STORE", return_value=mock_password_reset_store),
-            patch("aragora.server.handlers.auth.password.hash_password") as mock_hash,
+            patch(PATCH_RESET_STORE, return_value=mock_password_reset_store),
+            patch(PATCH_HASH_PASSWORD) as mock_hash,
         ):
             mock_hash.return_value = ("new_hash", "new_salt")
             result = handle_reset_password(mock_handler_instance, http)
@@ -566,8 +566,8 @@ class TestResetPassword:
         http = mock_http_handler(method="POST")
 
         with (
-            patch("PATCH_RESET_STORE", return_value=mock_password_reset_store),
-            patch("aragora.server.handlers.auth.password.hash_password") as mock_hash,
+            patch(PATCH_RESET_STORE, return_value=mock_password_reset_store),
+            patch(PATCH_HASH_PASSWORD) as mock_hash,
         ):
             mock_hash.return_value = ("new_hash", "new_salt")
             result = handle_reset_password(mock_handler_instance, http)
@@ -629,7 +629,7 @@ class TestResetPassword:
 
         http = mock_http_handler(method="POST")
 
-        with patch("PATCH_RESET_STORE", return_value=mock_password_reset_store):
+        with patch(PATCH_RESET_STORE, return_value=mock_password_reset_store):
             result = handle_reset_password(mock_handler_instance, http)
 
         assert result.status_code == 404
@@ -653,7 +653,7 @@ class TestResetPassword:
 
         http = mock_http_handler(method="POST")
 
-        with patch("PATCH_RESET_STORE", return_value=mock_password_reset_store):
+        with patch(PATCH_RESET_STORE, return_value=mock_password_reset_store):
             result = handle_reset_password(mock_handler_instance, http)
 
         assert result.status_code == 401
@@ -760,7 +760,7 @@ class TestPasswordErrorHandling:
 
         http = mock_http_handler(method="POST")
 
-        with patch("PATCH_RESET_STORE", return_value=mock_password_reset_store):
+        with patch(PATCH_RESET_STORE, return_value=mock_password_reset_store):
             result = handle_reset_password(handler_instance, http)
 
         assert result.status_code == 503

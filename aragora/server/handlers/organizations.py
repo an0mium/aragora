@@ -39,7 +39,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext: Any = None
+    AuthorizationContext = None  # type: Any
     check_permission = None
 
 from .base import (
