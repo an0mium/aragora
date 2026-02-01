@@ -538,7 +538,8 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 snapshots = []
                 for result in results:
-                    metadata = result.get("metadata", {})
+                    # KnowledgeItem has metadata as dict attribute
+                    metadata = getattr(result, "metadata", {}) or {}
                     if metadata.get("type") != "fabric_pool_snapshot":
                         continue
                     if metadata.get("pool_id") != pool_id:
@@ -611,7 +612,8 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 outcomes = []
                 for result in results:
-                    metadata = result.get("metadata", {})
+                    # KnowledgeItem has metadata as dict attribute
+                    metadata = getattr(result, "metadata", {}) or {}
                     if metadata.get("type") != "fabric_task_outcome":
                         continue
                     if metadata.get("task_type") != task_type:
@@ -811,7 +813,8 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 snapshots = []
                 for result in results:
-                    metadata = result.get("metadata", {})
+                    # KnowledgeItem has metadata as dict attribute
+                    metadata = getattr(result, "metadata", {}) or {}
                     if metadata.get("type") != "fabric_budget_snapshot":
                         continue
                     if metadata.get("entity_id") != entity_id:

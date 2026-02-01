@@ -33,7 +33,7 @@ class RateLimitConfig:
 
     requests_per_minute: int = DEFAULT_RATE_LIMIT
     burst_size: int | None = None
-    key_type: str = "ip"  # "ip", "token", "endpoint", "combined"
+    key_type: str = "ip"  # "ip", "token", "endpoint", "combined", "tenant"
     enabled: bool = True
 
 
@@ -80,6 +80,7 @@ class RateLimiter:
         # Buckets by key type (OrderedDict for LRU eviction)
         self._ip_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
         self._token_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
+        self._tenant_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
         self._endpoint_buckets: dict[str, OrderedDict[str, TokenBucket]] = {}
 
         # Per-endpoint configuration
@@ -132,6 +133,7 @@ class RateLimiter:
         client_ip: str,
         endpoint: str | None = None,
         token: str | None = None,
+        tenant_id: str | None = None,
     ) -> RateLimitResult:
         """
         Check if a request should be allowed.
@@ -140,6 +142,7 @@ class RateLimiter:
             client_ip: Client IP address.
             endpoint: Optional endpoint for per-endpoint limits.
             token: Optional auth token for per-token limits.
+            tenant_id: Optional tenant ID for per-tenant limits.
 
         Returns:
             RateLimitResult with allowed status and metadata.
@@ -157,9 +160,13 @@ class RateLimiter:
         safe_endpoint = (
             sanitize_rate_limit_key_component(normalized_endpoint) if normalized_endpoint else None
         )
+        safe_tenant = sanitize_rate_limit_key_component(tenant_id) if tenant_id else None
 
         # Determine the key based on config
-        if config.key_type == "token" and safe_token:
+        if config.key_type == "tenant" and safe_tenant:
+            key = f"tenant:{safe_tenant}"
+            bucket = self._get_or_create_tenant_bucket(safe_tenant, config)
+        elif config.key_type == "token" and safe_token:
             key = f"token:{safe_token}"
             bucket = self._get_or_create_token_bucket(safe_token, config)
         elif config.key_type == "combined" and safe_endpoint:
@@ -202,7 +209,7 @@ class RateLimiter:
                 return self._ip_buckets[ip]
 
             # Evict oldest entries if at capacity
-            max_ip_buckets = self.max_entries // 3
+            max_ip_buckets = self.max_entries // 4
             while len(self._ip_buckets) >= max_ip_buckets:
                 self._ip_buckets.popitem(last=False)
 
@@ -220,7 +227,7 @@ class RateLimiter:
                 self._token_buckets.move_to_end(token)
                 return self._token_buckets[token]
 
-            max_token_buckets = self.max_entries // 3
+            max_token_buckets = self.max_entries // 4
             while len(self._token_buckets) >= max_token_buckets:
                 self._token_buckets.popitem(last=False)
 
@@ -229,6 +236,27 @@ class RateLimiter:
                 config.burst_size,
             )
             return self._token_buckets[token]
+
+    def _get_or_create_tenant_bucket(
+        self,
+        tenant_id: str,
+        config: RateLimitConfig,
+    ) -> TokenBucket:
+        """Get or create a tenant-based bucket with LRU eviction."""
+        with self._lock:
+            if tenant_id in self._tenant_buckets:
+                self._tenant_buckets.move_to_end(tenant_id)
+                return self._tenant_buckets[tenant_id]
+
+            max_tenant_buckets = self.max_entries // 4
+            while len(self._tenant_buckets) >= max_tenant_buckets:
+                self._tenant_buckets.popitem(last=False)
+
+            self._tenant_buckets[tenant_id] = TokenBucket(
+                config.requests_per_minute,
+                config.burst_size,
+            )
+            return self._tenant_buckets[tenant_id]
 
     def _get_or_create_endpoint_bucket(
         self,
@@ -246,7 +274,7 @@ class RateLimiter:
                 buckets.move_to_end(key)
                 return buckets[key]
 
-            max_endpoint_buckets = self.max_entries // 3
+            max_endpoint_buckets = self.max_entries // 4
             total_endpoint_entries = sum(len(b) for b in self._endpoint_buckets.values())
             while total_endpoint_entries >= max_endpoint_buckets and len(buckets) > 0:
                 buckets.popitem(last=False)
@@ -269,6 +297,7 @@ class RateLimiter:
             total = (
                 len(self._ip_buckets)
                 + len(self._token_buckets)
+                + len(self._tenant_buckets)
                 + sum(len(v) for v in self._endpoint_buckets.values())
             )
 
@@ -276,6 +305,7 @@ class RateLimiter:
                 logger.debug(
                     f"Rate limiter stats: {len(self._ip_buckets)} IP, "
                     f"{len(self._token_buckets)} token, "
+                    f"{len(self._tenant_buckets)} tenant, "
                     f"{sum(len(v) for v in self._endpoint_buckets.values())} "
                     f"endpoint buckets"
                 )
@@ -299,7 +329,7 @@ class RateLimiter:
 
             # For simplicity with token buckets that use monotonic time,
             # we can check last_refill against now
-            for bucket_dict in [self._ip_buckets, self._token_buckets]:
+            for bucket_dict in [self._ip_buckets, self._token_buckets, self._tenant_buckets]:
                 stale_keys = [
                     key
                     for key, bucket in bucket_dict.items()
@@ -334,6 +364,7 @@ class RateLimiter:
         with self._lock:
             self._ip_buckets.clear()
             self._token_buckets.clear()
+            self._tenant_buckets.clear()
             self._endpoint_buckets.clear()
 
     def get_stats(self) -> dict[str, Any]:
@@ -345,6 +376,7 @@ class RateLimiter:
                 # Bucket counts
                 "ip_buckets": len(self._ip_buckets),
                 "token_buckets": len(self._token_buckets),
+                "tenant_buckets": len(self._tenant_buckets),
                 "endpoint_buckets": {
                     ep: len(buckets) for ep, buckets in self._endpoint_buckets.items()
                 },

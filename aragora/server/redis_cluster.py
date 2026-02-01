@@ -758,6 +758,22 @@ def is_cluster_available() -> bool:
     return client is not None and client.is_available
 
 
+def get_redis_client() -> Optional["RedisClientProtocol"]:
+    """Get a Redis client from the cluster client.
+
+    This is a convenience function that returns the underlying Redis client
+    from the cluster client. Useful when callers just need a standard Redis
+    client interface.
+
+    Returns:
+        Redis client if cluster is available, None otherwise
+    """
+    client = get_cluster_client()
+    if client is None:
+        return None
+    return client.get_client()
+
+
 __all__ = [
     "ClusterConfig",
     "ClusterMode",
@@ -765,6 +781,7 @@ __all__ = [
     "RedisClusterClient",
     "get_cluster_config",
     "get_cluster_client",
+    "get_redis_client",
     "reset_cluster_client",
     "is_cluster_available",
 ]

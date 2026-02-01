@@ -176,10 +176,49 @@ def reset_redis_state() -> None:
     _redis_available = None
 
 
+async def get_async_redis_client() -> Any | None:
+    """Get an async Redis client.
+
+    Creates an async Redis connection using aioredis-compatible interface.
+    Falls back to sync client with async wrapper if redis-py >= 4.2 is available.
+
+    Returns:
+        Async Redis client if available, None otherwise
+    """
+    url = get_redis_url()
+    if not url:
+        return None
+
+    try:
+        import redis.asyncio as aioredis
+
+        socket_timeout = float(os.getenv("ARAGORA_REDIS_SOCKET_TIMEOUT", "5.0"))
+
+        client = aioredis.from_url(
+            url,
+            socket_timeout=socket_timeout,
+            socket_connect_timeout=socket_timeout,
+            decode_responses=True,
+        )
+
+        # Test connection
+        await client.ping()
+        logger.info("Async Redis client connected")
+        return client
+
+    except ImportError:
+        logger.debug("redis.asyncio not available for async Redis client")
+        return None
+    except Exception as e:
+        logger.warning(f"Async Redis connection failed: {e}")
+        return None
+
+
 __all__ = [
     "get_redis_url",
     "get_redis_pool",
     "get_redis_client",
+    "get_async_redis_client",
     "is_redis_available",
     "close_redis_pool",
     "reset_redis_state",

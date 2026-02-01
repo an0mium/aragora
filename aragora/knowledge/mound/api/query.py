@@ -420,7 +420,7 @@ class QueryOperationsMixin:
             # Process results and collect valid nodes
             valid_node_ids = []
             for node_id, node_result in zip(to_visit, node_results):
-                if isinstance(node_result, Exception):
+                if isinstance(node_result, BaseException):
                     logger.warning(f"Failed to fetch node {node_id}: {node_result}")
                     continue
                 if node_result:

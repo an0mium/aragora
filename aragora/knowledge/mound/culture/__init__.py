@@ -34,7 +34,14 @@ from aragora.knowledge.mound.culture.patterns import (
     PatternType,
     ReasoningPattern,
 )
-from aragora.knowledge.mound.culture.accumulator import CultureAccumulator, DebateObservation
+from aragora.knowledge.mound.culture.accumulator import (
+    CultureAccumulator,
+    CultureDocument,
+    CultureDocumentCategory,
+    DebateObservation,
+    OrganizationCulture,
+    OrganizationCultureManager,
+)
 from aragora.knowledge.mound.culture.stigmergy import (
     PheromoneTrail,
     SignalType,
@@ -44,8 +51,12 @@ from aragora.knowledge.mound.culture.stigmergy import (
 
 __all__ = [
     "CultureAccumulator",
+    "CultureDocument",
+    "CultureDocumentCategory",
     "DebateObservation",
     "DecisionHeuristic",
+    "OrganizationCulture",
+    "OrganizationCultureManager",
     "PatternType",
     "PheromoneTrail",
     "ReasoningPattern",

@@ -57,49 +57,50 @@ class RateLimiterRegistry:
                 self._use_redis = False
 
             # Configure default endpoint limits
-            self._default_limiter.configure_endpoint("/api/debates", 30, key_type="ip")
-            self._default_limiter.configure_endpoint("/api/debates/*", 60, key_type="ip")
-            self._default_limiter.configure_endpoint("/api/debates/*/fork", 5, key_type="ip")
-            self._default_limiter.configure_endpoint("/api/agent/*", 120, key_type="ip")
+            # Tenant-aware endpoints use "tenant" key_type for per-tenant isolation
+            self._default_limiter.configure_endpoint("/api/debates", 30, key_type="tenant")
+            self._default_limiter.configure_endpoint("/api/debates/*", 60, key_type="tenant")
+            self._default_limiter.configure_endpoint("/api/debates/*/fork", 5, key_type="tenant")
+            self._default_limiter.configure_endpoint("/api/agent/*", 120, key_type="tenant")
             self._default_limiter.configure_endpoint("/api/leaderboard*", 60, key_type="ip")
-            self._default_limiter.configure_endpoint("/api/pulse/*", 30, key_type="ip")
+            self._default_limiter.configure_endpoint("/api/pulse/*", 30, key_type="tenant")
             self._default_limiter.configure_endpoint(
-                "/api/memory/continuum/cleanup", 2, key_type="ip"
+                "/api/memory/continuum/cleanup", 2, key_type="tenant"
             )
-            self._default_limiter.configure_endpoint("/api/memory/*", 60, key_type="ip")
+            self._default_limiter.configure_endpoint("/api/memory/*", 60, key_type="tenant")
 
-            # CPU-intensive endpoints (stricter limits)
+            # CPU-intensive endpoints (stricter limits, tenant-aware)
             self._default_limiter.configure_endpoint(
                 "/api/debates/*/broadcast",
                 3,
-                key_type="ip",  # Audio generation
+                key_type="tenant",  # Audio generation
             )
             self._default_limiter.configure_endpoint(
                 "/api/probes/*",
                 10,
-                key_type="ip",  # Capability probes
+                key_type="tenant",  # Capability probes
             )
             self._default_limiter.configure_endpoint(
                 "/api/verification/*",
                 10,
-                key_type="ip",  # Proof verification
+                key_type="tenant",  # Proof verification
             )
             self._default_limiter.configure_endpoint(
                 "/api/video/*",
                 2,
-                key_type="ip",  # Video generation
+                key_type="tenant",  # Video generation
             )
 
-            # Gauntlet endpoints (stress testing - strict limits)
+            # Gauntlet endpoints (stress testing - strict limits, tenant-aware)
             self._default_limiter.configure_endpoint(
                 "/api/gauntlet/*",
                 5,
-                key_type="ip",  # Adversarial stress testing
+                key_type="tenant",  # Adversarial stress testing
             )
             self._default_limiter.configure_endpoint(
                 "/api/gauntlet/run",
                 3,
-                key_type="ip",  # Gauntlet runs are expensive
+                key_type="tenant",  # Gauntlet runs are expensive
             )
 
             # Billing endpoints (financial operations)
@@ -131,28 +132,28 @@ class RateLimiterRegistry:
                 key_type="token",  # Security operations (stricter)
             )
 
-            # Streaming endpoints (concurrent connections)
+            # Streaming endpoints (concurrent connections, tenant-aware)
             self._default_limiter.configure_endpoint(
                 "/api/stream/*",
                 10,
-                key_type="ip",  # WebSocket/SSE streams
+                key_type="tenant",  # WebSocket/SSE streams
             )
             self._default_limiter.configure_endpoint(
                 "/api/v1/stream/*",
                 10,
-                key_type="ip",  # Versioned streaming endpoints
+                key_type="tenant",  # Versioned streaming endpoints
             )
 
-            # Knowledge mound endpoints
+            # Knowledge mound endpoints (tenant-aware)
             self._default_limiter.configure_endpoint(
                 "/api/knowledge/*",
                 30,
-                key_type="ip",  # Knowledge operations
+                key_type="tenant",  # Knowledge operations
             )
             self._default_limiter.configure_endpoint(
                 "/api/knowledge/search",
                 20,
-                key_type="ip",  # Search is more expensive
+                key_type="tenant",  # Search is more expensive
             )
 
             # OAuth endpoints (auth flows)

@@ -362,6 +362,10 @@ def rate_limit(
                     return error
                 return await func(self, *args, **kwargs)
 
+            # Mark wrapper as rate limited for detection by default_limiter
+            async_wrapper._rate_limited = True  # type: ignore[attr-defined]
+            async_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+
             return cast(F, async_wrapper)
         else:
 
@@ -372,6 +376,10 @@ def rate_limit(
                 if error:
                     return error
                 return func(self, *args, **kwargs)
+
+            # Mark wrapper as rate limited for detection by default_limiter
+            sync_wrapper._rate_limited = True  # type: ignore[attr-defined]
+            sync_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
 
             return cast(F, sync_wrapper)
 
@@ -502,6 +510,10 @@ def auth_rate_limit(
                     return error
                 return await func(*args, **kwargs)
 
+            # Mark wrapper as rate limited for detection by default_limiter
+            async_wrapper._rate_limited = True  # type: ignore[attr-defined]
+            async_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
+
             return cast(F, async_wrapper)
         else:
 
@@ -512,6 +524,10 @@ def auth_rate_limit(
                 if error:
                     return error
                 return func(*args, **kwargs)
+
+            # Mark wrapper as rate limited for detection by default_limiter
+            sync_wrapper._rate_limited = True  # type: ignore[attr-defined]
+            sync_wrapper._rate_limiter = limiter  # type: ignore[attr-defined]
 
             return cast(F, sync_wrapper)
 

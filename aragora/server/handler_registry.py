@@ -30,6 +30,10 @@ from aragora.server.versioning import (
     strip_version_prefix,
     version_response_headers,
 )
+from aragora.server.middleware.rate_limit import (
+    check_default_rate_limit,
+    should_apply_default_rate_limit,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -263,6 +267,46 @@ EvaluationHandler = _safe_import("aragora.server.handlers", "EvaluationHandler")
 BackupHandler = _safe_import("aragora.server.handlers.backup_handler", "BackupHandler")
 DRHandler = _safe_import("aragora.server.handlers.dr_handler", "DRHandler")
 ReceiptsHandler = _safe_import("aragora.server.handlers.receipts", "ReceiptsHandler")
+
+# Workflow templates and patterns
+WorkflowTemplatesHandler = _safe_import(
+    "aragora.server.handlers.workflow_templates", "WorkflowTemplatesHandler"
+)
+WorkflowPatternsHandler = _safe_import(
+    "aragora.server.handlers.workflow_templates", "WorkflowPatternsHandler"
+)
+WorkflowCategoriesHandler = _safe_import(
+    "aragora.server.handlers.workflow_templates", "WorkflowCategoriesHandler"
+)
+
+# Accounting handlers
+APAutomationHandler = _safe_import("aragora.server.handlers.ap_automation", "APAutomationHandler")
+ARAutomationHandler = _safe_import("aragora.server.handlers.ar_automation", "ARAutomationHandler")
+InvoiceHandler = _safe_import("aragora.server.handlers.invoices", "InvoiceHandler")
+ExpenseHandler = _safe_import("aragora.server.handlers.expenses", "ExpenseHandler")
+
+# Chat and bot handlers
+ChatHandler = _safe_import("aragora.server.handlers.chat.router", "ChatHandler")
+TelegramHandler = _safe_import("aragora.server.handlers.bots.telegram", "TelegramHandler")
+WhatsAppHandler = _safe_import("aragora.server.handlers.bots.whatsapp", "WhatsAppHandler")
+DiscordHandler = _safe_import("aragora.server.handlers.bots.discord", "DiscordHandler")
+ZoomHandler = _safe_import("aragora.server.handlers.bots.zoom", "ZoomHandler")
+
+# Skills handler
+SkillsHandler = _safe_import("aragora.server.handlers.skills", "SkillsHandler")
+
+# Shared inbox handler
+SharedInboxHandler = _safe_import(
+    "aragora.server.handlers._shared_inbox_handler", "SharedInboxHandler"
+)
+
+# Template marketplace handlers
+TemplateMarketplaceHandler = _safe_import(
+    "aragora.server.handlers.template_marketplace", "TemplateMarketplaceHandler"
+)
+TemplateRecommendationsHandler = _safe_import(
+    "aragora.server.handlers.template_marketplace", "TemplateRecommendationsHandler"
+)
 
 # Base handler result
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
@@ -1269,6 +1313,44 @@ class HandlerRegistryMixin:
                 logger.debug(f"[handlers] Auth context extraction failed: {auth_err}")
                 self._auth_context = None
 
+            # Determine the handler method name for rate limit checking
+            if method == "POST" and hasattr(handler, "handle_post"):
+                handler_method_name = "handle_post"
+            elif method == "DELETE" and hasattr(handler, "handle_delete"):
+                handler_method_name = "handle_delete"
+            elif method == "PATCH" and hasattr(handler, "handle_patch"):
+                handler_method_name = "handle_patch"
+            elif method == "PUT" and hasattr(handler, "handle_put"):
+                handler_method_name = "handle_put"
+            else:
+                handler_method_name = "handle"
+
+            # Apply default rate limiting if handler doesn't have explicit rate limit
+            if should_apply_default_rate_limit(handler, handler_method_name):
+                rate_limit_result = check_default_rate_limit(self)
+                if not rate_limit_result.allowed:
+                    # Return 429 Too Many Requests
+                    self.send_response(429)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Retry-After", str(int(rate_limit_result.retry_after) + 1))
+                    self.send_header("X-RateLimit-Limit", str(rate_limit_result.limit))
+                    self.send_header("X-RateLimit-Remaining", str(rate_limit_result.remaining))
+                    self._add_cors_headers()
+                    self._add_security_headers()
+                    self.end_headers()
+                    import json
+
+                    self.wfile.write(
+                        json.dumps(
+                            {
+                                "error": "Rate limit exceeded. Please try again later.",
+                                "code": "rate_limit_exceeded",
+                                "retry_after": int(rate_limit_result.retry_after) + 1,
+                            }
+                        ).encode()
+                    )
+                    return True
+
             # Use matched path if available, otherwise fall back to normalized path
             dispatch_path = matched_path or normalized_path
             if normalized_path != dispatch_path and handler.can_handle(normalized_path):
@@ -1382,4 +1464,16 @@ __all__ = [
     "validate_handler_instance",
     "validate_all_handlers",
     "validate_handlers_on_init",
+    # Re-exported for backward compatibility
+    "UnifiedHandler",  # noqa: F822
 ]
+
+
+# Re-export UnifiedHandler from unified_server for backward compatibility
+def __getattr__(name: str) -> Any:
+    """Lazy import for UnifiedHandler to avoid circular import."""
+    if name == "UnifiedHandler":
+        from aragora.server.unified_server import UnifiedHandler
+
+        return UnifiedHandler
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

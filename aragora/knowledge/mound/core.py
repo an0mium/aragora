@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 try:
     from aragora.knowledge.mound.culture import OrganizationCultureManager
 except ImportError:
-    OrganizationCultureManager = None  # type: Any
+    OrganizationCultureManager = None  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
 
@@ -1110,3 +1110,14 @@ class KnowledgeMoundCore:
     def _critique_to_item(self, pattern: Any) -> KnowledgeItem:
         """Convert CritiquePattern to KnowledgeItem."""
         return critique_to_item(pattern)
+
+
+# Re-export KnowledgeMound facade from here for backward compatibility
+# Many modules import from .core expecting KnowledgeMound
+def __getattr__(name: str) -> Any:
+    """Lazy import for KnowledgeMound to avoid circular import."""
+    if name == "KnowledgeMound":
+        from aragora.knowledge.mound.facade import KnowledgeMound
+
+        return KnowledgeMound
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

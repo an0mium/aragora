@@ -357,9 +357,15 @@ class ControlPlaneAdapter:
 
             records = []
             for result in results:
-                metadata = result.get("metadata", {})
+                # KnowledgeItem has metadata as dict attribute
+                metadata = getattr(result, "metadata", {}) or {}
                 if metadata.get("type") != "control_plane_capability":
                     continue
+
+                # Get confidence from KnowledgeItem
+                conf = getattr(result, "confidence", 0.8)
+                if hasattr(conf, "value"):
+                    conf = conf.value
 
                 record = AgentCapabilityRecord(
                     agent_id=metadata.get("agent_id", ""),
@@ -368,7 +374,7 @@ class ControlPlaneAdapter:
                     failure_count=metadata.get("failure_count", 0),
                     avg_duration_seconds=metadata.get("avg_duration_seconds", 0),
                     workspace_id=self._workspace_id,
-                    confidence=result.get("confidence", 0.8),
+                    confidence=conf,
                 )
                 if record.agent_id:
                     records.append(record)
@@ -419,7 +425,8 @@ class ControlPlaneAdapter:
 
             outcomes = []
             for result in results:
-                metadata = result.get("metadata", {})
+                # KnowledgeItem has metadata as dict attribute
+                metadata = getattr(result, "metadata", {}) or {}
                 if metadata.get("type") != "control_plane_task_outcome":
                     continue
 
@@ -544,7 +551,8 @@ class ControlPlaneAdapter:
 
             insights = []
             for result in results:
-                metadata = result.get("metadata", {})
+                # KnowledgeItem has metadata as dict attribute
+                metadata = getattr(result, "metadata", {}) or {}
                 if metadata.get("type") != "cross_workspace_insight":
                     continue
 
@@ -552,13 +560,19 @@ class ControlPlaneAdapter:
                 if metadata.get("source_workspace") == self._workspace_id:
                     continue
 
+                # Get content and confidence from KnowledgeItem
+                content = getattr(result, "content", "")
+                conf = getattr(result, "confidence", 0.8)
+                if hasattr(conf, "value"):
+                    conf = conf.value
+
                 insight = CrossWorkspaceInsight(
                     insight_id=metadata.get("insight_id", ""),
                     source_workspace=metadata.get("source_workspace", ""),
                     target_workspaces=metadata.get("target_workspaces", []),
                     task_type=metadata.get("task_type", ""),
-                    content=result.get("content", ""),
-                    confidence=result.get("confidence", 0.8),
+                    content=content,
+                    confidence=conf,
                     created_at=metadata.get("created_at", ""),
                 )
                 if insight.insight_id:
@@ -599,19 +613,24 @@ class ControlPlaneAdapter:
 
         try:
             # Query KM with semantic search
-            results = await self._knowledge_mound.query(
+            query_result = await self._knowledge_mound.query(
                 query=f"task {task_type} {question[:200]}",  # Truncate long questions
                 limit=limit * 2,  # Over-fetch for filtering
                 workspace_id=self._workspace_id,
             )
+            results = query_result.items if hasattr(query_result, "items") else []
 
             outcomes = []
             for result in results:
-                metadata = result.get("metadata", {})
+                # KnowledgeItem has metadata as dict attribute
+                metadata = getattr(result, "metadata", {}) or {}
                 if metadata.get("type") != "control_plane_task_outcome":
                     continue
                 if metadata.get("task_type") != task_type:
                     continue
+
+                # Get score from result (if available via similarity_score attribute)
+                score = getattr(result, "similarity_score", 0.0)
 
                 outcome = TaskOutcome(
                     task_id=metadata.get("task_id", ""),
@@ -622,7 +641,7 @@ class ControlPlaneAdapter:
                     workspace_id=self._workspace_id,
                     error_message=metadata.get("error_message"),
                     metadata={
-                        "similarity_score": result.get("score", 0.0),
+                        "similarity_score": score,
                         **{
                             k: v
                             for k, v in metadata.items()
@@ -681,11 +700,12 @@ class ControlPlaneAdapter:
 
         try:
             # Query for task outcomes
-            results = await self._knowledge_mound.query(
+            query_result = await self._knowledge_mound.query(
                 query=f"task outcome {task_type}",
                 limit=500,  # Query many for statistical significance
                 workspace_id=self._workspace_id,
             )
+            results = query_result.items if hasattr(query_result, "items") else []
 
             # Aggregate by agent
             agent_stats: dict[str, dict[str, int]] = {
@@ -697,7 +717,8 @@ class ControlPlaneAdapter:
             cutoff_time = time_module.time() - (recency_days * 86400)
 
             for result in results:
-                metadata = result.get("metadata", {})
+                # KnowledgeItem has metadata as dict attribute
+                metadata = getattr(result, "metadata", {}) or {}
                 if metadata.get("type") != "control_plane_task_outcome":
                     continue
                 if metadata.get("task_type") != task_type:

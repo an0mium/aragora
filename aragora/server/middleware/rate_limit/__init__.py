@@ -91,6 +91,29 @@ from .platform_limiter import (
     reset_platform_rate_limiters,
 )
 
+# Re-export from default_limiter module
+from .default_limiter import (
+    DEFAULT_RATE_LIMITS,
+    DefaultRateLimiter,
+    check_default_rate_limit,
+    determine_auth_tier,
+    get_default_rate_limiter,
+    get_handler_default_rpm,
+    handler_has_rate_limit_decorator,
+    reset_default_rate_limiter,
+    should_apply_default_rate_limit,
+)
+
+# Re-export from tenant_limiter module
+from .tenant_limiter import (
+    DEFAULT_TENANT_RATE_LIMITS,
+    TenantRateLimiter,
+    TenantRateLimitConfig,
+    check_tenant_rate_limit,
+    get_tenant_rate_limiter,
+    reset_tenant_rate_limiter,
+)
+
 __all__ = [
     # Base types
     "RateLimitConfig",
@@ -141,4 +164,21 @@ __all__ = [
     "get_platform_rate_limiter",
     "check_platform_rate_limit",
     "reset_platform_rate_limiters",
+    # Default rate limiting
+    "DEFAULT_RATE_LIMITS",
+    "DefaultRateLimiter",
+    "get_default_rate_limiter",
+    "reset_default_rate_limiter",
+    "determine_auth_tier",
+    "check_default_rate_limit",
+    "handler_has_rate_limit_decorator",
+    "should_apply_default_rate_limit",
+    "get_handler_default_rpm",
+    # Tenant rate limiting
+    "DEFAULT_TENANT_RATE_LIMITS",
+    "TenantRateLimiter",
+    "TenantRateLimitConfig",
+    "get_tenant_rate_limiter",
+    "reset_tenant_rate_limiter",
+    "check_tenant_rate_limit",
 ]
