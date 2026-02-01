@@ -68073,13 +68073,13 @@
             "description": "Path parameter: param"
           },
           {
-            "name": "param",
+            "name": "param_2",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Path parameter: param"
+            "description": "Path parameter: param_2"
           }
         ]
       }
@@ -68108,13 +68108,13 @@
             "description": "Path parameter: param"
           },
           {
-            "name": "param",
+            "name": "param_2",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Path parameter: param"
+            "description": "Path parameter: param_2"
           }
         ]
       }
@@ -68962,13 +68962,13 @@
             "description": "Path parameter: param"
           },
           {
-            "name": "param",
+            "name": "param_2",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Path parameter: param"
+            "description": "Path parameter: param_2"
           }
         ]
       }
@@ -68997,13 +68997,13 @@
             "description": "Path parameter: param"
           },
           {
-            "name": "param",
+            "name": "param_2",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "Path parameter: param"
+            "description": "Path parameter: param_2"
           }
         ]
       }
