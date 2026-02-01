@@ -370,8 +370,12 @@ class RedisRateLimiter:
         client_ip: str,
         endpoint: str | None = None,
         token: str | None = None,
+        tenant_id: str | None = None,
     ) -> RateLimitResult:
         """Check if a request should be allowed."""
+        # tenant_id is accepted for interface compatibility but currently unused
+        # as Redis limiter keys are based on client_ip/endpoint/token
+        _ = tenant_id
         normalized_endpoint = normalize_rate_limit_path(endpoint) if endpoint else None
         config = self.get_config(normalized_endpoint) if normalized_endpoint else RateLimitConfig()
         if not config.enabled:
