@@ -116,6 +116,14 @@ from aragora.observability.tracing import (
     trace_handler,
     trace_memory_operation,
     trace_response_delivery,
+    # New tracing utilities
+    traced,
+    AutoInstrumentation,
+    instrument_all,
+    trace_worker_job,
+    trace_worker_batch,
+    trace_external_call,
+    trace_llm_call,
 )
 from aragora.observability.tracing import (
     shutdown as shutdown_tracing,
@@ -261,6 +269,14 @@ __all__ = [
     "add_span_attributes",
     "record_exception",
     "shutdown_tracing",
+    # New tracing utilities
+    "traced",
+    "AutoInstrumentation",
+    "instrument_all",
+    "trace_worker_job",
+    "trace_worker_batch",
+    "trace_external_call",
+    "trace_llm_call",
     # Unified OTel Setup
     "OTelConfig",
     "setup_otel",
