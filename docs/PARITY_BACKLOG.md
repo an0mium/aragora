@@ -18,7 +18,7 @@ Status legend:
 | --- | --- | --- | --- |
 | Workspace + rig management | partial | `aragora/extensions/gastown/workspace.py`, `aragora/workspace/manager.py` | Two parallel managers; needs unification |
 | Convoy lifecycle | partial | `aragora/extensions/gastown/convoy.py`, `aragora/workspace/convoy.py`, `aragora/nomic/convoys.py` | Three implementations |
-| Beads (atomic work units) | partial | `aragora/workspace/bead.py`, `aragora/nomic/beads.py` | Two stores + schema mismatch |
+| Beads (atomic work units) | partial | `aragora/workspace/bead.py`, `aragora/nomic/beads.py` | Two stores + schema mismatch; canonical store now persists by default |
 | Hooks + worktree persistence | partial | `aragora/extensions/gastown/hooks.py`, `aragora/nomic/hook_queue.py` | Hooks + GUPP queue exist, need wiring |
 | Mayor/Witness roles | partial | `aragora/nomic/agent_roles.py`, `aragora/nomic/mayor_coordinator.py`, `aragora/nomic/witness_behavior.py` | Core logic exists, needs runtime integration |
 | CLI workflows | partial | `aragora/cli/gt.py` | CLI uses nomic convoys/beads |
@@ -28,7 +28,7 @@ Status legend:
 
 | Capability | Status | Code refs | Notes |
 | --- | --- | --- | --- |
-| Local Gateway server | partial | `aragora/gateway/server.py`, `aragora/gateway/router.py` | OpenClaw WS adapter partial (connect/presence); routing commands pending |
+| Local Gateway server | partial | `aragora/gateway/server.py`, `aragora/gateway/router.py` | OpenClaw WS adapter partial (connect/presence); routing commands pending; duplicate gateway runtime in `aragora/extensions/moltbot` |
 | Unified inbox | partial | `aragora/gateway/inbox.py`, `aragora/extensions/moltbot/inbox.py`, `aragora/storage/unified_inbox_store.py` | Multiple inbox layers |
 | Device registry + pairing | partial | `aragora/gateway/device_registry.py`, `aragora/server/handlers/devices.py`, `aragora/onboarding/wizard.py` | No device runtime clients |
 | Capability routing | partial | `aragora/gateway/capability_router.py`, `aragora/extensions/moltbot/capabilities.py` | Needs device node telemetry |
