@@ -92,7 +92,21 @@ try:
     MAX_UPLOADS_PER_MINUTE = DocumentHandler.MAX_UPLOADS_PER_MINUTE
     MAX_UPLOADS_PER_HOUR = DocumentHandler.MAX_UPLOADS_PER_HOUR
     _UPLOAD_COUNTS = DocumentHandler._upload_counts
-except Exception:
+except ImportError as e:
+    # DocumentHandler not available - use defaults for upload rate limiting
+    logger.debug(
+        "DocumentHandler not available, using default upload limits",
+        extra={"import_error": str(e), "module": "documents"},
+    )
+    MAX_UPLOADS_PER_MINUTE = 5
+    MAX_UPLOADS_PER_HOUR = 30
+    _UPLOAD_COUNTS = OrderedDict()
+except AttributeError as e:
+    # DocumentHandler exists but missing expected attributes
+    logger.warning(
+        "DocumentHandler missing expected attributes, using defaults",
+        extra={"error": str(e), "error_type": type(e).__name__},
+    )
     MAX_UPLOADS_PER_MINUTE = 5
     MAX_UPLOADS_PER_HOUR = 30
     _UPLOAD_COUNTS = OrderedDict()

@@ -451,6 +451,46 @@ TeamsWorkspaceHandler = _safe_import(
     "aragora.server.handlers.sme.teams_workspace", "TeamsWorkspaceHandler"
 )
 
+# Autonomous handlers
+AlertHandler = _safe_import("aragora.server.handlers.autonomous.alerts", "AlertHandler")
+ApprovalHandler = _safe_import("aragora.server.handlers.autonomous.approvals", "ApprovalHandler")
+TriggerHandler = _safe_import("aragora.server.handlers.autonomous.triggers", "TriggerHandler")
+MonitoringHandler = _safe_import(
+    "aragora.server.handlers.autonomous.monitoring", "MonitoringHandler"
+)
+
+# Cost handler
+CostHandler = _safe_import("aragora.server.handlers.costs", "CostHandler")
+
+# Control plane and audit
+AgentDashboardHandler = _safe_import(
+    "aragora.server.handlers.features.control_plane", "AgentDashboardHandler"
+)
+AuditSessionsHandler = _safe_import(
+    "aragora.server.handlers.features.audit_sessions", "AuditSessionsHandler"
+)
+
+# Security
+CSPReportHandler = _safe_import("aragora.server.handlers.security", "CSPReportHandler")
+
+# Channel health
+ChannelHealthHandler = _safe_import(
+    "aragora.server.handlers.social.channel_health", "ChannelHealthHandler"
+)
+
+# Cross-pollination sub-handlers
+CrossPollinationStatsHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationStatsHandler"
+)
+
+# Memory coordinator
+CoordinatorHandler = _safe_import(
+    "aragora.server.handlers.memory.coordinator", "CoordinatorHandler"
+)
+
+# Voice handler
+VoiceHandler = _safe_import("aragora.server.handlers.voice.handler", "VoiceHandler")
+
 # Base handler result
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 
@@ -710,6 +750,26 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_slack_workspace_handler", SlackWorkspaceHandler),
     ("_teams_handler", TeamsHandler),
     ("_teams_workspace_handler", TeamsWorkspaceHandler),
+    # Autonomous handlers
+    ("_alert_handler", AlertHandler),
+    ("_approval_handler", ApprovalHandler),
+    ("_trigger_handler", TriggerHandler),
+    ("_monitoring_handler", MonitoringHandler),
+    # Cost handler
+    ("_cost_handler", CostHandler),
+    # Control plane and audit
+    ("_agent_dashboard_handler", AgentDashboardHandler),
+    ("_audit_sessions_handler", AuditSessionsHandler),
+    # Security
+    ("_csp_report_handler", CSPReportHandler),
+    # Channel health
+    ("_channel_health_handler", ChannelHealthHandler),
+    # Cross-pollination stats
+    ("_cross_pollination_stats_handler", CrossPollinationStatsHandler),
+    # Memory coordinator
+    ("_coordinator_handler", CoordinatorHandler),
+    # Voice handler
+    ("_voice_handler", VoiceHandler),
 ]
 
 
