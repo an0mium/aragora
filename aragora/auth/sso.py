@@ -432,7 +432,7 @@ def get_sso_provider() -> SSOProvider | None:
 
         _sso_initialized = True
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
         logger.warning(f"SSO provider initialization failed: {e}")
         _sso_initialized = True
 

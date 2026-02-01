@@ -328,7 +328,7 @@ class SAMLProvider(SSOProvider):
                 return await self._authenticate_with_library(saml_response, relay_state)
             except SSOAuthenticationError:
                 raise
-            except Exception as e:
+            except (ValueError, RuntimeError, KeyError, AttributeError, zlib.error) as e:
                 logger.error(
                     "SAML library authentication error",
                     extra={"error": str(e), "error_type": type(e).__name__},
@@ -502,7 +502,7 @@ class SAMLProvider(SSOProvider):
             raise SSOAuthenticationError(f"Invalid SAML response XML: {e}")
         except SSOAuthenticationError:
             raise
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, base64.binascii.Error, zlib.error) as e:
             logger.error(f"SAML authentication error: {e}")
             raise SSOAuthenticationError(f"SAML authentication failed: {e}")
 
@@ -554,8 +554,8 @@ class SAMLProvider(SSOProvider):
 
         except SSOAuthenticationError:
             raise
-        except Exception as e:
-            # Catch XML parsing errors, lxml errors, and other library exceptions
+        except (ValueError, RuntimeError, KeyError, AttributeError, TypeError) as e:
+            # Catch XML parsing errors, validation errors, and other library exceptions
             logger.error(f"SAML library authentication error: {e}")
             raise SSOAuthenticationError(f"Invalid SAML response: {e}")
 

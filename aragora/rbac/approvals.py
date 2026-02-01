@@ -684,12 +684,18 @@ class ApprovalWorkflow:
         except ImportError as e:
             logger.warning(f"PermissionChecker not available: {e}")
             return []
-        except (OSError, ValueError, RuntimeError, TypeError, KeyError, AttributeError) as e:
+        except (
+            OSError,
+            IOError,
+            ValueError,
+            RuntimeError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            ConnectionError,
+            TimeoutError,
+        ) as e:
             logger.warning(f"Error finding default approvers: {e}")
-            return []
-        except Exception as e:
-            # Catch-all for unexpected errors (e.g., database errors)
-            logger.warning(f"Unexpected error finding default approvers: {e}")
             return []
 
     async def _grant_temporary_permission(self, request: ApprovalRequest) -> None:
