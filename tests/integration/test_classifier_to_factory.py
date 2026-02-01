@@ -41,6 +41,7 @@ class TestClassifierToFactoryPipeline:
         config = DebateConfig(
             question="Test technical question",
             agents_str=agent_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
 
@@ -61,6 +62,7 @@ class TestClassifierToFactoryPipeline:
         config = DebateConfig(
             question="How should we design a scalable microservices architecture?",
             agents_str=agent_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
 
@@ -102,6 +104,7 @@ class TestClassifierToFactoryPipeline:
         config = DebateConfig(
             question="Is AI consciousness possible?",
             agents_str=agent_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
 
@@ -122,6 +125,7 @@ class TestClassifierToFactoryPipeline:
         config = DebateConfig(
             question="Database design question",
             agents_str=agent_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
 
@@ -154,6 +158,7 @@ class TestClassifierToFactoryPipeline:
         config = DebateConfig(
             question="Security review question",
             agents_str=agent_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
 
@@ -179,6 +184,7 @@ class TestClassifierToFactoryPipeline:
         config = DebateConfig(
             question="Test with legacy format",
             agents_str=legacy_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
 
@@ -196,6 +202,7 @@ class TestClassifierToFactoryPipeline:
         config = DebateConfig(
             question="Test with mixed format",
             agents_str=mixed_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
 
@@ -261,6 +268,7 @@ class TestEdgeCases:
         config = DebateConfig(
             question="Test",
             agents_str=agent_string,
+            auto_trim_unavailable=False,
         )
         specs = config.parse_agent_specs()
         assert len(specs) >= 1

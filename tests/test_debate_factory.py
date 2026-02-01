@@ -101,7 +101,11 @@ class TestDebateConfig:
 
     def test_parse_agent_specs_simple(self):
         """Simple agent string is parsed correctly."""
-        config = DebateConfig(question="Q", agents_str="anthropic-api,openai-api")
+        config = DebateConfig(
+            question="Q",
+            agents_str="anthropic-api,openai-api",
+            auto_trim_unavailable=False,
+        )
         specs = config.parse_agent_specs()
         assert len(specs) == 2
         assert specs[0].agent_type == "anthropic-api"
@@ -109,21 +113,33 @@ class TestDebateConfig:
 
     def test_parse_agent_specs_with_roles(self):
         """Agent string with roles is parsed correctly."""
-        config = DebateConfig(question="Q", agents_str="anthropic-api:critic,openai-api:proposer")
+        config = DebateConfig(
+            question="Q",
+            agents_str="anthropic-api:critic,openai-api:proposer",
+            auto_trim_unavailable=False,
+        )
         specs = config.parse_agent_specs()
         assert specs[0].role == "critic"
         assert specs[1].role == "proposer"
 
     def test_parse_agent_specs_mixed(self):
         """Mixed agent string (with and without roles) is parsed."""
-        config = DebateConfig(question="Q", agents_str="anthropic-api,openai-api:critic")
+        config = DebateConfig(
+            question="Q",
+            agents_str="anthropic-api,openai-api:critic",
+            auto_trim_unavailable=False,
+        )
         specs = config.parse_agent_specs()
         assert specs[0].role is None  # Assigned by position
         assert specs[1].role == "critic"
 
     def test_parse_agent_specs_strips_whitespace(self):
         """Whitespace is stripped from agent specs."""
-        config = DebateConfig(question="Q", agents_str="  anthropic-api  ,  openai-api  ")
+        config = DebateConfig(
+            question="Q",
+            agents_str="  anthropic-api  ,  openai-api  ",
+            auto_trim_unavailable=False,
+        )
         specs = config.parse_agent_specs()
         assert specs[0].agent_type == "anthropic-api"
         assert specs[1].agent_type == "openai-api"
@@ -131,25 +147,41 @@ class TestDebateConfig:
     def test_parse_agent_specs_too_many_agents(self):
         """Too many agents raises ValueError."""
         agents = ",".join(["anthropic-api"] * (MAX_AGENTS_PER_DEBATE + 1))
-        config = DebateConfig(question="Q", agents_str=agents)
+        config = DebateConfig(
+            question="Q",
+            agents_str=agents,
+            auto_trim_unavailable=False,
+        )
         with pytest.raises(ValueError, match="Too many agents"):
             config.parse_agent_specs()
 
     def test_parse_agent_specs_too_few_agents(self):
         """Too few agents raises ValueError."""
-        config = DebateConfig(question="Q", agents_str="anthropic-api")
+        config = DebateConfig(
+            question="Q",
+            agents_str="anthropic-api",
+            auto_trim_unavailable=False,
+        )
         with pytest.raises(ValueError, match="At least 2 agents"):
             config.parse_agent_specs()
 
     def test_parse_agent_specs_empty_string(self):
         """Empty agents string raises ValueError."""
-        config = DebateConfig(question="Q", agents_str="")
+        config = DebateConfig(
+            question="Q",
+            agents_str="",
+            auto_trim_unavailable=False,
+        )
         with pytest.raises(ValueError, match="At least 2 agents"):
             config.parse_agent_specs()
 
     def test_parse_agent_specs_invalid_agent_type(self):
         """Invalid agent type raises ValueError."""
-        config = DebateConfig(question="Q", agents_str="anthropic-api,invalid-agent")
+        config = DebateConfig(
+            question="Q",
+            agents_str="anthropic-api,invalid-agent",
+            auto_trim_unavailable=False,
+        )
         with pytest.raises(ValueError, match="Invalid agent provider"):
             config.parse_agent_specs()
 
@@ -301,6 +333,7 @@ class TestDebateFactoryCreateArena:
                 question="Test question",
                 agents_str="anthropic-api,openai-api",
                 rounds=3,
+                auto_trim_unavailable=False,
             )
 
             arena = factory.create_arena(config)
@@ -321,6 +354,7 @@ class TestDebateFactoryCreateArena:
             config = DebateConfig(
                 question="Test question",
                 agents_str="anthropic-api,openai-api",
+                auto_trim_unavailable=False,
             )
 
             with pytest.raises(ValueError, match="Only 0 agents initialized"):
@@ -354,6 +388,7 @@ class TestDebateFactoryCreateArena:
                 question="Test question",
                 agents_str="anthropic-api,openai-api",
                 debate_id="test-123",
+                auto_trim_unavailable=False,
             )
 
             factory.create_arena(config)
