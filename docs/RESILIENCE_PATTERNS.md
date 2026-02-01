@@ -1,284 +1,480 @@
-# Resilience Patterns Module
+# Resilience Patterns Guide
 
-Unified resilience patterns for fault-tolerant systems in Aragora.
+This guide documents the resilience patterns available in Aragora for building fault-tolerant systems.
 
 ## Overview
 
-The `aragora.resilience_patterns` module provides consolidated resilience patterns used across the codebase:
+Aragora provides a comprehensive resilience package (`aragora.resilience`) with patterns for:
 
-- **Circuit Breakers** - Failure isolation for external services
-- **Retry Logic** - Configurable backoff strategies for transient failures
-- **Timeout Management** - Bounded operations with async support
-- **Health Monitoring** - Component health tracking
+- **Circuit Breaker**: Prevents cascading failures by stopping requests to failing services
+- **Retry**: Automatic retry with configurable backoff strategies
+- **Timeout**: Enforces time limits on operations
+- **Health Checking**: Monitors service health and availability
 
-## Location
-
-`aragora/resilience_patterns/`
-
-## Installation
-
-The module is part of the core Aragora package. No additional dependencies required.
-
-## Components
-
-### Circuit Breaker
-
-Prevents cascading failures by opening the circuit after repeated failures.
+## Quick Start
 
 ```python
-from aragora.resilience_patterns import (
+from aragora.resilience import (
+    CircuitBreaker,
     get_circuit_breaker,
-    with_circuit_breaker,
-    CircuitBreakerConfig,
-    CircuitState,
+    with_resilience,
+    with_retry,
+    with_timeout,
 )
 
-# Get or create a named circuit breaker
-cb = get_circuit_breaker("stripe_api", failure_threshold=5, cooldown_seconds=60)
+# Using the global registry (recommended)
+cb = get_circuit_breaker("anthropic-api", provider="anthropic")
 
-# Check if circuit allows execution
-if cb.can_execute():
-    try:
-        result = await call_stripe()
-        cb.record_success()
-    except Exception as e:
-        cb.record_failure(e)
-        raise
+# Or create directly
+cb = CircuitBreaker(failure_threshold=5, cooldown_seconds=30)
 
-# Decorator-based usage
-@with_circuit_breaker("my_service")
-async def call_service():
-    return await http_client.get("/api/data")
+# Execute with circuit breaker
+result = await cb.execute(api_call)
 ```
 
-**Configuration:**
+---
+
+## Circuit Breaker
+
+### Concept
+
+The circuit breaker pattern prevents an application from repeatedly trying to execute an operation that's likely to fail. It has three states:
+
+| State | Description | Behavior |
+|-------|-------------|----------|
+| **CLOSED** | Normal operation | Requests pass through, failures tracked |
+| **OPEN** | Failures exceeded threshold | Requests fail immediately (CircuitOpenError) |
+| **HALF_OPEN** | Testing recovery | Limited requests allowed to test service |
+
+### Basic Usage
+
+```python
+from aragora.resilience import CircuitBreaker, CircuitOpenError
+
+cb = CircuitBreaker(
+    failure_threshold=5,     # Open after 5 failures
+    cooldown_seconds=30,     # Wait 30s before testing recovery
+    half_open_max_calls=3,   # Allow 3 test calls in half-open state
+)
+
+try:
+    result = await cb.execute(my_async_function, arg1, arg2)
+except CircuitOpenError:
+    # Circuit is open - use fallback
+    result = get_fallback_result()
+except Exception as e:
+    # Operation failed (circuit may have opened)
+    handle_error(e)
+```
+
+### Using the Registry
+
+For applications with multiple services, use the global registry:
+
+```python
+from aragora.resilience import get_circuit_breaker, reset_all_circuit_breakers
+
+# Get or create a circuit breaker by name
+cb = get_circuit_breaker(
+    name="openai-api",
+    provider="openai",  # Optional metadata
+    failure_threshold=3,
+    cooldown_seconds=60,
+)
+
+# Get status
+status = cb.get_status()
+print(f"State: {status['state']}, Failures: {status['failure_count']}")
+
+# Reset all circuit breakers (useful for testing)
+reset_all_circuit_breakers()
+```
+
+### Decorator Pattern
+
+```python
+from aragora.resilience import with_resilience
+
+@with_resilience(circuit_name="external-api")
+async def call_external_api(endpoint: str, data: dict):
+    async with aiohttp.ClientSession() as session:
+        async with session.post(endpoint, json=data) as resp:
+            return await resp.json()
+```
+
+### Monitoring and Metrics
+
+```python
+from aragora.resilience import (
+    get_circuit_breaker_status,
+    get_circuit_breaker_metrics,
+    get_all_circuit_breakers_status,
+    set_metrics_callback,
+)
+
+# Get status for a specific circuit
+status = get_circuit_breaker_status("openai-api")
+# Returns: {"state": "closed", "failure_count": 2, "last_failure": "..."}
+
+# Get metrics
+metrics = get_circuit_breaker_metrics("openai-api")
+# Returns: {"total_calls": 100, "failures": 5, "success_rate": 0.95}
+
+# Get all circuit breakers
+all_status = get_all_circuit_breakers_status()
+
+# Custom metrics callback (for Prometheus, etc.)
+def my_metrics_callback(event_type: str, circuit_name: str, details: dict):
+    prometheus_counter.labels(event_type, circuit_name).inc()
+
+set_metrics_callback(my_metrics_callback)
+```
+
+### Persistence
+
+Circuit breaker state can be persisted to survive restarts:
+
+```python
+from aragora.resilience import (
+    init_circuit_breaker_persistence,
+    persist_all_circuit_breakers,
+    load_circuit_breakers,
+)
+
+# Initialize persistence (call at startup)
+init_circuit_breaker_persistence(db_path="data/circuit_breakers.db")
+
+# Load persisted state
+load_circuit_breakers()
+
+# Persist current state (call periodically or on shutdown)
+persist_all_circuit_breakers()
+```
+
+---
+
+## Retry Pattern
+
+### Basic Usage
+
+```python
+from aragora.resilience import with_retry, RetryConfig
+
+@with_retry(max_attempts=3, delay_seconds=1.0, exponential_backoff=True)
+async def unreliable_operation():
+    return await external_service.call()
+
+# Or with config object
+config = RetryConfig(
+    max_attempts=5,
+    initial_delay=0.5,
+    max_delay=30.0,
+    exponential_base=2.0,
+    jitter=True,  # Add randomness to prevent thundering herd
+)
+
+@with_retry(config=config)
+async def my_function():
+    ...
+```
+
+### Retry with Exception Filtering
+
+```python
+from aragora.resilience import with_retry
+
+# Only retry on specific exceptions
+@with_retry(
+    max_attempts=3,
+    retry_on=(ConnectionError, TimeoutError),
+    dont_retry_on=(ValueError, KeyError),
+)
+async def api_call():
+    ...
+```
+
+### Synchronous Retry
+
+```python
+from aragora.resilience import with_retry_sync
+
+@with_retry_sync(max_attempts=3)
+def sync_operation():
+    return requests.get("https://api.example.com/data")
+```
+
+---
+
+## Timeout Pattern
+
+### Basic Usage
+
+```python
+from aragora.resilience import with_timeout, TimeoutConfig
+import asyncio
+
+@with_timeout(seconds=10.0)
+async def slow_operation():
+    return await external_service.call()
+
+# Using config
+config = TimeoutConfig(
+    seconds=30.0,
+    on_timeout="raise",  # or "return_none" or "return_default"
+    default_value=None,
+)
+
+@with_timeout(config=config)
+async def my_function():
+    ...
+```
+
+### Timeout with Fallback
+
+```python
+@with_timeout(seconds=5.0, on_timeout="return_default", default_value={"error": "timeout"})
+async def api_with_fallback():
+    return await slow_api.call()
+```
+
+### Synchronous Timeout
+
+```python
+from aragora.resilience import with_timeout_sync
+
+@with_timeout_sync(seconds=30.0)
+def blocking_operation():
+    return requests.get("https://slow-api.example.com")
+```
+
+---
+
+## Health Checking
+
+### Basic Usage
+
+```python
+from aragora.resilience import HealthChecker, HealthStatus, HealthReport
+
+class MyServiceHealthChecker(HealthChecker):
+    async def check(self) -> HealthReport:
+        try:
+            # Perform health check
+            is_healthy = await self.service.ping()
+            return HealthReport(
+                status=HealthStatus.HEALTHY if is_healthy else HealthStatus.UNHEALTHY,
+                message="Service is operational" if is_healthy else "Service unreachable",
+                details={"latency_ms": 50},
+            )
+        except Exception as e:
+            return HealthReport(
+                status=HealthStatus.UNHEALTHY,
+                message=str(e),
+            )
+```
+
+### Composite Health Checks
+
+```python
+from aragora.resilience import CompositeHealthChecker
+
+checker = CompositeHealthChecker([
+    DatabaseHealthChecker(db),
+    RedisHealthChecker(redis),
+    ExternalAPIHealthChecker(api),
+])
+
+report = await checker.check()
+# Returns aggregated health status
+```
+
+---
+
+## Combined Patterns
+
+### Circuit Breaker + Retry + Timeout
+
+```python
+from aragora.resilience import with_resilience
+
+@with_resilience(
+    circuit_name="external-api",
+    circuit_failure_threshold=5,
+    circuit_cooldown_seconds=30,
+    retry_max_attempts=3,
+    retry_delay_seconds=1.0,
+    timeout_seconds=10.0,
+)
+async def robust_api_call(endpoint: str):
+    """
+    This call will:
+    1. Timeout after 10 seconds
+    2. Retry up to 3 times with 1s delay
+    3. Trip circuit breaker after 5 failures
+    """
+    return await http_client.get(endpoint)
+```
+
+---
+
+## Integration with Aragora Components
+
+### Agent Resilience
+
+```python
+from aragora.agents.airlock import AirlockProxy
+
+# Wrap agent with resilience (automatic circuit breaker + retry)
+airlock = AirlockProxy(agent, config=AirlockConfig(
+    circuit_breaker_threshold=3,
+    retry_on_rate_limit=True,
+    fallback_response="I'm currently unavailable. Please try again later.",
+))
+```
+
+### Arena Circuit Breaker
+
+The debate arena uses circuit breakers for agent failure handling:
+
+```python
+from aragora import Arena
+
+arena = Arena(
+    environment=env,
+    agents=agents,
+    circuit_breaker=CircuitBreaker(failure_threshold=3),
+)
+```
+
+### HTTP Client Resilience
+
+```python
+from aragora.resilience.http_client import ResilientHTTPClient
+
+client = ResilientHTTPClient(
+    base_url="https://api.example.com",
+    timeout=30.0,
+    retry_config=RetryConfig(max_attempts=3),
+    circuit_breaker_config=CircuitBreakerConfig(failure_threshold=5),
+)
+
+response = await client.get("/endpoint")
+```
+
+---
+
+## Best Practices
+
+### 1. Choose Appropriate Thresholds
+
+| Service Type | Failure Threshold | Cooldown | Retry Attempts |
+|--------------|-------------------|----------|----------------|
+| External API | 5-10 | 30-60s | 3-5 |
+| Database | 3-5 | 10-30s | 2-3 |
+| Message Queue | 5-10 | 15-30s | 3-5 |
+| AI Provider | 3-5 | 60-120s | 2-3 |
+
+### 2. Use Exponential Backoff
+
+```python
+# Good: exponential backoff with jitter
+@with_retry(max_attempts=5, exponential_backoff=True, jitter=True)
+async def my_call():
+    ...
+
+# Avoid: fixed delay can cause thundering herd
+@with_retry(max_attempts=5, delay_seconds=1.0)  # Less ideal
+async def my_call():
+    ...
+```
+
+### 3. Implement Fallbacks
+
+```python
+from aragora.resilience import CircuitOpenError
+
+async def get_data():
+    try:
+        return await circuit_breaker.execute(fetch_from_primary)
+    except CircuitOpenError:
+        # Primary is down, use cached/fallback
+        return get_cached_data()
+    except Exception:
+        return get_default_data()
+```
+
+### 4. Monitor Circuit State
+
+```python
+# Expose metrics endpoint
+@app.get("/health/circuits")
+async def circuit_health():
+    return get_all_circuit_breakers_status()
+```
+
+### 5. Test Failure Scenarios
+
+```python
+def test_circuit_breaker_opens():
+    cb = CircuitBreaker(failure_threshold=2)
+
+    # Simulate failures
+    for _ in range(2):
+        with pytest.raises(ValueError):
+            await cb.execute(failing_function)
+
+    # Circuit should be open
+    with pytest.raises(CircuitOpenError):
+        await cb.execute(any_function)
+```
+
+---
+
+## Configuration Reference
+
+### CircuitBreaker
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `failure_threshold` | 5 | Failures before opening circuit |
-| `cooldown_seconds` | 30 | Time before attempting recovery |
+| `cooldown_seconds` | 30 | Time to wait before testing recovery |
+| `half_open_max_calls` | 3 | Max calls allowed in half-open state |
 | `success_threshold` | 2 | Successes needed to close circuit |
 
-**Circuit States:**
-- `CLOSED` - Normal operation, requests pass through
-- `OPEN` - Circuit tripped, requests fail immediately
-- `HALF_OPEN` - Testing recovery, limited requests allowed
+### RetryConfig
 
-### Retry Logic
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `max_attempts` | 3 | Maximum retry attempts |
+| `initial_delay` | 1.0 | Initial delay between retries (seconds) |
+| `max_delay` | 60.0 | Maximum delay cap |
+| `exponential_base` | 2.0 | Base for exponential backoff |
+| `jitter` | True | Add randomness to delays |
 
-Configurable retry with multiple backoff strategies.
+### TimeoutConfig
 
-```python
-from aragora.resilience_patterns import (
-    with_retry,
-    RetryConfig,
-    RetryStrategy,
-    JitterMode,
-)
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `seconds` | 30.0 | Timeout duration |
+| `on_timeout` | "raise" | Action on timeout: "raise", "return_none", "return_default" |
+| `default_value` | None | Value to return if `on_timeout="return_default"` |
 
-# Configure retry behavior
-config = RetryConfig(
-    max_retries=3,
-    base_delay=0.5,
-    max_delay=30.0,
-    strategy="exponential",  # or "linear", "constant", "fibonacci"
-    jitter=True,
-    retryable_exceptions=(ConnectionError, TimeoutError),
-)
+---
 
-# Decorator usage
-@with_retry(config)
-async def flaky_api_call():
-    return await external_service.fetch()
+## File Locations
 
-# Or with simple defaults
-@with_retry(RetryConfig(max_retries=3))
-async def simple_retry():
-    ...
-```
+| Component | Location |
+|-----------|----------|
+| Circuit Breaker | `aragora/resilience/circuit_breaker.py` |
+| Registry | `aragora/resilience/registry.py` |
+| Retry | `aragora/resilience/retry.py` |
+| Timeout | `aragora/resilience/timeout.py` |
+| Health | `aragora/resilience/health.py` |
+| HTTP Client | `aragora/resilience/http_client.py` |
+| Metrics | `aragora/resilience/metrics.py` |
+| Persistence | `aragora/resilience/persistence.py` |
+| Decorator | `aragora/resilience/decorator.py` |
 
-**Strategies:**
-- `exponential` - Delays grow exponentially (recommended)
-- `linear` - Delays grow linearly
-- `constant` - Fixed delay between retries
-- `fibonacci` - Fibonacci sequence delays
+---
 
-**Jitter Modes:**
-- `additive` - Add random jitter
-- `multiplicative` - Multiply by random factor
-- `full` - Full randomization
-
-### Timeout Management
-
-Bounded operations with configurable timeouts.
-
-```python
-from aragora.resilience_patterns import (
-    with_timeout,
-    TimeoutConfig,
-    asyncio_timeout,
-)
-
-# Decorator usage
-@with_timeout(5.0)  # 5 second timeout
-async def bounded_operation():
-    return await slow_service.call()
-
-# Context manager
-async with asyncio_timeout(10.0):
-    result = await long_running_task()
-
-# With configuration
-config = TimeoutConfig(
-    timeout_seconds=30.0,
-    on_timeout=lambda: logger.warning("Operation timed out"),
-)
-
-@with_timeout(config)
-async def configured_timeout():
-    ...
-```
-
-### Health Monitoring
-
-Track component health status.
-
-```python
-from aragora.resilience_patterns import (
-    HealthChecker,
-    HealthStatus,
-    HealthReport,
-)
-
-# Create health checker
-checker = HealthChecker(name="database")
-
-# Record health status
-checker.record_success()
-checker.record_failure("Connection refused")
-
-# Get current status
-status: HealthStatus = checker.get_status()
-print(f"Healthy: {status.is_healthy}")
-print(f"Last error: {status.last_error}")
-
-# Generate health report
-report: HealthReport = checker.get_report()
-```
-
-## Prometheus Metrics
-
-The module exports Prometheus metrics automatically:
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `aragora_circuit_breaker_state` | Gauge | Current circuit state (0=closed, 1=open, 2=half-open) |
-| `aragora_retry_attempts_total` | Counter | Total retry attempts |
-| `aragora_retry_exhausted_total` | Counter | Retries that exhausted all attempts |
-| `aragora_timeout_total` | Counter | Operations that timed out |
-| `aragora_health_status` | Gauge | Component health (0=unhealthy, 1=healthy) |
-
-## Migration from Legacy
-
-### From `aragora.resilience`
-
-The old `aragora/resilience.py` module is still available but new code should use `aragora.resilience_patterns`:
-
-```python
-# OLD (deprecated)
-from aragora.resilience import CircuitBreaker
-cb = CircuitBreaker("service", max_failures=5)
-
-# NEW (recommended)
-from aragora.resilience_patterns import get_circuit_breaker
-cb = get_circuit_breaker("service", failure_threshold=5)
-```
-
-### From `aragora.knowledge.mound.resilience`
-
-Knowledge Mound-specific resilience patterns have been consolidated:
-
-```python
-# OLD
-from aragora.knowledge.mound.resilience import with_retry
-
-# NEW
-from aragora.resilience_patterns import with_retry, RetryConfig
-```
-
-## Best Practices
-
-1. **Name your circuit breakers** - Use descriptive names like `"stripe_payments"` or `"github_api"`
-
-2. **Configure for your SLAs** - Set timeouts based on expected response times
-
-3. **Use exponential backoff** - Prevents thundering herd on service recovery
-
-4. **Add jitter** - Spreads out retry attempts across clients
-
-5. **Log failures** - Circuit breaker state changes are important operational events
-
-6. **Monitor metrics** - Use the Prometheus metrics to set up alerts
-
-## Examples
-
-### Payment Handler with Full Resilience
-
-```python
-from aragora.resilience_patterns import (
-    get_circuit_breaker,
-    with_retry,
-    RetryConfig,
-)
-
-# Circuit breaker for payment provider
-_stripe_cb = get_circuit_breaker("stripe_payments", failure_threshold=5, cooldown_seconds=60)
-
-# Retry config for transient failures
-_retry_config = RetryConfig(
-    max_retries=2,
-    base_delay=0.5,
-    strategy="exponential",
-    retryable_exceptions=(ConnectionError, TimeoutError),
-)
-
-async def charge_card(amount: int, token: str) -> dict:
-    if not _stripe_cb.can_execute():
-        raise ServiceUnavailableError("Payment service temporarily unavailable")
-
-    @with_retry(_retry_config)
-    async def _do_charge():
-        return await stripe.charges.create(amount=amount, source=token)
-
-    try:
-        result = await _do_charge()
-        _stripe_cb.record_success()
-        return result
-    except Exception as e:
-        _stripe_cb.record_failure(e)
-        raise
-```
-
-### Database with Health Monitoring
-
-```python
-from aragora.resilience_patterns import HealthChecker, with_timeout
-
-db_health = HealthChecker("postgres")
-
-@with_timeout(5.0)
-async def query_database(sql: str) -> list:
-    try:
-        result = await db.execute(sql)
-        db_health.record_success()
-        return result
-    except Exception as e:
-        db_health.record_failure(str(e))
-        raise
-```
-
-## See Also
-
-- [RESILIENCE.md](./RESILIENCE.md) - Legacy resilience module documentation
-- [ENTERPRISE_FEATURES.md](./ENTERPRISE_FEATURES.md) - Enterprise resilience features
-- [OBSERVABILITY.md](./OBSERVABILITY.md) - Metrics and monitoring
+*Last updated: 2026-02-01*

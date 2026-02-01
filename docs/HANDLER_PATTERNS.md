@@ -650,4 +650,358 @@ from aragora.server.validation.query_params import safe_query_int
 
 ---
 
-*Last updated: 2026-01-30*
+## Production Examples
+
+### Example 1: Simple CRUD Handler (Feedback)
+
+A complete example of a simple handler with permission checking (`handlers/feedback.py`):
+
+```python
+"""
+User Feedback Collection Handler.
+
+Endpoints:
+- POST /api/v1/feedback/nps - Submit NPS score (requires feedback.write)
+- POST /api/v1/feedback/general - Submit general feedback (requires feedback.write)
+- GET /api/v1/feedback/nps/summary - Get NPS summary (requires feedback.update - admin)
+- GET /api/v1/feedback/prompts - Get active feedback prompts (requires feedback.read)
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any
+
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.base import (
+    HandlerResult,
+    ServerContext,
+    error_response,
+    get_clamped_int_param,
+    json_response,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# Permission helper - checks RBAC before allowing action
+def _check_permission(ctx: ServerContext, permission: str) -> HandlerResult | None:
+    """Check if the current user has the required permission."""
+    user_id = ctx.get("user_id")
+    if not user_id:
+        return error_response("Authentication required", status=401)
+
+    auth_context = AuthorizationContext(
+        user_id=user_id,
+        org_id=ctx.get("org_id"),
+        roles=set(ctx.get("roles", [])),
+        permissions=set(ctx.get("permissions", [])),
+    )
+
+    checker = get_permission_checker()
+    decision = checker.check_permission(auth_context, permission)
+
+    if not decision.allowed:
+        return error_response(f"Permission denied: {permission}", status=403)
+    return None
+
+
+# Models
+class FeedbackType(str, Enum):
+    NPS = "nps"
+    FEATURE_REQUEST = "feature_request"
+    BUG_REPORT = "bug_report"
+    GENERAL = "general"
+
+
+@dataclass
+class FeedbackEntry:
+    id: str
+    user_id: str | None
+    feedback_type: FeedbackType
+    score: int | None
+    comment: str | None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: str = ""
+
+    def __post_init__(self):
+        if not self.created_at:
+            self.created_at = datetime.now(timezone.utc).isoformat()
+
+
+# Handler functions
+async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
+    """
+    Submit NPS feedback.
+
+    POST /api/v1/feedback/nps
+    Body: {"score": 0-10, "comment": "optional", "context": {...}}
+    Requires: feedback.write permission
+    """
+    perm_error = _check_permission(ctx, "feedback.write")
+    if perm_error:
+        return perm_error
+
+    try:
+        body = ctx.get("body", {})
+        user_id = ctx.get("user_id", "anonymous")
+        score = body.get("score")
+
+        if score is None or not isinstance(score, int) or not 0 <= score <= 10:
+            return error_response("Score must be an integer between 0 and 10", status=400)
+
+        entry = FeedbackEntry(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            feedback_type=FeedbackType.NPS,
+            score=score,
+            comment=body.get("comment"),
+            metadata=body.get("context", {}),
+        )
+
+        store = get_feedback_store()
+        store.save(entry)
+
+        logger.info(f"NPS feedback submitted: score={score}, user={user_id}")
+        return json_response({"success": True, "feedback_id": entry.id})
+
+    except Exception as e:
+        logger.error(f"Error submitting NPS feedback: {e}")
+        return error_response(str(e), status=500)
+
+
+async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
+    """
+    Get NPS summary (admin only).
+
+    GET /api/v1/feedback/nps/summary?days=30
+    Requires: feedback.update permission (admin)
+    """
+    perm_error = _check_permission(ctx, "feedback.update")
+    if perm_error:
+        return perm_error
+
+    try:
+        query = ctx.get("query", {})
+        days = get_clamped_int_param(query, "days", 30, min_val=1, max_val=365)
+        store = get_feedback_store()
+        summary = store.get_nps_summary(days)
+        return json_response(summary)
+
+    except Exception as e:
+        logger.error(f"Error getting NPS summary: {e}")
+        return error_response(str(e), status=500)
+
+
+# Route definitions for registration
+FEEDBACK_ROUTES = [
+    ("POST", "/api/v1/feedback/nps", handle_submit_nps),
+    ("POST", "/api/v1/feedback/general", handle_submit_feedback),
+    ("GET", "/api/v1/feedback/nps/summary", handle_get_nps_summary),
+    ("GET", "/api/v1/feedback/prompts", handle_get_feedback_prompts),
+]
+```
+
+### Example 2: Handler with Async Database Operations (Checkpoints)
+
+Handler pattern with async store operations (`handlers/checkpoints.py`):
+
+```python
+async def handle_list_checkpoints(ctx: ServerContext) -> HandlerResult:
+    """
+    List checkpoints for a debate.
+
+    GET /api/v1/debates/:debate_id/checkpoints?limit=50&offset=0
+    """
+    try:
+        debate_id = ctx.get("path_params", {}).get("debate_id")
+        if not debate_id:
+            return error_response("Missing debate_id", status=400)
+
+        query = ctx.get("query", {})
+        limit = get_clamped_int_param(query, "limit", 50, min_val=1, max_val=100)
+        offset = get_clamped_int_param(query, "offset", 0, min_val=0)
+
+        store = get_checkpoint_store()
+        checkpoints = await store.list_checkpoints(debate_id, limit=limit, offset=offset)
+
+        return json_response({
+            "checkpoints": [cp.to_dict() for cp in checkpoints],
+            "total": len(checkpoints),
+            "limit": limit,
+            "offset": offset,
+        })
+
+    except Exception as e:
+        logger.error(f"Error listing checkpoints: {e}")
+        return error_response(str(e), status=500)
+```
+
+### Example 3: Handler with Request Body Validation (Gauntlet)
+
+Handler with comprehensive input validation (`handlers/gauntlet.py`):
+
+```python
+async def handle_start_gauntlet(ctx: ServerContext) -> HandlerResult:
+    """
+    Start a new gauntlet evaluation.
+
+    POST /api/v1/gauntlet/start
+    Body:
+        task: str (required) - Task description
+        agents: list[str] (optional) - Agent names to use
+        protocol: dict (optional) - Debate protocol config
+        options: dict (optional) - Gauntlet options
+    """
+    try:
+        body = ctx.get("body", {})
+
+        # Validate required fields
+        task = body.get("task")
+        if not task or not isinstance(task, str):
+            return error_response("'task' is required and must be a string", status=400)
+
+        if len(task) > 10000:
+            return error_response("'task' must be under 10,000 characters", status=400)
+
+        # Validate optional fields
+        agents = body.get("agents", [])
+        if not isinstance(agents, list):
+            return error_response("'agents' must be a list", status=400)
+        if len(agents) > 20:
+            return error_response("Maximum 20 agents allowed", status=400)
+
+        protocol = body.get("protocol", {})
+        if not isinstance(protocol, dict):
+            return error_response("'protocol' must be a dict", status=400)
+
+        # Start the gauntlet
+        runner = get_gauntlet_runner()
+        result = await runner.start(task=task, agents=agents, protocol=protocol)
+
+        return json_response({
+            "success": True,
+            "gauntlet_id": result.id,
+            "status": result.status,
+        }, status=201)
+
+    except ValueError as e:
+        return error_response(str(e), status=400)
+    except Exception as e:
+        logger.exception(f"Error starting gauntlet: {e}")
+        return error_response("Internal error starting gauntlet", status=500)
+```
+
+### Example 4: WebSocket Handler (Streaming)
+
+Handler for WebSocket streaming endpoints (`handlers/streaming/debate_stream.py`):
+
+```python
+async def handle_debate_stream(ws: WebSocketResponse, ctx: ServerContext) -> None:
+    """
+    WebSocket endpoint for real-time debate streaming.
+
+    WS /api/v1/debates/:debate_id/stream
+
+    Events sent:
+        - debate_start: {debate_id, task, agents}
+        - round_start: {round, phase}
+        - agent_message: {agent, content, role}
+        - consensus: {content, confidence}
+        - debate_end: {result}
+    """
+    debate_id = ctx.get("path_params", {}).get("debate_id")
+
+    try:
+        # Subscribe to debate events
+        async with debate_events.subscribe(debate_id) as events:
+            # Send initial state
+            await ws.send_json({"type": "connected", "debate_id": debate_id})
+
+            # Stream events
+            async for event in events:
+                if ws.closed:
+                    break
+                await ws.send_json(event)
+
+    except asyncio.CancelledError:
+        logger.debug(f"WebSocket cancelled for debate {debate_id}")
+    except Exception as e:
+        logger.error(f"WebSocket error for debate {debate_id}: {e}")
+        if not ws.closed:
+            await ws.close(code=1011, message=str(e))
+```
+
+### Example 5: Handler Package Structure (Auth)
+
+The auth handler is a canonical example of a large handler split into submodules:
+
+```
+handlers/auth/
+├── __init__.py       # Re-exports AuthHandler + all public functions
+├── handler.py        # AuthHandler class with routing
+├── login.py          # handle_register, handle_login, handle_logout
+├── password.py       # handle_change_password, handle_reset_password
+├── mfa.py            # handle_mfa_setup, handle_mfa_verify, handle_mfa_disable
+├── sessions.py       # handle_list_sessions, handle_revoke_session
+├── api_keys.py       # handle_generate_api_key, handle_revoke_api_key
+├── sso_handlers.py   # SSO/OIDC authentication flows
+└── validation.py     # Email/password validation utilities
+```
+
+Each submodule exports standalone handler functions:
+
+```python
+# handlers/auth/login.py
+async def handle_login(ctx: ServerContext) -> HandlerResult:
+    """
+    Authenticate user with email/password.
+
+    POST /api/v1/auth/login
+    Body: {"email": "...", "password": "..."}
+    """
+    body = ctx.get("body", {})
+    email = body.get("email", "").strip().lower()
+    password = body.get("password", "")
+
+    if not email or not password:
+        return error_response("Email and password required", status=400)
+
+    user = await authenticate_user(email, password)
+    if not user:
+        return error_response("Invalid credentials", status=401)
+
+    session = await create_session(user)
+    return json_response({
+        "success": True,
+        "token": session.token,
+        "user": user.to_public_dict(),
+    })
+```
+
+The handler class routes to these functions:
+
+```python
+# handlers/auth/handler.py
+class AuthHandler(BaseHandler):
+    ROUTES = [
+        "/api/v1/auth/login",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/register",
+    ]
+
+    def can_handle(self, path: str) -> bool:
+        return path.startswith("/api/v1/auth/")
+
+    async def handle_post_login(self, data: dict) -> HandlerResult:
+        return await handle_login(self.ctx)
+```
+
+---
+
+*Last updated: 2026-02-01*
