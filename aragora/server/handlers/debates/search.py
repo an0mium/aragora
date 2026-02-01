@@ -71,7 +71,24 @@ class SearchOperationsMixin:
             {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
         ],
         responses={
-            "200": {"description": "Search results returned"},
+            "200": {
+                "description": "Search results returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "results": {"type": "array", "items": {"type": "object"}},
+                                "query": {"type": "string"},
+                                "total": {"type": "integer"},
+                                "offset": {"type": "integer"},
+                                "limit": {"type": "integer"},
+                                "has_more": {"type": "boolean"},
+                            },
+                        }
+                    }
+                },
+            },
             "400": {"description": "Invalid search query"},
             "500": {"description": "Database error"},
         },

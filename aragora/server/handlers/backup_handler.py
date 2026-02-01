@@ -256,6 +256,11 @@ class BackupHandler(BaseHandler):
                 validated_path = safe_path(allowed_base, source_path, must_exist=True)
                 break
             except PathTraversalError:
+                logger.debug(
+                    "Path traversal attempt blocked for backup source: %s (base: %s)",
+                    source_path,
+                    allowed_base,
+                )
                 continue
             except FileNotFoundError:
                 # Path within allowed dir but doesn't exist - try next base
@@ -362,8 +367,14 @@ class BackupHandler(BaseHandler):
                 validated_target = safe_path(allowed_base, target_path, must_exist=False)
                 break
             except PathTraversalError:
+                logger.debug(
+                    "Path traversal attempt blocked for restore target: %s (base: %s)",
+                    target_path,
+                    allowed_base,
+                )
                 continue
-            except OSError:
+            except OSError as e:
+                logger.debug("Failed to validate restore path %s: %s", target_path, e)
                 continue
 
         if validated_target is None:
@@ -510,14 +521,14 @@ class BackupHandler(BaseHandler):
             ts = float(value)
             return datetime.fromtimestamp(ts, tz=timezone.utc)
         except ValueError:
-            pass
+            logger.debug("Date value %r is not a valid unix timestamp, trying ISO format", value)
 
         try:
             # Try as ISO date
             dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
             return dt
         except (ValueError, AttributeError):
-            pass
+            logger.debug("Date value %r is not a valid ISO date format", value)
 
         return None
 

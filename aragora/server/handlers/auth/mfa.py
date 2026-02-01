@@ -46,7 +46,21 @@ logger = logging.getLogger(__name__)
     description="Generate MFA secret and provisioning URI for authenticator app setup.",
     tags=["Authentication", "MFA"],
     responses={
-        "200": {"description": "MFA secret and provisioning URI returned"},
+        "200": {
+            "description": "MFA secret and provisioning URI returned",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "secret": {"type": "string"},
+                            "provisioning_uri": {"type": "string"},
+                            "message": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
         "400": {"description": "MFA already enabled"},
         "401": {"description": "Unauthorized"},
         "404": {"description": "User not found"},
@@ -104,7 +118,22 @@ def handle_mfa_setup(handler_instance: "AuthHandler", handler) -> HandlerResult:
     description="Enable MFA after verifying setup code from authenticator app.",
     tags=["Authentication", "MFA"],
     responses={
-        "200": {"description": "MFA enabled, backup codes returned"},
+        "200": {
+            "description": "MFA enabled, backup codes returned",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string"},
+                            "backup_codes": {"type": "array", "items": {"type": "string"}},
+                            "warning": {"type": "string"},
+                            "sessions_invalidated": {"type": "boolean"},
+                        },
+                    }
+                }
+            },
+        },
         "400": {"description": "Invalid verification code or MFA not set up"},
         "401": {"description": "Unauthorized"},
         "404": {"description": "User not found"},
@@ -192,7 +221,14 @@ def handle_mfa_enable(handler_instance: "AuthHandler", handler) -> HandlerResult
     description="Disable MFA for the user. Requires MFA code or password verification.",
     tags=["Authentication", "MFA"],
     responses={
-        "200": {"description": "MFA disabled successfully"},
+        "200": {
+            "description": "MFA disabled successfully",
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object", "properties": {"message": {"type": "string"}}}
+                }
+            },
+        },
         "400": {"description": "Invalid code/password or MFA not enabled"},
         "401": {"description": "Unauthorized"},
         "404": {"description": "User not found"},
@@ -272,7 +308,32 @@ def handle_mfa_disable(handler_instance: "AuthHandler", handler) -> HandlerResul
     description="Complete login by verifying MFA code. Accepts TOTP code or backup code.",
     tags=["Authentication", "MFA"],
     responses={
-        "200": {"description": "MFA verified, tokens returned"},
+        "200": {
+            "description": "MFA verified, tokens returned",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string"},
+                            "user": {"type": "object", "additionalProperties": True},
+                            "tokens": {
+                                "type": "object",
+                                "properties": {
+                                    "access_token": {"type": "string"},
+                                    "refresh_token": {"type": "string"},
+                                    "token_type": {"type": "string"},
+                                    "expires_in": {"type": "integer"},
+                                },
+                            },
+                            "backup_codes_remaining": {"type": "integer"},
+                            "warning": {"type": "string"},
+                        },
+                        "additionalProperties": True,
+                    }
+                }
+            },
+        },
         "400": {"description": "Invalid MFA code"},
         "401": {"description": "Invalid or expired pending token"},
         "404": {"description": "User not found"},
@@ -400,7 +461,20 @@ def handle_mfa_verify(handler_instance: "AuthHandler", handler) -> HandlerResult
     description="Generate new backup codes. Requires current MFA code for verification.",
     tags=["Authentication", "MFA"],
     responses={
-        "200": {"description": "New backup codes generated"},
+        "200": {
+            "description": "New backup codes generated",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "backup_codes": {"type": "array", "items": {"type": "string"}},
+                            "warning": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
         "400": {"description": "Invalid MFA code or MFA not enabled"},
         "401": {"description": "Unauthorized"},
         "404": {"description": "User not found"},

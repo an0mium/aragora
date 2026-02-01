@@ -877,7 +877,22 @@ class GauntletHandler(BaseHandler):
             {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}}
         ],
         responses={
-            "200": {"description": "Gauntlet status and results"},
+            "200": {
+                "description": "Gauntlet status and results",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "gauntlet_id": {"type": "string"},
+                                "status": {"type": "string"},
+                                "result": {"type": "object"},
+                                "error": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Authentication required"},
             "404": {"description": "Gauntlet run not found"},
         },

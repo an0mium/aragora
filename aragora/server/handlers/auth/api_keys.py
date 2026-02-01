@@ -41,7 +41,22 @@ logger = logging.getLogger(__name__)
     description="Generate a new API key for programmatic access. Key is shown only once.",
     tags=["Authentication", "API Keys"],
     responses={
-        "200": {"description": "API key generated successfully"},
+        "200": {
+            "description": "API key generated successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "api_key": {"type": "string"},
+                            "prefix": {"type": "string"},
+                            "expires_at": {"type": "string"},
+                            "message": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
         "401": {"description": "Unauthorized"},
         "403": {"description": "API access not available for tier"},
         "404": {"description": "User not found"},
@@ -121,7 +136,14 @@ def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> Handler
     description="Revoke the current user's API key. Immediately invalidates the key.",
     tags=["Authentication", "API Keys"],
     responses={
-        "200": {"description": "API key revoked successfully"},
+        "200": {
+            "description": "API key revoked successfully",
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object", "properties": {"message": {"type": "string"}}}
+                }
+            },
+        },
         "401": {"description": "Unauthorized"},
         "404": {"description": "User not found"},
         "503": {"description": "Service unavailable"},

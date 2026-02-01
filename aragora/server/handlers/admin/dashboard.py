@@ -547,7 +547,33 @@ class DashboardHandler(SecureHandler):
             {"name": "status", "in": "query", "schema": {"type": "string"}},
         ],
         responses={
-            "200": {"description": "Paginated list of debates"},
+            "200": {
+                "description": "Paginated list of debates",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debates": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "domain": {"type": "string"},
+                                            "status": {"type": "string"},
+                                            "consensus_reached": {"type": "boolean"},
+                                            "confidence": {"type": "number"},
+                                            "created_at": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "total": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
         },

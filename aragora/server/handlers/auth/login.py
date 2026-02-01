@@ -43,7 +43,38 @@ logger = logging.getLogger(__name__)
     description="Create a new user account with email, password, and optional organization.",
     tags=["Authentication"],
     responses={
-        "201": {"description": "User created successfully"},
+        "201": {
+            "description": "User created successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "user": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "email": {"type": "string"},
+                                    "org_id": {"type": "string"},
+                                    "role": {"type": "string"},
+                                    "name": {"type": "string"},
+                                },
+                                "additionalProperties": True,
+                            },
+                            "tokens": {
+                                "type": "object",
+                                "properties": {
+                                    "access_token": {"type": "string"},
+                                    "refresh_token": {"type": "string"},
+                                    "token_type": {"type": "string"},
+                                    "expires_in": {"type": "integer"},
+                                },
+                            },
+                        },
+                    }
+                }
+            },
+        },
         "400": {"description": "Invalid request body or validation error"},
         "409": {"description": "Email already registered"},
         "503": {"description": "User service unavailable"},
@@ -149,7 +180,32 @@ def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
     description="Authenticate with email and password. Returns JWT tokens or MFA challenge if enabled.",
     tags=["Authentication"],
     responses={
-        "200": {"description": "Login successful, tokens returned"},
+        "200": {
+            "description": "Login successful, tokens returned",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "user": {"type": "object", "additionalProperties": True},
+                            "tokens": {
+                                "type": "object",
+                                "properties": {
+                                    "access_token": {"type": "string"},
+                                    "refresh_token": {"type": "string"},
+                                    "token_type": {"type": "string"},
+                                    "expires_in": {"type": "integer"},
+                                },
+                            },
+                            "mfa_required": {"type": "boolean"},
+                            "pending_token": {"type": "string"},
+                            "message": {"type": "string"},
+                        },
+                        "additionalProperties": True,
+                    }
+                }
+            },
+        },
         "400": {"description": "Invalid request body"},
         "401": {"description": "Invalid credentials or account disabled"},
         "429": {"description": "Account locked due to too many failed attempts"},

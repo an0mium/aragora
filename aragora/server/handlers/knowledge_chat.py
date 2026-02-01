@@ -54,7 +54,44 @@ def _get_bridge():
     description="Search for relevant knowledge based on query and workspace/channel context.",
     tags=["Knowledge", "Chat"],
     responses={
-        "200": {"description": "Search results returned"},
+        "200": {
+            "description": "Search results returned",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean"},
+                            "channel_id": {"type": "string"},
+                            "workspace_id": {"type": "string"},
+                            "query": {"type": "string"},
+                            "results": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "node_id": {"type": "string"},
+                                        "content": {"type": "string"},
+                                        "node_type": {"type": "string"},
+                                        "confidence": {"type": "number"},
+                                        "relevance_score": {"type": "number"},
+                                        "source": {"type": "string"},
+                                        "created_at": {"type": "string"},
+                                        "metadata": {"type": "object"},
+                                        "provenance": {"type": "string"},
+                                    },
+                                },
+                            },
+                            "result_count": {"type": "integer"},
+                            "search_scope": {"type": "string"},
+                            "search_time_ms": {"type": "number"},
+                            "suggestions": {"type": "array", "items": {"type": "string"}},
+                            "error": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
         "401": {"description": "Unauthorized"},
         "500": {"description": "Search failed"},
     },
@@ -138,7 +175,22 @@ async def handle_knowledge_search(
     description="Get relevant knowledge items to inject into an ongoing conversation.",
     tags=["Knowledge", "Chat"],
     responses={
-        "200": {"description": "Knowledge context returned"},
+        "200": {
+            "description": "Knowledge context returned",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean"},
+                            "context": {"type": "array", "items": {"type": "object"}},
+                            "item_count": {"type": "integer"},
+                            "error": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
         "401": {"description": "Unauthorized"},
         "500": {"description": "Injection failed"},
     },
@@ -196,7 +248,22 @@ async def handle_knowledge_inject(
     description="Store chat messages as persistent knowledge for future retrieval.",
     tags=["Knowledge", "Chat"],
     responses={
-        "200": {"description": "Chat stored as knowledge"},
+        "200": {
+            "description": "Chat stored as knowledge",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean"},
+                            "node_id": {"type": "string"},
+                            "message_count": {"type": "integer"},
+                            "error": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
         "400": {"description": "At least 2 messages required"},
         "401": {"description": "Unauthorized"},
         "500": {"description": "Storage failed"},
@@ -275,7 +342,21 @@ async def handle_store_chat_knowledge(
         {"name": "channel_id", "in": "path", "required": True, "schema": {"type": "string"}}
     ],
     responses={
-        "200": {"description": "Channel knowledge summary"},
+        "200": {
+            "description": "Channel knowledge summary",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean"},
+                            "error": {"type": "string"},
+                        },
+                        "additionalProperties": True,
+                    }
+                }
+            },
+        },
         "401": {"description": "Unauthorized"},
         "500": {"description": "Summary failed"},
     },

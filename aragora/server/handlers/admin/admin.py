@@ -443,7 +443,22 @@ class AdminHandler(SecureHandler):
             {"name": "tier", "in": "query", "schema": {"type": "string"}},
         ],
         responses={
-            "200": {"description": "Paginated list of organizations"},
+            "200": {
+                "description": "Paginated list of organizations",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "organizations": {"type": "array", "items": {"type": "object"}},
+                                "total": {"type": "integer"},
+                                "limit": {"type": "integer"},
+                                "offset": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
@@ -501,7 +516,22 @@ class AdminHandler(SecureHandler):
             },
         ],
         responses={
-            "200": {"description": "Paginated list of users"},
+            "200": {
+                "description": "Paginated list of users",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "users": {"type": "array", "items": {"type": "object"}},
+                                "total": {"type": "integer"},
+                                "limit": {"type": "integer"},
+                                "offset": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
@@ -555,7 +585,17 @@ class AdminHandler(SecureHandler):
         summary="Get system-wide statistics",
         tags=["Admin"],
         responses={
-            "200": {"description": "System-wide statistics"},
+            "200": {
+                "description": "System-wide statistics",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"stats": {"type": "object"}},
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
@@ -585,7 +625,17 @@ class AdminHandler(SecureHandler):
         summary="Get aggregated system metrics",
         tags=["Admin"],
         responses={
-            "200": {"description": "Aggregated system metrics from all sources"},
+            "200": {
+                "description": "Aggregated system metrics from all sources",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"metrics": {"type": "object"}},
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
@@ -658,7 +708,17 @@ class AdminHandler(SecureHandler):
         summary="Get revenue and billing statistics",
         tags=["Admin"],
         responses={
-            "200": {"description": "Revenue statistics including MRR and ARR"},
+            "200": {
+                "description": "Revenue statistics including MRR and ARR",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"revenue": {"type": "object"}},
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
@@ -723,7 +783,22 @@ class AdminHandler(SecureHandler):
             {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}},
         ],
         responses={
-            "200": {"description": "Impersonation token created"},
+            "200": {
+                "description": "Impersonation token created",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "token": {"type": "string"},
+                                "expires_in": {"type": "integer"},
+                                "target_user": {"type": "object"},
+                                "warning": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
             "404": {"description": "User not found"},
@@ -1019,7 +1094,25 @@ class AdminHandler(SecureHandler):
         tags=["Admin"],
         responses={
             "200": {
-                "description": "Nomic loop status including state machine, metrics, and circuit breakers"
+                "description": "Nomic loop status including state machine, metrics, and circuit breakers",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "running": {"type": "boolean"},
+                                "current_phase": {"type": "string"},
+                                "cycle_id": {"type": "string"},
+                                "state_machine": {"type": "object"},
+                                "metrics": {"type": "object"},
+                                "circuit_breakers": {"type": "object"},
+                                "last_checkpoint": {"type": "object"},
+                                "errors": {"type": "array", "items": {"type": "string"}},
+                            },
+                            "additionalProperties": True,
+                        }
+                    }
+                },
             },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
@@ -1118,7 +1211,21 @@ class AdminHandler(SecureHandler):
         summary="Get nomic circuit breaker status",
         tags=["Admin"],
         responses={
-            "200": {"description": "Circuit breaker details and open circuit list"},
+            "200": {
+                "description": "Circuit breaker details and open circuit list",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "circuit_breakers": {"type": "object"},
+                                "open_circuits": {"type": "array", "items": {"type": "string"}},
+                                "total_count": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
             "503": {"description": "Nomic recovery module not available"},
@@ -1188,7 +1295,23 @@ class AdminHandler(SecureHandler):
             },
         },
         responses={
-            "200": {"description": "Nomic phase reset successfully"},
+            "200": {
+                "description": "Nomic phase reset successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "previous_phase": {"type": "string"},
+                                "new_phase": {"type": "string"},
+                                "cycle_id": {"type": "string"},
+                                "message": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
             "400": {"description": "Invalid target phase or JSON body"},
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
@@ -1335,7 +1458,23 @@ class AdminHandler(SecureHandler):
             },
         },
         responses={
-            "200": {"description": "Nomic loop paused successfully"},
+            "200": {
+                "description": "Nomic loop paused successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "status": {"type": "string"},
+                                "previous_phase": {"type": "string"},
+                                "paused_by": {"type": "string"},
+                                "reason": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
         },
@@ -1447,7 +1586,22 @@ class AdminHandler(SecureHandler):
             },
         },
         responses={
-            "200": {"description": "Nomic loop resumed successfully"},
+            "200": {
+                "description": "Nomic loop resumed successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "status": {"type": "string"},
+                                "phase": {"type": "string"},
+                                "resumed_by": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
             "400": {"description": "Nomic is not currently paused"},
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
@@ -1550,7 +1704,24 @@ class AdminHandler(SecureHandler):
         summary="Reset all nomic circuit breakers",
         tags=["Admin"],
         responses={
-            "200": {"description": "All circuit breakers reset successfully"},
+            "200": {
+                "description": "All circuit breakers reset successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {"type": "boolean"},
+                                "previously_open": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "message": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden - requires admin role and MFA"},
             "503": {"description": "Nomic recovery module not available"},

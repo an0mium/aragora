@@ -565,14 +565,14 @@ async def handle_get_scheduled_payments(
                     query_params["start_date"].replace("Z", "+00:00")
                 )
             except ValueError:
-                pass
+                logger.debug("Invalid start_date format: %s", query_params.get("start_date"))
 
         end_date = None
         if query_params.get("end_date"):
             try:
                 end_date = datetime.fromisoformat(query_params["end_date"].replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug("Invalid end_date format: %s", query_params.get("end_date"))
 
         payments = await processor.get_scheduled_payments(
             start_date=start_date,
@@ -638,7 +638,7 @@ async def handle_create_purchase_order(
             try:
                 order_date = datetime.fromisoformat(data["order_date"].replace("Z", "+00:00"))
             except ValueError:
-                pass
+                logger.debug("Invalid order_date format: %s", data.get("order_date"))
 
         expected_delivery = None
         if data.get("expected_delivery"):
@@ -647,7 +647,7 @@ async def handle_create_purchase_order(
                     data["expected_delivery"].replace("Z", "+00:00")
                 )
             except ValueError:
-                pass
+                logger.debug("Invalid expected_delivery format: %s", data.get("expected_delivery"))
 
         po = await processor.add_purchase_order(
             po_number=po_number,

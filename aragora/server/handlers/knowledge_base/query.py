@@ -72,7 +72,23 @@ class QueryOperationsMixin:
             },
         },
         responses={
-            "200": {"description": "Query result with answer and supporting evidence"},
+            "200": {
+                "description": "Query result with answer and supporting evidence",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "answer": {"type": "string"},
+                                "confidence": {"type": "number"},
+                                "citations": {"type": "array", "items": {"type": "object"}},
+                                "sources": {"type": "array", "items": {"type": "object"}},
+                            },
+                            "additionalProperties": True,
+                        }
+                    }
+                },
+            },
             "400": {"description": "Invalid request body or missing question"},
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},

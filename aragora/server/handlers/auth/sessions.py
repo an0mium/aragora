@@ -31,7 +31,20 @@ logger = logging.getLogger(__name__)
     description="List all active sessions for the current user with device and activity metadata.",
     tags=["Authentication", "Sessions"],
     responses={
-        "200": {"description": "List of active sessions returned"},
+        "200": {
+            "description": "List of active sessions returned",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "sessions": {"type": "array", "items": {"type": "object"}},
+                            "total": {"type": "integer"},
+                        },
+                    }
+                }
+            },
+        },
         "401": {"description": "Unauthorized"},
     },
 )
@@ -98,7 +111,21 @@ def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerRes
         {"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}
     ],
     responses={
-        "200": {"description": "Session revoked successfully"},
+        "200": {
+            "description": "Session revoked successfully",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean"},
+                            "message": {"type": "string"},
+                            "session_id": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
         "400": {"description": "Invalid session ID or cannot revoke current session"},
         "401": {"description": "Unauthorized"},
         "404": {"description": "Session not found"},

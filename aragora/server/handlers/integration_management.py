@@ -733,6 +733,7 @@ class IntegrationsHandler(BaseHandler):
                 }
 
         except Exception as e:
+            logger.warning("Slack health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": str(e)}
 
     async def _check_teams_health(self, workspace) -> dict[str, Any]:
@@ -760,6 +761,7 @@ class IntegrationsHandler(BaseHandler):
             }
 
         except Exception as e:
+            logger.warning("Teams health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": str(e)}
 
     async def _check_discord_health(self) -> dict[str, Any]:
@@ -790,6 +792,7 @@ class IntegrationsHandler(BaseHandler):
             }
 
         except Exception as e:
+            logger.warning("Discord health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": str(e)}
 
     async def _check_email_health(self) -> dict[str, Any]:
@@ -823,6 +826,7 @@ class IntegrationsHandler(BaseHandler):
                 }
 
         except Exception as e:
+            logger.warning("Email health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": str(e)}
 
 

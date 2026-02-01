@@ -44,6 +44,31 @@ logger = logging.getLogger(__name__)
 # Cache TTLs
 CACHE_TTL_FACTS = 60  # 1 minute for fact listings
 
+FACT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "statement": {"type": "string"},
+        "confidence": {"type": "number"},
+        "topics": {"type": "array", "items": {"type": "string"}},
+        "workspace_id": {"type": "string"},
+        "validation_status": {"type": "string"},
+        "created_at": {"type": "string"},
+        "updated_at": {"type": "string"},
+    },
+    "additionalProperties": True,
+}
+
+RELATION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "relation_type": {"type": "string"},
+        "source_fact_id": {"type": "string"},
+        "target_fact_id": {"type": "string"},
+    },
+    "additionalProperties": True,
+}
+
 
 class FactsHandlerProtocol(Protocol):
     """Protocol for handlers that use FactsOperationsMixin."""
@@ -106,7 +131,22 @@ class FactsOperationsMixin:
             },
         ],
         responses={
-            "200": {"description": "List of facts matching the filters"},
+            "200": {
+                "description": "List of facts matching the filters",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "facts": {"type": "array", "items": FACT_SCHEMA},
+                                "total": {"type": "integer"},
+                                "limit": {"type": "integer"},
+                                "offset": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
             "429": {"description": "Rate limit exceeded"},
@@ -164,7 +204,10 @@ class FactsOperationsMixin:
             },
         ],
         responses={
-            "200": {"description": "Fact details"},
+            "200": {
+                "description": "Fact details",
+                "content": {"application/json": {"schema": FACT_SCHEMA}},
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
             "404": {"description": "Fact not found"},
@@ -208,7 +251,10 @@ class FactsOperationsMixin:
             },
         },
         responses={
-            "201": {"description": "Fact created successfully"},
+            "201": {
+                "description": "Fact created successfully",
+                "content": {"application/json": {"schema": FACT_SCHEMA}},
+            },
             "400": {"description": "Invalid request body or missing statement"},
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
@@ -284,7 +330,10 @@ class FactsOperationsMixin:
             },
         },
         responses={
-            "200": {"description": "Fact updated successfully"},
+            "200": {
+                "description": "Fact updated successfully",
+                "content": {"application/json": {"schema": FACT_SCHEMA}},
+            },
             "400": {"description": "Invalid request body"},
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
@@ -450,7 +499,24 @@ class FactsOperationsMixin:
             },
         ],
         responses={
-            "200": {"description": "List of contradicting facts"},
+            "200": {
+                "description": "List of contradicting facts",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "fact_id": {"type": "string"},
+                                "contradictions": {
+                                    "type": "array",
+                                    "items": FACT_SCHEMA,
+                                },
+                                "count": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
             "404": {"description": "Fact not found"},
@@ -508,7 +574,21 @@ class FactsOperationsMixin:
             },
         ],
         responses={
-            "200": {"description": "List of fact relations"},
+            "200": {
+                "description": "List of fact relations",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "fact_id": {"type": "string"},
+                                "relations": {"type": "array", "items": RELATION_SCHEMA},
+                                "count": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
             "404": {"description": "Fact not found"},

@@ -502,7 +502,16 @@ class ExportOperationsMixin:
             {"name": "table", "in": "query", "schema": {"type": "string", "default": "summary"}},
         ],
         responses={
-            "200": {"description": "Export returned in requested format"},
+            "200": {
+                "description": "Export returned in requested format",
+                "content": {
+                    "application/json": {"schema": {"type": "object"}},
+                    "text/plain": {"schema": {"type": "string"}},
+                    "text/csv": {"schema": {"type": "string"}},
+                    "text/markdown": {"schema": {"type": "string"}},
+                    "text/html": {"schema": {"type": "string"}},
+                },
+            },
             "400": {"description": "Invalid format or table"},
             "404": {"description": "Debate not found"},
             "500": {"description": "Database error"},

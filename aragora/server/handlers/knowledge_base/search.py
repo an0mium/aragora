@@ -69,7 +69,22 @@ class SearchOperationsMixin:
             },
         ],
         responses={
-            "200": {"description": "Search results with matching chunks"},
+            "200": {
+                "description": "Search results with matching chunks",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string"},
+                                "workspace_id": {"type": "string"},
+                                "results": {"type": "array", "items": {"type": "object"}},
+                                "count": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
             "400": {"description": "Missing query parameter"},
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
@@ -123,7 +138,20 @@ class SearchOperationsMixin:
             },
         ],
         responses={
-            "200": {"description": "Knowledge base statistics"},
+            "200": {
+                "description": "Knowledge base statistics",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "workspace_id": {"type": "string"},
+                            },
+                            "additionalProperties": True,
+                        }
+                    }
+                },
+            },
             "401": {"description": "Unauthorized"},
             "403": {"description": "Forbidden"},
         },

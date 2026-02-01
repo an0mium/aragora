@@ -806,6 +806,7 @@ class AuditingHandler(SecureHandler):
         try:
             from aragora.modes.redteam import AttackType
         except ImportError:
+            logger.debug("RedTeam module not available for proposal analysis")
             return []
 
         findings = []
@@ -848,6 +849,7 @@ class AuditingHandler(SecureHandler):
             try:
                 AttackType(attack_type)
             except ValueError:
+                logger.debug("Skipping invalid attack type: %s", attack_type)
                 continue
 
             pattern: dict[str, Any] = vulnerability_patterns.get(attack_type, {})

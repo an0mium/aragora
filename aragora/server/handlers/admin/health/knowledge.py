@@ -79,7 +79,7 @@ class KnowledgeMixin:
         # 2. Check core mound initialization
         mound: KnowledgeMound | None = None
         try:
-            mound = KnowledgeMound(workspace_id="health_check") # type: ignore[abstract]
+            mound = KnowledgeMound(workspace_id="health_check")  # type: ignore[abstract]
 
             components["core"] = {
                 "healthy": True,
@@ -191,7 +191,7 @@ class KnowledgeMixin:
                     if mound._store is not None:
                         result["store_type"] = type(mound._store).__name__
                 except AttributeError:
-                    pass
+                    logger.debug("Could not get store type for knowledge mound health check")
 
             return result
 
@@ -220,7 +220,9 @@ class KnowledgeMixin:
                             workspace_count = len(accumulator._patterns)
                             result["workspaces_tracked"] = workspace_count
                     except (AttributeError, TypeError):
-                        pass
+                        logger.debug(
+                            "Could not get pattern counts for culture accumulator health check"
+                        )
 
                     return result
                 else:
@@ -515,7 +517,11 @@ class KnowledgeMixin:
                                 if hours_since > 48:
                                     stale_workspaces.append(ws_id)
                             except (ValueError, TypeError):
-                                pass
+                                logger.debug(
+                                    "Invalid run time format for workspace %s: %s",
+                                    ws_id,
+                                    run_time_str,
+                                )
                         if stale_workspaces:
                             component["alert"] = {
                                 "level": "warning",
