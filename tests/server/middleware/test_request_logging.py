@@ -622,8 +622,10 @@ class TestRequestLoggingDecorator:
         mock_request = MagicMock()
         mock_request.method = "GET"
         mock_request.path = "/api/test"
-        mock_request.headers = {"X-Request-ID": "existing-req-id"}
-        mock_request.headers.get = lambda k: "existing-req-id" if k == "X-Request-ID" else None
+
+        mock_headers = MagicMock()
+        mock_headers.get = lambda k, d=None: "existing-req-id" if k == "X-Request-ID" else d
+        mock_request.headers = mock_headers
 
         handler(None, mock_request)
         # Request should be logged with existing ID
@@ -677,10 +679,12 @@ class TestRequestLoggingDecorator:
         mock_request = MagicMock()
         mock_request.method = "GET"
         mock_request.path = "/api/auth"
-        mock_request.headers = {"Authorization": "Bearer my-secret-token"}
-        mock_request.headers.get = lambda k, d=None: (
+
+        mock_headers = MagicMock()
+        mock_headers.get = lambda k, d=None: (
             "Bearer my-secret-token" if k == "Authorization" else d
         )
+        mock_request.headers = mock_headers
 
         handler(None, mock_request)
         # Token hash should be computed
@@ -699,10 +703,11 @@ class TestExtractIp:
         from aragora.server.middleware.request_logging import _extract_ip
 
         mock_request = MagicMock()
-        mock_request.headers = {"X-Forwarded-For": "203.0.113.50, 198.51.100.178"}
-        mock_request.headers.get = lambda k, d="": (
+        mock_headers = MagicMock()
+        mock_headers.get = lambda k, d="": (
             "203.0.113.50, 198.51.100.178" if k == "X-Forwarded-For" else d
         )
+        mock_request.headers = mock_headers
 
         ip = _extract_ip(mock_request)
         assert ip == "203.0.113.50"  # First IP is original client
@@ -967,9 +972,7 @@ class TestEdgeCases:
 
         mock_request = MagicMock()
         mock_request.headers = MagicMock()
-        mock_request.headers.get = lambda k, d="": (
-            "10.0.0.5" if k == "X-Forwarded-For" else d
-        )
+        mock_request.headers.get = lambda k, d="": ("10.0.0.5" if k == "X-Forwarded-For" else d)
 
         ip = _extract_ip(mock_request)
         assert ip == "10.0.0.5"
@@ -1193,11 +1196,12 @@ class TestEdgeCases:
         mock_request = MagicMock()
         mock_request.method = "GET"
         mock_request.path = "/api/test"
-        mock_request.headers = {"X-Request-ID": "custom-req-id-42"}
-        mock_request.headers.get = lambda k, d=None: (
-            "custom-req-id-42" if k == "X-Request-ID" else
-            "" if k == "Authorization" else d
+
+        mock_headers = MagicMock()
+        mock_headers.get = lambda k, d=None: (
+            "custom-req-id-42" if k == "X-Request-ID" else "" if k == "Authorization" else d
         )
+        mock_request.headers = mock_headers
 
         result = asyncio.run(handler(None, mock_request))
         assert result.headers["X-Request-ID"] == "custom-req-id-42"

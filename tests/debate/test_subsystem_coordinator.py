@@ -413,7 +413,7 @@ class TestSubsystemCoordinatorLifecycle:
         result.consensus = "Use Redis"
         result.consensus_confidence = 0.8
 
-        with patch("aragora.debate.subsystem_coordinator.MemoryTier") as mock_tier:
+        with patch("aragora.memory.continuum.MemoryTier") as mock_tier:
             mock_tier.MEDIUM = "medium"
 
             coord.on_debate_complete(ctx, result)
@@ -1005,4 +1005,606 @@ class TestKMCoordinatorAutoInit:
 
         assert coord.km_sync_interval_seconds == 600
         assert coord.km_min_confidence_for_reverse == 0.8
+        assert coord.km_parallel_sync is False
+
+
+# =============================================================================
+# Additional Coverage: Consensus confidence -> ConsensusStrength mapping
+# =============================================================================
+
+
+class TestConsensusStrengthMapping:
+    """Tests for on_debate_complete confidence-to-strength mapping."""
+
+    def _create_mock_context(self, agents=None):
+        ctx = Mock()
+        ctx.debate_id = "debate-strength"
+        ctx.domain = "technology"
+        ctx.env = Mock()
+        ctx.env.task = "Test task"
+        ctx.agents = agents or [Mock(name="claude")]
+        return ctx
+
+    def test_unanimous_strength_at_090(self):
+        """Test confidence >= 0.9 maps to UNANIMOUS strength."""
+        mock_consensus = Mock()
+        coord = SubsystemCoordinator(consensus_memory=mock_consensus)
+
+        ctx = self._create_mock_context()
+        result = Mock()
+        result.consensus = "Unanimous decision"
+        result.consensus_confidence = 0.95
+        result.predictions = {}
+
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.UNANIMOUS = "unanimous"
+            coord.on_debate_complete(ctx, result)
+
+            call_kwargs = mock_consensus.store_consensus.call_args[1]
+            assert call_kwargs["strength"] == "unanimous"
+
+    def test_strong_strength_at_080(self):
+        """Test confidence >= 0.8 (but < 0.9) maps to STRONG strength."""
+        mock_consensus = Mock()
+        coord = SubsystemCoordinator(consensus_memory=mock_consensus)
+
+        ctx = self._create_mock_context()
+        result = Mock()
+        result.consensus = "Strong decision"
+        result.consensus_confidence = 0.85
+        result.predictions = {}
+
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.STRONG = "strong"
+            coord.on_debate_complete(ctx, result)
+
+            call_kwargs = mock_consensus.store_consensus.call_args[1]
+            assert call_kwargs["strength"] == "strong"
+
+    def test_moderate_strength_at_060(self):
+        """Test confidence >= 0.6 (but < 0.8) maps to MODERATE strength."""
+        mock_consensus = Mock()
+        coord = SubsystemCoordinator(consensus_memory=mock_consensus)
+
+        ctx = self._create_mock_context()
+        result = Mock()
+        result.consensus = "Moderate decision"
+        result.consensus_confidence = 0.65
+        result.predictions = {}
+
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.MODERATE = "moderate"
+            coord.on_debate_complete(ctx, result)
+
+            call_kwargs = mock_consensus.store_consensus.call_args[1]
+            assert call_kwargs["strength"] == "moderate"
+
+    def test_weak_strength_at_050(self):
+        """Test confidence >= 0.5 (but < 0.6) maps to WEAK strength."""
+        mock_consensus = Mock()
+        coord = SubsystemCoordinator(consensus_memory=mock_consensus)
+
+        ctx = self._create_mock_context()
+        result = Mock()
+        result.consensus = "Weak decision"
+        result.consensus_confidence = 0.55
+        result.predictions = {}
+
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.WEAK = "weak"
+            coord.on_debate_complete(ctx, result)
+
+            call_kwargs = mock_consensus.store_consensus.call_args[1]
+            assert call_kwargs["strength"] == "weak"
+
+    def test_split_strength_below_050(self):
+        """Test confidence < 0.5 maps to SPLIT strength."""
+        mock_consensus = Mock()
+        coord = SubsystemCoordinator(consensus_memory=mock_consensus)
+
+        ctx = self._create_mock_context()
+        result = Mock()
+        result.consensus = "Split decision"
+        result.consensus_confidence = 0.35
+        result.predictions = {}
+
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.SPLIT = "split"
+            coord.on_debate_complete(ctx, result)
+
+            call_kwargs = mock_consensus.store_consensus.call_args[1]
+            assert call_kwargs["strength"] == "split"
+
+
+# =============================================================================
+# Additional Coverage: _register_km_adapters with real adapters
+# =============================================================================
+
+
+class TestRegisterKMAdaptersDeep:
+    """Tests for _register_km_adapters with various adapter combinations."""
+
+    def test_register_all_six_adapters(self):
+        """Test _register_km_adapters registers all 6 adapter types when called manually."""
+        mock_km_coord = Mock()
+
+        # Pre-set km_coordinator so __post_init__ skips auto-init
+        coord = SubsystemCoordinator(
+            km_coordinator=mock_km_coord,
+            km_continuum_adapter=Mock(),
+            km_elo_adapter=Mock(),
+            km_belief_adapter=Mock(),
+            km_insights_adapter=Mock(),
+            km_critique_adapter=Mock(),
+            km_pulse_adapter=Mock(),
+        )
+
+        # __post_init__ skips _auto_init_km_coordinator when km_coordinator already set
+        # So call _register_km_adapters manually to test
+        mock_km_coord.register_adapter.reset_mock()
+        coord._register_km_adapters()
+
+        assert mock_km_coord.register_adapter.call_count == 6
+
+        # Check priority ordering
+        calls = mock_km_coord.register_adapter.call_args_list
+        priorities = [c[1]["priority"] for c in calls]
+        assert priorities == [1, 2, 3, 4, 5, 6]
+
+        # Check adapter names
+        names = [c[1]["name"] for c in calls]
+        assert names == ["continuum", "elo", "belief", "insights", "critique", "pulse"]
+
+    def test_register_partial_adapters(self):
+        """Test _register_km_adapters registers only available adapters."""
+        mock_km_coord = Mock()
+
+        coord = SubsystemCoordinator(
+            km_coordinator=mock_km_coord,
+            km_continuum_adapter=Mock(),
+            km_elo_adapter=Mock(),
+        )
+
+        # Call manually
+        mock_km_coord.register_adapter.reset_mock()
+        coord._register_km_adapters()
+
+        assert mock_km_coord.register_adapter.call_count == 2
+
+    def test_register_adapters_handles_registration_error(self):
+        """Test _register_km_adapters handles adapter registration failure."""
+        mock_km_coord = Mock()
+        mock_km_coord.register_adapter.side_effect = RuntimeError("Registration failed")
+
+        coord = SubsystemCoordinator(
+            km_coordinator=mock_km_coord,
+            km_continuum_adapter=Mock(),
+        )
+
+        # Call manually
+        mock_km_coord.register_adapter.reset_mock()
+        mock_km_coord.register_adapter.side_effect = RuntimeError("Registration failed")
+
+        # Should not raise
+        coord._register_km_adapters()
+
+        # Registration was attempted but failed
+        mock_km_coord.register_adapter.assert_called_once()
+
+    def test_register_adapters_no_coordinator(self):
+        """Test _register_km_adapters is no-op without coordinator."""
+        coord = SubsystemCoordinator(
+            km_coordinator=None,
+            km_continuum_adapter=Mock(),
+        )
+
+        # Calling _register_km_adapters should be a no-op
+        coord._register_km_adapters()
+
+        # No error and adapter field is present but not registered via coordinator
+        assert coord.active_km_adapters_count == 1
+
+
+# =============================================================================
+# Additional Coverage: on_debate_start with reset() failure
+# =============================================================================
+
+
+class TestOnDebateStartDeep:
+    """Tests for on_debate_start edge cases."""
+
+    def _create_mock_context(self):
+        ctx = Mock()
+        ctx.debate_id = "debate-start"
+        ctx.env = Mock()
+        ctx.env.task = "Test"
+        ctx.agents = []
+        return ctx
+
+    def test_on_debate_start_reset_raises(self):
+        """Test on_debate_start handles reset() exception."""
+
+        class FaultyResettable:
+            def reset(self):
+                raise RuntimeError("Reset failed")
+
+        detector = FaultyResettable()
+        coord = SubsystemCoordinator(moment_detector=detector)
+
+        ctx = self._create_mock_context()
+        # Should not raise despite reset failure
+        coord.on_debate_start(ctx)
+
+    def test_on_debate_start_no_subsystems(self):
+        """Test on_debate_start with no subsystems is a no-op."""
+        coord = SubsystemCoordinator()
+
+        ctx = self._create_mock_context()
+        # Should not raise
+        coord.on_debate_start(ctx)
+
+    def test_on_debate_start_non_resettable_moment_detector(self):
+        """Test on_debate_start skips reset for non-Resettable detector."""
+        detector = Mock(spec=[])  # No reset method
+        coord = SubsystemCoordinator(moment_detector=detector)
+
+        ctx = self._create_mock_context()
+        coord.on_debate_start(ctx)
+
+        # Should not have called reset
+
+
+# =============================================================================
+# Additional Coverage: get_agent_calibration_weight error handling
+# =============================================================================
+
+
+class TestCalibrationWeightDeep:
+    """Tests for get_agent_calibration_weight error cases."""
+
+    def test_calibration_weight_summary_none(self):
+        """Test get_agent_calibration_weight when summary is None."""
+        mock_tracker = Mock()
+        mock_tracker.get_calibration_summary.return_value = None
+
+        coord = SubsystemCoordinator(calibration_tracker=mock_tracker)
+
+        weight = coord.get_agent_calibration_weight("claude")
+
+        assert weight == 1.0
+
+    def test_calibration_weight_key_error(self):
+        """Test get_agent_calibration_weight handles KeyError."""
+        mock_tracker = Mock()
+        mock_tracker.get_calibration_summary.side_effect = KeyError("Unknown agent")
+
+        coord = SubsystemCoordinator(calibration_tracker=mock_tracker)
+
+        weight = coord.get_agent_calibration_weight("unknown_agent")
+
+        assert weight == 1.0
+
+    def test_calibration_weight_attribute_error(self):
+        """Test get_agent_calibration_weight handles AttributeError."""
+        mock_tracker = Mock()
+        mock_tracker.get_calibration_summary.side_effect = AttributeError("Missing attr")
+
+        coord = SubsystemCoordinator(calibration_tracker=mock_tracker)
+
+        weight = coord.get_agent_calibration_weight("claude")
+
+        assert weight == 1.0
+
+    def test_calibration_weight_exact_calculation(self):
+        """Test get_agent_calibration_weight exact formula: 0.5 + (1 - min(brier, 0.5))."""
+        mock_tracker = Mock()
+        mock_summary = Mock()
+        mock_summary.total_predictions = 20
+        mock_summary.brier_score = 0.2
+        mock_tracker.get_calibration_summary.return_value = mock_summary
+
+        coord = SubsystemCoordinator(calibration_tracker=mock_tracker)
+
+        weight = coord.get_agent_calibration_weight("claude")
+
+        # 0.5 + (1.0 - min(0.2, 0.5)) = 0.5 + 0.8 = 1.3
+        assert weight == pytest.approx(1.3, abs=0.01)
+
+    def test_calibration_weight_brier_above_half(self):
+        """Test get_agent_calibration_weight with brier_score > 0.5 caps at 0.5."""
+        mock_tracker = Mock()
+        mock_summary = Mock()
+        mock_summary.total_predictions = 10
+        mock_summary.brier_score = 0.8  # Very poor, capped to 0.5
+        mock_tracker.get_calibration_summary.return_value = mock_summary
+
+        coord = SubsystemCoordinator(calibration_tracker=mock_tracker)
+
+        weight = coord.get_agent_calibration_weight("claude")
+
+        # 0.5 + (1.0 - min(0.8, 0.5)) = 0.5 + (1.0 - 0.5) = 1.0
+        assert weight == pytest.approx(1.0, abs=0.01)
+
+
+# =============================================================================
+# Additional Coverage: get_status with hook_handler_registry
+# =============================================================================
+
+
+class TestGetStatusDeep:
+    """Tests for get_status method deep coverage."""
+
+    def test_get_status_hook_handlers_count(self):
+        """Test get_status reports hook_handlers_registered count."""
+        mock_registry = Mock()
+        mock_registry.is_registered = True
+        mock_registry.registered_count = 7
+
+        coord = SubsystemCoordinator(hook_handler_registry=mock_registry)
+
+        status = coord.get_status()
+
+        assert status["hook_handlers_registered"] == 7
+
+    def test_get_status_hook_handlers_count_zero(self):
+        """Test get_status reports 0 when no registry."""
+        coord = SubsystemCoordinator()
+
+        status = coord.get_status()
+
+        assert status["hook_handlers_registered"] == 0
+
+    def test_get_status_km_config(self):
+        """Test get_status includes KM config values."""
+        coord = SubsystemCoordinator(
+            km_sync_interval_seconds=120,
+            km_min_confidence_for_reverse=0.9,
+            km_parallel_sync=False,
+        )
+
+        status = coord.get_status()
+
+        assert status["knowledge_mound"]["config"]["sync_interval_seconds"] == 120
+        assert status["knowledge_mound"]["config"]["min_confidence_for_reverse"] == 0.9
+        assert status["knowledge_mound"]["config"]["parallel_sync"] is False
+
+    def test_get_status_all_bridges_active(self):
+        """Test get_status with all 7 bridges active."""
+        coord = SubsystemCoordinator(
+            performance_router_bridge=Mock(),
+            outcome_complexity_bridge=Mock(),
+            analytics_selection_bridge=Mock(),
+            novelty_selection_bridge=Mock(),
+            relationship_bias_bridge=Mock(),
+            rlm_selection_bridge=Mock(),
+            calibration_cost_bridge=Mock(),
+        )
+
+        status = coord.get_status()
+
+        assert status["active_bridges_count"] == 7
+        assert all(status["cross_pollination_bridges"].values())
+
+    def test_get_status_all_adapters_active(self):
+        """Test get_status with all KM adapters active."""
+        coord = SubsystemCoordinator(
+            knowledge_mound=Mock(),
+            km_coordinator=Mock(),
+            km_continuum_adapter=Mock(),
+            km_elo_adapter=Mock(),
+            km_belief_adapter=Mock(),
+            km_insights_adapter=Mock(),
+            km_critique_adapter=Mock(),
+            km_pulse_adapter=Mock(),
+        )
+
+        status = coord.get_status()
+
+        assert status["knowledge_mound"]["active_adapters_count"] == 6
+        assert all(status["knowledge_mound"]["adapters"].values())
+
+    def test_get_status_subsystems_all_false_when_empty(self):
+        """Test get_status subsystems are all False when coordinator is empty."""
+        coord = SubsystemCoordinator()
+
+        status = coord.get_status()
+
+        for key, val in status["subsystems"].items():
+            assert val is False, f"Expected {key} to be False"
+
+        for key, val in status["capabilities"].items():
+            assert val is False, f"Expected capability {key} to be False"
+
+
+# =============================================================================
+# Additional Coverage: on_debate_complete with empty env/agents
+# =============================================================================
+
+
+class TestOnDebateCompleteDeep:
+    """Tests for on_debate_complete edge cases."""
+
+    def test_on_debate_complete_no_env(self):
+        """Test on_debate_complete handles ctx with no env."""
+        mock_consensus = Mock()
+        coord = SubsystemCoordinator(consensus_memory=mock_consensus)
+
+        ctx = Mock()
+        ctx.debate_id = "debate-123"
+        ctx.env = None
+        ctx.agents = []
+
+        result = Mock()
+        result.consensus = "Decision"
+        result.consensus_confidence = 0.75
+        result.predictions = {}
+
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.MODERATE = "moderate"
+            coord.on_debate_complete(ctx, result)
+
+            call_kwargs = mock_consensus.store_consensus.call_args[1]
+            assert call_kwargs["topic"] == ""  # Empty task when no env
+
+    def test_on_debate_complete_consensus_memory_error(self):
+        """Test on_debate_complete handles consensus memory store error."""
+        mock_consensus = Mock()
+        mock_consensus.store_consensus.side_effect = RuntimeError("Store failed")
+
+        coord = SubsystemCoordinator(consensus_memory=mock_consensus)
+
+        ctx = Mock()
+        ctx.debate_id = "debate-123"
+        ctx.env = Mock()
+        ctx.env.task = "Test"
+        ctx.agents = []
+
+        result = Mock()
+        result.consensus = "Decision"
+        result.consensus_confidence = 0.8
+        result.predictions = {}
+
+        # Should not raise
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.STRONG = "strong"
+            coord.on_debate_complete(ctx, result)
+
+    def test_on_debate_complete_all_subsystems(self):
+        """Test on_debate_complete updates all three subsystems."""
+        mock_consensus = Mock()
+        mock_calibration = Mock()
+        mock_continuum = Mock()
+
+        coord = SubsystemCoordinator(
+            consensus_memory=mock_consensus,
+            calibration_tracker=mock_calibration,
+            continuum_memory=mock_continuum,
+        )
+
+        ctx = Mock()
+        ctx.debate_id = "debate-all"
+        ctx.domain = "technology"
+        ctx.env = Mock()
+        ctx.env.task = "Design cache"
+        ctx.agents = [Mock(name="claude"), Mock(name="gpt4")]
+
+        result = Mock()
+        result.consensus = "Use Redis"
+        result.consensus_confidence = 0.9
+        result.predictions = {
+            "claude": {"prediction": "Redis", "confidence": 0.9},
+        }
+
+        with patch("aragora.memory.consensus.ConsensusStrength") as MockStrength:
+            MockStrength.UNANIMOUS = "unanimous"
+            with patch("aragora.memory.continuum.MemoryTier") as MockTier:
+                MockTier.MEDIUM = "medium"
+                coord.on_debate_complete(ctx, result)
+
+        mock_consensus.store_consensus.assert_called_once()
+        mock_calibration.record_prediction.assert_called_once()
+        mock_continuum.add.assert_called_once()
+
+    def test_on_debate_complete_dict_prediction(self):
+        """Test on_debate_complete handles dict prediction format."""
+        mock_calibration = Mock()
+        coord = SubsystemCoordinator(calibration_tracker=mock_calibration)
+
+        ctx = Mock()
+        ctx.debate_id = "debate-dict"
+        ctx.domain = "tech"
+
+        result = Mock()
+        result.consensus = "Redis"
+        result.predictions = {
+            "claude": {"prediction": "Redis", "confidence": 0.9},
+        }
+
+        coord.on_debate_complete(ctx, result)
+
+        call_kwargs = mock_calibration.record_prediction.call_args[1]
+        assert call_kwargs["confidence"] == 0.9
+        assert call_kwargs["correct"] is True  # prediction matches consensus
+
+    def test_on_debate_complete_string_prediction(self):
+        """Test on_debate_complete handles string prediction format."""
+        mock_calibration = Mock()
+        coord = SubsystemCoordinator(calibration_tracker=mock_calibration)
+
+        ctx = Mock()
+        ctx.debate_id = "debate-str"
+        ctx.domain = "tech"
+
+        result = Mock()
+        result.consensus = "Memcached"
+        result.predictions = {
+            "gpt4": "Redis",  # String prediction (not dict)
+        }
+
+        coord.on_debate_complete(ctx, result)
+
+        call_kwargs = mock_calibration.record_prediction.call_args[1]
+        assert call_kwargs["confidence"] == 0.5  # Default for non-dict
+        assert call_kwargs["correct"] is False  # "Redis" != "Memcached"
+
+
+# =============================================================================
+# Additional Coverage: SubsystemConfig create_coordinator deep tests
+# =============================================================================
+
+
+class TestSubsystemConfigDeep:
+    """Additional tests for SubsystemConfig."""
+
+    def test_config_passes_all_km_adapters(self):
+        """Test create_coordinator passes all KM adapters."""
+        adapters = {
+            "km_continuum_adapter": Mock(),
+            "km_elo_adapter": Mock(),
+            "km_belief_adapter": Mock(),
+            "km_insights_adapter": Mock(),
+            "km_critique_adapter": Mock(),
+            "km_pulse_adapter": Mock(),
+        }
+
+        config = SubsystemConfig(**adapters)
+        coord = config.create_coordinator()
+
+        for name, mock_adapter in adapters.items():
+            assert getattr(coord, name) is mock_adapter
+
+    def test_config_passes_all_bridge_flags(self):
+        """Test create_coordinator passes all bridge enable flags."""
+        config = SubsystemConfig(
+            enable_performance_router=False,
+            enable_outcome_complexity=False,
+            enable_analytics_selection=False,
+            enable_novelty_selection=False,
+            enable_relationship_bias=False,
+            enable_rlm_selection=False,
+            enable_calibration_cost=False,
+        )
+
+        coord = config.create_coordinator()
+
+        assert coord.enable_performance_router is False
+        assert coord.enable_outcome_complexity is False
+        assert coord.enable_analytics_selection is False
+        assert coord.enable_novelty_selection is False
+        assert coord.enable_relationship_bias is False
+        assert coord.enable_rlm_selection is False
+        assert coord.enable_calibration_cost is False
+
+    def test_config_passes_km_config_values(self):
+        """Test create_coordinator passes KM configuration."""
+        config = SubsystemConfig(
+            km_sync_interval_seconds=120,
+            km_min_confidence_for_reverse=0.9,
+            km_parallel_sync=False,
+        )
+
+        coord = config.create_coordinator()
+
+        assert coord.km_sync_interval_seconds == 120
+        assert coord.km_min_confidence_for_reverse == 0.9
         assert coord.km_parallel_sync is False

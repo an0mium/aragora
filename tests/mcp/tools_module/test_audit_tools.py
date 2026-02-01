@@ -32,10 +32,10 @@ class TestListAuditPresetsTool:
         mock_preset.consensus_threshold = 0.7
         mock_registry.list_presets.return_value = [mock_preset]
 
-        with patch(
-            "aragora.mcp.tools_module.audit.audit_registry",
-            mock_registry,
-        ):
+        mock_registry_module = MagicMock()
+        mock_registry_module.audit_registry = mock_registry
+
+        with patch.dict("sys.modules", {"aragora.audit.registry": mock_registry_module}):
             result = await list_audit_presets_tool()
 
         assert result["success"] is True
@@ -45,10 +45,13 @@ class TestListAuditPresetsTool:
     @pytest.mark.asyncio
     async def test_list_presets_error(self):
         """Test preset listing when registry fails."""
-        with patch(
-            "aragora.mcp.tools_module.audit.audit_registry",
-            side_effect=Exception("Registry error"),
-        ):
+        mock_registry = MagicMock()
+        mock_registry.auto_discover.side_effect = Exception("Registry error")
+
+        mock_registry_module = MagicMock()
+        mock_registry_module.audit_registry = mock_registry
+
+        with patch.dict("sys.modules", {"aragora.audit.registry": mock_registry_module}):
             result = await list_audit_presets_tool()
 
         assert result["success"] is False
@@ -70,10 +73,10 @@ class TestListAuditTypesTool:
         mock_type.capabilities = ["injection", "xss"]
         mock_registry.list_audit_types.return_value = [mock_type]
 
-        with patch(
-            "aragora.mcp.tools_module.audit.audit_registry",
-            mock_registry,
-        ):
+        mock_registry_module = MagicMock()
+        mock_registry_module.audit_registry = mock_registry
+
+        with patch.dict("sys.modules", {"aragora.audit.registry": mock_registry_module}):
             result = await list_audit_types_tool()
 
         assert result["success"] is True
@@ -93,17 +96,22 @@ class TestGetAuditPresetTool:
         mock_preset.description = "Code vulnerability scanning"
         mock_preset.audit_types = ["security"]
         mock_preset.custom_rules = [
-            {"pattern": "password", "severity": "high", "category": "secrets", "title": "Hardcoded password"}
+            {
+                "pattern": "password",
+                "severity": "high",
+                "category": "secrets",
+                "title": "Hardcoded password",
+            }
         ]
         mock_preset.consensus_threshold = 0.8
         mock_preset.agents = ["claude", "gpt4"]
         mock_preset.parameters = {}
         mock_registry.get_preset.return_value = mock_preset
 
-        with patch(
-            "aragora.mcp.tools_module.audit.audit_registry",
-            mock_registry,
-        ):
+        mock_registry_module = MagicMock()
+        mock_registry_module.audit_registry = mock_registry
+
+        with patch.dict("sys.modules", {"aragora.audit.registry": mock_registry_module}):
             result = await get_audit_preset_tool(preset_name="Code Security")
 
         assert result["success"] is True
@@ -115,10 +123,10 @@ class TestGetAuditPresetTool:
         mock_registry = MagicMock()
         mock_registry.get_preset.return_value = None
 
-        with patch(
-            "aragora.mcp.tools_module.audit.audit_registry",
-            mock_registry,
-        ):
+        mock_registry_module = MagicMock()
+        mock_registry_module.audit_registry = mock_registry
+
+        with patch.dict("sys.modules", {"aragora.audit.registry": mock_registry_module}):
             result = await get_audit_preset_tool(preset_name="Nonexistent")
 
         assert result["success"] is False
@@ -146,10 +154,13 @@ class TestCreateAuditSessionTool:
         mock_auditor = AsyncMock()
         mock_auditor.create_session.return_value = mock_session
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ), patch("aragora.mcp.tools_module.audit.AuditConfig"):
+        mock_audit_config = MagicMock()
+
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+        mock_audit_module.AuditConfig = mock_audit_config
+
+        with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             result = await create_audit_session_tool(
                 document_ids="doc1,doc2",
                 audit_types="security,compliance",
@@ -175,14 +186,21 @@ class TestCreateAuditSessionTool:
         mock_auditor = AsyncMock()
         mock_auditor.create_session.return_value = mock_session
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ), patch(
-            "aragora.mcp.tools_module.audit.AuditConfig",
-        ), patch(
-            "aragora.mcp.tools_module.audit.audit_registry",
-            mock_registry,
+        mock_audit_config = MagicMock()
+
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+        mock_audit_module.AuditConfig = mock_audit_config
+
+        mock_registry_module = MagicMock()
+        mock_registry_module.audit_registry = mock_registry
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.audit": mock_audit_module,
+                "aragora.audit.registry": mock_registry_module,
+            },
         ):
             result = await create_audit_session_tool(
                 document_ids="doc1",
@@ -205,10 +223,10 @@ class TestRunAuditTool:
         mock_auditor = AsyncMock()
         mock_auditor.run_audit.return_value = mock_result
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ):
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+
+        with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             result = await run_audit_tool(session_id="session-001")
 
         assert result["success"] is True
@@ -220,10 +238,10 @@ class TestRunAuditTool:
         mock_auditor = AsyncMock()
         mock_auditor.run_audit.side_effect = Exception("Audit failed")
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ):
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+
+        with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             result = await run_audit_tool(session_id="session-001")
 
         assert result["success"] is False
@@ -248,10 +266,10 @@ class TestGetAuditStatusTool:
         mock_auditor = MagicMock()
         mock_auditor.get_session.return_value = mock_session
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ):
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+
+        with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             result = await get_audit_status_tool(session_id="session-001")
 
         assert result["success"] is True
@@ -263,10 +281,10 @@ class TestGetAuditStatusTool:
         mock_auditor = MagicMock()
         mock_auditor.get_session.return_value = None
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ):
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+
+        with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             result = await get_audit_status_tool(session_id="nonexistent")
 
         assert result["success"] is False
@@ -295,10 +313,10 @@ class TestGetAuditFindingsTool:
         mock_auditor = MagicMock()
         mock_auditor.get_findings.return_value = [mock_finding]
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ):
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+
+        with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             result = await get_audit_findings_tool(session_id="session-001")
 
         assert result["success"] is True
@@ -320,13 +338,11 @@ class TestGetAuditFindingsTool:
         mock_auditor = MagicMock()
         mock_auditor.get_findings.return_value = [mock_finding_critical, mock_finding_low]
 
-        with patch(
-            "aragora.mcp.tools_module.audit.DocumentAuditor",
-            return_value=mock_auditor,
-        ):
-            result = await get_audit_findings_tool(
-                session_id="session-001", severity="critical"
-            )
+        mock_audit_module = MagicMock()
+        mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)
+
+        with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
+            result = await get_audit_findings_tool(session_id="session-001", severity="critical")
 
         assert result["count"] == 1
 
@@ -340,19 +356,17 @@ class TestUpdateFindingStatusTool:
         mock_event = MagicMock()
         mock_event.from_state = MagicMock(value="open")
 
-        mock_workflow = MagicMock()
-        mock_workflow.can_transition_to.return_value = True
-        mock_workflow.transition_to.return_value = mock_event
-        mock_workflow.state = MagicMock(value="triaging")
+        mock_workflow_instance = MagicMock()
+        mock_workflow_instance.can_transition_to.return_value = True
+        mock_workflow_instance.transition_to.return_value = mock_event
+        mock_workflow_instance.state = MagicMock(value="triaging")
 
-        with patch(
-            "aragora.mcp.tools_module.audit.FindingWorkflow",
-            return_value=mock_workflow,
-        ), patch(
-            "aragora.mcp.tools_module.audit.FindingWorkflowData",
-        ), patch(
-            "aragora.mcp.tools_module.audit.WorkflowState",
-        ):
+        mock_workflow_module = MagicMock()
+        mock_workflow_module.FindingWorkflow.return_value = mock_workflow_instance
+        # FindingWorkflowData and WorkflowState are used directly
+        # WorkflowState is called with the status string
+
+        with patch.dict("sys.modules", {"aragora.audit.findings.workflow": mock_workflow_module}):
             result = await update_finding_status_tool(
                 finding_id="f-001", status="triaging", comment="Starting triage"
             )
@@ -363,22 +377,17 @@ class TestUpdateFindingStatusTool:
     @pytest.mark.asyncio
     async def test_update_invalid_transition(self):
         """Test update with invalid state transition."""
-        mock_workflow = MagicMock()
-        mock_workflow.can_transition_to.return_value = False
-        mock_workflow.state = MagicMock(value="open")
-        mock_workflow.get_valid_transitions.return_value = [MagicMock(value="triaging")]
+        mock_workflow_instance = MagicMock()
+        mock_workflow_instance.can_transition_to.return_value = False
+        mock_workflow_instance.state = MagicMock(value="open")
+        mock_workflow_instance.get_valid_transitions.return_value = [MagicMock(value="triaging")]
 
-        with patch(
-            "aragora.mcp.tools_module.audit.FindingWorkflow",
-            return_value=mock_workflow,
-        ), patch(
-            "aragora.mcp.tools_module.audit.FindingWorkflowData",
-        ), patch(
-            "aragora.mcp.tools_module.audit.WorkflowState",
-        ):
-            result = await update_finding_status_tool(
-                finding_id="f-001", status="resolved"
-            )
+        mock_workflow_module = MagicMock()
+        mock_workflow_module.FindingWorkflow.return_value = mock_workflow_instance
+        # WorkflowState is called with status string; return a mock that passes
+
+        with patch.dict("sys.modules", {"aragora.audit.findings.workflow": mock_workflow_module}):
+            result = await update_finding_status_tool(finding_id="f-001", status="resolved")
 
         assert result["success"] is False
         assert "Cannot transition" in result["error"]
@@ -414,18 +423,33 @@ class TestRunQuickAuditTool:
 
         # The function calls create_audit_session_tool, run_audit_tool, get_audit_findings_tool
         # which each create their own DocumentAuditor instance. Mock at the tool level.
-        with patch(
-            "aragora.mcp.tools_module.audit.create_audit_session_tool",
-            return_value={
-                "success": True,
-                "session": {"id": "session-001", "name": "Quick", "document_count": 1, "audit_types": ["security"], "status": "created"},
-            },
-        ), patch(
-            "aragora.mcp.tools_module.audit.run_audit_tool",
-            return_value={"success": True, "session_id": "session-001", "status": "completed", "findings_count": 0},
-        ), patch(
-            "aragora.mcp.tools_module.audit.get_audit_findings_tool",
-            return_value={"success": True, "findings": [], "count": 0},
+        with (
+            patch(
+                "aragora.mcp.tools_module.audit.create_audit_session_tool",
+                return_value={
+                    "success": True,
+                    "session": {
+                        "id": "session-001",
+                        "name": "Quick",
+                        "document_count": 1,
+                        "audit_types": ["security"],
+                        "status": "created",
+                    },
+                },
+            ),
+            patch(
+                "aragora.mcp.tools_module.audit.run_audit_tool",
+                return_value={
+                    "success": True,
+                    "session_id": "session-001",
+                    "status": "completed",
+                    "findings_count": 0,
+                },
+            ),
+            patch(
+                "aragora.mcp.tools_module.audit.get_audit_findings_tool",
+                return_value={"success": True, "findings": [], "count": 0},
+            ),
         ):
             result = await run_quick_audit_tool(document_ids="doc1")
 

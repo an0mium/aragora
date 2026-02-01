@@ -338,6 +338,22 @@ class TestResolveDbPath:
         abs_path = "/tmp/test.db"
         assert resolve_db_path(abs_path) == abs_path
 
+    def test_bare_filename_rooted_under_data_dir(self, tmp_path, monkeypatch):
+        """Bare filenames should be rooted under DATA_DIR."""
+        from aragora.config import legacy as legacy
+
+        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        resolved = Path(legacy.resolve_db_path("example.db"))
+        assert resolved.resolve() == (tmp_path / "example.db").resolve()
+
+    def test_subpath_rooted_under_data_dir(self, tmp_path, monkeypatch):
+        """Relative subpaths should stay under DATA_DIR."""
+        from aragora.config import legacy as legacy
+
+        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        resolved = Path(legacy.resolve_db_path("data/example.db"))
+        assert resolved.resolve() == (tmp_path / "data" / "example.db").resolve()
+
 
 class TestConfigurationError:
     """Test ConfigurationError exception class."""

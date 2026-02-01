@@ -503,8 +503,10 @@ class TestAiohttpMiddleware:
         mock_request = MagicMock()
         mock_request.path = "/api/v1/debates"
         mock_request.method = "GET"
-        mock_request.headers = {}
-        mock_request.headers.get = lambda k, d="": d
+
+        mock_headers = MagicMock()
+        mock_headers.get = lambda k, d="": d
+        mock_request.headers = mock_headers
 
         mock_response = MagicMock()
         mock_response.headers = {}
@@ -533,8 +535,10 @@ class TestAiohttpMiddleware:
         mock_request = MagicMock()
         mock_request.path = "/api/v1/test"
         mock_request.method = "POST"
-        mock_request.headers = {}
-        mock_request.headers.get = lambda k, d="": d
+
+        mock_headers = MagicMock()
+        mock_headers.get = lambda k, d="": d
+        mock_request.headers = mock_headers
 
         mock_response = MagicMock()
         mock_response.headers = {}
@@ -872,9 +876,13 @@ class TestGetV1DeprecationHeadersExtended:
         headers = get_v1_deprecation_headers()
 
         required = {
-            "Sunset", "Deprecation", "Link",
-            "X-API-Version", "X-API-Version-Warning",
-            "X-API-Sunset", "X-Deprecation-Level",
+            "Sunset",
+            "Deprecation",
+            "Link",
+            "X-API-Version",
+            "X-API-Version-Warning",
+            "X-API-Sunset",
+            "X-Deprecation-Level",
         }
         assert required.issubset(headers.keys())
 
@@ -882,8 +890,12 @@ class TestGetV1DeprecationHeadersExtended:
         """Should produce urgent warning at critical level."""
         from aragora.server.middleware.deprecation import get_v1_deprecation_headers
 
-        with patch("aragora.server.middleware.deprecation.deprecation_level", return_value="critical"):
-            with patch("aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=15):
+        with patch(
+            "aragora.server.middleware.deprecation.deprecation_level", return_value="critical"
+        ):
+            with patch(
+                "aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=15
+            ):
                 headers = get_v1_deprecation_headers()
 
                 assert "URGENT" in headers["X-API-Version-Warning"]
@@ -893,8 +905,12 @@ class TestGetV1DeprecationHeadersExtended:
         """Should produce sunset warning at sunset level."""
         from aragora.server.middleware.deprecation import get_v1_deprecation_headers
 
-        with patch("aragora.server.middleware.deprecation.deprecation_level", return_value="sunset"):
-            with patch("aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=-5):
+        with patch(
+            "aragora.server.middleware.deprecation.deprecation_level", return_value="sunset"
+        ):
+            with patch(
+                "aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=-5
+            ):
                 headers = get_v1_deprecation_headers()
 
                 assert "passed its sunset date" in headers["X-API-Version-Warning"]
@@ -903,8 +919,12 @@ class TestGetV1DeprecationHeadersExtended:
         """Should produce standard warning at warning level."""
         from aragora.server.middleware.deprecation import get_v1_deprecation_headers
 
-        with patch("aragora.server.middleware.deprecation.deprecation_level", return_value="warning"):
-            with patch("aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=120):
+        with patch(
+            "aragora.server.middleware.deprecation.deprecation_level", return_value="warning"
+        ):
+            with patch(
+                "aragora.server.middleware.deprecation.days_until_v1_sunset", return_value=120
+            ):
                 headers = get_v1_deprecation_headers()
 
                 assert "deprecated" in headers["X-API-Version-Warning"].lower()

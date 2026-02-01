@@ -39,17 +39,22 @@ class TestRunDebateTool:
         mock_arena = AsyncMock()
         mock_arena.run.return_value = mock_result
 
-        with patch(
-            "aragora.mcp.tools_module.debate.create_agent",
-            return_value=mock_agent,
-        ), patch(
-            "aragora.mcp.tools_module.debate.Arena",
-            return_value=mock_arena,
-        ), patch(
-            "aragora.mcp.tools_module.debate.AgentSettings",
-        ) as mock_settings, patch(
-            "aragora.mcp.tools_module.debate.DebateSettings",
-        ) as mock_debate_settings:
+        with (
+            patch(
+                "aragora.agents.base.create_agent",
+                return_value=mock_agent,
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
+            ),
+            patch(
+                "aragora.config.settings.AgentSettings",
+            ) as mock_settings,
+            patch(
+                "aragora.config.settings.DebateSettings",
+            ) as mock_debate_settings,
+        ):
             mock_settings.return_value.default_agents = "claude,gpt4"
             mock_debate_settings.return_value.default_rounds = 3
             mock_debate_settings.return_value.default_consensus = "majority"
@@ -65,14 +70,18 @@ class TestRunDebateTool:
     @pytest.mark.asyncio
     async def test_run_no_valid_agents(self):
         """Test run when no agents can be created."""
-        with patch(
-            "aragora.mcp.tools_module.debate.create_agent",
-            side_effect=Exception("No API key"),
-        ), patch(
-            "aragora.mcp.tools_module.debate.AgentSettings",
-        ) as mock_settings, patch(
-            "aragora.mcp.tools_module.debate.DebateSettings",
-        ) as mock_debate_settings:
+        with (
+            patch(
+                "aragora.agents.base.create_agent",
+                side_effect=Exception("No API key"),
+            ),
+            patch(
+                "aragora.config.settings.AgentSettings",
+            ) as mock_settings,
+            patch(
+                "aragora.config.settings.DebateSettings",
+            ) as mock_debate_settings,
+        ):
             mock_settings.return_value.default_agents = "claude"
             mock_debate_settings.return_value.default_rounds = 3
             mock_debate_settings.return_value.default_consensus = "majority"
@@ -98,17 +107,22 @@ class TestRunDebateTool:
         mock_arena = AsyncMock()
         mock_arena.run.return_value = mock_result
 
-        with patch(
-            "aragora.mcp.tools_module.debate.create_agent",
-            return_value=mock_agent,
-        ), patch(
-            "aragora.mcp.tools_module.debate.Arena",
-            return_value=mock_arena,
-        ), patch(
-            "aragora.mcp.tools_module.debate.AgentSettings",
-        ), patch(
-            "aragora.mcp.tools_module.debate.DebateSettings",
-        ) as mock_debate_settings:
+        with (
+            patch(
+                "aragora.agents.base.create_agent",
+                return_value=mock_agent,
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+                return_value=mock_arena,
+            ),
+            patch(
+                "aragora.config.settings.AgentSettings",
+            ),
+            patch(
+                "aragora.config.settings.DebateSettings",
+            ) as mock_debate_settings,
+        ):
             mock_debate_settings.return_value.max_rounds = 10
 
             result = await run_debate_tool(
@@ -141,7 +155,7 @@ class TestGetDebateTool:
         }
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await get_debate_tool(debate_id="d-001")
@@ -156,7 +170,7 @@ class TestGetDebateTool:
         mock_db.get.return_value = None
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await get_debate_tool(debate_id="nonexistent")
@@ -168,7 +182,7 @@ class TestGetDebateTool:
     async def test_get_storage_unavailable(self):
         """Test get when storage is unavailable."""
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=None,
         ):
             result = await get_debate_tool(debate_id="d-001")
@@ -183,7 +197,7 @@ class TestSearchDebatesTool:
     async def test_search_no_storage(self):
         """Test search when storage unavailable."""
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=None,
         ):
             result = await search_debates_tool(query="test")
@@ -206,7 +220,7 @@ class TestSearchDebatesTool:
         mock_db.search.return_value = ([mock_debate], 1)
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await search_debates_tool(query="database")
@@ -229,7 +243,7 @@ class TestSearchDebatesTool:
         mock_db.search.return_value = ([mock_debate], 1)
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await search_debates_tool(query="", agent="gpt4")
@@ -260,7 +274,7 @@ class TestSearchDebatesTool:
         mock_db.search.return_value = ([mock_debate_consensus, mock_debate_no_consensus], 2)
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await search_debates_tool(query="", consensus_only=True)
@@ -272,7 +286,7 @@ class TestSearchDebatesTool:
     async def test_search_respects_limit(self):
         """Test search respects limit parameter."""
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=None,
         ):
             result = await search_debates_tool(query="test", limit=5)
@@ -294,7 +308,7 @@ class TestForkDebateTool:
     async def test_fork_no_storage(self):
         """Test fork when storage unavailable."""
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=None,
         ):
             result = await fork_debate_tool(debate_id="d-001")
@@ -308,7 +322,7 @@ class TestForkDebateTool:
         mock_db.get.return_value = None
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await fork_debate_tool(debate_id="nonexistent")
@@ -331,7 +345,7 @@ class TestForkDebateTool:
         mock_db.save_dict = MagicMock()
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await fork_debate_tool(
@@ -352,7 +366,7 @@ class TestForkDebateTool:
         mock_db.get.return_value = {"task": "Empty debate", "messages": []}
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await fork_debate_tool(debate_id="d-001")
@@ -374,7 +388,7 @@ class TestGetForksTool:
     async def test_get_forks_no_storage(self):
         """Test get forks when storage unavailable."""
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=None,
         ):
             result = await get_forks_tool(debate_id="d-001")
@@ -391,7 +405,7 @@ class TestGetForksTool:
         ]
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await get_forks_tool(debate_id="d-001")
@@ -413,7 +427,7 @@ class TestGetForksTool:
         mock_db.search.return_value = ([mock_debate], 1)
 
         with patch(
-            "aragora.mcp.tools_module.debate.get_debates_db",
+            "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
             result = await get_forks_tool(debate_id="d-001")

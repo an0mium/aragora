@@ -523,6 +523,8 @@ class TestPluginSubmissionSecurity:
         """Helper to submit a plugin with the given manifest."""
         import uuid
 
+        from aragora.billing.auth.context import UserAuthContext
+
         body = {"manifest": manifest_data}
 
         # Use unique user ID and IP for each test to avoid rate limits
@@ -541,12 +543,35 @@ class TestPluginSubmissionSecurity:
         }
         mock_handler.client_address = (unique_ip, 12345)
 
-        # Patch auth_config to accept our test token
+        # Create a proper auth context that bypasses auth checks
+        mock_user = UserAuthContext(
+            authenticated=True,
+            user_id=user_id,
+            email=f"{user_id}@test.com",
+            role="admin",
+            token_type="api_key",
+        )
+
+        # Patch the inline permission check, decorator-level auth, and RBAC
         from aragora.server.auth import auth_config
+        from aragora.rbac import decorators as rbac_decorators
+
+        # Make the RBAC require_permission a no-op for test
+        def _noop_require_permission(*args, **kwargs):
+            def decorator(func):
+                return func
+
+            return decorator
 
         with (
+            patch.object(
+                plugins_handler,
+                "require_permission_or_error",
+                return_value=(mock_user, None),
+            ),
             patch.object(auth_config, "api_token", "test-api-token-12345"),
             patch.object(auth_config, "validate_token", return_value=True),
+            patch.object(rbac_decorators, "_get_context_from_args", return_value=mock_user),
             patch.object(plugins_handler, "get_user_id", return_value=user_id),
             patch.object(plugins_handler, "read_json_body", return_value=body),
         ):

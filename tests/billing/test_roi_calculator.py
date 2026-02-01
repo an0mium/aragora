@@ -1138,3 +1138,584 @@ class TestEdgeCases:
         # Manual cost should use overrides: $1000 * 10 * 3 = $30,000
         manual_cost = Decimal(result["manual_equivalent_cost_usd"])
         assert manual_cost == Decimal("30000")
+
+
+# =============================================================================
+# Extended ROIMetrics Tests
+# =============================================================================
+
+
+class TestROIMetricsExtended:
+    """Extended tests for ROIMetrics dataclass."""
+
+    def test_to_dict_rounding_behavior(self):
+        """Test that to_dict rounds values correctly."""
+        metrics = ROIMetrics(
+            estimated_hours_saved=20.567,
+            avg_debate_duration_minutes=3.456,
+            manual_equivalent_hours=100.999,
+            roi_percentage=1234.56789,
+            consensus_rate=0.8765,
+            avg_confidence_score=0.87654,
+            productivity_multiplier=3.456,
+            vs_benchmark_savings_pct=95.678,
+        )
+
+        data = metrics.to_dict()
+
+        # estimated_hours_saved rounds to 1 decimal
+        assert data["time_savings"]["estimated_hours_saved"] == 20.6
+        # avg_debate_duration_minutes rounds to 1 decimal
+        assert data["time_savings"]["avg_debate_duration_minutes"] == 3.5
+        # manual_equivalent_hours rounds to 1 decimal
+        assert data["time_savings"]["manual_equivalent_hours"] == 101.0
+        # roi_percentage rounds to 1 decimal
+        assert data["roi"]["roi_percentage"] == 1234.6
+        # consensus_rate is multiplied by 100 and rounds to 1 decimal
+        # 0.8765 * 100 = 87.65, round(87.65, 1) = 87.6 (banker's rounding)
+        assert data["quality"]["consensus_rate"] == 87.6
+        # avg_confidence_score rounds to 2 decimals
+        assert data["quality"]["avg_confidence_score"] == 0.88
+        # productivity_multiplier rounds to 1 decimal
+        assert data["productivity"]["productivity_multiplier"] == 3.5
+        # vs_benchmark_savings_pct rounds to 1 decimal
+        assert data["benchmark"]["savings_vs_benchmark_pct"] == 95.7
+
+    def test_to_dict_cost_fields_are_strings(self):
+        """Test that cost fields are serialized as strings for precision."""
+        metrics = ROIMetrics(
+            total_aragora_cost_usd=Decimal("123.456"),
+            total_manual_cost_usd=Decimal("789.012"),
+            cost_savings_usd=Decimal("665.556"),
+            cost_per_decision_usd=Decimal("12.3456"),
+            benchmark_cost_usd=Decimal("200.00"),
+        )
+
+        data = metrics.to_dict()
+
+        assert isinstance(data["cost"]["total_aragora_cost_usd"], str)
+        assert isinstance(data["cost"]["total_manual_cost_usd"], str)
+        assert isinstance(data["cost"]["cost_savings_usd"], str)
+        assert isinstance(data["cost"]["cost_per_decision_usd"], str)
+        assert isinstance(data["benchmark"]["cost_usd"], str)
+
+    def test_to_dict_period_dates_isoformat(self):
+        """Test that period dates are serialized as ISO format strings."""
+        now = datetime.now(timezone.utc)
+        metrics = ROIMetrics(
+            period_start=now - timedelta(days=30),
+            period_end=now,
+        )
+
+        data = metrics.to_dict()
+
+        assert "T" in data["period_start"]  # ISO format
+        assert "T" in data["period_end"]
+
+
+# =============================================================================
+# Extended Single Debate ROI Tests
+# =============================================================================
+
+
+class TestCalculateSingleDebateROIExtended:
+    """Extended tests for single debate ROI."""
+
+    def test_all_benchmarks_manual_costs(self):
+        """Test manual cost calculation is correct for all benchmark types."""
+        expected_costs = {
+            IndustryBenchmark.TECH_STARTUP: Decimal("75") * Decimal("2.0") * 3,  # $450
+            IndustryBenchmark.ENTERPRISE: Decimal("100") * Decimal("4.0") * 5,  # $2000
+            IndustryBenchmark.SME: Decimal("60") * Decimal("2.5") * 3,  # $450
+            IndustryBenchmark.CONSULTING: Decimal("200") * Decimal("3.0") * 4,  # $2400
+        }
+
+        for benchmark, expected in expected_costs.items():
+            calc = ROICalculator(benchmark=benchmark)
+            debate = DebateROIInput(
+                debate_id="test",
+                duration_seconds=300,
+                cost_usd=Decimal("0"),
+            )
+            result = calc.calculate_single_debate_roi(debate)
+            manual_cost = Decimal(result["manual_equivalent_cost_usd"])
+            assert manual_cost == expected, (
+                f"Benchmark {benchmark.value}: expected ${expected}, got ${manual_cost}"
+            )
+
+    def test_negative_hours_saved_long_debate(self):
+        """Test negative hours saved when debate takes longer than manual."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+        # Manual: 2.5 * 3 = 7.5 hours
+
+        debate = DebateROIInput(
+            debate_id="slow",
+            duration_seconds=36000,  # 10 hours (longer than manual)
+            cost_usd=Decimal("10.00"),
+        )
+
+        result = calc.calculate_single_debate_roi(debate)
+        assert result["hours_saved"] < 0  # Negative hours saved
+
+    def test_very_expensive_debate_negative_roi(self):
+        """Test negative ROI when debate is more expensive than manual."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+
+        debate = DebateROIInput(
+            debate_id="expensive",
+            duration_seconds=300,
+            cost_usd=Decimal("1000.00"),  # Much more than $450 manual
+        )
+
+        result = calc.calculate_single_debate_roi(debate)
+        assert result["roi_percentage"] < 0  # Negative ROI
+
+    def test_very_cheap_debate_high_roi(self):
+        """Test very high ROI for extremely cheap debate."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.ENTERPRISE)
+        # Enterprise manual: $100 * 4 * 5 = $2000
+
+        debate = DebateROIInput(
+            debate_id="cheap",
+            duration_seconds=60,  # 1 minute
+            cost_usd=Decimal("0.01"),
+        )
+
+        result = calc.calculate_single_debate_roi(debate)
+        # ROI should be enormous
+        assert result["roi_percentage"] > 10000
+
+    def test_consensus_and_confidence_passthrough(self):
+        """Test that consensus and confidence are passed through correctly."""
+        calc = ROICalculator()
+
+        debate = DebateROIInput(
+            debate_id="test",
+            duration_seconds=300,
+            cost_usd=Decimal("1.00"),
+            reached_consensus=False,
+            confidence_score=0.42,
+        )
+
+        result = calc.calculate_single_debate_roi(debate)
+        assert result["consensus_achieved"] is False
+        assert result["confidence_score"] == 0.42
+
+
+# =============================================================================
+# Extended Period ROI Tests
+# =============================================================================
+
+
+class TestCalculatePeriodROIExtended:
+    """Extended tests for period ROI calculation."""
+
+    def test_avg_debate_duration_minutes(self):
+        """Test average debate duration calculation."""
+        calc = ROICalculator()
+
+        debates = [
+            DebateROIInput(debate_id="d1", duration_seconds=120, completed=True),  # 2 min
+            DebateROIInput(debate_id="d2", duration_seconds=180, completed=True),  # 3 min
+            DebateROIInput(debate_id="d3", duration_seconds=300, completed=True),  # 5 min
+        ]
+
+        result = calc.calculate_period_roi(debates)
+
+        # Average: (120 + 180 + 300) / 3 / 60 = 200/60 = 3.33 min
+        expected_avg = (120 + 180 + 300) / 3 / 60
+        assert abs(result.avg_debate_duration_minutes - expected_avg) < 0.01
+
+    def test_period_roi_no_subscription_payback(self):
+        """Test payback_debates is 0 when no subscription cost."""
+        calc = ROICalculator()
+
+        debates = [
+            DebateROIInput(
+                debate_id="d1", duration_seconds=300, cost_usd=Decimal("1.00"), completed=True
+            ),
+        ]
+
+        result = calc.calculate_period_roi(debates, subscription_cost_usd=Decimal("0"))
+        assert result.payback_debates == 0
+
+    def test_period_roi_productivity_multiplier(self):
+        """Test productivity multiplier for period."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+        # Manual: 2.5 * 3 = 7.5 hours per debate
+
+        debates = [
+            DebateROIInput(
+                debate_id="d1",
+                duration_seconds=600,  # 10 min = 0.167 hours
+                completed=True,
+            ),
+        ]
+
+        result = calc.calculate_period_roi(debates)
+
+        # Manual hours: 7.5, Actual hours: 0.167
+        # Multiplier: 7.5 / 0.167 ~= 44.9
+        assert result.productivity_multiplier > 40
+
+    def test_period_roi_zero_actual_hours(self):
+        """Test period ROI when all debates have zero duration."""
+        calc = ROICalculator()
+
+        debates = [
+            DebateROIInput(debate_id="d1", duration_seconds=0, completed=True),
+        ]
+
+        result = calc.calculate_period_roi(debates)
+        # Zero actual hours means productivity_multiplier stays at default
+        assert result.productivity_multiplier == 1.0
+
+    def test_period_roi_all_incomplete(self):
+        """Test period ROI when all debates are incomplete."""
+        calc = ROICalculator()
+
+        debates = [
+            DebateROIInput(debate_id="d1", completed=False, cost_usd=Decimal("5.00")),
+            DebateROIInput(debate_id="d2", completed=False, cost_usd=Decimal("10.00")),
+        ]
+
+        result = calc.calculate_period_roi(debates)
+
+        assert result.total_debates == 2
+        assert result.completed_debates == 0
+        assert result.total_aragora_cost_usd == Decimal("0")
+        assert result.consensus_rate == 0.0
+
+    def test_period_roi_confidence_excludes_zero(self):
+        """Test that zero confidence scores are excluded from average."""
+        calc = ROICalculator()
+
+        debates = [
+            DebateROIInput(debate_id="d1", confidence_score=0.9, completed=True),
+            DebateROIInput(debate_id="d2", confidence_score=0.0, completed=True),  # Excluded
+            DebateROIInput(debate_id="d3", confidence_score=0.8, completed=True),
+        ]
+
+        result = calc.calculate_period_roi(debates)
+
+        # Average of 0.9 and 0.8 (0.0 excluded) = 0.85
+        assert abs(result.avg_confidence_score - 0.85) < 0.001
+
+    def test_period_roi_benchmark_savings_high_cost_per_decision(self):
+        """Test benchmark savings when aragora cost per decision exceeds benchmark."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+
+        debates = [
+            DebateROIInput(
+                debate_id="d1",
+                duration_seconds=300,
+                cost_usd=Decimal("500.00"),  # More than $450 benchmark
+                completed=True,
+            ),
+        ]
+
+        result = calc.calculate_period_roi(debates)
+
+        # Savings percentage should be negative
+        assert result.vs_benchmark_savings_pct < 0
+
+    def test_period_roi_payback_large_subscription(self):
+        """Test payback debates with large subscription cost."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+        # Manual cost per decision: $60 * 2.5 * 3 = $450
+
+        debates = [
+            DebateROIInput(
+                debate_id="d1",
+                duration_seconds=300,
+                cost_usd=Decimal("1.00"),
+                completed=True,
+            ),
+        ]
+
+        result = calc.calculate_period_roi(
+            debates,
+            subscription_cost_usd=Decimal("5000.00"),
+        )
+
+        # Cost per decision: ($1 + $5000) / 1 = $5001
+        # Savings per debate: $450 - $5001 = -$4551 (negative!)
+        # When savings_per_debate < 0, payback_debates should not be calculated
+        # The condition: manual_cost_per_decision > cost_per_decision is False
+        assert result.payback_debates == 0
+
+    def test_period_roi_manual_equivalent_hours_with_multiple_debates(self):
+        """Test manual equivalent hours scales with completed debates."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+        # Manual: 2.5 * 3 = 7.5 hours per debate
+
+        debates = [
+            DebateROIInput(debate_id=f"d{i}", duration_seconds=300, completed=True)
+            for i in range(5)
+        ]
+
+        result = calc.calculate_period_roi(debates)
+
+        # 5 debates * 7.5 hours = 37.5 manual hours
+        assert result.manual_equivalent_hours == 37.5
+
+
+# =============================================================================
+# Extended Future Savings Tests
+# =============================================================================
+
+
+class TestEstimateFutureSavingsExtended:
+    """Extended tests for future savings estimation."""
+
+    def test_zero_debates_per_month(self):
+        """Test projections with zero debates per month."""
+        calc = ROICalculator()
+
+        result = calc.estimate_future_savings(
+            projected_debates_per_month=0,
+        )
+
+        monthly = result["projections"]["monthly"]
+        assert Decimal(monthly["manual_cost_usd"]) == Decimal("0")
+        assert Decimal(monthly["savings_usd"]) == Decimal("0")
+
+    def test_negative_savings_expensive_plan(self):
+        """Test projections when aragora is more expensive than manual."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+        # Manual: $450 per decision
+
+        result = calc.estimate_future_savings(
+            projected_debates_per_month=1,
+            current_cost_per_debate=Decimal("100.00"),
+            subscription_cost_usd=Decimal("500.00"),  # $600 total > $450 manual
+        )
+
+        monthly = result["projections"]["monthly"]
+        savings = Decimal(monthly["savings_usd"])
+        assert savings < 0  # Negative savings
+
+    def test_hours_saved_with_different_benchmarks(self):
+        """Test hours saved varies by benchmark."""
+        results = {}
+        for benchmark in IndustryBenchmark:
+            calc = ROICalculator(benchmark=benchmark)
+            result = calc.estimate_future_savings(projected_debates_per_month=10)
+            results[benchmark] = result["projections"]["monthly"]["hours_saved"]
+
+        # Enterprise should save more hours than SME (4hrs*5 people vs 2.5hrs*3 people)
+        assert results[IndustryBenchmark.ENTERPRISE] > results[IndustryBenchmark.SME]
+
+    def test_annual_hours_saved_is_12x_monthly(self):
+        """Test annual hours saved is approximately 12x monthly (rounding tolerance)."""
+        calc = ROICalculator()
+
+        result = calc.estimate_future_savings(projected_debates_per_month=10)
+
+        monthly_hours = result["projections"]["monthly"]["hours_saved"]
+        annual_hours = result["projections"]["annual"]["hours_saved"]
+
+        # The values are independently rounded, so allow tolerance for rounding artifacts
+        assert abs(annual_hours - monthly_hours * 12) < 1.0
+
+    def test_large_volume_projection(self):
+        """Test projections with high volume."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.ENTERPRISE)
+
+        result = calc.estimate_future_savings(
+            projected_debates_per_month=10000,
+            current_cost_per_debate=Decimal("0.50"),
+            subscription_cost_usd=Decimal("5000.00"),
+        )
+
+        monthly = result["projections"]["monthly"]
+        # Enterprise: $100 * 4 * 5 = $2000 per decision
+        # Manual cost: $2000 * 10000 = $20,000,000
+        assert Decimal(monthly["manual_cost_usd"]) == Decimal("20000000")
+
+        # Aragora: $0.50 * 10000 + $5000 = $10,000
+        assert Decimal(monthly["aragora_cost_usd"]) == Decimal("10000")
+
+
+# =============================================================================
+# Extended Benchmark Comparison Tests
+# =============================================================================
+
+
+class TestGetBenchmarkComparisonExtended:
+    """Extended tests for benchmark comparison."""
+
+    def test_benchmark_values_are_strings(self):
+        """Test benchmark cost values are serialized as strings."""
+        calc = ROICalculator()
+        result = calc.get_benchmark_comparison()
+
+        for name, data in result["benchmarks"].items():
+            assert isinstance(data["avg_decision_cost_usd"], str)
+            assert isinstance(data["hourly_rate_usd"], str)
+
+    def test_benchmark_has_correct_count(self):
+        """Test there are exactly 4 benchmarks."""
+        calc = ROICalculator()
+        result = calc.get_benchmark_comparison()
+
+        assert len(result["benchmarks"]) == 4
+
+    def test_all_benchmark_types_in_comparison(self):
+        """Test all IndustryBenchmark values appear in comparison."""
+        calc = ROICalculator()
+        result = calc.get_benchmark_comparison()
+
+        for benchmark in IndustryBenchmark:
+            assert benchmark.value in result["benchmarks"]
+
+
+# =============================================================================
+# Extended Global Calculator Tests
+# =============================================================================
+
+
+class TestGetROICalculatorExtended:
+    """Extended tests for get_roi_calculator function."""
+
+    def test_returns_same_instance_for_same_benchmark(self):
+        """Test singleton returns same instance for same benchmark."""
+        calc1 = get_roi_calculator(IndustryBenchmark.ENTERPRISE)
+        calc2 = get_roi_calculator(IndustryBenchmark.ENTERPRISE)
+        assert calc1 is calc2
+
+    def test_creates_new_instance_for_different_benchmark(self):
+        """Test new instance is created for different benchmark."""
+        calc1 = get_roi_calculator(IndustryBenchmark.SME)
+        calc2 = get_roi_calculator(IndustryBenchmark.ENTERPRISE)
+        assert calc2._benchmark == IndustryBenchmark.ENTERPRISE
+
+    def test_all_benchmarks_create_valid_calculators(self):
+        """Test get_roi_calculator works for all benchmark types."""
+        for benchmark in IndustryBenchmark:
+            calc = get_roi_calculator(benchmark=benchmark)
+            assert isinstance(calc, ROICalculator)
+            assert calc._benchmark == benchmark
+
+
+# =============================================================================
+# Extended Business-Critical Accuracy Tests
+# =============================================================================
+
+
+class TestBusinessCriticalAccuracyExtended:
+    """Extended business-critical accuracy tests."""
+
+    def test_tech_startup_manual_cost_accuracy(self):
+        """Verify tech startup manual cost calculation."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.TECH_STARTUP)
+
+        # Tech startup: $75/hr * 2.0 hrs * 3 people = $450
+        debate = DebateROIInput(debate_id="test", duration_seconds=300, cost_usd=Decimal("0"))
+        result = calc.calculate_single_debate_roi(debate)
+        manual_cost = Decimal(result["manual_equivalent_cost_usd"])
+        assert manual_cost == Decimal("450"), f"Expected $450, got ${manual_cost}"
+
+    def test_period_roi_savings_formula(self):
+        """Verify period savings = manual_cost - (aragora_cost + subscription)."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+
+        debates = [
+            DebateROIInput(
+                debate_id="d1",
+                duration_seconds=300,
+                cost_usd=Decimal("2.00"),
+                completed=True,
+            ),
+            DebateROIInput(
+                debate_id="d2",
+                duration_seconds=300,
+                cost_usd=Decimal("3.00"),
+                completed=True,
+            ),
+        ]
+
+        subscription = Decimal("100.00")
+        result = calc.calculate_period_roi(debates, subscription_cost_usd=subscription)
+
+        total_cost = result.total_aragora_cost_usd + subscription
+        expected_savings = result.total_manual_cost_usd - total_cost
+        assert result.cost_savings_usd == expected_savings
+
+    def test_period_roi_cost_per_decision_formula(self):
+        """Verify cost_per_decision = (aragora_cost + subscription) / completed_debates."""
+        calc = ROICalculator()
+
+        debates = [
+            DebateROIInput(debate_id="d1", cost_usd=Decimal("5.00"), completed=True),
+            DebateROIInput(debate_id="d2", cost_usd=Decimal("7.00"), completed=True),
+            DebateROIInput(debate_id="d3", cost_usd=Decimal("8.00"), completed=True),
+        ]
+
+        subscription = Decimal("30.00")
+        result = calc.calculate_period_roi(debates, subscription_cost_usd=subscription)
+
+        # Total: $20 + $30 = $50, divided by 3 = $16.667
+        expected = (Decimal("20") + subscription) / 3
+        assert result.cost_per_decision_usd == expected
+
+    def test_period_roi_percentage_formula(self):
+        """Verify roi_percentage = (savings / total_cost) * 100."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+
+        debates = [
+            DebateROIInput(
+                debate_id="d1",
+                duration_seconds=300,
+                cost_usd=Decimal("10.00"),
+                completed=True,
+            ),
+        ]
+
+        result = calc.calculate_period_roi(debates)
+
+        total_cost = result.total_aragora_cost_usd
+        if total_cost > 0:
+            expected_roi = float((result.cost_savings_usd / total_cost) * 100)
+            assert abs(result.roi_percentage - expected_roi) < 0.01
+
+    def test_no_division_by_zero_when_zero_cost(self):
+        """Verify no division by zero when total cost is zero."""
+        calc = ROICalculator()
+
+        debates = [
+            DebateROIInput(
+                debate_id="d1",
+                duration_seconds=300,
+                cost_usd=Decimal("0"),
+                completed=True,
+            ),
+        ]
+
+        result = calc.calculate_period_roi(debates, subscription_cost_usd=Decimal("0"))
+        assert result.roi_percentage == 0.0  # Should be 0, not error
+
+    def test_no_division_by_zero_benchmark_savings(self):
+        """Verify no division by zero in benchmark savings calculation."""
+        calc = ROICalculator()
+
+        # With zero completed debates, benchmark_cost_usd should be used carefully
+        result = calc.calculate_period_roi([])
+        # No completed debates, so vs_benchmark_savings_pct should remain 0
+        assert result.vs_benchmark_savings_pct == 0.0
+
+    def test_future_savings_hours_formula(self):
+        """Verify future hours saved formula: manual_hours - aragora_hours."""
+        calc = ROICalculator(benchmark=IndustryBenchmark.SME)
+        # Manual: 2.5 * 3 = 7.5 person-hours per debate
+
+        result = calc.estimate_future_savings(
+            projected_debates_per_month=20,
+        )
+
+        monthly = result["projections"]["monthly"]
+        manual_hours = 7.5 * 20  # 150 hours
+        aragora_hours = 20 * (5 / 60)  # ~1.67 hours
+        expected_saved = manual_hours - aragora_hours
+
+        assert abs(monthly["hours_saved"] - expected_saved) < 0.1

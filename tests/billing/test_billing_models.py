@@ -1221,7 +1221,8 @@ class TestUserExtended:
     def test_user_set_password_updates_timestamp(self):
         """Test that set_password updates the updated_at timestamp."""
         user = User()
-        old_updated = user.updated_at
+        # set_password uses datetime.now(timezone.utc), so compare with timezone-aware
+        old_updated = datetime.now(timezone.utc)
         user.set_password("new_password")
         assert user.updated_at >= old_updated
 

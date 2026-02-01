@@ -60,6 +60,7 @@ class TestRegisterAgentTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await register_agent_tool(
@@ -78,6 +79,7 @@ class TestRegisterAgentTool:
         """Test register when control plane unavailable."""
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=None,
         ):
             result = await register_agent_tool(agent_id="test-agent")
@@ -100,6 +102,7 @@ class TestRegisterAgentTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await register_agent_tool(agent_id="test", capabilities="")
@@ -124,6 +127,7 @@ class TestUnregisterAgentTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await unregister_agent_tool(agent_id="claude-test")
@@ -139,6 +143,7 @@ class TestUnregisterAgentTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await unregister_agent_tool(agent_id="nonexistent")
@@ -155,6 +160,7 @@ class TestListRegisteredAgentsTool:
         """Test fallback list when coordinator unavailable."""
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=None,
         ):
             result = await list_registered_agents_tool()
@@ -183,6 +189,7 @@ class TestListRegisteredAgentsTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await list_registered_agents_tool()
@@ -199,6 +206,7 @@ class TestListRegisteredAgentsTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await list_registered_agents_tool(capability="code")
@@ -228,11 +236,13 @@ class TestGetAgentHealthTool:
         mock_agent.avg_latency_ms = 100.0
         mock_agent.current_task_id = None
         mock_coordinator.get_agent.return_value = mock_agent
-        mock_coordinator.is_agent_available.return_value = True
-        mock_coordinator.get_agent_health.return_value = None
+        # These are called synchronously (no await) in the implementation
+        mock_coordinator.is_agent_available = MagicMock(return_value=True)
+        mock_coordinator.get_agent_health = MagicMock(return_value=None)
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await get_agent_health_tool(agent_id="claude")
@@ -249,6 +259,7 @@ class TestGetAgentHealthTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await get_agent_health_tool(agent_id="nonexistent")
@@ -278,6 +289,7 @@ class TestSubmitTaskTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await submit_task_tool(task_type="debate", payload="not json")
@@ -292,6 +304,7 @@ class TestSubmitTaskTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await submit_task_tool(task_type="debate", payload='["a","b"]')
@@ -305,13 +318,17 @@ class TestSubmitTaskTool:
         mock_coordinator = AsyncMock()
         mock_coordinator.submit_task.return_value = "task-abc123"
 
-        with patch(
-            "aragora.mcp.tools_module.control_plane._get_coordinator",
-            return_value=mock_coordinator,
-        ), patch(
-            "aragora.mcp.tools_module.control_plane.TaskPriority",
-            create=True,
-        ) as mock_priority:
+        with (
+            patch(
+                "aragora.mcp.tools_module.control_plane._get_coordinator",
+                new_callable=AsyncMock,
+                return_value=mock_coordinator,
+            ),
+            patch(
+                "aragora.mcp.tools_module.control_plane.TaskPriority",
+                create=True,
+            ) as mock_priority,
+        ):
             mock_priority.LOW = "low"
             mock_priority.NORMAL = "normal"
             mock_priority.HIGH = "high"
@@ -345,6 +362,7 @@ class TestGetTaskStatusTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await get_task_status_tool(task_id="nonexistent")
@@ -377,6 +395,7 @@ class TestGetTaskStatusTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await get_task_status_tool(task_id="task-123")
@@ -404,6 +423,7 @@ class TestCancelTaskTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await cancel_task_tool(task_id="task-123")
@@ -420,6 +440,7 @@ class TestListPendingTasksTool:
         """Test list pending when coordinator unavailable."""
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=None,
         ):
             result = await list_pending_tasks_tool()
@@ -440,6 +461,7 @@ class TestGetControlPlaneStatusTool:
         """Test status when coordinator unavailable."""
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=None,
         ):
             result = await get_control_plane_status_tool()
@@ -451,7 +473,8 @@ class TestGetControlPlaneStatusTool:
     async def test_status_success(self):
         """Test successful status retrieval."""
         mock_coordinator = AsyncMock()
-        mock_coordinator.get_system_health.return_value = MagicMock(value="healthy")
+        # get_system_health is called synchronously (no await) in the implementation
+        mock_coordinator.get_system_health = MagicMock(return_value=MagicMock(value="healthy"))
         mock_coordinator.get_stats.return_value = {
             "registry": {"total_agents": 5},
             "scheduler": {"total_tasks": 100},
@@ -462,6 +485,7 @@ class TestGetControlPlaneStatusTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await get_control_plane_status_tool()
@@ -477,11 +501,13 @@ class TestTriggerHealthCheckTool:
     async def test_health_check_specific_agent(self):
         """Test health check for specific agent."""
         mock_coordinator = AsyncMock()
-        mock_coordinator.is_agent_available.return_value = True
-        mock_coordinator.get_agent_health.return_value = None
+        # These are called synchronously (no await) in the implementation
+        mock_coordinator.is_agent_available = MagicMock(return_value=True)
+        mock_coordinator.get_agent_health = MagicMock(return_value=None)
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await trigger_health_check_tool(agent_id="claude")
@@ -493,7 +519,8 @@ class TestTriggerHealthCheckTool:
     async def test_health_check_all_agents(self):
         """Test health check for all agents."""
         mock_coordinator = AsyncMock()
-        mock_coordinator.get_system_health.return_value = MagicMock(value="healthy")
+        # get_system_health is called synchronously (no await) in the implementation
+        mock_coordinator.get_system_health = MagicMock(return_value=MagicMock(value="healthy"))
         mock_agent1 = MagicMock()
         mock_agent1.is_available.return_value = True
         mock_agent2 = MagicMock()
@@ -502,6 +529,7 @@ class TestTriggerHealthCheckTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await trigger_health_check_tool(agent_id="")
@@ -520,6 +548,7 @@ class TestGetResourceUtilizationTool:
         """Test utilization when coordinator unavailable."""
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=None,
         ):
             result = await get_resource_utilization_tool()
@@ -532,7 +561,12 @@ class TestGetResourceUtilizationTool:
         mock_coordinator = AsyncMock()
         mock_coordinator.get_stats.return_value = {
             "scheduler": {
-                "by_status": {"pending": 5, "running": 2, "completed": 100, "failed": 3},
+                "by_status": {
+                    "pending": 5,
+                    "running": 2,
+                    "completed": 100,
+                    "failed": 3,
+                },
                 "by_type": {"debate": 80, "analysis": 20},
                 "by_priority": {"high": 10, "normal": 90},
             },
@@ -545,6 +579,7 @@ class TestGetResourceUtilizationTool:
 
         with patch(
             "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
             return_value=mock_coordinator,
         ):
             result = await get_resource_utilization_tool()

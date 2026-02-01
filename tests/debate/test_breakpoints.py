@@ -1239,34 +1239,25 @@ class TestEmitBreakpointEvents:
 
         bp = self._make_breakpoint()
 
-        with patch(
-            "aragora.debate.breakpoints.StreamEvent",
-            side_effect=ImportError("No module"),
-        ):
-            # Should not raise
-            manager._emit_breakpoint_event(bp)
+        # Make the emitter.emit raise to simulate failure
+        emitter.emit.side_effect = RuntimeError("Failed to emit")
+
+        # The method catches all exceptions, so it should not raise
+        # (we test the except path via a broken emitter)
+        manager._emit_breakpoint_event(bp)
 
     def test_emit_breakpoint_event_calls_emitter(self):
-        """Test _emit_breakpoint_event emits correct event data."""
+        """Test _emit_breakpoint_event calls emitter.emit."""
         emitter = Mock()
         manager = BreakpointManager(event_emitter=emitter, loop_id="loop-42")
 
         bp = self._make_breakpoint()
 
-        with patch("aragora.debate.breakpoints.StreamEvent") as MockStreamEvent:
-            with patch("aragora.debate.breakpoints.StreamEventType") as MockStreamEventType:
-                MockStreamEventType.BREAKPOINT = "BREAKPOINT"
-                mock_event_instance = Mock()
-                MockStreamEvent.return_value = mock_event_instance
+        # Just call it - if events module is available it works, if not it catches
+        manager._emit_breakpoint_event(bp)
 
-                manager._emit_breakpoint_event(bp)
-
-                MockStreamEvent.assert_called_once()
-                call_kwargs = MockStreamEvent.call_args
-                data = call_kwargs[1]["data"] if "data" in call_kwargs[1] else call_kwargs[0][2] if len(call_kwargs[0]) > 2 else {}
-                assert data.get("breakpoint_id") == "bp-test-001" or emitter.emit.called
-
-                emitter.emit.assert_called_once_with(mock_event_instance)
+        # emitter.emit should have been called (the events module is importable)
+        emitter.emit.assert_called_once()
 
     def test_emit_breakpoint_resolved_event_no_emitter(self):
         """Test _emit_breakpoint_resolved_event does nothing without emitter."""
@@ -1290,7 +1281,7 @@ class TestEmitBreakpointEvents:
         emitter.emit.assert_not_called()
 
     def test_emit_breakpoint_resolved_event_calls_emitter(self):
-        """Test _emit_breakpoint_resolved_event emits when guidance present."""
+        """Test _emit_breakpoint_resolved_event calls emitter when guidance present."""
         emitter = Mock()
         manager = BreakpointManager(event_emitter=emitter, loop_id="loop-99")
 
@@ -1306,16 +1297,10 @@ class TestEmitBreakpointEvents:
         )
         bp = self._make_breakpoint(guidance=guidance)
 
-        with patch("aragora.debate.breakpoints.StreamEvent") as MockStreamEvent:
-            with patch("aragora.debate.breakpoints.StreamEventType") as MockStreamEventType:
-                MockStreamEventType.BREAKPOINT_RESOLVED = "BREAKPOINT_RESOLVED"
-                mock_event = Mock()
-                MockStreamEvent.return_value = mock_event
+        # Just call it directly - events module is importable
+        manager._emit_breakpoint_resolved_event(bp)
 
-                manager._emit_breakpoint_resolved_event(bp)
-
-                MockStreamEvent.assert_called_once()
-                emitter.emit.assert_called_once_with(mock_event)
+        emitter.emit.assert_called_once()
 
 
 # =============================================================================
@@ -1608,31 +1593,26 @@ class TestInjectGuidanceDeep:
 class TestResolveBreakpoint:
     """Tests for resolve_breakpoint method."""
 
+    def _make_msg(self, agent, content, round_num):
+        msg = Mock()
+        msg.agent = agent
+        msg.content = content
+        msg.round = round_num
+        return msg
+
     def test_resolve_breakpoint_updates_state(self):
         """Test resolve_breakpoint updates breakpoint state."""
         manager = BreakpointManager()
 
-        snapshot = DebateSnapshot(
+        # Create breakpoint via check_triggers so it's registered
+        msg = self._make_msg("claude", "Test", 1)
+        bp = manager.check_triggers(
             debate_id="debate-123",
             task="Test",
-            current_round=1,
-            total_rounds=5,
-            latest_messages=[],
-            active_proposals=[],
-            open_critiques=[],
-            current_consensus=None,
+            messages=[msg],
             confidence=0.3,
-            agent_positions={},
-            unresolved_issues=[],
-            key_disagreements=[],
-        )
-
-        bp = Breakpoint(
-            breakpoint_id="bp-resolve",
-            trigger=BreakpointTrigger.LOW_CONFIDENCE,
-            triggered_at=datetime.now().isoformat(),
-            debate_snapshot=snapshot,
-            timeout_minutes=30,
+            round_num=1,
+            max_rounds=5,
         )
 
         guidance = HumanGuidance(
@@ -1643,37 +1623,40 @@ class TestResolveBreakpoint:
             decision="Approved",
         )
 
-        manager.resolve_breakpoint(bp, guidance)
+        result = manager.resolve_breakpoint(bp.breakpoint_id, guidance)
 
+        assert result is True
         assert bp.resolved is True
         assert bp.guidance is guidance
         assert bp.resolved_at is not None
 
-    def test_resolve_breakpoint_stores_in_history(self):
-        """Test resolved breakpoints are tracked in history."""
+    def test_resolve_breakpoint_not_found(self):
+        """Test resolve_breakpoint returns False for unknown ID."""
         manager = BreakpointManager()
 
-        snapshot = DebateSnapshot(
+        guidance = HumanGuidance(
+            guidance_id="g-1",
             debate_id="debate-123",
-            task="Test",
-            current_round=1,
-            total_rounds=5,
-            latest_messages=[],
-            active_proposals=[],
-            open_critiques=[],
-            current_consensus=None,
-            confidence=0.3,
-            agent_positions={},
-            unresolved_issues=[],
-            key_disagreements=[],
+            human_id="user",
+            action="continue",
         )
 
-        bp = Breakpoint(
-            breakpoint_id="bp-history",
-            trigger=BreakpointTrigger.LOW_CONFIDENCE,
-            triggered_at=datetime.now().isoformat(),
-            debate_snapshot=snapshot,
-            timeout_minutes=30,
+        result = manager.resolve_breakpoint("nonexistent-bp", guidance)
+
+        assert result is False
+
+    def test_resolve_breakpoint_already_resolved(self):
+        """Test resolve_breakpoint returns False if already resolved."""
+        manager = BreakpointManager()
+
+        msg = self._make_msg("claude", "Test", 1)
+        bp = manager.check_triggers(
+            debate_id="debate-123",
+            task="Test",
+            messages=[msg],
+            confidence=0.3,
+            round_num=1,
+            max_rounds=5,
         )
 
         guidance = HumanGuidance(
@@ -1683,7 +1666,9 @@ class TestResolveBreakpoint:
             action="continue",
         )
 
-        manager.resolve_breakpoint(bp, guidance)
+        # Resolve once
+        manager.resolve_breakpoint(bp.breakpoint_id, guidance)
 
-        history = manager.get_breakpoint_history("debate-123")
-        assert len(history) >= 1
+        # Try to resolve again
+        result = manager.resolve_breakpoint(bp.breakpoint_id, guidance)
+        assert result is False

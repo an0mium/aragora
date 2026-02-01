@@ -2,6 +2,8 @@
 
 import os
 import tempfile
+from pathlib import Path
+
 import pytest
 
 from aragora.billing.budget_manager import (
@@ -31,6 +33,18 @@ def temp_db():
 def manager(temp_db):
     """Create a budget manager with temp database."""
     return BudgetManager(temp_db)
+
+
+class TestBudgetManagerDefaults:
+    """Tests for default BudgetManager configuration."""
+
+    def test_default_db_path_uses_data_dir(self, tmp_path, monkeypatch):
+        """Default db_path should resolve under DATA_DIR."""
+        from aragora.config import legacy as legacy
+
+        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        manager = BudgetManager()
+        assert Path(manager._db_path).resolve() == (tmp_path / "budgets.db").resolve()
 
 
 class TestBudgetCreation:

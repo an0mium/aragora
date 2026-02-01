@@ -1277,3 +1277,780 @@ class TestCounterfactualEdgeCases:
         comparison = orchestrator._compare_branches(branch_a, branch_b)
 
         assert comparison.conclusions_differ is False
+
+
+# =============================================================================
+# Additional Coverage: _run_branch edge cases
+# =============================================================================
+
+
+class TestRunBranchDeep:
+    """Tests for _run_branch non-DebateResult return and failure paths."""
+
+    def _make_pivot(self):
+        return PivotClaim(
+            claim_id="pivot-deep",
+            statement="AI will surpass human intelligence",
+            author="agent",
+            disagreement_score=0.8,
+            importance_score=0.7,
+            blocking_agents=["claude", "gpt4"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_branch_non_debate_result(self):
+        """Test _run_branch when run_branch_fn returns non-DebateResult."""
+        orchestrator = CounterfactualOrchestrator()
+
+        branch = CounterfactualBranch(
+            branch_id="cf-nondr",
+            parent_debate_id="debate-123",
+            pivot_claim=self._make_pivot(),
+            assumption=True,
+        )
+
+        async def run_fn(**kwargs):
+            return {"answer": "some dict result"}  # Not DebateResult
+
+        messages = []
+        await orchestrator._run_branch(branch, messages, run_fn)
+
+        assert branch.status == CounterfactualStatus.COMPLETED
+        assert branch.conclusion is None  # Not set because result is not DebateResult
+        assert branch.completed_at is not None
+        assert branch.started_at is not None
+
+    @pytest.mark.asyncio
+    async def test_run_branch_exception_marks_failed(self):
+        """Test _run_branch marks branch FAILED on exception."""
+        orchestrator = CounterfactualOrchestrator()
+
+        branch = CounterfactualBranch(
+            branch_id="cf-fail",
+            parent_debate_id="debate-123",
+            pivot_claim=self._make_pivot(),
+            assumption=False,
+        )
+
+        async def run_fn(**kwargs):
+            raise RuntimeError("Network error")
+
+        messages = []
+        await orchestrator._run_branch(branch, messages, run_fn)
+
+        assert branch.status == CounterfactualStatus.FAILED
+        assert "Branch failed" in branch.conclusion
+        assert "Network error" in branch.conclusion
+        assert branch.completed_at is not None
+
+    @pytest.mark.asyncio
+    async def test_run_branch_uses_last_10_context_messages(self):
+        """Test _run_branch passes last 10 context messages."""
+        orchestrator = CounterfactualOrchestrator()
+
+        branch = CounterfactualBranch(
+            branch_id="cf-ctx",
+            parent_debate_id="debate-123",
+            pivot_claim=self._make_pivot(),
+            assumption=True,
+        )
+
+        received_context = []
+
+        async def run_fn(**kwargs):
+            received_context.extend(kwargs.get("context", []))
+            return None
+
+        from aragora.core import Message
+
+        messages = [
+            Message(role="agent", agent=f"agent{i}", content=f"Msg {i}", round=i) for i in range(20)
+        ]
+
+        await orchestrator._run_branch(branch, messages, run_fn)
+
+        # Should receive 1 assumption msg + 10 last context
+        assert len(received_context) == 11
+        assert "COUNTERFACTUAL ASSUMPTION" in received_context[0].content
+
+    @pytest.mark.asyncio
+    async def test_run_branch_with_debate_result(self):
+        """Test _run_branch extracts fields from DebateResult."""
+        orchestrator = CounterfactualOrchestrator()
+
+        branch = CounterfactualBranch(
+            branch_id="cf-dr",
+            parent_debate_id="debate-123",
+            pivot_claim=self._make_pivot(),
+            assumption=True,
+        )
+
+        from aragora.core import DebateResult, Message, Vote
+
+        mock_result = DebateResult(
+            final_answer="Use Redis with persistence",
+            confidence=0.92,
+            consensus_reached=True,
+            messages=[
+                Message(role="agent", agent="claude", content="Redis!", round=1),
+            ],
+            votes=[
+                Vote(agent="claude", choice="Redis", confidence=0.95, reasoning="Fast"),
+            ],
+            rounds_completed=2,
+        )
+
+        async def run_fn(**kwargs):
+            return mock_result
+
+        await orchestrator._run_branch(branch, [], run_fn)
+
+        assert branch.status == CounterfactualStatus.COMPLETED
+        assert branch.conclusion == "Use Redis with persistence"
+        assert branch.confidence == 0.92
+        assert branch.consensus_reached is True
+        assert len(branch.messages) == 1
+        assert len(branch.votes) == 1
+
+
+# =============================================================================
+# Additional Coverage: _find_disagreements sentence boundary logic
+# =============================================================================
+
+
+class TestFindDisagreementsDeep:
+    """Tests for _find_disagreements internal logic."""
+
+    def _make_msg(self, agent, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent=agent, content=content, round=round_num)
+
+    def test_find_disagreements_sentence_boundary(self):
+        """Test _find_disagreements stops at sentence boundary."""
+        detector = ImpactDetector()
+
+        msgs = [
+            self._make_msg(
+                "claude",
+                "I fundamentally disagree with this approach. Let me explain more.",
+                1,
+            ),
+        ]
+
+        disagreements = detector._find_disagreements(msgs)
+
+        # Should extract up to first sentence boundary
+        for claim in disagreements:
+            assert claim.endswith(".")
+
+    def test_find_disagreements_multiple_agents(self):
+        """Test _find_disagreements aggregates agents per claim."""
+        detector = ImpactDetector()
+
+        msgs = [
+            self._make_msg(
+                "claude",
+                "I reject the premise that this is viable for production",
+                1,
+            ),
+            self._make_msg(
+                "gpt4",
+                "I also reject the premise that this approach works at scale",
+                1,
+            ),
+        ]
+
+        disagreements = detector._find_disagreements(msgs)
+
+        # At least one claim should have multiple agents
+        # (depends on exact text overlap)
+        assert len(disagreements) >= 1
+
+    def test_find_disagreements_short_claim_filtered(self):
+        """Test _find_disagreements filters claims shorter than 20 chars."""
+        detector = ImpactDetector()
+
+        msgs = [
+            self._make_msg("claude", "but if...", 1),
+        ]
+
+        disagreements = detector._find_disagreements(msgs)
+
+        # "but if..." is < 20 chars, should be filtered
+        assert len(disagreements) == 0
+
+    def test_find_disagreements_no_phrases(self):
+        """Test _find_disagreements returns empty for agreeable messages."""
+        detector = ImpactDetector()
+
+        msgs = [
+            self._make_msg("claude", "I agree with your excellent proposal.", 1),
+            self._make_msg("gpt4", "Wonderful idea, let us proceed.", 1),
+        ]
+
+        disagreements = detector._find_disagreements(msgs)
+
+        assert len(disagreements) == 0
+
+
+# =============================================================================
+# Additional Coverage: _estimate_importance edge cases
+# =============================================================================
+
+
+class TestEstimateImportanceDeep:
+    """Tests for _estimate_importance edge cases."""
+
+    def _make_msg(self, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent="claude", content=content, round=round_num)
+
+    def test_estimate_importance_empty_messages(self):
+        """Test _estimate_importance returns 0.0 for empty messages."""
+        detector = ImpactDetector()
+
+        score = detector._estimate_importance("some claim", [])
+
+        assert score == 0.0
+
+    def test_estimate_importance_high_overlap(self):
+        """Test _estimate_importance with high word overlap."""
+        detector = ImpactDetector()
+
+        claim = "caching with Redis is better for latency"
+        messages = [
+            self._make_msg("I think caching with Redis is the way to go", 1),
+            self._make_msg("Redis caching provides better latency performance", 2),
+            self._make_msg("For latency, Redis caching is superior", 3),
+        ]
+
+        score = detector._estimate_importance(claim, messages)
+
+        assert score > 0.5  # All messages share significant overlap
+
+    def test_estimate_importance_no_overlap(self):
+        """Test _estimate_importance with no word overlap."""
+        detector = ImpactDetector()
+
+        claim = "quantum computing advancement"
+        messages = [
+            self._make_msg("The database uses sharding for horizontal scaling", 1),
+            self._make_msg("Load balancer distributes traffic across servers", 2),
+        ]
+
+        score = detector._estimate_importance(claim, messages)
+
+        assert score == 0.0  # No overlap at 0.3 threshold
+
+    def test_estimate_importance_capped_at_one(self):
+        """Test _estimate_importance caps at 1.0."""
+        detector = ImpactDetector()
+
+        claim = "Redis cache"
+        messages = [self._make_msg(f"Redis cache topic {i}", i) for i in range(50)]
+
+        score = detector._estimate_importance(claim, messages)
+
+        assert score <= 1.0
+
+
+# =============================================================================
+# Additional Coverage: synthesize_branches with None conclusions
+# =============================================================================
+
+
+class TestSynthesizeBranchesDeep:
+    """Tests for synthesize_branches edge cases."""
+
+    def _make_pivot(self):
+        return PivotClaim(
+            claim_id="pivot-synth",
+            statement="Data should be replicated synchronously",
+            author="debate",
+            disagreement_score=0.9,
+            importance_score=0.8,
+            blocking_agents=["claude"],
+        )
+
+    def test_synthesize_with_none_conclusions(self):
+        """Test synthesize_branches handles None conclusions."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_true = CounterfactualBranch(
+            branch_id="cf-t",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion=None,  # No conclusion reached
+            confidence=0.3,
+        )
+
+        branch_false = CounterfactualBranch(
+            branch_id="cf-f",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="Use async replication",
+            confidence=0.85,
+        )
+
+        consensus = orchestrator.synthesize_branches(branch_true, branch_false)
+
+        assert consensus.if_true_conclusion == "No conclusion reached"
+        assert consensus.if_false_conclusion == "Use async replication"
+        assert consensus.preferred_world is False  # Higher confidence on false
+        assert "Higher confidence" in consensus.preference_reason
+
+    def test_synthesize_recommends_by_consensus_reached(self):
+        """Test synthesize preference when one branch reached consensus."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_true = CounterfactualBranch(
+            branch_id="cf-t2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="Sync replication",
+            confidence=0.7,
+            consensus_reached=True,
+        )
+
+        branch_false = CounterfactualBranch(
+            branch_id="cf-f2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="Async replication",
+            confidence=0.7,
+            consensus_reached=False,
+        )
+
+        consensus = orchestrator.synthesize_branches(branch_true, branch_false)
+
+        # comparison recommends branch with consensus
+        assert consensus.preferred_world is True
+
+    def test_synthesize_appends_to_history(self):
+        """Test synthesize_branches appends to conditional_consensuses list."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_true = CounterfactualBranch(
+            branch_id="cf-h1",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="A",
+            confidence=0.5,
+        )
+        branch_false = CounterfactualBranch(
+            branch_id="cf-h2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="B",
+            confidence=0.5,
+        )
+
+        assert len(orchestrator.conditional_consensuses) == 0
+        orchestrator.synthesize_branches(branch_true, branch_false)
+        assert len(orchestrator.conditional_consensuses) == 1
+
+    def test_synthesize_equal_confidence_no_preference(self):
+        """Test synthesize with equal confidence gives no preference."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_true = CounterfactualBranch(
+            branch_id="cf-eq1",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="A",
+            confidence=0.75,
+        )
+        branch_false = CounterfactualBranch(
+            branch_id="cf-eq2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="B",
+            confidence=0.75,
+        )
+
+        consensus = orchestrator.synthesize_branches(branch_true, branch_false)
+
+        # Neither has 0.1 advantage, so no preference
+        assert consensus.preferred_world is None
+        assert consensus.preference_reason == ""
+
+
+# =============================================================================
+# Additional Coverage: merge_counterfactual_branches without graph_branch_ids
+# =============================================================================
+
+
+class TestMergeCounterfactualBranchesDeep:
+    """Tests for merge_counterfactual_branches edge cases."""
+
+    def _make_pivot(self):
+        return PivotClaim(
+            claim_id="pivot-merge",
+            statement="Database should be NoSQL",
+            author="agent",
+            disagreement_score=0.8,
+            importance_score=0.7,
+            blocking_agents=["claude"],
+        )
+
+    def test_merge_without_graph_branch_ids(self):
+        """Test merge when branches have no graph_branch_id."""
+        mock_graph = Mock()
+        integration = CounterfactualIntegration(mock_graph)
+
+        pivot = self._make_pivot()
+        branch_true = CounterfactualBranch(
+            branch_id="cf-ng1",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="Use MongoDB",
+            confidence=0.8,
+            graph_branch_id=None,
+        )
+        branch_false = CounterfactualBranch(
+            branch_id="cf-ng2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="Use PostgreSQL",
+            confidence=0.7,
+            graph_branch_id=None,
+        )
+
+        merge_result, consensus = integration.merge_counterfactual_branches(
+            branch_true, branch_false, "synthesizer_agent"
+        )
+
+        assert merge_result is None  # No graph merge without branch IDs
+        assert consensus is not None
+        assert consensus.if_true_conclusion == "Use MongoDB"
+        assert consensus.if_false_conclusion == "Use PostgreSQL"
+        mock_graph.merge_branches.assert_not_called()
+
+    def test_merge_with_one_graph_branch_id(self):
+        """Test merge when only one branch has graph_branch_id."""
+        mock_graph = Mock()
+        integration = CounterfactualIntegration(mock_graph)
+
+        pivot = self._make_pivot()
+        branch_true = CounterfactualBranch(
+            branch_id="cf-one1",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="Use MongoDB",
+            confidence=0.8,
+            graph_branch_id="gb-1",
+        )
+        branch_false = CounterfactualBranch(
+            branch_id="cf-one2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="Use PostgreSQL",
+            confidence=0.7,
+            graph_branch_id=None,
+        )
+
+        merge_result, consensus = integration.merge_counterfactual_branches(
+            branch_true, branch_false, "synthesizer_agent"
+        )
+
+        # Only 1 branch_id, need >= 2 for merge
+        assert merge_result is None
+        mock_graph.merge_branches.assert_not_called()
+
+
+# =============================================================================
+# Additional Coverage: cleanup_debate and clear_all
+# =============================================================================
+
+
+class TestCleanupDebateDeep:
+    """Tests for cleanup_debate and clear_all."""
+
+    def _make_pivot(self):
+        return PivotClaim(
+            claim_id="pivot-clean",
+            statement="Test claim",
+            author="agent",
+            disagreement_score=0.8,
+            importance_score=0.7,
+            blocking_agents=[],
+        )
+
+    def test_cleanup_debate_no_matching(self):
+        """Test cleanup_debate when no branches match."""
+        orchestrator = CounterfactualOrchestrator()
+
+        pivot = self._make_pivot()
+        orchestrator.branches["cf-1"] = CounterfactualBranch(
+            branch_id="cf-1",
+            parent_debate_id="debate-other",
+            pivot_claim=pivot,
+            assumption=True,
+        )
+
+        removed = orchestrator.cleanup_debate("debate-nonexistent")
+
+        assert removed == 0
+        assert len(orchestrator.branches) == 1
+
+    def test_cleanup_debate_trims_consensus_history(self):
+        """Test cleanup_debate trims consensus history to max_history."""
+        orchestrator = CounterfactualOrchestrator()
+        orchestrator.max_history = 5
+
+        pivot = self._make_pivot()
+
+        # Add more than max_history consensuses
+        for i in range(10):
+            orchestrator.conditional_consensuses.append(
+                ConditionalConsensus(
+                    consensus_id=f"cc-{i}",
+                    pivot_claim=pivot,
+                    if_true_conclusion=f"True conclusion {i}",
+                    if_true_confidence=0.8,
+                    if_false_conclusion=f"False conclusion {i}",
+                    if_false_confidence=0.7,
+                )
+            )
+
+        orchestrator.cleanup_debate("any")
+
+        assert len(orchestrator.conditional_consensuses) == 5
+
+    def test_clear_all_resets_counter(self):
+        """Test clear_all resets branch counter."""
+        orchestrator = CounterfactualOrchestrator()
+        orchestrator._branch_counter = 10
+
+        pivot = self._make_pivot()
+        orchestrator.branches["cf-1"] = CounterfactualBranch(
+            branch_id="cf-1",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+        )
+        orchestrator.conditional_consensuses.append(
+            ConditionalConsensus(
+                consensus_id="cc-1",
+                pivot_claim=pivot,
+                if_true_conclusion="A",
+                if_true_confidence=0.8,
+                if_false_conclusion="B",
+                if_false_confidence=0.7,
+            )
+        )
+
+        orchestrator.clear_all()
+
+        assert len(orchestrator.branches) == 0
+        assert len(orchestrator.conditional_consensuses) == 0
+        assert orchestrator._branch_counter == 0
+
+
+# =============================================================================
+# Additional Coverage: generate_report
+# =============================================================================
+
+
+class TestGenerateReportDeep:
+    """Tests for generate_report edge cases."""
+
+    def _make_pivot(self):
+        return PivotClaim(
+            claim_id="pivot-report",
+            statement="AI systems should have human oversight",
+            author="agent",
+            disagreement_score=0.8,
+            importance_score=0.7,
+            blocking_agents=["claude"],
+        )
+
+    def test_generate_report_empty(self):
+        """Test generate_report with no branches."""
+        orchestrator = CounterfactualOrchestrator()
+
+        report = orchestrator.generate_report()
+
+        assert "Counterfactual Exploration Report" in report
+        assert "Total Branches:** 0" in report
+
+    def test_generate_report_with_failed_branch(self):
+        """Test generate_report includes failed branches."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        orchestrator.branches["cf-fail"] = CounterfactualBranch(
+            branch_id="cf-fail",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            status=CounterfactualStatus.FAILED,
+            conclusion="Branch failed: timeout",
+            confidence=0.0,
+        )
+
+        report = orchestrator.generate_report()
+
+        assert "failed" in report.lower()
+
+    def test_generate_report_with_consensus(self):
+        """Test generate_report includes conditional consensuses."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        orchestrator.conditional_consensuses.append(
+            ConditionalConsensus(
+                consensus_id="cc-rpt",
+                pivot_claim=pivot,
+                if_true_conclusion="Full oversight needed",
+                if_true_confidence=0.9,
+                if_false_conclusion="Self-governance possible",
+                if_false_confidence=0.7,
+            )
+        )
+
+        report = orchestrator.generate_report()
+
+        assert "Conditional Consensuses" in report
+        assert "Full oversight needed" in report or "Conditional Consensus" in report
+
+
+# =============================================================================
+# Additional Coverage: _compare_branches with None conclusions
+# =============================================================================
+
+
+class TestCompareBranchesDeep:
+    """Tests for _compare_branches edge cases."""
+
+    def _make_pivot(self):
+        return PivotClaim(
+            claim_id="pivot-cmp",
+            statement="Test claim",
+            author="agent",
+            disagreement_score=0.8,
+            importance_score=0.7,
+            blocking_agents=[],
+        )
+
+    def test_compare_branches_none_conclusions(self):
+        """Test _compare_branches with None conclusions."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_a = CounterfactualBranch(
+            branch_id="cf-a",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion=None,
+        )
+        branch_b = CounterfactualBranch(
+            branch_id="cf-b",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion=None,
+        )
+
+        comparison = orchestrator._compare_branches(branch_a, branch_b)
+
+        assert comparison.conclusions_differ is False
+        assert len(comparison.key_differences) == 0
+
+    def test_compare_branches_one_none_conclusion(self):
+        """Test _compare_branches with one None conclusion."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_a = CounterfactualBranch(
+            branch_id="cf-a2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="Use Redis",
+        )
+        branch_b = CounterfactualBranch(
+            branch_id="cf-b2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion=None,
+        )
+
+        comparison = orchestrator._compare_branches(branch_a, branch_b)
+
+        assert comparison.conclusions_differ is False  # One is None
+
+    def test_compare_branches_confidence_threshold(self):
+        """Test _compare_branches recommends with >0.15 confidence gap."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_a = CounterfactualBranch(
+            branch_id="cf-conf1",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="A",
+            confidence=0.9,
+        )
+        branch_b = CounterfactualBranch(
+            branch_id="cf-conf2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="B",
+            confidence=0.7,
+        )
+
+        comparison = orchestrator._compare_branches(branch_a, branch_b)
+
+        assert comparison.recommended_branch == "cf-conf1"
+        assert "Higher confidence" in comparison.recommendation_reason
+
+    def test_compare_branches_shared_insights(self):
+        """Test _compare_branches finds shared insights."""
+        orchestrator = CounterfactualOrchestrator()
+        pivot = self._make_pivot()
+
+        branch_a = CounterfactualBranch(
+            branch_id="cf-ins1",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=True,
+            conclusion="A",
+            confidence=0.7,
+            key_insights=["Scalability is critical", "Latency matters"],
+        )
+        branch_b = CounterfactualBranch(
+            branch_id="cf-ins2",
+            parent_debate_id="debate-123",
+            pivot_claim=pivot,
+            assumption=False,
+            conclusion="B",
+            confidence=0.7,
+            key_insights=["Scalability is critical", "Cost is important"],
+        )
+
+        comparison = orchestrator._compare_branches(branch_a, branch_b)
+
+        assert "Scalability is critical" in comparison.shared_insights

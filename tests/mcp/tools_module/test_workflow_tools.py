@@ -1,15 +1,37 @@
 """Tests for MCP workflow tools execution logic."""
 
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aragora.mcp.tools_module.workflow import (
+    WorkflowExecutionStatus,
     cancel_workflow_tool,
     get_workflow_status_tool,
     list_workflow_templates_tool,
     run_workflow_tool,
 )
+
+
+def _make_engine_module(mock_engine_instance):
+    """Create a mock module for aragora.workflow.engine with WorkflowEngine returning mock_engine_instance."""
+    mod = MagicMock()
+    mod.WorkflowEngine.return_value = mock_engine_instance
+    return mod
+
+
+_SENTINEL = object()
+
+
+def _make_templates_module(get_template_rv=_SENTINEL, list_templates_rv=_SENTINEL):
+    """Create a mock module for aragora.workflow.templates."""
+    mod = MagicMock()
+    if get_template_rv is not _SENTINEL:
+        mod.get_template.return_value = get_template_rv
+    if list_templates_rv is not _SENTINEL:
+        mod.list_templates.return_value = list_templates_rv
+    return mod
 
 
 class TestRunWorkflowTool:
@@ -32,10 +54,17 @@ class TestRunWorkflowTool:
     @pytest.mark.asyncio
     async def test_run_template_not_found(self):
         """Test run with non-existent template."""
-        with patch(
-            "aragora.mcp.tools_module.workflow.get_template",
-            return_value=None,
-        ), patch("aragora.mcp.tools_module.workflow.WorkflowEngine"):
+        mock_engine = AsyncMock()
+        mock_engine_module = _make_engine_module(mock_engine)
+        mock_templates_module = _make_templates_module(get_template_rv=None)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+                "aragora.workflow.templates": mock_templates_module,
+            },
+        ):
             result = await run_workflow_tool(template="nonexistent")
 
         assert "error" in result
@@ -52,12 +81,15 @@ class TestRunWorkflowTool:
         mock_result.nodes_executed = 3
         mock_engine.run.return_value = mock_result
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.get_template",
-            return_value=mock_template,
-        ), patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+        mock_templates_module = _make_templates_module(get_template_rv=mock_template)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+                "aragora.workflow.templates": mock_templates_module,
+            },
         ):
             result = await run_workflow_tool(
                 template="debate_and_audit",
@@ -76,12 +108,15 @@ class TestRunWorkflowTool:
         mock_engine = AsyncMock()
         mock_engine.start_async.return_value = "exec-abc123"
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.get_template",
-            return_value=mock_template,
-        ), patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+        mock_templates_module = _make_templates_module(get_template_rv=mock_template)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+                "aragora.workflow.templates": mock_templates_module,
+            },
         ):
             result = await run_workflow_tool(
                 template="multi_agent_review",
@@ -95,9 +130,13 @@ class TestRunWorkflowTool:
     @pytest.mark.asyncio
     async def test_run_import_error(self):
         """Test run when workflow engine unavailable."""
-        with patch(
-            "builtins.__import__",
-            side_effect=ImportError("Workflow engine not available"),
+        # Setting a sys.modules entry to None causes ImportError on import
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": None,
+                "aragora.workflow.templates": None,
+            },
         ):
             result = await run_workflow_tool(template="test")
 
@@ -114,12 +153,15 @@ class TestRunWorkflowTool:
         mock_result.nodes_executed = 1
         mock_engine.run.return_value = mock_result
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.get_template",
-            return_value=mock_template,
-        ), patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+        mock_templates_module = _make_templates_module(get_template_rv=mock_template)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+                "aragora.workflow.templates": mock_templates_module,
+            },
         ):
             result = await run_workflow_tool(template="test", inputs="")
 
@@ -135,9 +177,13 @@ class TestGetWorkflowStatusTool:
         mock_engine = AsyncMock()
         mock_engine.get_status.return_value = None
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+            },
         ):
             result = await get_workflow_status_tool(execution_id="nonexistent")
 
@@ -148,7 +194,6 @@ class TestGetWorkflowStatusTool:
     async def test_status_success(self):
         """Test successful status retrieval."""
         mock_engine = AsyncMock()
-        from aragora.mcp.tools_module.workflow import WorkflowExecutionStatus
 
         mock_status = WorkflowExecutionStatus(
             status="running",
@@ -160,9 +205,13 @@ class TestGetWorkflowStatusTool:
         )
         mock_engine.get_status.return_value = mock_status
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+            },
         ):
             result = await get_workflow_status_tool(execution_id="exec-123")
 
@@ -178,9 +227,12 @@ class TestListWorkflowTemplatesTool:
     @pytest.mark.asyncio
     async def test_list_import_error_returns_defaults(self):
         """Test list returns default templates when module unavailable."""
-        with patch(
-            "builtins.__import__",
-            side_effect=ImportError("Workflow patterns not available"),
+        # Setting a sys.modules entry to None causes ImportError on import
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.templates": None,
+            },
         ):
             result = await list_workflow_templates_tool()
 
@@ -201,10 +253,14 @@ class TestListWorkflowTemplatesTool:
             },
         ]
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.list_templates",
-            return_value=mock_templates,
-        ), patch("aragora.mcp.tools_module.workflow.WorkflowEngine"):
+        mock_templates_module = _make_templates_module(list_templates_rv=mock_templates)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.templates": mock_templates_module,
+            },
+        ):
             result = await list_workflow_templates_tool(category="debate")
 
         assert result["count"] == 1
@@ -214,13 +270,17 @@ class TestListWorkflowTemplatesTool:
     @pytest.mark.asyncio
     async def test_list_all_category(self):
         """Test list with 'all' category passes None to list_templates."""
-        with patch(
-            "aragora.mcp.tools_module.workflow.list_templates",
-            return_value=[],
-        ) as mock_list, patch("aragora.mcp.tools_module.workflow.WorkflowEngine"):
+        mock_templates_module = _make_templates_module(list_templates_rv=[])
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.templates": mock_templates_module,
+            },
+        ):
             result = await list_workflow_templates_tool(category="all")
 
-        mock_list.assert_called_once_with(None)
+        mock_templates_module.list_templates.assert_called_once_with(None)
 
 
 class TestCancelWorkflowTool:
@@ -232,13 +292,15 @@ class TestCancelWorkflowTool:
         mock_engine = AsyncMock()
         mock_engine.cancel.return_value = True
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+            },
         ):
-            result = await cancel_workflow_tool(
-                execution_id="exec-123", reason="User requested"
-            )
+            result = await cancel_workflow_tool(execution_id="exec-123", reason="User requested")
 
         assert result["cancelled"] is True
         assert result["execution_id"] == "exec-123"
@@ -250,9 +312,13 @@ class TestCancelWorkflowTool:
         mock_engine = AsyncMock()
         mock_engine.cancel.return_value = False
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+            },
         ):
             result = await cancel_workflow_tool(execution_id="nonexistent")
 
@@ -264,9 +330,13 @@ class TestCancelWorkflowTool:
         mock_engine = AsyncMock()
         mock_engine.cancel.return_value = True
 
-        with patch(
-            "aragora.mcp.tools_module.workflow.WorkflowEngine",
-            return_value=mock_engine,
+        mock_engine_module = _make_engine_module(mock_engine)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.workflow.engine": mock_engine_module,
+            },
         ):
             result = await cancel_workflow_tool(execution_id="exec-123")
 

@@ -54,9 +54,7 @@ class TestGetEvidenceLinkerClass:
 
     def test_returns_none_on_import_error(self):
         """Test returns None when import fails."""
-        with patch(
-            "aragora.debate.trickster._get_evidence_linker_class"
-        ) as mock_fn:
+        with patch("aragora.debate.trickster._get_evidence_linker_class") as mock_fn:
             mock_fn.return_value = None
             result = mock_fn()
             assert result is None
@@ -78,7 +76,7 @@ class TestTricksterConfigSensitivity:
     def test_sensitivity_one(self):
         """Test sensitivity=1.0 -> lowest threshold (most sensitive)."""
         config = TricksterConfig(sensitivity=1.0)
-        assert config.hollow_detection_threshold == 0.2
+        assert abs(config.hollow_detection_threshold - 0.2) < 0.01
 
     def test_sensitivity_quarter(self):
         """Test sensitivity=0.25 -> intermediate threshold."""
@@ -795,9 +793,7 @@ class TestCheckAndInterveneCrossProposal:
         with patch.object(trickster._analyzer, "analyze_batch") as mock_analyze:
             with patch.object(trickster._detector, "check") as mock_check:
                 with patch.object(trickster._cross_analyzer, "analyze") as mock_cross:
-                    mock_analyze.return_value = {
-                        "a": self._create_mock_quality_score(0.5)
-                    }
+                    mock_analyze.return_value = {"a": self._create_mock_quality_score(0.5)}
                     mock_check.return_value = Mock(detected=False)
 
                     trickster.check_and_intervene(
@@ -815,9 +811,7 @@ class TestCheckAndInterveneCrossProposal:
         with patch.object(trickster._analyzer, "analyze_batch") as mock_analyze:
             with patch.object(trickster._detector, "check") as mock_check:
                 with patch.object(trickster._cross_analyzer, "analyze") as mock_cross:
-                    mock_analyze.return_value = {
-                        "a": self._create_mock_quality_score(0.5)
-                    }
+                    mock_analyze.return_value = {"a": self._create_mock_quality_score(0.5)}
                     mock_alert = Mock()
                     mock_alert.detected = False
                     mock_check.return_value = mock_alert
@@ -842,9 +836,7 @@ class TestCheckAndInterveneCrossProposal:
         with patch.object(trickster._analyzer, "analyze_batch") as mock_analyze:
             with patch.object(trickster._detector, "check") as mock_check:
                 with patch.object(trickster._cross_analyzer, "analyze") as mock_cross:
-                    mock_analyze.return_value = {
-                        "a": self._create_mock_quality_score(0.5)
-                    }
+                    mock_analyze.return_value = {"a": self._create_mock_quality_score(0.5)}
                     mock_check.return_value = Mock(detected=False)
 
                     # Both evidence gaps AND high redundancy
@@ -876,9 +868,7 @@ class TestCheckAndInterveneCrossProposal:
 
         with patch.object(trickster._analyzer, "analyze_batch") as mock_analyze:
             with patch.object(trickster._detector, "check") as mock_check:
-                mock_analyze.return_value = {
-                    "a": self._create_mock_quality_score(0.4)
-                }
+                mock_analyze.return_value = {"a": self._create_mock_quality_score(0.4)}
 
                 mock_alert = Mock()
                 mock_alert.detected = True

@@ -1397,3 +1397,782 @@ class TestForkingIntegration:
             if branches:
                 assert len(branches) >= 2
                 assert len(forker.get_branches("debate-123")) >= 2
+
+
+# =============================================================================
+# Additional Coverage: _extract_positions stance categorization
+# =============================================================================
+
+
+class TestExtractPositionsDeep:
+    """Tests for _extract_positions internal stance detection."""
+
+    def _create_msg(self, agent, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent=agent, content=content, round=round_num)
+
+    def test_extract_strong_support(self):
+        """Test _extract_positions detects strong_support stance."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg(
+                "claude", "I strongly agree with this approach and think it is best.", 1
+            ),
+        ]
+
+        positions = resolver._extract_positions(msgs)
+
+        assert "claude" in positions
+        assert "strong_support" in positions["claude"]
+
+    def test_extract_support(self):
+        """Test _extract_positions detects support stance."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg("gpt4", "I agree that we should use this method.", 1),
+        ]
+
+        positions = resolver._extract_positions(msgs)
+
+        assert "gpt4" in positions
+        assert "support" in positions["gpt4"]
+
+    def test_extract_oppose_keyword(self):
+        """Test _extract_positions detects oppose via 'oppose' keyword."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg("gemini", "I oppose this direction entirely.", 1),
+        ]
+
+        positions = resolver._extract_positions(msgs)
+
+        assert "gemini" in positions
+        assert "oppose" in positions["gemini"]
+
+    def test_extract_never_keyword(self):
+        """Test _extract_positions detects strong_oppose via 'never' keyword."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg("grok", "We should never use this approach.", 1),
+        ]
+
+        positions = resolver._extract_positions(msgs)
+
+        assert "grok" in positions
+        assert "strong_oppose" in positions["grok"]
+
+    def test_extract_neutral(self):
+        """Test _extract_positions defaults to neutral stance."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg("claude", "Let me analyze this problem carefully.", 1),
+        ]
+
+        positions = resolver._extract_positions(msgs)
+
+        assert "claude" in positions
+        assert "neutral" in positions["claude"]
+
+    def test_extract_multiple_agents(self):
+        """Test _extract_positions handles multiple agents in same round."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg("claude", "I definitely think Redis is the answer.", 1),
+            self._create_msg("gpt4", "I oppose the Redis approach entirely.", 1),
+        ]
+
+        positions = resolver._extract_positions(msgs)
+
+        assert len(positions) == 2
+        assert "strong_support" in positions["claude"]
+        assert "oppose" in positions["gpt4"]
+
+
+# =============================================================================
+# Additional Coverage: _calculate_positional_stagnation
+# =============================================================================
+
+
+class TestPositionalStagnationDeep:
+    """Tests for _calculate_positional_stagnation edge cases."""
+
+    def _create_msg(self, agent, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent=agent, content=content, round=round_num)
+
+    def test_stagnation_with_previous_positions(self):
+        """Test _calculate_positional_stagnation with explicit previous_positions."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-stag"
+
+        # Need at least 2 rounds in history
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {"a": "support_123"}, "unique_arguments": 3},
+            {"round": 2, "positions": {"a": "support_123"}, "unique_arguments": 3},
+        ]
+
+        current = {"a": "support_123"}
+        previous = {"a": "support_123"}
+
+        score = resolver._calculate_positional_stagnation(debate_id, current, previous)
+
+        assert score == 1.0  # All positions match
+
+    def test_stagnation_no_previous_positions_uses_history(self):
+        """Test _calculate_positional_stagnation without previous_positions uses history."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-hist"
+
+        # Set up history with same positions repeating
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {"a": "support_123"}, "unique_arguments": 3},
+            {"round": 2, "positions": {"a": "support_123"}, "unique_arguments": 3},
+            {"round": 3, "positions": {"a": "support_123"}, "unique_arguments": 3},
+        ]
+
+        current = {"a": "support_123"}
+
+        score = resolver._calculate_positional_stagnation(debate_id, current, None)
+
+        assert score > 0.0  # Should detect repeating positions
+
+    def test_stagnation_insufficient_history(self):
+        """Test _calculate_positional_stagnation returns 0.0 with insufficient history."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-short"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {"a": "support_123"}, "unique_arguments": 3},
+        ]
+
+        score = resolver._calculate_positional_stagnation(debate_id, {"a": "x"}, None)
+
+        assert score == 0.0
+
+    def test_stagnation_empty_current_positions(self):
+        """Test _calculate_positional_stagnation with empty current positions."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-empty"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 0},
+            {"round": 2, "positions": {}, "unique_arguments": 0},
+        ]
+
+        score = resolver._calculate_positional_stagnation(debate_id, {}, {"a": "x"})
+
+        # No matching (empty current), division by zero guarded
+        assert score == 0.0
+
+
+# =============================================================================
+# Additional Coverage: _detect_circular_arguments
+# =============================================================================
+
+
+class TestDetectCircularArgumentsDeep:
+    """Tests for _detect_circular_arguments patterns."""
+
+    def test_circular_repeating_pattern(self):
+        """Test _detect_circular_arguments detects A->B->A pattern."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-circ"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 5},
+            {"round": 2, "positions": {}, "unique_arguments": 3},
+            {"round": 3, "positions": {}, "unique_arguments": 5},  # Same as round 1
+        ]
+
+        score = resolver._detect_circular_arguments(debate_id)
+
+        assert score == 0.8  # Detected A->B->A pattern
+
+    def test_circular_flat_pattern(self):
+        """Test _detect_circular_arguments detects flat argument count."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-flat"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 3},
+            {"round": 2, "positions": {}, "unique_arguments": 3},
+            {"round": 3, "positions": {}, "unique_arguments": 3},
+        ]
+
+        score = resolver._detect_circular_arguments(debate_id)
+
+        assert score == 0.6  # Flat pattern
+
+    def test_circular_no_pattern(self):
+        """Test _detect_circular_arguments returns 0.0 with no pattern."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-nopatn"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 1},
+            {"round": 2, "positions": {}, "unique_arguments": 3},
+            {"round": 3, "positions": {}, "unique_arguments": 6},
+        ]
+
+        score = resolver._detect_circular_arguments(debate_id)
+
+        assert score == 0.0
+
+    def test_circular_insufficient_history(self):
+        """Test _detect_circular_arguments returns 0.0 with < 3 rounds."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-short"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 5},
+            {"round": 2, "positions": {}, "unique_arguments": 3},
+        ]
+
+        score = resolver._detect_circular_arguments(debate_id)
+
+        assert score == 0.0
+
+
+# =============================================================================
+# Additional Coverage: _calculate_argument_exhaustion
+# =============================================================================
+
+
+class TestArgumentExhaustionDeep:
+    """Tests for _calculate_argument_exhaustion edge cases."""
+
+    def test_exhaustion_monotonic_decrease(self):
+        """Test _calculate_argument_exhaustion with monotonic decline."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-exhaust"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 10},
+            {"round": 2, "positions": {}, "unique_arguments": 6},
+            {"round": 3, "positions": {}, "unique_arguments": 2},
+        ]
+
+        score = resolver._calculate_argument_exhaustion(debate_id)
+
+        # decline_rate = (10 - 2) / 10 = 0.8
+        assert score == 0.8
+
+    def test_exhaustion_non_monotonic(self):
+        """Test _calculate_argument_exhaustion with non-monotonic change returns 0."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-bounce"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 5},
+            {"round": 2, "positions": {}, "unique_arguments": 3},
+            {"round": 3, "positions": {}, "unique_arguments": 7},  # Increase
+        ]
+
+        score = resolver._calculate_argument_exhaustion(debate_id)
+
+        assert score == 0.0  # Not monotonically decreasing
+
+    def test_exhaustion_capped_at_one(self):
+        """Test _calculate_argument_exhaustion caps at 1.0."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-cap"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 10},
+            {"round": 2, "positions": {}, "unique_arguments": 5},
+            {"round": 3, "positions": {}, "unique_arguments": 0},
+        ]
+
+        score = resolver._calculate_argument_exhaustion(debate_id)
+
+        assert score <= 1.0
+
+    def test_exhaustion_insufficient_history(self):
+        """Test _calculate_argument_exhaustion with < 2 rounds."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-one"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {}, "unique_arguments": 5},
+        ]
+
+        score = resolver._calculate_argument_exhaustion(debate_id)
+
+        assert score == 0.0
+
+
+# =============================================================================
+# Additional Coverage: _count_stagnant_rounds
+# =============================================================================
+
+
+class TestCountStagnantRoundsDeep:
+    """Tests for _count_stagnant_rounds edge cases."""
+
+    def test_stagnant_rounds_with_progress(self):
+        """Test _count_stagnant_rounds stops at progress."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-prog"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {"a": "x"}, "unique_arguments": 3},
+            {"round": 2, "positions": {"a": "x"}, "unique_arguments": 5},  # Progress: more args
+            {"round": 3, "positions": {"a": "x"}, "unique_arguments": 5},  # Stagnant
+            {"round": 4, "positions": {"a": "x"}, "unique_arguments": 5},  # Stagnant
+        ]
+
+        count = resolver._count_stagnant_rounds(debate_id)
+
+        assert (
+            count == 2
+        )  # Only rounds 3->4 and 2->3 are stagnant wait, 3->4 yes, 2->3 no (progress)
+        # Actually: iterating backward: i=3 (round 4 vs 3): same -> stagnant=1
+        # i=2 (round 3 vs 2): args equal, positions equal -> stagnant=2
+        # i=1 (round 2 vs 1): args increased -> break
+        assert count == 2
+
+    def test_stagnant_rounds_all_stagnant(self):
+        """Test _count_stagnant_rounds when all rounds are stagnant."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-allstag"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {"a": "x"}, "unique_arguments": 3},
+            {"round": 2, "positions": {"a": "x"}, "unique_arguments": 3},
+            {"round": 3, "positions": {"a": "x"}, "unique_arguments": 3},
+            {"round": 4, "positions": {"a": "x"}, "unique_arguments": 3},
+        ]
+
+        count = resolver._count_stagnant_rounds(debate_id)
+
+        assert count == 3
+
+    def test_stagnant_rounds_insufficient_history(self):
+        """Test _count_stagnant_rounds with < 2 rounds returns 0."""
+        resolver = DeadlockResolver()
+        debate_id = "debate-few"
+
+        resolver.debate_history[debate_id] = [
+            {"round": 1, "positions": {"a": "x"}, "unique_arguments": 3},
+        ]
+
+        count = resolver._count_stagnant_rounds(debate_id)
+
+        assert count == 0
+
+
+# =============================================================================
+# Additional Coverage: _get_recommendation
+# =============================================================================
+
+
+class TestGetRecommendationDeep:
+    """Tests for _get_recommendation decision logic."""
+
+    def test_recommendation_positional_high_stagnation(self):
+        """Test recommendation for positional pattern with high stagnation."""
+        resolver = DeadlockResolver()
+
+        result = resolver._get_recommendation(0.85, 1, "positional")
+
+        assert result == "fork"
+
+    def test_recommendation_circular_multiple_rounds(self):
+        """Test recommendation for circular pattern with multiple stuck rounds."""
+        resolver = DeadlockResolver()
+
+        result = resolver._get_recommendation(0.6, 2, "circular")
+
+        assert result == "fork"
+
+    def test_recommendation_exhaustion_long(self):
+        """Test recommendation for exhaustion pattern >= 3 rounds without progress."""
+        resolver = DeadlockResolver()
+
+        result = resolver._get_recommendation(0.5, 3, "exhaustion")
+
+        assert result == "conclude"
+
+    def test_recommendation_exhaustion_short(self):
+        """Test recommendation for exhaustion pattern < 3 rounds."""
+        resolver = DeadlockResolver()
+
+        result = resolver._get_recommendation(0.5, 1, "exhaustion")
+
+        assert result == "inject_perspective"
+
+    def test_recommendation_default_high_score(self):
+        """Test recommendation defaults to fork with high stagnation score."""
+        resolver = DeadlockResolver()
+
+        result = resolver._get_recommendation(0.76, 1, "unknown_pattern")
+
+        assert result == "fork"
+
+    def test_recommendation_default_low_score(self):
+        """Test recommendation defaults to inject_perspective with low stagnation."""
+        resolver = DeadlockResolver()
+
+        result = resolver._get_recommendation(0.5, 1, "unknown_pattern")
+
+        assert result == "inject_perspective"
+
+
+# =============================================================================
+# Additional Coverage: _create_counterfactual_decision
+# =============================================================================
+
+
+class TestCreateCounterfactualDecisionDeep:
+    """Tests for _create_counterfactual_decision."""
+
+    def _create_msg(self, agent, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent=agent, content=content, round=round_num)
+
+    def _create_signal(self, debate_id="debate-123", round_num=5, pattern="positional"):
+        return DeadlockSignal(
+            debate_id=debate_id,
+            round=round_num,
+            stagnation_score=0.85,
+            rounds_without_progress=3,
+            pattern=pattern,
+            recommendation="fork",
+        )
+
+    def test_single_agent_creates_one_branch(self):
+        """Test _create_counterfactual_decision with single agent."""
+        resolver = DeadlockResolver()
+        signal = self._create_signal()
+        messages = [self._create_msg("claude", "My position is X", 3)]
+        agents = [Mock(name="claude")]
+
+        decision = resolver._create_counterfactual_decision(signal, messages, agents)
+
+        assert decision.should_fork is False  # < 2 branches
+        assert len(decision.branches) == 1
+
+    def test_two_agents_creates_three_branches(self):
+        """Test _create_counterfactual_decision with two agents."""
+        resolver = DeadlockResolver()
+        signal = self._create_signal()
+        messages = [
+            self._create_msg("claude", "My position is X", 3),
+            self._create_msg("gpt4", "My position is Y", 3),
+        ]
+        agents = [Mock(name="claude"), Mock(name="gpt4")]
+
+        decision = resolver._create_counterfactual_decision(signal, messages, agents)
+
+        assert decision.should_fork is True
+        assert len(decision.branches) == 3  # agent1, agent2, synthesis
+        # reversed() iteration: gpt4 found first, then claude
+        assert "gpt4" in decision.branches[0]["hypothesis"]
+        assert "claude" in decision.branches[1]["hypothesis"]
+        assert "synthesis" in decision.branches[2]["hypothesis"].lower()
+
+    def test_decision_uses_latest_messages_per_agent(self):
+        """Test _create_counterfactual_decision uses latest message per agent."""
+        resolver = DeadlockResolver()
+        signal = self._create_signal()
+        messages = [
+            self._create_msg("claude", "First position", 1),
+            self._create_msg("gpt4", "First position", 1),
+            self._create_msg("claude", "Updated position", 3),
+            self._create_msg("gpt4", "Updated position", 3),
+        ]
+        agents = [Mock(name="claude"), Mock(name="gpt4")]
+
+        decision = resolver._create_counterfactual_decision(signal, messages, agents)
+
+        assert decision.should_fork is True
+        # Lead agents should come from latest messages (reversed iteration)
+
+    def test_decision_empty_messages(self):
+        """Test _create_counterfactual_decision with empty messages."""
+        resolver = DeadlockResolver()
+        signal = self._create_signal()
+
+        decision = resolver._create_counterfactual_decision(signal, [], [])
+
+        assert decision.should_fork is False
+        assert len(decision.branches) == 0
+
+
+# =============================================================================
+# Additional Coverage: _score_branch and merge edge cases
+# =============================================================================
+
+
+class TestScoreBranchDeep:
+    """Tests for _score_branch and merge edge cases."""
+
+    def _create_branch(self, branch_id, hypothesis, lead_agent, result=None):
+        return Branch(
+            branch_id=branch_id,
+            parent_debate_id="debate-123",
+            fork_round=3,
+            hypothesis=hypothesis,
+            lead_agent=lead_agent,
+            result=result,
+        )
+
+    def test_score_branch_no_result(self):
+        """Test _score_branch with no result returns 0."""
+        forker = DebateForker()
+
+        branch = self._create_branch("b-1", "Test hypothesis", "claude", result=None)
+
+        score = forker._score_branch(branch)
+
+        assert score == 0.0
+
+    def test_score_branch_with_result(self):
+        """Test _score_branch with result computes score."""
+        forker = DebateForker()
+
+        result = Mock()
+        result.confidence = 0.8
+        result.consensus_reached = True
+        result.rounds_used = 3
+        result.critiques = []
+
+        branch = self._create_branch("b-2", "Test hypothesis", "claude", result=result)
+
+        score = forker._score_branch(branch)
+
+        # 0.3 (consensus) + 0.3*0.8 (confidence) + 0.2*(1 - 3/10) (efficiency) = 0.68
+        assert score > 0.0
+        assert score == pytest.approx(0.68, abs=0.01)
+
+    def test_merge_selects_highest_scoring_branch(self):
+        """Test merge selects branch with highest score."""
+        forker = DebateForker()
+
+        result_low = Mock()
+        result_low.confidence = 0.3
+        result_low.consensus_reached = False
+        result_low.final_answer = "Low answer"
+        result_low.rounds_used = 5
+        result_low.critiques = []
+
+        result_high = Mock()
+        result_high.confidence = 0.9
+        result_high.consensus_reached = True
+        result_high.final_answer = "High answer"
+        result_high.rounds_used = 2
+        result_high.critiques = []
+
+        branch_low = self._create_branch("b-low", "Low hyp", "agent1", result_low)
+        branch_high = self._create_branch("b-high", "High hyp", "agent2", result_high)
+
+        merge_result = forker.merge([branch_low, branch_high])
+
+        assert merge_result.winning_branch_id == "b-high"
+        assert merge_result.winning_hypothesis == "High hyp"
+
+    def test_merge_extracts_insights(self):
+        """Test merge collects insights from all branches."""
+        forker = DebateForker()
+
+        result1 = Mock()
+        result1.confidence = 0.7
+        result1.consensus_reached = True
+        result1.final_answer = "Answer A is best. It has good latency."
+        result1.rounds_used = 3
+        result1.critiques = []
+
+        result2 = Mock()
+        result2.confidence = 0.5
+        result2.consensus_reached = False
+        result2.final_answer = "Answer B works. It has better throughput."
+        result2.rounds_used = 3
+        result2.critiques = []
+
+        branch1 = self._create_branch("b-1", "Approach A", "agent1", result1)
+        branch2 = self._create_branch("b-2", "Approach B", "agent2", result2)
+
+        merge_result = forker.merge([branch1, branch2])
+
+        assert len(merge_result.merged_insights) >= 2
+        assert merge_result.all_branch_results["b-1"] is result1
+        assert merge_result.all_branch_results["b-2"] is result2
+
+    def test_merge_branch_without_result(self):
+        """Test merge handles branches without results."""
+        forker = DebateForker()
+
+        result1 = Mock()
+        result1.confidence = 0.7
+        result1.consensus_reached = True
+        result1.final_answer = "Answer"
+        result1.rounds_used = 3
+        result1.critiques = []
+
+        branch1 = self._create_branch("b-1", "Complete", "agent1", result1)
+        branch2 = self._create_branch("b-2", "Incomplete", "agent2", None)
+
+        merge_result = forker.merge([branch1, branch2])
+
+        assert merge_result.winning_branch_id == "b-1"
+
+    def test_merge_empty_branches_raises(self):
+        """Test merge raises ValueError with empty branches."""
+        forker = DebateForker()
+
+        with pytest.raises(ValueError, match="No branches to merge"):
+            forker.merge([])
+
+    def test_merge_no_completed_branches_raises(self):
+        """Test merge raises ValueError when no branches completed."""
+        forker = DebateForker()
+
+        branch = self._create_branch("b-1", "Incomplete", "agent1", None)
+
+        with pytest.raises(ValueError, match="No completed branches"):
+            forker.merge([branch])
+
+
+# =============================================================================
+# Additional Coverage: _count_unique_arguments
+# =============================================================================
+
+
+class TestCountUniqueArgumentsDeep:
+    """Tests for _count_unique_arguments."""
+
+    def _create_msg(self, agent, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent=agent, content=content, round=round_num)
+
+    def test_count_unique_arguments_with_indicators(self):
+        """Test counting unique arguments with indicator phrases."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg(
+                "claude",
+                "I argue that Redis is better because it supports persistence. "
+                "Therefore we should use it for our cache.",
+                1,
+            ),
+        ]
+
+        count = resolver._count_unique_arguments(msgs)
+
+        assert count >= 2  # "because" and "therefore" sentences
+
+    def test_count_unique_arguments_no_indicators(self):
+        """Test counting returns 0 with no argument indicators."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg("claude", "Hello world. Nice day.", 1),
+        ]
+
+        count = resolver._count_unique_arguments(msgs)
+
+        assert count == 0
+
+    def test_count_unique_arguments_deduplication(self):
+        """Test counting deduplicates repeated arguments."""
+        resolver = DeadlockResolver()
+
+        msgs = [
+            self._create_msg("claude", "I argue that Redis is the best choice.", 1),
+            self._create_msg("gpt4", "I argue that Redis is the best choice.", 1),
+        ]
+
+        count = resolver._count_unique_arguments(msgs)
+
+        assert count == 1  # Same normalized sentence
+
+
+# =============================================================================
+# Additional Coverage: reset and get_signals
+# =============================================================================
+
+
+class TestDeadlockResolverResetDeep:
+    """Tests for reset and get_signals methods."""
+
+    def test_reset_specific_debate(self):
+        """Test reset with specific debate_id."""
+        resolver = DeadlockResolver()
+
+        resolver.debate_history["debate-1"] = [{"round": 1}]
+        resolver.debate_history["debate-2"] = [{"round": 1}]
+
+        resolver.reset("debate-1")
+
+        assert "debate-1" not in resolver.debate_history
+        assert "debate-2" in resolver.debate_history
+
+    def test_reset_all(self):
+        """Test reset without debate_id clears everything."""
+        resolver = DeadlockResolver()
+
+        resolver.debate_history["debate-1"] = [{"round": 1}]
+        resolver.deadlock_signals.append(
+            DeadlockSignal(
+                debate_id="debate-1",
+                round=3,
+                stagnation_score=0.8,
+                rounds_without_progress=2,
+                pattern="positional",
+                recommendation="fork",
+            )
+        )
+
+        resolver.reset()
+
+        assert len(resolver.debate_history) == 0
+        assert len(resolver.deadlock_signals) == 0
+
+    def test_get_signals_filtered(self):
+        """Test get_signals with debate_id filter."""
+        resolver = DeadlockResolver()
+
+        signal1 = DeadlockSignal(
+            debate_id="debate-1",
+            round=3,
+            stagnation_score=0.8,
+            rounds_without_progress=2,
+            pattern="positional",
+            recommendation="fork",
+        )
+        signal2 = DeadlockSignal(
+            debate_id="debate-2",
+            round=4,
+            stagnation_score=0.9,
+            rounds_without_progress=3,
+            pattern="circular",
+            recommendation="fork",
+        )
+
+        resolver.deadlock_signals = [signal1, signal2]
+
+        filtered = resolver.get_signals("debate-1")
+
+        assert len(filtered) == 1
+        assert filtered[0].debate_id == "debate-1"
+
+    def test_get_signals_all(self):
+        """Test get_signals without filter returns all."""
+        resolver = DeadlockResolver()
+
+        resolver.deadlock_signals = [Mock(), Mock(), Mock()]
+
+        all_signals = resolver.get_signals()
+
+        assert len(all_signals) == 3

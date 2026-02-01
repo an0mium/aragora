@@ -1,5 +1,6 @@
 """Tests for MCP checkpoint tools execution logic."""
 
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,6 +11,35 @@ from aragora.mcp.tools_module.checkpoint import (
     list_checkpoints_tool,
     resume_checkpoint_tool,
 )
+
+
+def _make_storage_module(db_return=None):
+    """Create a mock aragora.server.storage module with get_debates_db."""
+    mod = MagicMock()
+    mod.get_debates_db.return_value = db_return
+    return mod
+
+
+def _make_checkpoint_module(**overrides):
+    """Create a mock aragora.debate.checkpoint module."""
+    mod = MagicMock()
+    # Set defaults; callers can override via overrides dict
+    for key, value in overrides.items():
+        setattr(mod, key, value)
+    return mod
+
+
+def _make_core_module():
+    """Create a mock aragora.core module with Message, Vote, Critique."""
+    mod = MagicMock()
+    return mod
+
+
+def _make_settings_module(default_rounds=3):
+    """Create a mock aragora.config.settings module with DebateSettings."""
+    mod = MagicMock()
+    mod.DebateSettings.return_value.default_rounds = default_rounds
+    return mod
 
 
 class TestCreateCheckpointTool:
@@ -25,9 +55,19 @@ class TestCreateCheckpointTool:
     @pytest.mark.asyncio
     async def test_create_no_storage(self):
         """Test create when storage unavailable."""
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.get_debates_db",
-            return_value=None,
+        mock_storage = _make_storage_module(db_return=None)
+        mock_checkpoint_mod = _make_checkpoint_module()
+        mock_core = _make_core_module()
+        mock_settings = _make_settings_module()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.storage": mock_storage,
+                "aragora.debate.checkpoint": mock_checkpoint_mod,
+                "aragora.core": mock_core,
+                "aragora.config.settings": mock_settings,
+            },
         ):
             result = await create_checkpoint_tool(debate_id="d-001")
 
@@ -40,9 +80,19 @@ class TestCreateCheckpointTool:
         mock_db = MagicMock()
         mock_db.get.return_value = None
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.get_debates_db",
-            return_value=mock_db,
+        mock_storage = _make_storage_module(db_return=mock_db)
+        mock_checkpoint_mod = _make_checkpoint_module()
+        mock_core = _make_core_module()
+        mock_settings = _make_settings_module()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.storage": mock_storage,
+                "aragora.debate.checkpoint": mock_checkpoint_mod,
+                "aragora.core": mock_core,
+                "aragora.config.settings": mock_settings,
+            },
         ):
             result = await create_checkpoint_tool(debate_id="nonexistent")
 
@@ -52,6 +102,7 @@ class TestCreateCheckpointTool:
     @pytest.mark.asyncio
     async def test_create_success(self):
         """Test successful checkpoint creation."""
+        # Set up debate DB
         mock_db = MagicMock()
         mock_db.get.return_value = {
             "task": "Test debate",
@@ -65,33 +116,34 @@ class TestCreateCheckpointTool:
             "final_answer": "Test answer",
         }
 
-        mock_checkpoint = MagicMock()
-        mock_checkpoint.checkpoint_id = "cp-001"
-        mock_checkpoint.current_round = 1
-        mock_checkpoint.messages = [MagicMock()]
-        mock_checkpoint.created_at = "2025-01-01T00:00:00"
+        mock_storage = _make_storage_module(db_return=mock_db)
+
+        # Set up checkpoint mock
+        mock_checkpoint_obj = MagicMock()
+        mock_checkpoint_obj.checkpoint_id = "cp-001"
+        mock_checkpoint_obj.current_round = 1
+        mock_checkpoint_obj.messages = [MagicMock()]
+        mock_checkpoint_obj.created_at = "2025-01-01T00:00:00"
 
         mock_manager = AsyncMock()
-        mock_manager.create_checkpoint.return_value = mock_checkpoint
+        mock_manager.create_checkpoint.return_value = mock_checkpoint_obj
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.get_debates_db",
-            return_value=mock_db,
-        ), patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
-        ), patch(
-            "aragora.mcp.tools_module.checkpoint.FileCheckpointStore",
-        ), patch(
-            "aragora.mcp.tools_module.checkpoint.DebateSettings",
-        ) as mock_settings, patch(
-            "aragora.mcp.tools_module.checkpoint.Message",
-        ), patch(
-            "aragora.mcp.tools_module.checkpoint.Vote",
-        ), patch(
-            "aragora.mcp.tools_module.checkpoint.Critique",
+        mock_checkpoint_mod = _make_checkpoint_module()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+        mock_checkpoint_mod.FileCheckpointStore.return_value = MagicMock()
+
+        mock_core = _make_core_module()
+        mock_settings = _make_settings_module(default_rounds=3)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.storage": mock_storage,
+                "aragora.debate.checkpoint": mock_checkpoint_mod,
+                "aragora.core": mock_core,
+                "aragora.config.settings": mock_settings,
+            },
         ):
-            mock_settings.return_value.default_rounds = 3
             result = await create_checkpoint_tool(
                 debate_id="d-001",
                 label="Before revision",
@@ -106,15 +158,47 @@ class TestCreateCheckpointTool:
     @pytest.mark.asyncio
     async def test_create_import_error(self):
         """Test create when checkpoint module unavailable."""
-        mock_db = MagicMock()
-        mock_db.get.return_value = {"task": "Test", "messages": []}
+        # Remove the module from sys.modules so import fails
+        # We need the import of aragora.debate.checkpoint to raise ImportError.
+        # Since create_checkpoint_tool imports aragora.server.storage first, then
+        # aragora.debate.checkpoint, we provide storage but make checkpoint raise.
+        mock_storage = _make_storage_module(db_return=MagicMock())
+        mock_core = _make_core_module()
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.get_debates_db",
-            return_value=mock_db,
-        ), patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            side_effect=ImportError("Checkpoint not available"),
+        # Create a module proxy that raises ImportError on attribute access
+        # for CheckpointManager (simulating the from ... import failing).
+        # The simplest approach: remove aragora.debate.checkpoint from sys.modules
+        # and ensure it can't be imported.
+        import types
+
+        broken_checkpoint = types.ModuleType("aragora.debate.checkpoint")
+
+        def _raise_import(*args, **kwargs):
+            raise ImportError("Checkpoint not available")
+
+        # When the function does `from aragora.debate.checkpoint import CheckpointManager`,
+        # Python looks up the attribute on the module object. Making __getattr__ raise
+        # will cause the import to fail with ImportError.
+        broken_checkpoint.__getattr__ = lambda self, name: (_ for _ in ()).throw(
+            ImportError("Checkpoint not available")
+        )
+
+        # Actually, a simpler approach: just don't put it in sys.modules and let
+        # the real import fail. But that might succeed if the real module exists.
+        # Safest: put a module object that lacks the needed attributes.
+        class _BrokenModule(types.ModuleType):
+            def __getattr__(self, name):
+                raise ImportError("Checkpoint not available")
+
+        broken = _BrokenModule("aragora.debate.checkpoint")
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.storage": mock_storage,
+                "aragora.core": mock_core,
+                "aragora.debate.checkpoint": broken,
+            },
         ):
             result = await create_checkpoint_tool(debate_id="d-001")
 
@@ -141,9 +225,12 @@ class TestListCheckpointsTool:
         mock_manager = MagicMock()
         mock_manager.store = mock_store
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
+        mock_checkpoint_mod = MagicMock()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": mock_checkpoint_mod},
         ):
             result = await list_checkpoints_tool(debate_id="d-001")
 
@@ -160,9 +247,12 @@ class TestListCheckpointsTool:
         mock_manager = MagicMock()
         mock_manager.store = mock_store
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
+        mock_checkpoint_mod = MagicMock()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": mock_checkpoint_mod},
         ):
             result = await list_checkpoints_tool()
 
@@ -178,9 +268,12 @@ class TestListCheckpointsTool:
         mock_manager = MagicMock()
         mock_manager.store = mock_store
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
+        mock_checkpoint_mod = MagicMock()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": mock_checkpoint_mod},
         ):
             # limit=0 should be clamped to 1
             result = await list_checkpoints_tool(limit=0)
@@ -190,9 +283,17 @@ class TestListCheckpointsTool:
     @pytest.mark.asyncio
     async def test_list_import_error(self):
         """Test list when checkpoint module unavailable."""
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            side_effect=ImportError("Not available"),
+        import types
+
+        class _BrokenModule(types.ModuleType):
+            def __getattr__(self, name):
+                raise ImportError("Not available")
+
+        broken = _BrokenModule("aragora.debate.checkpoint")
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": broken},
         ):
             result = await list_checkpoints_tool()
 
@@ -218,9 +319,12 @@ class TestResumeCheckpointTool:
         mock_manager = MagicMock()
         mock_manager.store = mock_store
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
+        mock_checkpoint_mod = MagicMock()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": mock_checkpoint_mod},
         ):
             result = await resume_checkpoint_tool(checkpoint_id="cp-nonexistent")
 
@@ -243,9 +347,12 @@ class TestResumeCheckpointTool:
         mock_manager = MagicMock()
         mock_manager.store = mock_store
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
+        mock_checkpoint_mod = MagicMock()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": mock_checkpoint_mod},
         ):
             result = await resume_checkpoint_tool(checkpoint_id="cp-001")
 
@@ -275,9 +382,12 @@ class TestDeleteCheckpointTool:
         mock_manager = MagicMock()
         mock_manager.store = mock_store
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
+        mock_checkpoint_mod = MagicMock()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": mock_checkpoint_mod},
         ):
             result = await delete_checkpoint_tool(checkpoint_id="cp-001")
 
@@ -293,9 +403,12 @@ class TestDeleteCheckpointTool:
         mock_manager = MagicMock()
         mock_manager.store = mock_store
 
-        with patch(
-            "aragora.mcp.tools_module.checkpoint.CheckpointManager",
-            return_value=mock_manager,
+        mock_checkpoint_mod = MagicMock()
+        mock_checkpoint_mod.CheckpointManager.return_value = mock_manager
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.debate.checkpoint": mock_checkpoint_mod},
         ):
             result = await delete_checkpoint_tool(checkpoint_id="cp-nonexistent")
 

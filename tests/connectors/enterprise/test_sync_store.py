@@ -5,6 +5,7 @@ Tests for SyncStore encryption and persistence.
 import pytest
 import tempfile
 import os
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from aragora.connectors.enterprise.sync_store import (
@@ -134,6 +135,17 @@ class TestConfigEncryption:
 
 class TestSyncStoreBasics:
     """Tests for SyncStore basic operations."""
+
+    def test_default_db_url_uses_data_dir(self, tmp_path, monkeypatch):
+        """Default database URL should resolve under DATA_DIR."""
+        from aragora.config import legacy as legacy
+
+        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        monkeypatch.delenv("ARAGORA_SYNC_DATABASE_URL", raising=False)
+        store = SyncStore(use_encryption=False)
+        assert store._database_url.startswith("sqlite:///")
+        db_path = store._database_url.replace("sqlite:///", "")
+        assert Path(db_path).resolve().relative_to(tmp_path.resolve())
 
     @pytest.fixture
     def store(self, tmp_path):

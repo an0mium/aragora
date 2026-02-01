@@ -58,12 +58,14 @@ SECURE_BASE_CLASSES = {
 ALLOWED_WITHOUT_RBAC = {
     # Infrastructure / utilities (non-handler modules)
     "__init__",
+    "api_decorators",
     "base",
     "secure",
     "types",
     "routing",
     "bindings",
     "exceptions",
+    "mixins",
     "register",
     "interface",
     "utilities",
@@ -86,6 +88,7 @@ ALLOWED_WITHOUT_RBAC = {
     "utils/lazy_stores",
     "utils/safe_fetch",
     "utils/sanitization",
+    "utils/tenant_validation",
     # Bot handlers (use platform-specific signature verification)
     "bots/__init__",
     "bots/base",
@@ -96,6 +99,7 @@ ALLOWED_WITHOUT_RBAC = {
     "bots/slack",
     "bots/teams",
     "bots/teams_cards",
+    "bots/teams_utils",
     "bots/telegram",
     "bots/whatsapp",
     "bots/zoom",
