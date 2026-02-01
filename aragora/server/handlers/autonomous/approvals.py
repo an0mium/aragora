@@ -21,9 +21,9 @@ from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
 
-# RBAC permission key for approval management
-# Maps to ResourceType.APPROVAL + Action.GRANT from aragora.rbac.models
-APPROVAL_MANAGE_PERMISSION = "approval.grant"
+# RBAC permission keys for autonomous operations
+AUTONOMOUS_READ_PERMISSION = "autonomous:read"
+AUTONOMOUS_APPROVE_PERMISSION = "autonomous:approve"
 
 # Global approval flow instance (can be replaced with dependency injection)
 _approval_flow: ApprovalFlow | None = None
@@ -57,7 +57,7 @@ class ApprovalHandler:
 
         GET /api/autonomous/approvals/pending
 
-        Requires authentication.
+        Requires authentication and 'autonomous:read' permission.
 
         Returns:
             List of pending approval requests
@@ -65,6 +65,14 @@ class ApprovalHandler:
         try:
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
+
+            # Check RBAC permission
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
+            if not decision.allowed:
+                logger.warning(f"User {auth_ctx.user_id} denied read permission: {decision.reason}")
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             logger.debug(f"list_pending called by user {auth_ctx.user_id}")
 
             flow = get_approval_flow()
@@ -96,6 +104,11 @@ class ApprovalHandler:
                 {"success": False, "error": str(e)},
                 status=401,
             )
+        except ForbiddenError as e:
+            return web.json_response(
+                {"success": False, "error": str(e)},
+                status=403,
+            )
         except Exception as e:
             logger.error(f"Error listing pending approvals: {e}")
             return web.json_response(
@@ -110,7 +123,7 @@ class ApprovalHandler:
 
         GET /api/autonomous/approvals/{request_id}
 
-        Requires authentication.
+        Requires authentication and 'autonomous:read' permission.
 
         Returns:
             Approval request details
@@ -120,6 +133,14 @@ class ApprovalHandler:
         try:
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
+
+            # Check RBAC permission
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
+            if not decision.allowed:
+                logger.warning(f"User {auth_ctx.user_id} denied read permission: {decision.reason}")
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             logger.debug(f"get_request {request_id} called by user {auth_ctx.user_id}")
 
             flow = get_approval_flow()
@@ -157,6 +178,11 @@ class ApprovalHandler:
                 {"success": False, "error": str(e)},
                 status=401,
             )
+        except ForbiddenError as e:
+            return web.json_response(
+                {"success": False, "error": str(e)},
+                status=403,
+            )
         except Exception as e:
             logger.error(f"Error getting approval request: {e}")
             return web.json_response(
@@ -171,7 +197,7 @@ class ApprovalHandler:
 
         POST /api/autonomous/approvals/{request_id}/approve
 
-        Requires authentication and 'approvals.manage' permission.
+        Requires authentication and 'autonomous:approve' permission.
 
         Body:
             approved_by: str - Who is approving (optional, defaults to auth user)
@@ -187,7 +213,7 @@ class ApprovalHandler:
 
             # Check RBAC permission
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, APPROVAL_MANAGE_PERMISSION)
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
             if not decision.allowed:
                 logger.warning(
                     f"User {auth_ctx.user_id} denied approval permission: {decision.reason}"
@@ -246,7 +272,7 @@ class ApprovalHandler:
 
         POST /api/autonomous/approvals/{request_id}/reject
 
-        Requires authentication and 'approvals.manage' permission.
+        Requires authentication and 'autonomous:approve' permission.
 
         Body:
             rejected_by: str - Who is rejecting (optional, defaults to auth user)
@@ -263,7 +289,7 @@ class ApprovalHandler:
 
             # Check RBAC permission
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, APPROVAL_MANAGE_PERMISSION)
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
             if not decision.allowed:
                 logger.warning(
                     f"User {auth_ctx.user_id} denied rejection permission: {decision.reason}"

@@ -15,12 +15,12 @@ Provides REST endpoints for canvas management:
 - POST /api/v1/canvas/{id}/action - Execute action
 
 Security:
-    All endpoints require RBAC permissions:
-    - canvas.read: List, get canvas
-    - canvas.create: Create canvas, add nodes/edges
-    - canvas.update: Update canvas/nodes
-    - canvas.delete: Delete canvas/nodes/edges
-    - canvas.run: Execute actions
+    All endpoints require RBAC permissions enforced via @require_permission decorators:
+    - canvas:read: List, get canvas
+    - canvas:create: Create canvas, add nodes/edges
+    - canvas:update: Update canvas/nodes
+    - canvas:delete: Delete canvas/nodes/edges
+    - canvas:run: Execute actions
 """
 
 from __future__ import annotations
@@ -40,6 +40,8 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.rbac.decorators import require_permission, PermissionDeniedError
+from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
@@ -71,12 +73,12 @@ class CanvasHandler(SecureHandler):
         DELETE /api/v1/canvas/{id}/edges/{edge_id} - Delete edge
         POST /api/v1/canvas/{id}/action - Execute action
 
-    RBAC Permissions:
-        - canvas.read: List, get canvas
-        - canvas.create: Create canvas, add nodes/edges
-        - canvas.update: Update canvas/nodes
-        - canvas.delete: Delete canvas/nodes/edges
-        - canvas.run: Execute actions
+    RBAC Permissions (enforced via @require_permission decorators):
+        - canvas:read: List, get canvas
+        - canvas:create: Create canvas, add nodes/edges
+        - canvas:update: Update canvas/nodes
+        - canvas:delete: Delete canvas/nodes/edges
+        - canvas:run: Execute actions
     """
 
     def __init__(self, ctx: dict | None = None):
@@ -115,60 +117,27 @@ class CanvasHandler(SecureHandler):
             logger.warning(f"Authentication failed for canvas: {e}")
             return error_response("Authentication required", 401)
 
-        # RBAC: Check permission based on method and path
+        # Build authorization context for RBAC decorator enforcement
         method = getattr(handler, "command", "GET")
-        try:
-            permission = self._get_required_permission(path, method)
-            if permission:
-                from aragora.rbac.models import AuthorizationContext
-                from aragora.rbac.checker import get_permission_checker
-
-                # Build context from user info
-                auth_context = AuthorizationContext(
-                    user_id=user_id or "anonymous",
-                    org_id=workspace_id,
-                    roles=getattr(user, "roles", set()) if user else {"member"},
-                )
-
-                checker = get_permission_checker()
-                decision = checker.check_permission(auth_context, permission)
-                if not decision.allowed:
-                    return error_response(f"Permission denied: {permission}", 403)
-        except Exception as e:
-            logger.error(f"RBAC check failed: {e}")
-            return error_response("Authorization check failed", 500)
+        auth_context = AuthorizationContext(
+            user_id=user_id or "anonymous",
+            org_id=workspace_id,
+            roles=getattr(user, "roles", set()) if user else {"member"},
+        )
 
         # Override workspace from query params if provided
         workspace_id = query_params.get("workspace_id") or workspace_id
 
         body = self._get_request_body(handler)
 
-        # Route to appropriate handler
-        return self._route_request(path, method, query_params, body, user_id, workspace_id)
-
-    def _get_required_permission(self, path: str, method: str) -> str | None:
-        """Determine required permission based on path and method."""
-        # Action endpoints
-        if CANVAS_ACTION_PATTERN.match(path):
-            return "canvas.run"
-
-        # Delete operations
-        if method == "DELETE":
-            return "canvas.delete"
-
-        # Create operations
-        if method == "POST":
-            if path == "/api/v1/canvas":
-                return "canvas.create"
-            # Adding nodes/edges counts as create
-            return "canvas.create"
-
-        # Update operations
-        if method in ("PUT", "PATCH"):
-            return "canvas.update"
-
-        # Read operations (GET)
-        return "canvas.read"
+        # Route to appropriate handler - RBAC enforced via @require_permission decorators
+        try:
+            return self._route_request(
+                path, method, query_params, body, user_id, workspace_id, auth_context
+            )
+        except PermissionDeniedError as e:
+            permission_key = e.permission_key if hasattr(e, "permission_key") else "unknown"
+            return error_response(f"Permission denied: {permission_key}", 403)
 
     def _get_request_body(self, handler: Any) -> dict[str, Any]:
         """Extract JSON body from request."""
@@ -189,14 +158,19 @@ class CanvasHandler(SecureHandler):
         body: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
+        context: AuthorizationContext,
     ) -> HandlerResult | None:
-        """Route request to appropriate handler method."""
+        """Route request to appropriate handler method.
+
+        RBAC permissions are enforced via @require_permission decorators on each
+        operation method. The AuthorizationContext is passed to enable permission checks.
+        """
         # List/Create canvases
         if path == "/api/v1/canvas":
             if method == "GET":
-                return self._list_canvases(query_params, user_id, workspace_id)
+                return self._list_canvases(context, query_params, user_id, workspace_id)
             elif method == "POST":
-                return self._create_canvas(body, user_id, workspace_id)
+                return self._create_canvas(context, body, user_id, workspace_id)
             return error_response("Method not allowed", 405)
 
         # Canvas by ID
@@ -204,11 +178,11 @@ class CanvasHandler(SecureHandler):
         if match:
             canvas_id = match.group(1)
             if method == "GET":
-                return self._get_canvas(canvas_id, user_id)
+                return self._get_canvas(context, canvas_id, user_id)
             elif method == "PUT":
-                return self._update_canvas(canvas_id, body, user_id)
+                return self._update_canvas(context, canvas_id, body, user_id)
             elif method == "DELETE":
-                return self._delete_canvas(canvas_id, user_id)
+                return self._delete_canvas(context, canvas_id, user_id)
             return error_response("Method not allowed", 405)
 
         # Nodes
@@ -216,16 +190,16 @@ class CanvasHandler(SecureHandler):
         if match:
             canvas_id = match.group(1)
             if method == "POST":
-                return self._add_node(canvas_id, body, user_id)
+                return self._add_node(context, canvas_id, body, user_id)
             return error_response("Method not allowed", 405)
 
         match = CANVAS_NODE_PATTERN.match(path)
         if match:
             canvas_id, node_id = match.groups()
             if method == "PUT":
-                return self._update_node(canvas_id, node_id, body, user_id)
+                return self._update_node(context, canvas_id, node_id, body, user_id)
             elif method == "DELETE":
-                return self._delete_node(canvas_id, node_id, user_id)
+                return self._delete_node(context, canvas_id, node_id, user_id)
             return error_response("Method not allowed", 405)
 
         # Edges
@@ -233,14 +207,14 @@ class CanvasHandler(SecureHandler):
         if match:
             canvas_id = match.group(1)
             if method == "POST":
-                return self._add_edge(canvas_id, body, user_id)
+                return self._add_edge(context, canvas_id, body, user_id)
             return error_response("Method not allowed", 405)
 
         match = CANVAS_EDGE_PATTERN.match(path)
         if match:
             canvas_id, edge_id = match.groups()
             if method == "DELETE":
-                return self._delete_edge(canvas_id, edge_id, user_id)
+                return self._delete_edge(context, canvas_id, edge_id, user_id)
             return error_response("Method not allowed", 405)
 
         # Actions
@@ -248,7 +222,7 @@ class CanvasHandler(SecureHandler):
         if match:
             canvas_id = match.group(1)
             if method == "POST":
-                return self._execute_action(canvas_id, body, user_id)
+                return self._execute_action(context, canvas_id, body, user_id)
             return error_response("Method not allowed", 405)
 
         return None
@@ -277,13 +251,18 @@ class CanvasHandler(SecureHandler):
     # Canvas Operations
     # =========================================================================
 
+    @require_permission("canvas:read")
     def _list_canvases(
         self,
+        context: AuthorizationContext,
         query_params: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
     ) -> HandlerResult:
-        """List canvases."""
+        """List canvases.
+
+        Requires canvas:read permission.
+        """
         try:
             manager = self._get_canvas_manager()
             owner_id = query_params.get("owner_id") or user_id
@@ -301,13 +280,18 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to list canvases: {e}")
             return error_response(f"Failed to list canvases: {e}", 500)
 
+    @require_permission("canvas:create")
     def _create_canvas(
         self,
+        context: AuthorizationContext,
         body: dict[str, Any],
         user_id: str | None,
         workspace_id: str | None,
     ) -> HandlerResult:
-        """Create a new canvas."""
+        """Create a new canvas.
+
+        Requires canvas:create permission.
+        """
         try:
             manager = self._get_canvas_manager()
 
@@ -330,8 +314,17 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to create canvas: {e}")
             return error_response(f"Failed to create canvas: {e}", 500)
 
-    def _get_canvas(self, canvas_id: str, user_id: str | None) -> HandlerResult:
-        """Get a canvas by ID."""
+    @require_permission("canvas:read")
+    def _get_canvas(
+        self,
+        context: AuthorizationContext,
+        canvas_id: str,
+        user_id: str | None,
+    ) -> HandlerResult:
+        """Get a canvas by ID.
+
+        Requires canvas:read permission.
+        """
         try:
             manager = self._get_canvas_manager()
             canvas = self._run_async(manager.get_canvas(canvas_id))
@@ -344,13 +337,18 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to get canvas: {e}")
             return error_response(f"Failed to get canvas: {e}", 500)
 
+    @require_permission("canvas:update")
     def _update_canvas(
         self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
-        """Update a canvas."""
+        """Update a canvas.
+
+        Requires canvas:update permission.
+        """
         try:
             manager = self._get_canvas_manager()
 
@@ -374,8 +372,17 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to update canvas: {e}")
             return error_response(f"Failed to update canvas: {e}", 500)
 
-    def _delete_canvas(self, canvas_id: str, user_id: str | None) -> HandlerResult:
-        """Delete a canvas."""
+    @require_permission("canvas:delete")
+    def _delete_canvas(
+        self,
+        context: AuthorizationContext,
+        canvas_id: str,
+        user_id: str | None,
+    ) -> HandlerResult:
+        """Delete a canvas.
+
+        Requires canvas:delete permission.
+        """
         try:
             manager = self._get_canvas_manager()
             deleted = self._run_async(manager.delete_canvas(canvas_id))
@@ -392,13 +399,18 @@ class CanvasHandler(SecureHandler):
     # Node Operations
     # =========================================================================
 
+    @require_permission("canvas:create")
     def _add_node(
         self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
-        """Add a node to the canvas."""
+        """Add a node to the canvas.
+
+        Requires canvas:create permission (adding nodes is a create operation).
+        """
         try:
             from aragora.canvas import CanvasNodeType, Position
 
@@ -440,14 +452,19 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to add node: {e}")
             return error_response(f"Failed to add node: {e}", 500)
 
+    @require_permission("canvas:update")
     def _update_node(
         self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
-        """Update a node."""
+        """Update a node.
+
+        Requires canvas:update permission.
+        """
         try:
             from aragora.canvas import Position
 
@@ -483,13 +500,18 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to update node: {e}")
             return error_response(f"Failed to update node: {e}", 500)
 
+    @require_permission("canvas:delete")
     def _delete_node(
         self,
+        context: AuthorizationContext,
         canvas_id: str,
         node_id: str,
         user_id: str | None,
     ) -> HandlerResult:
-        """Delete a node."""
+        """Delete a node.
+
+        Requires canvas:delete permission.
+        """
         try:
             manager = self._get_canvas_manager()
             deleted = self._run_async(manager.remove_node(canvas_id, node_id, user_id=user_id))
@@ -506,13 +528,18 @@ class CanvasHandler(SecureHandler):
     # Edge Operations
     # =========================================================================
 
+    @require_permission("canvas:create")
     def _add_edge(
         self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
-        """Add an edge to the canvas."""
+        """Add an edge to the canvas.
+
+        Requires canvas:create permission (adding edges is a create operation).
+        """
         try:
             from aragora.canvas import EdgeType
 
@@ -554,13 +581,18 @@ class CanvasHandler(SecureHandler):
             logger.error(f"Failed to add edge: {e}")
             return error_response(f"Failed to add edge: {e}", 500)
 
+    @require_permission("canvas:delete")
     def _delete_edge(
         self,
+        context: AuthorizationContext,
         canvas_id: str,
         edge_id: str,
         user_id: str | None,
     ) -> HandlerResult:
-        """Delete an edge."""
+        """Delete an edge.
+
+        Requires canvas:delete permission.
+        """
         try:
             manager = self._get_canvas_manager()
             deleted = self._run_async(manager.remove_edge(canvas_id, edge_id, user_id=user_id))
@@ -577,13 +609,18 @@ class CanvasHandler(SecureHandler):
     # Actions
     # =========================================================================
 
+    @require_permission("canvas:run")
     def _execute_action(
         self,
+        context: AuthorizationContext,
         canvas_id: str,
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
-        """Execute an action on the canvas."""
+        """Execute an action on the canvas.
+
+        Requires canvas:run permission.
+        """
         try:
             manager = self._get_canvas_manager()
 

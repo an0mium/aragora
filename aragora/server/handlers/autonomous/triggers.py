@@ -17,6 +17,10 @@ from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
 
+# RBAC permission keys for autonomous operations
+AUTONOMOUS_READ_PERMISSION = "autonomous:read"
+AUTONOMOUS_WRITE_PERMISSION = "autonomous:write"
+
 # Global scheduled trigger instance
 _scheduled_trigger: ScheduledTrigger | None = None
 
@@ -49,7 +53,7 @@ class TriggerHandler:
 
         GET /api/autonomous/triggers
 
-        Requires authentication and 'triggers:read' permission.
+        Requires authentication and 'autonomous:read' permission.
 
         Returns:
             List of scheduled triggers
@@ -58,7 +62,7 @@ class TriggerHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "triggers:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -105,7 +109,7 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers
 
-        Requires authentication and 'triggers:create' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Body:
             trigger_id: str - Unique identifier
@@ -123,7 +127,7 @@ class TriggerHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "triggers:create")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -181,7 +185,7 @@ class TriggerHandler:
 
         DELETE /api/autonomous/triggers/{trigger_id}
 
-        Requires authentication and 'triggers:delete' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Returns:
             Success status
@@ -192,7 +196,7 @@ class TriggerHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "triggers:delete")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -231,7 +235,7 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/{trigger_id}/enable
 
-        Requires authentication and 'triggers:write' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Returns:
             Success status
@@ -242,7 +246,7 @@ class TriggerHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "triggers:write")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -281,7 +285,7 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/{trigger_id}/disable
 
-        Requires authentication and 'triggers:write' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Returns:
             Success status
@@ -292,7 +296,7 @@ class TriggerHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "triggers:write")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -331,7 +335,7 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/start
 
-        Requires authentication and 'triggers:admin' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Returns:
             Success status
@@ -340,7 +344,7 @@ class TriggerHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "triggers:admin")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -372,7 +376,7 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/stop
 
-        Requires authentication and 'triggers:admin' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Returns:
             Success status
@@ -381,7 +385,7 @@ class TriggerHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "triggers:admin")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 

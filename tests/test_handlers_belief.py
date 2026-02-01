@@ -21,8 +21,76 @@ from aragora.server.handlers.belief import BeliefHandler
 
 
 # =============================================================================
+# Mock Classes
+# =============================================================================
+
+
+class MockPermissionDecision:
+    """Mock permission decision that allows or denies based on init param."""
+
+    def __init__(self, allowed: bool = True, reason: str = "Test mock"):
+        self.allowed = allowed
+        self.reason = reason
+
+
+class MockPermissionChecker:
+    """Mock permission checker with configurable behavior."""
+
+    def __init__(self, allow: bool = True):
+        self._allow = allow
+
+    def check_permission(self, context, permission, resource_id=None):
+        return MockPermissionDecision(
+            self._allow, "Allowed by test mock" if self._allow else "Denied by test mock"
+        )
+
+
+class MockUserAuthContext:
+    """Mock user auth context."""
+
+    def __init__(self, authenticated: bool = True):
+        self.authenticated = authenticated
+        self.is_authenticated = authenticated
+        self.user_id = "test-user"
+        self.id = "test-user"
+        self.email = "test@example.com"
+        self.org_id = "test-org"
+        self.role = "admin"
+
+
+def _create_mock_auth_context():
+    """Create an AuthorizationContext for testing."""
+    from aragora.rbac.models import AuthorizationContext
+
+    return AuthorizationContext(
+        user_id="test-user",
+        org_id="test-org",
+        roles={"admin"},
+    )
+
+
+# =============================================================================
 # Fixtures
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def mock_belief_auth():
+    """Mock authentication and permission checking for belief handler tests."""
+    mock_checker = MockPermissionChecker(allow=True)
+    with patch(
+        "aragora.server.handlers.belief.get_permission_checker",
+        return_value=mock_checker,
+    ):
+        with patch(
+            "aragora.rbac.decorators.get_permission_checker",
+            return_value=mock_checker,
+        ):
+            with patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=MockUserAuthContext(),
+            ):
+                yield
 
 
 @pytest.fixture
@@ -35,8 +103,11 @@ def belief_handler(handler_context):
 def mock_http_handler():
     """Create a mock HTTP handler object."""
     handler = Mock()
-    handler.headers = {}
+    handler.headers = {"X-User-Roles": "admin"}
     handler.command = "GET"
+    handler.client_address = ("127.0.0.1", 12345)
+    # Add AuthorizationContext for RBAC decorator
+    handler._auth_context = _create_mock_auth_context()
     return handler
 
 

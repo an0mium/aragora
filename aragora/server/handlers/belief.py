@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
 from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.validation import validate_debate_id, validate_id
 from aragora.server.versioning.compat import strip_version_prefix
@@ -199,12 +200,15 @@ class BeliefHandler(BaseHandler):
             return True
         return False
 
-    def _check_reasoning_permission(self, handler: Any, user: Any) -> HandlerResult | None:
-        """Check RBAC permission for reasoning/belief network access.
+    def _check_belief_permission(
+        self, handler: Any, user: Any, permission: str = "belief:read"
+    ) -> HandlerResult | None:
+        """Check RBAC permission for belief network access.
 
         Args:
             handler: HTTP handler with request context
             user: Authenticated user
+            permission: The permission to check (belief:read or belief:export)
 
         Returns:
             Error response if permission denied, None if allowed
@@ -223,14 +227,15 @@ class BeliefHandler(BaseHandler):
         )
 
         checker = get_permission_checker()
-        decision = checker.check_permission(context, "reasoning.read")
+        decision = checker.check_permission(context, permission)
 
         if not decision.allowed:
-            logger.warning(f"Permission denied for reasoning access: {decision.reason}")
+            logger.warning(f"Permission denied for {permission}: {decision.reason}")
             return error_response(f"Permission denied: {decision.reason}", 403)
 
         return None
 
+    @require_permission("belief:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route belief network requests to appropriate methods."""
         normalized = strip_version_prefix(path)
@@ -249,8 +254,8 @@ class BeliefHandler(BaseHandler):
             logger.warning(f"Authentication failed for belief endpoint: {e}")
             return error_response("Authentication required", 401)
 
-        # Check RBAC permission for reasoning access
-        rbac_err = self._check_reasoning_permission(handler, user)
+        # Check RBAC permission for belief:read access
+        rbac_err = self._check_belief_permission(handler, user, "belief:read")
         if rbac_err:
             return rbac_err
 
@@ -282,6 +287,10 @@ class BeliefHandler(BaseHandler):
             return self._get_belief_network_graph(nomic_dir, debate_id, include_cruxes)
 
         if normalized.startswith("/api/belief-network/") and normalized.endswith("/export"):
+            # Export requires additional belief:export permission
+            export_err = self._check_belief_permission(handler, user, "belief:export")
+            if export_err:
+                return export_err
             debate_id = self._extract_debate_id(normalized, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)

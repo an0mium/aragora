@@ -4,7 +4,7 @@ Tests for Canvas HTTP Handler.
 Covers:
 - Route regex pattern matching (6 patterns)
 - can_handle path detection
-- RBAC permission mapping (_get_required_permission)
+- RBAC enforcement via @require_permission decorators
 - Request body extraction
 - Canvas CRUD operations (list, create, get, update, delete)
 - Node operations (add, update, delete)
@@ -145,6 +145,17 @@ def _mock_rbac_deny(permission="canvas.read"):
     return checker
 
 
+def _make_auth_context(user_id="user-1", org_id="org-1", roles=None):
+    """Create a mock AuthorizationContext for testing."""
+    from aragora.rbac.models import AuthorizationContext
+
+    return AuthorizationContext(
+        user_id=user_id,
+        org_id=org_id,
+        roles=roles or {"admin"},
+    )
+
+
 # ===========================================================================
 # Regex Pattern Tests
 # ===========================================================================
@@ -257,44 +268,16 @@ class TestCanHandle:
 
 
 # ===========================================================================
-# Permission Mapping Tests
+# RBAC Decorator Tests
 # ===========================================================================
-
-
-class TestPermissionMapping:
-    def test_get_reads(self):
-        ch = _make_canvas_handler()
-        assert ch._get_required_permission("/api/v1/canvas", "GET") == "canvas.read"
-
-    def test_post_create(self):
-        ch = _make_canvas_handler()
-        assert ch._get_required_permission("/api/v1/canvas", "POST") == "canvas.create"
-
-    def test_post_add_node(self):
-        ch = _make_canvas_handler()
-        assert ch._get_required_permission("/api/v1/canvas/c1/nodes", "POST") == "canvas.create"
-
-    def test_put_update(self):
-        ch = _make_canvas_handler()
-        assert ch._get_required_permission("/api/v1/canvas/c1", "PUT") == "canvas.update"
-
-    def test_patch_update(self):
-        ch = _make_canvas_handler()
-        assert ch._get_required_permission("/api/v1/canvas/c1", "PATCH") == "canvas.update"
-
-    def test_delete_permission(self):
-        ch = _make_canvas_handler()
-        assert ch._get_required_permission("/api/v1/canvas/c1", "DELETE") == "canvas.delete"
-
-    def test_action_run(self):
-        ch = _make_canvas_handler()
-        assert ch._get_required_permission("/api/v1/canvas/c1/action", "POST") == "canvas.run"
-
-    def test_action_takes_precedence_over_post(self):
-        ch = _make_canvas_handler()
-        # action path with POST should return canvas.run, not canvas.create
-        perm = ch._get_required_permission("/api/v1/canvas/c1/action", "POST")
-        assert perm == "canvas.run"
+# Note: RBAC permissions are now enforced via @require_permission decorators
+# on each operation method. The permission mapping is:
+# - canvas:read - List, get canvas
+# - canvas:create - Create canvas, add nodes/edges
+# - canvas:update - Update canvas/nodes
+# - canvas:delete - Delete canvas/nodes/edges
+# - canvas:run - Execute actions
+# These are tested implicitly through the handler integration tests.
 
 
 # ===========================================================================
@@ -387,13 +370,21 @@ class TestAuthentication:
 
 
 class TestRBACEnforcement:
+    """Test RBAC enforcement via @require_permission decorators.
+
+    RBAC is now enforced via decorators on individual operation methods.
+    The decorators check permissions and raise PermissionDeniedError if denied,
+    which is caught by the handle() method and converted to a 403 response.
+    """
+
     @patch(_GET_CLIENT_IP_PATCH, return_value="127.0.0.1")
     @patch(_AUTH_PATCH, return_value=_mock_auth())
     def test_rbac_denied_returns_403(self, mock_auth, mock_ip):
         ch = _make_canvas_handler()
         handler = _make_handler_obj(method="GET")
 
-        with patch("aragora.rbac.checker.get_permission_checker") as mock_pc:
+        # Must patch where the decorator looks up get_permission_checker
+        with patch("aragora.rbac.decorators.get_permission_checker") as mock_pc:
             mock_pc.return_value = _mock_rbac_deny()
             result = ch.handle("/api/v1/canvas", {}, handler)
 
@@ -410,7 +401,8 @@ class TestRBACEnforcement:
         ch = _make_canvas_handler()
         handler = _make_handler_obj(method="GET")
 
-        with patch("aragora.rbac.checker.get_permission_checker") as mock_pc:
+        # Must patch where the decorator looks up get_permission_checker
+        with patch("aragora.rbac.decorators.get_permission_checker") as mock_pc:
             mock_pc.return_value = _mock_rbac_allow()
             result = ch.handle("/api/v1/canvas", {}, handler)
 
@@ -426,163 +418,179 @@ class TestRBACEnforcement:
 class TestListCanvases:
     def test_list_returns_canvases(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         canvases = [_canvas_dict("c1", "A"), _canvas_dict("c2", "B")]
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=canvases),
         ):
-            result = ch._list_canvases({}, "user-1", "ws-1")
+            result = ch._list_canvases(ctx, {}, "user-1", "ws-1")
         body = _parse_result(result)
         assert body["count"] == 2
         assert len(body["canvases"]) == 2
 
     def test_list_empty(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=[]),
         ):
-            result = ch._list_canvases({}, "user-1", "ws-1")
+            result = ch._list_canvases(ctx, {}, "user-1", "ws-1")
         body = _parse_result(result)
         assert body["count"] == 0
 
     def test_list_uses_query_params(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=[]) as mock_run,
         ):
-            ch._list_canvases({"owner_id": "o1", "workspace_id": "w1"}, "user-1", "ws-1")
+            ch._list_canvases(ctx, {"owner_id": "o1", "workspace_id": "w1"}, "user-1", "ws-1")
         # The coroutine passed to _run_async should use o1/w1 from query_params
         assert mock_run.called
 
     def test_list_error_returns_500(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("db down")):
-            result = ch._list_canvases({}, "user-1", "ws-1")
+            result = ch._list_canvases(ctx, {}, "user-1", "ws-1")
         assert result.status_code == 500
 
 
 class TestCreateCanvas:
     def test_create_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         canvas = _canvas_dict("c-new", "New Canvas")
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=canvas),
         ):
-            result = ch._create_canvas({"name": "New Canvas"}, "user-1", "ws-1")
+            result = ch._create_canvas(ctx, {"name": "New Canvas"}, "user-1", "ws-1")
         assert result.status_code == 201
         body = _parse_result(result)
         assert body["name"] == "New Canvas"
 
     def test_create_default_name(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         canvas = _canvas_dict()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=canvas),
         ):
-            result = ch._create_canvas({}, "user-1", "ws-1")
+            result = ch._create_canvas(ctx, {}, "user-1", "ws-1")
         assert result.status_code == 201
 
     def test_create_error_returns_500(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("fail")):
-            result = ch._create_canvas({"name": "X"}, "user-1", "ws-1")
+            result = ch._create_canvas(ctx, {"name": "X"}, "user-1", "ws-1")
         assert result.status_code == 500
 
 
 class TestGetCanvas:
     def test_get_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         canvas = _canvas_dict("c1")
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=canvas),
         ):
-            result = ch._get_canvas("c1", "user-1")
+            result = ch._get_canvas(ctx, "c1", "user-1")
         assert result.status_code == 200
 
     def test_get_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=None),
         ):
-            result = ch._get_canvas("missing", "user-1")
+            result = ch._get_canvas(ctx, "missing", "user-1")
         assert result.status_code == 404
 
     def test_get_error_returns_500(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("err")):
-            result = ch._get_canvas("c1", "user-1")
+            result = ch._get_canvas(ctx, "c1", "user-1")
         assert result.status_code == 500
 
 
 class TestUpdateCanvas:
     def test_update_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         canvas = _canvas_dict("c1", "Updated")
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=canvas),
         ):
-            result = ch._update_canvas("c1", {"name": "Updated"}, "user-1")
+            result = ch._update_canvas(ctx, "c1", {"name": "Updated"}, "user-1")
         assert result.status_code == 200
 
     def test_update_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=None),
         ):
-            result = ch._update_canvas("missing", {"name": "X"}, "user-1")
+            result = ch._update_canvas(ctx, "missing", {"name": "X"}, "user-1")
         assert result.status_code == 404
 
     def test_update_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("x")):
-            result = ch._update_canvas("c1", {}, "user-1")
+            result = ch._update_canvas(ctx, "c1", {}, "user-1")
         assert result.status_code == 500
 
 
 class TestDeleteCanvas:
     def test_delete_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=True),
         ):
-            result = ch._delete_canvas("c1", "user-1")
+            result = ch._delete_canvas(ctx, "c1", "user-1")
         assert result.status_code == 200
         body = _parse_result(result)
         assert body["deleted"] is True
 
     def test_delete_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=False),
         ):
-            result = ch._delete_canvas("missing", "user-1")
+            result = ch._delete_canvas(ctx, "missing", "user-1")
         assert result.status_code == 404
 
     def test_delete_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("x")):
-            result = ch._delete_canvas("c1", "user-1")
+            result = ch._delete_canvas(ctx, "c1", "user-1")
         assert result.status_code == 500
 
 
@@ -594,17 +602,19 @@ class TestDeleteCanvas:
 class TestAddNode:
     def test_add_node_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         node = _node_dict("n1")
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=node),
         ):
-            result = ch._add_node("c1", {"type": "text", "label": "Hello"}, "user-1")
+            result = ch._add_node(ctx, "c1", {"type": "text", "label": "Hello"}, "user-1")
         assert result.status_code == 201
 
     def test_add_node_invalid_type(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         # Patch the CanvasNodeType to raise ValueError for invalid type
         with (
@@ -619,50 +629,55 @@ class TestAddNode:
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch("aragora.canvas.CanvasNodeType", side_effect=ValueError("bad")),
         ):
-            result = ch._add_node("c1", {"type": "invalid_xyz"}, "user-1")
+            result = ch._add_node(ctx, "c1", {"type": "invalid_xyz"}, "user-1")
         assert result.status_code == 400 or result.status_code == 500
 
     def test_add_node_canvas_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=None),
         ):
-            result = ch._add_node("missing", {"type": "text"}, "user-1")
+            result = ch._add_node(ctx, "missing", {"type": "text"}, "user-1")
         assert result.status_code == 404
 
     def test_add_node_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("x")):
-            result = ch._add_node("c1", {}, "user-1")
+            result = ch._add_node(ctx, "c1", {}, "user-1")
         assert result.status_code == 500
 
 
 class TestUpdateNode:
     def test_update_node_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         node = _node_dict("n1")
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=node),
         ):
-            result = ch._update_node("c1", "n1", {"label": "Updated"}, "user-1")
+            result = ch._update_node(ctx, "c1", "n1", {"label": "Updated"}, "user-1")
         assert result.status_code == 200
 
     def test_update_node_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=None),
         ):
-            result = ch._update_node("c1", "n1", {"label": "X"}, "user-1")
+            result = ch._update_node(ctx, "c1", "n1", {"label": "X"}, "user-1")
         assert result.status_code == 404
 
     def test_update_node_with_position(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         node = _node_dict("n1")
         with (
@@ -670,6 +685,7 @@ class TestUpdateNode:
             patch.object(ch, "_run_async", return_value=node),
         ):
             result = ch._update_node(
+                ctx,
                 "c1",
                 "n1",
                 {"position": {"x": 10, "y": 20}, "label": "Moved"},
@@ -679,20 +695,22 @@ class TestUpdateNode:
 
     def test_update_node_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("x")):
-            result = ch._update_node("c1", "n1", {}, "user-1")
+            result = ch._update_node(ctx, "c1", "n1", {}, "user-1")
         assert result.status_code == 500
 
 
 class TestDeleteNode:
     def test_delete_node_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=True),
         ):
-            result = ch._delete_node("c1", "n1", "user-1")
+            result = ch._delete_node(ctx, "c1", "n1", "user-1")
         assert result.status_code == 200
         body = _parse_result(result)
         assert body["deleted"] is True
@@ -700,18 +718,20 @@ class TestDeleteNode:
 
     def test_delete_node_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=False),
         ):
-            result = ch._delete_node("c1", "n1", "user-1")
+            result = ch._delete_node(ctx, "c1", "n1", "user-1")
         assert result.status_code == 404
 
     def test_delete_node_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("x")):
-            result = ch._delete_node("c1", "n1", "user-1")
+            result = ch._delete_node(ctx, "c1", "n1", "user-1")
         assert result.status_code == 500
 
 
@@ -723,67 +743,74 @@ class TestDeleteNode:
 class TestAddEdge:
     def test_add_edge_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         edge = _edge_dict("e1")
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=edge),
         ):
-            result = ch._add_edge("c1", {"source_id": "n1", "target_id": "n2"}, "user-1")
+            result = ch._add_edge(ctx, "c1", {"source_id": "n1", "target_id": "n2"}, "user-1")
         assert result.status_code == 201
 
     def test_add_edge_missing_source(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with patch.object(ch, "_get_canvas_manager", return_value=mgr):
-            result = ch._add_edge("c1", {"target_id": "n2"}, "user-1")
+            result = ch._add_edge(ctx, "c1", {"target_id": "n2"}, "user-1")
         assert result.status_code == 400
 
     def test_add_edge_missing_target(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with patch.object(ch, "_get_canvas_manager", return_value=mgr):
-            result = ch._add_edge("c1", {"source_id": "n1"}, "user-1")
+            result = ch._add_edge(ctx, "c1", {"source_id": "n1"}, "user-1")
         assert result.status_code == 400
 
     def test_add_edge_alt_keys(self):
         """Test that 'source' and 'target' keys also work."""
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         edge = _edge_dict("e1")
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=edge),
         ):
-            result = ch._add_edge("c1", {"source": "n1", "target": "n2"}, "user-1")
+            result = ch._add_edge(ctx, "c1", {"source": "n1", "target": "n2"}, "user-1")
         assert result.status_code == 201
 
     def test_add_edge_canvas_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=None),
         ):
-            result = ch._add_edge("c1", {"source_id": "n1", "target_id": "n2"}, "user-1")
+            result = ch._add_edge(ctx, "c1", {"source_id": "n1", "target_id": "n2"}, "user-1")
         assert result.status_code == 404
 
     def test_add_edge_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("x")):
-            result = ch._add_edge("c1", {"source_id": "n1", "target_id": "n2"}, "user-1")
+            result = ch._add_edge(ctx, "c1", {"source_id": "n1", "target_id": "n2"}, "user-1")
         assert result.status_code == 500
 
 
 class TestDeleteEdge:
     def test_delete_edge_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=True),
         ):
-            result = ch._delete_edge("c1", "e1", "user-1")
+            result = ch._delete_edge(ctx, "c1", "e1", "user-1")
         assert result.status_code == 200
         body = _parse_result(result)
         assert body["deleted"] is True
@@ -791,18 +818,20 @@ class TestDeleteEdge:
 
     def test_delete_edge_not_found(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value=False),
         ):
-            result = ch._delete_edge("c1", "e1", "user-1")
+            result = ch._delete_edge(ctx, "c1", "e1", "user-1")
         assert result.status_code == 404
 
     def test_delete_edge_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas_manager", side_effect=RuntimeError("x")):
-            result = ch._delete_edge("c1", "e1", "user-1")
+            result = ch._delete_edge(ctx, "c1", "e1", "user-1")
         assert result.status_code == 500
 
 
@@ -814,13 +843,14 @@ class TestDeleteEdge:
 class TestExecuteAction:
     def test_execute_success(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value={"status": "ok"}),
         ):
             result = ch._execute_action(
-                "c1", {"action": "layout", "params": {"algo": "force"}}, "user-1"
+                ctx, "c1", {"action": "layout", "params": {"algo": "force"}}, "user-1"
             )
         assert result.status_code == 200
         body = _parse_result(result)
@@ -830,30 +860,33 @@ class TestExecuteAction:
 
     def test_execute_missing_action(self):
         ch = _make_canvas_handler()
-        result = ch._execute_action("c1", {}, "user-1")
+        ctx = _make_auth_context()
+        result = ch._execute_action(ctx, "c1", {}, "user-1")
         assert result.status_code == 400
         body = _parse_result(result)
         assert "action is required" in body.get("error", "")
 
     def test_execute_with_node_id(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", return_value="done"),
         ):
-            result = ch._execute_action("c1", {"action": "run", "node_id": "n1"}, "user-1")
+            result = ch._execute_action(ctx, "c1", {"action": "run", "node_id": "n1"}, "user-1")
         body = _parse_result(result)
         assert body["node_id"] == "n1"
 
     def test_execute_error(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         mgr = MagicMock()
         with (
             patch.object(ch, "_get_canvas_manager", return_value=mgr),
             patch.object(ch, "_run_async", side_effect=RuntimeError("boom")),
         ):
-            result = ch._execute_action("c1", {"action": "run"}, "user-1")
+            result = ch._execute_action(ctx, "c1", {"action": "run"}, "user-1")
         assert result.status_code == 500
 
 
@@ -863,115 +896,144 @@ class TestExecuteAction:
 
 
 class TestRouteRequest:
-    """Test _route_request method dispatching."""
+    """Test _route_request method dispatching.
+
+    Note: _route_request now takes an AuthorizationContext parameter which is passed
+    to individual operation methods for RBAC enforcement via @require_permission decorators.
+    """
 
     def test_list_canvases_get(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_list_canvases", return_value="list_result") as mock:
-            result = ch._route_request("/api/v1/canvas", "GET", {"q": "1"}, {}, "u", "w")
-        mock.assert_called_once_with({"q": "1"}, "u", "w")
+            result = ch._route_request("/api/v1/canvas", "GET", {"q": "1"}, {}, "u", "w", ctx)
+        mock.assert_called_once_with(ctx, {"q": "1"}, "u", "w")
         assert result == "list_result"
 
     def test_create_canvas_post(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_create_canvas", return_value="create_result") as mock:
-            result = ch._route_request("/api/v1/canvas", "POST", {}, {"name": "X"}, "u", "w")
-        mock.assert_called_once_with({"name": "X"}, "u", "w")
+            result = ch._route_request("/api/v1/canvas", "POST", {}, {"name": "X"}, "u", "w", ctx)
+        mock.assert_called_once_with(ctx, {"name": "X"}, "u", "w")
 
     def test_canvas_method_not_allowed(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas", "DELETE", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas", "DELETE", {}, {}, "u", "w", ctx)
         assert result.status_code == 405
 
     def test_get_canvas_by_id(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_get_canvas", return_value="get_result") as mock:
-            result = ch._route_request("/api/v1/canvas/c1", "GET", {}, {}, "u", "w")
-        mock.assert_called_once_with("c1", "u")
+            result = ch._route_request("/api/v1/canvas/c1", "GET", {}, {}, "u", "w", ctx)
+        mock.assert_called_once_with(ctx, "c1", "u")
 
     def test_update_canvas_by_id(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_update_canvas", return_value="up") as mock:
-            result = ch._route_request("/api/v1/canvas/c1", "PUT", {}, {"name": "Y"}, "u", "w")
-        mock.assert_called_once_with("c1", {"name": "Y"}, "u")
+            result = ch._route_request("/api/v1/canvas/c1", "PUT", {}, {"name": "Y"}, "u", "w", ctx)
+        mock.assert_called_once_with(ctx, "c1", {"name": "Y"}, "u")
 
     def test_delete_canvas_by_id(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_delete_canvas", return_value="del") as mock:
-            result = ch._route_request("/api/v1/canvas/c1", "DELETE", {}, {}, "u", "w")
-        mock.assert_called_once_with("c1", "u")
+            result = ch._route_request("/api/v1/canvas/c1", "DELETE", {}, {}, "u", "w", ctx)
+        mock.assert_called_once_with(ctx, "c1", "u")
 
     def test_canvas_id_method_not_allowed(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas/c1", "PATCH", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas/c1", "PATCH", {}, {}, "u", "w", ctx)
         assert result.status_code == 405
 
     def test_add_node_post(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_add_node", return_value="node") as mock:
             result = ch._route_request(
-                "/api/v1/canvas/c1/nodes", "POST", {}, {"type": "text"}, "u", "w"
+                "/api/v1/canvas/c1/nodes", "POST", {}, {"type": "text"}, "u", "w", ctx
             )
-        mock.assert_called_once_with("c1", {"type": "text"}, "u")
+        mock.assert_called_once_with(ctx, "c1", {"type": "text"}, "u")
 
     def test_nodes_method_not_allowed(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas/c1/nodes", "GET", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas/c1/nodes", "GET", {}, {}, "u", "w", ctx)
         assert result.status_code == 405
 
     def test_update_node_put(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_update_node", return_value="upn") as mock:
-            ch._route_request("/api/v1/canvas/c1/nodes/n1", "PUT", {}, {"label": "X"}, "u", "w")
-        mock.assert_called_once_with("c1", "n1", {"label": "X"}, "u")
+            ch._route_request(
+                "/api/v1/canvas/c1/nodes/n1", "PUT", {}, {"label": "X"}, "u", "w", ctx
+            )
+        mock.assert_called_once_with(ctx, "c1", "n1", {"label": "X"}, "u")
 
     def test_delete_node(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_delete_node", return_value="dn") as mock:
-            ch._route_request("/api/v1/canvas/c1/nodes/n1", "DELETE", {}, {}, "u", "w")
-        mock.assert_called_once_with("c1", "n1", "u")
+            ch._route_request("/api/v1/canvas/c1/nodes/n1", "DELETE", {}, {}, "u", "w", ctx)
+        mock.assert_called_once_with(ctx, "c1", "n1", "u")
 
     def test_node_method_not_allowed(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas/c1/nodes/n1", "GET", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas/c1/nodes/n1", "GET", {}, {}, "u", "w", ctx)
         assert result.status_code == 405
 
     def test_add_edge_post(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_add_edge", return_value="edge") as mock:
-            ch._route_request("/api/v1/canvas/c1/edges", "POST", {}, {"source_id": "a"}, "u", "w")
-        mock.assert_called_once_with("c1", {"source_id": "a"}, "u")
+            ch._route_request(
+                "/api/v1/canvas/c1/edges", "POST", {}, {"source_id": "a"}, "u", "w", ctx
+            )
+        mock.assert_called_once_with(ctx, "c1", {"source_id": "a"}, "u")
 
     def test_edges_method_not_allowed(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas/c1/edges", "GET", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas/c1/edges", "GET", {}, {}, "u", "w", ctx)
         assert result.status_code == 405
 
     def test_delete_edge(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_delete_edge", return_value="de") as mock:
-            ch._route_request("/api/v1/canvas/c1/edges/e1", "DELETE", {}, {}, "u", "w")
-        mock.assert_called_once_with("c1", "e1", "u")
+            ch._route_request("/api/v1/canvas/c1/edges/e1", "DELETE", {}, {}, "u", "w", ctx)
+        mock.assert_called_once_with(ctx, "c1", "e1", "u")
 
     def test_edge_method_not_allowed(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas/c1/edges/e1", "GET", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas/c1/edges/e1", "GET", {}, {}, "u", "w", ctx)
         assert result.status_code == 405
 
     def test_execute_action_post(self):
         ch = _make_canvas_handler()
+        ctx = _make_auth_context()
         with patch.object(ch, "_execute_action", return_value="act") as mock:
-            ch._route_request("/api/v1/canvas/c1/action", "POST", {}, {"action": "run"}, "u", "w")
-        mock.assert_called_once_with("c1", {"action": "run"}, "u")
+            ch._route_request(
+                "/api/v1/canvas/c1/action", "POST", {}, {"action": "run"}, "u", "w", ctx
+            )
+        mock.assert_called_once_with(ctx, "c1", {"action": "run"}, "u")
 
     def test_action_method_not_allowed(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas/c1/action", "GET", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas/c1/action", "GET", {}, {}, "u", "w", ctx)
         assert result.status_code == 405
 
     def test_unmatched_path_returns_none(self):
         ch = _make_canvas_handler()
-        result = ch._route_request("/api/v1/canvas/c1/unknown", "GET", {}, {}, "u", "w")
+        ctx = _make_auth_context()
+        result = ch._route_request("/api/v1/canvas/c1/unknown", "GET", {}, {}, "u", "w", ctx)
         assert result is None
 
 

@@ -17,6 +17,10 @@ from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
 
+# RBAC permission keys for autonomous operations
+AUTONOMOUS_READ_PERMISSION = "autonomous:read"
+AUTONOMOUS_WRITE_PERMISSION = "autonomous:write"
+
 # Global continuous learner instance
 _continuous_learner: ContinuousLearner | None = None
 
@@ -49,7 +53,7 @@ class LearningHandler:
 
         GET /api/autonomous/learning/ratings
 
-        Requires authentication and 'learning:read' permission.
+        Requires authentication and 'autonomous:read' permission.
 
         Returns:
             Dict of agent_id -> rating
@@ -58,7 +62,7 @@ class LearningHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "learning:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -91,7 +95,7 @@ class LearningHandler:
 
         GET /api/autonomous/learning/calibration/{agent_id}
 
-        Requires authentication and 'learning:read' permission.
+        Requires authentication and 'autonomous:read' permission.
 
         Returns:
             Agent calibration data
@@ -102,7 +106,7 @@ class LearningHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "learning:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -156,7 +160,7 @@ class LearningHandler:
 
         GET /api/autonomous/learning/calibrations
 
-        Requires authentication and 'learning:read' permission.
+        Requires authentication and 'autonomous:read' permission.
 
         Returns:
             Dict of agent_id -> calibration data
@@ -165,7 +169,7 @@ class LearningHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "learning:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -208,7 +212,7 @@ class LearningHandler:
 
         POST /api/autonomous/learning/debate
 
-        Requires authentication and 'learning:write' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Body:
             debate_id: str - ID of the debate
@@ -225,7 +229,7 @@ class LearningHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "learning:write")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -288,7 +292,7 @@ class LearningHandler:
 
         POST /api/autonomous/learning/feedback
 
-        Requires authentication and 'learning:write' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Body:
             debate_id: str - Related debate ID
@@ -303,7 +307,7 @@ class LearningHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "learning:write")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -362,7 +366,7 @@ class LearningHandler:
 
         GET /api/autonomous/learning/patterns
 
-        Requires authentication and 'learning:read' permission.
+        Requires authentication and 'autonomous:read' permission.
 
         Query params:
             pattern_type: str (optional) - Filter by pattern type
@@ -374,7 +378,7 @@ class LearningHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "learning:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -422,7 +426,7 @@ class LearningHandler:
 
         POST /api/autonomous/learning/run
 
-        Requires authentication and 'learning:admin' permission.
+        Requires authentication and 'autonomous:write' permission.
 
         Returns:
             Summary of actions taken
@@ -431,7 +435,7 @@ class LearningHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "learning:admin")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 

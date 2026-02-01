@@ -38,12 +38,13 @@ _SUSPICIOUS_PATTERNS = [
 ]
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from aragora.resilience import with_timeout
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
 # RBAC permissions for graph debates
 DEBATES_READ_PERMISSION = "debates:read"
-DEBATES_CREATE_PERMISSION = "debates:create"
+DEBATES_WRITE_PERMISSION = "debates:write"
 
 # Rate limiter for graph debates (5 requests per minute - branching debates are expensive)
 _graph_limiter = RateLimiter(requests_per_minute=5)
@@ -54,7 +55,7 @@ class GraphDebatesHandler(SecureHandler):
 
     RBAC Protected:
     - debates:read - required for GET endpoints
-    - debates:create - required for POST endpoints
+    - debates:write - required for POST endpoints
     """
 
     def __init__(self, ctx: dict | None = None):
@@ -104,6 +105,7 @@ class GraphDebatesHandler(SecureHandler):
         },
         operation_id="get_graph_debate",
     )
+    @require_permission(DEBATES_READ_PERMISSION)
     @handle_errors("graph debates GET")
     async def handle_get(self, handler: Any, path: str, query_params: dict) -> HandlerResult:
         """Handle GET requests for graph debates with RBAC."""
@@ -156,6 +158,7 @@ class GraphDebatesHandler(SecureHandler):
             "500": {"description": "Graph debate module not available"},
         },
     )
+    @require_permission(DEBATES_WRITE_PERMISSION)
     @handle_errors("graph debates POST")
     async def handle_post(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Handle POST requests for graph debates with RBAC.
@@ -194,10 +197,10 @@ class GraphDebatesHandler(SecureHandler):
         if not normalized.rstrip("/").endswith("/debates/graph"):
             return error_response("Not found", 404)
 
-        # RBAC: Require authentication and debates:create permission
+        # RBAC: Require authentication and debates:write permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
-            self.check_permission(auth_context, DEBATES_CREATE_PERMISSION)
+            self.check_permission(auth_context, DEBATES_WRITE_PERMISSION)
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:

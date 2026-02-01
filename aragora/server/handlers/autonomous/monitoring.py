@@ -18,6 +18,10 @@ from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
+# RBAC permission keys for autonomous operations
+AUTONOMOUS_READ_PERMISSION = "autonomous:read"
+AUTONOMOUS_WRITE_PERMISSION = "autonomous:write"
+
 # Global instances
 _trend_monitor: TrendMonitor | None = None
 _anomaly_detector: AnomalyDetector | None = None
@@ -78,7 +82,7 @@ class MonitoringHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "autonomous:write")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -155,7 +159,7 @@ class MonitoringHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -221,7 +225,7 @@ class MonitoringHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -276,7 +280,7 @@ class MonitoringHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
@@ -338,7 +342,7 @@ class MonitoringHandler:
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
