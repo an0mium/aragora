@@ -204,7 +204,7 @@ class HybridDebateProtocol:
         if hasattr(config.external_agent, "base_url") and config.external_agent.base_url:
             from aragora.security.ssrf_protection import SSRFValidationError, validate_url
 
-            result = validate_url(config.external_agent.base_url)
+            result = validate_url(config.external_agent.base_url, resolve_dns=True)
             if not result.is_safe:
                 raise SSRFValidationError(
                     f"External agent URL is unsafe: {result.error}",

@@ -100,7 +100,7 @@ class GatewayAgentsHandler(BaseHandler):
         if SSRF_AVAILABLE:
             from aragora.security.ssrf_protection import validate_url
 
-            result = validate_url(base_url)
+            result = validate_url(base_url, resolve_dns=True)
             if not result.is_safe:
                 logger.warning(
                     "SSRF validation failed for agent base_url: %s - %s",

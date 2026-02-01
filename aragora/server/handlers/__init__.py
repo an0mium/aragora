@@ -286,6 +286,10 @@ from .autonomous import (  # Autonomous operations handlers (Phase 5)
     MonitoringHandler,
     LearningHandler as AutonomousLearningHandler,  # Renamed to avoid conflict with memory/LearningHandler
 )
+from .gateway_health_handler import GatewayHealthHandler  # Gateway health endpoints
+from .gateway_agents_handler import GatewayAgentsHandler  # Gateway agent registration
+from .gateway_credentials_handler import GatewayCredentialsHandler  # Gateway credential management
+from .hybrid_debate_handler import HybridDebateHandler  # Hybrid debate (external + internal agents)
 
 # List of all handler classes for automatic dispatch registration
 # Order matters: more specific handlers should come first
@@ -473,6 +477,11 @@ ALL_HANDLERS = [
     GatewayHandler,  # IoT gateway devices, channels, routing, messages
     OpenClawGatewayHandler,  # OpenClaw enterprise gateway sessions, actions, policy
     ExternalAgentsHandler,  # External agent framework gateway (OpenHands, AutoGPT, CrewAI)
+    # Secure Gateway handlers (Batch 5)
+    GatewayHealthHandler,  # Gateway health: /api/v1/gateway/health, /api/v1/gateway/agents/{name}/health
+    GatewayAgentsHandler,  # Agent registration: /api/v1/gateway/agents
+    GatewayCredentialsHandler,  # Credential management: /api/v1/gateway/credentials
+    HybridDebateHandler,  # Hybrid debates: /api/v1/debates/hybrid
     # Additional handlers for API documentation coverage
     OnboardingHandler,  # Onboarding flow endpoints
     BackupHandler,  # Backup management endpoints
@@ -657,6 +666,11 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ExternalAgentsHandler": Stability.EXPERIMENTAL,  # External agent framework gateway
     # OpenClaw enterprise gateway
     "OpenClawGatewayHandler": Stability.EXPERIMENTAL,  # OpenClaw enterprise gateway
+    # Secure Gateway handlers (Batch 5)
+    "GatewayHealthHandler": Stability.EXPERIMENTAL,  # Gateway health endpoints
+    "GatewayAgentsHandler": Stability.EXPERIMENTAL,  # Gateway agent registration
+    "GatewayCredentialsHandler": Stability.EXPERIMENTAL,  # Gateway credential management
+    "HybridDebateHandler": Stability.EXPERIMENTAL,  # Hybrid debate (external + internal agents)
 }
 
 
@@ -914,6 +928,11 @@ __all__ = [
     "EcommerceHandler",
     # OpenClaw enterprise gateway
     "OpenClawGatewayHandler",
+    # Secure Gateway handlers (Batch 5)
+    "GatewayHealthHandler",
+    "GatewayAgentsHandler",
+    "GatewayCredentialsHandler",
+    "HybridDebateHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

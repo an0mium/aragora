@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -22,7 +23,16 @@ logger = logging.getLogger(__name__)
 
 
 class AppleOAuthMixin:
-    """Mixin providing Apple Sign-In methods."""
+    """Mixin providing Apple Sign-In methods.
+
+    Note: This mixin expects to be combined with a class that implements
+    OAuthHandlerProtocol (i.e., OAuthHandler).
+    """
+
+    # Declare methods from parent class to satisfy mypy
+    _get_user_store: Any
+    _redirect_with_error: Any
+    _complete_oauth_flow: Any
 
     @handle_errors("Apple OAuth start")
     @log_request("Apple OAuth start")

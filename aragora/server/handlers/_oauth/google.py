@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import httpx
@@ -20,11 +20,27 @@ from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
 from .utils import _impl
 
+if TYPE_CHECKING:
+    pass
+
 logger = logging.getLogger(__name__)
 
 
 class GoogleOAuthMixin:
-    """Mixin providing Google OAuth 2.0 methods."""
+    """Mixin providing Google OAuth 2.0 methods.
+
+    Note: This mixin expects to be combined with a class that implements
+    OAuthHandlerProtocol (i.e., OAuthHandler).
+    """
+
+    # Declare methods from parent class to satisfy mypy
+    _get_user_store: Any
+    _redirect_with_error: Any
+    _redirect_with_tokens: Any
+    _find_user_by_oauth: Any
+    _link_oauth_to_user: Any
+    _create_oauth_user: Any
+    _handle_account_linking: Any
 
     @handle_errors("Google OAuth start")
     @log_request("Google OAuth start")

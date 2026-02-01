@@ -266,11 +266,18 @@ class SupabaseAuthValidator:
         try:
             if HAS_JWT and self.jwt_secret and _jwt_module is not None:
                 # Use PyJWT for proper validation
+                # Build decode options with audience; add issuer if URL is configured
+                decode_options: dict[str, str | list[str]] = {
+                    "algorithms": ["HS256"],
+                    "audience": "authenticated",
+                }
+                if self.supabase_url:
+                    # Supabase issuer format: {SUPABASE_URL}/auth/v1
+                    decode_options["issuer"] = f"{self.supabase_url.rstrip('/')}/auth/v1"
                 payload = _jwt_module.decode(
                     token,
                     self.jwt_secret,
-                    algorithms=["HS256"],
-                    audience="authenticated",
+                    **decode_options,
                 )
             else:
                 # SECURITY: In production, reject tokens if proper validation unavailable

@@ -53,10 +53,10 @@ try:
     BINDINGS_AVAILABLE = True
 except ImportError:
     BINDINGS_AVAILABLE = False
-    get_binding_router: Any = None
-    BindingRouter: Any = None
-    BindingType: Any = None
-    MessageBinding: Any = None
+    get_binding_router = None  # type: Any
+    BindingRouter = None  # type: Any
+    BindingType = None  # type: Any
+    MessageBinding = None  # type: Any
 
 
 class BindingsHandler(BaseHandler):

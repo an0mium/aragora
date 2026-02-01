@@ -224,18 +224,20 @@ class TestHeaderAuthenticationSecurity:
     """Tests for header-based authentication security."""
 
     def test_header_spoofing_prevention_concept(self):
-        """SECURITY: Document that X-User-ID headers must not be trusted."""
-        # This test documents the security requirement that X-User-ID headers
-        # should not be trusted for authentication. JWT must be the source of truth.
+        """SECURITY: Verify X-User-ID headers are NOT trusted for authentication."""
+        from aragora.server.handlers.utils.auth import _extract_user_from_headers
 
-        # The actual enforcement is in auth handlers, but this test documents
-        # the security requirement that:
-        # 1. X-User-ID from headers should be used for logging/debugging only
-        # 2. Actual user identity must come from validated JWT tokens
-        # 3. In production, header-based user ID should be ignored for authorization
+        # Create a mock handler with a spoofed X-User-ID header
+        mock_handler = MagicMock()
+        mock_handler.request.headers = {"X-User-ID": "spoofed-admin-user"}
 
-        # This is a documentation test - the actual logic is tested in auth tests
-        assert True  # Placeholder for security requirement documentation
+        # The function should NOT trust the X-User-ID header and return anonymous
+        user_id, user_name = _extract_user_from_headers(mock_handler)
+
+        # SECURITY: Verify that spoofed header is ignored
+        assert user_id != "spoofed-admin-user", "X-User-ID header should NOT be trusted"
+        assert user_id == "anonymous", "Should return anonymous when no valid JWT"
+        assert user_name == "Anonymous User"
 
 
 # ===========================================================================

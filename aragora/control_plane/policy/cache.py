@@ -27,7 +27,7 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    aioredis: Any = None
+    aioredis = None  # type: Any
 
 
 class RedisPolicyCache:

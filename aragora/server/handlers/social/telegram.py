@@ -67,9 +67,9 @@ try:
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
-    check_permission: Any = None
-    extract_user_from_request: Any = None
-    AuthorizationContext: Any = None
+    check_permission = None  # type: Any
+    extract_user_from_request = None  # type: Any
+    AuthorizationContext = None  # type: Any
 from ..utils.rate_limit import rate_limit
 from .telemetry import (
     record_api_call,

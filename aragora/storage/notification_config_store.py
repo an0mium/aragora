@@ -46,14 +46,14 @@ try:
         CRYPTO_AVAILABLE as _CRYPTO_AVAILABLE_IMPL,
     )
 
-    CRYPTO_AVAILABLE: bool = _CRYPTO_AVAILABLE_IMPL
+    CRYPTO_AVAILABLE = _CRYPTO_AVAILABLE_IMPL
     EncryptionError = _EncryptionErrorImpl
     get_encryption_service = _get_encryption_service_impl
     is_encryption_required = _is_encryption_required_impl
 except ImportError:
-    CRYPTO_AVAILABLE: bool = False
+    CRYPTO_AVAILABLE = False
 
-    class EncryptionError(Exception):
+    class EncryptionError(Exception):  # type: ignore[no-redef]
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):

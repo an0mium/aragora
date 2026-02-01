@@ -359,7 +359,7 @@ class TestLeaderElectionCallbackExecution:
             # Wait for callback or timeout
             try:
                 await asyncio.wait_for(callback_called.wait(), timeout=1.0)
-                assert True  # Callback was called
+                assert callback_called.is_set(), "Leader callback should have been called"
             except asyncio.TimeoutError:
                 # May not become leader in test environment
                 pass

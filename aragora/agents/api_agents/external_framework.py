@@ -203,7 +203,7 @@ class ExternalFrameworkAgent(APIAgent):
             set(d.strip() for d in allowed_domains_str.split(",") if d.strip()) or None
         )
 
-        result = validate_url(url, allowed_domains=allowed_domains)
+        result = validate_url(url, allowed_domains=allowed_domains, resolve_dns=True)
         if not result.is_safe:
             raise SSRFValidationError(
                 f"Unsafe external framework URL blocked: {result.error}",

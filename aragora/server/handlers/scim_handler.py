@@ -44,8 +44,8 @@ try:
     SCIM_AVAILABLE = True
 except ImportError:
     SCIM_AVAILABLE = False
-    SCIMConfig: Any = None
-    SCIMServer: Any = None
+    SCIMConfig = None  # type: Any
+    SCIMServer = None  # type: Any
 
 logger = logging.getLogger(__name__)
 

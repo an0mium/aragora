@@ -347,10 +347,12 @@ class StalenessDetector:
         all_checks: list[StalenessCheck] = []
 
         # Query nodes ordered by last update (oldest first)
-        nodes = await self._mound.query_nodes(
+        query_result = await self._mound.query(
+            query="*",  # Match all
             workspace_id=workspace_id,
             limit=limit * 2,  # Over-fetch since some may not be stale
         )
+        nodes = query_result.items if hasattr(query_result, "items") else []
 
         for node in nodes:
             check = await self.compute_staleness(node.id)
@@ -405,12 +407,14 @@ class StalenessDetector:
         offset = 0
 
         while True:
-            # Get batch of nodes
-            nodes = await self._mound.query_nodes(
+            # Get batch of nodes using query
+            query_result = await self._mound.query(
+                query="*",  # Match all
                 workspace_id=workspace_id,
                 limit=batch_size,
                 offset=offset,
             )
+            nodes = query_result.items if hasattr(query_result, "items") else []
 
             if not nodes:
                 break

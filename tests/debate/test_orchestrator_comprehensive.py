@@ -886,9 +886,8 @@ class TestAgentChannelManagement:
         # Channel integration may be created by default
         await arena._setup_agent_channels(ctx, "test-debate")
 
-        # Just verify setup completes without error
-        # The _channel_integration may be created by default
-        assert True
+        # Verify setup completes - ctx should still be valid after setup
+        assert ctx.debate_id == "test-debate", "Context should remain valid after channel setup"
 
     @pytest.mark.asyncio
     async def test_teardown_agent_channels_noop_when_none(self, arena):

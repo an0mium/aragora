@@ -423,8 +423,10 @@ class KMOutcomeBridge:
             elif hasattr(self._knowledge_mound, "get_item"):
                 return await self._knowledge_mound.get_item(item_id)
             elif hasattr(self._knowledge_mound, "query"):
-                result = await self._knowledge_mound.query(item_id, limit=1)
-                return result[0] if result else None
+                query_result = await self._knowledge_mound.query(item_id, limit=1)
+                # query() returns QueryResult with items attribute
+                items = query_result.items if hasattr(query_result, "items") else query_result
+                return items[0] if items else None
             else:
                 # Mock/fallback for testing
                 return {"id": item_id, "confidence": 0.7}

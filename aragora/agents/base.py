@@ -25,8 +25,8 @@ if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
     from aragora.agents.cli_agents import CLIAgent
 
-    # Type alias for agent instances
-    Agent: TypeAlias = APIAgent | CLIAgent
+    # Type alias for agent instances - note: Agent already imported above from aragora.core
+    AgentInstance: TypeAlias = APIAgent | CLIAgent
 
 
 # Context window limits (in characters, ~4 chars per token)

@@ -284,8 +284,10 @@ class TestAutoInitHelpers:
             "aragora.debate.arena_initializer.ArenaInitializer._auto_init_breakpoint_manager",
             return_value=None,
         ):
-            # Just verify no exception
-            assert True
+            # Verify that when _auto_init_breakpoint_manager returns None,
+            # it doesn't raise an exception
+            result = init._auto_init_breakpoint_manager(proto)
+            assert result is None, "Patched method should return None"
 
     def test_auto_init_position_ledger(self):
         init = _make_initializer()

@@ -36,11 +36,11 @@ from aragora.utils.error_sanitizer import sanitize_error_text as _sanitize_error
 try:
     from aragora.observability.tracing import build_trace_headers
 
-    TRACING_AVAILABLE: bool = True
+    TRACING_AVAILABLE = True
 except ImportError:
-    TRACING_AVAILABLE: bool = False
+    TRACING_AVAILABLE = False
 
-    def build_trace_headers() -> dict[str, str]:
+    def build_trace_headers() -> dict[str, str]:  # type: ignore[no-redef]
         """Fallback when tracing module not available."""
         return {}
 

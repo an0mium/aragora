@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 try:
     from aragora.knowledge.mound.culture import OrganizationCultureManager
 except ImportError:
-    OrganizationCultureManager: Any = None
+    OrganizationCultureManager = None  # type: Any
 
 logger = logging.getLogger(__name__)
 

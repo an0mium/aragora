@@ -1463,6 +1463,21 @@ def reset_supabase_env(monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def test_environment(monkeypatch):
+    """Set test environment variables for all tests.
+
+    This fixture configures the environment for testing:
+    - ARAGORA_API_TOKEN: Provides auth token to prevent AuthenticationError
+    - ARAGORA_REQUIRE_DISTRIBUTED: Disables distributed mode requirement
+    - ARAGORA_SSRF_ALLOW_LOCALHOST: Allows localhost URLs for integration tests
+    """
+    monkeypatch.setenv("ARAGORA_API_TOKEN", "test-token")
+    monkeypatch.setenv("ARAGORA_REQUIRE_DISTRIBUTED", "false")
+    monkeypatch.setenv("ARAGORA_SSRF_ALLOW_LOCALHOST", "true")
+    yield
+
+
 @pytest.fixture
 def mock_api_keys(monkeypatch):
     """Set mock API keys for testing.

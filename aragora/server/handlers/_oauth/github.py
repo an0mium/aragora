@@ -23,7 +23,20 @@ logger = logging.getLogger(__name__)
 
 
 class GitHubOAuthMixin:
-    """Mixin providing GitHub OAuth methods."""
+    """Mixin providing GitHub OAuth methods.
+
+    Note: This mixin expects to be combined with a class that implements
+    OAuthHandlerProtocol (i.e., OAuthHandler).
+    """
+
+    # Declare methods from parent class to satisfy mypy
+    _get_user_store: Any
+    _redirect_with_error: Any
+    _redirect_with_tokens: Any
+    _find_user_by_oauth: Any
+    _link_oauth_to_user: Any
+    _create_oauth_user: Any
+    _handle_account_linking: Any
 
     @handle_errors("GitHub OAuth start")
     @log_request("GitHub OAuth start")

@@ -211,8 +211,11 @@ def _is_hostname_suspicious(hostname: str) -> tuple[bool, str]:
     """
     hostname_lower = hostname.lower()
 
-    # Check for localhost aliases
+    # Check for localhost aliases (unless explicitly allowed for testing)
     if hostname_lower in LOCALHOST_HOSTNAMES:
+        if os.environ.get("ARAGORA_SSRF_ALLOW_LOCALHOST", "").lower() == "true":
+            # Testing environment - allow localhost for integration tests
+            return False, ""
         return True, "Localhost hostname detected"
 
     # Check for cloud metadata hostnames
@@ -469,6 +472,8 @@ def get_ssrf_config() -> dict:
         "resolve_dns": os.environ.get("ARAGORA_SSRF_RESOLVE_DNS", "false").lower() == "true",
         "dns_timeout": float(os.environ.get("ARAGORA_SSRF_DNS_TIMEOUT", "2.0")),
         "log_blocked": os.environ.get("ARAGORA_SSRF_LOG_BLOCKED", "true").lower() == "true",
+        "allow_localhost": os.environ.get("ARAGORA_SSRF_ALLOW_LOCALHOST", "false").lower()
+        == "true",
     }
 
 

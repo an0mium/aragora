@@ -286,10 +286,7 @@ class TestSSRFValidation:
         mock_handler = make_mock_handler(body)
 
         # Mock SSRF validation to return unsafe result
-        with (
-            patch("aragora.server.handlers.gateway_agents_handler.SSRF_AVAILABLE", True),
-            patch("aragora.server.handlers.gateway_agents_handler.validate_url") as mock_validate,
-        ):
+        with patch("aragora.security.ssrf_protection.validate_url") as mock_validate:
             mock_result = MagicMock()
             mock_result.is_safe = False
             mock_result.error = "URL resolves to private IP address"
@@ -307,10 +304,7 @@ class TestSSRFValidation:
         body = valid_agent_body(base_url="https://localhost:8080/api")
         mock_handler = make_mock_handler(body)
 
-        with (
-            patch("aragora.server.handlers.gateway_agents_handler.SSRF_AVAILABLE", True),
-            patch("aragora.server.handlers.gateway_agents_handler.validate_url") as mock_validate,
-        ):
+        with patch("aragora.security.ssrf_protection.validate_url") as mock_validate:
             mock_result = MagicMock()
             mock_result.is_safe = False
             mock_result.error = "URL hostname resolves to localhost"

@@ -44,7 +44,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext: Any = None
+    AuthorizationContext = None  # type: Any
 
 # Computer Use imports
 try:
@@ -59,9 +59,9 @@ try:
     COMPUTER_USE_AVAILABLE = True
 except ImportError:
     COMPUTER_USE_AVAILABLE = False
-    ComputerUseOrchestrator: Any = None
-    TaskResult: Any = None
-    TaskStatus: Any = None
+    ComputerUseOrchestrator = None  # type: Any
+    TaskResult = None  # type: Any
+    TaskStatus = None  # type: Any
 
 logger = logging.getLogger(__name__)
 

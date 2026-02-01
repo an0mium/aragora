@@ -271,7 +271,7 @@ class KnowledgeMoundMigrator:
                             continue
 
                     # Add to mound using add_node
-                    node_id = await self._mound.add_node(node)
+                    node_id = await self._mound.add_node(node)  # type: ignore[misc]
                     result.node_ids.append(node_id)
                     result.migrated_count += 1
 
@@ -392,7 +392,7 @@ class KnowledgeMoundMigrator:
                 try:
                     # Create main consensus node
                     consensus_node = self._consensus_record_to_node(record, workspace_id)
-                    consensus_id = await self._mound.add_node(consensus_node)
+                    consensus_id = await self._mound.add_node(consensus_node)  # type: ignore[misc]
                     result.node_ids.append(consensus_id)
                     result.migrated_count += 1
 
@@ -416,11 +416,11 @@ class KnowledgeMoundMigrator:
                                 "consensus_id": record.id,
                             },
                         )
-                        claim_id = await self._mound.add_node(claim_node)
+                        claim_id = await self._mound.add_node(claim_node)  # type: ignore[misc]
                         result.node_ids.append(claim_id)
 
                         # Add "supports" relationship using correct API
-                        rel_result = await self._mound.add_relationship(
+                        rel_result = await self._mound.add_relationship(  # type: ignore[misc]
                             from_id=claim_id,
                             to_id=consensus_id,
                             relationship_type="supports",
@@ -436,11 +436,11 @@ class KnowledgeMoundMigrator:
                             dissent = get_dissent(dissent_id) if get_dissent else None
                             if dissent:
                                 dissent_node = self._dissent_record_to_node(dissent, workspace_id)
-                                d_node_id = await self._mound.add_node(dissent_node)
+                                d_node_id = await self._mound.add_node(dissent_node)  # type: ignore[misc]
                                 result.node_ids.append(d_node_id)
 
                                 # Add "contradicts" relationship using correct API
-                                rel_result = await self._mound.add_relationship(
+                                rel_result = await self._mound.add_relationship(  # type: ignore[misc]
                                     from_id=d_node_id,
                                     to_id=consensus_id,
                                     relationship_type="contradicts",

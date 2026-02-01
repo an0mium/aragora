@@ -282,8 +282,8 @@ class TestBatchingOptimizer:
             assert rec.batching_opportunity is not None
             assert rec.batching_opportunity.optimal_batch_size > 1
         else:
-            # If no batching recommendations, verify we analyzed correctly
-            assert True  # Test passes - no batching needed
+            # If no batching recommendations, verify the result is still a valid list
+            assert recommendations == [], "Should return empty list when no batching needed"
 
 
 class TestCostOptimizer:

@@ -48,9 +48,9 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    ControlPlanePolicyManager: Any = None
-    PolicyViolationError: Any = None
-    EnforcementLevel: Any = None
+    ControlPlanePolicyManager = None  # type: Any
+    PolicyViolationError = None  # type: Any
+    EnforcementLevel = None  # type: Any
 
 # Cost enforcement imports (optional - graceful fallback if not available)
 try:
@@ -64,10 +64,10 @@ try:
     HAS_COST_ENFORCEMENT = True
 except ImportError:
     HAS_COST_ENFORCEMENT = False
-    CostEnforcer: Any = None
-    CostLimitExceededError: Any = None
-    CostEnforcementMode: Any = None
-    ThrottleLevel: Any = None
+    CostEnforcer = None  # type: Any
+    CostLimitExceededError = None  # type: Any
+    CostEnforcementMode = None  # type: Any
+    ThrottleLevel = None  # type: Any
 
 # Resilience patterns
 from aragora.resilience import get_v2_circuit_breaker as get_circuit_breaker

@@ -16,7 +16,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -304,7 +304,7 @@ try:
     HAS_REDIS = True
 
 except ImportError:
-    RedisBlacklist: Any = None
+    RedisBlacklist = None  # type: Any
     HAS_REDIS = False
 
 

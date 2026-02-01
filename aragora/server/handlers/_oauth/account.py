@@ -20,7 +20,30 @@ logger = logging.getLogger(__name__)
 
 
 class AccountManagementMixin:
-    """Mixin providing OAuth account management methods."""
+    """Mixin providing OAuth account management methods.
+
+    Note: This mixin expects to be combined with a class that implements
+    OAuthHandlerProtocol (i.e., OAuthHandler).
+    """
+
+    # Declare methods from parent class to satisfy mypy
+    _get_user_store: Any
+    _check_permission: Any
+    read_json_body: Any
+
+    # Provider-specific auth start methods
+    _handle_google_auth_start: Any
+    _handle_github_auth_start: Any
+    _handle_microsoft_auth_start: Any
+    _handle_apple_auth_start: Any
+    _handle_oidc_auth_start: Any
+
+    # Provider-specific callback methods
+    _handle_google_callback: Any
+    _handle_github_callback: Any
+    _handle_microsoft_callback: Any
+    _handle_apple_callback: Any
+    _handle_oidc_callback: Any
 
     @handle_errors("list OAuth providers")
     def _handle_list_providers(self, handler: Any) -> HandlerResult:

@@ -704,11 +704,11 @@ class TestErrorHandling:
         # Should not crash, may return partial result or handle error
         try:
             result = await arena.run()
-            # If we get here, error was handled
-            assert True
+            # If we get here, error was handled gracefully
+            assert result is not None, "Handled error should still return a result"
         except RuntimeError:
             # Error propagated - also valid behavior
-            assert True
+            pass  # Exception propagation is acceptable behavior
 
     @pytest.mark.asyncio
     async def test_empty_response_handled(
