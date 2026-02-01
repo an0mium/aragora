@@ -28,7 +28,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 
@@ -342,7 +342,7 @@ class SupportHandler(SecureHandler):
             if isinstance(result, BaseException):
                 logger.error(f"Error fetching tickets from {platform}: {result}")
                 continue
-            all_tickets.extend(cast(list[dict[str, Any]], result))
+            all_tickets.extend(result)
 
         # Sort by created_at descending
         all_tickets.sort(key=lambda t: t.get("created_at") or "", reverse=True)

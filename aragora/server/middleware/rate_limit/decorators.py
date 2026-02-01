@@ -123,8 +123,8 @@ def rate_limit(
             return response
 
         # Mark wrapper as rate limited for detection by default_limiter
-        wrapper._rate_limited = True
-        wrapper._rate_limiter = limiter
+        setattr(wrapper, "_rate_limited", True)
+        setattr(wrapper, "_rate_limiter", limiter)
 
         return wrapper
 
@@ -177,7 +177,7 @@ def user_rate_limit(
             return response
 
         # Mark wrapper as rate limited for detection by default_limiter
-        wrapper._rate_limited = True
+        setattr(wrapper, "_rate_limited", True)
 
         return wrapper
 

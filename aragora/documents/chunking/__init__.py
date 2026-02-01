@@ -11,6 +11,7 @@ from aragora.documents.chunking.token_counter import (
 )
 from aragora.documents.chunking.strategies import (
     ChunkingStrategy,
+    ChunkingStrategyType,
     ChunkingConfig,
     SemanticChunking,
     SlidingWindowChunking,
@@ -33,6 +34,7 @@ __all__ = [
     "get_token_counter",
     # Chunking strategies
     "ChunkingStrategy",
+    "ChunkingStrategyType",
     "ChunkingConfig",
     "SemanticChunking",
     "SlidingWindowChunking",

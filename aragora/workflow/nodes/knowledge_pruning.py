@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -80,7 +80,7 @@ class KnowledgePruningStep(BaseStep):
             from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
             from aragora.knowledge.mound.ops.pruning import PruningAction, PruningPolicy
 
-            mound = cast(KnowledgeMoundClass, KnowledgeMoundClass(workspace_id=workspace_id))
+            mound = KnowledgeMoundClass(workspace_id=workspace_id)
             await mound.initialize()
 
             # Create policy
@@ -192,7 +192,7 @@ class KnowledgeDedupStep(BaseStep):
         try:
             from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
 
-            mound = cast(KnowledgeMoundClass, KnowledgeMoundClass(workspace_id=workspace_id))
+            mound = KnowledgeMoundClass(workspace_id=workspace_id)
             await mound.initialize()
 
             # Generate dedup report
@@ -290,7 +290,7 @@ class ConfidenceDecayStep(BaseStep):
         try:
             from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
 
-            mound = cast(KnowledgeMoundClass, KnowledgeMoundClass(workspace_id=workspace_id))
+            mound = KnowledgeMoundClass(workspace_id=workspace_id)
             await mound.initialize()
 
             items_decayed = await mound.apply_confidence_decay(

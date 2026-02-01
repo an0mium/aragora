@@ -9,7 +9,7 @@ Provides workflow steps for reading and writing to the Knowledge Mound:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -79,9 +79,7 @@ class MemoryReadStep(BaseStep):
             )
 
             # Execute query
-            mound: KnowledgeMound = cast(
-                KnowledgeMound, KnowledgeMound(workspace_id=request.tenant_id)
-            )
+            mound = KnowledgeMound(workspace_id=request.tenant_id)
             await mound.initialize()
 
             result = await mound.query(
@@ -224,7 +222,7 @@ class MemoryWriteStep(BaseStep):
                         request.derived_from.append(target)
 
             # Execute write
-            mound: KnowledgeMound = cast(KnowledgeMound, KnowledgeMound(workspace_id=tenant_id))
+            mound = KnowledgeMound(workspace_id=tenant_id)
             await mound.initialize()
 
             result: IngestionResult = await mound.store(request)

@@ -848,3 +848,7 @@ def reset_workflow_engine() -> None:
     """Reset the global WorkflowEngine singleton (for testing)."""
     global _workflow_engine_instance
     _workflow_engine_instance = None
+
+
+# Backward-compatible alias
+Workflow = WorkflowEngine

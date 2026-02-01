@@ -26,6 +26,16 @@ from aragora.agents.api_agents.external_framework import (
 from aragora.security.ssrf_protection import SSRFValidationError
 
 
+@pytest.fixture(autouse=True)
+def _disable_ssrf_localhost_allowance(monkeypatch):
+    """Ensure SSRF localhost bypass is disabled for these tests.
+
+    The global test_environment fixture sets ARAGORA_SSRF_ALLOW_LOCALHOST=true
+    for integration tests, but SSRF rejection tests need it disabled.
+    """
+    monkeypatch.delenv("ARAGORA_SSRF_ALLOW_LOCALHOST", raising=False)
+
+
 class TestSSRFProtectionInit:
     """SSRF protection tests for ExternalFrameworkAgent initialization."""
 

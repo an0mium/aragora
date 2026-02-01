@@ -272,7 +272,7 @@ class CompositeHandler(BaseHandler):
             continuum = self.ctx.get("continuum_memory")
             if continuum and isinstance(continuum, ContinuumMemory):
                 # Get related memories
-                memories = continuum.recall(debate_id, limit=5)
+                memories = continuum.recall(debate_id, limit=5)  # type: ignore[attr-defined]
                 memory_data["outcomes"] = [m.to_dict() for m in memories]
                 memory_data["available"] = True
         except ImportError:
@@ -294,7 +294,7 @@ class CompositeHandler(BaseHandler):
             knowledge_mound = self.ctx.get("knowledge_mound")
             if knowledge_mound:
                 # Get related knowledge items
-                items = knowledge_mound.query(debate_id, limit=10)
+                items = knowledge_mound.query(debate_id, limit=10)  # type: ignore[attr-defined]
                 knowledge_data["facts"] = items
                 knowledge_data["available"] = True
         except (KeyError, ValueError, TypeError, AttributeError) as e:
@@ -317,7 +317,7 @@ class CompositeHandler(BaseHandler):
             # Check for belief-related stores
             dissent_retriever = self.ctx.get("dissent_retriever")
             if dissent_retriever:
-                cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)
+                cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)  # type: ignore[attr-defined]
                 belief_data["cruxes"] = cruxes
                 belief_data["available"] = True
         except (KeyError, ValueError, TypeError, AttributeError) as e:

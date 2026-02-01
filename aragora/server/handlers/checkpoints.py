@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 import logging
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from aragora.debate.checkpoint import (
     CheckpointManager,
@@ -53,7 +53,7 @@ class CheckpointHandler(BaseHandler):
     ]
 
     def __init__(self, context: Optional[ServerContext] = None):
-        super().__init__(cast(ServerContext, context or {}))
+        super().__init__(context or {})
         self._checkpoint_manager: CheckpointManager | None = None
 
     def _get_checkpoint_manager(self) -> CheckpointManager:

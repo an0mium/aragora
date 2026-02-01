@@ -1337,3 +1337,7 @@ class DissentRetriever:
             )
 
         return "\n".join(lines)
+
+
+# Backward-compatible alias
+ConsensusStore = ConsensusMemory

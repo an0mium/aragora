@@ -63,6 +63,7 @@ __all__ = [
     "MAX_CONTEXT_CHARS",
     "MAX_MESSAGE_CHARS",
     "RATE_LIMIT_PATTERNS",  # Re-exported from errors.py
+    "get_default_agents",
 ]
 
 logger = logging.getLogger(__name__)
@@ -957,6 +958,23 @@ SUGGESTIONS:
 
 SEVERITY: X.X
 REASONING: explanation"""
+
+
+def get_default_agents() -> list[Agent]:
+    """Return a default set of CLI agents for debates.
+
+    Returns agents based on available CLI tools, providing a reasonable
+    default roster for multi-model debates.
+
+    Returns:
+        List of Agent instances (ClaudeAgent, CodexAgent, GeminiCLIAgent, etc.)
+    """
+    agents: list[Agent] = [
+        ClaudeAgent(),
+        CodexAgent(),
+        GeminiCLIAgent(),
+    ]
+    return agents
 
 
 # Synchronous wrappers for convenience

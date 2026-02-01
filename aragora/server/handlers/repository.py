@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 
@@ -35,7 +35,7 @@ from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.facade import KnowledgeMound as KnowledgeMoundType
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ async def _get_orchestrator() -> Any | None:
 
             # Initialize with default mound
             # Use cast since KnowledgeMound is a concrete class composed from mixins
-            mound = cast("KnowledgeMoundType", KnowledgeMound())
+            mound = KnowledgeMound()
             await mound.initialize()
 
             _orchestrator_instance = RepositoryOrchestrator(

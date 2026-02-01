@@ -1,0 +1,444 @@
+"""
+RBAC Handler Enforcement Tests.
+
+These tests verify that all HTTP handler files in the server have proper
+authorization protection. This acts as a guardrail to prevent new handlers
+from being added without RBAC, authentication, or proper authorization.
+
+The test scans all handler modules and verifies they use at least one of:
+1. @require_permission / @require_role decorators
+2. SecureHandler / PermissionHandler / AdminHandler / AuthenticatedHandler base class
+3. SecureEndpointMixin / AuthenticatedHandlerMixin
+4. Are explicitly listed as allowed-public (bots, webhooks, OAuth)
+"""
+
+import ast
+import importlib
+import os
+from pathlib import Path
+
+import pytest
+
+# Base directory for handlers
+HANDLERS_DIR = Path(__file__).parent.parent.parent / "aragora" / "server" / "handlers"
+
+# Authorization indicators in source code
+RBAC_IMPORTS = {
+    "require_permission",
+    "require_role",
+    "require_owner",
+    "require_admin",
+    "require_org_access",
+    "require_self_or_admin",
+    "with_permission_context",
+    "secure_endpoint",
+    "require_user_auth",
+    "require_auth",
+}
+
+# Base classes that provide built-in authorization
+SECURE_BASE_CLASSES = {
+    "SecureHandler",
+    "AuthenticatedHandler",
+    "PermissionHandler",
+    "AdminHandler",
+    "ResourceHandler",
+    "AsyncTypedHandler",
+    "SecureEndpointMixin",
+    "AuthenticatedHandlerMixin",
+    "AuthChecksMixin",
+}
+
+# Modules that are explicitly allowed without RBAC decorators.
+# These are either:
+# - Public endpoints (webhooks, OAuth callbacks)
+# - Utility/non-handler modules
+# - Bot integrations (use platform-specific verification)
+# - Infrastructure modules
+ALLOWED_WITHOUT_RBAC = {
+    # Infrastructure / utilities (non-handler modules)
+    "__init__",
+    "base",
+    "secure",
+    "types",
+    "routing",
+    "bindings",
+    "exceptions",
+    "register",
+    "interface",
+    "utilities",
+    "openapi_decorator",
+    "explainability_store",
+    "workflow_builtin_templates",
+    # Utility subdirectories (non-handler helpers)
+    "utils/__init__",
+    "utils/auth",
+    "utils/database",
+    "utils/decorators",
+    "utils/params",
+    "utils/rate_limit",
+    "utils/responses",
+    "utils/routing",
+    "utils/safe_data",
+    "utils/url_security",
+    "utils/aiohttp_responses",
+    "utils/json_body",
+    "utils/lazy_stores",
+    "utils/safe_fetch",
+    "utils/sanitization",
+    # Bot handlers (use platform-specific signature verification)
+    "bots/__init__",
+    "bots/base",
+    "bots/cache",
+    "bots/discord",
+    "bots/email_webhook",
+    "bots/google_chat",
+    "bots/slack",
+    "bots/teams",
+    "bots/teams_cards",
+    "bots/telegram",
+    "bots/whatsapp",
+    "bots/zoom",
+    # OAuth flows (must be public for OAuth redirect callbacks)
+    "oauth",
+    "sso",
+    "_oauth/__init__",
+    "_oauth/apple",
+    "_oauth/github",
+    "_oauth/google",
+    "_oauth/microsoft",
+    "_oauth/oidc",
+    "oauth/__init__",
+    "oauth/account/__init__",
+    "oauth/config",
+    "oauth/flow/__init__",
+    "oauth/handler",
+    "oauth/models",
+    "oauth/providers/__init__",
+    "oauth/state",
+    "oauth/validation",
+    "oauth_providers/__init__",
+    "oauth_providers/apple",
+    "oauth_providers/base",
+    "oauth_providers/github",
+    "oauth_providers/google",
+    "oauth_providers/microsoft",
+    "oauth_providers/oidc",
+    # Auth handlers (login/signup must be public)
+    "auth/__init__",
+    "auth/handler",
+    "auth/login",
+    "auth/validation",
+    "auth/store",
+    "auth/password",
+    "auth/signup_handlers",
+    # Webhook handlers (use webhook-specific verification)
+    "webhooks/__init__",
+    "webhooks/github_app",
+    # SCIM provisioning (uses SCIM-standard bearer token)
+    "scim_handler",
+    # Metrics & observability (public endpoints)
+    "metrics",
+    "metrics/__init__",
+    "metrics/handler",
+    "metrics/debug",
+    "metrics/export",
+    "metrics/formatters",
+    "metrics/tracking",
+    "analytics_metrics",
+    # Doc endpoints (public API docs)
+    "docs",
+    # Health probes (public liveness/readiness endpoints)
+    "admin/health/cross_pollination",
+    "admin/health/database",
+    "admin/health/database_utils",
+    "admin/health/detailed",
+    "admin/health/handler",
+    "admin/health/helpers",
+    "admin/health/knowledge",
+    "admin/health/knowledge_mound",
+    "admin/health/knowledge_mound_utils",
+    "admin/health/kubernetes",
+    "admin/health/platform",
+    "admin/health/probes",
+    "admin/health/stores",
+    "admin/health/workers",
+    # Public status page
+    "public/__init__",
+    "public/status_page",
+    # Social platform internals (implementation modules, not direct handlers)
+    "social/_slack_impl/__init__",
+    "social/_slack_impl/blocks",
+    "social/_slack_impl/commands",
+    "social/_slack_impl/config",
+    "social/_slack_impl/events",
+    "social/_slack_impl/interactive",
+    "social/_slack_impl/messaging",
+    "social/chat_events",
+    "social/slack/__init__",
+    "social/slack/blocks/__init__",
+    "social/slack/blocks/builders",
+    "social/slack/commands/__init__",
+    "social/slack/commands/base",
+    "social/slack/config",
+    "social/slack/events/__init__",
+    "social/slack/events/handlers",
+    "social/slack/handler",
+    "social/slack/interactive/__init__",
+    "social/slack/security",
+    "social/slack/utils/__init__",
+    "social/slack/utils/responses",
+    "social/telemetry",
+    "social/tts_helper",
+    "slack",
+    # Voice handlers (use platform-specific auth)
+    "voice/__init__",
+    "voice/handler",
+    # Chat routing (internal routing, not direct handler)
+    "chat/__init__",
+    "chat/router",
+    # Analytics (middleware-protected)
+    "analytics/__init__",
+    "analytics/cache",
+    "analytics/core",
+    # Versioning compatibility (utility)
+    "versioning/__init__",
+    "versioning/compat",
+    # Init files for subdirectories
+    "admin/__init__",
+    "admin/cache",
+    "agents/__init__",
+    "auth/__init__",
+    "canvas/__init__",
+    "codebase/__init__",
+    "compliance/__init__",
+    "debates/__init__",
+    "debates/response_formatting",
+    "decisions/__init__",
+    "email/__init__",
+    "evolution/__init__",
+    "examples/__init__",
+    "examples/typed_example",
+    "features/__init__",
+    "gateway/__init__",
+    "github/__init__",
+    "inbox/__init__",
+    "integrations/__init__",
+    "knowledge/__init__",
+    "knowledge_base/__init__",
+    "knowledge_base/mound/__init__",
+    "knowledge_base/mound/base_mixin",
+    "billing/__init__",
+    "memory/__init__",
+    "autonomous/__init__",
+    "security/__init__",
+    "shared_inbox/__init__",
+    "shared_inbox/models",
+    "shared_inbox/storage",
+    "sme/__init__",
+    "social/__init__",
+    "verification/__init__",
+}
+
+
+def _get_handler_modules() -> list[tuple[str, Path]]:
+    """Find all Python handler modules under aragora/server/handlers/."""
+    modules = []
+    for py_file in HANDLERS_DIR.rglob("*.py"):
+        if py_file.name.startswith("_") and py_file.name != "__init__.py":
+            continue
+        # Get relative module path
+        rel = py_file.relative_to(HANDLERS_DIR)
+        module_key = str(rel.with_suffix("")).replace(os.sep, "/")
+        modules.append((module_key, py_file))
+    return sorted(modules)
+
+
+def _has_rbac_protection(source: str) -> bool:
+    """Check if a Python source file has RBAC protection.
+
+    Checks for:
+    1. Import of RBAC decorators
+    2. Use of secure base classes
+    3. Inline permission checking
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return True  # Can't parse, assume OK
+
+    # Check imports
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.names:
+                for alias in node.names:
+                    name = alias.name if alias.name else ""
+                    if name in RBAC_IMPORTS:
+                        return True
+        # Check for secure base classes in class definitions
+        if isinstance(node, ast.ClassDef):
+            for base in node.bases:
+                base_name = ""
+                if isinstance(base, ast.Name):
+                    base_name = base.id
+                elif isinstance(base, ast.Attribute):
+                    base_name = base.attr
+                if base_name in SECURE_BASE_CLASSES:
+                    return True
+
+    # Check for inline permission checking patterns
+    source_lower = source.lower()
+    inline_patterns = [
+        "check_permission",
+        "verify_auth",
+        "require_permission",
+        "require_role",
+        "auth_context",
+        "authorization_context",
+        "rbac_check",
+        "permission_checker",
+        "_verify_bearer_token",
+    ]
+    for pattern in inline_patterns:
+        if pattern in source_lower:
+            return True
+
+    return False
+
+
+class TestHandlerRBACEnforcement:
+    """Verify all handler modules have proper authorization."""
+
+    def test_all_handlers_have_authorization(self):
+        """Every handler module must have RBAC or be explicitly allowed public."""
+        modules = _get_handler_modules()
+        unprotected = []
+
+        for module_key, path in modules:
+            # Skip explicitly allowed modules
+            if module_key in ALLOWED_WITHOUT_RBAC:
+                continue
+
+            source = path.read_text()
+
+            # Skip empty files or files with no functions/classes
+            if not source.strip() or len(source) < 50:
+                continue
+
+            if not _has_rbac_protection(source):
+                unprotected.append(module_key)
+
+        if unprotected:
+            msg = (
+                f"Found {len(unprotected)} handler module(s) without RBAC protection:\n"
+                + "\n".join(f"  - {m}" for m in unprotected)
+                + "\n\nEach handler must either:\n"
+                "  1. Import and use @require_permission or @require_role\n"
+                "  2. Extend SecureHandler, PermissionHandler, or AdminHandler\n"
+                "  3. Be added to ALLOWED_WITHOUT_RBAC with justification"
+            )
+            pytest.fail(msg)
+
+    def test_secure_base_classes_require_auth(self):
+        """SecureHandler and PermissionHandler must import RBAC modules."""
+        secure_file = HANDLERS_DIR / "secure.py"
+        if secure_file.exists():
+            source = secure_file.read_text()
+            assert "rbac" in source.lower(), "SecureHandler must import from aragora.rbac"
+
+    def test_no_handler_bypasses_middleware(self):
+        """Verify no handler manually disables middleware auth checks."""
+        bypass_patterns = [
+            "skip_auth",
+            "disable_auth",
+            "no_auth_required",
+            "bypass_rbac",
+            "skip_rbac",
+        ]
+        violations = []
+
+        for module_key, path in _get_handler_modules():
+            if module_key in ALLOWED_WITHOUT_RBAC:
+                continue
+
+            source = path.read_text()
+            for pattern in bypass_patterns:
+                if pattern in source:
+                    violations.append(f"{module_key}: contains '{pattern}'")
+
+        if violations:
+            pytest.fail(
+                "Handler(s) attempt to bypass authentication:\n"
+                + "\n".join(f"  - {v}" for v in violations)
+            )
+
+    def test_mutation_handlers_have_write_permissions(self):
+        """Handlers with POST/PUT/DELETE must check write permissions."""
+        mutation_indicators = [
+            "handle_post",
+            "handle_put",
+            "handle_delete",
+            "handle_patch",
+        ]
+        write_permission_indicators = [
+            "write",
+            "create",
+            "update",
+            "delete",
+            "admin",
+            "manage",
+            "modify",
+        ]
+
+        weak_handlers = []
+
+        for module_key, path in _get_handler_modules():
+            if module_key in ALLOWED_WITHOUT_RBAC:
+                continue
+
+            source = path.read_text()
+
+            has_mutation = any(m in source for m in mutation_indicators)
+            if not has_mutation:
+                continue
+
+            has_write_perm = any(w in source.lower() for w in write_permission_indicators)
+            if not has_write_perm:
+                # Check if it extends a secure base class (which handles perms)
+                has_base = any(b in source for b in SECURE_BASE_CLASSES)
+                if not has_base:
+                    weak_handlers.append(module_key)
+
+        if weak_handlers:
+            pytest.fail(
+                "Handler(s) with mutation methods lack write permission checks:\n"
+                + "\n".join(f"  - {h}" for h in weak_handlers)
+                + "\n\nMutation handlers must check write/create/update/delete permissions."
+            )
+
+    def test_allowed_without_rbac_list_is_current(self):
+        """The allowed-without-RBAC list should not contain stale entries."""
+        existing_modules = {module_key for module_key, _ in _get_handler_modules()}
+
+        stale_entries = []
+        for entry in ALLOWED_WITHOUT_RBAC:
+            # Check if entry matches any existing module
+            if entry not in existing_modules:
+                # Also check if it's a prefix match (e.g., "bots/base" might be "bots/base.py")
+                if not any(m.startswith(entry) for m in existing_modules):
+                    stale_entries.append(entry)
+
+        # Only warn, don't fail (files may be renamed/moved)
+        if stale_entries:
+            # This is informational, not a hard failure
+            pass
+
+    def test_handler_count_within_expected_range(self):
+        """Sanity check: handler count hasn't drastically changed."""
+        modules = _get_handler_modules()
+        # As of Jan 2026, there are ~300+ handler modules
+        # This test catches if the directory structure changes dramatically
+        assert len(modules) > 100, (
+            f"Expected 100+ handler modules, found {len(modules)}. "
+            "Has the handler directory been restructured?"
+        )

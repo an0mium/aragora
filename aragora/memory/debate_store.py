@@ -566,6 +566,55 @@ class DebateStore:
                 "cost_by_agent": cost_by_agent,
             }
 
+    def get_recent(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Get recent deliberations.
+
+        Args:
+            limit: Maximum number of deliberations to return.
+
+        Returns:
+            List of deliberation dictionaries.
+        """
+        with self._connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, org_id, question, status, consensus_reached,
+                       template, priority, platform, channel_id, channel_name,
+                       team_agents, rounds, duration_seconds, total_tokens,
+                       total_cost_usd, created_at, completed_at, metadata
+                FROM deliberations
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
+            return [dict(row) for row in rows]
+
+    def get(self, deliberation_id: str) -> dict[str, Any] | None:
+        """Get a single deliberation by ID.
+
+        Args:
+            deliberation_id: The deliberation ID.
+
+        Returns:
+            Deliberation dictionary or None if not found.
+        """
+        with self._connection() as conn:
+            row = conn.execute(
+                """
+                SELECT id, org_id, question, status, consensus_reached,
+                       template, priority, platform, channel_id, channel_name,
+                       team_agents, rounds, duration_seconds, total_tokens,
+                       total_cost_usd, created_at, completed_at, metadata
+                FROM deliberations
+                WHERE id = ?
+                """,
+                (deliberation_id,),
+            ).fetchone()
+
+            return dict(row) if row else None
+
     def record_deliberation(
         self,
         deliberation_id: str,

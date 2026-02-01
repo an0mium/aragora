@@ -28,7 +28,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
@@ -346,7 +346,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
             if isinstance(result, BaseException):
                 logger.error(f"Error fetching dashboards from {platform}: {result}")
                 continue
-            all_dashboards.extend(cast(list[dict[str, Any]], result))
+            all_dashboards.extend(result)
 
         return self._json_response(
             200,

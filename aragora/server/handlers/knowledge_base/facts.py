@@ -34,6 +34,7 @@ from ..base import (
     json_response,
     ttl_cache,
 )
+from ..openapi_decorator import api_endpoint
 
 if TYPE_CHECKING:
     from aragora.knowledge import DatasetQueryEngine, FactStore, SimpleQueryEngine
@@ -55,6 +56,62 @@ class FactsHandlerProtocol(Protocol):
 class FactsOperationsMixin:
     """Mixin providing fact CRUD operations for KnowledgeHandler."""
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/knowledge/facts",
+        summary="List facts with filtering",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "workspace_id",
+                "in": "query",
+                "schema": {"type": "string"},
+                "description": "Filter by workspace ID",
+            },
+            {
+                "name": "topic",
+                "in": "query",
+                "schema": {"type": "string"},
+                "description": "Filter by topic",
+            },
+            {
+                "name": "min_confidence",
+                "in": "query",
+                "schema": {"type": "number", "default": 0.0},
+                "description": "Minimum confidence threshold (0.0-1.0)",
+            },
+            {
+                "name": "status",
+                "in": "query",
+                "schema": {"type": "string"},
+                "description": "Filter by validation status",
+            },
+            {
+                "name": "include_superseded",
+                "in": "query",
+                "schema": {"type": "boolean", "default": False},
+                "description": "Include superseded facts",
+            },
+            {
+                "name": "limit",
+                "in": "query",
+                "schema": {"type": "integer", "default": 50},
+                "description": "Maximum number of facts to return (1-200)",
+            },
+            {
+                "name": "offset",
+                "in": "query",
+                "schema": {"type": "integer", "default": 0},
+                "description": "Offset for pagination",
+            },
+        ],
+        responses={
+            "200": {"description": "List of facts matching the filters"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "429": {"description": "Rate limit exceeded"},
+        },
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_FACTS, key_prefix="knowledge_facts", skip_first=True)
     @handle_errors("list facts")
     @require_permission("knowledge:read")
@@ -92,6 +149,27 @@ class FactsOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/knowledge/facts/{fact_id}",
+        summary="Get a specific fact by ID",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "fact_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "The fact ID",
+            },
+        ],
+        responses={
+            "200": {"description": "Fact details"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "404": {"description": "Fact not found"},
+        },
+    )
     @handle_errors("get fact")
     def _handle_get_fact(self: FactsHandlerProtocol, fact_id: str) -> HandlerResult:
         """Handle GET /api/knowledge/facts/:id - Get specific fact."""
@@ -103,6 +181,39 @@ class FactsOperationsMixin:
 
         return json_response(fact.to_dict())
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/knowledge/facts",
+        summary="Create a new fact",
+        tags=["Knowledge Base"],
+        request_body={
+            "description": "Fact creation payload",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["statement"],
+                        "properties": {
+                            "statement": {"type": "string", "description": "The fact statement"},
+                            "workspace_id": {"type": "string", "default": "default"},
+                            "evidence_ids": {"type": "array", "items": {"type": "string"}},
+                            "source_documents": {"type": "array", "items": {"type": "string"}},
+                            "confidence": {"type": "number", "default": 0.5},
+                            "topics": {"type": "array", "items": {"type": "string"}},
+                            "metadata": {"type": "object"},
+                        },
+                    }
+                }
+            },
+        },
+        responses={
+            "201": {"description": "Fact created successfully"},
+            "400": {"description": "Invalid request body or missing statement"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+        },
+    )
     @handle_errors("create fact")
     def _handle_create_fact(self: FactsHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/facts - Create new fact."""
@@ -139,6 +250,47 @@ class FactsOperationsMixin:
 
         return json_response(fact.to_dict(), status=201)
 
+    @api_endpoint(
+        method="PUT",
+        path="/api/v1/knowledge/facts/{fact_id}",
+        summary="Update an existing fact",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "fact_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "The fact ID to update",
+            },
+        ],
+        request_body={
+            "description": "Fields to update on the fact",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "confidence": {"type": "number"},
+                            "validation_status": {"type": "string"},
+                            "evidence_ids": {"type": "array", "items": {"type": "string"}},
+                            "topics": {"type": "array", "items": {"type": "string"}},
+                            "metadata": {"type": "object"},
+                            "superseded_by": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        },
+        responses={
+            "200": {"description": "Fact updated successfully"},
+            "400": {"description": "Invalid request body"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "404": {"description": "Fact not found"},
+        },
+    )
     @handle_errors("update fact")
     def _handle_update_fact(
         self: FactsHandlerProtocol, fact_id: str, handler: Any
@@ -181,6 +333,27 @@ class FactsOperationsMixin:
 
         return json_response(updated.to_dict())
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/knowledge/facts/{fact_id}",
+        summary="Delete a fact",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "fact_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "The fact ID to delete",
+            },
+        ],
+        responses={
+            "200": {"description": "Fact deleted successfully"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "404": {"description": "Fact not found"},
+        },
+    )
     @handle_errors("delete fact")
     def _handle_delete_fact(
         self: FactsHandlerProtocol, fact_id: str, handler: Any
@@ -198,6 +371,28 @@ class FactsOperationsMixin:
 
         return json_response({"deleted": True, "fact_id": fact_id})
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/knowledge/facts/{fact_id}/verify",
+        summary="Verify a fact using AI agents",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "fact_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "The fact ID to verify",
+            },
+        ],
+        responses={
+            "200": {"description": "Verification result or queued status"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "404": {"description": "Fact not found"},
+            "500": {"description": "Verification failed"},
+        },
+    )
     @handle_errors("verify fact")
     def _handle_verify_fact(
         self: FactsHandlerProtocol, fact_id: str, handler: Any
@@ -240,6 +435,27 @@ class FactsOperationsMixin:
 
         return json_response(verified.to_dict())
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/knowledge/facts/{fact_id}/contradictions",
+        summary="Get contradicting facts for a given fact",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "fact_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "The fact ID to check for contradictions",
+            },
+        ],
+        responses={
+            "200": {"description": "List of contradicting facts"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "404": {"description": "Fact not found"},
+        },
+    )
     @handle_errors("get contradictions")
     def _handle_get_contradictions(self: FactsHandlerProtocol, fact_id: str) -> HandlerResult:
         """Handle GET /api/knowledge/facts/:id/contradictions."""
@@ -259,6 +475,45 @@ class FactsOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/knowledge/facts/{fact_id}/relations",
+        summary="Get relations for a given fact",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "fact_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "The fact ID",
+            },
+            {
+                "name": "type",
+                "in": "query",
+                "schema": {"type": "string"},
+                "description": "Filter by relation type",
+            },
+            {
+                "name": "as_source",
+                "in": "query",
+                "schema": {"type": "boolean", "default": True},
+                "description": "Include relations where this fact is the source",
+            },
+            {
+                "name": "as_target",
+                "in": "query",
+                "schema": {"type": "boolean", "default": True},
+                "description": "Include relations where this fact is the target",
+            },
+        ],
+        responses={
+            "200": {"description": "List of fact relations"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "404": {"description": "Fact not found"},
+        },
+    )
     @handle_errors("get relations")
     def _handle_get_relations(
         self: FactsHandlerProtocol, fact_id: str, query_params: dict
@@ -291,6 +546,50 @@ class FactsOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/knowledge/facts/{fact_id}/relations",
+        summary="Add a relation from a specific fact to another",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "fact_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "The source fact ID",
+            },
+        ],
+        request_body={
+            "description": "Relation details",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["target_fact_id", "relation_type"],
+                        "properties": {
+                            "target_fact_id": {
+                                "type": "string",
+                                "description": "The target fact ID",
+                            },
+                            "relation_type": {"type": "string", "description": "Type of relation"},
+                            "confidence": {"type": "number", "default": 0.5},
+                            "created_by": {"type": "string"},
+                            "metadata": {"type": "object"},
+                        },
+                    }
+                }
+            },
+        },
+        responses={
+            "201": {"description": "Relation created successfully"},
+            "400": {"description": "Invalid request body or missing required fields"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "404": {"description": "Source or target fact not found"},
+        },
+    )
     @handle_errors("add relation")
     def _handle_add_relation(
         self: FactsHandlerProtocol, fact_id: str, handler: Any
@@ -337,6 +636,44 @@ class FactsOperationsMixin:
 
         return json_response(relation.to_dict(), status=201)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/knowledge/facts/relations",
+        summary="Add a relation between two facts",
+        tags=["Knowledge Base"],
+        request_body={
+            "description": "Relation details with source and target fact IDs",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["source_fact_id", "target_fact_id", "relation_type"],
+                        "properties": {
+                            "source_fact_id": {
+                                "type": "string",
+                                "description": "The source fact ID",
+                            },
+                            "target_fact_id": {
+                                "type": "string",
+                                "description": "The target fact ID",
+                            },
+                            "relation_type": {"type": "string", "description": "Type of relation"},
+                            "confidence": {"type": "number", "default": 0.5},
+                            "created_by": {"type": "string"},
+                            "metadata": {"type": "object"},
+                        },
+                    }
+                }
+            },
+        },
+        responses={
+            "201": {"description": "Relation created successfully"},
+            "400": {"description": "Invalid request body or missing required fields"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+        },
+    )
     @handle_errors("add relation bulk")
     def _handle_add_relation_bulk(self: FactsHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/facts/relations - Add relation between facts."""

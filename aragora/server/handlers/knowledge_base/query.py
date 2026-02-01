@@ -20,6 +20,7 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..openapi_decorator import api_endpoint
 
 if TYPE_CHECKING:
     from aragora.knowledge import DatasetQueryEngine, SimpleQueryEngine
@@ -36,6 +37,48 @@ class QueryHandlerProtocol(Protocol):
 class QueryOperationsMixin:
     """Mixin providing query operations for KnowledgeHandler."""
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/knowledge/query",
+        summary="Natural language query against the knowledge base",
+        tags=["Knowledge Base"],
+        request_body={
+            "description": "Query payload with question and options",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["question"],
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "description": "Natural language question to ask",
+                            },
+                            "workspace_id": {"type": "string", "default": "default"},
+                            "options": {
+                                "type": "object",
+                                "properties": {
+                                    "max_chunks": {"type": "integer", "default": 10},
+                                    "search_alpha": {"type": "number", "default": 0.5},
+                                    "use_agents": {"type": "boolean", "default": False},
+                                    "extract_facts": {"type": "boolean", "default": True},
+                                    "include_citations": {"type": "boolean", "default": True},
+                                },
+                            },
+                        },
+                    }
+                }
+            },
+        },
+        responses={
+            "200": {"description": "Query result with answer and supporting evidence"},
+            "400": {"description": "Invalid request body or missing question"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "500": {"description": "Query execution failed"},
+        },
+    )
     @handle_errors("knowledge query")
     @require_permission("knowledge:read")
     def _handle_query(

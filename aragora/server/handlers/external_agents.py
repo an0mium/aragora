@@ -159,7 +159,7 @@ class ExternalAgentsHandler(BaseHandler):
             from aragora.agents.external.registry import ExternalAgentRegistry
 
             adapters = []
-            for spec in ExternalAgentRegistry.list_all():
+            for spec in ExternalAgentRegistry.list_specs():
                 adapters.append(
                     {
                         "name": spec.name,
@@ -185,7 +185,7 @@ class ExternalAgentsHandler(BaseHandler):
             from aragora.agents.external.registry import ExternalAgentRegistry
 
             results = []
-            specs = ExternalAgentRegistry.list_all()
+            specs = ExternalAgentRegistry.list_specs()
 
             for spec in specs:
                 if adapter_name and spec.name != adapter_name:

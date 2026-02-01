@@ -26,7 +26,6 @@ from ...base import (
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
-    from aragora.knowledge.mound.types import KnowledgeItem
     from aragora.knowledge.mound_core import NodeType
 
 logger = logging.getLogger(__name__)
@@ -119,7 +118,7 @@ class CultureOperationsMixin:
                 metadata={"document_type": document_type, **metadata},
             )
 
-            node_id = cast(str, _run_async(mound.add_node(node)))
+            node_id = _run_async(mound.add_node(node))
         except Exception as e:
             logger.error(f"Failed to add culture document: {e}")
             return error_response(f"Failed to add culture document: {e}", 500)
@@ -160,20 +159,16 @@ class CultureOperationsMixin:
         try:
             from aragora.memory.tier_manager import MemoryTier
 
-            updated = cast(
-                "KnowledgeItem | None",
-                _run_async(
-                    mound.update(
-                        node_id,
-                        {
-                            "node_type": "culture",
-                            "tier": MemoryTier.GLACIAL.value,
-                            "promoted_to_culture": True,
-                        },
-                    )
-                ),
+            updated = _run_async(
+                mound.update(
+                    node_id,
+                    {
+                        "node_type": "culture",
+                        "tier": MemoryTier.GLACIAL.value,
+                        "promoted_to_culture": True,
+                    },
+                )
             )
-
             if not updated:
                 return error_response(f"Node not found: {node_id}", 404)
 

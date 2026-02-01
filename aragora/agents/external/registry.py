@@ -191,6 +191,15 @@ class ExternalAgentRegistry:
         }
 
     @classmethod
+    def list_specs(cls) -> list["ExternalAdapterSpec"]:
+        """List all registered adapter specs.
+
+        Returns:
+            List of ExternalAdapterSpec objects.
+        """
+        return list(cls._registry.values())
+
+    @classmethod
     def get_registered_names(cls) -> list[str]:
         """Get list of registered adapter names.
 

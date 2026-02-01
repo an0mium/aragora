@@ -21,6 +21,7 @@ from ..base import (
     json_response,
     ttl_cache,
 )
+from ..openapi_decorator import api_endpoint
 
 if TYPE_CHECKING:
     from aragora.knowledge import DatasetQueryEngine, FactStore, SimpleQueryEngine
@@ -41,6 +42,40 @@ class SearchHandlerProtocol(Protocol):
 class SearchOperationsMixin:
     """Mixin providing search and stats operations for KnowledgeHandler."""
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/knowledge/search",
+        summary="Search knowledge base chunks via embeddings",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "q",
+                "in": "query",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "Search query string (max 500 chars)",
+            },
+            {
+                "name": "workspace_id",
+                "in": "query",
+                "schema": {"type": "string", "default": "default"},
+                "description": "Workspace to search within",
+            },
+            {
+                "name": "limit",
+                "in": "query",
+                "schema": {"type": "integer", "default": 10},
+                "description": "Maximum number of results (1-50)",
+            },
+        ],
+        responses={
+            "200": {"description": "Search results with matching chunks"},
+            "400": {"description": "Missing query parameter"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+            "500": {"description": "Search failed"},
+        },
+    )
     @handle_errors("search chunks")
     @require_permission("knowledge:read")
     def _handle_search(self: SearchHandlerProtocol, query_params: dict) -> HandlerResult:
@@ -74,6 +109,25 @@ class SearchOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/knowledge/stats",
+        summary="Get knowledge base statistics",
+        tags=["Knowledge Base"],
+        parameters=[
+            {
+                "name": "workspace_id",
+                "in": "query",
+                "schema": {"type": "string"},
+                "description": "Filter statistics by workspace ID",
+            },
+        ],
+        responses={
+            "200": {"description": "Knowledge base statistics"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden"},
+        },
+    )
     @ttl_cache(ttl_seconds=CACHE_TTL_STATS, key_prefix="knowledge_stats", skip_first=True)
     @handle_errors("get stats")
     def _handle_stats(self: SearchHandlerProtocol, workspace_id: str | None) -> HandlerResult:

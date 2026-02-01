@@ -413,9 +413,9 @@ class ParallelInitializer:
         # Store Redis client reference for Phase 2
         if result.get("enabled"):
             try:
-                from aragora.storage.redis_ha import get_cached_client
+                from aragora.storage.redis_ha import get_cached_redis_client
 
-                self._redis_client = get_cached_client()
+                self._redis_client = get_cached_redis_client()
             except (ImportError, RuntimeError, OSError):
                 pass
 
@@ -481,9 +481,9 @@ class ParallelInitializer:
             from aragora.control_plane.registry import AgentRegistry
 
             registry = AgentRegistry()
-            await registry.start()
+            await registry.connect()
             result["enabled"] = True
-            result["agent_count"] = len(registry.get_all_agents())
+            result["agent_count"] = len(await registry.list_all())
             self._results["agent_registry"] = result
         except ImportError:
             logger.debug("[parallel_init] AgentRegistry not available")
@@ -760,9 +760,9 @@ async def cleanup_on_failure(results: dict[str, Any]) -> None:
 
     # Close Redis connection
     try:
-        from aragora.storage.redis_ha import close_cached_clients
+        from aragora.storage.redis_ha import reset_cached_clients
 
-        close_cached_clients()
+        reset_cached_clients()
     except (ImportError, OSError, RuntimeError) as e:
         logger.debug(f"[parallel_init] Redis cleanup error: {e}")
 

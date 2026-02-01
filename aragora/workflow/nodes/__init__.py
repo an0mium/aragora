@@ -38,6 +38,24 @@ from aragora.workflow.nodes.knowledge_pruning import (
 )
 from aragora.workflow.nodes.openclaw import OpenClawActionStep, OpenClawSessionStep
 
+from aragora.workflow.step import WorkflowStep
+
+
+def register_step_type(type_name: str, step_class: type[WorkflowStep]) -> None:
+    """Register a step type with the global workflow engine.
+
+    This is a convenience function that delegates to WorkflowEngine.register_step_type().
+
+    Args:
+        type_name: Name for the step type
+        step_class: Class implementing WorkflowStep
+    """
+    from aragora.workflow.engine import get_workflow_engine
+
+    engine = get_workflow_engine()
+    engine.register_step_type(type_name, step_class)
+
+
 __all__ = [
     "HumanCheckpointStep",
     "MemoryReadStep",
@@ -60,4 +78,5 @@ __all__ = [
     "ConfidenceDecayStep",
     "OpenClawActionStep",
     "OpenClawSessionStep",
+    "register_step_type",
 ]

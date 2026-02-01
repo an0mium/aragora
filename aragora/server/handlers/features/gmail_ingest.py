@@ -277,7 +277,7 @@ class GmailIngestHandler(SecureHandler):
                 GmailConnector as GmailConnectorCls,
             )
 
-            connector = cast("GmailConnector", GmailConnectorCls())
+            connector = GmailConnectorCls()
             url = connector.get_oauth_url(redirect_uri, state)
 
             return json_response({"url": url})
@@ -296,7 +296,7 @@ class GmailIngestHandler(SecureHandler):
                 GmailConnector as GmailConnectorCls,
             )
 
-            connector = cast("GmailConnector", GmailConnectorCls())
+            connector = GmailConnectorCls()
             url = connector.get_oauth_url(redirect_uri, state)
 
             return json_response(
@@ -389,7 +389,7 @@ class GmailIngestHandler(SecureHandler):
                 GmailConnector as GmailConnectorCls,
             )
 
-            connector = cast("GmailConnector", GmailConnectorCls())
+            connector = GmailConnectorCls()
 
             success = await connector.authenticate(code=code, redirect_uri=redirect_uri)
 
@@ -499,12 +499,9 @@ class GmailIngestHandler(SecureHandler):
                 emit_sync_start,
             )
 
-            connector = cast(
-                "GmailConnector",
-                GmailConnectorCls(
-                    labels=labels,
-                    max_results=max_messages,
-                ),
+            connector = GmailConnectorCls(
+                labels=labels,
+                max_results=max_messages,
             )
 
             # Restore tokens
@@ -665,7 +662,7 @@ class GmailIngestHandler(SecureHandler):
                 GmailConnector as GmailConnectorCls,
             )
 
-            connector = cast("GmailConnector", GmailConnectorCls())
+            connector = GmailConnectorCls()
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry

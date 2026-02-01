@@ -637,8 +637,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_zoom_handler", ZoomHandler),
     # Skills handler
     ("_skills_handler", SkillsHandler),
-    # Shared inbox handler
-    ("_shared_inbox_handler", SharedInboxHandler),
+    # SharedInboxHandler omitted - circular import prevents loading
     # Template marketplace handlers
     ("_template_marketplace_handler", TemplateMarketplaceHandler),
     ("_template_recommendations_handler", TemplateRecommendationsHandler),

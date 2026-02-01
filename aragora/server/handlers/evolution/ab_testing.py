@@ -14,7 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
@@ -63,7 +63,7 @@ class EvolutionABTestingHandler(BaseHandler):
 
     def __init__(self, ctx: "ServerContext | None" = None):
         """Initialize with context."""
-        super().__init__(cast("ServerContext", ctx or {}))
+        super().__init__(ctx or {})
         self._manager: ABTestManager | None = None
 
     @property
