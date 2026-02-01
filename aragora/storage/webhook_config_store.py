@@ -37,6 +37,8 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from asyncpg import Pool
 
+from aragora.config.legacy import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Alias to avoid shadowing by `list()` methods inside store classes
@@ -464,7 +466,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
         except ImportError:
             pass  # Guards not available, allow SQLite
 
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
@@ -1274,18 +1276,10 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
 
     # Check store-specific backend for Redis (not handled by create_persistent_store)
     backend_type = os.environ.get("ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND", "").lower()
+    fallback_db_path = Path(resolve_db_path("webhook_configs.db"))
     if backend_type == "redis":
-        # Get data directory for SQLite fallback
-        try:
-            from aragora.config.legacy import DATA_DIR
-
-            data_dir = DATA_DIR
-        except ImportError:
-            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-            data_dir = Path(env_dir or ".nomic")
-        db_path = data_dir / "webhook_configs.db"
         logger.info("Using Redis webhook config store with SQLite fallback")
-        _webhook_config_store = RedisWebhookConfigStore(db_path)
+        _webhook_config_store = RedisWebhookConfigStore(fallback_db_path)
         return _webhook_config_store
 
     # Use unified factory for memory/sqlite/postgres/supabase

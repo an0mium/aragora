@@ -33,6 +33,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from aragora.config.legacy import resolve_db_path
+
 if TYPE_CHECKING:
     from asyncpg import Pool
 
@@ -400,7 +402,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
         except ImportError:
             pass  # Guards not available, allow SQLite
 
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(

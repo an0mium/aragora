@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
+from aragora.config.legacy import resolve_db_path
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -290,10 +291,9 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                      $ARAGORA_DATA_DIR/gauntlet_runs.db
         """
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
-            db_path = Path(data_dir) / "gauntlet_runs.db"
+            db_path = "gauntlet_runs.db"
 
-        self._db_path = db_path
+        self._db_path = Path(resolve_db_path(db_path))
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._init_db()

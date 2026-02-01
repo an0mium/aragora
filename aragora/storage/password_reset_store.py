@@ -36,6 +36,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from aragora.config.legacy import resolve_db_path
+
 if TYPE_CHECKING:
     from asyncpg import Pool
 
@@ -176,7 +178,7 @@ class SQLitePasswordResetStore(PasswordResetBackend):
     """SQLite-backed password reset token store for single-instance production."""
 
     def __init__(self, db_path: Path | str) -> None:
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
@@ -555,13 +557,8 @@ def get_password_reset_store() -> PasswordResetStore:
         backend_type = os.environ.get("ARAGORA_DB_BACKEND", "auto")
     backend_type = backend_type.lower()
 
-    # Get data directory
-    try:
-        from aragora.config.legacy import DATA_DIR
-
-        data_dir = DATA_DIR
-    except ImportError:
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+    # SQLite fallback path for non-Postgres backends
+    fallback_db_path = Path(resolve_db_path("password_reset.db"))
 
     backend: PasswordResetBackend
     if backend_type == "memory":
@@ -576,13 +573,13 @@ def get_password_reset_store() -> PasswordResetStore:
                 backend = PostgresPasswordResetStore(pool)
             else:
                 logger.warning("PostgreSQL pool not available, falling back to SQLite")
-                backend = SQLitePasswordResetStore(data_dir / "password_reset.db")
+                backend = SQLitePasswordResetStore(fallback_db_path)
         except ImportError:
             logger.warning("PostgreSQL support not available, falling back to SQLite")
-            backend = SQLitePasswordResetStore(data_dir / "password_reset.db")
+            backend = SQLitePasswordResetStore(fallback_db_path)
     else:
         # Default to SQLite for persistence
-        backend = SQLitePasswordResetStore(data_dir / "password_reset.db")
+        backend = SQLitePasswordResetStore(fallback_db_path)
 
     _password_reset_store = PasswordResetStore(backend)
     return _password_reset_store

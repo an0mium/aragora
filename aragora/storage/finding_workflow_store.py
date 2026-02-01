@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from asyncpg import Pool
 
 
+from aragora.config.legacy import resolve_db_path
 from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
@@ -262,10 +263,9 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
                      $ARAGORA_DATA_DIR/finding_workflows.db
         """
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
-            db_path = Path(data_dir) / "finding_workflows.db"
+            db_path = "finding_workflows.db"
 
-        self._db_path = db_path
+        self._db_path = Path(resolve_db_path(db_path))
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._init_db()

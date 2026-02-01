@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.config.legacy import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 # Global singleton with thread-safe initialization
@@ -28,9 +30,7 @@ def get_receipt_share_store() -> "ReceiptShareStore":
     if _store is None:
         with _store_lock:
             if _store is None:
-                from aragora.config.legacy import DATA_DIR
-
-                db_path = DATA_DIR / "receipt_shares.db"
+                db_path = Path(resolve_db_path("receipt_shares.db"))
                 _store = ReceiptShareStore(db_path)
     return _store
 
@@ -45,7 +45,7 @@ class ReceiptShareStore:
         Args:
             db_path: Path to SQLite database file
         """
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(

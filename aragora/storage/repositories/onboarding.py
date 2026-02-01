@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Optional
 
+from aragora.config.legacy import resolve_db_path
 from aragora.persistence.db_config import DatabaseType
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,10 @@ class OnboardingRepository:
             transaction_fn: Optional transaction function for shared db connections.
         """
         self._transaction = transaction_fn
-        self._db_path = db_path or self._get_default_db_path()
+        if db_path is None:
+            self._db_path = self._get_default_db_path()
+        else:
+            self._db_path = Path(resolve_db_path(db_path))
         self._init_schema()
 
     def _get_default_db_path(self) -> Path:

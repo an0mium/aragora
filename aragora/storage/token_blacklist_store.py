@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from asyncpg import Pool
 
-
+from aragora.config.legacy import resolve_db_path
 from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ class SQLiteBlacklist(BlacklistBackend):
             db_path: Path to SQLite database file
             cleanup_interval: Seconds between automatic cleanups
         """
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
@@ -471,13 +471,8 @@ def get_blacklist_backend() -> BlacklistBackend:
         backend_type = os.environ.get("ARAGORA_DB_BACKEND", "auto")
     backend_type = backend_type.lower()
 
-    # Import DATA_DIR from config (handles environment variable)
-    try:
-        from aragora.config.legacy import DATA_DIR
-
-        data_dir = DATA_DIR
-    except ImportError:
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+    fallback_db_path = Path(resolve_db_path("token_blacklist.db"))
+    data_dir = fallback_db_path.parent
 
     if backend_type == "redis":
         redis_url = os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379/0")
@@ -486,13 +481,13 @@ def get_blacklist_backend() -> BlacklistBackend:
                 "Redis requested but redis-py not installed. "
                 "Falling back to SQLite. Install with: pip install redis"
             )
-            _blacklist_backend = SQLiteBlacklist(data_dir / "token_blacklist.db")
+            _blacklist_backend = SQLiteBlacklist(fallback_db_path)
         else:
             try:
                 _blacklist_backend = RedisBlacklist(redis_url)
             except Exception as e:
                 logger.warning(f"Redis connection failed: {e}. Falling back to SQLite.")
-                _blacklist_backend = SQLiteBlacklist(data_dir / "token_blacklist.db")
+                _blacklist_backend = SQLiteBlacklist(fallback_db_path)
     else:
         from aragora.storage.connection_factory import create_persistent_store
 
@@ -502,7 +497,7 @@ def get_blacklist_backend() -> BlacklistBackend:
             postgres_class=PostgresBlacklist,
             db_filename="token_blacklist.db",
             memory_class=InMemoryBlacklist,
-            data_dir=str(data_dir) if data_dir else None,
+            data_dir=str(data_dir),
         )
 
     return _blacklist_backend

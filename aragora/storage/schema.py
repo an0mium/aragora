@@ -135,6 +135,16 @@ def _validate_default_value(default: str) -> bool:
 DB_TIMEOUT = 30.0
 
 
+def _resolve_sqlite_path(db_path: str | Path) -> str:
+    """Resolve SQLite paths under ARAGORA_DATA_DIR for relative filenames."""
+    from aragora.config.legacy import resolve_db_path
+
+    resolved = resolve_db_path(db_path)
+    if resolved == ":memory:" or resolved.startswith("file:"):
+        return resolved
+    return str(Path(resolved).resolve())
+
+
 def get_wal_connection(
     db_path: str | Path,
     timeout: float = DB_TIMEOUT,
@@ -155,7 +165,8 @@ def get_wal_connection(
     Returns:
         A sqlite3.Connection configured for WAL mode
     """
-    conn = sqlite3.connect(db_path, timeout=timeout, check_same_thread=check_same_thread)
+    resolved_path = _resolve_sqlite_path(db_path)
+    conn = sqlite3.connect(resolved_path, timeout=timeout, check_same_thread=check_same_thread)
     # Enable dict-style row access (row["column_name"])
     conn.row_factory = sqlite3.Row
     # Enable WAL mode for better concurrency
@@ -482,7 +493,7 @@ class DatabaseManager:
             timeout: Connection timeout in seconds
             pool_size: Maximum number of pooled connections (default 20)
         """
-        self.db_path = str(Path(db_path).resolve())
+        self.db_path = _resolve_sqlite_path(db_path)
         self.timeout = timeout
         self._conn: sqlite3.Connection | None = None
         self._lock = threading.Lock()
@@ -985,7 +996,7 @@ class ConnectionPool:
             max_connections: Maximum number of connections in the pool
             timeout: Connection timeout in seconds
         """
-        self.db_path = str(Path(db_path).resolve())
+        self.db_path = _resolve_sqlite_path(db_path)
         self.max_connections = max_connections
         self.timeout = timeout
 

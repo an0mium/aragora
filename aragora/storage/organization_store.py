@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
+from aragora.config.legacy import resolve_db_path
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 from aragora.exceptions import ConfigurationError
 from aragora.storage.backends import (
@@ -86,7 +87,7 @@ class OrganizationStore:
             backend: Database backend ("sqlite" or "postgresql")
             database_url: PostgreSQL connection URL
         """
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
             f"organization_conn_{id(self)}", default=None

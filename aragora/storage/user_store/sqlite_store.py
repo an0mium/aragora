@@ -31,6 +31,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, ClassVar, Iterator
 
+from aragora.config.legacy import resolve_db_path
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 from aragora.storage.repositories import (
     AuditRepository,
@@ -93,7 +94,7 @@ class UserStore:
         Args:
             db_path: Path to SQLite database file
         """
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(

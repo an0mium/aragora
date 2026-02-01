@@ -257,7 +257,7 @@ class NotificationConfigStore:
             db_path = "notification_config.db"
 
         db_path = resolve_db_path(db_path)
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(resolve_db_path(db_path)).parent.mkdir(parents=True, exist_ok=True)
 
         self._db_path = db_path
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)

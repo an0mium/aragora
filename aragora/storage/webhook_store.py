@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from asyncpg import Pool
 
+from aragora.config.legacy import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -159,7 +161,7 @@ class SQLiteWebhookStore(WebhookStoreBackend):
             ttl_seconds: Time-to-live for entries (default 24 hours)
             cleanup_interval: Seconds between automatic cleanups
         """
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
@@ -438,14 +440,8 @@ def get_webhook_store() -> WebhookStoreBackend:
         backend_type = os.environ.get("ARAGORA_DB_BACKEND", "auto")
     backend_type = backend_type.lower()
 
-    # Import DATA_DIR from config (handles environment variable)
-    try:
-        from aragora.config.legacy import DATA_DIR
-
-        data_dir = DATA_DIR
-    except ImportError:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        data_dir = Path(env_dir or ".nomic")
+    fallback_db_path = Path(resolve_db_path("webhook_events.db"))
+    data_dir = fallback_db_path.parent
 
     if backend_type == "memory":
         logger.info("Using in-memory webhook store (not persistent)")
@@ -473,7 +469,7 @@ def get_webhook_store() -> WebhookStoreBackend:
             postgres_class=PostgresWebhookStore,
             db_filename="webhook_events.db",
             memory_class=InMemoryWebhookStore,
-            data_dir=str(data_dir) if data_dir else None,
+            data_dir=str(data_dir),
         )
         if isinstance(_webhook_store, SQLiteWebhookStore):
             require_distributed_store(

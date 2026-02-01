@@ -144,7 +144,7 @@ class DecisionResultStore:
             backend: Database backend ("sqlite" or "postgresql")
             database_url: PostgreSQL connection URL
         """
-        self._db_path = Path(db_path)
+        self._db_path = Path(resolve_db_path(db_path))
         self._ttl_seconds = ttl_seconds
         self._max_entries = max_entries
         self._cache_size = cache_size

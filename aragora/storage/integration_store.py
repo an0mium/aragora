@@ -31,6 +31,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from aragora.config.legacy import resolve_db_path
 from aragora.utils.async_utils import run_async
 
 if TYPE_CHECKING:
@@ -559,7 +560,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
         except ImportError:
             pass  # Guards not available, allow SQLite
 
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
@@ -1467,14 +1468,7 @@ def get_integration_store() -> IntegrationStoreBackend:
     # Handle Redis explicitly (not part of standard persistent store preference)
     if backend_type == "redis":
         # Get data directory for SQLite fallback
-        try:
-            from aragora.config.legacy import DATA_DIR
-
-            data_dir = DATA_DIR
-        except ImportError:
-            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-            data_dir = Path(env_dir or ".nomic")
-        db_path = data_dir / "integrations.db"
+        db_path = Path(resolve_db_path("integrations.db"))
         logger.info("Using Redis integration store with SQLite fallback")
         _integration_store = RedisIntegrationStore(db_path)
         return _integration_store

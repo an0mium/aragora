@@ -13,7 +13,6 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
-import os
 import secrets
 import sqlite3
 import threading
@@ -22,6 +21,8 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
+
+from aragora.config.legacy import resolve_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ class SQLiteWebhookRegistry:
         Args:
             db_path: Path to SQLite database file
         """
-        self.db_path = Path(db_path)
+        self.db_path = Path(resolve_db_path(db_path))
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # ContextVar for per-async-context connection (async-safe replacement for threading.local)
         self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
@@ -433,16 +434,8 @@ def get_webhook_registry() -> SQLiteWebhookRegistry:
     if _webhook_registry is not None:
         return _webhook_registry
 
-    # Import DATA_DIR from config
-    try:
-        from aragora.config.legacy import DATA_DIR
-
-        data_dir = DATA_DIR
-    except ImportError:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        data_dir = Path(env_dir or ".nomic")
-
-    _webhook_registry = SQLiteWebhookRegistry(data_dir / "webhook_registry.db")
+    db_path = Path(resolve_db_path("webhook_registry.db"))
+    _webhook_registry = SQLiteWebhookRegistry(db_path)
     return _webhook_registry
 
 

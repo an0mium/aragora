@@ -22,9 +22,11 @@ import threading
 import time
 from contextlib import contextmanager
 from functools import wraps
+from pathlib import Path
 from typing import Any, Callable, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config.legacy import resolve_db_path
 from aragora.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)
@@ -84,7 +86,7 @@ class ResilientConnection:
             max_delay: Maximum delay between retries in seconds (default: 2.0)
             timeout: SQLite busy timeout in seconds (default: DB_TIMEOUT_SECONDS)
         """
-        self.db_path = db_path
+        self.db_path = Path(resolve_db_path(db_path))
         self.max_retries = max_retries
         self.base_delay = base_delay
         self.max_delay = max_delay
@@ -367,7 +369,7 @@ class ConnectionPool:
             timeout: SQLite busy timeout
             enable_wal: Enable WAL mode for better concurrency
         """
-        self.db_path = db_path
+        self.db_path = Path(resolve_db_path(db_path))
         self.max_connections = max_connections
         self.timeout = timeout
         self.enable_wal = enable_wal

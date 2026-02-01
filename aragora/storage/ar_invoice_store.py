@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sqlite3
 import threading
 import time
@@ -29,6 +28,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
+from aragora.config.legacy import resolve_db_path
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -393,10 +393,9 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
 
     def __init__(self, db_path: Path | None = None) -> None:
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
-            db_path = Path(data_dir) / "ar_invoices.db"
+            db_path = "ar_invoices.db"
 
-        self._db_path = db_path
+        self._db_path = Path(resolve_db_path(db_path))
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._init_db()
