@@ -263,6 +263,16 @@ import {
   OrchestrationAPI,
   PartnerAPI,
   SCIMAPI,
+  // New namespaces (SDK Parity Sprint - Phase 5)
+  WorkflowTemplatesAPI,
+  MediaAPI,
+  AuditingAPI,
+  SocialAPI,
+  SecurityAPI,
+  ReviewsAPI,
+  CheckpointsAPI,
+  UncertaintyAPI,
+  AudioAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -811,6 +821,33 @@ export class AragoraClient {
   /** SCIM API - SCIM 2.0 user and group provisioning. */
   readonly scim: SCIMAPI;
 
+  /** Workflow Templates API - Pre-built workflow template management. */
+  readonly workflowTemplates: WorkflowTemplatesAPI;
+
+  /** Media API - Audio files and podcast episode management. */
+  readonly media: MediaAPI;
+
+  /** Auditing API - Deep audit, capability probing, and red team analysis. */
+  readonly auditing: AuditingAPI;
+
+  /** Social API - Social media publishing integrations. */
+  readonly social: SocialAPI;
+
+  /** Security API - Security status, health checks, and key management. */
+  readonly security: SecurityAPI;
+
+  /** Reviews API - Debate and decision review management. */
+  readonly reviews: ReviewsAPI;
+
+  /** Checkpoints API - Debate checkpoint and pause/resume management. */
+  readonly checkpoints: CheckpointsAPI;
+
+  /** Uncertainty API - Uncertainty estimation and calibration profiles. */
+  readonly uncertainty: UncertaintyAPI;
+
+  /** Audio API - Audio file serving and podcast feeds. */
+  readonly audio: AudioAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -944,6 +981,17 @@ export class AragoraClient {
     this.orchestration = new OrchestrationAPI(this);
     this.partner = new PartnerAPI(this);
     this.scim = new SCIMAPI(this);
+
+    // New namespaces (SDK Parity Sprint - Phase 5)
+    this.workflowTemplates = new WorkflowTemplatesAPI(this);
+    this.media = new MediaAPI(this);
+    this.auditing = new AuditingAPI(this);
+    this.social = new SocialAPI(this);
+    this.security = new SecurityAPI(this);
+    this.reviews = new ReviewsAPI(this);
+    this.checkpoints = new CheckpointsAPI(this);
+    this.uncertainty = new UncertaintyAPI(this);
+    this.audio = new AudioAPI(this);
   }
 
   // ===========================================================================

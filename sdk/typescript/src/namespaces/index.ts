@@ -1371,3 +1371,87 @@ export {
   type ScimPatchOp,
   type ScimListOptions,
 } from './scim';
+
+// Workflow Templates (Pre-built Automation)
+export {
+  WorkflowTemplatesAPI,
+  type WorkflowTemplate as WorkflowTemplateEntry,
+  type WorkflowTemplatePackage,
+  type WorkflowTemplateRunResult,
+  type ListWorkflowTemplatesParams,
+  type RunWorkflowTemplateParams,
+} from './workflow-templates';
+
+// Media (Audio & Podcast)
+export {
+  MediaAPI,
+  type AudioFile,
+  type PodcastEpisode as MediaPodcastEpisode,
+  type PodcastFeed as MediaPodcastFeed,
+} from './media';
+
+// Auditing (Deep Audit & Red Team)
+export {
+  AuditingAPI,
+  type CapabilityProbeRequest as AuditCapabilityProbeRequest,
+  type CapabilityProbeResult,
+  type DeepAuditRequest,
+  type DeepAuditResult,
+  type RedTeamRequest,
+  type RedTeamResult,
+  type AttackType,
+} from './auditing';
+
+// Social (Social Media Publishing)
+export {
+  SocialAPI,
+  type YouTubeAuthResponse,
+  type YouTubeCallbackParams,
+  type YouTubeStatus,
+  type PublishRequest,
+  type PublishResult,
+} from './social';
+
+// Security (Admin Security Management)
+export {
+  SecurityAPI,
+  type SecurityStatus as SecurityAdminStatus,
+  type SecurityHealthCheck,
+  type SecurityKey as SecurityAdminKey,
+  type RotateKeyRequest,
+  type RotateKeyResult,
+} from './security';
+
+// Reviews (Decision Reviews)
+export {
+  ReviewsAPI,
+  type Review,
+} from './reviews';
+
+// Checkpoints (Debate Pause/Resume)
+export {
+  CheckpointsAPI,
+  type Checkpoint,
+  type ResumableDebate,
+  type InterventionRequest,
+  type KMCheckpoint,
+  type CheckpointComparison,
+} from './checkpoints';
+
+// Uncertainty (Uncertainty Estimation)
+export {
+  UncertaintyAPI,
+  type UncertaintyEstimateRequest,
+  type UncertaintyEstimate,
+  type DebateUncertaintyMetrics,
+  type AgentCalibrationProfile,
+  type FollowUpRequest,
+  type FollowUpSuggestion,
+} from './uncertainty';
+
+// Audio (Audio Files & Podcasts)
+export {
+  AudioAPI,
+  type AudioFileInfo,
+  type PodcastEpisode as AudioPodcastEpisode,
+} from './audio';
