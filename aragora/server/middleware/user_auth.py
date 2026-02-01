@@ -352,9 +352,15 @@ class SupabaseAuthValidator:
             logger.warning(f"JWT structure error: {e}")
             return None
         except (RuntimeError, OSError, AttributeError) as e:
-            # Unexpected system error - fail closed in production
-            env = os.getenv("ARAGORA_ENVIRONMENT", "development").lower()
-            if env == "production":
+            # Unexpected system error - fail closed unless explicitly in dev mode
+            env = os.getenv("ARAGORA_ENVIRONMENT", "").lower()
+            is_dev = env in ("development", "dev", "local", "test")
+            allow_insecure = os.getenv("ARAGORA_ALLOW_INSECURE_JWT", "").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            if not is_dev or not allow_insecure:
                 logger.error(f"JWT validation system error (failing closed): {e}")
                 raise  # Re-raise to trigger 500 error, don't silently allow
             else:
