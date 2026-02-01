@@ -244,10 +244,10 @@ class StatusPageHandler(BaseHandler):
             else:
                 # SQLite health check
                 import sqlite3
-                from pathlib import Path
 
-                data_dir = os.environ.get("ARAGORA_DATA_DIR", "./data")
-                db_path = Path(data_dir) / "aragora.db"
+                from aragora.persistence.db_config import DatabaseType, get_db_path
+
+                db_path = get_db_path(DatabaseType.DEBATES)
 
                 if db_path.exists():
                     conn = sqlite3.connect(str(db_path), timeout=5.0)

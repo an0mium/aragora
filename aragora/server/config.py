@@ -34,8 +34,11 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
+
+_config_logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -270,11 +273,25 @@ def get_sentry_config() -> SentryConfig:
 class LoggingConfig:
     """Structured logging configuration."""
 
+    _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
     log_level: str = field(default_factory=lambda: os.getenv("ARAGORA_LOG_LEVEL", "INFO").upper())
     log_format: str = field(default_factory=lambda: os.getenv("ARAGORA_LOG_FORMAT", "json"))
     include_timestamp: bool = field(
         default_factory=lambda: os.getenv("ARAGORA_LOG_TIMESTAMP", "true").lower() == "true"
     )
+
+    def __post_init__(self) -> None:
+        """Validate and normalize logging configuration."""
+        normalized = self.log_level.upper()
+        if normalized not in self._VALID_LOG_LEVELS:
+            _config_logger.warning(
+                "Invalid log_level '%s', defaulting to INFO. Valid levels: %s",
+                self.log_level,
+                ", ".join(sorted(self._VALID_LOG_LEVELS)),
+            )
+            normalized = "INFO"
+        object.__setattr__(self, "log_level", normalized)
 
 
 def get_logging_config() -> LoggingConfig:

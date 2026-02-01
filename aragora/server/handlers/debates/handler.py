@@ -511,7 +511,7 @@ class DebatesHandler(
             return HandlerResult(
                 status_code=200,
                 content_type="text/event-stream",
-                body=run_async(stream()),
+                body=run_async(stream()),  # type: ignore[arg-type]  # async generator used as SSE stream body
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
@@ -550,7 +550,7 @@ class DebatesHandler(
         debates = storage.list_recent(limit=limit, org_id=org_id)
         # Convert DebateMetadata objects to dicts and normalize for SDK compatibility
         debates_list = [
-            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else dict(d))
+            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else dict(d))  # type: ignore[call-overload]  # DebateMetadata may be dict-like at runtime
             for d in debates
         ]
         return json_response({"debates": debates_list, "count": len(debates_list)})

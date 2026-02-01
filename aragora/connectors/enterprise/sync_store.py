@@ -31,6 +31,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from aragora.config import resolve_db_path
+
 if TYPE_CHECKING:
     import aiosqlite
     import asyncpg
@@ -281,14 +283,21 @@ class SyncStore:
         Initialize the sync store.
 
         Args:
-            database_url: Database URL. Defaults to SQLite file.
+            database_url: Database URL. Defaults to SQLite file under ARAGORA_DATA_DIR.
                 - sqlite:///path/to/db.sqlite
                 - postgresql://user:pass@host/db
             use_encryption: Whether to encrypt sensitive config fields
         """
-        self._database_url = database_url or os.environ.get(
-            "ARAGORA_SYNC_DATABASE_URL", "sqlite:///data/connectors.db"
-        )
+        default_sqlite_path = resolve_db_path("connectors.db")
+        default_url = f"sqlite:///{default_sqlite_path}"
+        candidate_url = database_url or os.environ.get("ARAGORA_SYNC_DATABASE_URL")
+        if candidate_url:
+            if "://" in candidate_url:
+                self._database_url = candidate_url
+            else:
+                self._database_url = f"sqlite:///{resolve_db_path(candidate_url)}"
+        else:
+            self._database_url = default_url
         self._use_encryption = use_encryption
         self._initialized = False
         self._connection: aiosqlite.Connection | asyncpg.Connection | None = None

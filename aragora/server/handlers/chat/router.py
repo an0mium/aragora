@@ -61,12 +61,12 @@ try:
     DECISION_ROUTER_AVAILABLE = True
 except ImportError:
     DECISION_ROUTER_AVAILABLE = False
-    DecisionRequest = None  # type: ignore[no-redef]
-    DecisionRouter = None  # type: ignore[no-redef]
-    DecisionType = None  # type: ignore[no-redef]
-    InputSource = None  # type: ignore[no-redef]
-    ResponseChannel = None  # type: ignore[no-redef]
-    RequestContext = None  # type: ignore[no-redef]
+    DecisionRequest = None  # type: ignore[misc,no-redef]
+    DecisionRouter = None  # type: ignore[misc,no-redef]
+    DecisionType = None  # type: ignore[misc,no-redef]
+    InputSource = None  # type: ignore[misc,no-redef]
+    ResponseChannel = None  # type: ignore[misc,no-redef]
+    RequestContext = None  # type: ignore[misc,no-redef]
     get_decision_router = None
 
 logger = logging.getLogger(__name__)
@@ -315,7 +315,7 @@ class ChatWebhookRouter:
         # Verify signature
         if not self.verify_webhook(platform, headers, body):
             logger.warning(f"Webhook verification failed for {platform}")
-            return error_response("Invalid signature", code="UNAUTHORIZED", status=401)
+            return error_response("Invalid signature", code="UNAUTHORIZED", status=401)  # type: ignore[return-value]  # HandlerResult used as error dict
 
         # Parse event
         event = self.parse_event(platform, headers, body)
@@ -704,7 +704,7 @@ if HANDLER_BASE_AVAILABLE:
 
         def __init__(self, ctx: dict | None = None):
             """Initialize with router."""
-            self.ctx = ctx
+            self.ctx = ctx  # type: ignore[assignment]  # dict is runtime-compatible with ServerContext
             self.router = ChatWebhookRouter()
 
         def can_handle(self, path: str, method: str = "GET") -> bool:

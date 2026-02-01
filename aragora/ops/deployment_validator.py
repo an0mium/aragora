@@ -346,8 +346,10 @@ class DeploymentValidator:
         start = time.time()
 
         # Check data directory
-        data_dir = os.environ.get("ARAGORA_DATA_DIR", "./data")
-        data_path = Path(data_dir)
+        from aragora.persistence.db_config import get_nomic_dir
+
+        data_path = get_nomic_dir().resolve()
+        data_dir = str(data_path)
 
         try:
             data_path.mkdir(parents=True, exist_ok=True)
@@ -392,8 +394,9 @@ class DeploymentValidator:
             try:
                 import sqlite3
 
-                data_dir = os.environ.get("ARAGORA_DATA_DIR", "./data")
-                db_path = Path(data_dir) / "aragora.db"
+                from aragora.persistence.db_config import DatabaseType, get_db_path
+
+                db_path = get_db_path(DatabaseType.DEBATES).resolve()
 
                 # Ensure directory exists
                 db_path.parent.mkdir(parents=True, exist_ok=True)

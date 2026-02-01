@@ -21,6 +21,7 @@ from typing import Any
 
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
+from aragora.server.validation.entities import validate_plugin_name
 from aragora.server.validation.schema import PLUGIN_RUN_SCHEMA, validate_against_schema
 from aragora.utils.optional_imports import try_import
 
@@ -374,6 +375,10 @@ class PluginsHandler(BaseHandler):
     @handle_errors("get plugin")
     def _get_plugin(self, plugin_name: str) -> HandlerResult:
         """Get details for a specific plugin."""
+        is_valid, err = validate_plugin_name(plugin_name)
+        if not is_valid:
+            return error_response(f"Invalid plugin name: {err}", 400)
+
         if not PLUGINS_AVAILABLE or not get_registry:
             return error_response("Plugins module not available", 503)
 

@@ -54,7 +54,7 @@ class ScheduledDebateStore(SQLiteStore):
     - Historical tracking of scheduler activity
 
     Usage:
-        store = ScheduledDebateStore("data/scheduled_debates.db")
+        store = ScheduledDebateStore("scheduled_debates.db")  # stored under ARAGORA_DATA_DIR
         store.record_scheduled_debate(record)
         recent = store.get_recent_topics(hours=24)
     """
@@ -91,7 +91,7 @@ class ScheduledDebateStore(SQLiteStore):
         ON scheduled_debates(category);
     """
 
-    def __init__(self, db_path: str | Path, **kwargs):
+    def __init__(self, db_path: str | Path = "scheduled_debates.db", **kwargs):
         """Initialize the scheduled debate store."""
         super().__init__(db_path, **kwargs)
         logger.info(f"ScheduledDebateStore initialized: {db_path}")

@@ -304,7 +304,7 @@ class PulseDebateScheduler:
         pulse_manager = PulseManager()
         pulse_manager.add_ingestor("hackernews", HackerNewsIngestor())
 
-        store = ScheduledDebateStore("data/scheduled_debates.db")
+        store = ScheduledDebateStore("scheduled_debates.db")  # stored under ARAGORA_DATA_DIR
         scheduler = PulseDebateScheduler(pulse_manager, store)
 
         # Define how debates are created

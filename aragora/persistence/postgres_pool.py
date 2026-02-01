@@ -46,6 +46,27 @@ REPLICA_DSNS_RAW = os.environ.get("ARAGORA_POSTGRES_REPLICAS", "")
 POOL_MIN_SIZE = int(os.environ.get("ARAGORA_POSTGRES_POOL_MIN", "2"))
 POOL_MAX_SIZE = int(os.environ.get("ARAGORA_POSTGRES_POOL_MAX", "10"))
 
+# Validate pool size bounds
+_original_min = POOL_MIN_SIZE
+_original_max = POOL_MAX_SIZE
+
+if POOL_MIN_SIZE < 1:
+    logger.warning("ARAGORA_POSTGRES_POOL_MIN=%d is below minimum, clamping to 1", _original_min)
+    POOL_MIN_SIZE = 1
+
+if POOL_MAX_SIZE > 500:
+    logger.warning("ARAGORA_POSTGRES_POOL_MAX=%d exceeds maximum, capping at 500", _original_max)
+    POOL_MAX_SIZE = 500
+
+if POOL_MAX_SIZE < POOL_MIN_SIZE:
+    logger.warning(
+        "ARAGORA_POSTGRES_POOL_MAX=%d is less than POOL_MIN_SIZE=%d, clamping to %d",
+        _original_max,
+        POOL_MIN_SIZE,
+        POOL_MIN_SIZE,
+    )
+    POOL_MAX_SIZE = POOL_MIN_SIZE
+
 
 def _parse_replica_dsns(raw: str) -> list[str]:
     """Parse comma-separated replica DSNs."""

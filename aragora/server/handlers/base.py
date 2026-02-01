@@ -561,11 +561,11 @@ class BaseHandler:
     their routes via the `routes` class attribute.
     """
 
-    ctx: ServerContext
+    ctx: dict[str, Any]
     _current_handler: Any = None
     _current_query_params: dict[str, Any] | None = None
 
-    def __init__(self, server_context: ServerContext):
+    def __init__(self, server_context: dict[str, Any]):
         """
         Initialize with server context.
 

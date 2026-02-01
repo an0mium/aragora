@@ -77,6 +77,21 @@ def get_redis_pool() -> Any | None:
         import redis
 
         max_connections = int(os.getenv("ARAGORA_REDIS_MAX_CONNECTIONS", "50"))
+
+        # Validate max_connections bounds
+        if max_connections < 1:
+            logger.warning(
+                "ARAGORA_REDIS_MAX_CONNECTIONS=%d is below minimum, clamping to 1",
+                max_connections,
+            )
+            max_connections = 1
+        elif max_connections > 10000:
+            logger.warning(
+                "ARAGORA_REDIS_MAX_CONNECTIONS=%d exceeds maximum, capping at 10000",
+                max_connections,
+            )
+            max_connections = 10000
+
         socket_timeout = float(os.getenv("ARAGORA_REDIS_SOCKET_TIMEOUT", "5.0"))
 
         _redis_pool = redis.ConnectionPool.from_url(

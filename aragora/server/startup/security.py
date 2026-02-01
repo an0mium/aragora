@@ -341,7 +341,7 @@ async def init_access_review_scheduler() -> bool:
 
     Environment Variables:
         ARAGORA_ACCESS_REVIEW_ENABLED: Set to "true" to enable (default: true in production)
-        ARAGORA_ACCESS_REVIEW_STORAGE: Path for SQLite storage (default: data/access_reviews.db)
+        ARAGORA_ACCESS_REVIEW_STORAGE: Path for SQLite storage (default: ARAGORA_DATA_DIR/access_reviews.db)
 
     Returns:
         True if scheduler was started, False otherwise

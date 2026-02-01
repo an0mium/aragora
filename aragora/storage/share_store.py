@@ -48,7 +48,7 @@ class ShareLinkStore(SQLiteStore):
     - View count tracking
 
     Usage:
-        store = ShareLinkStore("data/share_links.db")
+        store = ShareLinkStore("share_links.db")  # stored under ARAGORA_DATA_DIR
         store.save(settings)
         settings = store.get_by_token("abc123")
     """

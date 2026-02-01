@@ -24,6 +24,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Awaitable, Callable, TypeVar
 
+from aragora.config import resolve_db_path
 from aragora.resilience import CircuitBreaker, CircuitOpenError, get_circuit_breaker
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ T = TypeVar("T")
 
 # Configuration
 DLQ_ENABLED = os.getenv("ARAGORA_DLQ_ENABLED", "true").lower() == "true"
-DLQ_DB_PATH = os.getenv("ARAGORA_DLQ_DB_PATH", ".data/dlq.db")
+DLQ_DB_PATH = resolve_db_path(os.getenv("ARAGORA_DLQ_DB_PATH", "dlq.db"))
 DLQ_MAX_RETRIES = int(os.getenv("ARAGORA_DLQ_MAX_RETRIES", "5"))
 DLQ_RETENTION_HOURS = float(os.getenv("ARAGORA_DLQ_RETENTION_HOURS", "168"))  # 7 days
 
