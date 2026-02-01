@@ -82,9 +82,18 @@ class CanonicalGatewayStores(GatewayStores):
 
     def gateway_store(self) -> GatewayStore:
         if self._gateway_store is None:
-            from aragora.gateway.persistence import get_gateway_store
+            from aragora.gateway.persistence import get_gateway_store_from_env
 
-            self._gateway_store = get_gateway_store()
+            self._gateway_store = get_gateway_store_from_env(
+                backend_env="ARAGORA_GATEWAY_STORE",
+                fallback_backend_env="ARAGORA_GATEWAY_SESSION_STORE",
+                path_env="ARAGORA_GATEWAY_STORE_PATH",
+                fallback_path_env="ARAGORA_GATEWAY_SESSION_PATH",
+                redis_env="ARAGORA_GATEWAY_STORE_REDIS_URL",
+                fallback_redis_env="ARAGORA_GATEWAY_SESSION_REDIS_URL",
+                default_backend="auto",
+                allow_disabled=False,
+            )
         return self._gateway_store
 
     def inbox_store(self) -> UnifiedInboxStoreBackend:
