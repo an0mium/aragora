@@ -1281,6 +1281,9 @@ __all__ = [
     "PairwiseSimilarityCache",
     "get_pairwise_similarity_cache",
     "cleanup_similarity_cache",
+    "cleanup_stale_similarity_caches",
+    "MAX_SIMILARITY_CACHES",
+    "CACHE_MANAGER_TTL_SECONDS",
     # Backends (re-exported)
     "SimilarityBackend",
     "JaccardBackend",

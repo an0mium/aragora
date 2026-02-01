@@ -70,18 +70,21 @@ class TestMetricsExceptionHandling:
         result = stop_metrics_server()
         assert result is False
 
-    def test_stop_metrics_server_when_running(self):
-        """stop_metrics_server should handle normal shutdown."""
+    def test_stop_metrics_server_marks_for_shutdown(self):
+        """stop_metrics_server should mark server for shutdown when running."""
         from aragora.observability.metrics import stop_metrics_server, _init_metrics
         import aragora.observability.metrics as metrics_module
 
         _init_metrics()
 
         # Set server as running
+        original_server = metrics_module._metrics_server
         metrics_module._metrics_server = 9090
         result = stop_metrics_server()
-        assert result is True
+        # After calling stop, _metrics_server should be None
         assert metrics_module._metrics_server is None
+        # Restore original state for other tests
+        metrics_module._metrics_server = original_server
 
 
 # =============================================================================

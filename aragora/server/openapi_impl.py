@@ -377,6 +377,77 @@ def _normalize_route(route: str) -> str:
     return route.rstrip("*").rstrip("/")
 
 
+def _extract_path_params(path: str) -> list[str]:
+    """Extract path parameter names from a path template.
+
+    Args:
+        path: URL path with {param} placeholders
+
+    Returns:
+        List of parameter names found in the path
+    """
+    return re.findall(r"\{([^}]+)\}", path)
+
+
+def _ensure_path_parameters(paths: dict[str, Any]) -> dict[str, Any]:
+    """Ensure all path parameters are defined in operations.
+
+    For each path with {param} placeholders, verifies that the operation
+    has corresponding parameter definitions. Adds missing parameters
+    with sensible defaults.
+
+    Args:
+        paths: OpenAPI paths dictionary
+
+    Returns:
+        Updated paths dictionary with all path parameters defined
+    """
+    methods = {"get", "post", "put", "patch", "delete", "head", "options"}
+
+    for path, path_spec in paths.items():
+        path_params = _extract_path_params(path)
+        if not path_params:
+            continue
+
+        for method, operation in path_spec.items():
+            if method.lower() not in methods:
+                continue
+            if not isinstance(operation, dict):
+                continue
+
+            # Get existing parameters
+            existing_params = operation.get("parameters", [])
+            existing_path_params = {
+                p.get("name")
+                for p in existing_params
+                if isinstance(p, dict) and p.get("in") == "path"
+            }
+
+            # Add missing path parameters
+            for param_name in path_params:
+                if param_name not in existing_path_params:
+                    # Infer schema type from parameter name
+                    if param_name.endswith("_id") or param_name == "id":
+                        schema_type = "string"
+                    elif param_name in ("page", "limit", "offset", "count", "token_id"):
+                        schema_type = "integer"
+                    else:
+                        schema_type = "string"
+
+                    new_param = {
+                        "name": param_name,
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": schema_type},
+                        "description": f"Path parameter: {param_name}",
+                    }
+                    if "parameters" not in operation:
+                        operation["parameters"] = []
+                    operation["parameters"].append(new_param)
+
+    return paths
+
+
 def _pattern_prefix(pattern: str) -> str:
     cleaned = pattern.lstrip("^")
     escaped = False
