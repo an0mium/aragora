@@ -46,6 +46,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, AsyncIterator, Optional, Sequence
 
+from aragora.config import MAX_CONCURRENT_STREAMING
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Message
     from aragora.debate.hooks import HookManager
@@ -450,19 +452,22 @@ class ChainedDebate:
                 )
 
         else:
-            # Parallel execution for other topologies
+            # Parallel execution for other topologies with bounded concurrency
+            streaming_semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMING)
+
             async def generate(agent: "Agent") -> tuple[str, str]:
-                if hasattr(agent, "generate_stream"):
-                    chunks = []
-                    async for chunk in agent.generate_stream(prompt, context):
-                        chunks.append(chunk)
-                        await self.chain.publish(agent.name, chunk)
-                    await self.chain.publish(agent.name, "", is_final=True)
-                    return agent.name, "".join(chunks)
-                else:
-                    response = await agent.generate(prompt, context)
-                    await self.chain.publish(agent.name, response, is_final=True)
-                    return agent.name, response
+                async with streaming_semaphore:
+                    if hasattr(agent, "generate_stream"):
+                        chunks = []
+                        async for chunk in agent.generate_stream(prompt, context):
+                            chunks.append(chunk)
+                            await self.chain.publish(agent.name, chunk)
+                        await self.chain.publish(agent.name, "", is_final=True)
+                        return agent.name, "".join(chunks)
+                    else:
+                        response = await agent.generate(prompt, context)
+                        await self.chain.publish(agent.name, response, is_final=True)
+                        return agent.name, response
 
             results = await asyncio.gather(*[generate(a) for a in self.agents])
             responses = dict(results)

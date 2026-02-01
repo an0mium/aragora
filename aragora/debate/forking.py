@@ -21,6 +21,7 @@ from typing import Callable
 
 logger = logging.getLogger(__name__)
 
+from aragora.config import MAX_CONCURRENT_BRANCHES
 from aragora.core import Agent, DebateResult, Environment, Message
 
 
@@ -347,24 +348,28 @@ class DebateForker:
             Branches with results populated
         """
 
+        # Limit concurrent branch execution to prevent API rate limit exhaustion
+        branch_semaphore = asyncio.Semaphore(MAX_CONCURRENT_BRANCHES)
+
         async def run_branch(branch: Branch) -> Branch:
-            # Create branch-specific environment
-            branch_env = Environment(
-                task=f"[Branch: {branch.hypothesis}]\n{env.task}",
-                max_rounds=max_rounds,
-            )
+            async with branch_semaphore:
+                # Create branch-specific environment
+                branch_env = Environment(
+                    task=f"[Branch: {branch.hypothesis}]\n{env.task}",
+                    max_rounds=max_rounds,
+                )
 
-            # Run debate continuing from fork point
-            result = await run_debate_fn(
-                branch_env,
-                agents,
-                initial_messages=branch.messages,
-            )
+                # Run debate continuing from fork point
+                result = await run_debate_fn(
+                    branch_env,
+                    agents,
+                    initial_messages=branch.messages,
+                )
 
-            branch.result = result
-            return branch
+                branch.result = result
+                return branch
 
-        # Run all branches in parallel
+        # Run all branches in parallel with bounded concurrency
         results = await asyncio.gather(*[run_branch(b) for b in branches], return_exceptions=True)
         # Filter out failed branches and log errors
         completed = []

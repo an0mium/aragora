@@ -66,6 +66,8 @@ CHARS_PER_TOKEN = {
 ModelFamily = Literal["openai", "anthropic", "google", "mistral", "xai", "default"]
 
 
+@register_lru_cache
+@lru_cache(maxsize=256)
 def _get_model_family(model: str) -> ModelFamily:
     """Determine the model family from model name."""
     model_lower = model.lower()

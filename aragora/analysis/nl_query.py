@@ -177,6 +177,39 @@ class StreamingChunk:
 
 @register_lru_cache
 @lru_cache(maxsize=512)
+def _expand_query_cached(question: str) -> tuple[str, str]:
+    """Cached query expansion - returns (original, keyword_query).
+
+    Args:
+        question: The original question string
+
+    Returns:
+        Tuple of (original question, keyword-focused query)
+    """
+    # Remove question words and punctuation to create keyword-focused version
+    keyword_query = question.lower()
+    for word in [
+        "what",
+        "where",
+        "when",
+        "why",
+        "how",
+        "which",
+        "who",
+        "is",
+        "are",
+        "does",
+        "do",
+        "?",
+    ]:
+        keyword_query = keyword_query.replace(word, " ")
+    keyword_query = " ".join(keyword_query.split())
+
+    return (question, keyword_query)
+
+
+@register_lru_cache
+@lru_cache(maxsize=512)
 def _detect_query_mode_cached(question_lower: str) -> str:
     """Cached query mode detection based on keyword patterns.
 
@@ -482,27 +515,9 @@ class DocumentQueryEngine:
 
     def _expand_query(self, question: str) -> list[str]:
         """Generate query variations for better retrieval."""
-        queries = [question]
-
-        # Add a more keyword-focused version
-        # Remove question words and punctuation
-        keyword_query = question.lower()
-        for word in [
-            "what",
-            "where",
-            "when",
-            "why",
-            "how",
-            "which",
-            "who",
-            "is",
-            "are",
-            "does",
-            "do",
-            "?",
-        ]:
-            keyword_query = keyword_query.replace(word, " ")
-        keyword_query = " ".join(keyword_query.split())
+        # Use cached expansion for the string transformation
+        original, keyword_query = _expand_query_cached(question)
+        queries = [original]
 
         if keyword_query and keyword_query != question.lower():
             queries.append(keyword_query)

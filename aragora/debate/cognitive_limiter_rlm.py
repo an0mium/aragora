@@ -425,7 +425,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         ratio = result.compression_ratio
         compression_avg = float(self.stats.get("compression_ratio_avg", 1.0))
         new_avg: float = compression_avg * 0.9 + ratio * 0.1
-        self.stats["compression_ratio_avg"] = new_avg
+        self.stats["compression_ratio_avg"] = new_avg  # type: ignore[assignment]
 
         levels_used = self.stats.get("abstraction_levels_used")
         if isinstance(levels_used, dict):

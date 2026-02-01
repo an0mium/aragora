@@ -194,6 +194,39 @@ _CLAIM_PATTERNS = {
     ),
 }
 
+# Pre-compiled confidence adjustment patterns
+_STRONG_CONFIDENCE_PATTERN = re.compile(r"\b(must|definitely|certainly|clearly|obviously)\b", re.I)
+_WEAK_CONFIDENCE_PATTERN = re.compile(r"\b(maybe|perhaps|might|possibly|could be)\b", re.I)
+
+
+@register_lru_cache
+@lru_cache(maxsize=2048)
+def _detect_claim_type_cached(sentence: str) -> tuple[str, float]:
+    """Cached claim type detection for a single sentence.
+
+    Args:
+        sentence: A single sentence to analyze (should be <= 200 chars for efficiency)
+
+    Returns:
+        Tuple of (claim_type_value, confidence)
+    """
+    claim_type = ClaimType.ASSERTION  # default
+    confidence = 0.3
+
+    for ctype, pattern in _CLAIM_PATTERNS.items():
+        if pattern.search(sentence):
+            claim_type = ctype
+            confidence = 0.5
+            break
+
+    # Adjust confidence based on certainty indicators
+    if _STRONG_CONFIDENCE_PATTERN.search(sentence):
+        confidence = min(0.8, confidence + 0.2)
+    elif _WEAK_CONFIDENCE_PATTERN.search(sentence):
+        confidence = max(0.2, confidence - 0.1)
+
+    return (claim_type.value, confidence)
+
 
 def fast_extract_claims(text: str, author: str = "unknown") -> list[dict]:
     """
@@ -221,26 +254,14 @@ def fast_extract_claims(text: str, author: str = "unknown") -> list[dict]:
         if len(sentence) < 10:
             continue
 
-        # Detect claim type via pattern matching
-        claim_type = ClaimType.ASSERTION  # default
-        confidence = 0.3
-
-        for ctype, pattern in _CLAIM_PATTERNS.items():
-            if pattern.search(sentence):
-                claim_type = ctype
-                confidence = 0.5
-                break
-
-        # Boost confidence for stronger indicators
-        if re.search(r"\b(must|definitely|certainly|clearly|obviously)\b", sentence, re.I):
-            confidence = min(0.8, confidence + 0.2)
-        elif re.search(r"\b(maybe|perhaps|might|possibly|could be)\b", sentence, re.I):
-            confidence = max(0.2, confidence - 0.1)
+        # Use cached claim type detection (truncate for cache key efficiency)
+        sentence_key = sentence[:200]
+        claim_type_value, confidence = _detect_claim_type_cached(sentence_key)
 
         claims.append(
             {
-                "type": claim_type.value,
-                "text": sentence[:200],  # Truncate long sentences
+                "type": claim_type_value,
+                "text": sentence_key,  # Truncate long sentences
                 "author": author,
                 "confidence": confidence,
             }

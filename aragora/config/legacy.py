@@ -25,6 +25,8 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+from aragora.persistence.db_config import get_default_data_dir
+
 # Emit deprecation warning on import
 warnings.warn(
     "aragora.config.legacy is deprecated and will be removed in v3.0.0. "
@@ -255,6 +257,7 @@ MAX_CONCURRENT_PROPOSALS = _env_int("ARAGORA_MAX_CONCURRENT_PROPOSALS", 5)
 MAX_CONCURRENT_CRITIQUES = _env_int("ARAGORA_MAX_CONCURRENT_CRITIQUES", 10)
 MAX_CONCURRENT_REVISIONS = _env_int("ARAGORA_MAX_CONCURRENT_REVISIONS", 5)
 MAX_CONCURRENT_STREAMING = _env_int("ARAGORA_MAX_CONCURRENT_STREAMING", 3)
+MAX_CONCURRENT_BRANCHES = _env_int("ARAGORA_MAX_CONCURRENT_BRANCHES", 3)
 # Legacy stagger delay for proposal phase (0.0 = disabled, use semaphore instead)
 PROPOSAL_STAGGER_SECONDS = _env_float("ARAGORA_PROPOSAL_STAGGER_SECONDS", 0.0)
 
@@ -447,12 +450,13 @@ DB_TIMEOUT_SECONDS = _env_float("ARAGORA_DB_TIMEOUT", 30.0)
 DB_MODE = _env_str("ARAGORA_DB_MODE", "consolidated")
 
 # Nomic directory for databases (relative to working directory)
-NOMIC_DIR = _env_str("ARAGORA_DATA_DIR", _env_str("ARAGORA_NOMIC_DIR", ".nomic"))
+_DEFAULT_DATA_DIR = get_default_data_dir()
+NOMIC_DIR = str(_DEFAULT_DATA_DIR)
 
 # Consolidated data directory (all runtime data under one location)
-# Default: .nomic (existing convention)
+# Default: .nomic (existing convention) or data/ if present
 # Production recommended: /var/lib/aragora or ~/.aragora
-DATA_DIR = Path(_env_str("ARAGORA_DATA_DIR", ".nomic")).resolve()
+DATA_DIR = _DEFAULT_DATA_DIR.resolve()
 
 
 def validate_db_path(path_str: str, base_dir: Path | None = None) -> Path:

@@ -286,7 +286,7 @@ class ContextGatherer:
         # Belief guidance configuration for crux injection
         self._enable_belief_guidance = enable_belief_guidance
         self._belief_analyzer = None
-        self._codebase_context_builder = None
+        self._codebase_context_builder: Any = None
         if self._enable_belief_guidance:
             try:
                 from aragora.debate.phases.belief_analysis import DebateBeliefAnalyzer
