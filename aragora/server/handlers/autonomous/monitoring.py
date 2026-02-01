@@ -54,6 +54,10 @@ def set_anomaly_detector(detector: AnomalyDetector) -> None:
 class MonitoringHandler:
     """HTTP handlers for monitoring operations."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     @staticmethod
     async def record_metric(request: web.Request) -> web.Response:
         """

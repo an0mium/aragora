@@ -46,6 +46,10 @@ def set_approval_flow(flow: ApprovalFlow) -> None:
 class ApprovalHandler:
     """HTTP handlers for approval flow operations."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     @staticmethod
     async def list_pending(request: web.Request) -> web.Response:
         """

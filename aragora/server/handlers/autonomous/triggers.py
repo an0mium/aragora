@@ -38,6 +38,10 @@ def set_scheduled_trigger(trigger: ScheduledTrigger) -> None:
 class TriggerHandler:
     """HTTP handlers for scheduled trigger operations."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     @staticmethod
     async def list_triggers(request: web.Request) -> web.Response:
         """

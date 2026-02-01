@@ -38,6 +38,10 @@ def set_continuous_learner(learner: ContinuousLearner) -> None:
 class LearningHandler:
     """HTTP handlers for continuous learning operations."""
 
+    def __init__(self, ctx: dict | None = None):
+        """Initialize handler with optional context."""
+        self.ctx = ctx or {}
+
     @staticmethod
     async def get_agent_ratings(request: web.Request) -> web.Response:
         """
