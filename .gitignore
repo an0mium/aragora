@@ -146,6 +146,7 @@ backups/
 # Runtime artifacts (nomic loop state directories)
 .nomic/epic_strategic_debate/
 .nomic/strategic_debate/
+.nomic/eval/
 
 # Convoy runtime state
 .convoys/
