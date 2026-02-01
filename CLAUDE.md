@@ -12,30 +12,44 @@ Context for Claude Code when working with the Aragora codebase.
 |------|-------|-----------|
 | Debate engine | `aragora/debate/` | `orchestrator.py`, `consensus.py` |
 | Agents | `aragora/agents/` | `cli_agents.py`, `api_agents/` |
-| Server | `aragora/server/` | `unified_server.py`, `handlers/`, `startup.py` |
+| Analytics | `aragora/analytics/` | `dashboard.py`, `debate_analytics.py` |
+| Audit | `aragora/audit/` | `log.py`, `orchestrator.py`, `codebase_auditor.py`, `bug_detector.py` |
+| Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
+| Billing | `aragora/billing/` | `cost_tracker.py`, `budget_manager.py`, `metering.py`, `forecaster.py` |
+| Chat routing | `aragora/server/` | `debate_origin.py`, `result_router.py` |
+| CLI | `aragora/cli/` | `main.py`, `parser.py`, `gt.py`, `repl.py`, `commands/` |
+| Compliance | `aragora/compliance/` | `framework.py`, `monitor.py`, `policy_store.py`, `report_generator.py` |
+| Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `chat/`, `enterprise/streaming/` |
+| Control Plane | `aragora/control_plane/` | `policy.py`, `scheduler.py`, `notifications.py` |
+| Enterprise | `aragora/auth/`, `aragora/tenancy/` | `oidc.py`, `isolation.py` |
+| Events | `aragora/events/` | `dispatcher.py`, `schema.py`, `dead_letter_queue.py`, `subscribers/` |
+| Explainability | `aragora/explainability/` | `builder.py`, `factors.py` |
+| Gateway | `aragora/gateway/` | `server.py`, `router.py`, `protocol.py` |
+| Gauntlet | `aragora/gauntlet/` | `receipts.py`, `runner.py`, `findings.py` |
+| Integrations | `aragora/integrations/` | `slack.py`, `email.py`, `discord.py`, `teams.py`, `zapier.py`, `langchain/` |
+| Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `mound/resilience.py` |
+| MCP | `aragora/mcp/` | `server.py`, `tools.py`, `tools_module/` |
 | Memory | `aragora/memory/` | `continuum.py`, `consensus.py`, `coordinator.py` |
 | Nomic loop | `scripts/` | `nomic_loop.py`, `run_nomic_with_stream.py`, `self_develop.py` |
-| Self-improvement | `aragora/nomic/` | `meta_planner.py`, `branch_coordinator.py`, `task_decomposer.py` |
-| Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
-| Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/`, `templates/` |
-| RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `handler.py` |
-| Knowledge | `aragora/knowledge/` | `bridges.py`, `mound/`, `mound/resilience.py` |
-| Explainability | `aragora/explainability/` | `builder.py`, `factors.py` |
-| Gauntlet | `aragora/gauntlet/` | `receipts.py`, `runner.py`, `findings.py` |
-| Enterprise | `aragora/auth/`, `aragora/tenancy/` | `oidc.py`, `isolation.py` |
-| Connectors | `aragora/connectors/` | `slack.py`, `github.py`, `chat/`, `enterprise/streaming/` |
-| Streaming | `aragora/connectors/enterprise/streaming/` | `kafka.py`, `rabbitmq.py` |
-| Chat routing | `aragora/server/` | `debate_origin.py`, `result_router.py` |
-| TTS/Voice | `aragora/server/stream/` | `tts_integration.py`, `voice_stream.py` |
-| Control Plane | `aragora/control_plane/` | `policy.py`, `scheduler.py`, `notifications.py` |
-| Resilience | `aragora/resilience/` | `circuit_breaker.py`, `retry.py`, `timeout.py`, `health.py`, `registry.py` |
-| RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
-| Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
-| Ops | `aragora/ops/` | `deployment_validator.py` (runtime validation) |
-| Workspace | `aragora/workspace/` | `bead.py`, `convoy.py`, `manager.py` |
 | Nomic Stores | `aragora/nomic/stores/` | `bead_store.py`, `convoy_store.py`, `paths.py` |
-| Gateway | `aragora/gateway/` | `server.py`, `router.py`, `protocol.py` |
+| Notifications | `aragora/notifications/` | `service.py` |
 | Observability | `aragora/observability/` | `metrics.py`, `tracing.py`, `slo.py`, `logging.py` |
+| Ops | `aragora/ops/` | `deployment_validator.py` (runtime validation) |
+| Privacy | `aragora/privacy/` | `anonymization.py`, `consent.py`, `deletion.py`, `retention.py` |
+| Pulse | `aragora/pulse/` | `ingestor.py`, `scheduler.py`, `store.py`, `freshness.py`, `quality.py` |
+| RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
+| Reasoning | `aragora/reasoning/` | `belief.py`, `provenance.py`, `claims.py` |
+| Resilience | `aragora/resilience/` | `circuit_breaker.py`, `retry.py`, `timeout.py`, `health.py`, `registry.py` |
+| RLM | `aragora/rlm/` | `factory.py`, `bridge.py`, `handler.py` |
+| Security | `aragora/security/` | `encryption.py`, `key_rotation.py`, `anomaly_detection.py`, `ssrf_protection.py` |
+| Self-improvement | `aragora/nomic/` | `meta_planner.py`, `branch_coordinator.py`, `task_decomposer.py` |
+| Server | `aragora/server/` | `unified_server.py`, `handlers/`, `startup.py` |
+| Skills | `aragora/skills/` | `base.py`, `registry.py`, `marketplace.py`, `installer.py`, `builtin/` |
+| Storage | `aragora/storage/` | `postgres_store.py`, `redis_ha.py`, `schema.py`, `repositories/` |
+| Streaming | `aragora/connectors/enterprise/streaming/` | `kafka.py`, `rabbitmq.py` |
+| TTS/Voice | `aragora/server/stream/` | `tts_integration.py`, `voice_stream.py` |
+| Workflow | `aragora/workflow/` | `engine.py`, `patterns/`, `nodes/`, `templates/` |
+| Workspace | `aragora/workspace/` | `bead.py`, `convoy.py`, `manager.py` |
 
 ## Canonical Storage Paths
 
