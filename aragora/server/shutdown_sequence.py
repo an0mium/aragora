@@ -168,6 +168,8 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
     )
 
     # Phase 2: Drain in-flight HTTP requests
+    # Timeout budget: drain_requests (15s) + wait_for_debates (12s) = 27s critical
+    # Leaves ~3s for remaining phases within 30s overall timeout
     async def drain_requests():
         from aragora.server.request_tracker import get_request_tracker
 
@@ -175,7 +177,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         active = tracker.active_count
         if active > 0:
             logger.info(f"Draining {active} in-flight HTTP request(s)")
-        success = await tracker.start_drain(timeout=25.0)
+        success = await tracker.start_drain(timeout=14.0)
         if not success:
             logger.warning("Some HTTP requests still active after drain timeout")
 
@@ -183,7 +185,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         ShutdownPhase(
             name="Drain in-flight requests",
             execute=drain_requests,
-            timeout=26.0,
+            timeout=15.0,
             critical=True,
         )
     )
@@ -204,7 +206,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
 
         logger.info(f"Waiting for {len(in_progress)} in-flight debate(s)")
         wait_start = time.time()
-        while time.time() - wait_start < 25.0:  # Leave buffer for other phases
+        while time.time() - wait_start < 11.0:  # Leave buffer for other phases
             still_running = sum(
                 1
                 for d_id in in_progress
@@ -222,7 +224,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         ShutdownPhase(
             name="Wait for in-flight debates",
             execute=wait_for_debates,
-            timeout=26.0,
+            timeout=12.0,
             critical=True,
         )
     )
