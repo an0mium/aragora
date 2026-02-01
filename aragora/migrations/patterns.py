@@ -468,22 +468,24 @@ def safe_create_index(
         unique: Whether to create a unique index
         concurrently: Use CONCURRENTLY option (PostgreSQL only)
     """
-    columns_str = ", ".join(columns)
+    qi = quote_identifier(index_name, "index_name")
+    qt = quote_identifier(table, "table")
+    quoted_cols = [quote_identifier(c, "column") for c in columns]
+    columns_str = ", ".join(quoted_cols)
     unique_str = "UNIQUE " if unique else ""
 
     if is_postgresql(backend) and concurrently:
         # PostgreSQL: CREATE INDEX CONCURRENTLY doesn't block writes
         # Note: Cannot be run inside a transaction
         backend.execute_write(
-            f"CREATE {unique_str}INDEX CONCURRENTLY IF NOT EXISTS {index_name} "
-            f"ON {table} ({columns_str})"
+            f"CREATE {unique_str}INDEX CONCURRENTLY IF NOT EXISTS {qi} ON {qt} ({columns_str})"
         )
     else:
         backend.execute_write(
-            f"CREATE {unique_str}INDEX IF NOT EXISTS {index_name} ON {table} ({columns_str})"
+            f"CREATE {unique_str}INDEX IF NOT EXISTS {qi} ON {qt} ({columns_str})"
         )
 
-    logger.info(f"Created index {index_name} on {table}({columns_str})")
+    logger.info(f"Created index {index_name} on {table}({', '.join(columns)})")
 
 
 def safe_drop_index(
@@ -498,10 +500,12 @@ def safe_drop_index(
         index_name: Index to drop
         concurrently: Use CONCURRENTLY option (PostgreSQL only)
     """
+    qi = quote_identifier(index_name, "index_name")
+
     if is_postgresql(backend) and concurrently:
-        backend.execute_write(f"DROP INDEX CONCURRENTLY IF EXISTS {index_name}")
+        backend.execute_write(f"DROP INDEX CONCURRENTLY IF EXISTS {qi}")
     else:
-        backend.execute_write(f"DROP INDEX IF EXISTS {index_name}")
+        backend.execute_write(f"DROP INDEX IF EXISTS {qi}")
 
     logger.info(f"Dropped index {index_name}")
 

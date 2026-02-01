@@ -209,6 +209,7 @@ class GatewayHandler(BaseHandler):
 
         return None
 
+    @require_permission("gateway:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
