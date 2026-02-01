@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
@@ -25,10 +26,14 @@ import pytest
 import importlib.util
 import sys
 
-_spec = importlib.util.spec_from_file_location(
-    "computer_use_handler",
-    "/Users/armand/Development/aragora/aragora/server/handlers/computer_use_handler.py",
+_handler_path = (
+    Path(__file__).resolve().parents[3]
+    / "aragora"
+    / "server"
+    / "handlers"
+    / "computer_use_handler.py"
 )
+_spec = importlib.util.spec_from_file_location("computer_use_handler", str(_handler_path))
 if _spec and _spec.loader:
     _module = importlib.util.module_from_spec(_spec)
     sys.modules["computer_use_handler"] = _module
