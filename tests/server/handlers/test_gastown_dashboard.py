@@ -56,6 +56,21 @@ def clear_cache() -> None:  # type: ignore[misc]
     _gt_dashboard_cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def isolate_canonical_store(tmp_path, monkeypatch) -> None:  # type: ignore[misc]
+    """Isolate canonical bead/convoy stores per test."""
+    store_dir = tmp_path / ".aragora_beads"
+    monkeypatch.setenv("ARAGORA_STORE_DIR", str(store_dir))
+    monkeypatch.setenv("ARAGORA_CANONICAL_STORE_PERSIST", "1")
+    from aragora.nomic.stores import reset_bead_store, reset_convoy_manager
+
+    reset_bead_store()
+    reset_convoy_manager()
+    yield
+    reset_bead_store()
+    reset_convoy_manager()
+
+
 def _parse(result: HandlerResult) -> dict[str, Any]:
     """Parse a HandlerResult body into a dict."""
     return json.loads(result.body)
@@ -228,31 +243,32 @@ class TestOverview:
     @pytest.mark.asyncio
     async def test_overview_with_convoy_data(self, handler):
         """Overview populates convoy counts from the convoy module."""
-        # Build mock convoy module
-        mock_convoy_mod = MagicMock()
-        active_convoy = MagicMock()
-        active_convoy.status = mock_convoy_mod.NomicConvoyStatus.ACTIVE
-        completed_convoy = MagicMock()
-        completed_convoy.status = mock_convoy_mod.NomicConvoyStatus.COMPLETED
-        failed_convoy = MagicMock()
-        failed_convoy.status = mock_convoy_mod.NomicConvoyStatus.FAILED
-
-        mock_manager_instance = AsyncMock()
-        mock_manager_instance.list_convoys = AsyncMock(
-            return_value=[active_convoy, completed_convoy, failed_convoy]
+        from aragora.nomic.stores import (
+            Bead,
+            BeadType,
+            ConvoyStatus,
+            get_bead_store,
+            get_convoy_manager,
         )
-        mock_convoy_mod.NomicConvoyManager.return_value = mock_manager_instance
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.extensions.gastown.convoy": mock_convoy_mod,
-                "aragora.extensions.gastown.beads": None,
-                "aragora.extensions.gastown.agent_roles": None,
-                "aragora.server.startup": None,
-            },
-        ):
-            result = await handler._get_overview({})
+        bead_store = await get_bead_store()
+        bead1 = Bead.create(bead_type=BeadType.TASK, title="active")
+        bead2 = Bead.create(bead_type=BeadType.TASK, title="completed")
+        bead3 = Bead.create(bead_type=BeadType.TASK, title="failed")
+        await bead_store.create(bead1)
+        await bead_store.create(bead2)
+        await bead_store.create(bead3)
+
+        manager = await get_convoy_manager(bead_store)
+        convoy_active = await manager.create_convoy(title="active", bead_ids=[bead1.id])
+        convoy_completed = await manager.create_convoy(title="completed", bead_ids=[bead2.id])
+        convoy_failed = await manager.create_convoy(title="failed", bead_ids=[bead3.id])
+
+        await manager.update_convoy(convoy_active.id, status=ConvoyStatus.ACTIVE)
+        await manager.update_convoy(convoy_completed.id, status=ConvoyStatus.COMPLETED)
+        await manager.update_convoy(convoy_failed.id, status=ConvoyStatus.FAILED)
+
+        result = await handler._get_overview({})
 
         body = _parse(result)
         assert body["convoys"]["active"] == 1
@@ -330,12 +346,7 @@ class TestConvoys:
     @pytest.mark.asyncio
     async def test_convoys_invalid_status_returns_400(self, handler):
         """An unrecognised status filter yields 400."""
-        mock_convoy_mod = MagicMock()
-        mock_convoy_mod.NomicConvoyStatus.side_effect = ValueError("bad status")
-        mock_convoy_mod.NomicConvoyManager.return_value = AsyncMock()
-
-        with patch.dict("sys.modules", {"aragora.extensions.gastown.convoy": mock_convoy_mod}):
-            result = await handler._get_convoys({"status": "INVALID_STATUS"})
+        result = await handler._get_convoys({"status": "INVALID_STATUS"})
 
         assert result.status_code == 400
         body = _parse(result)

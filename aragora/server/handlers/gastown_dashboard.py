@@ -64,6 +64,26 @@ def _set_cached_data(key: str, data: dict[str, Any]) -> None:
         }
 
 
+def _get_gastown_state() -> Any | None:
+    try:
+        from aragora.server.extensions import get_extension_state
+
+        return get_extension_state()
+    except Exception:
+        return None
+
+
+def _resolve_convoy_tracker() -> Any | None:
+    state = _get_gastown_state()
+    if not state:
+        return None
+    if state.convoy_tracker:
+        return state.convoy_tracker
+    if state.coordinator:
+        return state.coordinator.convoys
+    return None
+
+
 class GasTownDashboardHandler(SecureHandler):
     """Handler for Gas Town dashboard endpoints."""
 
@@ -149,21 +169,35 @@ class GasTownDashboardHandler(SecureHandler):
 
         # Get convoy stats
         try:
-            from aragora.extensions.gastown.convoy import (
-                NomicConvoyManager as ConvoyManager,
-                NomicConvoyStatus as ConvoyStatus,
-            )
+            convoys = []
+            tracker = _resolve_convoy_tracker()
+            if tracker:
+                from aragora.extensions.gastown.models import ConvoyStatus as GastownStatus
 
-            manager = ConvoyManager()  # type: ignore[call-arg]
-            convoys = await manager.list_convoys()
-            overview["convoys"]["total"] = len(convoys)
-            for c in convoys:
-                if c.status == ConvoyStatus.ACTIVE:
-                    overview["convoys"]["active"] += 1
-                elif c.status == ConvoyStatus.COMPLETED:
-                    overview["convoys"]["completed"] += 1
-                elif c.status == ConvoyStatus.FAILED:
-                    overview["convoys"]["failed"] += 1
+                convoys = await tracker.list_convoys()
+                overview["convoys"]["total"] = len(convoys)
+                for c in convoys:
+                    if c.status in (GastownStatus.IN_PROGRESS, GastownStatus.REVIEW):
+                        overview["convoys"]["active"] += 1
+                    elif c.status == GastownStatus.COMPLETED:
+                        overview["convoys"]["completed"] += 1
+                    elif c.status == GastownStatus.BLOCKED:
+                        overview["convoys"]["failed"] += 1
+            else:
+                from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
+                from aragora.nomic.stores import get_bead_store, get_convoy_manager
+
+                bead_store = await get_bead_store()
+                manager = await get_convoy_manager(bead_store)
+                convoys = await manager.list_convoys()
+                overview["convoys"]["total"] = len(convoys)
+                for c in convoys:
+                    if c.status == ConvoyStatus.ACTIVE:
+                        overview["convoys"]["active"] += 1
+                    elif c.status == ConvoyStatus.COMPLETED:
+                        overview["convoys"]["completed"] += 1
+                    elif c.status == ConvoyStatus.FAILED:
+                        overview["convoys"]["failed"] += 1
         except ImportError:
             logger.debug("Convoy module not available")
         except Exception as e:
@@ -171,11 +205,11 @@ class GasTownDashboardHandler(SecureHandler):
 
         # Get bead stats
         try:
-            from aragora.extensions.gastown.beads import BeadManager, BeadStatus
+            from aragora.nomic.stores import BeadStatus, get_bead_store
 
-            bead_manager = BeadManager()  # type: ignore[call-arg]
+            bead_store = await get_bead_store()
             for status in BeadStatus:
-                beads = await bead_manager.list_beads(status=status)  # type: ignore[attr-defined]
+                beads = await bead_store.list_beads(status=status, limit=1000)
                 count = len(beads)
                 overview["beads"][status.value] = count
                 overview["beads"]["total"] += count
@@ -240,51 +274,99 @@ class GasTownDashboardHandler(SecureHandler):
         status_filter = query_params.get("status")
 
         try:
-            from aragora.extensions.gastown.convoy import (
-                NomicConvoyManager as ConvoyManager,
-                NomicConvoyStatus as ConvoyStatus,
-            )
-
-            convoy_manager = ConvoyManager()  # type: ignore[call-arg]
-
-            filter_status = None
-            if status_filter:
-                try:
-                    filter_status = ConvoyStatus(status_filter)
-                except ValueError:
-                    return error_response(f"Invalid status: {status_filter}", 400)
-
-            convoys = await convoy_manager.list_convoys(status=filter_status)
-
+            tracker = _resolve_convoy_tracker()
             result = []
-            for c in convoys[:limit]:
-                progress_pct = 0.0
-                total_beads: int = getattr(c, "total_beads", 0)
-                completed_beads: int = getattr(c, "completed_beads", 0)
-                if total_beads > 0:
-                    progress_pct = (completed_beads / total_beads) * 100
 
-                result.append(
-                    {
-                        "id": c.id,
-                        "title": c.title,
-                        "description": getattr(c, "description", ""),
-                        "status": c.status.value,
-                        "total_beads": total_beads,
-                        "completed_beads": completed_beads,
-                        "failed_beads": getattr(c, "failed_beads", 0),
-                        "progress_percentage": round(progress_pct, 1),
-                        "created_at": c.created_at.isoformat() if c.created_at else None,
-                        "updated_at": getattr(c, "updated_at", c.created_at).isoformat()
-                        if getattr(c, "updated_at", c.created_at)
-                        else None,
-                    }
-                )
+            if tracker:
+                from aragora.extensions.gastown.models import ConvoyStatus as GastownStatus
+                from aragora.workspace.bead import BeadManager, BeadStatus
+
+                filter_status = None
+                if status_filter:
+                    try:
+                        filter_status = GastownStatus(status_filter)
+                    except ValueError:
+                        return error_response(f"Invalid status: {status_filter}", 400)
+
+                convoys = await tracker.list_convoys(status=filter_status)
+                bead_manager = BeadManager()
+
+                for c in convoys[:limit]:
+                    beads = await bead_manager.list_beads(convoy_id=c.id)
+                    total_beads = len(beads)
+                    completed_beads = sum(1 for b in beads if b.status == BeadStatus.DONE)
+                    failed_beads = sum(1 for b in beads if b.status == BeadStatus.FAILED)
+                    progress_pct = (completed_beads / total_beads) * 100 if total_beads else 0.0
+
+                    result.append(
+                        {
+                            "id": c.id,
+                            "title": c.title,
+                            "description": getattr(c, "description", ""),
+                            "status": c.status.value,
+                            "total_beads": total_beads,
+                            "completed_beads": completed_beads,
+                            "failed_beads": failed_beads,
+                            "progress_percentage": round(progress_pct, 1),
+                            "created_at": c.created_at.isoformat() if c.created_at else None,
+                            "updated_at": getattr(c, "updated_at", c.created_at).isoformat()
+                            if getattr(c, "updated_at", c.created_at)
+                            else None,
+                        }
+                    )
+                total = len(convoys)
+            else:
+                from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
+                from aragora.nomic.stores import get_bead_store, get_convoy_manager
+
+                bead_store = await get_bead_store()
+                convoy_manager = await get_convoy_manager(bead_store)
+
+                filter_status = None
+                if status_filter:
+                    try:
+                        filter_status = ConvoyStatus(status_filter)
+                    except ValueError:
+                        return error_response(f"Invalid status: {status_filter}", 400)
+
+                convoys = await convoy_manager.list_convoys(status=filter_status)
+
+                for c in convoys[:limit]:
+                    total_beads = len(c.bead_ids)
+                    completed_beads = 0
+                    failed_beads = 0
+                    for bead_id in c.bead_ids:
+                        bead = await bead_store.get(bead_id)
+                        if not bead:
+                            continue
+                        if bead.status.value == "completed":
+                            completed_beads += 1
+                        elif bead.status.value == "failed":
+                            failed_beads += 1
+                    progress_pct = (completed_beads / total_beads) * 100 if total_beads else 0.0
+
+                    result.append(
+                        {
+                            "id": c.id,
+                            "title": c.title,
+                            "description": getattr(c, "description", ""),
+                            "status": c.status.value,
+                            "total_beads": total_beads,
+                            "completed_beads": completed_beads,
+                            "failed_beads": failed_beads,
+                            "progress_percentage": round(progress_pct, 1),
+                            "created_at": c.created_at.isoformat() if c.created_at else None,
+                            "updated_at": getattr(c, "updated_at", c.created_at).isoformat()
+                            if getattr(c, "updated_at", c.created_at)
+                            else None,
+                        }
+                    )
+                total = len(convoys)
 
             return json_response(
                 {
                     "convoys": result,
-                    "total": len(convoys),
+                    "total": total,
                     "showing": len(result),
                 }
             )
@@ -359,12 +441,9 @@ class GasTownDashboardHandler(SecureHandler):
         - Average completion time
         """
         try:
-            from aragora.extensions.gastown.beads import (
-                NomicBeadManager as BeadManager,
-                NomicBeadStatus as BeadStatus,
-            )
+            from aragora.nomic.stores import BeadPriority, BeadStatus, get_bead_store
 
-            bead_mgr = BeadManager()  # type: ignore[call-arg]
+            bead_store = await get_bead_store()
 
             stats: dict[str, Any] = {
                 "by_status": {},
@@ -375,27 +454,21 @@ class GasTownDashboardHandler(SecureHandler):
 
             total = 0
             for status in BeadStatus:
-                beads = await bead_mgr.list_beads(status=status, limit=1000)  # type: ignore[attr-defined]
+                beads = await bead_store.list_beads(status=status, limit=1000)
                 count = len(beads)
                 stats["by_status"][status.value] = count
                 total += count
 
-                if status.value == "pending":
-                    stats["queue_depth"] = count
-                elif status.value == "in_progress":
-                    stats["processing"] = count
-
+            stats["queue_depth"] = stats["by_status"].get("pending", 0)
+            stats["processing"] = stats["by_status"].get("running", 0) + stats["by_status"].get(
+                "claimed", 0
+            )
             stats["total"] = total
 
             # Get priority distribution
-            try:
-                from aragora.extensions.gastown.beads import BeadPriority
-
-                for priority in BeadPriority:
-                    beads = await bead_mgr.list_beads(priority=priority, limit=1000)  # type: ignore[attr-defined]
-                    stats["by_priority"][priority.value] = len(beads)
-            except (ImportError, AttributeError):
-                pass
+            for priority in BeadPriority:
+                beads = await bead_store.list_beads(priority=priority, limit=1000)
+                stats["by_priority"][priority.value] = len(beads)
 
             return json_response(stats)
 
@@ -448,17 +521,26 @@ class GasTownDashboardHandler(SecureHandler):
         except ImportError:
             # Fallback: estimate from current data
             try:
-                from aragora.extensions.gastown.convoy import (
-                    NomicConvoyManager as ConvoyManager,
-                    NomicConvoyStatus as ConvoyStatus,
-                )
+                tracker = _resolve_convoy_tracker()
+                if tracker:
+                    from aragora.extensions.gastown.models import ConvoyStatus as GastownStatus
 
-                mgr = ConvoyManager()  # type: ignore[call-arg]
-                convoys = await mgr.list_convoys()
-                completed = sum(1 for c in convoys if c.status == ConvoyStatus.COMPLETED)
-                total = len(convoys)
-                if total > 0:
-                    metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
+                    convoys = await tracker.list_convoys()
+                    completed = sum(1 for c in convoys if c.status == GastownStatus.COMPLETED)
+                    total = len(convoys)
+                    if total > 0:
+                        metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
+                else:
+                    from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
+                    from aragora.nomic.stores import get_bead_store, get_convoy_manager
+
+                    bead_store = await get_bead_store()
+                    mgr = await get_convoy_manager(bead_store)
+                    convoys = await mgr.list_convoys()
+                    completed = sum(1 for c in convoys if c.status == ConvoyStatus.COMPLETED)
+                    total = len(convoys)
+                    if total > 0:
+                        metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
             except Exception as e:
                 logger.debug(f"Could not get convoy metrics: {e}")
         except Exception as e:

@@ -174,7 +174,9 @@ class ConvoyTracker:
             current_agent=metadata.get("current_agent"),
             handoff_count=int(metadata.get("handoff_count", 0)),
             artifacts=list(metadata.get("artifacts", [])),
-            result=dict(metadata.get("result") or {}),
+            result=dict(metadata.get("result") or {})
+            if isinstance(metadata.get("result"), dict)
+            else {},
             error=metadata.get("error"),
             priority=int(metadata.get("priority", 0)),
             tags=list(metadata.get("tags", [])),
