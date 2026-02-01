@@ -346,6 +346,47 @@ class PostgreSQLBackend:
 
     def __init__(self, database_url: str):
         self.database_url = database_url
+        self._local = threading.local()
+
+    def _get_connection(self) -> Any:
+        """Get or create thread-local database connection."""
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = psycopg2.connect(self.database_url)
+            self._local.conn = conn
+        return conn
+
+    def execute_write(self, sql: str, params: tuple = ()) -> None:
+        """Execute a write operation."""
+        # Convert SQLite ? placeholders to PostgreSQL %s
+        sql = sql.replace("?", "%s")
+        conn = self._get_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+        conn.commit()
+
+    def fetch_one(self, sql: str, params: tuple = ()) -> Any | None:
+        """Execute query and fetch single row."""
+        sql = sql.replace("?", "%s")
+        conn = self._get_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            return cursor.fetchone()
+
+    def fetch_all(self, sql: str, params: tuple = ()) -> list:
+        """Execute query and fetch all rows."""
+        sql = sql.replace("?", "%s")
+        conn = self._get_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            return cursor.fetchall()
+
+    def close(self) -> None:
+        """Close the current thread's database connection."""
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None
 
 
 class AuditLog:
