@@ -175,7 +175,7 @@ export class WebhooksAPI {
    * Update an existing webhook.
    */
   async update(id: string, body: UpdateWebhookRequest): Promise<Webhook> {
-    return this.client.put(`/api/v1/webhooks/${id}`, body);
+    return this.client.request('PATCH', `/api/v1/webhooks/${id}`, { json: body });
   }
 
   /**
