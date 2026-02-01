@@ -5,24 +5,24 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: January 27, 2026*
+*Last updated: February 1, 2026*
 
 ## Current Release
 
-### v2.4.0 - Python SDK Expansion & Knowledge Mound Integration (January 2026)
+### v2.5.0 - Type Safety & SDK Expansion (February 2026)
 
-**Production Ready** - Aragora 2.4.0 expands Python SDK coverage with 10+ new resource namespaces, improves CDC → Knowledge Mound integration, and aligns all package versions.
+**Production Ready** - Aragora 2.5.0 enforces centralized data-dir paths, expands Python SDK coverage with 10+ new resource namespaces, improves CDC → Knowledge Mound integration, and aligns all package versions.
 
 #### Key Highlights
 - **Python SDK expansion** - Added orgs, tenants, policies, codebase, costs, decisions, onboarding, notifications, gmail, explainability resources
 - **Knowledge Mound integration** - CDC integration coverage with search parameter alignment
 - **Bot client improvements** - Deferred API base validation to runtime initialization
 - **Control plane hardening** - Improved error handling for agent/task retrieval
-- **Package alignment** - All packages aligned to v2.4.0
+- **Package alignment** - All packages aligned to v2.5.0
 - **Lines of Code**: 695,000+ LOC
 - **0 production blockers**
 
-#### What's New in 2.4.0
+#### What's New in 2.5.0
 
 **Python SDK Resource Expansion** (FEATURE)
 - **SDK Resources** (`aragora-py/src/aragora_client/`)

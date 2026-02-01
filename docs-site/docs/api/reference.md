@@ -14,8 +14,8 @@ for multi-agent vetted decisionmaking across organizational knowledge and channe
 
 | SDK | Version | Methods | Coverage |
 |-----|---------|---------|----------|
-| TypeScript (`@aragora/sdk`) | 2.4.0 | 346 async | Full API |
-| Python (`aragora`) | 2.4.0 | 210 async + 400 sync | Full API |
+| TypeScript (`@aragora/sdk`) | 2.5.0 | 346 async | Full API |
+| Python (`aragora`) | 2.5.0 | 210 async + 400 sync | Full API |
 
 Both SDKs provide complete coverage of all API endpoints including:
 - Debates, Agents, Memory, Knowledge
