@@ -32,7 +32,6 @@ from aragora.utils.optional_imports import try_import
 from .base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     get_clamped_int_param,
     handle_errors,

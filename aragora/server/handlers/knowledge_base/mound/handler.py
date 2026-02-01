@@ -117,7 +117,6 @@ from aragora.server.validation.query_params import safe_query_float, safe_query_
 from ...base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
 )
 from ...utils.rate_limit import RateLimiter, get_client_ip

@@ -318,6 +318,111 @@ class PodcastFeedGenerator:
         return lines
 
 
+def create_episode(
+    debate: dict,
+    audio_url: str,
+    duration_seconds: int,
+    file_size_bytes: int = 0,
+) -> dict:
+    """Create an RSS episode entry from debate data.
+
+    Convenience function for creating episode metadata from debate dictionaries.
+
+    Args:
+        debate: Dictionary with debate data (id, task, messages, consensus, created_at)
+        audio_url: URL to the audio file
+        duration_seconds: Audio duration in seconds
+        file_size_bytes: Audio file size (optional)
+
+    Returns:
+        Dictionary with episode metadata suitable for feed generation
+    """
+    debate_id = debate.get("id", debate.get("debate_id", "unknown"))
+    task = debate.get("task", "Untitled Debate")
+    messages = debate.get("messages", [])
+    consensus = debate.get("consensus")
+    created_at = debate.get("created_at", datetime.now().isoformat())
+
+    # Extract agents from messages
+    agents = list({msg.get("agent", "unknown") for msg in messages if msg.get("agent")})
+
+    # Create description
+    agent_list = ", ".join(agents[:3])
+    if len(agents) > 3:
+        agent_list += f" and {len(agents) - 3} more"
+
+    description = f"{task}\n\nParticipants: {agent_list}"
+    if consensus:
+        description += f"\n\nConsensus: {consensus[:200]}..."
+
+    return {
+        "guid": debate_id,
+        "title": task[:100] + ("..." if len(task) > 100 else ""),
+        "description": description[:500],
+        "audio_url": audio_url,
+        "duration": duration_seconds,
+        "file_size_bytes": file_size_bytes,
+        "pub_date": created_at,
+        "agents": agents,
+    }
+
+
+def generate_feed(
+    title: str,
+    episodes: list[dict],
+    description: str = "AI debates powered by Aragora",
+    author: str = "Aragora",
+    website_url: str = "https://aragora.ai",
+    feed_url: str = "https://aragora.ai/api/podcast/feed.xml",
+    image_url: str = "https://aragora.ai/podcast-cover.png",
+) -> str:
+    """Generate a complete RSS/podcast feed XML string.
+
+    Convenience function wrapping PodcastFeedGenerator for simple use cases.
+
+    Args:
+        title: Podcast title
+        episodes: List of episode dictionaries (from create_episode)
+        description: Podcast description
+        author: Podcast author
+        website_url: Website URL
+        feed_url: Feed URL for self-reference
+        image_url: Podcast cover image URL
+
+    Returns:
+        Complete RSS feed as XML string
+    """
+    config = PodcastConfig(
+        title=title,
+        description=description,
+        author=author,
+        website_url=website_url,
+        feed_url=feed_url,
+        image_url=image_url,
+    )
+
+    generator = PodcastFeedGenerator(config)
+
+    # Convert episode dicts to PodcastEpisode objects
+    podcast_episodes = []
+    for ep in episodes:
+        podcast_episodes.append(
+            PodcastEpisode(
+                guid=ep.get("guid", ep.get("id", str(hash(ep.get("title", ""))))),
+                title=ep.get("title", "Untitled"),
+                description=ep.get("description", ""),
+                content=ep.get("content", ep.get("description", "")),
+                audio_url=ep.get("audio_url", ""),
+                pub_date=ep.get("pub_date", datetime.now().isoformat()),
+                duration_seconds=ep.get("duration", 0),
+                file_size_bytes=ep.get("file_size_bytes", 0),
+                agents=ep.get("agents", []),
+            )
+        )
+
+    return generator.generate_feed(podcast_episodes)
+
+
 def create_debate_summary(
     task: str,
     agents: list[str],

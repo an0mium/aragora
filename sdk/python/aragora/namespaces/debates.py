@@ -6,10 +6,13 @@ Provides methods for creating, managing, and analyzing debates.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
+    from ..pagination import AsyncPaginator, SyncPaginator
+    from ..websocket import WebSocketEvent
 
 
 _List = list  # Preserve builtin list for type annotations
@@ -33,7 +36,7 @@ class DebatesAPI:
         task: str,
         agents: _List[str] | None = None,
         protocol: dict[str, Any] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """
         Create a new debate.
@@ -84,7 +87,7 @@ class DebatesAPI:
         Returns:
             List of debates with pagination info
         """
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -94,7 +97,7 @@ class DebatesAPI:
         self,
         status: str | None = None,
         page_size: int = 20,
-    ):
+    ) -> SyncPaginator:
         """
         Iterate through all debates with automatic pagination.
 
@@ -112,7 +115,7 @@ class DebatesAPI:
         """
         from ..pagination import SyncPaginator
 
-        params = {}
+        params: dict[str, Any] = {}
         if status:
             params["status"] = status
 
@@ -536,7 +539,7 @@ class AsyncDebatesAPI:
         task: str,
         agents: _List[str] | None = None,
         protocol: dict[str, Any] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Create a new debate."""
         data = {"task": task, **kwargs}
@@ -558,7 +561,7 @@ class AsyncDebatesAPI:
         status: str | None = None,
     ) -> dict[str, Any]:
         """List debates with pagination."""
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
 
@@ -568,7 +571,7 @@ class AsyncDebatesAPI:
         self,
         status: str | None = None,
         page_size: int = 20,
-    ):
+    ) -> AsyncPaginator:
         """
         Iterate through all debates with automatic pagination.
 
@@ -592,7 +595,7 @@ class AsyncDebatesAPI:
 
         return AsyncPaginator(self._client, "/api/v1/debates", params, page_size)
 
-    async def stream(self, debate_id: str):
+    async def stream(self, debate_id: str) -> AsyncIterator[WebSocketEvent]:
         """
         Stream debate events via WebSocket.
 

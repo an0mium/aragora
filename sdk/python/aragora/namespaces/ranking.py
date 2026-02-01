@@ -55,7 +55,8 @@ class RankingAPI:
             params["min_debates"] = min_debates
 
         response = self._client.request("GET", "/api/v1/rankings", params=params)
-        return response.get("rankings", [])
+        result: list[dict[str, Any]] = response.get("rankings", [])
+        return result
 
     def get(self, agent_name: str) -> dict[str, Any]:
         """Get a specific agent's ranking.
@@ -67,7 +68,8 @@ class RankingAPI:
             Agent ranking entry.
         """
         response = self._client.request("GET", f"/api/v1/rankings/{agent_name}")
-        return response.get("ranking", response)
+        result: dict[str, Any] = response.get("ranking", response)
+        return result
 
     def get_stats(self) -> dict[str, Any]:
         """Get aggregate ranking statistics.
@@ -145,11 +147,12 @@ class RankingAPI:
         Returns:
             List of historical ELO data points.
         """
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         response = self._client.request(
             "GET", f"/api/v1/rankings/{agent_name}/history", params=params
         )
-        return response.get("history", [])
+        result: list[dict[str, Any]] = response.get("history", [])
+        return result
 
 
 class AsyncRankingAPI:
@@ -180,12 +183,14 @@ class AsyncRankingAPI:
             params["min_debates"] = min_debates
 
         response = await self._client.request("GET", "/api/v1/rankings", params=params)
-        return response.get("rankings", [])
+        result: list[dict[str, Any]] = response.get("rankings", [])
+        return result
 
     async def get(self, agent_name: str) -> dict[str, Any]:
         """Get a specific agent's ranking."""
         response = await self._client.request("GET", f"/api/v1/rankings/{agent_name}")
-        return response.get("ranking", response)
+        result: dict[str, Any] = response.get("ranking", response)
+        return result
 
     async def get_stats(self) -> dict[str, Any]:
         """Get aggregate ranking statistics."""
@@ -221,8 +226,9 @@ class AsyncRankingAPI:
         days: int = 30,
     ) -> _List[dict[str, Any]]:
         """Get ELO history for an agent."""
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         response = await self._client.request(
             "GET", f"/api/v1/rankings/{agent_name}/history", params=params
         )
-        return response.get("history", [])
+        result: list[dict[str, Any]] = response.get("history", [])
+        return result

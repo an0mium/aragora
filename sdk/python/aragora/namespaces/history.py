@@ -85,7 +85,8 @@ class HistoryAPI:
         response = self._client.request(
             "GET", "/api/v1/history/debates", params=params if params else None
         )
-        return response.get("debates", [])
+        result: list[dict[str, Any]] = response.get("debates", [])
+        return result
 
     def list_cycles(
         self,
@@ -122,7 +123,8 @@ class HistoryAPI:
         response = self._client.request(
             "GET", "/api/v1/history/cycles", params=params if params else None
         )
-        return response.get("cycles", [])
+        result: list[dict[str, Any]] = response.get("cycles", [])
+        return result
 
     def list_events(
         self,
@@ -163,7 +165,8 @@ class HistoryAPI:
         response = self._client.request(
             "GET", "/api/v1/history/events", params=params if params else None
         )
-        return response.get("events", [])
+        result: list[dict[str, Any]] = response.get("events", [])
+        return result
 
     def get_summary(self, period: HistoryPeriod | None = None) -> dict[str, Any]:
         """
@@ -222,7 +225,8 @@ class HistoryAPI:
             f"/api/v1/agent/{agent_name}/history",
             params=params if params else None,
         )
-        return response.get("debates", [])
+        result: list[dict[str, Any]] = response.get("debates", [])
+        return result
 
 
 class AsyncHistoryAPI:
@@ -267,7 +271,8 @@ class AsyncHistoryAPI:
         response = await self._client.request(
             "GET", "/api/v1/history/debates", params=params if params else None
         )
-        return response.get("debates", [])
+        result: list[dict[str, Any]] = response.get("debates", [])
+        return result
 
     async def list_cycles(
         self,
@@ -292,7 +297,8 @@ class AsyncHistoryAPI:
         response = await self._client.request(
             "GET", "/api/v1/history/cycles", params=params if params else None
         )
-        return response.get("cycles", [])
+        result: list[dict[str, Any]] = response.get("cycles", [])
+        return result
 
     async def list_events(
         self,
@@ -320,7 +326,8 @@ class AsyncHistoryAPI:
         response = await self._client.request(
             "GET", "/api/v1/history/events", params=params if params else None
         )
-        return response.get("events", [])
+        result: list[dict[str, Any]] = response.get("events", [])
+        return result
 
     async def get_summary(self, period: HistoryPeriod | None = None) -> dict[str, Any]:
         """Get a summary of historical activity."""
@@ -350,4 +357,5 @@ class AsyncHistoryAPI:
             f"/api/v1/agent/{agent_name}/history",
             params=params if params else None,
         )
-        return response.get("debates", [])
+        result: list[dict[str, Any]] = response.get("debates", [])
+        return result

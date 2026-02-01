@@ -30,7 +30,6 @@ from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
     HandlerResult,
-    ServerContext,
     error_response,
     get_clamped_int_param,
     json_response,

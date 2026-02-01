@@ -29,13 +29,12 @@ import asyncio
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Optional, cast
+from typing import Any, Optional
 from uuid import uuid4
 
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

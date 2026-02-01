@@ -31,13 +31,12 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional, cast
+from typing import Any
 from uuid import uuid4
 
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )
@@ -481,11 +480,9 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         "/api/v1/analytics/cross-platform/demo",
     ]
 
-    def __init__(self, server_context: Optional[ServerContext] = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
-        ctx: dict[str, Any] = (
-            server_context if server_context is not None else dict()
-        )
+        ctx: dict[str, Any] = server_context if server_context is not None else {}
         super().__init__(ctx)
 
     async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:

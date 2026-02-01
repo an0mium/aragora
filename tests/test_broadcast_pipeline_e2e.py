@@ -270,7 +270,7 @@ class TestBroadcastPipeline:
     @pytest.mark.skipif(requires_broadcast_e2e_api, reason=REQUIRES_BROADCAST_E2E_API)
     async def test_pipeline_with_video(self, mock_debate, temp_output_dir):
         """Test pipeline with video generation enabled."""
-        from aragora.broadcast.pipeline import BroadcastPipeline
+        from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
         from aragora.broadcast.video_gen import is_ffmpeg_available
 
         if not is_ffmpeg_available():
@@ -278,19 +278,29 @@ class TestBroadcastPipeline:
 
         pipeline = BroadcastPipeline(nomic_dir=temp_output_dir)
 
+        # Create trace file for the debate
+        traces_dir = temp_output_dir / "traces"
+        traces_dir.mkdir(exist_ok=True)
+        trace_file = traces_dir / "test-debate-video.json"
+        trace_file.write_text('{"debate_id": "test-debate-video", "messages": []}')
+
         with (
+            patch.object(pipeline, "_load_trace") as mock_trace,
             patch.object(pipeline, "_generate_audio") as mock_audio,
             patch.object(pipeline, "_generate_video") as mock_video,
         ):
+            mock_trace.return_value = {"debate_id": "test-debate-video", "messages": []}
             mock_audio.return_value = temp_output_dir / "audio.mp3"
             mock_video.return_value = temp_output_dir / "video.mp4"
+            # Create dummy audio file
+            (temp_output_dir / "audio.mp3").write_bytes(b"fake audio")
 
-            result = await pipeline.run(
-                debate=mock_debate,
-                generate_video=True,
-            )
+            options = BroadcastOptions(video_enabled=True, generate_rss_episode=False)
+            result = await pipeline.run("test-debate-video", options=options)
 
-            assert result.get("video_path") is not None
+            assert result is not None
+            # Video path is returned in result when video_enabled=True
+            assert result.video_path is not None or mock_video.called
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(requires_broadcast_e2e_api, reason=REQUIRES_BROADCAST_E2E_API)

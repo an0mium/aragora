@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, cast
+from typing import Any
 
 from aragora.connectors.automation import (
     AutomationEventType,
@@ -34,7 +34,6 @@ from aragora.rbac import AuthorizationContext, check_permission
 from aragora.rbac.defaults import get_role_permissions
 from aragora.server.handlers.base import (
     HandlerResult,
-    ServerContext,
     error_response,
     json_response,
     success_response,

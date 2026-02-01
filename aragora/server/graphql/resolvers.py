@@ -27,7 +27,6 @@ from typing import Any, TYPE_CHECKING, cast
 from aragora.config import DEFAULT_ROUNDS
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import ServerContext
     from aragora.server.graphql.dataloaders import DataLoaderContext
 
 logger = logging.getLogger(__name__)
@@ -50,7 +49,7 @@ class ResolverContext:
         loaders: DataLoaderContext for batched queries (N+1 prevention)
     """
 
-    server_context: "ServerContext"
+    server_context: dict[str, Any]
     user_id: str | None = None
     org_id: str | None = None
     trace_id: str | None = None

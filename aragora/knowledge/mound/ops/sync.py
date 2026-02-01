@@ -29,7 +29,6 @@ from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.resilience.retry import (
     PROVIDER_RETRY_POLICIES,
-    RetryConfig,
     with_retry,
 )
 

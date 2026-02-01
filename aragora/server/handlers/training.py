@@ -27,7 +27,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from .base import ServerContext
+    pass
 from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_float, safe_query_int

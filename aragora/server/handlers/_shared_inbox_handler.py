@@ -34,7 +34,6 @@ from typing import Any, Optional, Protocol
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

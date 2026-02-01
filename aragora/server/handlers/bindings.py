@@ -27,7 +27,6 @@ from aragora.server.versioning.compat import strip_version_prefix
 from .base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     handle_errors,
     json_response,

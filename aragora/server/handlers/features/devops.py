@@ -29,12 +29,11 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     json_response,
     success_response,
@@ -124,9 +123,7 @@ class DevOpsHandler(SecureHandler):
     def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
         # ServerContext is a TypedDict with total=False, so empty dict is valid
-        ctx: dict[str, Any] = (
-            server_context if server_context is not None else dict()
-        )
+        ctx: dict[str, Any] = server_context if server_context is not None else dict()
         super().__init__(ctx)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

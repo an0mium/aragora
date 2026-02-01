@@ -72,18 +72,21 @@ class SyncPaginator(Iterator[dict[str, Any]]):
 
         # Handle different response formats
         if isinstance(response, dict):
-            items = response.get("items", response.get("data", []))
+            items: list[dict[str, Any]] = response.get("items", response.get("data", []))
             self._total = response.get("total")
         else:
             items = response if isinstance(response, list) else []
 
-        self._buffer.extend(items)
-        self._offset += len(items)
+        if items is not None:
+            self._buffer.extend(items)
+            self._offset += len(items)
 
-        # Check if we've exhausted all results
-        if len(items) < self._page_size:
-            self._exhausted = True
-        elif self._total is not None and self._offset >= self._total:
+            # Check if we've exhausted all results
+            if len(items) < self._page_size:
+                self._exhausted = True
+            elif self._total is not None and self._offset >= self._total:
+                self._exhausted = True
+        else:
             self._exhausted = True
 
     @property
@@ -150,18 +153,21 @@ class AsyncPaginator(AsyncIterator[dict[str, Any]]):
 
         # Handle different response formats
         if isinstance(response, dict):
-            items = response.get("items", response.get("data", []))
+            items: list[dict[str, Any]] = response.get("items", response.get("data", []))
             self._total = response.get("total")
         else:
             items = response if isinstance(response, list) else []
 
-        self._buffer.extend(items)
-        self._offset += len(items)
+        if items is not None:
+            self._buffer.extend(items)
+            self._offset += len(items)
 
-        # Check if we've exhausted all results
-        if len(items) < self._page_size:
-            self._exhausted = True
-        elif self._total is not None and self._offset >= self._total:
+            # Check if we've exhausted all results
+            if len(items) < self._page_size:
+                self._exhausted = True
+            elif self._total is not None and self._offset >= self._total:
+                self._exhausted = True
+        else:
             self._exhausted = True
 
     @property

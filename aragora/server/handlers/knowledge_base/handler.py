@@ -35,7 +35,6 @@ from aragora.rbac.decorators import require_permission
 from ..base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     get_bounded_string_param,
 )

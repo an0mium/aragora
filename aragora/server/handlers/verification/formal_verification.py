@@ -25,7 +25,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
@@ -33,7 +33,6 @@ from aragora.rbac.models import AuthorizationContext
 from ..base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     get_clamped_int_param,
     handle_errors,

@@ -30,13 +30,22 @@ class VideoMetadata:
 
 
 def _check_ffmpeg() -> bool:
-    """Check if ffmpeg is available."""
+    """Check if ffmpeg is available (internal)."""
     return shutil.which("ffmpeg") is not None
 
 
 def _check_ffprobe() -> bool:
     """Check if ffprobe is available."""
     return shutil.which("ffprobe") is not None
+
+
+def is_ffmpeg_available() -> bool:
+    """Check if ffmpeg is available for video generation.
+
+    Returns:
+        True if ffmpeg is installed and in PATH, False otherwise
+    """
+    return _check_ffmpeg()
 
 
 # Subprocess timeout constants

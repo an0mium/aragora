@@ -27,11 +27,6 @@ from ..utils.rate_limit import RateLimiter, get_client_ip
 from ..openapi_decorator import api_endpoint
 
 # Import extracted utility functions
-from .dashboard_health import (
-    get_connector_health,
-    get_connector_type,
-    get_system_health,
-)
 from .dashboard_metrics import (
     get_debate_patterns,
     get_recent_activity_legacy,
@@ -39,6 +34,11 @@ from .dashboard_metrics import (
     get_summary_metrics_legacy,
     get_summary_metrics_sql,
     process_debates_single_pass,
+)
+from .dashboard_health import (
+    get_connector_health,
+    get_connector_type,
+    get_system_health,
 )
 
 logger = logging.getLogger(__name__)
@@ -304,144 +304,8 @@ class DashboardHandler(SecureHandler):
     def _process_debates_single_pass(
         self, debates: list, domain: str | None, hours: int
     ) -> tuple[dict, dict, dict]:
-        """Process all debate metrics in a single pass through the data.
-
-        This optimization consolidates 3 separate loops into one, reducing
-        iteration overhead for large debate lists.
-
-        Args:
-            debates: List of debate records
-            domain: Optional domain filter
-            hours: Time window for recent activity
-
-        Returns:
-            Tuple of (summary, activity, patterns) dicts
-        """
-        start_time = time.perf_counter()
-        logger.debug(
-            "Starting single-pass processing: debates=%d, domain=%s, hours=%d",
-            len(debates),
-            domain,
-            hours,
-        )
-
-        # Initialize summary metrics
-        summary: dict[str, Any] = {
-            "total_debates": 0,
-            "consensus_reached": 0,
-            "consensus_rate": 0.0,
-            "avg_confidence": 0.0,
-            "avg_rounds": 0.0,
-            "total_tokens_used": 0,
-        }
-
-        # Initialize activity metrics
-        activity: dict[str, Any] = {
-            "debates_last_period": 0,
-            "consensus_last_period": 0,
-            "domains_active": [],
-            "most_active_domain": None,
-            "period_hours": hours,
-        }
-
-        # Initialize pattern metrics
-        patterns: dict[str, dict[str, Any]] = {
-            "disagreement_stats": {
-                "with_disagreements": 0,
-                "disagreement_types": {},
-            },
-            "early_stopping": {
-                "early_stopped": 0,
-                "full_duration": 0,
-            },
-        }
-
-        if not debates:
-            return summary, activity, patterns
-
-        try:
-            cutoff = datetime.now() - timedelta(hours=hours)
-
-            # Accumulators for single-pass processing
-            total = len(debates)
-            consensus_count = 0
-            confidences = []
-            domain_counts: dict[str, int] = {}
-            recent_count = 0
-            recent_consensus = 0
-            with_disagreement = 0
-            disagreement_types: dict[str, int] = {}
-            early_stopped = 0
-            full_duration = 0
-
-            for d in debates:
-                # Summary metrics
-                if d.get("consensus_reached"):
-                    consensus_count += 1
-
-                conf = d.get("confidence")
-                if conf:
-                    confidences.append(conf)
-
-                # Activity metrics - check if recent
-                created_at = d.get("created_at")
-                if created_at:
-                    try:
-                        dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                        if dt.replace(tzinfo=None) > cutoff:
-                            recent_count += 1
-                            if d.get("consensus_reached"):
-                                recent_consensus += 1
-                            d_domain = d.get("domain", "general")
-                            domain_counts[d_domain] = domain_counts.get(d_domain, 0) + 1
-                    except (ValueError, KeyError) as e:
-                        logger.debug(f"Skipping debate with invalid timestamp: {e}")
-
-                # Pattern metrics
-                if d.get("disagreement_report"):
-                    with_disagreement += 1
-                    report = d.get("disagreement_report", {})
-                    for dt_type in report.get("types", []):
-                        disagreement_types[dt_type] = disagreement_types.get(dt_type, 0) + 1
-
-                if d.get("early_stopped"):
-                    early_stopped += 1
-                else:
-                    full_duration += 1
-
-            # Build summary
-            summary["total_debates"] = total
-            summary["consensus_reached"] = consensus_count
-            if total > 0:
-                summary["consensus_rate"] = round(consensus_count / total, 3)
-            if confidences:
-                summary["avg_confidence"] = round(sum(confidences) / len(confidences), 3)
-
-            # Build activity
-            activity["debates_last_period"] = recent_count
-            activity["consensus_last_period"] = recent_consensus
-            activity["domains_active"] = list(domain_counts.keys())[:10]
-            if domain_counts:
-                activity["most_active_domain"] = max(domain_counts, key=lambda k: domain_counts[k])
-
-            # Build patterns
-            patterns["disagreement_stats"]["with_disagreements"] = with_disagreement
-            patterns["disagreement_stats"]["disagreement_types"] = disagreement_types
-            patterns["early_stopping"]["early_stopped"] = early_stopped
-            patterns["early_stopping"]["full_duration"] = full_duration
-
-        except Exception as e:
-            logger.warning("Single-pass processing error: %s: %s", type(e).__name__, e)
-
-        elapsed = time.perf_counter() - start_time
-        logger.debug(
-            "Completed single-pass processing: elapsed=%.3fs, total=%d, consensus=%d, recent=%d",
-            elapsed,
-            summary.get("total_debates", 0),
-            summary.get("consensus_reached", 0),
-            activity.get("debates_last_period", 0),
-        )
-        return summary, activity, patterns
+        """Process all debate metrics in a single pass through the data."""
+        return process_debates_single_pass(debates, domain, hours)
 
     def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]:
         """Get summary metrics using SQL aggregation (O(1) memory)."""
@@ -503,52 +367,7 @@ class DashboardHandler(SecureHandler):
 
     def _get_debate_patterns(self, debates: list) -> dict:
         """Get debate pattern statistics."""
-        patterns = {
-            "disagreement_stats": {
-                "with_disagreements": 0,
-                "disagreement_types": {},
-            },
-            "early_stopping": {
-                "early_stopped": 0,
-                "full_duration": 0,
-            },
-        }
-
-        try:
-            if debates:
-                # Analyze disagreements
-                with_disagreement = 0
-                disagreement_types: dict[str, int] = {}
-                early_stopped = 0
-                full_duration = 0
-
-                for d in debates:
-                    # Check for disagreement reports
-                    if d.get("disagreement_report"):
-                        with_disagreement += 1
-                        report = d.get("disagreement_report", {})
-                        for dt in report.get("types", []):
-                            disagreement_types[dt] = disagreement_types.get(dt, 0) + 1
-
-                    # Check for early stopping
-                    if d.get("early_stopped"):
-                        early_stopped += 1
-                    else:
-                        full_duration += 1
-
-                # Update patterns with computed stats
-                disagree_stats = patterns["disagreement_stats"]
-                if isinstance(disagree_stats, dict):
-                    disagree_stats["with_disagreements"] = with_disagreement
-                    disagree_stats["disagreement_types"] = disagreement_types
-                early_stats = patterns["early_stopping"]
-                if isinstance(early_stats, dict):
-                    early_stats["early_stopped"] = early_stopped
-                    early_stats["full_duration"] = full_duration
-        except Exception as e:
-            logger.warning("Debate patterns error: %s: %s", type(e).__name__, e)
-
-        return patterns
+        return get_debate_patterns(debates)
 
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="consensus_insights", skip_first=True
@@ -596,154 +415,18 @@ class DashboardHandler(SecureHandler):
 
     def _get_system_health(self) -> dict:
         """Get system health metrics."""
-        health: dict[str, Any] = {
-            "uptime_seconds": 0,
-            "cache_entries": 0,
-            "active_websocket_connections": 0,
-            "prometheus_available": False,
-        }
-
-        try:
-            from aragora.server.prometheus import (
-                is_prometheus_available,
-            )
-
-            health["prometheus_available"] = is_prometheus_available()
-
-            # Get cache stats if available
-            from ..base import _cache
-
-            if _cache:
-                health["cache_entries"] = len(_cache)
-
-        except Exception as e:
-            logger.warning("System health error: %s: %s", type(e).__name__, e)
-
+        health = get_system_health()
         # Add connector health
         health["connector_health"] = self._get_connector_health()
-
         return health
 
     def _get_connector_health(self) -> dict:
-        """Get connector health metrics for dashboard.
-
-        Returns aggregated health from the sync scheduler including:
-        - Summary stats (total, healthy, degraded, unhealthy, health_score)
-        - Per-connector breakdown with status, sync metrics, and errors
-        """
-        result: dict[str, Any] = {
-            "summary": {
-                "total_connectors": 0,
-                "healthy": 0,
-                "degraded": 0,
-                "unhealthy": 0,
-                "health_score": 100,
-                "scheduler_running": False,
-                "running_syncs": 0,
-                "success_rate": 1.0,
-            },
-            "connectors": [],
-        }
-
-        try:
-            from aragora.server.handlers.connectors import get_scheduler
-
-            scheduler = get_scheduler()
-            stats = scheduler.get_stats()
-
-            # Build summary from scheduler stats
-            result["summary"]["total_connectors"] = stats.get("total_jobs", 0)
-            result["summary"]["scheduler_running"] = scheduler._scheduler_task is not None
-            result["summary"]["running_syncs"] = stats.get("running_syncs", 0)
-            result["summary"]["success_rate"] = stats.get("success_rate", 1.0)
-
-            # Build per-connector breakdown from jobs
-            jobs = scheduler.list_jobs()
-            healthy = degraded = unhealthy = 0
-
-            for job in jobs:
-                # Determine health: 3+ failures = unhealthy, 1-2 = degraded
-                if job.consecutive_failures >= 3:
-                    health = "unhealthy"
-                    unhealthy += 1
-                elif job.consecutive_failures >= 1:
-                    health = "degraded"
-                    degraded += 1
-                else:
-                    health = "healthy"
-                    healthy += 1
-
-                # Determine status
-                if job.current_run_id:
-                    status = "syncing"
-                elif job.consecutive_failures >= 3:
-                    status = "error"
-                elif not job.schedule.enabled:
-                    status = "disconnected"
-                else:
-                    status = "connected"
-
-                # Calculate metrics from history
-                history = scheduler.get_history(job_id=job.id, limit=100)
-                total_syncs = len(history)
-                failed = sum(1 for h in history if h.status.value == "failed")
-                error_rate = (failed / total_syncs * 100) if total_syncs > 0 else 0.0
-                avg_duration = (
-                    sum(h.duration_seconds or 0 for h in history) / total_syncs
-                    if total_syncs > 0
-                    else 0.0
-                )
-                total_items = sum(h.items_synced for h in history)
-
-                connector_name = job.connector_id
-                connector_type = "unknown"
-                if job.connector:
-                    connector_name = getattr(job.connector, "name", job.connector_id)
-                    connector_type = self._get_connector_type(job.connector)
-
-                result["connectors"].append(
-                    {
-                        "connector_id": job.connector_id,
-                        "connector_name": connector_name,
-                        "connector_type": connector_type,
-                        "status": status,
-                        "health": health,
-                        "uptime": round(100 - error_rate, 1),
-                        "error_rate": round(error_rate, 1),
-                        "last_sync": job.last_run.isoformat() if job.last_run else None,
-                        "next_sync": job.next_run.isoformat() if job.next_run else None,
-                        "items_synced": total_items,
-                        "avg_sync_duration": round(avg_duration, 1),
-                        "consecutive_failures": job.consecutive_failures,
-                    }
-                )
-
-            result["summary"]["healthy"] = healthy
-            result["summary"]["degraded"] = degraded
-            result["summary"]["unhealthy"] = unhealthy
-            total = healthy + degraded + unhealthy
-            result["summary"]["health_score"] = round((healthy / total) * 100) if total > 0 else 100
-
-        except ImportError:
-            logger.debug("Connector scheduler not available")
-        except Exception as e:
-            logger.warning("Connector health error: %s: %s", type(e).__name__, e)
-
-        return result
+        """Get connector health metrics for dashboard."""
+        return get_connector_health()
 
     def _get_connector_type(self, connector: Any) -> str:
         """Extract connector type from connector instance."""
-        if not connector:
-            return "unknown"
-        class_name = type(connector).__name__.lower()
-        type_mapping = {
-            "githubenterpriseconnector": "github",
-            "s3connector": "s3",
-            "postgresqlconnector": "postgresql",
-            "mongodbconnector": "mongodb",
-            "fhirconnector": "fhir",
-        }
-        return type_mapping.get(class_name, class_name.replace("connector", ""))
+        return get_connector_type(connector)
 
     @api_endpoint(
         method="GET",

@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 
 from aragora.exceptions import ConfigurationError
 
-from .base import HandlerResult, ServerContext, error_response, json_response, safe_error_message
+from .base import HandlerResult, error_response, json_response, safe_error_message
 from .utils.rate_limit import rate_limit
 from .secure import SecureHandler
 

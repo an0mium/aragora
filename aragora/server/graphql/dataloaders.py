@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
-    from aragora.server.handlers.base import ServerContext
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +264,7 @@ async def _batch_load_agents(
         return [AgentData.default(name) for name in agent_names]
 
 
-def create_loaders(server_context: "ServerContext") -> DataLoaderContext:
+def create_loaders(server_context: dict[str, Any]) -> DataLoaderContext:
     """
     Create DataLoaders for a request.
 

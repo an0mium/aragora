@@ -149,6 +149,101 @@ class AudioMetadata:
         )
 
 
+class BroadcastStorage:
+    """
+    Storage interface for broadcast audio files.
+
+    Provides a simple interface for saving and retrieving broadcast audio,
+    matching the expected API for tests and pipeline integration.
+    """
+
+    def __init__(self, base_dir: Path | None = None):
+        """Initialize broadcast storage.
+
+        Args:
+            base_dir: Base directory for storage. Defaults to ARAGORA_DATA_DIR/audio/
+        """
+        if base_dir is None:
+            base_dir = get_nomic_dir() / "audio"
+        self.base_dir = Path(base_dir)
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+
+    def get_audio_path(self, debate_id: str, format: str = "mp3") -> Path:
+        """Get the path where audio for a debate would be stored.
+
+        Args:
+            debate_id: Debate identifier
+            format: Audio format extension
+
+        Returns:
+            Path to the audio file (may not exist yet)
+        """
+        # Validate debate_id
+        if not _validate_debate_id(debate_id):
+            # Return a safe path that won't cause security issues
+            safe_id = "invalid_" + debate_id[:20].replace("/", "_").replace("..", "_")
+            return self.base_dir / f"{safe_id}.{format}"
+
+        return self.base_dir / f"{debate_id}.{format}"
+
+    def save_audio(
+        self,
+        debate_id: str,
+        audio_data: bytes,
+        format: str = "mp3",
+    ) -> Path:
+        """Save audio data for a debate.
+
+        Args:
+            debate_id: Debate identifier
+            audio_data: Raw audio bytes
+            format: Audio format (default: mp3)
+
+        Returns:
+            Path to the saved audio file
+        """
+        path = self.get_audio_path(debate_id, format)
+
+        # Write audio data
+        path.write_bytes(audio_data)
+
+        logger.info(f"Saved broadcast audio: {path} ({len(audio_data)} bytes)")
+        return path
+
+    def get_audio(self, debate_id: str) -> bytes | None:
+        """Load audio data for a debate.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            Audio bytes if found, None otherwise
+        """
+        # Check common formats
+        for ext in ["mp3", "wav", "m4a", "ogg"]:
+            path = self.get_audio_path(debate_id, ext)
+            if path.exists():
+                return path.read_bytes()
+        return None
+
+    def exists(self, debate_id: str) -> bool:
+        """Check if audio exists for a debate."""
+        for ext in ["mp3", "wav", "m4a", "ogg"]:
+            if self.get_audio_path(debate_id, ext).exists():
+                return True
+        return False
+
+    def delete(self, debate_id: str) -> bool:
+        """Delete audio for a debate."""
+        deleted = False
+        for ext in ["mp3", "wav", "m4a", "ogg"]:
+            path = self.get_audio_path(debate_id, ext)
+            if path.exists():
+                path.unlink()
+                deleted = True
+        return deleted
+
+
 class AudioFileStore:
     """
     Persistent storage for debate audio files.

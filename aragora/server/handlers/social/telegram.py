@@ -26,7 +26,7 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Coroutine, Optional, cast
+from typing import Any, Coroutine, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -52,7 +52,6 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
 from ..base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     auto_error_response,
     error_response,
     json_response,

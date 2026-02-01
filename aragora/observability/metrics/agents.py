@@ -171,87 +171,90 @@ def init_agent_provider_metrics() -> None:
             return Gauge(name, doc, labels)
 
         # --- Call Metrics ---
-        AGENT_PROVIDER_CALLS = Counter(
+        AGENT_PROVIDER_CALLS = get_or_create_counter(
             "aragora_agent_provider_calls_total",
             "Total agent/LLM API calls by provider",
             ["provider", "status", "error_type"],
         )
 
-        AGENT_PROVIDER_LATENCY = Histogram(
+        AGENT_PROVIDER_LATENCY = get_or_create_histogram(
             "aragora_agent_provider_latency_seconds",
             "Agent call latency by provider",
             ["provider"],
-            buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+            [0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
         )
 
         # --- Token Metrics ---
-        AGENT_TOKEN_USAGE = Counter(
+        AGENT_TOKEN_USAGE = get_or_create_counter(
             "aragora_agent_token_usage_total",
             "Token usage by provider and type (input/output)",
             ["provider", "token_type"],
         )
 
         # --- Connection Pool Metrics ---
-        AGENT_CONNECTION_POOL_ACTIVE = Gauge(
+        AGENT_CONNECTION_POOL_ACTIVE = get_or_create_gauge(
             "aragora_agent_connection_pool_active",
             "Active connections in pool by provider",
             ["provider"],
         )
 
-        AGENT_CONNECTION_POOL_WAITING = Gauge(
+        AGENT_CONNECTION_POOL_WAITING = get_or_create_gauge(
             "aragora_agent_connection_pool_waiting",
             "Waiting requests for connections by provider",
             ["provider"],
         )
 
         # --- Rate Limit Metrics ---
-        AGENT_RATE_LIMIT_DETECTED = Counter(
+        AGENT_RATE_LIMIT_DETECTED = get_or_create_counter(
             "aragora_agent_rate_limit_detected_total",
             "Rate limit events detected by provider",
             ["provider"],
         )
 
-        AGENT_RATE_LIMIT_BACKOFF_SECONDS = Histogram(
+        AGENT_RATE_LIMIT_BACKOFF_SECONDS = get_or_create_histogram(
             "aragora_agent_rate_limit_backoff_seconds",
             "Backoff time applied after rate limits",
             ["provider"],
-            buckets=[1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
+            [1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
         )
 
         # --- Fallback Metrics ---
-        AGENT_FALLBACK_CHAIN_DEPTH = Histogram(
+        AGENT_FALLBACK_CHAIN_DEPTH = get_or_create_histogram(
             "aragora_agent_fallback_chain_depth",
             "Depth of fallback chain before success",
-            buckets=[0, 1, 2, 3, 4, 5],
+            [],
+            [0, 1, 2, 3, 4, 5],
         )
 
-        AGENT_FALLBACK_TRIGGERED = Counter(
+        AGENT_FALLBACK_TRIGGERED = get_or_create_counter(
             "aragora_agent_fallback_triggered_total",
             "Fallback activations by primary and fallback provider",
             ["primary_provider", "fallback_provider", "trigger_reason"],
         )
 
         # --- Circuit Breaker Metrics ---
-        AGENT_CIRCUIT_BREAKER_STATE = Gauge(
-            "aragora_agent_circuit_breaker_state",
+        # Note: Use 'provider_circuit_breaker' prefix to avoid collision with
+        # aragora/server/prometheus.py which uses 'agent_circuit_breaker' with 'agent_type' label
+        AGENT_CIRCUIT_BREAKER_STATE = get_or_create_gauge(
+            "aragora_provider_circuit_breaker_state",
             "Current circuit breaker state (0=closed, 1=half_open, 2=open)",
             ["provider"],
         )
 
-        AGENT_CIRCUIT_BREAKER_STATE_CHANGES = Counter(
-            "aragora_agent_circuit_breaker_state_changes_total",
+        AGENT_CIRCUIT_BREAKER_STATE_CHANGES = get_or_create_counter(
+            "aragora_provider_circuit_breaker_state_changes_total",
             "Circuit breaker state transitions",
             ["provider", "from_state", "to_state"],
         )
 
-        AGENT_CIRCUIT_BREAKER_REJECTIONS = Counter(
-            "aragora_agent_circuit_breaker_rejections_total",
+        AGENT_CIRCUIT_BREAKER_REJECTIONS = get_or_create_counter(
+            "aragora_provider_circuit_breaker_rejections_total",
             "Requests rejected due to open circuit breaker",
             ["provider"],
         )
 
         # --- Model-Specific Metrics ---
-        AGENT_MODEL_CALLS = Counter(
+        AGENT_MODEL_CALLS = get_or_create_counter(
             "aragora_agent_model_calls_total",
             "Calls by specific model",
             ["provider", "model", "status"],

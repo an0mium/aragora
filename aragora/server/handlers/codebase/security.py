@@ -40,7 +40,6 @@ from aragora.server.handlers.base import (
     require_permission,
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

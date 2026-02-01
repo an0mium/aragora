@@ -58,7 +58,6 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
 from ..base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     auto_error_response,
     error_response,
     json_response,

@@ -30,7 +30,6 @@ from uuid import uuid4
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

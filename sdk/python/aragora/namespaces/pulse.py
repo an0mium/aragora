@@ -92,7 +92,8 @@ class PulseAPI:
             List of source configurations.
         """
         response = self._client.request("GET", "/api/v1/pulse/sources")
-        return response.get("sources", [])
+        result: list[dict[str, Any]] = response.get("sources", [])
+        return result
 
     def get_categories(self) -> list[dict[str, Any]]:
         """List available topic categories.
@@ -101,7 +102,8 @@ class PulseAPI:
             List of categories with topic counts.
         """
         response = self._client.request("GET", "/api/v1/pulse/categories")
-        return response.get("categories", [])
+        result: list[dict[str, Any]] = response.get("categories", [])
+        return result
 
     def suggest_debate_topic(
         self,
@@ -138,11 +140,12 @@ class PulseAPI:
         Returns:
             Historical data points.
         """
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         response = self._client.request(
             "GET", f"/api/v1/pulse/topics/{topic_id}/history", params=params
         )
-        return response.get("history", [])
+        result: list[dict[str, Any]] = response.get("history", [])
+        return result
 
 
 class AsyncPulseAPI:
@@ -191,12 +194,14 @@ class AsyncPulseAPI:
     async def get_sources(self) -> list[dict[str, Any]]:
         """List configured pulse sources."""
         response = await self._client.request("GET", "/api/v1/pulse/sources")
-        return response.get("sources", [])
+        result: list[dict[str, Any]] = response.get("sources", [])
+        return result
 
     async def get_categories(self) -> list[dict[str, Any]]:
         """List available topic categories."""
         response = await self._client.request("GET", "/api/v1/pulse/categories")
-        return response.get("categories", [])
+        result: list[dict[str, Any]] = response.get("categories", [])
+        return result
 
     async def suggest_debate_topic(
         self,
@@ -217,8 +222,9 @@ class AsyncPulseAPI:
         days: int = 7,
     ) -> list[dict[str, Any]]:
         """Get trending history for a topic."""
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         response = await self._client.request(
             "GET", f"/api/v1/pulse/topics/{topic_id}/history", params=params
         )
-        return response.get("history", [])
+        result: list[dict[str, Any]] = response.get("history", [])
+        return result

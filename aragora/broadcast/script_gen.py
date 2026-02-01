@@ -36,8 +36,8 @@ def _extract_content_text(content: dict | str) -> str:
     return str(content)
 
 
-def _extract_speaker_turns(trace: DebateTrace) -> list[ScriptSegment]:
-    """Extract speaker turns from debate trace."""
+def _extract_speaker_turns_from_trace(trace: DebateTrace) -> list[ScriptSegment]:
+    """Extract speaker turns from debate trace object."""
     segments = []
 
     # Opening
@@ -73,14 +73,65 @@ def _extract_speaker_turns(trace: DebateTrace) -> list[ScriptSegment]:
     return segments
 
 
-def generate_script(trace: DebateTrace) -> list[ScriptSegment]:
+def _extract_speaker_turns_from_dict(debate: dict) -> list[ScriptSegment]:
+    """Extract speaker turns from debate dict (test format)."""
+    segments = []
+
+    task = debate.get("task", "an important topic")
+
+    # Opening
+    segments.append(
+        ScriptSegment(
+            speaker="narrator",
+            text=f"Welcome to Aragora Broadcast. Today's debate is about: {task[:200]}...",
+        )
+    )
+
+    # Process messages
+    messages = debate.get("messages", [])
+    previous_agent = None
+    for msg in messages:
+        agent = msg.get("agent", "unknown")
+        content = msg.get("content", "")
+
+        # Add transition if different agent
+        if previous_agent and previous_agent != agent:
+            segments.append(ScriptSegment(speaker="narrator", text=f"Now, {agent} responds."))
+
+        content = _summarize_code(content)
+        segments.append(ScriptSegment(speaker=agent, text=content))
+        previous_agent = agent
+
+    # Closing
+    segments.append(
+        ScriptSegment(
+            speaker="narrator", text="That concludes this Aragora debate. Thank you for listening."
+        )
+    )
+
+    return segments
+
+
+@dataclass
+class Script:
+    """A complete broadcast script."""
+
+    segments: list[ScriptSegment]
+
+
+def generate_script(trace: DebateTrace | dict) -> Script:
     """
-    Generate podcast script from debate trace.
+    Generate podcast script from debate trace or dict.
 
     Args:
-        trace: The debate trace to convert
+        trace: The debate trace to convert (DebateTrace object or dict)
 
     Returns:
-        List of script segments ready for TTS
+        Script object containing list of segments
     """
-    return _extract_speaker_turns(trace)
+    if isinstance(trace, dict):
+        segments = _extract_speaker_turns_from_dict(trace)
+    else:
+        segments = _extract_speaker_turns_from_trace(trace)
+
+    return Script(segments=segments)

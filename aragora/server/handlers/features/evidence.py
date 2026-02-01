@@ -35,7 +35,6 @@ from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     BaseHandler,
     PaginatedHandlerMixin,
-    ServerContext,
     error_response,
     get_float_param,
     get_int_param,

@@ -24,14 +24,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, cast
+from typing import Any
 from uuid import uuid4
 
 
 from ..base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

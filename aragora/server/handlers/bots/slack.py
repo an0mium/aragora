@@ -24,7 +24,7 @@ from urllib.parse import parse_qs
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
-from aragora.server.handlers.base import HandlerResult, ServerContext, error_response, json_response
+from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import rate_limit

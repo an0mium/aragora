@@ -29,7 +29,6 @@ from aragora.analysis.codebase import (
 )
 from aragora.server.handlers.base import (
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

@@ -17,7 +17,6 @@ from aragora.protocols import HTTPRequestHandler
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     get_int_param,
     handle_errors,

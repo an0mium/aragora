@@ -50,7 +50,6 @@ from aragora.server.http_utils import run_async as _run_async
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     json_response,
     safe_error_message,

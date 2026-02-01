@@ -58,7 +58,7 @@ import functools
 import logging
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -68,7 +68,6 @@ from typing import (
     Optional,
     ParamSpec,
     TypeVar,
-    Union,
 )
 
 if TYPE_CHECKING:
@@ -232,11 +231,13 @@ class CircuitOpenError(Exception):
 # These policies are tuned for each AI provider's rate limiting behavior
 # and error patterns. They can be used directly or as templates.
 
+
 def _is_rate_limit_exception(exc: Exception) -> bool:
     """Check if exception is a rate limit error."""
     exc_str = str(exc).lower()
     return (
-        "rate" in exc_str and "limit" in exc_str
+        "rate" in exc_str
+        and "limit" in exc_str
         or "429" in exc_str
         or "too many requests" in exc_str
         or "quota" in exc_str

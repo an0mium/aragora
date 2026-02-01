@@ -291,7 +291,7 @@ class AsyncThreatIntelAPI:
         url: str,
         check_virustotal: bool = True,
         check_phishtank: bool = True,
-    ) -> URLCheckResult:
+    ) -> dict[str, Any]:
         """Check a URL for threats."""
         data: dict[str, Any] = {
             "url": url,
@@ -299,7 +299,8 @@ class AsyncThreatIntelAPI:
             "check_phishtank": check_phishtank,
         }
         response = await self._client.request("POST", "/api/v1/threat/url", json=data)
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     async def check_urls_batch(
         self,
@@ -311,43 +312,50 @@ class AsyncThreatIntelAPI:
         if max_concurrent is not None:
             data["max_concurrent"] = max_concurrent
         response = await self._client.request("POST", "/api/v1/threat/urls", json=data)
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
-    async def check_ip(self, ip_address: str) -> IPReputationResult:
+    async def check_ip(self, ip_address: str) -> dict[str, Any]:
         """Check IP address reputation."""
         response = await self._client.request("GET", f"/api/v1/threat/ip/{ip_address}")
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     async def check_ips_batch(self, ips: list[str]) -> dict[str, Any]:
         """Batch check multiple IP addresses."""
         response = await self._client.request("POST", "/api/v1/threat/ips", json={"ips": ips})
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
-    async def check_hash(self, hash_value: str) -> HashCheckResult:
+    async def check_hash(self, hash_value: str) -> dict[str, Any]:
         """Check file hash for malware."""
         response = await self._client.request("GET", f"/api/v1/threat/hash/{hash_value}")
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     async def check_hashes_batch(self, hashes: list[str]) -> dict[str, Any]:
         """Batch check multiple file hashes."""
         response = await self._client.request(
             "POST", "/api/v1/threat/hashes", json={"hashes": hashes}
         )
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
     async def scan_email(
         self,
         body: str,
         headers: dict[str, str] | None = None,
-    ) -> EmailScanResult:
+    ) -> dict[str, Any]:
         """Scan email content for threats."""
         data: dict[str, Any] = {"body": body}
         if headers:
             data["headers"] = headers
         response = await self._client.request("POST", "/api/v1/threat/email", json=data)
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result
 
-    async def get_status(self) -> ThreatIntelStatus:
+    async def get_status(self) -> dict[str, Any]:
         """Get threat intelligence service status."""
         response = await self._client.request("GET", "/api/v1/threat/status")
-        return response.get("data", response)
+        result: dict[str, Any] = response.get("data", response)
+        return result

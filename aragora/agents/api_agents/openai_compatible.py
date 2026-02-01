@@ -61,15 +61,12 @@ from aragora.agents.api_agents.common import (
 )
 from aragora.agents.fallback import QuotaFallbackMixin
 from aragora.observability.metrics.agents import (
-    CircuitBreakerState,
     ErrorType,
     record_circuit_breaker_rejection,
-    record_circuit_breaker_state_change,
     record_fallback_triggered,
     record_provider_call,
     record_provider_token_usage,
     record_rate_limit_detected,
-    set_circuit_breaker_state,
 )
 
 logger = logging.getLogger(__name__)

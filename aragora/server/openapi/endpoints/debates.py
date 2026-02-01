@@ -435,7 +435,11 @@ DEBATE_ENDPOINTS = {
             "responses": {
                 "200": _ok_response(
                     "Published to Twitter",
-                    {"tweet_id": {"type": "string"}, "url": {"type": "string"}, "success": {"type": "boolean"}},
+                    {
+                        "tweet_id": {"type": "string"},
+                        "url": {"type": "string"},
+                        "success": {"type": "boolean"},
+                    },
                 )
             },
             "security": [{"bearerAuth": []}],
@@ -453,7 +457,11 @@ DEBATE_ENDPOINTS = {
             "responses": {
                 "200": _ok_response(
                     "Published to YouTube",
-                    {"video_id": {"type": "string"}, "url": {"type": "string"}, "success": {"type": "boolean"}},
+                    {
+                        "video_id": {"type": "string"},
+                        "url": {"type": "string"},
+                        "success": {"type": "boolean"},
+                    },
                 )
             },
             "security": [{"bearerAuth": []}],

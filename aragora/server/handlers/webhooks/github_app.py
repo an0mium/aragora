@@ -31,7 +31,6 @@ from enum import Enum
 from typing import Any, Callable
 from aragora.server.handlers.base import (
     HandlerResult,
-    ServerContext,
     error_response,
     json_response,
 )

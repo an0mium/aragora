@@ -347,15 +347,17 @@ class AudioEngine:
         # Map voice name if needed
         resolved_voice = get_voice_for_agent(voice)
 
-        backend = self._get_backend()
+        # Use _synthesize_text (allows test mocking)
         try:
-            result = await backend.synthesize(
-                text=text, voice=resolved_voice, output_path=output_path
-            )
-            return result
+            audio_data = await self._synthesize_text(text, resolved_voice)
+            if audio_data:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(audio_data)
+                return output_path
         except Exception as e:
             logger.warning(f"Segment audio generation failed: {e}")
-            return None
+
+        return None
 
     async def generate_debate_audio(
         self,

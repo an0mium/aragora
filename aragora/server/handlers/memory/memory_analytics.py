@@ -10,14 +10,13 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.memory.tier_analytics import TierAnalyticsTracker
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     get_clamped_int_param,
     handle_errors,

@@ -27,7 +27,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from aragora.server.handlers.base import (
-    ServerContext,
     error_response,
     success_response,
 )

@@ -19,7 +19,6 @@ from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     json_response,
 )

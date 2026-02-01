@@ -618,7 +618,7 @@ class TestPoolPerformanceHistory:
     @pytest.mark.asyncio
     async def test_queries_km(self, adapter, mock_knowledge_mound):
         """Should query KM for pool history."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         await adapter.get_pool_performance_history("pool_123", limit=10)
 
@@ -627,23 +627,25 @@ class TestPoolPerformanceHistory:
     @pytest.mark.asyncio
     async def test_returns_snapshots(self, adapter, mock_knowledge_mound):
         """Should return parsed PoolSnapshots."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "content": "Pool test",
-                "metadata": {
-                    "type": "fabric_pool_snapshot",
-                    "pool_id": "pool_123",
-                    "pool_name": "test_pool",
-                    "model": "claude-3",
-                    "current_agents": 3,
-                    "min_agents": 1,
-                    "max_agents": 5,
-                    "tasks_pending": 2,
-                    "tasks_completed": 15,
-                    "avg_task_duration_seconds": 12.5,
-                },
-            }
-        ])
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "content": "Pool test",
+                    "metadata": {
+                        "type": "fabric_pool_snapshot",
+                        "pool_id": "pool_123",
+                        "pool_name": "test_pool",
+                        "model": "claude-3",
+                        "current_agents": 3,
+                        "min_agents": 1,
+                        "max_agents": 5,
+                        "tasks_pending": 2,
+                        "tasks_completed": 15,
+                        "avg_task_duration_seconds": 12.5,
+                    },
+                }
+            ]
+        )
 
         results = await adapter.get_pool_performance_history("pool_123")
 
@@ -655,26 +657,28 @@ class TestPoolPerformanceHistory:
     @pytest.mark.asyncio
     async def test_filters_by_pool_id(self, adapter, mock_knowledge_mound):
         """Should filter results by pool_id."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "content": "Pool 1",
-                "metadata": {
-                    "type": "fabric_pool_snapshot",
-                    "pool_id": "pool_123",
-                    "pool_name": "pool1",
-                    "model": "claude",
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "content": "Pool 1",
+                    "metadata": {
+                        "type": "fabric_pool_snapshot",
+                        "pool_id": "pool_123",
+                        "pool_name": "pool1",
+                        "model": "claude",
+                    },
                 },
-            },
-            {
-                "content": "Pool 2",
-                "metadata": {
-                    "type": "fabric_pool_snapshot",
-                    "pool_id": "pool_other",
-                    "pool_name": "pool2",
-                    "model": "gpt",
+                {
+                    "content": "Pool 2",
+                    "metadata": {
+                        "type": "fabric_pool_snapshot",
+                        "pool_id": "pool_other",
+                        "pool_name": "pool2",
+                        "model": "gpt",
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         results = await adapter.get_pool_performance_history("pool_123")
 
@@ -684,7 +688,7 @@ class TestPoolPerformanceHistory:
     @pytest.mark.asyncio
     async def test_uses_cache(self, adapter, mock_knowledge_mound):
         """Should use cache on subsequent calls."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         # First call
         await adapter.get_pool_performance_history("pool_123")
@@ -697,7 +701,7 @@ class TestPoolPerformanceHistory:
     @pytest.mark.asyncio
     async def test_bypasses_cache(self, adapter, mock_knowledge_mound):
         """Should bypass cache when use_cache=False."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         await adapter.get_pool_performance_history("pool_123")
         await adapter.get_pool_performance_history("pool_123", use_cache=False)
@@ -707,7 +711,7 @@ class TestPoolPerformanceHistory:
     @pytest.mark.asyncio
     async def test_respects_cache_ttl(self, adapter, mock_knowledge_mound):
         """Should refresh cache after TTL expires."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         await adapter.get_pool_performance_history("pool_123")
 
@@ -721,7 +725,7 @@ class TestPoolPerformanceHistory:
     @pytest.mark.asyncio
     async def test_updates_stats(self, adapter, mock_knowledge_mound):
         """Should update query stats."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         assert adapter._stats["pool_queries"] == 0
 
@@ -750,7 +754,7 @@ class TestTaskPatterns:
     @pytest.mark.asyncio
     async def test_queries_km(self, adapter, mock_knowledge_mound):
         """Should query KM for task patterns."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         await adapter.get_task_patterns("debate", limit=50)
 
@@ -759,23 +763,25 @@ class TestTaskPatterns:
     @pytest.mark.asyncio
     async def test_returns_outcomes(self, adapter, mock_knowledge_mound):
         """Should return parsed TaskSchedulingOutcomes."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "content": "Task outcome",
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "task_1",
-                    "task_type": "debate",
-                    "agent_id": "claude-3",
-                    "pool_id": "pool_1",
-                    "priority": 1,
-                    "scheduled_at": time.time() - 100,
-                    "completed_at": time.time(),
-                    "success": True,
-                    "duration_seconds": 15.5,
-                },
-            }
-        ])
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "content": "Task outcome",
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "task_1",
+                        "task_type": "debate",
+                        "agent_id": "claude-3",
+                        "pool_id": "pool_1",
+                        "priority": 1,
+                        "scheduled_at": time.time() - 100,
+                        "completed_at": time.time(),
+                        "success": True,
+                        "duration_seconds": 15.5,
+                    },
+                }
+            ]
+        )
 
         results = await adapter.get_task_patterns("debate")
 
@@ -787,28 +793,30 @@ class TestTaskPatterns:
     @pytest.mark.asyncio
     async def test_filters_by_task_type(self, adapter, mock_knowledge_mound):
         """Should filter results by task_type."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "content": "Task 1",
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t1",
-                    "task_type": "debate",
-                    "agent_id": "a1",
-                    "scheduled_at": 100,
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "content": "Task 1",
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t1",
+                        "task_type": "debate",
+                        "agent_id": "a1",
+                        "scheduled_at": 100,
+                    },
                 },
-            },
-            {
-                "content": "Task 2",
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t2",
-                    "task_type": "code_review",
-                    "agent_id": "a2",
-                    "scheduled_at": 200,
+                {
+                    "content": "Task 2",
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t2",
+                        "task_type": "code_review",
+                        "agent_id": "a2",
+                        "scheduled_at": 200,
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         results = await adapter.get_task_patterns("debate")
 
@@ -818,7 +826,7 @@ class TestTaskPatterns:
     @pytest.mark.asyncio
     async def test_uses_cache(self, adapter, mock_knowledge_mound):
         """Should use cache on subsequent calls."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         await adapter.get_task_patterns("debate")
         await adapter.get_task_patterns("debate", use_cache=True)
@@ -828,7 +836,7 @@ class TestTaskPatterns:
     @pytest.mark.asyncio
     async def test_updates_stats(self, adapter, mock_knowledge_mound):
         """Should update query stats."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([]
+        mock_knowledge_mound.query.return_value = _mock_query_result([])
 
         assert adapter._stats["task_pattern_queries"] == 0
 
@@ -848,32 +856,34 @@ class TestPoolRecommendations:
     @pytest.mark.asyncio
     async def test_returns_recommendations(self, adapter, mock_knowledge_mound):
         """Should return pool recommendations."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t1",
-                    "task_type": "debate",
-                    "agent_id": "a1",
-                    "pool_id": "pool_1",
-                    "success": True,
-                    "duration_seconds": 10.0,
-                    "scheduled_at": 100,
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t1",
+                        "task_type": "debate",
+                        "agent_id": "a1",
+                        "pool_id": "pool_1",
+                        "success": True,
+                        "duration_seconds": 10.0,
+                        "scheduled_at": 100,
+                    },
                 },
-            },
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t2",
-                    "task_type": "debate",
-                    "agent_id": "a2",
-                    "pool_id": "pool_1",
-                    "success": True,
-                    "duration_seconds": 15.0,
-                    "scheduled_at": 200,
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t2",
+                        "task_type": "debate",
+                        "agent_id": "a2",
+                        "pool_id": "pool_1",
+                        "success": True,
+                        "duration_seconds": 15.0,
+                        "scheduled_at": 200,
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         results = await adapter.get_pool_recommendations("debate")
 
@@ -886,32 +896,34 @@ class TestPoolRecommendations:
     @pytest.mark.asyncio
     async def test_filters_by_available_pools(self, adapter, mock_knowledge_mound):
         """Should filter by available pools."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t1",
-                    "task_type": "debate",
-                    "agent_id": "a1",
-                    "pool_id": "pool_1",
-                    "success": True,
-                    "duration_seconds": 10.0,
-                    "scheduled_at": 100,
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t1",
+                        "task_type": "debate",
+                        "agent_id": "a1",
+                        "pool_id": "pool_1",
+                        "success": True,
+                        "duration_seconds": 10.0,
+                        "scheduled_at": 100,
+                    },
                 },
-            },
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t2",
-                    "task_type": "debate",
-                    "agent_id": "a2",
-                    "pool_id": "pool_2",
-                    "success": True,
-                    "duration_seconds": 15.0,
-                    "scheduled_at": 200,
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t2",
+                        "task_type": "debate",
+                        "agent_id": "a2",
+                        "pool_id": "pool_2",
+                        "success": True,
+                        "duration_seconds": 15.0,
+                        "scheduled_at": 200,
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         results = await adapter.get_pool_recommendations("debate", available_pools=["pool_1"])
 
@@ -921,21 +933,23 @@ class TestPoolRecommendations:
     @pytest.mark.asyncio
     async def test_respects_top_n(self, adapter, mock_knowledge_mound):
         """Should return at most top_n results."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": f"t{i}",
-                    "task_type": "debate",
-                    "agent_id": "a1",
-                    "pool_id": f"pool_{i}",
-                    "success": True,
-                    "duration_seconds": 10.0,
-                    "scheduled_at": i * 100,
-                },
-            }
-            for i in range(10)
-        ])
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": f"t{i}",
+                        "task_type": "debate",
+                        "agent_id": "a1",
+                        "pool_id": f"pool_{i}",
+                        "success": True,
+                        "duration_seconds": 10.0,
+                        "scheduled_at": i * 100,
+                    },
+                }
+                for i in range(10)
+            ]
+        )
 
         results = await adapter.get_pool_recommendations("debate", top_n=3)
 
@@ -944,20 +958,22 @@ class TestPoolRecommendations:
     @pytest.mark.asyncio
     async def test_calculates_combined_score(self, adapter, mock_knowledge_mound):
         """Should calculate combined score correctly."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t1",
-                    "task_type": "debate",
-                    "agent_id": "a1",
-                    "pool_id": "pool_1",
-                    "success": True,
-                    "duration_seconds": 0.0,  # Fastest possible
-                    "scheduled_at": 100,
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t1",
+                        "task_type": "debate",
+                        "agent_id": "a1",
+                        "pool_id": "pool_1",
+                        "success": True,
+                        "duration_seconds": 0.0,  # Fastest possible
+                        "scheduled_at": 100,
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         results = await adapter.get_pool_recommendations("debate")
 
@@ -976,20 +992,22 @@ class TestAgentRecommendations:
     @pytest.mark.asyncio
     async def test_returns_recommendations(self, adapter, mock_knowledge_mound):
         """Should return agent recommendations."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t1",
-                    "task_type": "debate",
-                    "agent_id": "agent_1",
-                    "pool_id": "pool_1",
-                    "success": True,
-                    "duration_seconds": 10.0,
-                    "scheduled_at": 100,
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t1",
+                        "task_type": "debate",
+                        "agent_id": "agent_1",
+                        "pool_id": "pool_1",
+                        "success": True,
+                        "duration_seconds": 10.0,
+                        "scheduled_at": 100,
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         results = await adapter.get_agent_recommendations_for_pool("pool_1", "debate")
 
@@ -1001,32 +1019,34 @@ class TestAgentRecommendations:
     @pytest.mark.asyncio
     async def test_filters_by_pool(self, adapter, mock_knowledge_mound):
         """Should filter by pool_id."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t1",
-                    "task_type": "debate",
-                    "agent_id": "agent_1",
-                    "pool_id": "pool_1",
-                    "success": True,
-                    "duration_seconds": 10.0,
-                    "scheduled_at": 100,
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t1",
+                        "task_type": "debate",
+                        "agent_id": "agent_1",
+                        "pool_id": "pool_1",
+                        "success": True,
+                        "duration_seconds": 10.0,
+                        "scheduled_at": 100,
+                    },
                 },
-            },
-            {
-                "metadata": {
-                    "type": "fabric_task_outcome",
-                    "task_id": "t2",
-                    "task_type": "debate",
-                    "agent_id": "agent_2",
-                    "pool_id": "pool_other",
-                    "success": True,
-                    "duration_seconds": 10.0,
-                    "scheduled_at": 200,
+                {
+                    "metadata": {
+                        "type": "fabric_task_outcome",
+                        "task_id": "t2",
+                        "task_type": "debate",
+                        "agent_id": "agent_2",
+                        "pool_id": "pool_other",
+                        "success": True,
+                        "duration_seconds": 10.0,
+                        "scheduled_at": 200,
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         results = await adapter.get_agent_recommendations_for_pool("pool_1", "debate")
 
@@ -1045,19 +1065,21 @@ class TestBudgetForecast:
     @pytest.mark.asyncio
     async def test_returns_forecast(self, adapter, mock_knowledge_mound):
         """Should return budget forecast."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_budget_snapshot",
-                    "entity_id": "agent_1",
-                    "tokens_used": 1000,
-                    "tokens_limit": 10000,
-                    "cost_used_usd": 0.10,
-                    "period_end": time.time() - 86400 * i,
-                },
-            }
-            for i in range(7)
-        ])
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_budget_snapshot",
+                        "entity_id": "agent_1",
+                        "tokens_used": 1000,
+                        "tokens_limit": 10000,
+                        "cost_used_usd": 0.10,
+                        "period_end": time.time() - 86400 * i,
+                    },
+                }
+                for i in range(7)
+            ]
+        )
 
         result = await adapter.get_budget_forecast("agent_1", forecast_days=7)
 
@@ -1069,16 +1091,18 @@ class TestBudgetForecast:
     @pytest.mark.asyncio
     async def test_insufficient_data(self, adapter, mock_knowledge_mound):
         """Should report insufficient data."""
-        mock_knowledge_mound.query.return_value = _mock_query_result([
-            {
-                "metadata": {
-                    "type": "fabric_budget_snapshot",
-                    "entity_id": "agent_1",
-                    "tokens_used": 1000,
-                    "period_end": time.time(),
-                },
-            }
-        ])
+        mock_knowledge_mound.query.return_value = _mock_query_result(
+            [
+                {
+                    "metadata": {
+                        "type": "fabric_budget_snapshot",
+                        "entity_id": "agent_1",
+                        "tokens_used": 1000,
+                        "period_end": time.time(),
+                    },
+                }
+            ]
+        )
 
         result = await adapter.get_budget_forecast("agent_1")
 

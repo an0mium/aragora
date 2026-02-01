@@ -59,8 +59,16 @@ def initialize_metrics_once():
 
     This prevents the 'Duplicated timeseries' error that occurs when
     trying to register the same Prometheus metrics multiple times.
+
+    We reset the _initialized flag to ensure we re-initialize with
+    the get_or_create pattern which handles existing metrics gracefully.
     """
-    # Initialize once at module scope
+    # Reset initialization state to allow re-initialization
+    # This handles the case where metrics may have been registered
+    # by previous test runs with different configurations
+    agents_module._initialized = False
+
+    # Initialize (will use get_or_create pattern to handle existing metrics)
     init_agent_provider_metrics()
     yield
 

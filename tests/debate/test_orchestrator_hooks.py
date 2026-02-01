@@ -277,7 +277,16 @@ class TestCreateDebateBead:
         mock_beads_module.BeadStore.return_value = mock_store_instance
         mock_beads_module.Bead.create.return_value = MagicMock()
 
-        with patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}):
+        mock_canonical = MagicMock()
+        mock_canonical.bead_store = AsyncMock(return_value=mock_store_instance)
+
+        with (
+            patch.dict(sys.modules, {"aragora.nomic.beads": mock_beads_module}),
+            patch(
+                "aragora.stores.get_canonical_workspace_stores",
+                return_value=mock_canonical,
+            ),
+        ):
             result = await create_debate_bead(
                 result=mock_result,
                 protocol=mock_protocol,
@@ -286,7 +295,7 @@ class TestCreateDebateBead:
             )
 
         assert result == "new-bead-id"
-        mock_store_instance.initialize.assert_called_once()
+        mock_store_instance.create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_returns_none_on_import_error(self, mock_result, mock_protocol, mock_env):

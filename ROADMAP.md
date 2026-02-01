@@ -93,7 +93,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 - [ ] Kubernetes Operator for automated scaling
 - [ ] Global edge deployment
 - [ ] Debate sharding for high-throughput workloads
-- [x] Redis Cluster mode support (v2.1.14)
+- [x] Redis Cluster mode support
 
 ### Cost Optimization
 - [ ] Smart provider routing based on cost/quality

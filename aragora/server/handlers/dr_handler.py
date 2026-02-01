@@ -26,7 +26,6 @@ from aragora.backup.manager import BackupManager
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     json_response,
 )

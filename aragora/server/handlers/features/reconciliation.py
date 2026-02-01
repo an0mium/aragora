@@ -22,11 +22,10 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timezone
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

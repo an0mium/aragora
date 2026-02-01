@@ -19,7 +19,6 @@ from aragora.resilience import with_timeout_sync
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     handle_errors,
     json_response,

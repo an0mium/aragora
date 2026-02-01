@@ -28,7 +28,6 @@ from typing import Any, Optional
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     get_string_param,
     json_response,

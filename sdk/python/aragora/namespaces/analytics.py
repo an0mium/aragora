@@ -248,7 +248,7 @@ class AnalyticsAPI:
         Returns:
             Topic distribution data
         """
-        params = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if time_range:
             params["time_range"] = time_range
         return self._client.request("GET", "/api/analytics/debates/topics", params=params)
@@ -287,7 +287,7 @@ class AnalyticsAPI:
         Returns:
             Agent leaderboard data
         """
-        params = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if domain:
             params["domain"] = domain
         return self._client.request("GET", "/api/analytics/agents/leaderboard", params=params)
@@ -449,7 +449,7 @@ class AnalyticsAPI:
         Returns:
             Recent flips data
         """
-        params = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if agent:
             params["agent"] = agent
         if flip_type:
@@ -490,7 +490,7 @@ class AnalyticsAPI:
         Returns:
             Deliberation summary data
         """
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         if org_id:
             params["org_id"] = org_id
         return self._client.request("GET", "/api/analytics/deliberations", params=params)
@@ -510,7 +510,7 @@ class AnalyticsAPI:
         Returns:
             Channel breakdown data
         """
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         if org_id:
             params["org_id"] = org_id
         return self._client.request("GET", "/api/analytics/deliberations/channels", params=params)
@@ -530,7 +530,7 @@ class AnalyticsAPI:
         Returns:
             Consensus rate data
         """
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         if org_id:
             params["org_id"] = org_id
         return self._client.request("GET", "/api/analytics/deliberations/consensus", params=params)
@@ -647,7 +647,7 @@ class AsyncAnalyticsAPI:
         limit: int = 10,
     ) -> dict[str, Any]:
         """Get topic distribution and consensus by topic."""
-        params = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if time_range:
             params["time_range"] = time_range
         return await self._client.request("GET", "/api/analytics/debates/topics", params=params)
@@ -662,7 +662,7 @@ class AsyncAnalyticsAPI:
         domain: str | None = None,
     ) -> dict[str, Any]:
         """Get agent leaderboard with ELO rankings."""
-        params = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if domain:
             params["domain"] = domain
         return await self._client.request("GET", "/api/analytics/agents/leaderboard", params=params)
@@ -736,7 +736,7 @@ class AsyncAnalyticsAPI:
         flip_type: str | None = None,
     ) -> dict[str, Any]:
         """Get recent flip events."""
-        params = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if agent:
             params["agent"] = agent
         if flip_type:
@@ -753,7 +753,7 @@ class AsyncAnalyticsAPI:
         days: int = 30,
     ) -> dict[str, Any]:
         """Get deliberation summary."""
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         if org_id:
             params["org_id"] = org_id
         return await self._client.request("GET", "/api/analytics/deliberations", params=params)
@@ -764,7 +764,7 @@ class AsyncAnalyticsAPI:
         days: int = 30,
     ) -> dict[str, Any]:
         """Get consensus rates by agent team."""
-        params = {"days": days}
+        params: dict[str, Any] = {"days": days}
         if org_id:
             params["org_id"] = org_id
         return await self._client.request(

@@ -36,13 +36,13 @@ from typing import Any
 
 from aragora.audit.unified import audit_data
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.openapi_decorator import api_endpoint
 
 from aragora.integrations.zapier import ZapierIntegration, get_zapier_integration
 from aragora.integrations.make import MakeIntegration, get_make_integration
 from aragora.integrations.n8n import N8nIntegration, get_n8n_integration
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
-    ServerContext,
     error_response,
     json_response,
 )
@@ -411,6 +411,12 @@ class ExternalIntegrationsHandler(SecureHandler):
     # Zapier Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/integrations/zapier/apps",
+        summary="List Zapier apps",
+        tags=["Integrations"],
+    )
     def _handle_list_zapier_apps(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/zapier/apps - list Zapier apps."""
         # Check RBAC permission
@@ -441,6 +447,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/integrations/zapier/triggers",
+        summary="List Zapier trigger types",
+        tags=["Integrations"],
+    )
     def _handle_list_zapier_trigger_types(self, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/zapier/triggers - list trigger types."""
         # Check RBAC permission
@@ -457,6 +469,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/integrations/zapier/apps",
+        summary="Create Zapier app",
+        tags=["Integrations"],
+    )
     def _handle_create_zapier_app(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/apps - create Zapier app."""
         # Check RBAC permission - creating integrations exposes API keys
@@ -495,6 +513,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             status=201,
         )
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/integrations/zapier/apps/{app_id}",
+        summary="Delete Zapier app",
+        tags=["Integrations"],
+    )
     def _handle_delete_zapier_app(self, app_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/zapier/apps/:id - delete Zapier app."""
         # Check RBAC permission
@@ -519,6 +543,12 @@ class ExternalIntegrationsHandler(SecureHandler):
                 f"Zapier app not found: {app_id}", 404, code="ZAPIER_APP_NOT_FOUND"
             )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/integrations/zapier/triggers",
+        summary="Subscribe to Zapier trigger",
+        tags=["Integrations"],
+    )
     def _handle_subscribe_zapier_trigger(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/triggers - subscribe to trigger."""
         # Check RBAC permission - subscribing creates webhooks
@@ -564,6 +594,12 @@ class ExternalIntegrationsHandler(SecureHandler):
                 "Failed to subscribe trigger", 400, code="TRIGGER_SUBSCRIBE_FAILED"
             )
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/integrations/zapier/triggers/{trigger_id}",
+        summary="Unsubscribe from Zapier trigger",
+        tags=["Integrations"],
+    )
     def _handle_unsubscribe_zapier_trigger(
         self, app_id: str, trigger_id: str, handler: Any
     ) -> HandlerResult:
@@ -587,6 +623,12 @@ class ExternalIntegrationsHandler(SecureHandler):
     # Make Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/integrations/make/connections",
+        summary="List Make connections",
+        tags=["Integrations"],
+    )
     def _handle_list_make_connections(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/make/connections - list connections."""
         # Check RBAC permission
@@ -616,6 +658,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/integrations/make/modules",
+        summary="List Make modules",
+        tags=["Integrations"],
+    )
     def _handle_list_make_modules(self, handler: Any) -> HandlerResult:
         # Check RBAC permission
         perm_error = self._check_permission(handler, "connectors.read")
@@ -631,6 +679,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/integrations/make/connections",
+        summary="Create Make connection",
+        tags=["Integrations"],
+    )
     def _handle_create_make_connection(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/connections - create connection."""
         # Check RBAC permission - creating integrations exposes API keys
@@ -668,6 +722,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             status=201,
         )
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/integrations/make/connections/{connection_id}",
+        summary="Delete Make connection",
+        tags=["Integrations"],
+    )
     def _handle_delete_make_connection(self, conn_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/make/connections/:id - delete."""
         # Check RBAC permission
@@ -692,6 +752,12 @@ class ExternalIntegrationsHandler(SecureHandler):
                 f"Make connection not found: {conn_id}", 404, code="MAKE_CONNECTION_NOT_FOUND"
             )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/integrations/make/webhooks",
+        summary="Register Make webhook",
+        tags=["Integrations"],
+    )
     def _handle_register_make_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/webhooks - register webhook."""
         # Check RBAC permission - registering webhooks exposes external URLs
@@ -734,6 +800,12 @@ class ExternalIntegrationsHandler(SecureHandler):
         else:
             return error_response("Failed to register webhook", 400, code="WEBHOOK_REGISTER_FAILED")
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/integrations/make/webhooks/{webhook_id}",
+        summary="Unregister Make webhook",
+        tags=["Integrations"],
+    )
     def _handle_unregister_make_webhook(
         self, conn_id: str, webhook_id: str, handler: Any
     ) -> HandlerResult:
@@ -759,6 +831,12 @@ class ExternalIntegrationsHandler(SecureHandler):
     # n8n Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/integrations/n8n/credentials",
+        summary="List n8n credentials",
+        tags=["Integrations"],
+    )
     def _handle_list_n8n_credentials(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/n8n/credentials - list credentials."""
         # Check RBAC permission
@@ -789,6 +867,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/integrations/n8n/nodes",
+        summary="Get n8n node definitions",
+        tags=["Integrations"],
+    )
     def _handle_get_n8n_nodes(self, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/n8n/nodes - get node definitions."""
         # Check RBAC permission
@@ -807,6 +891,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/integrations/n8n/credentials",
+        summary="Create n8n credential",
+        tags=["Integrations"],
+    )
     def _handle_create_n8n_credential(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/credentials - create credential."""
         # Check RBAC permission - creating credentials exposes API keys
@@ -848,6 +938,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             status=201,
         )
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/integrations/n8n/credentials/{credential_id}",
+        summary="Delete n8n credential",
+        tags=["Integrations"],
+    )
     def _handle_delete_n8n_credential(self, cred_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/n8n/credentials/:id - delete."""
         # Check RBAC permission
@@ -872,6 +968,12 @@ class ExternalIntegrationsHandler(SecureHandler):
                 f"n8n credential not found: {cred_id}", 404, code="N8N_CREDENTIAL_NOT_FOUND"
             )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/integrations/n8n/webhooks",
+        summary="Register n8n webhook",
+        tags=["Integrations"],
+    )
     def _handle_register_n8n_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/webhooks - register webhook."""
         # Check RBAC permission - registering webhooks creates external endpoints
@@ -913,6 +1015,12 @@ class ExternalIntegrationsHandler(SecureHandler):
         else:
             return error_response("Failed to register webhook", 400, code="WEBHOOK_REGISTER_FAILED")
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/integrations/n8n/webhooks/{webhook_id}",
+        summary="Unregister n8n webhook",
+        tags=["Integrations"],
+    )
     def _handle_unregister_n8n_webhook(
         self, cred_id: str, webhook_id: str, handler: Any
     ) -> HandlerResult:

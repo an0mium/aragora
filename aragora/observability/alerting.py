@@ -607,8 +607,6 @@ class MetricsCollector:
 
     async def _collect_agent_metrics(self, snapshot: MetricsSnapshot) -> None:
         """Collect agent-related metrics."""
-        now = time.time()
-
         # Prune and collect failure counts
         for agent_name, window in self._agent_failure_window.items():
             self._prune_old_failures(agent_name)

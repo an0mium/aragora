@@ -26,7 +26,6 @@ from typing import Any
 
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
-    ServerContext,
     error_response,
     json_response,
 )

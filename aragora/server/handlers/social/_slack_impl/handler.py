@@ -10,10 +10,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Awaitable, Optional, cast
+from typing import Any, Awaitable, Optional
 from urllib.parse import parse_qs
 
-from aragora.server.handlers.base import ServerContext
 
 from . import config as _cfg
 from .config import (
@@ -215,7 +214,9 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
 _slack_handler: Optional["SlackHandler"] = None
 
 
-def get_slack_handler(server_context: dict[str, Any] | dict[str, Any] | None = None) -> SlackHandler:
+def get_slack_handler(
+    server_context: dict[str, Any] | dict[str, Any] | None = None,
+) -> SlackHandler:
     """Get or create the Slack handler instance.
 
     Args:

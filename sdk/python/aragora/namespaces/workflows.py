@@ -65,7 +65,7 @@ class WorkflowsAPI:
         name: str,
         steps: _List[dict[str, Any]],
         description: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """
         Create a new workflow.
@@ -88,7 +88,7 @@ class WorkflowsAPI:
     def update(
         self,
         workflow_id: str,
-        **updates,
+        **updates: Any,
     ) -> dict[str, Any]:
         """
         Update a workflow.
@@ -168,7 +168,7 @@ class WorkflowsAPI:
         Returns:
             List of executions
         """
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workflow_id:
             params["workflow_id"] = workflow_id
 
@@ -206,7 +206,7 @@ class WorkflowsAPI:
         self,
         template_id: str,
         name: str,
-        **overrides,
+        **overrides: Any,
     ) -> dict[str, Any]:
         """
         Create a workflow from a template.
@@ -296,7 +296,7 @@ class AsyncWorkflowsAPI:
         name: str,
         steps: _List[dict[str, Any]],
         description: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Create a new workflow."""
         data = {"name": name, "steps": steps, **kwargs}
@@ -308,7 +308,7 @@ class AsyncWorkflowsAPI:
     async def update(
         self,
         workflow_id: str,
-        **updates,
+        **updates: Any,
     ) -> dict[str, Any]:
         """Update a workflow."""
         return await self._client.request(
@@ -344,7 +344,7 @@ class AsyncWorkflowsAPI:
         offset: int = 0,
     ) -> dict[str, Any]:
         """List workflow executions."""
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workflow_id:
             params["workflow_id"] = workflow_id
 
@@ -369,7 +369,7 @@ class AsyncWorkflowsAPI:
         self,
         template_id: str,
         name: str,
-        **overrides,
+        **overrides: Any,
     ) -> dict[str, Any]:
         """Create a workflow from a template."""
         return await self._client.request(

@@ -62,7 +62,7 @@ class MonitoringAPI:
         status: str | None = None,
         severity: str | None = None,
         limit: int = 50,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         List active alerts.
 
@@ -120,7 +120,7 @@ class MonitoringAPI:
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/resolve", json=data
         )
 
-    def list_dashboards(self) -> list[dict[str, Any]]:
+    def list_dashboards(self) -> dict[str, Any]:
         """
         List available dashboards.
 
@@ -147,7 +147,7 @@ class MonitoringAPI:
         start_time: str | None = None,
         end_time: str | None = None,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         Query logs.
 
@@ -176,7 +176,7 @@ class MonitoringAPI:
         operation: str | None = None,
         min_duration: str | None = None,
         limit: int = 20,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         Query distributed traces.
 
@@ -199,7 +199,7 @@ class MonitoringAPI:
 
         return self._client._request("GET", "/api/v1/monitoring/traces", params=params)
 
-    def get_slos(self) -> list[dict[str, Any]]:
+    def get_slos(self) -> dict[str, Any]:
         """
         Get SLO status.
 
@@ -242,7 +242,7 @@ class AsyncMonitoringAPI:
         status: str | None = None,
         severity: str | None = None,
         limit: int = 50,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """List active alerts."""
         params: dict[str, Any] = {"limit": limit}
         if status:
@@ -272,7 +272,7 @@ class AsyncMonitoringAPI:
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/resolve", json=data
         )
 
-    async def list_dashboards(self) -> list[dict[str, Any]]:
+    async def list_dashboards(self) -> dict[str, Any]:
         """List available dashboards."""
         return await self._client._request("GET", "/api/v1/monitoring/dashboards")
 
@@ -286,7 +286,7 @@ class AsyncMonitoringAPI:
         start_time: str | None = None,
         end_time: str | None = None,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Query logs."""
         params: dict[str, Any] = {"limit": limit}
         if query:
@@ -304,7 +304,7 @@ class AsyncMonitoringAPI:
         operation: str | None = None,
         min_duration: str | None = None,
         limit: int = 20,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Query distributed traces."""
         params: dict[str, Any] = {"limit": limit}
         if service:
@@ -316,6 +316,6 @@ class AsyncMonitoringAPI:
 
         return await self._client._request("GET", "/api/v1/monitoring/traces", params=params)
 
-    async def get_slos(self) -> list[dict[str, Any]]:
+    async def get_slos(self) -> dict[str, Any]:
         """Get SLO status."""
         return await self._client._request("GET", "/api/v1/monitoring/slos")

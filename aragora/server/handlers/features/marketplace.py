@@ -22,14 +22,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, Optional
 from uuid import uuid4
 
 import yaml
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

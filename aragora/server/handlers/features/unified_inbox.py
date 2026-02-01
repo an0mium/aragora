@@ -42,7 +42,6 @@ from uuid import uuid4
 from ..base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )

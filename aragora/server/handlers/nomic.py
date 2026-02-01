@@ -40,7 +40,6 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     HandlerResult,
-    ServerContext,
     error_response,
     get_int_param,
     json_response,

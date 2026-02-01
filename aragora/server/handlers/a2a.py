@@ -18,12 +18,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    ServerContext,
     error_response,
     json_response,
 )

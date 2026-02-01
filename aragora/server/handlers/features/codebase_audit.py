@@ -31,12 +31,11 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional, cast
+from typing import Any, Optional
 from uuid import uuid4
 
 from ..base import (
     HandlerResult,
-    ServerContext,
     error_response,
     success_response,
 )
