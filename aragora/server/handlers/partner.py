@@ -278,9 +278,7 @@ class PartnerHandler(BaseHandler):
                     "name": new_key.name,
                     "scopes": new_key.scopes,
                     "created_at": new_key.created_at.isoformat(),
-                    "expires_at": (
-                        new_key.expires_at.isoformat() if new_key.expires_at else None
-                    ),
+                    "expires_at": (new_key.expires_at.isoformat() if new_key.expires_at else None),
                     "rotated_from": key_id,
                     "warning": "Save this key securely - it will not be shown again!",
                 },

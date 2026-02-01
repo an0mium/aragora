@@ -609,9 +609,7 @@ class TestPartnerRotateKey:
         )
 
         with patch("aragora.billing.partner.get_partner_api", return_value=mock_partner_api):
-            result = partner_handler.handle(
-                "/api/v1/partners/keys/key-123/rotate", {}, handler
-            )
+            result = partner_handler.handle("/api/v1/partners/keys/key-123/rotate", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
