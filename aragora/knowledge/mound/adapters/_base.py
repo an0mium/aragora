@@ -94,6 +94,34 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
 
     adapter_name: str = "base"
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Enforce that concrete adapters define a unique adapter_name.
+
+        This runs when a subclass is created, ensuring all adapters have
+        proper identification for metrics, logging, and circuit breakers.
+
+        Skips validation for:
+        - Mixin classes (names ending with 'Mixin')
+        - Private/internal classes (names starting with '_')
+        - Abstract base classes
+        """
+        super().__init_subclass__(**kwargs)
+
+        # Skip mixins and internal classes
+        if cls.__name__.endswith("Mixin") or cls.__name__.startswith("_"):
+            return
+
+        # Check adapter_name is defined and not 'base'
+        if not hasattr(cls, "adapter_name"):
+            raise TypeError(f"{cls.__name__} must define 'adapter_name' class attribute")
+
+        if cls.adapter_name == "base":
+            raise TypeError(
+                f"{cls.__name__} must override 'adapter_name' "
+                f"(currently 'base'). Set a unique identifier like "
+                f"adapter_name = '{cls.__name__.lower().replace('adapter', '')}'"
+            )
+
     def __init__(
         self,
         enable_dual_write: bool = False,
