@@ -457,7 +457,7 @@ class ArenaExtensions:
 
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is None:
-                    ranking_adapter = RankingAdapter()
+                    ranking_adapter = RankingAdapter() # type: ignore[abstract]
                     setattr(manager, "_ranking_adapter", ranking_adapter)
 
                 stats = ranking_adapter.get_stats()

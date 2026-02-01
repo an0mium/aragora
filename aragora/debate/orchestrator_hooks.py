@@ -391,13 +391,16 @@ async def recover_pending_debates(
     try:
         from datetime import datetime, timedelta, timezone
 
-        from aragora.nomic.beads import BeadStatus, BeadStore, BeadType
-        from aragora.nomic.stores.paths import resolve_store_dir
+        from aragora.nomic.beads import BeadStatus, BeadType
         from aragora.nomic.hook_queue import HookQueueRegistry
+        from aragora.stores import get_canonical_workspace_stores
 
         if bead_store is None:
-            bead_store = BeadStore(bead_dir=resolve_store_dir(), git_enabled=False)
-            await bead_store.initialize()
+            stores = get_canonical_workspace_stores(
+                git_enabled=False,
+                auto_commit=False,
+            )
+            bead_store = await stores.bead_store()
 
         registry = HookQueueRegistry(bead_store)
         recovered = await registry.recover_all()

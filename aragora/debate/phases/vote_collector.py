@@ -32,6 +32,7 @@ from aragora.debate.bias_mitigation import (
     generate_permutations,
     average_permutation_votes,
 )
+from aragora.debate.config.defaults import DEBATE_DEFAULTS
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Vote
@@ -39,15 +40,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Timeout constants
-AGENT_TIMEOUT_SECONDS = 45
-VOTE_COLLECTION_TIMEOUT = 180  # Hard cap for collecting all votes
+# Timeout constants - sourced from centralized defaults
+AGENT_TIMEOUT_SECONDS = DEBATE_DEFAULTS.agent_timeout_seconds
+# Vote collection timeout: 3x the round timeout to allow for parallel collection
+VOTE_COLLECTION_TIMEOUT = DEBATE_DEFAULTS.round_timeout_seconds * 2
 
-# RLM Early Termination Configuration
+# RLM Early Termination Configuration - sourced from centralized defaults
 # Minimum fraction of votes needed for early termination
-RLM_EARLY_TERMINATION_THRESHOLD = 0.75
+RLM_EARLY_TERMINATION_THRESHOLD = DEBATE_DEFAULTS.early_stop_threshold
 # Minimum lead over second choice to trigger early termination (as fraction of total agents)
-RLM_MAJORITY_LEAD_THRESHOLD = 0.25
+RLM_MAJORITY_LEAD_THRESHOLD = 0.25  # No equivalent in defaults, keep as local constant
 
 
 def get_complexity_governor() -> Any:

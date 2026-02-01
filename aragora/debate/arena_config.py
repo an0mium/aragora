@@ -1169,7 +1169,7 @@ class DebateConfig:
 
         debate_config = DebateConfig(
             rounds=5,
-            consensus_threshold=0.7,
+            consensus_threshold=0.6,
             enable_adaptive_rounds=True,
         )
         arena = Arena(env, agents, debate_config=debate_config)
@@ -1177,7 +1177,7 @@ class DebateConfig:
 
     # Protocol settings (passed to DebateProtocol or override defaults)
     rounds: int = DEFAULT_ROUNDS  # Number of debate rounds
-    consensus_threshold: float = 0.7  # Threshold for consensus detection
+    consensus_threshold: float = 0.6  # Threshold for consensus detection (matches DEBATE_DEFAULTS)
     convergence_detection: bool = True  # Enable semantic convergence detection
     convergence_threshold: float = 0.85  # Similarity threshold for convergence
     divergence_threshold: float = 0.3  # Threshold for divergence detection

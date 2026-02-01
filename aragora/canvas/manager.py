@@ -939,7 +939,7 @@ class CanvasStateManager:
         try:
             from aragora.knowledge.mound.facade import KnowledgeMound
 
-            mound = KnowledgeMound()
+            mound = KnowledgeMound() # type: ignore[abstract]
             results = await mound.query(query, limit=limit)
 
             # Format results
