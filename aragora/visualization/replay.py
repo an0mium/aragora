@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from aragora.debate.traces import DebateTrace
 
 # Runtime check for trace support
+_EventType: Any = None
+_traces_module: Any = None
 try:
     from aragora.debate import traces as _traces_module
 

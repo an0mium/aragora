@@ -211,10 +211,10 @@ class EventBus:
                 removed += len(self._sync_handlers[event_type])
                 del self._sync_handlers[event_type]
         else:
-            for handlers in self._async_handlers.values():
-                removed += len(handlers)
-            for handlers in self._sync_handlers.values():
-                removed += len(handlers)
+            for async_handlers in self._async_handlers.values():
+                removed += len(async_handlers)
+            for sync_handlers in self._sync_handlers.values():
+                removed += len(sync_handlers)
             self._async_handlers.clear()
             self._sync_handlers.clear()
         return removed

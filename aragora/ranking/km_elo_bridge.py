@@ -501,7 +501,7 @@ class KMEloBridge:
                     limit=100,
                 )
             elif hasattr(self._knowledge_mound, "query"):
-                return await self._knowledge_mound.query(
+                return await self._knowledge_mound.query(  # type: ignore[return-value]
                     query=f"agent:{agent_name}",
                     limit=100,
                 )

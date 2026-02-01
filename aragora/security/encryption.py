@@ -825,7 +825,7 @@ def encrypt_data(data: bytes, key_id: str = "") -> bytes:
     result = service.encrypt(
         data if isinstance(data, str) else data.decode("utf-8", errors="replace")
     )
-    return result.encode("utf-8") if isinstance(result, str) else result
+    return result.to_bytes()
 
 
 def decrypt_data(data: bytes, key_id: str = "") -> bytes:

@@ -680,6 +680,15 @@ class GatewayWebSocketProtocol:
             device_id=device_id,
             metadata=metadata,
         )
+
+        # Handle policy intercept rejection
+        if isinstance(session, PolicyInterceptResult):
+            return self._error(
+                "policy_denied",
+                session.reason or "Session denied by policy",
+                request_id,
+            )
+
         self._connected = True
         self._session_id = session.session_id
 
