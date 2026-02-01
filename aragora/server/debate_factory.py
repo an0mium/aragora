@@ -472,18 +472,33 @@ class DebateFactory:
         # - "full": 9-round thorough format (~30 min) with all features
         if config.debate_format == "light":
             base_protocol = ARAGORA_AI_LIGHT_PROTOCOL
-            max_rounds = 4
-            logger.info("debate_format=light using 4-round quick protocol")
+            default_rounds = base_protocol.rounds
+            logger.info("debate_format=light using %s-round quick protocol", default_rounds)
         else:
             base_protocol = ARAGORA_AI_PROTOCOL
-            max_rounds = 9
-            logger.info("debate_format=full using 9-round thorough protocol")
+            default_rounds = base_protocol.rounds
+            logger.info("debate_format=full using %s-round thorough protocol", default_rounds)
+
+        # Respect requested rounds when explicitly set (defaults differ for light vs full)
+        rounds = default_rounds
+        if config.debate_format == "light":
+            if config.rounds != DEFAULT_ROUNDS and config.rounds != default_rounds:
+                rounds = config.rounds
+        else:
+            rounds = config.rounds or default_rounds
+
+        # Avoid mismatched structured phase lengths when rounds are overridden
+        use_structured_phases = base_protocol.use_structured_phases
+        round_phases = base_protocol.round_phases
+        if rounds != base_protocol.rounds:
+            use_structured_phases = False
+            round_phases = None
 
         # Create environment with appropriate round count
         env = Environment(
             task=config.question,
             context="",
-            max_rounds=max_rounds,
+            max_rounds=rounds,
         )
 
         # Create protocol from preset, allowing consensus override
@@ -501,12 +516,12 @@ class DebateFactory:
             config.consensus or base_protocol.consensus,
         )
         protocol = DebateProtocol(
-            rounds=base_protocol.rounds,
+            rounds=rounds,
             consensus=consensus_type,
             proposer_count=len(agent_result.agents),
             topology=base_protocol.topology,
-            use_structured_phases=base_protocol.use_structured_phases,
-            round_phases=base_protocol.round_phases,
+            use_structured_phases=use_structured_phases,
+            round_phases=round_phases,
             early_stopping=base_protocol.early_stopping,
             early_stop_threshold=base_protocol.early_stop_threshold,
             min_rounds_before_early_stop=base_protocol.min_rounds_before_early_stop,
