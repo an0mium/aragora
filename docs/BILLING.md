@@ -296,8 +296,8 @@ from aragora.billing.usage import (
     calculate_token_cost,
 )
 
-# Initialize tracker
-tracker = UsageTracker("./data/usage.db")
+# Initialize tracker (stored under ARAGORA_DATA_DIR)
+tracker = UsageTracker("usage.db")
 
 # Record a debate event
 tracker.record_event(

@@ -218,6 +218,22 @@ def _compare_results(single: dict | None, multi: dict | None) -> dict:
     }
 
 
+def _rubric_template() -> dict:
+    """Template for manual quality review."""
+    return {
+        "reviewer": "",
+        "reviewed_at": "",
+        "architecture_quality": None,
+        "correctness": None,
+        "maintainability": None,
+        "test_quality": None,
+        "defects_found": 0,
+        "security_issues": 0,
+        "performance_impact": "",
+        "notes": "",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Nomic evaluation harness")
     parser.add_argument("--tasks", type=str, required=True, help="Path to tasks JSON")
@@ -249,6 +265,7 @@ def main() -> int:
         "base_ref": args.base_ref,
         "mode": args.mode,
         "tasks": [],
+        "rubric_template": _rubric_template(),
     }
 
     for task in tasks:
@@ -257,6 +274,7 @@ def main() -> int:
             "single": None,
             "multi": None,
             "comparison": None,
+            "manual_review": _rubric_template(),
         }
         if args.mode in ("single", "shadow"):
             task_entry["single"] = _run_variant(

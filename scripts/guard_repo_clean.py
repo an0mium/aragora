@@ -106,20 +106,16 @@ def main() -> int:
     tracked = [path for path in _git_ls_files() if _matches(path)]
     if tracked:
         _report("Tracked runtime artifacts detected:", tracked)
-        print("Remove these files from git and keep runtime data under .nomic/ or data/.")
+        print("Remove these files from git and keep runtime data under ARAGORA_DATA_DIR.")
         return 1
 
     if args.check_working_tree:
         untracked = [path for path in _git_status_untracked() if _matches(path)]
         # Ignore artifacts under ARAGORA_DATA_DIR
-        untracked = [
-            path
-            for path in untracked
-            if not _is_under(repo_root / path, data_dir)
-        ]
+        untracked = [path for path in untracked if not _is_under(repo_root / path, data_dir)]
         if untracked:
             _report("Untracked runtime artifacts detected:", untracked)
-            print("Move runtime data under .nomic/ or delete these artifacts.")
+            print("Move runtime data under ARAGORA_DATA_DIR or delete these artifacts.")
             return 1
 
     print("Repo hygiene check passed.")

@@ -40,6 +40,9 @@ Results are written under `.nomic/eval/`:
 - `task_id/multi/<timestamp>/result.json`
 - `report.json`
 
+The report includes a `rubric_template` and each task includes a
+`manual_review` section for human scoring.
+
 ## Notes
 
 - The harness does **not** auto-commit or push.

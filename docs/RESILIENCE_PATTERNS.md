@@ -142,7 +142,7 @@ from aragora.resilience import (
 )
 
 # Initialize persistence (call at startup)
-init_circuit_breaker_persistence(db_path="data/circuit_breakers.db")
+init_circuit_breaker_persistence(db_path="circuit_breaker.db")  # stored under ARAGORA_DATA_DIR
 
 # Load persisted state
 load_circuit_breakers()
