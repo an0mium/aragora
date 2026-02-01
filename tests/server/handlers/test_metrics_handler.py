@@ -19,6 +19,7 @@ from aragora.server.handlers.metrics import (
     track_verification,
     get_verification_stats,
     track_request,
+    get_request_stats,
 )
 
 
@@ -238,30 +239,35 @@ class TestRequestTracking:
         """track_request increments endpoint count."""
         endpoint = "/api/v1/test/unique_endpoint_123"
 
+        stats_before = get_request_stats()
         track_request(endpoint)
         track_request(endpoint)
+        stats_after = get_request_stats()
 
-        # The function doesn't expose counts directly,
-        # but we verify it doesn't crash
-        assert True
+        # Total requests should have increased
+        assert stats_after["total_requests"] >= stats_before["total_requests"] + 2
 
     def test_track_request_handles_error(self):
         """track_request can track errors."""
         endpoint = "/api/v1/test/error_endpoint"
 
+        stats_before = get_request_stats()
         track_request(endpoint, is_error=True)
+        stats_after = get_request_stats()
 
-        # Verify no crash
-        assert True
+        # Error count should have increased
+        assert stats_after["total_errors"] >= stats_before["total_errors"] + 1
 
     def test_track_request_multiple_endpoints(self):
         """track_request tracks multiple endpoints."""
+        stats_before = get_request_stats()
         track_request("/api/v1/endpoint1")
         track_request("/api/v1/endpoint2")
         track_request("/api/v1/endpoint3")
+        stats_after = get_request_stats()
 
-        # Verify no crash
-        assert True
+        # Total requests should have increased by 3
+        assert stats_after["total_requests"] >= stats_before["total_requests"] + 3
 
 
 class TestMetricsHandlerResponseFormat:

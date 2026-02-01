@@ -393,9 +393,8 @@ class TestCheckpointToolValidation:
         """list_checkpoints_tool respects limit bounds."""
         # Very high limit should be capped
         result = await list_checkpoints_tool(limit=1000)
-        # Function should handle gracefully
-        if "checkpoints" in result:
-            assert True  # Just verify no crash
+        # Function should handle gracefully - result should be a dict
+        assert isinstance(result, dict)
 
 
 # =============================================================================

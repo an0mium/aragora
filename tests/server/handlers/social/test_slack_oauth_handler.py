@@ -164,12 +164,11 @@ class TestSlackOAuthInstall:
             )
 
         # Find the new state
-        for state, data in oauth_state_store._states.items():
-            if data.metadata and data.metadata.get("tenant_id") == "tenant-001":
-                assert True
-                return
-
-        pytest.fail("tenant_id not stored in state")
+        found = any(
+            data.metadata and data.metadata.get("tenant_id") == "tenant-001"
+            for data in oauth_state_store._states.values()
+        )
+        assert found, "tenant_id not stored in state"
 
     @pytest.mark.asyncio
     async def test_install_cleans_old_states(self, oauth_handler, oauth_state_store):

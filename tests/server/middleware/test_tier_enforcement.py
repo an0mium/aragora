@@ -722,7 +722,7 @@ class TestIncrementOrgUsage:
         # The check is: if user_store is None: try import; if still None: return False
         # This is tested already by test_returns_false_when_user_store_import_fails
         # So remove this test as it duplicates the other
-        assert True  # Placeholder - this scenario covered by other tests
+        pass  # Placeholder - this scenario is covered by test_returns_false_when_user_store_import_fails
 
     def test_returns_false_on_type_error(self, mock_user_store):
         """Should return False on TypeError."""

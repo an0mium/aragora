@@ -254,7 +254,12 @@ class TestCheckAndIntervene:
         # Mock detector to not detect hollow consensus
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=False, severity=0.2, round_num=1, avg_quality=0.85
+                detected=False,
+                severity=0.2,
+                reason="Quality acceptable",
+                agent_scores={"agent1": 0.8, "agent2": 0.9},
+                recommended_challenges=[],
+                avg_quality=0.85,
             )
         )
 
@@ -299,15 +304,28 @@ class TestCheckAndIntervene:
             return_value=HollowConsensusAlert(
                 detected=True,
                 severity=0.7,
-                round_num=1,
-                avg_quality=0.3,
-                min_quality=0.3,
-                quality_variance=0.0,
-                agent_scores={"agent1": 0.3, "agent2": 0.3},
                 reason="Low evidence quality",
+                agent_scores={"agent1": 0.3, "agent2": 0.3},
                 recommended_challenges=["Provide citations"],
+                min_quality=0.3,
+                avg_quality=0.3,
+                quality_variance=0.0,
             )
         )
+
+        # Mock cross analyzer to return empty analysis (no evidence gaps or echo chamber)
+        empty_cross_analysis = CrossProposalAnalysis(
+            shared_evidence=[],
+            evidence_corroboration_score=0.0,
+            contradictory_evidence=[],
+            evidence_gaps=[],
+            redundancy_score=0.0,
+            unique_evidence_sources=0,
+            total_evidence_sources=0,
+            agent_coverage={"agent1": 0.3, "agent2": 0.3},
+            weakest_agent="agent1",
+        )
+        trickster._cross_analyzer.analyze = MagicMock(return_value=empty_cross_analysis)
 
         result = trickster.check_and_intervene(
             responses={"agent1": "Vague claim", "agent2": "Vague claim"},
@@ -332,7 +350,12 @@ class TestCheckAndIntervene:
         trickster._analyzer.analyze_batch = MagicMock(return_value={})
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=True, severity=0.8, round_num=2, avg_quality=0.3
+                detected=True,
+                severity=0.8,
+                reason="Low evidence quality",
+                agent_scores={"agent1": 0.3},
+                recommended_challenges=[],
+                avg_quality=0.3,
             )
         )
 
@@ -356,7 +379,12 @@ class TestCheckAndIntervene:
         trickster._analyzer.analyze_batch = MagicMock(return_value={})
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=True, severity=0.9, round_num=5, avg_quality=0.2
+                detected=True,
+                severity=0.9,
+                reason="Low evidence quality",
+                agent_scores={"agent1": 0.2},
+                recommended_challenges=[],
+                avg_quality=0.2,
             )
         )
 
@@ -373,7 +401,14 @@ class TestCheckAndIntervene:
         on_alert = MagicMock()
         trickster = EvidencePoweredTrickster(on_alert=on_alert, linker=MagicMock())
 
-        alert = HollowConsensusAlert(detected=True, severity=0.6, round_num=1, avg_quality=0.4)
+        alert = HollowConsensusAlert(
+            detected=True,
+            severity=0.6,
+            reason="Low evidence quality",
+            agent_scores={"agent1": 0.4},
+            recommended_challenges=[],
+            avg_quality=0.4,
+        )
         trickster._analyzer.analyze_batch = MagicMock(return_value={})
         trickster._detector.check = MagicMock(return_value=alert)
 
@@ -405,12 +440,15 @@ class TestEvidenceGapIntervention:
             gap_severity=0.9,
         )
         cross_analysis = CrossProposalAnalysis(
+            shared_evidence=[],
+            evidence_corroboration_score=0.5,
+            contradictory_evidence=[],
             evidence_gaps=[gap],
             redundancy_score=0.3,
             unique_evidence_sources=5,
             total_evidence_sources=10,
             agent_coverage={},
-            evidence_corroboration_score=0.5,
+            weakest_agent=None,
         )
         trickster._cross_analyzer.analyze = MagicMock(return_value=cross_analysis)
 
@@ -418,7 +456,12 @@ class TestEvidenceGapIntervention:
         trickster._analyzer.analyze_batch = MagicMock(return_value={})
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=False, severity=0.2, round_num=1, avg_quality=0.7
+                detected=False,
+                severity=0.2,
+                reason="Quality acceptable",
+                agent_scores={"agent1": 0.7, "agent2": 0.7},
+                recommended_challenges=[],
+                avg_quality=0.7,
             )
         )
 
@@ -442,12 +485,15 @@ class TestEvidenceGapIntervention:
             gap_severity=0.8,
         )
         cross_analysis = CrossProposalAnalysis(
+            shared_evidence=[],
+            evidence_corroboration_score=0.4,
+            contradictory_evidence=[],
             evidence_gaps=[gap],
             redundancy_score=0.2,
             unique_evidence_sources=3,
             total_evidence_sources=5,
             agent_coverage={"agent1": 0.5},
-            evidence_corroboration_score=0.4,
+            weakest_agent="agent1",
         )
 
         challenge = trickster._build_evidence_gap_challenge(cross_analysis)
@@ -471,19 +517,27 @@ class TestEchoChamberIntervention:
 
         # Mock cross-analyzer to return high redundancy
         cross_analysis = CrossProposalAnalysis(
+            shared_evidence=[],
+            evidence_corroboration_score=0.9,
+            contradictory_evidence=[],
             evidence_gaps=[],
             redundancy_score=0.85,  # High redundancy triggers echo chamber
             unique_evidence_sources=2,
             total_evidence_sources=20,
             agent_coverage={"agent1": 0.8, "agent2": 0.8},
-            evidence_corroboration_score=0.9,
+            weakest_agent=None,
         )
         trickster._cross_analyzer.analyze = MagicMock(return_value=cross_analysis)
 
         trickster._analyzer.analyze_batch = MagicMock(return_value={})
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=False, severity=0.2, round_num=1, avg_quality=0.7
+                detected=False,
+                severity=0.2,
+                reason="Quality acceptable",
+                agent_scores={"agent1": 0.7, "agent2": 0.7},
+                recommended_challenges=[],
+                avg_quality=0.7,
             )
         )
 
@@ -501,12 +555,15 @@ class TestEchoChamberIntervention:
         trickster = EvidencePoweredTrickster(linker=MagicMock())
 
         cross_analysis = CrossProposalAnalysis(
+            shared_evidence=[],
+            evidence_corroboration_score=0.95,
+            contradictory_evidence=[],
             evidence_gaps=[],
             redundancy_score=0.9,
             unique_evidence_sources=2,
             total_evidence_sources=15,
             agent_coverage={"agent1": 0.9, "agent2": 0.9},
-            evidence_corroboration_score=0.95,
+            weakest_agent=None,
         )
 
         challenge = trickster._build_echo_chamber_challenge(cross_analysis)
@@ -596,7 +653,14 @@ class TestInterventionTypeSelection:
         config = TricksterConfig(enable_breakpoints=True)
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
 
-        alert = HollowConsensusAlert(detected=True, severity=0.85, round_num=1, avg_quality=0.2)
+        alert = HollowConsensusAlert(
+            detected=True,
+            severity=0.85,
+            reason="Low evidence quality",
+            agent_scores={"agent1": 0.2},
+            recommended_challenges=[],
+            avg_quality=0.2,
+        )
 
         intervention_type = trickster._select_intervention_type(alert, round_num=1)
         assert intervention_type == InterventionType.BREAKPOINT
@@ -606,7 +670,14 @@ class TestInterventionTypeSelection:
         config = TricksterConfig(enable_role_assignment=True, enable_breakpoints=False)
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
 
-        alert = HollowConsensusAlert(detected=True, severity=0.6, round_num=1, avg_quality=0.4)
+        alert = HollowConsensusAlert(
+            detected=True,
+            severity=0.6,
+            reason="Low evidence quality",
+            agent_scores={"agent1": 0.4},
+            recommended_challenges=[],
+            avg_quality=0.4,
+        )
 
         intervention_type = trickster._select_intervention_type(alert, round_num=1)
         assert intervention_type == InterventionType.QUALITY_ROLE
@@ -617,7 +688,14 @@ class TestInterventionTypeSelection:
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
         trickster._state.total_interventions = 1  # Not first intervention
 
-        alert = HollowConsensusAlert(detected=True, severity=0.6, round_num=2, avg_quality=0.4)
+        alert = HollowConsensusAlert(
+            detected=True,
+            severity=0.6,
+            reason="Low evidence quality",
+            agent_scores={"agent1": 0.4},
+            recommended_challenges=[],
+            avg_quality=0.4,
+        )
 
         intervention_type = trickster._select_intervention_type(alert, round_num=2)
         assert intervention_type == InterventionType.CHALLENGE_PROMPT
@@ -627,7 +705,14 @@ class TestInterventionTypeSelection:
         config = TricksterConfig(enable_breakpoints=False, enable_role_assignment=False)
         trickster = EvidencePoweredTrickster(config=config, linker=MagicMock())
 
-        alert = HollowConsensusAlert(detected=True, severity=0.9, round_num=1, avg_quality=0.1)
+        alert = HollowConsensusAlert(
+            detected=True,
+            severity=0.9,
+            reason="Low evidence quality",
+            agent_scores={"agent1": 0.1},
+            recommended_challenges=[],
+            avg_quality=0.1,
+        )
 
         intervention_type = trickster._select_intervention_type(alert, round_num=1)
         assert intervention_type == InterventionType.CHALLENGE_PROMPT
@@ -679,8 +764,22 @@ class TestStatsAndReset:
         # Add some state
         trickster._state.total_interventions = 2
         trickster._state.hollow_alerts = [
-            HollowConsensusAlert(detected=True, severity=0.7, round_num=1, avg_quality=0.3),
-            HollowConsensusAlert(detected=False, severity=0.2, round_num=2, avg_quality=0.8),
+            HollowConsensusAlert(
+                detected=True,
+                severity=0.7,
+                reason="Low evidence quality",
+                agent_scores={"agent1": 0.3},
+                recommended_challenges=[],
+                avg_quality=0.3,
+            ),
+            HollowConsensusAlert(
+                detected=False,
+                severity=0.2,
+                reason="Quality acceptable",
+                agent_scores={"agent1": 0.8},
+                recommended_challenges=[],
+                avg_quality=0.8,
+            ),
         ]
         trickster._state.quality_history = [
             {"agent1": EvidenceQualityScore(agent="agent", round_num=1, overall_quality=0.4)},
@@ -712,7 +811,14 @@ class TestStatsAndReset:
         trickster._state.total_interventions = 5
         trickster._state.last_intervention_round = 10
         trickster._state.hollow_alerts.append(
-            HollowConsensusAlert(detected=True, severity=0.5, round_num=1, avg_quality=0.4)
+            HollowConsensusAlert(
+                detected=True,
+                severity=0.5,
+                reason="Low evidence quality",
+                agent_scores={"agent1": 0.4},
+                recommended_challenges=[],
+                avg_quality=0.4,
+            )
         )
 
         trickster.reset()
@@ -786,7 +892,12 @@ class TestTricksterIntegration:
         )
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=False, severity=0.1, round_num=1, avg_quality=0.8
+                detected=False,
+                severity=0.1,
+                reason="Quality acceptable",
+                agent_scores={"agent1": 0.8},
+                recommended_challenges=[],
+                avg_quality=0.8,
             )
         )
 
@@ -815,10 +926,10 @@ class TestTricksterIntegration:
             return_value=HollowConsensusAlert(
                 detected=True,
                 severity=0.7,
-                round_num=2,
-                avg_quality=0.3,
-                agent_scores={"agent1": 0.3},
                 reason="Low quality",
+                agent_scores={"agent1": 0.3},
+                recommended_challenges=["Provide citations"],
+                avg_quality=0.3,
             )
         )
 
@@ -850,7 +961,12 @@ class TestTricksterIntegration:
         trickster._analyzer.analyze_batch = MagicMock(side_effect=[scores_r1, scores_r2])
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=False, severity=0.1, round_num=1, avg_quality=0.7
+                detected=False,
+                severity=0.1,
+                reason="Quality acceptable",
+                agent_scores={"agent1": 0.7, "agent2": 0.7},
+                recommended_challenges=[],
+                avg_quality=0.7,
             )
         )
 
@@ -883,7 +999,12 @@ class TestEdgeCases:
         trickster._analyzer.analyze_batch = MagicMock(return_value={})
         trickster._detector.check = MagicMock(
             return_value=HollowConsensusAlert(
-                detected=False, severity=0.0, round_num=1, avg_quality=0.0
+                detected=False,
+                severity=0.0,
+                reason="No responses to analyze",
+                agent_scores={},
+                recommended_challenges=[],
+                avg_quality=0.0,
             )
         )
 
@@ -908,9 +1029,10 @@ class TestEdgeCases:
             return_value=HollowConsensusAlert(
                 detected=True,
                 severity=0.6,
-                round_num=1,
-                avg_quality=0.3,
+                reason="Low evidence quality",
                 agent_scores={"agent1": 0.3},
+                recommended_challenges=["Provide citations"],
+                avg_quality=0.3,
             )
         )
 

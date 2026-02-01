@@ -44,7 +44,8 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
-from aragora.debate.orchestrator import Arena, _DebateExecutionState
+from aragora.debate.orchestrator import Arena
+from aragora.debate.orchestrator_runner import _DebateExecutionState
 from aragora.debate.protocol import DebateProtocol, CircuitBreaker
 from aragora.debate.arena_config import (
     ArenaConfig,

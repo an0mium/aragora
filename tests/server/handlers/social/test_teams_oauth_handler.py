@@ -164,12 +164,11 @@ class TestTeamsOAuthInstall:
             )
 
         # Find the new state
-        for state, data in oauth_state_store._states.items():
-            if data.metadata and data.metadata.get("org_id") == "org-001":
-                assert True
-                return
-
-        pytest.fail("org_id not stored in state")
+        found = any(
+            data.metadata and data.metadata.get("org_id") == "org-001"
+            for data in oauth_state_store._states.values()
+        )
+        assert found, "org_id not stored in state"
 
     @pytest.mark.asyncio
     async def test_install_cleans_old_states(self, oauth_handler, oauth_state_store):

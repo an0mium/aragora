@@ -104,8 +104,33 @@ class TestHandlerRegistry:
             InsightsHandler,
         )
 
-        # If we get here, all imports succeeded
-        assert True
+        # Verify all handler classes were imported successfully
+        assert all(
+            callable(cls)
+            for cls in [
+                DebateHandler,
+                MemoryHandler,
+                LeaderboardViewHandler,
+                DocumentHandler,
+                VerificationHandler,
+                AuditingHandler,
+                RelationshipHandler,
+                MomentsHandler,
+                PersonaHandler,
+                DashboardHandler,
+                IntrospectionHandler,
+                CalibrationHandler,
+                RoutingHandler,
+                EvolutionHandler,
+                PluginsHandler,
+                BroadcastHandler,
+                AudioHandler,
+                SocialMediaHandler,
+                LaboratoryHandler,
+                ProbesHandler,
+                InsightsHandler,
+            ]
+        )
 
 
 class TestHandlerRouting:

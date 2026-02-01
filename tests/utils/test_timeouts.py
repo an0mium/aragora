@@ -28,7 +28,7 @@ class TestTimedLock:
         """Acquires an available lock."""
         lock = threading.Lock()
         with timed_lock(lock, timeout=1.0):
-            assert True  # Lock was acquired
+            assert lock.locked()  # Lock was acquired
 
     def test_releases_lock_on_exit(self):
         """Releases lock after context exits."""
@@ -118,7 +118,10 @@ class TestTimedRLock:
         """Acquires an available RLock."""
         lock = threading.RLock()
         with timed_rlock(lock, timeout=1.0):
-            assert True  # Lock was acquired
+            # RLock is held - attempting non-blocking acquire from same thread succeeds (reentrant),
+            # so verify by checking we're inside the context without error
+            assert lock.acquire(blocking=False)  # Reentrant acquire succeeds
+            lock.release()  # Release the extra acquisition
 
     def test_releases_rlock_on_exit(self):
         """Releases RLock after context exits."""
@@ -132,10 +135,12 @@ class TestTimedRLock:
     def test_allows_reentrant_acquisition(self):
         """RLock allows reentrant acquisition in same thread."""
         lock = threading.RLock()
+        acquired_inner = False
         with timed_rlock(lock, timeout=1.0):
             # Should be able to acquire again (reentrant)
             with timed_rlock(lock, timeout=1.0):
-                assert True
+                acquired_inner = True
+        assert acquired_inner, "Inner reentrant lock acquisition should succeed"
 
     def test_timeout_on_held_rlock(self):
         """Raises TimeoutError when RLock is held by another thread."""
@@ -288,7 +293,8 @@ class TestIntegration:
         with timed_lock(lock1, timeout=1.0):
             with timed_lock(lock2, timeout=1.0):
                 # Both locks held
-                assert True
+                assert lock1.locked()
+                assert lock2.locked()
 
     @pytest.mark.asyncio
     async def test_async_timeout_with_gather(self):

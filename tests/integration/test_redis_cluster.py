@@ -61,7 +61,8 @@ class TestRedisClientUtilities:
 
         # Both should be valid states (None or client)
         # The point is reset doesn't raise exceptions
-        assert True
+        assert client1 is None or hasattr(client1, "get")
+        assert client2 is None or hasattr(client2, "get")
 
     def test_get_redis_client_with_explicit_url(self):
         """Test get_redis_client with explicit URL parameter."""

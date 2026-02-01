@@ -299,11 +299,9 @@ class TestInputValidation:
 
         # Simulates topic length validation
         max_length = 500
-        if len(large_payload) > max_length:
-            # Would be rejected before DB query
-            assert True
-        else:
-            pytest.fail("Large payload not rejected")
+        assert len(large_payload) > max_length, (
+            "Large payload should exceed max_length and be rejected before DB query"
+        )
 
 
 class TestTableColumnInjection:

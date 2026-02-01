@@ -194,10 +194,10 @@ class TestValidationEdgeCases:
         domain = "b" * (254 - 64 - 1 - 4) + ".com"  # -1 for @, -4 for .com
         email = f"{local_part}@{domain}"
         if len(email) == 254:
-            valid, _ = validate_email(email)
+            valid, msg = validate_email(email)
             # Pattern might not match due to domain constraints
-            # but length check should pass
-            assert True  # Just checking it doesn't crash
+            # but length check should pass - validate returns a bool result
+            assert isinstance(valid, bool)
 
     def test_password_with_null_bytes(self):
         """Password with null bytes is handled."""

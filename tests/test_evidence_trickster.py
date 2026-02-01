@@ -220,7 +220,7 @@ class TestEvidencePoweredTrickster:
 
     def test_creation(self, trickster):
         """Trickster should be created with default config."""
-        assert trickster.config.min_quality_threshold == 0.4
+        assert trickster.config.min_quality_threshold == 0.65
         assert trickster.config.enable_challenge_prompts is True
 
     def test_no_intervention_good_quality(self, trickster):
@@ -368,8 +368,8 @@ class TestTricksterConfig:
     def test_defaults(self):
         """Should have sensible defaults."""
         config = TricksterConfig()
-        assert config.min_quality_threshold == 0.4
-        assert config.intervention_cooldown_rounds == 2
+        assert config.min_quality_threshold == 0.65
+        assert config.intervention_cooldown_rounds == 1
         assert config.enable_challenge_prompts is True
 
     def test_custom_values(self):

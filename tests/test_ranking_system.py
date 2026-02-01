@@ -465,8 +465,9 @@ class TestCalibrationEngine:
             confidence=0.75,
         )
 
-        # Should not raise
-        assert True
+        # Verify prediction was recorded by checking history
+        history = calibration_engine.get_prediction_history("tourney-1")
+        assert len(history) >= 1
 
     def test_confidence_clamping(self, calibration_engine):
         """Test that confidence is clamped to [0, 1]."""
@@ -486,8 +487,11 @@ class TestCalibrationEngine:
             confidence=-0.5,  # Should be clamped to 0.0
         )
 
-        # Should not raise
-        assert True
+        # Verify both predictions were recorded despite out-of-range confidence values
+        history1 = calibration_engine.get_prediction_history("tourney-clamp-1")
+        history2 = calibration_engine.get_prediction_history("tourney-clamp-2")
+        assert len(history1) >= 1
+        assert len(history2) >= 1
 
     def test_resolve_tournament_correct_prediction(self, calibration_engine):
         """Test resolving tournament with correct prediction."""

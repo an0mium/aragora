@@ -151,12 +151,8 @@ class TestDiscordOAuthInstall:
             )
 
         # Find the new state
-        for state, data in _oauth_states.items():
-            if data.get("tenant_id") == "tenant-001":
-                assert True
-                return
-
-        pytest.fail("tenant_id not stored in state")
+        found = any(data.get("tenant_id") == "tenant-001" for data in _oauth_states.values())
+        assert found, "tenant_id not stored in state"
 
     @pytest.mark.asyncio
     async def test_install_cleans_old_states(self, oauth_handler, cleanup_oauth_states):
