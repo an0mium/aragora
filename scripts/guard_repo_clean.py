@@ -28,6 +28,7 @@ TRACKED_PATTERNS = [
 
 TRACKED_SUFFIXES = (
     ".db",
+    ".db-journal",
     ".db-shm",
     ".db-wal",
     ".sqlite",
@@ -94,7 +95,14 @@ def _report(heading: str, paths: list[str]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Guard repo against runtime artifacts.")
     parser.add_argument(
+        "--check",
+        dest="check_working_tree",
+        action="store_true",
+        help="Alias for --check-working-tree.",
+    )
+    parser.add_argument(
         "--check-working-tree",
+        dest="check_working_tree",
         action="store_true",
         help="Also fail if untracked working-tree artifacts are present.",
     )

@@ -481,6 +481,12 @@ If you ran Aragora in the repo root, stray `.db` files may land there. Move them
 python scripts/cleanup_runtime_artifacts.py --apply
 ```
 
+For a DB-only migration with tracked-file safeguards, preview first:
+
+```bash
+python scripts/migrate_runtime_dbs.py --dry-run
+```
+
 ## Receipt Retention
 
 | Variable | Required | Description | Default |
