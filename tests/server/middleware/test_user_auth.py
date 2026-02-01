@@ -723,7 +723,8 @@ class TestAPIKeyValidator:
     async def test_validate_key_storage_error(self):
         """Should return None on storage error."""
         mock_storage = AsyncMock()
-        mock_storage.get_api_key_by_hash.side_effect = Exception("DB error")
+        # Use RuntimeError which is one of the caught exception types
+        mock_storage.get_api_key_by_hash.side_effect = RuntimeError("DB error")
 
         validator = APIKeyValidator(storage=mock_storage)
 
@@ -1242,13 +1243,33 @@ class TestEdgeCases:
                         validator.validate_jwt("test-token")
 
     def test_system_error_in_development(self):
-        """Should return None for system errors in development."""
+        """Should return None for system errors in development with explicit opt-in."""
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.user_auth.HAS_JWT", True):
             with patch("aragora.server.middleware.user_auth._jwt_module") as mock_jwt:
                 mock_jwt.decode.side_effect = RuntimeError("System error")
 
-                with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "development"}):
+                # Insecure mode now requires explicit opt-in
+                with patch.dict(
+                    "os.environ",
+                    {"ARAGORA_ENVIRONMENT": "development", "ARAGORA_ALLOW_INSECURE_JWT": "1"},
+                ):
                     user = validator.validate_jwt("test-token")
                     assert user is None
+
+    def test_system_error_in_development_no_opt_in_raises(self):
+        """Should raise for system errors in development without opt-in."""
+        validator = SupabaseAuthValidator(jwt_secret="secret")
+
+        with patch("aragora.server.middleware.user_auth.HAS_JWT", True):
+            with patch("aragora.server.middleware.user_auth._jwt_module") as mock_jwt:
+                mock_jwt.decode.side_effect = RuntimeError("System error")
+
+                # Without ARAGORA_ALLOW_INSECURE_JWT, should raise in development too
+                with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "development"}):
+                    import os
+
+                    os.environ.pop("ARAGORA_ALLOW_INSECURE_JWT", None)
+                    with pytest.raises(RuntimeError, match="System error"):
+                        validator.validate_jwt("test-token")
