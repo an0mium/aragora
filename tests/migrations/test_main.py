@@ -240,7 +240,12 @@ class TestCmdDowngrade:
                 result = cmd_downgrade(args)
 
         assert result == 0
-        mock_runner.downgrade.assert_called_once_with(target_version=None)
+        mock_runner.downgrade.assert_called_once_with(
+            target_version=None,
+            dry_run=False,
+            reason=None,
+            use_stored_rollback=False,
+        )
 
     def test_downgrade_no_migrations(self):
         """Test downgrade with nothing to rollback."""
@@ -270,7 +275,12 @@ class TestCmdDowngrade:
             with patch("aragora.migrations.__main__.reset_runner"):
                 cmd_downgrade(args)
 
-        mock_runner.downgrade.assert_called_once_with(target_version=20240101000000)
+        mock_runner.downgrade.assert_called_once_with(
+            target_version=20240101000000,
+            dry_run=False,
+            reason=None,
+            use_stored_rollback=False,
+        )
 
     def test_downgrade_handles_error(self):
         """Test downgrade returns error code on failure."""

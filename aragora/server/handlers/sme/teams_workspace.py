@@ -2,11 +2,16 @@
 Teams Workspace API Handlers.
 
 Provides management APIs for Microsoft Teams workspace integrations:
-- GET /api/v1/sme/teams/workspaces - List connected workspaces
-- GET /api/v1/sme/teams/workspaces/:tenant_id - Get workspace details
-- POST /api/v1/sme/teams/workspaces/:tenant_id/test - Test connection
-- DELETE /api/v1/sme/teams/workspaces/:tenant_id - Disconnect workspace
-- GET /api/v1/sme/teams/channels/:tenant_id - List available channels
+- GET /api/v1/sme/teams/tenants - List connected tenants
+- POST /api/v1/sme/teams/tenants - Create tenant configuration
+- GET /api/v1/sme/teams/tenants/:tenant_id - Get tenant details
+- PATCH /api/v1/sme/teams/tenants/:tenant_id - Update tenant details
+- POST /api/v1/sme/teams/tenants/:tenant_id/test - Test connection
+- DELETE /api/v1/sme/teams/tenants/:tenant_id - Disconnect tenant
+- GET /api/v1/sme/teams/tenants/:tenant_id/channels - List available channels
+- GET /api/v1/sme/teams/channels/:tenant_id - List available channels (legacy)
+- GET /api/v1/sme/teams/oauth/start - Start OAuth flow
+- GET /api/v1/sme/teams/oauth/callback - OAuth callback
 - POST /api/v1/sme/teams/subscribe - Subscribe channel to notifications
 - GET /api/v1/sme/teams/subscriptions - List subscriptions
 - DELETE /api/v1/sme/teams/subscriptions/:id - Remove subscription
@@ -47,14 +52,20 @@ class TeamsWorkspaceHandler(SecureHandler):
 
     ROUTES = [
         "/api/v1/sme/teams/workspaces",
+        "/api/v1/sme/teams/tenants",
         "/api/v1/sme/teams/channels",
         "/api/v1/sme/teams/subscribe",
         "/api/v1/sme/teams/subscriptions",
+        "/api/v1/sme/teams/oauth/start",
+        "/api/v1/sme/teams/oauth/callback",
     ]
 
     # Regex patterns for parameterized routes
     ROUTE_PATTERNS = [
         (re.compile(r"^/api/v1/sme/teams/workspaces/([^/]+)/test$"), "workspace_test"),
+        (re.compile(r"^/api/v1/sme/teams/tenants/([^/]+)/test$"), "workspace_test"),
+        (re.compile(r"^/api/v1/sme/teams/tenants/([^/]+)/channels$"), "workspace_channels"),
+        (re.compile(r"^/api/v1/sme/teams/tenants/([^/]+)$"), "workspace_detail"),
         (re.compile(r"^/api/v1/sme/teams/workspaces/([^/]+)$"), "workspace_detail"),
         (re.compile(r"^/api/v1/sme/teams/channels/([^/]+)$"), "channels"),
         (re.compile(r"^/api/v1/sme/teams/subscriptions/([^/]+)$"), "subscription_detail"),
@@ -100,9 +111,25 @@ class TeamsWorkspaceHandler(SecureHandler):
             method = handler.command
 
         # Handle static routes
-        if path == "/api/v1/sme/teams/workspaces":
+        if path in ("/api/v1/sme/teams/workspaces", "/api/v1/sme/teams/tenants"):
             if method == "GET":
                 return self._list_workspaces(handler, query_params)
+            if method == "POST":
+                return self._create_tenant(handler, query_params)
+            return error_response("Method not allowed", 405)
+
+        if path == "/api/v1/sme/teams/oauth/start":
+            if method == "GET":
+                return self._handle_oauth_start(handler, query_params)
+            return error_response("Method not allowed", 405)
+
+        if path == "/api/v1/sme/teams/oauth/callback":
+            if method == "GET":
+                code = query_params.get("code")
+                state = query_params.get("state")
+                if not code:
+                    return error_response("Missing OAuth code", 400)
+                return self._handle_oauth_callback(code, state, handler)
             return error_response("Method not allowed", 405)
 
         if path == "/api/v1/sme/teams/subscribe":
@@ -121,6 +148,8 @@ class TeamsWorkspaceHandler(SecureHandler):
             if route_name == "workspace_detail":
                 if method == "GET":
                     return self._get_workspace(handler, query_params, param_id)
+                elif method == "PATCH":
+                    return self._update_tenant(handler, query_params, param_id)
                 elif method == "DELETE":
                     return self._disconnect_workspace(handler, query_params, param_id)
                 return error_response("Method not allowed", 405)
@@ -130,7 +159,7 @@ class TeamsWorkspaceHandler(SecureHandler):
                     return self._test_connection(handler, query_params, param_id)
                 return error_response("Method not allowed", 405)
 
-            if route_name == "channels":
+            if route_name in ("workspace_channels", "channels"):
                 if method == "GET":
                     return self._list_channels(handler, query_params, param_id)
                 return error_response("Method not allowed", 405)
@@ -175,6 +204,17 @@ class TeamsWorkspaceHandler(SecureHandler):
 
         return db_user, org, None
 
+    def _parse_json_body(self, handler) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Parse JSON body from handler."""
+        import json as json_lib
+
+        try:
+            body = handler.rfile.read(int(handler.headers.get("Content-Length", 0)))
+            data = json_lib.loads(body.decode("utf-8")) if body else {}
+            return data, None
+        except (json_lib.JSONDecodeError, ValueError):
+            return None, error_response("Invalid JSON body", 400)
+
     @handle_errors("list Teams workspaces")
     @require_permission("sme:workspaces:read")
     def _list_workspaces(
@@ -207,7 +247,10 @@ class TeamsWorkspaceHandler(SecureHandler):
         offset = int(get_string_param(handler, "offset", "0"))
 
         store = self._get_workspace_store()
-        workspaces = store.get_by_aragora_tenant(org.id)
+        if hasattr(store, "get_by_org"):
+            workspaces = store.get_by_org(org.id)
+        else:
+            workspaces = store.get_by_aragora_tenant(org.id)
 
         # Apply pagination
         paginated = workspaces[offset : offset + limit]
@@ -220,6 +263,94 @@ class TeamsWorkspaceHandler(SecureHandler):
                 "offset": offset,
             }
         )
+
+    @handle_errors("create Teams tenant")
+    @require_permission("sme:workspaces:write")
+    def _create_tenant(
+        self,
+        handler,
+        query_params: dict,
+        user=None,
+    ) -> HandlerResult:
+        """Create a Teams tenant entry."""
+        db_user, org, error = self._get_user_and_org(handler, user)
+        if error:
+            return error
+
+        data, err = self._parse_json_body(handler)
+        if err:
+            return err
+        data = data or {}
+
+        tenant_id = data.get("tenant_id")
+        client_id = data.get("client_id") or data.get("bot_id")
+        client_secret = data.get("client_secret") or data.get("access_token")
+
+        if not tenant_id:
+            return error_response("tenant_id is required", 400)
+        if not client_id or not client_secret:
+            return error_response("client_id and client_secret are required", 400)
+
+        tenant_name = data.get("tenant_name") or tenant_id
+
+        from aragora.storage.teams_workspace_store import TeamsWorkspace
+
+        workspace = TeamsWorkspace(
+            tenant_id=tenant_id,
+            tenant_name=tenant_name,
+            access_token=client_secret,
+            bot_id=client_id,
+            installed_at=datetime.now(timezone.utc).timestamp(),
+            installed_by=db_user.id,
+            aragora_tenant_id=org.id,
+            is_active=True,
+        )
+
+        store = self._get_workspace_store()
+        if not store.save(workspace):
+            return error_response("Failed to save tenant", 500)
+
+        return json_response({"tenant": workspace.to_dict()}, status=201)
+
+    @handle_errors("update Teams tenant")
+    @require_permission("sme:workspaces:write")
+    def _update_tenant(
+        self,
+        handler,
+        query_params: dict,
+        tenant_id: str,
+        user=None,
+    ) -> HandlerResult:
+        """Update Teams tenant details."""
+        db_user, org, error = self._get_user_and_org(handler, user)
+        if error:
+            return error
+
+        data, err = self._parse_json_body(handler)
+        if err:
+            return err
+        data = data or {}
+
+        store = self._get_workspace_store()
+        workspace = store.get(tenant_id)
+        if not workspace:
+            return error_response("Tenant not found", 404)
+        if workspace.aragora_tenant_id != org.id:
+            return error_response("Tenant not found", 404)
+
+        if "tenant_name" in data:
+            workspace.tenant_name = data["tenant_name"]
+        if "client_id" in data or "bot_id" in data:
+            workspace.bot_id = data.get("client_id") or data.get("bot_id")
+        if "client_secret" in data or "access_token" in data:
+            workspace.access_token = data.get("client_secret") or data.get("access_token")
+        if "is_active" in data:
+            workspace.is_active = bool(data["is_active"])
+
+        if not store.save(workspace):
+            return error_response("Failed to update tenant", 500)
+
+        return json_response({"tenant": workspace.to_dict()})
 
     @handle_errors("get Teams workspace")
     @require_permission("sme:workspaces:read")
@@ -647,6 +778,36 @@ class TeamsWorkspaceHandler(SecureHandler):
                 "subscription_id": subscription_id,
             }
         )
+
+    @handle_errors("start Teams OAuth")
+    @require_permission("sme:workspaces:write")
+    def _handle_oauth_start(
+        self,
+        handler,
+        query_params: dict,
+        user=None,
+    ) -> HandlerResult:
+        """Start Teams OAuth flow (placeholder for SME flow)."""
+        return json_response(
+            {
+                "status": "oauth_start",
+                "message": "Teams OAuth flow not configured for SME endpoint",
+            }
+        )
+
+    @handle_errors("Teams OAuth callback")
+    @require_permission("sme:workspaces:write")
+    def _handle_oauth_callback(
+        self,
+        code: str,
+        state: str | None,
+        handler,
+        user=None,
+    ) -> HandlerResult:
+        """Handle Teams OAuth callback (placeholder)."""
+        if not code:
+            return error_response("Missing OAuth code", 400)
+        return json_response({"status": "oauth_callback", "code": code, "state": state})
 
 
 __all__ = ["TeamsWorkspaceHandler"]

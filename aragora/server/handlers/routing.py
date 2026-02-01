@@ -127,7 +127,7 @@ class RoutingHandler(BaseHandler):
         )
 
     @handle_errors("routing recommendations")
-    def _get_recommendations(self, handler) -> HandlerResult:
+    def _get_recommendations(self, handler: Any) -> HandlerResult:
         """Get agent recommendations for a task.
 
         POST body:
@@ -182,7 +182,7 @@ class RoutingHandler(BaseHandler):
         )
 
     @handle_errors("auto routing")
-    def _auto_route(self, handler) -> HandlerResult:
+    def _auto_route(self, handler: Any) -> HandlerResult:
         """Auto-route a task with domain detection.
 
         POST body:
@@ -229,7 +229,7 @@ class RoutingHandler(BaseHandler):
         )
 
     @handle_errors("domain detection")
-    def _detect_domain(self, handler) -> HandlerResult:
+    def _detect_domain(self, handler: Any) -> HandlerResult:
         """Detect domain from task text.
 
         POST body:

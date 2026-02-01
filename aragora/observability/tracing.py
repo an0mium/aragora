@@ -646,7 +646,8 @@ def _redact_url(url: str) -> str:
         parsed = urlparse(url)
         # Keep scheme, host, and path; remove query and fragment
         return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-    except Exception:
+    except Exception as e:
+        logger.debug(f"URL sanitization failed: {type(e).__name__}: {e}")
         return "[redacted]"
 
 

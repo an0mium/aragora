@@ -1292,7 +1292,7 @@ class AgentsHandler(SecureHandler):
 
         return json_response(introspection)
 
-    def _compute_confidence(self, rating) -> str:
+    def _compute_confidence(self, rating: Any) -> str:
         """Compute confidence level from calibration data."""
         accuracy = rating.calibration_accuracy
         count = rating.calibration_total

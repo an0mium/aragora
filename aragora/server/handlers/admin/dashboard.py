@@ -423,7 +423,7 @@ class DashboardHandler(SecureHandler):
         )
         return summary, activity, patterns
 
-    def _get_summary_metrics_sql(self, storage, domain: str | None) -> dict:
+    def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]:
         """Get summary metrics using SQL aggregation (O(1) memory)."""
         summary = {
             "total_debates": 0,
@@ -459,7 +459,7 @@ class DashboardHandler(SecureHandler):
 
         return summary
 
-    def _get_recent_activity_sql(self, storage, hours: int) -> dict:
+    def _get_recent_activity_sql(self, storage: Any, hours: int) -> dict[str, Any]:
         """Get recent activity metrics using SQL aggregation."""
         activity = {
             "debates_last_period": 0,

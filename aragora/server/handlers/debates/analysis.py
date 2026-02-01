@@ -18,6 +18,7 @@ from ..base import (
     error_response,
     json_response,
 )
+from ..openapi_decorator import api_endpoint
 
 if TYPE_CHECKING:
     pass
@@ -46,6 +47,22 @@ class _DebatesHandlerProtocol(Protocol):
 class AnalysisOperationsMixin:
     """Mixin providing analysis operations for DebatesHandler."""
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{debate_id}/meta-critique",
+        summary="Get meta-critique analysis",
+        description="Get meta-level analysis of a debate including repetition and circular argument detection.",
+        tags=["Debates", "Analysis"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Meta-critique analysis returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate trace not found"},
+            "503": {"description": "Module not available"},
+        },
+    )
     @require_permission("analysis:read")
     def _get_meta_critique(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get meta-level analysis of a debate (repetition, circular arguments, etc)."""
@@ -111,6 +128,22 @@ class AnalysisOperationsMixin:
             logger.warning("Invalid meta critique request for %s: %s", debate_id, e)
             return error_response(f"Invalid request: {e}", 400)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{debate_id}/graph/stats",
+        summary="Get argument graph statistics",
+        description="Get argument graph statistics including node counts, edge counts, depth, and complexity.",
+        tags=["Debates", "Analysis"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Graph statistics returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+            "503": {"description": "Module not available"},
+        },
+    )
     @require_permission("analysis:read")
     def _get_graph_stats(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get argument graph statistics for a debate.
@@ -323,6 +356,22 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
             )
             return error_response("Error analyzing rhetorical patterns", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{debate_id}/trickster",
+        summary="Get trickster status",
+        description="Get hollow consensus detection status and any trickster interventions for a debate.",
+        tags=["Debates", "Analysis"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Trickster status returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+            "503": {"description": "Module not available"},
+        },
+    )
     def _get_trickster_status(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get trickster intervention status for a debate.
 

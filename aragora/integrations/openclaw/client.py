@@ -166,7 +166,10 @@ class OpenClawClient:
 
                     try:
                         result = await response.json()
-                    except Exception:
+                    except Exception as e:
+                        logger.debug(
+                            f"JSON parse failed, falling back to text: {type(e).__name__}: {e}"
+                        )
                         result = await response.text()
 
                     return OpenClawResponse(

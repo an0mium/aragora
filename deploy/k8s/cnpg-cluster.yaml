@@ -1,0 +1,83 @@
+# =============================================================================
+# CloudNativePG Cluster - Production PostgreSQL HA
+# =============================================================================
+#
+# Prerequisites:
+#   kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.22/releases/cnpg-1.22.0.yaml
+#
+# Usage:
+#   kubectl apply -f deploy/k8s/cnpg-cluster.yaml
+#
+# See docs/POSTGRES_HA.md for detailed configuration guide.
+#
+# =============================================================================
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: aragora-postgres
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: aragora
+spec:
+  description: "Aragora PostgreSQL HA Cluster"
+  instances: 3
+
+  # PostgreSQL configuration
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "768MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      wal_buffers: "8MB"
+      max_wal_size: "1GB"
+      min_wal_size: "80MB"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      log_min_duration_statement: "1000"
+
+  # Storage configuration - adjust size for your workload
+  storage:
+    size: 50Gi
+    # storageClass: gp3  # Uncomment and set for your cloud provider
+
+  # Backup configuration (requires S3-compatible storage)
+  # Uncomment and configure for production
+  # backup:
+  #   barmanObjectStore:
+  #     destinationPath: "s3://aragora-backups/postgres/"
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: aragora-s3-creds
+  #         key: ACCESS_KEY_ID
+  #       secretAccessKey:
+  #         name: aragora-s3-creds
+  #         key: SECRET_ACCESS_KEY
+  #     wal:
+  #       compression: gzip
+  #     data:
+  #       compression: gzip
+  #   retentionPolicy: "30d"
+
+  # Monitoring
+  monitoring:
+    enablePodMonitor: true
+
+  # Update strategy
+  primaryUpdateStrategy: unsupervised
+
+  # Resource limits - adjust for your cluster
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "2"
+
+  # Affinity rules for HA - spread across nodes
+  affinity:
+    topologyKey: kubernetes.io/hostname

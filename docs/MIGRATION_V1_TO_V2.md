@@ -462,6 +462,68 @@ client = AragoraClient(api_version="v1")
 
 Note: v1 will be removed on June 1, 2026. Plan permanent migration.
 
+## Sunset Preparation (January 2026)
+
+As of January 2026, all v1 API endpoints return deprecation and sunset headers
+on every response. This section describes what to expect and how to monitor
+your migration progress.
+
+### Deprecation Headers on All v1 Responses
+
+Every response from a `/api/v1/` endpoint now includes the following headers:
+
+| Header | Value | Description |
+|--------|-------|-------------|
+| `Sunset` | `Mon, 01 Jun 2026 00:00:00 GMT` | RFC 8594 sunset date |
+| `Deprecation` | `@1748736000` | RFC 8594 deprecation timestamp |
+| `Link` | `<https://docs.aragora.ai/migration/v1-to-v2>; rel="sunset"` | Migration documentation |
+| `X-API-Version` | `v1` | Current version being used |
+| `X-API-Version-Warning` | Human-readable warning message | Easy to spot in logs |
+| `X-API-Sunset` | `2026-06-01` | ISO 8601 sunset date |
+| `X-Deprecation-Level` | `warning`, `critical`, or `sunset` | Severity level |
+
+The `X-Deprecation-Level` values change over time:
+- **warning** (now): Standard deprecation notice
+- **critical** (after May 2, 2026): Less than 30 days until removal
+- **sunset** (after June 1, 2026): Past deadline, removal imminent
+
+### Monitoring Your v1 Usage
+
+Operators can monitor v1 API usage to track migration progress:
+
+```bash
+# Check for v1 deprecation warnings in logs
+grep "v1_api_access" logs/*.log | wc -l
+
+# See which v1 endpoints are still used
+grep "v1_api_access" logs/*.log | sort | uniq -c | sort -rn
+
+# Monitor via the deprecation metrics endpoint
+curl https://api.aragora.io/api/v2/system/deprecation-stats
+```
+
+### Disabling Deprecation Headers
+
+In development or test environments, the deprecation headers can be disabled:
+
+```bash
+export ARAGORA_DISABLE_V1_DEPRECATION=true
+```
+
+This only suppresses the headers. The v1 API will still be removed on the
+sunset date regardless of this setting.
+
+### Post-Sunset Behavior
+
+After June 1, 2026, v1 endpoints will begin returning `410 Gone` responses
+if `ARAGORA_BLOCK_SUNSET_ENDPOINTS=true` is set (which will become the
+default). The response will include a pointer to the v2 replacement.
+
+### Central Constants
+
+All sunset dates and migration URLs are centralized in
+`aragora/server/versioning/constants.py` for consistency across the codebase.
+
 ## Getting Help
 
 - **Documentation:** https://aragora.ai/docs/migration

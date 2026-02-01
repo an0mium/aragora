@@ -1052,8 +1052,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
-        body = await parse_json_body(request, "analytics_platforms._get_json_body")
-        return body if isinstance(body, dict) else {}
+        body, _err = await parse_json_body(request, context="analytics_platforms._get_json_body")
+        return body if body is not None else {}
 
     def _json_response(self, status: int, data: Any) -> dict[str, Any]:
         """Create a JSON response."""

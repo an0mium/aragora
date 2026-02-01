@@ -30,7 +30,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Awaitable, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.server.stream.nomic_loop_stream import NomicLoopStreamServer
@@ -112,10 +112,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
     def _emit_event(
         self,
         emit_method: str,
-        *args,
+        *args: Any,
         max_retries: int = 3,
         base_delay: float = 0.1,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Emit an event to the Nomic Loop stream with retry logic.
 
@@ -138,7 +138,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
             return
 
         # Schedule async emission without blocking
-        async def _do_emit_with_retry():
+        async def _do_emit_with_retry() -> None:
             last_error: Exception | None = None
             for attempt in range(max_retries):
                 try:
@@ -182,8 +182,8 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
     @rate_limit(requests_per_minute=30)
     @require_permission("nomic:read", handler_arg=2)
     async def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Awaitable[HandlerResult | None]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route nomic endpoint requests.
 
         Requires nomic:read permission (enforced by @require_permission decorator).
@@ -630,8 +630,8 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):
     @rate_limit(requests_per_minute=30)
     @require_permission("nomic:admin", handler_arg=2)
     async def handle_post(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Awaitable[HandlerResult | None]:
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests for control operations.
 
         Requires nomic:admin permission (enforced by @require_permission decorator).

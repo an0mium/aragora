@@ -113,7 +113,9 @@ VERSION_INFO: dict[APIVersion, VersionInfo] = {
     APIVersion.V1: VersionInfo(
         version=APIVersion.V1,
         released=date(2024, 1, 1),
-        description="Initial stable API release",
+        deprecated=True,
+        sunset_date=date(2026, 6, 1),
+        description="Initial stable API release (deprecated, sunset 2026-06-01)",
     ),
     APIVersion.V2: VersionInfo(
         version=APIVersion.V2,

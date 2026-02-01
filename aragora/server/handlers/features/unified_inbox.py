@@ -38,7 +38,6 @@ from enum import Enum
 from typing import Any, cast, TYPE_CHECKING
 from uuid import uuid4
 
-from aiohttp import web
 
 from ..base import (
     BaseHandler,
@@ -1510,11 +1509,13 @@ class UnifiedInboxHandler(BaseHandler):
     # Utility Methods
     # =========================================================================
 
-    async def _get_json_body(
-        self, request: Any
-    ) -> tuple[dict[str, Any] | None, web.Response | None]:
-        """Extract JSON body from request."""
-        return await parse_json_body(request, "unified_inbox")
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
+        """Extract JSON body from request.
+
+        Wraps parse_json_body and returns just the dict, raising on error.
+        """
+        body, _err = await parse_json_body(request, context="unified_inbox")
+        return body if body is not None else {}
 
     def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""

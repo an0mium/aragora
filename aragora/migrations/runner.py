@@ -10,6 +10,8 @@ Features:
 - Checksum verification to detect modified migration files
 - Rollback SQL storage for disaster recovery
 - Support for SQL and Python migration functions
+- Multi-step rollback with safety validation and history tracking
+- Dry-run mode for previewing rollback operations
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ import socket
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -104,6 +107,46 @@ class Migration:
         return compute_checksum("\n".join(content_parts))
 
 
+@dataclass
+class RollbackValidation:
+    """
+    Result of a pre-rollback validation check.
+
+    Attributes:
+        safe: Whether it is safe to proceed with the rollback.
+        warnings: Non-blocking issues that the caller should be aware of.
+        errors: Blocking issues that prevent rollback.
+        migrations_to_rollback: Versions that would be rolled back.
+    """
+
+    safe: bool
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    migrations_to_rollback: list[int] = field(default_factory=list)
+
+
+@dataclass
+class RollbackRecord:
+    """
+    Record of a rollback operation stored in the rollback history table.
+
+    Attributes:
+        id: Auto-incremented record ID.
+        version: The migration version that was rolled back.
+        name: The migration name.
+        rolled_back_at: ISO-8601 timestamp of when the rollback occurred.
+        rolled_back_by: Identifier for the process that performed the rollback.
+        reason: Optional human-readable reason for the rollback.
+    """
+
+    id: int
+    version: int
+    name: str
+    rolled_back_at: str
+    rolled_back_by: str
+    reason: str | None = None
+
+
 class MigrationRunner:
     """
     Manages and executes database migrations.
@@ -116,9 +159,12 @@ class MigrationRunner:
     - Checksum verification to detect modified migration files
     - Rollback SQL storage for disaster recovery
     - Advisory locking for PostgreSQL concurrent safety
+    - Multi-step rollback with safety validation
+    - Rollback history tracking for audit trails
     """
 
     MIGRATIONS_TABLE = "_aragora_migrations"
+    ROLLBACK_HISTORY_TABLE = "_aragora_rollback_history"
 
     def __init__(
         self,
@@ -155,6 +201,7 @@ class MigrationRunner:
         self._migrations: list[Migration] = []
         self._verify_checksums = verify_checksums
         self._init_migrations_table()
+        self._init_rollback_history_table()
 
     def _init_migrations_table(self) -> None:
         """Create the migrations tracking table if it doesn't exist."""
@@ -179,8 +226,9 @@ class MigrationRunner:
         # Check for checksum column
         try:
             self._backend.fetch_one(f"SELECT checksum FROM {self.MIGRATIONS_TABLE} LIMIT 1")
-        except Exception:
+        except Exception as e:
             # Column doesn't exist, add it
+            logger.debug(f"checksum column check failed (will add): {type(e).__name__}: {e}")
             try:
                 self._backend.execute_write(
                     f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN checksum TEXT DEFAULT NULL"
@@ -192,8 +240,9 @@ class MigrationRunner:
         # Check for rollback_sql column
         try:
             self._backend.fetch_one(f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} LIMIT 1")
-        except Exception:
+        except Exception as e:
             # Column doesn't exist, add it
+            logger.debug(f"rollback_sql column check failed (will add): {type(e).__name__}: {e}")
             try:
                 self._backend.execute_write(
                     f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN rollback_sql TEXT DEFAULT NULL"
@@ -201,6 +250,54 @@ class MigrationRunner:
                 logger.info("Added rollback_sql column to migrations table")
             except Exception as e:
                 logger.debug(f"Could not add rollback_sql column (may already exist): {e}")
+
+    def _init_rollback_history_table(self) -> None:
+        """Create the rollback history table if it doesn't exist."""
+        version_type = "BIGINT" if isinstance(self._backend, PostgreSQLBackend) else "INTEGER"
+        sql = f"""
+            CREATE TABLE IF NOT EXISTS {self.ROLLBACK_HISTORY_TABLE} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                version {version_type} NOT NULL,
+                name TEXT NOT NULL,
+                rolled_back_at TIMESTAMP NOT NULL,
+                rolled_back_by TEXT NOT NULL,
+                reason TEXT DEFAULT NULL
+            )
+        """
+        try:
+            self._backend.execute_write(sql)
+        except Exception as e:
+            # Non-fatal: rollback history is optional audit functionality
+            logger.debug(f"Could not create rollback history table: {e}")
+
+    def _record_rollback(
+        self,
+        migration: Migration,
+        reason: str | None = None,
+    ) -> None:
+        """
+        Record a rollback operation in the history table.
+
+        Args:
+            migration: The migration that was rolled back.
+            reason: Optional human-readable reason for the rollback.
+        """
+        try:
+            self._backend.execute_write(
+                f"INSERT INTO {self.ROLLBACK_HISTORY_TABLE} "
+                "(version, name, rolled_back_at, rolled_back_by, reason) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    migration.version,
+                    migration.name,
+                    datetime.now(timezone.utc).isoformat(),
+                    self._get_applied_by(),
+                    reason,
+                ),
+            )
+        except Exception as e:
+            # Non-fatal: don't let history tracking failures block rollback
+            logger.warning(f"Failed to record rollback history for v{migration.version}: {e}")
 
     def _acquire_migration_lock(self, timeout_seconds: float = 30.0) -> bool:
         """
@@ -433,6 +530,8 @@ class MigrationRunner:
         target_version: int | None = None,
         lock_timeout: float = 30.0,
         use_stored_rollback: bool = False,
+        dry_run: bool = False,
+        reason: str | None = None,
     ) -> list[Migration]:
         """
         Rollback migrations down to target version.
@@ -446,9 +545,12 @@ class MigrationRunner:
             use_stored_rollback: If True, use stored rollback_sql from database
                 instead of the migration's down_sql (useful for disaster recovery
                 when migration files may have been modified).
+            dry_run: If True, only show what would be rolled back without executing.
+            reason: Optional human-readable reason for the rollback (stored in
+                rollback history for audit purposes).
 
         Returns:
-            List of rolled back migrations.
+            List of rolled back (or would-be-rolled-back in dry_run mode) migrations.
 
         Raises:
             RuntimeError: If migration lock cannot be acquired.
@@ -463,14 +565,38 @@ class MigrationRunner:
             logger.info("No migrations to rollback")
             return rolled_back
 
+        # Filter to migrations above target_version, and limit to one if no target
+        candidates: list[Migration] = []
+        for migration in to_rollback:
+            if target_version is not None and migration.version <= target_version:
+                break
+            candidates.append(migration)
+            if target_version is None:
+                break  # Only rollback one if no target specified
+
+        if dry_run:
+            for migration in candidates:
+                rollback_sql = migration.down_sql
+                has_down_fn = migration.down_fn is not None
+                has_stored = self.get_stored_rollback_sql(migration.version) is not None
+
+                if not rollback_sql and not has_down_fn and not has_stored:
+                    logger.info(
+                        f"[DRY RUN] Would SKIP migration {migration.version}: "
+                        f"{migration.name} (no rollback defined)"
+                    )
+                    break
+                logger.info(
+                    f"[DRY RUN] Would rollback migration {migration.version}: {migration.name}"
+                )
+                rolled_back.append(migration)
+            return rolled_back
+
         # Acquire lock before rolling back
         self._acquire_migration_lock(timeout_seconds=lock_timeout)
 
         try:
-            for migration in to_rollback:
-                if target_version and migration.version <= target_version:
-                    break
-
+            for migration in candidates:
                 # Determine which rollback SQL to use
                 rollback_sql = None
                 if use_stored_rollback:
@@ -503,21 +629,210 @@ class MigrationRunner:
                         f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
                         (migration.version,),
                     )
+                    # Record in rollback history
+                    self._record_rollback(migration, reason=reason)
                     rolled_back.append(migration)
                     logger.info(f"Rolled back migration {migration.version}")
 
                 except (RuntimeError, OSError, ValueError) as e:
                     logger.error(f"Failed to rollback migration {migration.version}: {e}")
                     raise
-
-                # Only rollback one if no target specified
-                if target_version is None:
-                    break
         finally:
             # Always release lock
             self._release_migration_lock()
 
         return rolled_back
+
+    def rollback_steps(
+        self,
+        steps: int = 1,
+        lock_timeout: float = 30.0,
+        use_stored_rollback: bool = False,
+        dry_run: bool = False,
+        reason: str | None = None,
+    ) -> list[Migration]:
+        """
+        Rollback a specific number of migrations.
+
+        This is a convenience method that rolls back the N most recently
+        applied migrations. For rolling back to a specific version, use
+        ``downgrade(target_version=...)``.
+
+        Args:
+            steps: Number of migrations to rollback (must be >= 1).
+            lock_timeout: Maximum seconds to wait for migration lock.
+            use_stored_rollback: If True, use stored rollback_sql from database
+                instead of the migration's down_sql.
+            dry_run: If True, only show what would be rolled back without executing.
+            reason: Optional human-readable reason for the rollback.
+
+        Returns:
+            List of rolled back (or would-be-rolled-back) migrations.
+
+        Raises:
+            ValueError: If steps < 1.
+            RuntimeError: If migration lock cannot be acquired.
+        """
+        if steps < 1:
+            raise ValueError(f"steps must be >= 1, got {steps}")
+
+        applied = self.get_applied_versions()
+        if not applied:
+            logger.info("No migrations to rollback")
+            return []
+
+        # Get applied migrations in reverse order
+        to_rollback = [m for m in reversed(self._migrations) if m.version in applied]
+        to_rollback = to_rollback[:steps]
+
+        if not to_rollback:
+            logger.info("No migrations to rollback")
+            return []
+
+        # Compute the target version: the version just below the lowest we want to rollback
+        lowest_rollback = to_rollback[-1].version
+        remaining_applied = sorted(v for v in applied if v < lowest_rollback)
+        target_version = remaining_applied[-1] if remaining_applied else 0
+
+        return self.downgrade(
+            target_version=target_version,
+            lock_timeout=lock_timeout,
+            use_stored_rollback=use_stored_rollback,
+            dry_run=dry_run,
+            reason=reason,
+        )
+
+    def validate_rollback(
+        self,
+        target_version: int | None = None,
+        steps: int | None = None,
+    ) -> RollbackValidation:
+        """
+        Validate whether a rollback operation can be performed safely.
+
+        Performs pre-flight checks without modifying any data. Use this before
+        calling ``downgrade()`` or ``rollback_steps()`` to identify potential
+        issues.
+
+        Args:
+            target_version: Target version to validate rollback to.
+            steps: Number of steps to validate rollback for. Ignored if
+                target_version is also provided.
+
+        Returns:
+            RollbackValidation with safety assessment, warnings, and errors.
+        """
+        warnings: list[str] = []
+        errors: list[str] = []
+        versions_to_rollback: list[int] = []
+
+        applied = self.get_applied_versions()
+
+        if not applied:
+            return RollbackValidation(
+                safe=False,
+                errors=["No migrations have been applied"],
+                migrations_to_rollback=[],
+            )
+
+        # Determine which migrations would be rolled back
+        to_rollback = [m for m in reversed(self._migrations) if m.version in applied]
+
+        if target_version is not None:
+            if target_version < 0:
+                errors.append(f"target_version must be >= 0, got {target_version}")
+                return RollbackValidation(
+                    safe=False,
+                    errors=errors,
+                    migrations_to_rollback=[],
+                )
+
+            max_applied = max(applied)
+            if target_version >= max_applied:
+                errors.append(
+                    f"target_version ({target_version}) must be less than "
+                    f"current version ({max_applied})"
+                )
+                return RollbackValidation(
+                    safe=False,
+                    errors=errors,
+                    migrations_to_rollback=[],
+                )
+
+            candidates = [m for m in to_rollback if m.version > target_version]
+        elif steps is not None:
+            if steps < 1:
+                errors.append(f"steps must be >= 1, got {steps}")
+                return RollbackValidation(
+                    safe=False,
+                    errors=errors,
+                    migrations_to_rollback=[],
+                )
+            candidates = to_rollback[:steps]
+        else:
+            # Default: validate rolling back one
+            candidates = to_rollback[:1]
+
+        # Check each candidate migration
+        for migration in candidates:
+            versions_to_rollback.append(migration.version)
+
+            has_down_sql = migration.down_sql is not None
+            has_down_fn = migration.down_fn is not None
+            has_stored = self.get_stored_rollback_sql(migration.version) is not None
+
+            if not has_down_sql and not has_down_fn and not has_stored:
+                errors.append(
+                    f"Migration {migration.version} ({migration.name}) has no "
+                    f"rollback defined (no down_sql, down_fn, or stored rollback SQL)"
+                )
+            elif not has_down_sql and not has_down_fn and has_stored:
+                warnings.append(
+                    f"Migration {migration.version} ({migration.name}) only has "
+                    f"stored rollback SQL; use use_stored_rollback=True"
+                )
+
+        # Check for large rollback scope
+        if len(candidates) > 5:
+            warnings.append(
+                f"Rolling back {len(candidates)} migrations is a large operation; "
+                f"consider creating a backup first"
+            )
+
+        is_safe = len(errors) == 0
+        return RollbackValidation(
+            safe=is_safe,
+            warnings=warnings,
+            errors=errors,
+            migrations_to_rollback=versions_to_rollback,
+        )
+
+    def get_rollback_history(self) -> list[RollbackRecord]:
+        """
+        Get the history of all rollback operations.
+
+        Returns:
+            List of RollbackRecord objects ordered by most recent first.
+        """
+        try:
+            rows = self._backend.fetch_all(
+                f"SELECT id, version, name, rolled_back_at, rolled_back_by, reason "
+                f"FROM {self.ROLLBACK_HISTORY_TABLE} ORDER BY id DESC"
+            )
+            return [
+                RollbackRecord(
+                    id=row[0],
+                    version=row[1],
+                    name=row[2],
+                    rolled_back_at=row[3],
+                    rolled_back_by=row[4],
+                    reason=row[5],
+                )
+                for row in rows
+            ]
+        except Exception as e:
+            logger.debug(f"Could not read rollback history: {e}")
+            return []
 
     def status(self, include_checksums: bool = False) -> dict:
         """

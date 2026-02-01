@@ -25,6 +25,7 @@ from .matrix_debates import MatrixDebatesAPI
 from .memory import MemoryAPI
 from .notifications import NotificationsAPI
 from .onboarding import OnboardingAPI
+from .openclaw import OpenClawAPI
 from .organizations import OrganizationsAPI
 from .policies import PoliciesAPI
 from .pulse import PulseAPI
@@ -58,6 +59,7 @@ __all__ = [
     "MemoryAPI",
     "NotificationsAPI",
     "OnboardingAPI",
+    "OpenClawAPI",
     "OrganizationsAPI",
     "PoliciesAPI",
     "PulseAPI",

@@ -82,11 +82,15 @@ class BroadcastHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Handle GET requests (none for this handler - POST only)."""
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         # Full pipeline
         # Path: /api/v1/debates/{debate_id}/broadcast/full - debate_id at index 4
@@ -123,7 +127,9 @@ class BroadcastHandler(BaseHandler):
 
     @require_permission("broadcast:create")
     @rate_limit(requests_per_minute=2, burst=1, limiter_name="broadcast_full_pipeline")
-    def _run_full_pipeline(self, debate_id: str, query_params: dict, handler) -> HandlerResult:
+    def _run_full_pipeline(
+        self, debate_id: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
         """Run the full broadcast pipeline with all options.
 
         Query params:
@@ -170,7 +176,7 @@ class BroadcastHandler(BaseHandler):
 
     @require_permission("broadcast:create")
     @rate_limit(requests_per_minute=3, burst=2, limiter_name="broadcast_generation")
-    def _generate_broadcast(self, debate_id: str, handler) -> HandlerResult:
+    def _generate_broadcast(self, debate_id: str, handler: Any) -> HandlerResult:
         """Generate podcast audio from a debate trace.
 
         Rate limited to 3 requests/min due to high CPU usage for TTS.

@@ -322,7 +322,7 @@ class BeliefHandler(BaseHandler):
 
     @handle_errors("emergent traits retrieval")
     def _get_emergent_traits(
-        self, nomic_dir: Path | None, persona_manager, min_confidence: float, limit: int
+        self, nomic_dir: Path | None, persona_manager: Any, min_confidence: float, limit: int
     ) -> HandlerResult:
         """Get emergent traits detected from agent performance patterns."""
         if not LABORATORY_AVAILABLE:

@@ -446,21 +446,74 @@ def create_deprecation_middleware() -> Callable:
 
 
 def register_default_deprecations() -> None:
-    """Register default deprecated endpoints.
+    """Register default deprecated endpoints for v1 API sunset.
 
-    Called at server startup to register known deprecated endpoints.
-    Add your deprecated endpoints here or call register_deprecated_endpoint()
-    from your route registration code.
+    Called at server startup to register known deprecated v1 endpoints.
+    All v1 endpoints have a sunset date of 2026-06-01. See
+    docs/MIGRATION_V1_TO_V2.md for the full migration guide.
+
+    The wildcard pattern /api/v1/** covers all v1 endpoints. Individual
+    entries below provide specific replacement URLs for key endpoints.
     """
-    # Example deprecations (uncomment and modify as needed)
-    # register_deprecated_endpoint(
-    #     path="/api/v1/debates",
-    #     methods=["GET", "POST"],
-    #     sunset_date=date(2026, 6, 1),
-    #     replacement="/api/v2/debates",
-    #     version="v1",
-    # )
-    pass
+    from aragora.server.versioning.constants import (
+        MIGRATION_DOCS_URL,
+        V1_SUNSET_DATE,
+    )
+
+    all_methods = ["GET", "POST", "PUT", "DELETE", "PATCH"]
+
+    # Blanket deprecation for all v1 endpoints
+    register_deprecated_endpoint(
+        path="/api/v1/**",
+        methods=all_methods,
+        sunset_date=V1_SUNSET_DATE,
+        replacement="/api/v2/",
+        message=(
+            "API v1 is deprecated and will be removed on 2026-06-01. Please migrate to API v2."
+        ),
+        migration_guide_url=MIGRATION_DOCS_URL,
+        version="v1",
+    )
+
+    # Key endpoint-specific deprecations with precise v2 replacements
+    _v1_endpoint_replacements = [
+        ("/api/v1/debates", "/api/v2/debates", ["GET", "POST"]),
+        ("/api/v1/debates/*", "/api/v2/debates/*", ["GET", "PUT", "DELETE"]),
+        ("/api/v1/debate", "/api/v2/debates", ["POST"]),
+        ("/api/v1/debate/*", "/api/v2/debates/*", ["GET"]),
+        ("/api/v1/agents", "/api/v2/agents", ["GET"]),
+        ("/api/v1/agents/*", "/api/v2/agents/*", ["GET"]),
+        ("/api/v1/auth/login", "/api/v2/auth/token", ["POST"]),
+        ("/api/v1/auth/register", "/api/v2/auth/register", ["POST"]),
+        ("/api/v1/user", "/api/v2/users/me", ["GET"]),
+        ("/api/v1/consensus/*", "/api/v2/debates/*/consensus", ["GET"]),
+        ("/api/v1/leaderboard", "/api/v2/agents/leaderboard", ["GET"]),
+        ("/api/v1/rankings", "/api/v2/agents/rankings", ["GET"]),
+        ("/api/v1/metrics", "/api/v2/system/metrics", ["GET"]),
+        ("/api/v1/health", "/api/v2/system/health", ["GET"]),
+        ("/api/v1/status", "/api/v2/health", ["GET"]),
+        ("/api/v1/analytics/**", "/api/v2/analytics/", ["GET"]),
+        ("/api/v1/gauntlet/**", "/api/v2/gauntlet/", ["GET", "POST"]),
+        ("/api/v1/inbox/**", "/api/v2/inbox/", ["GET", "POST"]),
+        ("/api/v1/knowledge/**", "/api/v2/knowledge/", ["GET", "POST", "PUT", "DELETE"]),
+        ("/api/v1/cross-pollination/**", "/api/v2/cross-pollination/", ["GET"]),
+    ]
+
+    for v1_path, v2_replacement, methods in _v1_endpoint_replacements:
+        register_deprecated_endpoint(
+            path=v1_path,
+            methods=methods,
+            sunset_date=V1_SUNSET_DATE,
+            replacement=v2_replacement,
+            migration_guide_url=MIGRATION_DOCS_URL,
+            version="v1",
+        )
+
+    logger.info(
+        "Registered v1 API deprecations: sunset=%s, days_remaining=%d",
+        V1_SUNSET_DATE.isoformat(),
+        max(0, (V1_SUNSET_DATE - date.today()).days),
+    )
 
 
 __all__ = [

@@ -226,7 +226,7 @@ def _validate_oauth_state(state: str) -> bool:
         return False
 
 
-def _run_async(coro):
+def _run_async(coro: Any) -> Any:
     """Run async coroutine in sync context."""
     return run_async(coro)
 
@@ -281,8 +281,20 @@ class SocialMediaHandler(BaseHandler):
         return False
 
     @require_permission("social:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any = None,
+        method: str = "GET",
+    ) -> HandlerResult | None:
         """Handle GET requests."""
+        if hasattr(handler, "command"):
+            method = handler.command
+
+        if method != "GET":
+            return None
+
         # YouTube OAuth endpoints
         if path == "/api/v1/youtube/auth":
             return self._get_youtube_auth_url(handler)
@@ -296,7 +308,9 @@ class SocialMediaHandler(BaseHandler):
         return None
 
     @require_permission("social:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         # Twitter publishing
         if path.startswith("/api/v1/debates/") and path.endswith("/publish/twitter"):

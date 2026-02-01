@@ -69,8 +69,26 @@ class ResponseHelpersMixin:
         self._add_security_headers()
         self._add_rate_limit_headers()
         self._add_trace_headers()
+        self._add_v1_deprecation_headers()
         self.end_headers()
         self.wfile.write(content)
+
+    def _add_v1_deprecation_headers(self) -> None:
+        """Add v1 API deprecation/sunset headers if this is a v1 request.
+
+        Only adds headers for /api/v1/ paths. Has zero overhead for
+        non-v1 requests. Can be disabled via ARAGORA_DISABLE_V1_DEPRECATION=true.
+        """
+        try:
+            from aragora.server.middleware.deprecation import add_v1_headers_to_handler
+
+            # self.path is set by BaseHTTPRequestHandler
+            path = getattr(self, "path", "")
+            if path:
+                add_v1_headers_to_handler(self, path)
+        except Exception:
+            # Never let deprecation header injection break a response
+            pass
 
     def _add_trace_headers(self) -> None:
         """Add trace ID header to response for correlation."""

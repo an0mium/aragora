@@ -75,7 +75,7 @@ class EvolutionABTestingHandler(BaseHandler):
             self._manager = ABTestManager(db_path=db_path)
         return self._manager
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
@@ -85,7 +85,9 @@ class EvolutionABTestingHandler(BaseHandler):
         return normalized.startswith("/api/evolution/ab-tests")
 
     @require_permission("testing:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route GET requests."""
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)
@@ -119,7 +121,9 @@ class EvolutionABTestingHandler(BaseHandler):
         return None
 
     @require_permission("testing:create")
-    def handle_post(self, path: str, body: dict, handler=None) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, body: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route POST requests."""
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)

@@ -34,9 +34,12 @@ from ..base import (
     handle_errors,
     json_response,
 )
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for social share APIs (60 requests per minute)
+_share_limiter = RateLimiter(requests_per_minute=60)
 
 
 class DebateVisibility(str, Enum):
@@ -180,6 +183,84 @@ class ShareStore:
                 settings.view_count += 1
 
 
+# === Social Share Support (consumer sharing) ===
+
+
+@dataclass
+class SocialShare:
+    """Represents a social share entry."""
+
+    id: str
+    org_id: str
+    resource_type: str
+    resource_id: str
+    shared_by: str
+    shared_with: list[str] = field(default_factory=list)
+    channel_id: str = ""
+    platform: str = ""
+    message: str = ""
+    created_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to JSON-serializable dict."""
+        return {
+            "id": self.id,
+            "org_id": self.org_id,
+            "resource_type": self.resource_type,
+            "resource_id": self.resource_id,
+            "shared_by": self.shared_by,
+            "shared_with": self.shared_with,
+            "channel_id": self.channel_id,
+            "platform": self.platform,
+            "message": self.message,
+            "created_at": self.created_at,
+        }
+
+
+class SocialShareStore:
+    """In-memory store for social shares (thread-safe)."""
+
+    def __init__(self) -> None:
+        self._shares: dict[str, SocialShare] = {}
+        self._lock = threading.Lock()
+
+    def get_by_org(self, org_id: str) -> list[SocialShare]:
+        """List shares by org."""
+        with self._lock:
+            return [share for share in self._shares.values() if share.org_id == org_id]
+
+    def get_by_id(self, share_id: str) -> SocialShare | None:
+        """Get a share by ID."""
+        with self._lock:
+            return self._shares.get(share_id)
+
+    def create(self, share: SocialShare) -> SocialShare:
+        """Create a share entry."""
+        with self._lock:
+            self._shares[share.id] = share
+            return share
+
+    def delete(self, share_id: str) -> bool:
+        """Delete a share by ID."""
+        with self._lock:
+            return self._shares.pop(share_id, None) is not None
+
+
+# Global store instance for social shares
+_social_share_store: SocialShareStore | None = None
+_social_share_store_lock = threading.Lock()
+
+
+def get_social_share_store() -> SocialShareStore:
+    """Get the global social share store instance (thread-safe)."""
+    global _social_share_store
+    if _social_share_store is None:
+        with _social_share_store_lock:
+            if _social_share_store is None:
+                _social_share_store = SocialShareStore()
+    return _social_share_store
+
+
 # Global store instance with thread-safe initialization
 # Can be either in-memory ShareStore or SQLite-backed ShareLinkStore
 # Use Any to allow dynamic ShareLinkStore assignment without import cycle
@@ -229,21 +310,66 @@ class SharingHandler(BaseHandler):
     def __init__(self, server_context: ServerContext | None = None):
         super().__init__(server_context if server_context is not None else cast(ServerContext, {}))
         self._store = get_share_store()
+        self._social_store = get_social_share_store()
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can handle the request path."""
+        if path.startswith("/api/v1/social/shares"):
+            return True
+        if path.startswith("/api/v1/shared/"):
+            return True
+        if "/share" in path and "/api/v1/debates/" in path:
+            return True
+        return False
 
     @require_permission("sharing:read")
-    def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
-        """Handle GET requests."""
+    def handle(
+        self,
+        path: str,
+        query_params: dict,
+        handler: Any,
+        method: str = "GET",
+        user=None,
+    ) -> HandlerResult | None:
+        """Handle requests for sharing endpoints."""
+        if hasattr(handler, "command"):
+            method = handler.command
+
+        # Social shares endpoints
+        if path.startswith("/api/v1/social/shares"):
+            client_ip = get_client_ip(handler)
+            if not _share_limiter.is_allowed(client_ip):
+                logger.warning(f"Rate limit exceeded for social shares: {client_ip}")
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+
+            if path == "/api/v1/social/shares":
+                if method == "GET":
+                    return self._list_social_shares(handler, query_params, user=user)
+                if method == "POST":
+                    return self._create_social_share(handler, query_params, user=user)
+                return error_response("Method not allowed", 405)
+
+            share_id = path.split("/api/v1/social/shares/")[1].rstrip("/")
+            if method == "GET":
+                return self._get_social_share(share_id, handler, user=user)
+            if method == "DELETE":
+                return self._delete_social_share(share_id, handler, user=user)
+            return error_response("Method not allowed", 405)
+
         # Shared debate access (public endpoint)
         if path.startswith("/api/v1/shared/"):
             token = path.split("/api/v1/shared/")[1].rstrip("/")
             return self._get_shared_debate(token, query_params)
 
-        # Get sharing settings
-        if path.endswith("/share"):
+        # Delegate to existing debate share handlers
+        if method == "GET" and path.endswith("/share"):
             debate_id, err = self._extract_debate_id(path)
             if err:
                 return error_response(err, 400)
             return self._get_share_settings(debate_id, handler)
+
+        if method == "POST":
+            return self.handle_post(path, query_params, handler)
 
         return None
 
@@ -280,6 +406,96 @@ class SharingHandler(BaseHandler):
             return None, "Could not extract debate ID from path"
         except Exception as e:
             return None, str(e)
+
+    def _resolve_social_user(self, handler: Any, user: Any) -> Any:
+        """Resolve user context for social share operations."""
+        if user is None:
+            user = self.get_current_user(handler)
+        user_store = self.ctx.get("user_store")
+        if user_store and hasattr(user, "user_id"):
+            try:
+                db_user = user_store.get_user_by_id(user.user_id)
+                if db_user:
+                    return db_user
+            except Exception:
+                pass
+        return user
+
+    def _list_social_shares(
+        self,
+        handler: Any,
+        query_params: dict,
+        user=None,
+    ) -> HandlerResult:
+        """List social shares."""
+        db_user = self._resolve_social_user(handler, user)
+        org_id = getattr(db_user, "org_id", None)
+        shares = self._social_store.get_by_org(org_id) if org_id else []
+
+        resource_type = query_params.get("resource_type")
+        if resource_type:
+            shares = [share for share in shares if share.resource_type == resource_type]
+
+        return json_response({"shares": [s.to_dict() for s in shares], "total": len(shares)})
+
+    def _get_social_share(
+        self,
+        share_id: str,
+        handler: Any,
+        user=None,
+    ) -> HandlerResult:
+        """Get a social share by ID."""
+        share = self._social_store.get_by_id(share_id)
+        if not share:
+            return error_response("Share not found", 404)
+        return json_response({"share": share.to_dict()})
+
+    def _create_social_share(
+        self,
+        handler: Any,
+        query_params: dict,
+        user=None,
+    ) -> HandlerResult:
+        """Create a social share."""
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid or missing JSON body", 400)
+
+        resource_type = body.get("resource_type")
+        resource_id = body.get("resource_id")
+        if not resource_type or not resource_id:
+            return error_response("resource_type and resource_id are required", 400)
+
+        db_user = self._resolve_social_user(handler, user)
+        org_id = getattr(db_user, "org_id", "") or ""
+        shared_by = getattr(db_user, "id", None) or getattr(db_user, "user_id", "")
+
+        share = SocialShare(
+            id=secrets.token_urlsafe(8),
+            org_id=org_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            shared_by=shared_by,
+            shared_with=body.get("shared_with") or [],
+            channel_id=body.get("channel_id", ""),
+            platform=body.get("platform", ""),
+            message=body.get("message", ""),
+        )
+
+        created = self._social_store.create(share)
+        return json_response({"share": created.to_dict()}, status=201)
+
+    def _delete_social_share(
+        self,
+        share_id: str,
+        handler: Any,
+        user=None,
+    ) -> HandlerResult:
+        """Delete a social share."""
+        deleted = self._social_store.delete(share_id)
+        if not deleted:
+            return error_response("Share not found", 404)
+        return json_response({"deleted": True, "share_id": share_id})
 
     @handle_errors("get share settings")
     def _get_share_settings(self, debate_id: str, handler: Any) -> HandlerResult:

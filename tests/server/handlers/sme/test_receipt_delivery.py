@@ -193,8 +193,7 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def delivery_handler(handler_context, mock_subscription_store):
-    if not HANDLER_AVAILABLE:
-        pytest.skip("ReceiptDeliveryHandler not available")
+    # HANDLER_AVAILABLE is enforced by module-level pytestmark
     handler = ReceiptDeliveryHandler(handler_context)
     yield handler
 

@@ -87,7 +87,7 @@ class SSOHandler(SecureHandler):
         self._provider = None
         self._initialized = False
 
-    def _get_provider(self):
+    def _get_provider(self) -> Any:
         """Lazy-load SSO provider."""
         if not self._initialized:
             try:

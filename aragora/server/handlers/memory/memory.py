@@ -97,12 +97,12 @@ class MemoryHandler(SecureHandler):
                 return True
         return False
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
     @require_permission("memory:read")
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route memory requests to appropriate handler methods."""
         client_ip = get_client_ip(handler)
 
@@ -159,7 +159,9 @@ class MemoryHandler(SecureHandler):
         return None
 
     @require_permission("memory:write")
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST memory requests to state-mutating methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
 
@@ -436,7 +438,9 @@ class MemoryHandler(SecureHandler):
 
         return json_response(response_data)
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route DELETE memory requests to appropriate methods with auth."""
         from aragora.billing.jwt_auth import extract_user_from_request
 

@@ -12,8 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Coroutine
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
@@ -30,7 +29,6 @@ from ...base import (
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
-    from aragora.knowledge.mound.types import KnowledgeItem
 
 logger = logging.getLogger(__name__)
 
@@ -94,16 +92,13 @@ class GlobalKnowledgeOperationsMixin:
 
         try:
             node_id = _run_async(
-                cast(
-                    Coroutine[Any, Any, str],
-                    mound.store_verified_fact(
-                        content=content,
-                        source=source,
-                        confidence=confidence,
-                        evidence_ids=evidence_ids,
-                        verified_by=user_id,
-                        topics=topics,
-                    ),
+                mound.store_verified_fact(
+                    content=content,
+                    source=source,
+                    confidence=confidence,
+                    evidence_ids=evidence_ids,
+                    verified_by=user_id,
+                    topics=topics,
                 )
             )
             track_global_fact(action="store")
@@ -140,23 +135,15 @@ class GlobalKnowledgeOperationsMixin:
         try:
             if query:
                 items = _run_async(
-                    cast(
-                        Coroutine[Any, Any, list["KnowledgeItem"]],
-                        mound.query_global_knowledge(
-                            query=query,
-                            limit=limit,
-                            topics=topics,
-                        ),
+                    mound.query_global_knowledge(
+                        query=query,
+                        limit=limit,
+                        topics=topics,
                     )
                 )
             else:
                 # If no query, get all system facts
-                items = _run_async(
-                    cast(
-                        Coroutine[Any, Any, list["KnowledgeItem"]],
-                        mound.get_system_facts(limit=limit, topics=topics),
-                    )
-                )
+                items = _run_async(mound.get_system_facts(limit=limit, topics=topics))
             track_global_query(has_results=len(items) > 0)
         except Exception as e:
             logger.error(f"Failed to query global knowledge: {e}")
@@ -220,14 +207,11 @@ class GlobalKnowledgeOperationsMixin:
 
         try:
             global_id = _run_async(
-                cast(
-                    Coroutine[Any, Any, str],
-                    mound.promote_to_global(
-                        item_id=item_id,
-                        workspace_id=workspace_id,
-                        promoted_by=user_id,
-                        reason=reason,
-                    ),
+                mound.promote_to_global(
+                    item_id=item_id,
+                    workspace_id=workspace_id,
+                    promoted_by=user_id,
+                    reason=reason,
                 )
             )
             track_global_fact(action="promote")
@@ -264,12 +248,7 @@ class GlobalKnowledgeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            facts = _run_async(
-                cast(
-                    Coroutine[Any, Any, list["KnowledgeItem"]],
-                    mound.get_system_facts(limit=limit + offset, topics=topics),
-                )
-            )
+            facts = _run_async(mound.get_system_facts(limit=limit + offset, topics=topics))
         except Exception as e:
             logger.error(f"Failed to get system facts: {e}")
             return error_response(f"Failed to get system facts: {e}", 500)

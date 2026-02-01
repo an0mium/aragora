@@ -484,8 +484,8 @@ class MarketplaceHandler:
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         if hasattr(request, "json"):
-            body = await parse_json_body(request, "marketplace._get_json_body")
-            return body if isinstance(body, dict) else {}
+            body, _err = await parse_json_body(request, context="marketplace._get_json_body")
+            return body if body is not None else {}
         return {}
 
     # =========================================================================

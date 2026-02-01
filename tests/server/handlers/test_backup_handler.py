@@ -460,13 +460,12 @@ class TestRestorePathTraversal:
         assert b"Invalid target path" in result.body
 
     @pytest.mark.asyncio
-    async def test_path_traversal_encoded_is_literal(self, handler):
-        """Test that URL-encoded strings in JSON are treated as literal filenames.
+    async def test_path_traversal_encoded_rejected(self, handler):
+        """Test that URL-encoded traversal attempts are rejected (CWE-22).
 
-        URL encoding like %2F is NOT automatically decoded in JSON bodies (unlike
-        query strings), so '..%2F..%2Fetc%2Fpasswd' is treated as a literal filename
-        which is safe - it creates a file named '..%2F..%2Fetc%2Fpasswd' rather than
-        traversing to /etc/passwd.
+        Defense-in-depth: safe_path decodes URL-encoded characters before
+        validation, so '..%2F..%2Fetc%2Fpasswd' is decoded to
+        '../../etc/passwd' and correctly blocked as path traversal.
         """
         mock_request = MockHTTPHandler("POST", body={"target_path": "..%2F..%2Fetc%2Fpasswd"})
         result = await handler.handle(
@@ -474,8 +473,8 @@ class TestRestorePathTraversal:
             {},
             mock_request,
         )
-        # URL-encoded path is a literal filename, not a traversal - this is safe
-        assert result.status_code == 200
+        assert result.status_code == 400
+        assert b"Invalid target path" in result.body
 
 
 class TestDeleteBackup:

@@ -15,8 +15,13 @@ from aiohttp import web
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
+from aragora.server.handlers.base import error_response, json_response
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for channel health APIs (60 requests per minute)
+_health_limiter = RateLimiter(requests_per_minute=60)
 
 
 class ChannelHealthHandler:
@@ -251,31 +256,83 @@ class ChannelHealthHandler:
 
         return health
 
-    def can_handle(self, method: str, path: str) -> bool:
+    def can_handle(self, path: str, method: str | None = None) -> bool:
         """Check if this handler can handle the request."""
-        if not path.startswith("/api/v1/channels"):
-            return False
+        # Backward-compatible signature: can_handle(method, path)
+        if method is not None and not path.startswith("/") and method.startswith("/"):
+            path, method = method, path
 
-        # Normalize path
+        if method is None:
+            if not path.startswith("/"):
+                return False
+            method = "GET"
+
         normalized = path.rstrip("/")
 
-        # Check exact matches
-        if method == "GET" and normalized == "/api/v1/channels/health":
+        if method == "GET" and normalized in (
+            "/api/v1/channels/health",
+            "/api/v1/social/channels/health",
+            "/api/v1/social/channels/health/metrics",
+        ):
             return True
 
-        # Check pattern match for specific channel health
-        # Path: /api/v1/channels/{channel}/health
-        # Parts: ['', 'api', 'v1', 'channels', '{channel}', 'health'] = 6 parts
         if method == "GET" and normalized.startswith("/api/v1/channels/"):
             parts = normalized.split("/")
             if len(parts) == 6 and parts[5] == "health":
                 return True
 
+        if method == "GET" and normalized.startswith("/api/v1/social/channels/"):
+            parts = normalized.split("/")
+            # /api/v1/social/channels/{channel}/health
+            if len(parts) == 7 and parts[6] == "health":
+                return True
+
         return False
 
     @require_permission("channels:read")
-    async def handle(self, request: web.Request) -> web.Response:
-        """Route the request to the appropriate handler method."""
+    def handle(
+        self,
+        request_or_path: web.Request | str,
+        query_params: dict | None = None,
+        handler: Any | None = None,
+        method: str = "GET",
+        user=None,
+    ) -> Any:
+        """Route sync and async requests to the appropriate handler method."""
+        if isinstance(request_or_path, web.Request):
+            return self._handle_request(request_or_path)
+
+        path = request_or_path.rstrip("/")
+        if handler is not None and hasattr(handler, "command"):
+            method = handler.command
+
+        client_ip = get_client_ip(handler)
+        if not _health_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for channel health: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        if path == "/api/v1/social/channels/health":
+            if method != "GET":
+                return error_response("Method not allowed", 405)
+            return self._get_overall_health(query_params or {})
+
+        if path == "/api/v1/social/channels/health/metrics":
+            if method != "GET":
+                return error_response("Method not allowed", 405)
+            return self._get_health_metrics(query_params or {})
+
+        if path.startswith("/api/v1/social/channels/") and path.endswith("/health"):
+            if method != "GET":
+                return error_response("Method not allowed", 405)
+            parts = path.split("/")
+            if len(parts) >= 7:
+                channel_id = parts[5]
+                return self._get_channel_health_sync(channel_id)
+
+        return error_response("Not found", 404)
+
+    async def _handle_request(self, request: web.Request) -> web.Response:
+        """Handle aiohttp requests for /api/v1/channels/* endpoints."""
         path = request.path.rstrip("/")
         method = request.method
 
@@ -288,3 +345,39 @@ class ChannelHealthHandler:
                 return await self.get_channel_health(request)
 
         return web_error_response("Not found", 404)
+
+    def _get_overall_health(self, query_params: dict[str, Any]) -> Any:
+        """Return a minimal overall health response for social endpoints."""
+        self._ensure_connectors_initialized()
+        return json_response(
+            {
+                "status": "healthy" if self._connectors else "no_channels_configured",
+                "timestamp": time.time(),
+                "summary": {"total": len(self._connectors)},
+                "channels": list(self._connectors.keys()),
+            }
+        )
+
+    def _get_health_metrics(self, query_params: dict[str, Any]) -> Any:
+        """Return a minimal metrics response for social endpoints."""
+        return json_response(
+            {
+                "status": "ok",
+                "timestamp": time.time(),
+                "from": query_params.get("from"),
+                "to": query_params.get("to"),
+            }
+        )
+
+    def _get_channel_health_sync(self, channel: str) -> Any:
+        """Return minimal channel health response for social endpoints."""
+        self._ensure_connectors_initialized()
+        if channel not in self._connectors:
+            return error_response("Channel not found", 404)
+        return json_response(
+            {
+                "platform": channel,
+                "status": "healthy",
+                "timestamp": time.time(),
+            }
+        )

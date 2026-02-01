@@ -26,7 +26,7 @@ class VersionConfig:
     deprecated: set[APIVersion] = field(default_factory=lambda: {APIVersion.V1})
     sunset_dates: dict[APIVersion, str] = field(
         default_factory=lambda: {
-            APIVersion.V1: "2026-12-31",
+            APIVersion.V1: "2026-06-01",
         }
     )
     default_for_legacy: APIVersion = APIVersion.V1

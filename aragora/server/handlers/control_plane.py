@@ -102,10 +102,10 @@ class ControlPlaneHandler(BaseHandler):
     def _emit_event(
         self,
         emit_method: str,
-        *args,
+        *args: Any,
         max_retries: int = 3,
         base_delay: float = 0.1,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Emit an event to the control plane stream with retry logic.
 
@@ -128,7 +128,7 @@ class ControlPlaneHandler(BaseHandler):
             return
 
         # Schedule async emission without blocking
-        async def _do_emit_with_retry():
+        async def _do_emit_with_retry() -> None:
             last_error: Exception | None = None
             for attempt in range(max_retries):
                 try:
@@ -605,7 +605,7 @@ class ControlPlaneHandler(BaseHandler):
             )
 
             # Format tasks as jobs for the frontend
-            def task_to_job(task) -> dict[str, Any]:
+            def task_to_job(task: Any) -> dict[str, Any]:
                 # Calculate progress based on status
                 progress = 0.0
                 if task.status.value == "running":
@@ -1511,7 +1511,7 @@ class ControlPlaneHandler(BaseHandler):
     # Policy Violation Handlers
     # =========================================================================
 
-    def _get_policy_store(self):
+    def _get_policy_store(self) -> Any:
         """Get the control plane policy store."""
         try:
             from aragora.control_plane.policy_store import get_control_plane_policy_store

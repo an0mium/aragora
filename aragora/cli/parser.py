@@ -575,6 +575,11 @@ def _add_external_parsers(subparsers) -> None:
 
     create_tenant_parser(subparsers)
 
+    # OpenClaw command (enterprise gateway management)
+    from aragora.cli.openclaw import create_openclaw_parser
+
+    create_openclaw_parser(subparsers)
+
 
 def _add_badge_parser(subparsers) -> None:
     """Add the 'badge' subcommand parser."""

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
+from typing import Any, TYPE_CHECKING, Callable, NamedTuple
 
 if TYPE_CHECKING:
     from aragora.agents.grounded import AgentRelationship as AgentRelationshipType
@@ -171,13 +171,13 @@ def require_tracker(func: Callable) -> Callable:
     Usage:
         # Call site: self._get_summary(nomic_dir)
         @require_tracker
-        def _get_summary(self, tracker: "RelationshipTracker") -> HandlerResult:
+        def _get_summary(self, tracker: RelationshipTrackerType) -> HandlerResult:
             # tracker is guaranteed non-None
             ...
     """
 
     @wraps(func)
-    def wrapper(self, nomic_dir: Path | None, *args, **kwargs) -> HandlerResult:
+    def wrapper(self: Any, nomic_dir: Path | None, *args: Any, **kwargs: Any) -> HandlerResult:
         if not RELATIONSHIP_TRACKER_AVAILABLE:
             return error_response("Relationship tracker not available", 503)
         tracker = self._get_tracker(nomic_dir)
@@ -207,7 +207,7 @@ class RelationshipHandler(BaseHandler):
         return False
 
     @require_permission("relationships:read")
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route relationship requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -244,7 +244,7 @@ class RelationshipHandler(BaseHandler):
 
         return None
 
-    def _get_tracker(self, nomic_dir: Path | None) -> Optional["RelationshipTracker"]:
+    def _get_tracker(self, nomic_dir: Path | None) -> RelationshipTrackerType | None:
         """Get or create a RelationshipTracker instance."""
         if not RELATIONSHIP_TRACKER_AVAILABLE:
             return None
@@ -261,7 +261,7 @@ class RelationshipHandler(BaseHandler):
             return None
 
     def _fetch_relationships(
-        self, tracker: "RelationshipTracker", min_debates: int = 0
+        self, tracker: RelationshipTrackerType, min_debates: int = 0
     ) -> list[tuple[str, str, int, int, int, int]]:
         """Fetch relationship rows from database.
 
@@ -284,7 +284,7 @@ class RelationshipHandler(BaseHandler):
             return cursor.fetchall()
 
     @require_tracker
-    def _get_summary(self, tracker: "RelationshipTracker") -> HandlerResult:
+    def _get_summary(self, tracker: RelationshipTrackerType) -> HandlerResult:
         """Get global relationship overview."""
         try:
             # Collect all unique agents and their relationships
@@ -412,7 +412,7 @@ class RelationshipHandler(BaseHandler):
 
     @require_tracker
     def _get_graph(
-        self, tracker: "RelationshipTracker", min_debates: int, min_score: float
+        self, tracker: RelationshipTrackerType, min_debates: int, min_score: float
     ) -> HandlerResult:
         """Get full relationship graph for visualizations."""
         try:
@@ -490,7 +490,7 @@ class RelationshipHandler(BaseHandler):
 
     @require_tracker
     def _get_pair_detail(
-        self, tracker: "RelationshipTracker", agent_a: str, agent_b: str
+        self, tracker: RelationshipTrackerType, agent_a: str, agent_b: str
     ) -> HandlerResult:
         """Get detailed relationship between two specific agents."""
         try:
@@ -556,7 +556,7 @@ class RelationshipHandler(BaseHandler):
         )
 
     @require_tracker
-    def _get_stats(self, tracker: "RelationshipTracker") -> HandlerResult:
+    def _get_stats(self, tracker: RelationshipTrackerType) -> HandlerResult:
         """Get relationship system statistics."""
         try:
             rows = self._fetch_relationships(tracker)

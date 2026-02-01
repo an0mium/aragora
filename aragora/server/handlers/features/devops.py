@@ -31,7 +31,6 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from aiohttp import web
 
 from ..base import (
     HandlerResult,
@@ -886,15 +885,14 @@ class DevOpsHandler(SecureHandler):
             return {k: v[0] for k, v in parse_qs(request.query_string).items()}
         return {}
 
-    async def _get_json_body(
-        self, request: Any
-    ) -> tuple[dict[str, Any] | None, web.Response | None]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
-                return await parse_json_body(request, "devops._get_json_body")
-            return request.json, None
-        return {}, None
+                body, _err = await parse_json_body(request, context="devops._get_json_body")
+                return body if body is not None else {}
+            return request.json
+        return {}
 
     async def _get_raw_body(self, request: Any) -> bytes:
         """Get raw request body."""

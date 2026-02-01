@@ -185,7 +185,7 @@ class SelectionHandler(BaseHandler):
             )
 
     @handle_errors("score agents")
-    def _score_agents(self, handler) -> HandlerResult:
+    def _score_agents(self, handler: Any) -> HandlerResult:
         """Score agents for a task."""
         try:
             body = self._get_json_body(handler)
@@ -258,7 +258,7 @@ class SelectionHandler(BaseHandler):
         )
 
     @handle_errors("select team")
-    def _select_team(self, handler) -> HandlerResult:
+    def _select_team(self, handler: Any) -> HandlerResult:
         """Select an optimal team for a task."""
         try:
             body = self._get_json_body(handler)

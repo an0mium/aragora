@@ -726,7 +726,7 @@ def require_auth(func: Callable) -> Callable:
     """
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         from aragora.server.auth import auth_config
 
         handler = kwargs.get("handler")

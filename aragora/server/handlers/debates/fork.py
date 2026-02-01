@@ -21,6 +21,7 @@ from ..base import (
     require_storage,
     safe_error_message,
 )
+from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import rate_limit, user_rate_limit
 
 if TYPE_CHECKING:
@@ -54,6 +55,22 @@ class _DebatesHandlerProtocol(Protocol):
 class ForkOperationsMixin:
     """Mixin providing fork and follow-up operations for DebatesHandler."""
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates/{debate_id}/fork",
+        summary="Fork a debate",
+        description="Create a counterfactual fork of a debate at a specific branch point.",
+        tags=["Debates", "Fork"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Fork created successfully"},
+            "400": {"description": "Invalid request"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_permission("debates:create")
     @user_rate_limit(action="debate_create")
     @rate_limit(requests_per_minute=5, limiter_name="debates_fork")
@@ -249,6 +266,21 @@ class ForkOperationsMixin:
                     f"Internal error loading position tracker: {import_error_msg}", 500
                 )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{debate_id}/followups",
+        summary="Get follow-up suggestions",
+        description="Get follow-up debate suggestions based on identified cruxes and uncertainty metrics.",
+        tags=["Debates", "Fork"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Follow-up suggestions returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_storage
     def _get_followup_suggestions(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """Get follow-up debate suggestions based on identified cruxes.
@@ -494,6 +526,21 @@ class ForkOperationsMixin:
             )
             return error_response(safe_error_message(e, "create followup debate"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{debate_id}/forks",
+        summary="List debate forks",
+        description="List all forks (counterfactual branches) of a debate.",
+        tags=["Debates", "Fork"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "List of forks returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+        },
+    )
     @require_storage
     def _list_debate_forks(self: _DebatesHandlerProtocol, debate_id: str) -> HandlerResult:
         """List all forks for a debate with tree structure.

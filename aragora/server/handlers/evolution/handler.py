@@ -11,6 +11,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.server.versioning.compat import strip_version_prefix
@@ -71,7 +72,7 @@ class EvolutionHandler(BaseHandler):
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route evolution requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         if not normalized.startswith("/api/evolution/"):

@@ -930,3 +930,578 @@ class TestMigrationTableSchema:
         assert "name" in cols
         assert "applied_at" in cols
         assert "applied_by" in cols
+
+
+# ---------------------------------------------------------------------------
+# Rollback history table tests
+# ---------------------------------------------------------------------------
+
+
+class TestRollbackHistoryTable:
+    """Tests for the rollback history table creation."""
+
+    def test_rollback_history_table_created(self, backend, runner):
+        """Verify the rollback history table is created on init."""
+        rows = backend.fetch_all(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            ("_aragora_rollback_history",),
+        )
+        assert len(rows) == 1
+
+    def test_rollback_history_table_has_columns(self, backend, runner):
+        """Verify the rollback history table has expected columns."""
+        cursor = backend._conn.execute("PRAGMA table_info(_aragora_rollback_history)")
+        cols = {row[1] for row in cursor.fetchall()}
+        assert "id" in cols
+        assert "version" in cols
+        assert "name" in cols
+        assert "rolled_back_at" in cols
+        assert "rolled_back_by" in cols
+        assert "reason" in cols
+
+
+# ---------------------------------------------------------------------------
+# Downgrade dry-run tests
+# ---------------------------------------------------------------------------
+
+
+class TestDowngradeDryRun:
+    """Tests for dry-run rollback support."""
+
+    def _make_migration(self, version, name, up_sql="SELECT 1", down_sql=None, down_fn=None):
+        from aragora.migrations.runner import Migration
+
+        return Migration(
+            version=version,
+            name=name,
+            up_sql=up_sql,
+            down_sql=down_sql,
+            down_fn=down_fn,
+        )
+
+    def test_dry_run_returns_candidates(self, runner, backend):
+        """Dry-run should return what would be rolled back without executing."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        rolled = runner.downgrade(dry_run=True)
+        assert len(rolled) == 1
+        assert rolled[0].version == 2
+
+        # Nothing should have actually been rolled back
+        applied = runner.get_applied_versions()
+        assert 1 in applied
+        assert 2 in applied
+
+    def test_dry_run_with_target_version(self, runner, backend):
+        """Dry-run with target_version should preview multi-step rollback."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.register(self._make_migration(3, "c", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        rolled = runner.downgrade(target_version=1, dry_run=True)
+        assert len(rolled) == 2
+        versions = {m.version for m in rolled}
+        assert versions == {2, 3}
+
+        # Nothing actually rolled back
+        assert runner.get_applied_versions() == {1, 2, 3}
+
+    def test_dry_run_stops_at_no_rollback(self, runner, backend):
+        """Dry-run should stop if migration has no rollback defined."""
+        runner.register(self._make_migration(1, "a"))  # No down_sql
+        runner.upgrade()
+
+        rolled = runner.downgrade(dry_run=True)
+        assert len(rolled) == 0
+
+    def test_dry_run_does_not_acquire_lock(self, backend):
+        """Dry-run should not acquire advisory lock."""
+        from aragora.migrations.runner import Migration, MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+        lock_acquired = []
+
+        original_acquire = runner._acquire_migration_lock
+
+        def mock_acquire(timeout_seconds=30.0):
+            lock_acquired.append(True)
+            return original_acquire(timeout_seconds)
+
+        runner._acquire_migration_lock = mock_acquire
+
+        m = Migration(version=1, name="test", up_sql="SELECT 1", down_sql="SELECT 1")
+        runner.register(m)
+        runner.upgrade()
+
+        lock_acquired.clear()
+        runner.downgrade(dry_run=True)
+        assert len(lock_acquired) == 0
+
+
+# ---------------------------------------------------------------------------
+# Rollback steps tests
+# ---------------------------------------------------------------------------
+
+
+class TestRollbackSteps:
+    """Tests for the rollback_steps method."""
+
+    def _make_migration(self, version, name, up_sql="SELECT 1", down_sql=None, down_fn=None):
+        from aragora.migrations.runner import Migration
+
+        return Migration(
+            version=version,
+            name=name,
+            up_sql=up_sql,
+            down_sql=down_sql,
+            down_fn=down_fn,
+        )
+
+    def test_rollback_one_step(self, runner, backend):
+        """Rolling back 1 step should rollback the latest migration."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.register(self._make_migration(3, "c", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        rolled = runner.rollback_steps(steps=1)
+        assert len(rolled) == 1
+        assert rolled[0].version == 3
+
+        applied = runner.get_applied_versions()
+        assert applied == {1, 2}
+
+    def test_rollback_two_steps(self, runner, backend):
+        """Rolling back 2 steps should rollback the last 2 migrations."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.register(self._make_migration(3, "c", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        rolled = runner.rollback_steps(steps=2)
+        assert len(rolled) == 2
+        versions = {m.version for m in rolled}
+        assert versions == {2, 3}
+
+        applied = runner.get_applied_versions()
+        assert applied == {1}
+
+    def test_rollback_all_steps(self, runner, backend):
+        """Rolling back all steps should remove all migrations."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        rolled = runner.rollback_steps(steps=2)
+        assert len(rolled) == 2
+
+        applied = runner.get_applied_versions()
+        assert applied == set()
+
+    def test_rollback_more_steps_than_applied(self, runner, backend):
+        """Rolling back more steps than applied should rollback all."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        rolled = runner.rollback_steps(steps=10)
+        assert len(rolled) == 2
+        assert runner.get_applied_versions() == set()
+
+    def test_rollback_steps_zero_raises(self, runner):
+        """Steps < 1 should raise ValueError."""
+        with pytest.raises(ValueError, match="steps must be >= 1"):
+            runner.rollback_steps(steps=0)
+
+    def test_rollback_steps_negative_raises(self, runner):
+        """Negative steps should raise ValueError."""
+        with pytest.raises(ValueError, match="steps must be >= 1"):
+            runner.rollback_steps(steps=-1)
+
+    def test_rollback_steps_empty_state(self, runner):
+        """Rolling back with no migrations applied returns empty list."""
+        rolled = runner.rollback_steps(steps=1)
+        assert rolled == []
+
+    def test_rollback_steps_dry_run(self, runner, backend):
+        """Dry-run should preview without executing."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        rolled = runner.rollback_steps(steps=1, dry_run=True)
+        assert len(rolled) == 1
+        assert rolled[0].version == 2
+
+        # Nothing actually rolled back
+        assert runner.get_applied_versions() == {1, 2}
+
+    def test_rollback_steps_with_reason(self, runner, backend):
+        """Reason should be stored in rollback history."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        runner.rollback_steps(steps=1, reason="Bug in migration 1")
+
+        history = runner.get_rollback_history()
+        assert len(history) == 1
+        assert history[0].version == 1
+        assert history[0].reason == "Bug in migration 1"
+
+
+# ---------------------------------------------------------------------------
+# Rollback validation tests
+# ---------------------------------------------------------------------------
+
+
+class TestValidateRollback:
+    """Tests for the validate_rollback method."""
+
+    def _make_migration(self, version, name, up_sql="SELECT 1", down_sql=None, down_fn=None):
+        from aragora.migrations.runner import Migration
+
+        return Migration(
+            version=version,
+            name=name,
+            up_sql=up_sql,
+            down_sql=down_sql,
+            down_fn=down_fn,
+        )
+
+    def test_validate_no_applied_migrations(self, runner):
+        """Validation should fail when no migrations are applied."""
+        validation = runner.validate_rollback()
+        assert validation.safe is False
+        assert len(validation.errors) == 1
+        assert "No migrations have been applied" in validation.errors[0]
+
+    def test_validate_with_down_sql(self, runner, backend):
+        """Validation should pass when migrations have down_sql."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        validation = runner.validate_rollback()
+        assert validation.safe is True
+        assert validation.errors == []
+        assert 1 in validation.migrations_to_rollback
+
+    def test_validate_with_down_fn(self, runner, backend):
+        """Validation should pass when migrations have down_fn."""
+        from aragora.migrations.runner import Migration
+
+        fn = lambda be: None  # noqa: E731
+        runner.register(Migration(version=1, name="a", up_sql="SELECT 1", down_fn=fn))
+        runner.upgrade()
+
+        validation = runner.validate_rollback()
+        assert validation.safe is True
+
+    def test_validate_without_rollback_fails(self, runner, backend):
+        """Validation should fail when migration has no rollback."""
+        runner.register(self._make_migration(1, "a"))  # No down_sql or down_fn
+        runner.upgrade()
+
+        validation = runner.validate_rollback()
+        assert validation.safe is False
+        assert any("no rollback defined" in e for e in validation.errors)
+
+    def test_validate_target_version_too_high(self, runner, backend):
+        """Validation should fail when target >= current version."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        validation = runner.validate_rollback(target_version=1)
+        assert validation.safe is False
+        assert any("must be less than" in e for e in validation.errors)
+
+    def test_validate_negative_target_version(self, runner, backend):
+        """Validation should fail for negative target version."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        validation = runner.validate_rollback(target_version=-1)
+        assert validation.safe is False
+        assert any("must be >= 0" in e for e in validation.errors)
+
+    def test_validate_steps_zero_fails(self, runner, backend):
+        """Validation with steps=0 should fail."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        validation = runner.validate_rollback(steps=0)
+        assert validation.safe is False
+        assert any("must be >= 1" in e for e in validation.errors)
+
+    def test_validate_multi_step(self, runner, backend):
+        """Validation of multi-step rollback should check all candidates."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.register(self._make_migration(3, "c"))  # No rollback
+        runner.upgrade()
+
+        # Rolling back 1 step (v3) should fail (no rollback on v3)
+        validation = runner.validate_rollback(steps=1)
+        assert validation.safe is False
+
+    def test_validate_large_rollback_warning(self, runner, backend):
+        """Rolling back more than 5 migrations should produce a warning."""
+        for i in range(1, 8):
+            runner.register(self._make_migration(i, f"m{i}", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        validation = runner.validate_rollback(target_version=0)
+        assert validation.safe is True
+        assert any("large operation" in w for w in validation.warnings)
+
+    def test_validate_returns_versions_to_rollback(self, runner, backend):
+        """Validation should list all versions that would be rolled back."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.register(self._make_migration(3, "c", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        validation = runner.validate_rollback(target_version=1)
+        assert sorted(validation.migrations_to_rollback) == [2, 3]
+
+
+# ---------------------------------------------------------------------------
+# Rollback history tracking tests
+# ---------------------------------------------------------------------------
+
+
+class TestRollbackHistory:
+    """Tests for rollback history tracking."""
+
+    def _make_migration(self, version, name, up_sql="SELECT 1", down_sql=None):
+        from aragora.migrations.runner import Migration
+
+        return Migration(version=version, name=name, up_sql=up_sql, down_sql=down_sql)
+
+    def test_empty_history(self, runner):
+        """Empty rollback history should return empty list."""
+        history = runner.get_rollback_history()
+        assert history == []
+
+    def test_downgrade_records_history(self, runner, backend):
+        """Downgrade should record entry in rollback history."""
+        runner.register(self._make_migration(1, "create_t", down_sql="SELECT 1"))
+        runner.upgrade()
+        runner.downgrade()
+
+        history = runner.get_rollback_history()
+        assert len(history) == 1
+        assert history[0].version == 1
+        assert history[0].name == "create_t"
+        assert history[0].rolled_back_by is not None
+        assert ":" in history[0].rolled_back_by  # hostname:pid format
+
+    def test_history_records_reason(self, runner, backend):
+        """Reason should be stored in rollback history."""
+        runner.register(self._make_migration(1, "test_m", down_sql="SELECT 1"))
+        runner.upgrade()
+        runner.downgrade(reason="hotfix deployment")
+
+        history = runner.get_rollback_history()
+        assert len(history) == 1
+        assert history[0].reason == "hotfix deployment"
+
+    def test_history_null_reason(self, runner, backend):
+        """Rollback without reason should store None."""
+        runner.register(self._make_migration(1, "test_m", down_sql="SELECT 1"))
+        runner.upgrade()
+        runner.downgrade()
+
+        history = runner.get_rollback_history()
+        assert len(history) == 1
+        assert history[0].reason is None
+
+    def test_multi_step_rollback_records_all(self, runner, backend):
+        """Multi-step rollback should record each step individually."""
+        runner.register(self._make_migration(1, "first", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "second", down_sql="SELECT 1"))
+        runner.register(self._make_migration(3, "third", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        runner.downgrade(target_version=1, reason="bulk rollback")
+
+        history = runner.get_rollback_history()
+        assert len(history) == 2
+        versions = {h.version for h in history}
+        assert versions == {2, 3}
+        # All should have the same reason
+        for h in history:
+            assert h.reason == "bulk rollback"
+
+    def test_history_ordered_most_recent_first(self, runner, backend):
+        """History should be ordered most recent first."""
+        runner.register(self._make_migration(1, "a", down_sql="SELECT 1"))
+        runner.register(self._make_migration(2, "b", down_sql="SELECT 1"))
+        runner.upgrade()
+
+        runner.downgrade()  # Rollback v2
+        runner.upgrade()  # Re-apply v2
+        runner.downgrade()  # Rollback v2 again
+
+        history = runner.get_rollback_history()
+        assert len(history) == 2
+        # Most recent should be first (higher ID)
+        assert history[0].id > history[1].id
+
+    def test_dry_run_does_not_record_history(self, runner, backend):
+        """Dry-run should not create rollback history entries."""
+        runner.register(self._make_migration(1, "test", down_sql="SELECT 1"))
+        runner.upgrade()
+        runner.downgrade(dry_run=True)
+
+        history = runner.get_rollback_history()
+        assert len(history) == 0
+
+
+# ---------------------------------------------------------------------------
+# Rollback import tests
+# ---------------------------------------------------------------------------
+
+
+class TestRollbackImports:
+    """Tests for new rollback types being importable."""
+
+    def test_import_rollback_validation(self):
+        from aragora.migrations.runner import RollbackValidation
+
+        assert RollbackValidation is not None
+
+    def test_import_rollback_record(self):
+        from aragora.migrations.runner import RollbackRecord
+
+        assert RollbackRecord is not None
+
+    def test_import_from_package(self):
+        from aragora.migrations import RollbackRecord, RollbackValidation
+
+        assert RollbackValidation is not None
+        assert RollbackRecord is not None
+
+
+# ---------------------------------------------------------------------------
+# End-to-end rollback lifecycle
+# ---------------------------------------------------------------------------
+
+
+class TestRollbackLifecycle:
+    """Full lifecycle tests involving rollback operations."""
+
+    def test_upgrade_rollback_reapply(self, backend):
+        """Test upgrade -> rollback -> re-upgrade cycle."""
+        from aragora.migrations.runner import Migration, MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+
+        m1 = Migration(
+            version=1,
+            name="create users",
+            up_sql="CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)",
+            down_sql="DROP TABLE users",
+        )
+        m2 = Migration(
+            version=2,
+            name="create posts",
+            up_sql="CREATE TABLE posts (id INTEGER PRIMARY KEY, body TEXT)",
+            down_sql="DROP TABLE posts",
+        )
+        runner.register(m1)
+        runner.register(m2)
+
+        # Upgrade
+        applied = runner.upgrade()
+        assert len(applied) == 2
+        assert runner.get_applied_versions() == {1, 2}
+
+        # Rollback v2
+        rolled = runner.downgrade(reason="posts table not needed yet")
+        assert len(rolled) == 1
+        assert rolled[0].version == 2
+
+        # Verify posts table gone
+        rows = backend.fetch_all(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='posts'"
+        )
+        assert len(rows) == 0
+
+        # Users table still exists
+        rows = backend.fetch_all(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+        )
+        assert len(rows) == 1
+
+        # Re-apply
+        applied = runner.upgrade()
+        assert len(applied) == 1
+        assert applied[0].version == 2
+        assert runner.get_applied_versions() == {1, 2}
+
+        # Check history
+        history = runner.get_rollback_history()
+        assert len(history) == 1
+        assert history[0].version == 2
+        assert history[0].reason == "posts table not needed yet"
+
+    def test_validate_then_rollback(self, backend):
+        """Test validation followed by actual rollback."""
+        from aragora.migrations.runner import Migration, MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+
+        m1 = Migration(
+            version=1,
+            name="create t1",
+            up_sql="CREATE TABLE t1 (id INTEGER PRIMARY KEY)",
+            down_sql="DROP TABLE t1",
+        )
+        m2 = Migration(
+            version=2,
+            name="create t2",
+            up_sql="CREATE TABLE t2 (id INTEGER PRIMARY KEY)",
+            down_sql="DROP TABLE t2",
+        )
+        m3 = Migration(
+            version=3,
+            name="create t3",
+            up_sql="CREATE TABLE t3 (id INTEGER PRIMARY KEY)",
+            down_sql="DROP TABLE t3",
+        )
+        runner.register(m1)
+        runner.register(m2)
+        runner.register(m3)
+        runner.upgrade()
+
+        # Validate rollback of 2 steps
+        validation = runner.validate_rollback(steps=2)
+        assert validation.safe is True
+        assert sorted(validation.migrations_to_rollback) == [2, 3]
+
+        # Now execute
+        rolled = runner.rollback_steps(steps=2)
+        assert len(rolled) == 2
+        assert runner.get_applied_versions() == {1}
+
+    def test_rollback_steps_with_fn_based_migration(self, backend):
+        """Test rollback_steps works with function-based migrations."""
+        from aragora.migrations.runner import Migration, MigrationRunner
+
+        runner = MigrationRunner(backend=backend)
+
+        call_log = []
+
+        def down(be):
+            call_log.append("down_called")
+
+        m = Migration(version=1, name="fn-based", up_sql="SELECT 1", down_fn=down)
+        runner.register(m)
+        runner.upgrade()
+
+        rolled = runner.rollback_steps(steps=1)
+        assert len(rolled) == 1
+        assert "down_called" in call_log

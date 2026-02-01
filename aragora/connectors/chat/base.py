@@ -409,7 +409,6 @@ class ChatPlatformConnector(ABC):
     # Message Operations
     # ==========================================================================
 
-    @abstractmethod
     async def send_message(
         self,
         channel_id: str,
@@ -421,6 +420,10 @@ class ChatPlatformConnector(ABC):
         """
         Send a message to a channel.
 
+        Default implementation posts to ``webhook_url`` if configured,
+        otherwise returns a failure response.  Subclasses should override
+        for platform-specific APIs.
+
         Args:
             channel_id: Target channel/conversation ID
             text: Plain text content (fallback for clients without rich support)
@@ -431,9 +434,42 @@ class ChatPlatformConnector(ABC):
         Returns:
             SendMessageResponse with message ID and status
         """
-        raise NotImplementedError
+        if self.webhook_url:
+            payload: dict[str, Any] = {
+                "channel_id": channel_id,
+                "text": text,
+            }
+            if blocks:
+                payload["blocks"] = blocks
+            if thread_id:
+                payload["thread_id"] = thread_id
 
-    @abstractmethod
+            success, data, error = await self._http_request(
+                method="POST",
+                url=self.webhook_url,
+                json=payload,
+                operation="send_message",
+            )
+
+            if success and isinstance(data, dict):
+                return SendMessageResponse(
+                    success=True,
+                    message_id=data.get("message_id") or data.get("id"),
+                    channel_id=channel_id,
+                    timestamp=data.get("timestamp"),
+                )
+
+            return SendMessageResponse(success=False, error=error or "Send failed")
+
+        logger.warning(
+            f"{self.platform_name} send_message: no webhook_url configured "
+            f"and no platform-specific override provided"
+        )
+        return SendMessageResponse(
+            success=False,
+            error=f"{self.platform_name} send_message not implemented",
+        )
+
     async def update_message(
         self,
         channel_id: str,
@@ -445,6 +481,10 @@ class ChatPlatformConnector(ABC):
         """
         Update an existing message.
 
+        Default implementation logs a warning and returns a failure response,
+        since not all platforms support message editing.  Subclasses should
+        override for platforms that do support it.
+
         Args:
             channel_id: Channel containing the message
             message_id: ID of message to update
@@ -455,9 +495,15 @@ class ChatPlatformConnector(ABC):
         Returns:
             SendMessageResponse with update status
         """
-        raise NotImplementedError
+        logger.warning(
+            f"{self.platform_name} does not implement update_message; "
+            f"message {message_id} in channel {channel_id} was not updated"
+        )
+        return SendMessageResponse(
+            success=False,
+            error=f"{self.platform_name} does not support message updates",
+        )
 
-    @abstractmethod
     async def delete_message(
         self,
         channel_id: str,
@@ -467,15 +513,23 @@ class ChatPlatformConnector(ABC):
         """
         Delete a message.
 
+        Default implementation returns False, since not all platforms
+        support message deletion via API.  Subclasses should override
+        for platforms that do support it.
+
         Args:
             channel_id: Channel containing the message
             message_id: ID of message to delete
             **kwargs: Platform-specific options
 
         Returns:
-            True if deleted successfully
+            True if deleted successfully, False otherwise
         """
-        raise NotImplementedError
+        logger.warning(
+            f"{self.platform_name} does not implement delete_message; "
+            f"message {message_id} in channel {channel_id} was not deleted"
+        )
+        return False
 
     async def send_ephemeral(
         self,
@@ -528,7 +582,6 @@ class ChatPlatformConnector(ABC):
     # Command Handling
     # ==========================================================================
 
-    @abstractmethod
     async def respond_to_command(
         self,
         command: BotCommand,
@@ -540,6 +593,11 @@ class ChatPlatformConnector(ABC):
         """
         Respond to a slash command.
 
+        Default implementation sends a regular message to the command's
+        channel (ephemeral flag is ignored unless the subclass handles it).
+        If the command has a ``response_url``, the default posts the
+        response there.
+
         Args:
             command: The command that was invoked
             text: Response text
@@ -550,13 +608,44 @@ class ChatPlatformConnector(ABC):
         Returns:
             SendMessageResponse with status
         """
-        raise NotImplementedError
+        # If the platform provides a response URL, use it
+        if command.response_url:
+            payload: dict[str, Any] = {"text": text}
+            if blocks:
+                payload["blocks"] = blocks
+            if ephemeral:
+                payload["response_type"] = "ephemeral"
+
+            success, data, error = await self._http_request(
+                method="POST",
+                url=command.response_url,
+                json=payload,
+                operation="respond_to_command",
+            )
+
+            if success:
+                return SendMessageResponse(success=True)
+            return SendMessageResponse(success=False, error=error or "Command response failed")
+
+        # Fall back to sending a regular channel message
+        channel_id = command.channel.id if command.channel else kwargs.get("channel_id")
+        if not channel_id:
+            return SendMessageResponse(
+                success=False,
+                error="No channel ID or response_url available for command response",
+            )
+
+        return await self.send_message(
+            channel_id=channel_id,
+            text=text,
+            blocks=blocks,
+            **kwargs,
+        )
 
     # ==========================================================================
     # Interaction Handling
     # ==========================================================================
 
-    @abstractmethod
     async def respond_to_interaction(
         self,
         interaction: UserInteraction,
@@ -568,6 +657,12 @@ class ChatPlatformConnector(ABC):
         """
         Respond to a user interaction (button click, menu select, etc.).
 
+        Default implementation sends a regular message to the interaction's
+        channel.  If ``replace_original`` is True and the interaction has a
+        ``message_id``, attempts to update the original message; otherwise
+        falls back to sending a new message.  If the interaction has a
+        ``response_url``, the default posts the response there.
+
         Args:
             interaction: The interaction event
             text: Response text
@@ -578,13 +673,54 @@ class ChatPlatformConnector(ABC):
         Returns:
             SendMessageResponse with status
         """
-        raise NotImplementedError
+        # If the platform provides a response URL, use it
+        if interaction.response_url:
+            payload: dict[str, Any] = {"text": text}
+            if blocks:
+                payload["blocks"] = blocks
+            if replace_original:
+                payload["replace_original"] = True
+
+            success, data, error = await self._http_request(
+                method="POST",
+                url=interaction.response_url,
+                json=payload,
+                operation="respond_to_interaction",
+            )
+
+            if success:
+                return SendMessageResponse(success=True)
+            return SendMessageResponse(success=False, error=error or "Interaction response failed")
+
+        # If replacing the original and we know the channel + message_id, update it
+        channel_id = interaction.channel.id if interaction.channel else None
+        if replace_original and channel_id and interaction.message_id:
+            return await self.update_message(
+                channel_id=channel_id,
+                message_id=interaction.message_id,
+                text=text,
+                blocks=blocks,
+                **kwargs,
+            )
+
+        # Fall back to sending a regular message
+        if channel_id:
+            return await self.send_message(
+                channel_id=channel_id,
+                text=text,
+                blocks=blocks,
+                **kwargs,
+            )
+
+        return SendMessageResponse(
+            success=False,
+            error="No channel or response_url available for interaction response",
+        )
 
     # ==========================================================================
     # File Operations
     # ==========================================================================
 
-    @abstractmethod
     async def upload_file(
         self,
         channel_id: str,
@@ -598,6 +734,10 @@ class ChatPlatformConnector(ABC):
         """
         Upload a file to a channel.
 
+        Default implementation posts the file to ``webhook_url`` as a
+        multipart upload if configured.  Subclasses should override for
+        platform-specific file upload APIs.
+
         Args:
             channel_id: Target channel
             content: File content as bytes
@@ -609,10 +749,40 @@ class ChatPlatformConnector(ABC):
 
         Returns:
             FileAttachment with file ID and URL
-        """
-        raise NotImplementedError
 
-    @abstractmethod
+        Raises:
+            NotImplementedError: If no webhook_url is configured and
+                the subclass does not override this method
+        """
+        if self.webhook_url:
+            success, data, error = await self._http_request(
+                method="POST",
+                url=self.webhook_url,
+                files={"file": (filename, content, content_type)},
+                data={
+                    "channel_id": channel_id,
+                    **({"title": title} if title else {}),
+                    **({"thread_id": thread_id} if thread_id else {}),
+                },
+                operation="upload_file",
+            )
+
+            if success and isinstance(data, dict):
+                return FileAttachment(
+                    id=data.get("file_id") or data.get("id", ""),
+                    filename=data.get("filename", filename),
+                    content_type=content_type,
+                    size=len(content),
+                    url=data.get("url"),
+                )
+
+            raise RuntimeError(error or "File upload failed")
+
+        raise NotImplementedError(
+            f"{self.platform_name} upload_file requires a platform-specific override "
+            f"or a configured webhook_url"
+        )
+
     async def download_file(
         self,
         file_id: str,
@@ -621,14 +791,48 @@ class ChatPlatformConnector(ABC):
         """
         Download a file by ID.
 
+        Default implementation downloads from a ``url`` keyword argument
+        if provided.  Subclasses should override for platform-specific
+        file download APIs that require resolving ``file_id`` to a URL.
+
         Args:
             file_id: ID of the file to download
-            **kwargs: Platform-specific options
+            **kwargs: Platform-specific options.  Pass ``url`` to specify
+                the direct download URL, ``filename`` for a filename hint.
 
         Returns:
             FileAttachment with content populated
+
+        Raises:
+            NotImplementedError: If no ``url`` is provided and the
+                subclass does not override this method
         """
-        raise NotImplementedError
+        url = kwargs.get("url")
+        if url:
+            success, data, error = await self._http_request(
+                method="GET",
+                url=url,
+                return_raw=True,
+                operation="download_file",
+            )
+
+            if success and isinstance(data, bytes):
+                filename = kwargs.get("filename") or url.split("/")[-1] or "file"
+                return FileAttachment(
+                    id=file_id,
+                    filename=filename,
+                    content_type=kwargs.get("content_type", "application/octet-stream"),
+                    size=len(data),
+                    url=url,
+                    content=data,
+                )
+
+            raise RuntimeError(error or "File download failed")
+
+        raise NotImplementedError(
+            f"{self.platform_name} download_file requires a platform-specific override "
+            f"or a 'url' keyword argument"
+        )
 
     async def send_voice_message(
         self,
@@ -681,7 +885,6 @@ class ChatPlatformConnector(ABC):
     # Rich Content Formatting
     # ==========================================================================
 
-    @abstractmethod
     def format_blocks(
         self,
         title: str | None = None,
@@ -693,6 +896,11 @@ class ChatPlatformConnector(ABC):
         """
         Format content into platform-specific rich blocks.
 
+        Default implementation produces a generic block list with
+        ``section``, ``fields``, and ``actions`` entries.  Subclasses
+        should override for platform-native formatting (Slack blocks,
+        Discord embeds, Telegram inline keyboards, etc.).
+
         Args:
             title: Section title/header
             body: Main text content
@@ -703,9 +911,45 @@ class ChatPlatformConnector(ABC):
         Returns:
             List of platform-specific block structures
         """
-        raise NotImplementedError
+        blocks: list[dict[str, Any]] = []
 
-    @abstractmethod
+        if title:
+            blocks.append({"type": "header", "text": title})
+
+        if body:
+            blocks.append({"type": "section", "text": body})
+
+        if fields:
+            blocks.append(
+                {
+                    "type": "fields",
+                    "items": [
+                        {"label": label, "value": value}
+                        for label, value in fields
+                        if label is not None and value is not None
+                    ],
+                }
+            )
+
+        if actions:
+            blocks.append(
+                {
+                    "type": "actions",
+                    "elements": [
+                        self.format_button(
+                            text=btn.text,
+                            action_id=btn.action_id,
+                            value=btn.value,
+                            style=btn.style,
+                            url=btn.url,
+                        )
+                        for btn in actions
+                    ],
+                }
+            )
+
+        return blocks
+
     def format_button(
         self,
         text: str,
@@ -717,6 +961,9 @@ class ChatPlatformConnector(ABC):
         """
         Format a button element.
 
+        Default implementation returns a generic button dict.  Subclasses
+        should override for platform-native button structures.
+
         Args:
             text: Button label
             action_id: Unique action identifier
@@ -727,13 +974,23 @@ class ChatPlatformConnector(ABC):
         Returns:
             Platform-specific button structure
         """
-        raise NotImplementedError
+        button: dict[str, Any] = {
+            "type": "button",
+            "text": text,
+            "action_id": action_id,
+        }
+        if value is not None:
+            button["value"] = value
+        if style != "default":
+            button["style"] = style
+        if url:
+            button["url"] = url
+        return button
 
     # ==========================================================================
     # Webhook Handling
     # ==========================================================================
 
-    @abstractmethod
     def verify_webhook(
         self,
         headers: dict[str, str],
@@ -742,6 +999,15 @@ class ChatPlatformConnector(ABC):
         """
         Verify webhook signature for security.
 
+        Default implementation performs HMAC-SHA256 verification using
+        ``signing_secret`` if configured.  Looks for the signature in
+        common header locations (``X-Signature-256``, ``X-Hub-Signature-256``).
+        In development mode with no ``signing_secret``, returns True with
+        a warning.  In production, fails closed (returns False).
+
+        Subclasses should override for platform-specific verification
+        (e.g., Discord Ed25519, Telegram secret token header).
+
         Args:
             headers: HTTP headers from the webhook request
             body: Raw request body
@@ -749,9 +1015,58 @@ class ChatPlatformConnector(ABC):
         Returns:
             True if signature is valid
         """
-        raise NotImplementedError
+        import hashlib
+        import hmac as _hmac
+        import os as _os
 
-    @abstractmethod
+        if not self.signing_secret:
+            env = _os.environ.get("ARAGORA_ENV", "development").lower()
+            is_production = env not in ("development", "dev", "local", "test")
+            if is_production:
+                logger.error(
+                    f"SECURITY: {self.platform_name} signing_secret not configured "
+                    f"in production. Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning(
+                f"{self.platform_name} signing_secret not set - skipping verification. "
+                f"This is only acceptable in development!"
+            )
+            return True
+
+        # Look for signature in common header locations (case-insensitive)
+        signature = ""
+        for header_name in (
+            "X-Signature-256",
+            "x-signature-256",
+            "X-Hub-Signature-256",
+            "x-hub-signature-256",
+        ):
+            if header_name in headers:
+                signature = headers[header_name]
+                break
+
+        if not signature:
+            logger.warning(f"{self.platform_name} webhook missing signature header")
+            return False
+
+        # Strip sha256= prefix if present
+        sig_value = signature
+        if sig_value.startswith("sha256="):
+            sig_value = sig_value[7:]
+
+        computed = _hmac.new(
+            self.signing_secret.encode(),
+            body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        if _hmac.compare_digest(computed, sig_value):
+            return True
+
+        logger.warning(f"{self.platform_name} webhook signature mismatch")
+        return False
+
     def parse_webhook_event(
         self,
         headers: dict[str, str],
@@ -760,6 +1075,10 @@ class ChatPlatformConnector(ABC):
         """
         Parse a webhook payload into a WebhookEvent.
 
+        Default implementation parses the body as JSON and wraps it in a
+        generic ``WebhookEvent``.  Subclasses should override for
+        platform-specific event parsing (message types, interactions, etc.).
+
         Args:
             headers: HTTP headers from the request
             body: Raw request body
@@ -767,7 +1086,31 @@ class ChatPlatformConnector(ABC):
         Returns:
             Parsed WebhookEvent
         """
-        raise NotImplementedError
+        import json
+
+        try:
+            payload = json.loads(body.decode("utf-8")) if body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            logger.warning(f"{self.platform_name} webhook body is not valid JSON")
+            return WebhookEvent(
+                platform=self.platform_name,
+                event_type="error",
+                raw_payload={},
+                metadata={"error": "invalid_json"},
+            )
+
+        # Try to infer event type from common payload structures
+        event_type = (
+            payload.get("type") or payload.get("event_type") or payload.get("event", {}).get("type")
+            if isinstance(payload, dict)
+            else None
+        ) or "unknown"
+
+        return WebhookEvent(
+            platform=self.platform_name,
+            event_type=str(event_type),
+            raw_payload=payload if isinstance(payload, dict) else {"data": payload},
+        )
 
     # ==========================================================================
     # Voice Message Handling

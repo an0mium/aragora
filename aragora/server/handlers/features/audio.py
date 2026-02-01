@@ -152,7 +152,9 @@ class AudioHandler(BaseHandler):
             logger.warning(f"Auth check failed for audio access: {e}")
             return error_response("Authentication required for private debate", 401)
 
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Handle GET requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -223,7 +225,7 @@ class AudioHandler(BaseHandler):
             logger.error(f"Failed to serve audio {debate_id}: {e}")
             return error_response("Failed to read audio file", status=500)
 
-    def _get_podcast_feed(self, handler) -> HandlerResult:
+    def _get_podcast_feed(self, handler: Any) -> HandlerResult:
         """Generate iTunes-compatible podcast RSS feed."""
         audio_store = self.ctx.get("audio_store")
         if not audio_store:
@@ -315,7 +317,7 @@ class AudioHandler(BaseHandler):
             logger.error(f"Failed to generate podcast feed: {e}")
             return error_response(_safe_error_message(e, "podcast_feed"), status=500)
 
-    def _get_podcast_episodes(self, limit: int, handler) -> HandlerResult:
+    def _get_podcast_episodes(self, limit: int, handler: Any) -> HandlerResult:
         """Get podcast episodes as JSON."""
         audio_store = self.ctx.get("audio_store")
         if not audio_store:

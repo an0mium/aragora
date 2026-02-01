@@ -613,7 +613,9 @@ class FeaturesHandler(BaseHandler):
         return False
 
     @require_permission("features:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route GET/POST requests to appropriate methods."""
         path = strip_version_prefix(path)
         # Rate limit check
@@ -953,7 +955,7 @@ class FeaturesHandler(BaseHandler):
             }
         )
 
-    def _handle_config(self, handler=None) -> HandlerResult:
+    def _handle_config(self, handler: Any = None) -> HandlerResult:
         """Handle feature configuration requests (GET/POST).
 
         GET: Returns user's feature preferences
@@ -979,7 +981,7 @@ class FeaturesHandler(BaseHandler):
         else:
             return error_response(f"Method {method} not allowed", status=405)
 
-    def _get_config(self, user_ctx, user_store) -> HandlerResult:
+    def _get_config(self, user_ctx: Any, user_store: Any) -> HandlerResult:
         """Get user's feature configuration."""
         preferences = dict(self.DEFAULT_PREFERENCES)
 
@@ -1022,7 +1024,7 @@ class FeaturesHandler(BaseHandler):
             }
         )
 
-    def _update_config(self, handler, user_ctx, user_store) -> HandlerResult:
+    def _update_config(self, handler: Any, user_ctx: Any, user_store: Any) -> HandlerResult:
         """Update user's feature configuration."""
         import json as json_module
 

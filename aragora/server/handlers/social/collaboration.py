@@ -8,6 +8,10 @@ and collaboration features.
 from __future__ import annotations
 
 import logging
+import secrets
+import threading
+import time
+from dataclasses import dataclass, field
 from typing import Any
 
 from aragora.server.collaboration import (
@@ -16,11 +20,16 @@ from aragora.server.collaboration import (
     SessionManager,
     get_session_manager,
 )
+from aragora.server.handlers.base import error_response, json_response
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.utils.responses import error_dict
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter for collaboration endpoints (60 requests per minute)
+_collab_limiter = RateLimiter(requests_per_minute=60)
 
 
 def _check_permission(
@@ -451,6 +460,306 @@ class CollaborationHandlers:
         }
 
 
+# === Sync social collaboration handler (API v1) ===
+
+
+@dataclass
+class SocialCollaborationSession:
+    """Lightweight collaboration session record for social endpoints."""
+
+    id: str
+    org_id: str
+    name: str
+    description: str
+    channel_id: str
+    platform: str
+    created_by: str
+    participants: list[str] = field(default_factory=list)
+    status: str = "active"
+    created_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "org_id": self.org_id,
+            "name": self.name,
+            "description": self.description,
+            "channel_id": self.channel_id,
+            "platform": self.platform,
+            "created_by": self.created_by,
+            "participants": self.participants,
+            "status": self.status,
+            "created_at": self.created_at,
+        }
+
+
+class SocialCollaborationStore:
+    """In-memory store for social collaboration sessions."""
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, SocialCollaborationSession] = {}
+        self._messages: dict[str, list[dict[str, Any]]] = {}
+        self._lock = threading.Lock()
+
+    def get_by_org(self, org_id: str) -> list[SocialCollaborationSession]:
+        with self._lock:
+            return [s for s in self._sessions.values() if s.org_id == org_id]
+
+    def get_by_id(self, session_id: str) -> SocialCollaborationSession | None:
+        with self._lock:
+            return self._sessions.get(session_id)
+
+    def create(self, session: SocialCollaborationSession) -> SocialCollaborationSession:
+        with self._lock:
+            self._sessions[session.id] = session
+            self._messages.setdefault(session.id, [])
+            return session
+
+    def update(self, session_id: str, updates: dict[str, Any]) -> bool:
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return False
+            for key, value in updates.items():
+                if hasattr(session, key):
+                    setattr(session, key, value)
+            return True
+
+    def delete(self, session_id: str) -> bool:
+        with self._lock:
+            self._messages.pop(session_id, None)
+            return self._sessions.pop(session_id, None) is not None
+
+    def list_participants(self, session_id: str) -> list[str]:
+        with self._lock:
+            session = self._sessions.get(session_id)
+            return list(session.participants) if session else []
+
+    def add_participant(self, session_id: str, user_id: str) -> bool:
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return False
+            if user_id not in session.participants:
+                session.participants.append(user_id)
+            return True
+
+    def remove_participant(self, session_id: str, user_id: str) -> bool:
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return False
+            if user_id in session.participants:
+                session.participants.remove(user_id)
+            return True
+
+    def list_messages(self, session_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            return list(self._messages.get(session_id, []))
+
+    def add_message(self, session_id: str, message: dict[str, Any]) -> bool:
+        with self._lock:
+            if session_id not in self._messages:
+                return False
+            self._messages[session_id].append(message)
+            return True
+
+
+_social_collab_store: SocialCollaborationStore | None = None
+_social_collab_store_lock = threading.Lock()
+
+
+def _get_social_collab_store() -> SocialCollaborationStore:
+    global _social_collab_store
+    if _social_collab_store is None:
+        with _social_collab_store_lock:
+            if _social_collab_store is None:
+                _social_collab_store = SocialCollaborationStore()
+    return _social_collab_store
+
+
+class CollaborationHandler:
+    """Handler for social collaboration endpoints."""
+
+    ROUTES = ["/api/v1/social/collaboration/sessions"]
+
+    def __init__(self, server_context: dict[str, Any] | None = None) -> None:
+        self.ctx = server_context or {}
+        self._store = self.ctx.get("collaboration_store") or _get_social_collab_store()
+
+    def can_handle(self, path: str) -> bool:
+        return path.startswith("/api/v1/social/collaboration/sessions")
+
+    def _parse_json_body(self, handler: Any) -> tuple[dict[str, Any] | None, Any | None]:
+        import json as json_lib
+
+        try:
+            body = handler.rfile.read(int(handler.headers.get("Content-Length", 0)))
+            data = json_lib.loads(body.decode("utf-8")) if body else {}
+            return data, None
+        except (json_lib.JSONDecodeError, ValueError):
+            return None, error_response("Invalid JSON body", 400)
+
+    def handle(
+        self,
+        path: str,
+        query_params: dict,
+        handler: Any,
+        method: str = "GET",
+    ) -> Any:
+        if hasattr(handler, "command"):
+            method = handler.command
+
+        client_ip = get_client_ip(handler)
+        if not _collab_limiter.is_allowed(client_ip):
+            logger.warning(f"Rate limit exceeded for collaboration: {client_ip}")
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        if path == "/api/v1/social/collaboration/sessions":
+            if method == "GET":
+                return self._list_sessions()
+            if method == "POST":
+                return self._create_session(handler)
+            return error_response("Method not allowed", 405)
+
+        if path.startswith("/api/v1/social/collaboration/sessions/"):
+            parts = path.split("/")
+            if len(parts) >= 6:
+                session_id = parts[5]
+                # Participant management
+                if len(parts) >= 7 and parts[6] == "participants":
+                    if len(parts) == 7:
+                        if method == "GET":
+                            return self._list_participants(session_id)
+                        if method == "POST":
+                            return self._add_participant(session_id, handler)
+                        return error_response("Method not allowed", 405)
+                    if len(parts) == 8:
+                        participant_id = parts[7]
+                        if method == "DELETE":
+                            return self._remove_participant(session_id, participant_id)
+                        return error_response("Method not allowed", 405)
+
+                # Messages
+                if len(parts) >= 7 and parts[6] == "messages":
+                    if method == "GET":
+                        return self._list_messages(session_id)
+                    if method == "POST":
+                        return self._send_message(session_id, handler)
+                    return error_response("Method not allowed", 405)
+
+                # Session detail
+                if len(parts) == 6:
+                    if method == "GET":
+                        return self._get_session(session_id)
+                    if method == "PATCH":
+                        return self._update_session(session_id, handler)
+                    if method == "DELETE":
+                        return self._delete_session(session_id)
+                    return error_response("Method not allowed", 405)
+
+        return error_response("Not found", 404)
+
+    def _list_sessions(self) -> Any:
+        sessions = self._store.get_by_org("") if hasattr(self._store, "get_by_org") else []
+        return json_response({"sessions": [s.to_dict() for s in sessions], "total": len(sessions)})
+
+    def _get_session(self, session_id: str) -> Any:
+        session = self._store.get_by_id(session_id)
+        if not session:
+            return error_response("Session not found", 404)
+        return json_response({"session": session.to_dict()})
+
+    def _create_session(self, handler: Any) -> Any:
+        data, err = self._parse_json_body(handler)
+        if err:
+            return err
+        data = data or {}
+
+        name = data.get("name")
+        channel_id = data.get("channel_id")
+        platform = data.get("platform")
+        if not name:
+            return error_response("name is required", 400)
+        if not channel_id:
+            return error_response("channel_id is required", 400)
+
+        session = SocialCollaborationSession(
+            id=secrets.token_urlsafe(8),
+            org_id=data.get("org_id", ""),
+            name=name,
+            description=data.get("description", ""),
+            channel_id=channel_id,
+            platform=platform or "",
+            created_by=data.get("created_by", "unknown"),
+            participants=data.get("participants") or [],
+        )
+        created = self._store.create(session)
+        return json_response({"session": created.to_dict()}, status=201)
+
+    def _update_session(self, session_id: str, handler: Any) -> Any:
+        data, err = self._parse_json_body(handler)
+        if err:
+            return err
+        data = data or {}
+        updated = self._store.update(session_id, data)
+        if not updated:
+            return error_response("Session not found", 404)
+        session = self._store.get_by_id(session_id)
+        return json_response({"session": session.to_dict() if session else {}})
+
+    def _delete_session(self, session_id: str) -> Any:
+        deleted = self._store.delete(session_id)
+        if not deleted:
+            return error_response("Session not found", 404)
+        return json_response({"deleted": True, "session_id": session_id})
+
+    def _list_participants(self, session_id: str) -> Any:
+        participants = self._store.list_participants(session_id)
+        return json_response({"participants": participants, "total": len(participants)})
+
+    def _add_participant(self, session_id: str, handler: Any) -> Any:
+        data, err = self._parse_json_body(handler)
+        if err:
+            return err
+        data = data or {}
+        user_id = data.get("user_id")
+        if not user_id:
+            return error_response("user_id is required", 400)
+        success = self._store.add_participant(session_id, user_id)
+        if not success:
+            return error_response("Session not found", 404)
+        return json_response({"added": True, "user_id": user_id})
+
+    def _remove_participant(self, session_id: str, user_id: str) -> Any:
+        success = self._store.remove_participant(session_id, user_id)
+        if not success:
+            return error_response("Session not found", 404)
+        return json_response({"removed": True, "user_id": user_id})
+
+    def _list_messages(self, session_id: str) -> Any:
+        messages = self._store.list_messages(session_id)
+        return json_response({"messages": messages, "total": len(messages)})
+
+    def _send_message(self, session_id: str, handler: Any) -> Any:
+        data, err = self._parse_json_body(handler)
+        if err:
+            return err
+        data = data or {}
+        content = data.get("content")
+        if not content:
+            return error_response("content is required", 400)
+        message = {
+            "id": secrets.token_urlsafe(6),
+            "content": content,
+            "created_at": time.time(),
+        }
+        success = self._store.add_message(session_id, message)
+        if not success:
+            return error_response("Session not found", 404)
+        return json_response({"message": message}, status=201)
+
+
 # Singleton handler instance
 _handlers: CollaborationHandlers | None = None
 
@@ -464,6 +773,7 @@ def get_collaboration_handlers() -> CollaborationHandlers:
 
 
 __all__ = [
+    "CollaborationHandler",
     "CollaborationHandlers",
     "get_collaboration_handlers",
 ]

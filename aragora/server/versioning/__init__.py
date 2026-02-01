@@ -49,6 +49,18 @@ from aragora.server.versioning.compat import (
     is_legacy_path,
     get_path_version,
 )
+from aragora.server.versioning.constants import (
+    CURRENT_API_VERSION,
+    MIGRATION_DOCS_URL,
+    V1_DEPRECATION_ANNOUNCED,
+    V1_DEPRECATION_TIMESTAMP,
+    V1_SUNSET_DATE,
+    V1_SUNSET_HTTP_DATE,
+    V1_SUNSET_ISO,
+    days_until_v1_sunset,
+    deprecation_level,
+    is_v1_sunset,
+)
 
 __all__ = [
     # Version types
@@ -76,4 +88,15 @@ __all__ = [
     "is_versioned_path",
     "is_legacy_path",
     "get_path_version",
+    # V1 Sunset constants
+    "CURRENT_API_VERSION",
+    "MIGRATION_DOCS_URL",
+    "V1_DEPRECATION_ANNOUNCED",
+    "V1_DEPRECATION_TIMESTAMP",
+    "V1_SUNSET_DATE",
+    "V1_SUNSET_HTTP_DATE",
+    "V1_SUNSET_ISO",
+    "days_until_v1_sunset",
+    "deprecation_level",
+    "is_v1_sunset",
 ]

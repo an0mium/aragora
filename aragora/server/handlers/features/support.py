@@ -31,7 +31,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 from uuid import uuid4
 
-from aiohttp import web
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
@@ -1186,11 +1185,13 @@ class SupportHandler(SecureHandler):
 
         return templates.get(category, "general_response")
 
-    async def _get_json_body(
-        self, request: Any
-    ) -> tuple[dict[str, Any] | None, web.Response | None]:
-        """Parse JSON body from request."""
-        return await parse_json_body(request, "support")
+    async def _get_json_body(self, request: Any) -> dict[str, Any]:
+        """Parse JSON body from request.
+
+        Wraps parse_json_body and returns just the dict, raising on error.
+        """
+        body, _err = await parse_json_body(request, context="support")
+        return body if body is not None else {}
 
     def _json_response(self, status: int, data: Any) -> dict[str, Any]:
         """Create a JSON response."""

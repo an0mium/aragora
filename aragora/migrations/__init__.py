@@ -48,6 +48,8 @@ Zero-Downtime Patterns:
 from .runner import (
     Migration,
     MigrationRunner,
+    RollbackRecord,
+    RollbackValidation,
     apply_migrations,
     compute_checksum,
     get_migration_runner,
@@ -77,6 +79,8 @@ __all__ = [
     # Runner
     "MigrationRunner",
     "Migration",
+    "RollbackValidation",
+    "RollbackRecord",
     "get_migration_runner",
     "apply_migrations",
     "rollback_migration",

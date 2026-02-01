@@ -74,6 +74,7 @@ from .resources import (
     MemoryAPI,
     NotificationsAPI,
     OnboardingAPI,
+    OpenClawAPI,
     OrganizationsAPI,
     PoliciesAPI,
     PulseAPI,
@@ -269,6 +270,9 @@ class AragoraClient:
 
         # Gmail connector
         self.gmail = GmailAPI(self)
+
+        # OpenClaw Enterprise Gateway
+        self.openclaw = OpenClawAPI(self)
 
     def _get_headers(self) -> dict[str, str]:
         """Get common request headers."""

@@ -508,10 +508,12 @@ class TestSync:
         assert item.metadata["table"] == "users"
         assert "id" in item.metadata["columns"]
 
+    @pytest.mark.skip(
+        reason="Connector needs error handling - raises exception instead of recording error"
+    )
     @pytest.mark.asyncio
     async def test_sync_items_error_handling(self, postgres_connector, sample_columns):
         """Test sync handles table errors gracefully."""
-        pytest.skip("Connector needs error handling - raises exception instead of recording error")
         state = SyncState(connector_id="postgres", status=SyncStatus.IDLE)
 
         mock_conn = AsyncMock()
@@ -575,10 +577,10 @@ class TestSearch:
         assert len(results) == 1
         assert results[0]["table"] == "documents"
 
+    @pytest.mark.skip(reason="Connector needs FTS fallback - raises exception instead of catching")
     @pytest.mark.asyncio
     async def test_search_fallback_to_ilike(self, postgres_connector, sample_columns):
         """Test search falls back to ILIKE when FTS fails."""
-        pytest.skip("Connector needs FTS fallback - raises exception instead of catching")
         call_count = [0]
 
         async def mock_fetch(*args, **kwargs):

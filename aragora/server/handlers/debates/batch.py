@@ -25,6 +25,7 @@ from ..base import (
     json_response,
     safe_error_message,
 )
+from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import rate_limit, user_rate_limit
 
 if TYPE_CHECKING:
@@ -51,6 +52,19 @@ logger = logging.getLogger(__name__)
 class BatchOperationsMixin:
     """Mixin providing batch debate operations for DebatesHandler."""
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates/batch",
+        summary="Submit batch of debates",
+        description="Submit multiple debates for parallel processing with optional webhook notification.",
+        tags=["Debates", "Batch"],
+        responses={
+            "200": {"description": "Batch submitted successfully"},
+            "400": {"description": "Invalid request body"},
+            "401": {"description": "Unauthorized"},
+            "503": {"description": "Queue not available"},
+        },
+    )
     @with_timeout_sync(90.0)
     @require_permission("debates:create")
     @user_rate_limit(action="debate_create")
@@ -250,7 +264,7 @@ class BatchOperationsMixin:
             from aragora.server.debate_queue import get_debate_queue
             from aragora.server.http_utils import run_async
 
-            async def submit():
+            async def submit() -> str:
                 queue = await get_debate_queue()
 
                 # Configure executor if not set
@@ -290,7 +304,7 @@ class BatchOperationsMixin:
     def _create_debate_executor(self: _DebatesHandlerProtocol) -> Callable[["BatchItem"], Any]:
         """Create a debate executor function for the batch queue."""
 
-        async def execute_debate(item: BatchItem):
+        async def execute_debate(item: BatchItem) -> Any:
             """Execute a single debate from batch."""
             from aragora.server.debate_controller import DebateController, DebateRequest
             from aragora.server.debate_factory import DebateFactory
@@ -327,6 +341,22 @@ class BatchOperationsMixin:
 
         return execute_debate
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/batch/{batch_id}/status",
+        summary="Get batch status",
+        description="Get status of a batch request including all items.",
+        tags=["Debates", "Batch"],
+        parameters=[
+            {"name": "batch_id", "in": "path", "schema": {"type": "string"}, "required": True},
+        ],
+        responses={
+            "200": {"description": "Batch status returned"},
+            "400": {"description": "Invalid batch ID"},
+            "404": {"description": "Batch not found"},
+            "503": {"description": "Queue not initialized"},
+        },
+    )
     @handle_errors("get batch status")
     def _get_batch_status(self: _DebatesHandlerProtocol, batch_id: str) -> HandlerResult:
         """Get status of a batch request.
@@ -383,6 +413,17 @@ class BatchOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/queue/status",
+        summary="Get debate queue status",
+        description="Get overall queue health and processing statistics.",
+        tags=["Debates", "Batch"],
+        responses={
+            "200": {"description": "Queue status returned"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
     @handle_errors("get queue status")
     def _get_queue_status(self: _DebatesHandlerProtocol) -> HandlerResult:
         """Get overall queue status.

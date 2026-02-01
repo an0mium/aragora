@@ -30,7 +30,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from aiohttp import web
 
 from aragora.server.handlers.secure import (
     ForbiddenError,
@@ -444,21 +443,20 @@ class RoutingRulesHandler(SecureHandler):
                 "error": str(e),
             }
 
-    async def _get_json_body(
-        self, request: Any
-    ) -> tuple[dict[str, Any] | None, web.Response | None]:
+    async def _get_json_body(self, request: Any) -> dict[str, Any] | None:
         """Extract JSON body from request."""
         try:
             if hasattr(request, "json"):
-                return await parse_json_body(request, "routing_rules._get_json_body")
+                body, _err = await parse_json_body(request, context="routing_rules._get_json_body")
+                return body
             if hasattr(request, "body"):
-                body = request.body
-                if isinstance(body, bytes):
-                    body = body.decode("utf-8")
-                return (json.loads(body) if body else None), None
-            return None, None
+                raw_body = request.body
+                if isinstance(raw_body, bytes):
+                    raw_body = raw_body.decode("utf-8")
+                return json.loads(raw_body) if raw_body else None
+            return None
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError, TypeError):
-            return None, None
+            return None
 
     def _method_not_allowed(self, method: str, path: str) -> dict[str, Any]:
         """Return method not allowed response."""

@@ -4,6 +4,9 @@ Command-line interface for Aragora database migrations.
 Usage:
     python -m aragora.migrations upgrade          # Apply all pending migrations
     python -m aragora.migrations downgrade        # Rollback last migration
+    python -m aragora.migrations downgrade --steps 3  # Rollback last 3 migrations
+    python -m aragora.migrations downgrade --dry-run  # Preview rollback
+    python -m aragora.migrations rollback-history  # View rollback audit log
     python -m aragora.migrations status           # Show migration status
     python -m aragora.migrations create "Name"    # Create new migration file
 """
@@ -50,14 +53,87 @@ def cmd_downgrade(args: argparse.Namespace) -> int:
         database_url=args.database_url,
     )
 
+    dry_run = getattr(args, "dry_run", False)
+    steps = getattr(args, "steps", None)
+    reason = getattr(args, "reason", None)
+    use_stored = getattr(args, "use_stored_rollback", False)
+
     try:
-        rolled_back = runner.downgrade(target_version=args.target)
+        # Determine rollback mode
+        if steps is not None:
+            # Validate first
+            validation = runner.validate_rollback(steps=steps)
+            if not validation.safe:
+                print("Rollback validation failed:")
+                for err in validation.errors:
+                    print(f"  ERROR: {err}")
+                return 1
+
+            if validation.warnings:
+                for warn in validation.warnings:
+                    print(f"  WARNING: {warn}")
+
+            rolled_back = runner.rollback_steps(
+                steps=steps,
+                dry_run=dry_run,
+                reason=reason,
+                use_stored_rollback=use_stored,
+            )
+        else:
+            # Validate first
+            validation = runner.validate_rollback(target_version=args.target)
+            if not validation.safe:
+                print("Rollback validation failed:")
+                for err in validation.errors:
+                    print(f"  ERROR: {err}")
+                return 1
+
+            if validation.warnings:
+                for warn in validation.warnings:
+                    print(f"  WARNING: {warn}")
+
+            rolled_back = runner.downgrade(
+                target_version=args.target,
+                dry_run=dry_run,
+                reason=reason,
+                use_stored_rollback=use_stored,
+            )
+
+        prefix = "[DRY RUN] Would roll back" if dry_run else "Rolled back"
         if rolled_back:
-            print(f"Rolled back {len(rolled_back)} migration(s):")
+            print(f"{prefix} {len(rolled_back)} migration(s):")
             for m in rolled_back:
                 print(f"  - {m.version}: {m.name}")
         else:
             print("No migrations to rollback.")
+        return 0
+    except (RuntimeError, OSError, ValueError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    finally:
+        reset_runner()
+
+
+def cmd_rollback_history(args: argparse.Namespace) -> int:
+    """Show rollback history."""
+    runner = get_migration_runner(
+        db_path=args.db_path,
+        database_url=args.database_url,
+    )
+
+    try:
+        history = runner.get_rollback_history()
+        if not history:
+            print("No rollback history found.")
+            return 0
+
+        print(f"Rollback History ({len(history)} records):")
+        print()
+        for record in history:
+            reason_text = f" reason={record.reason}" if record.reason else ""
+            print(f"  [{record.rolled_back_at}] v{record.version}: {record.name}")
+            print(f"    by: {record.rolled_back_by}{reason_text}")
+            print()
         return 0
     except (RuntimeError, OSError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -177,7 +253,34 @@ def main() -> int:
         type=int,
         help="Minimum version to keep (default: rollback one)",
     )
+    downgrade_parser.add_argument(
+        "--steps",
+        type=int,
+        help="Number of migrations to rollback (alternative to --target)",
+    )
+    downgrade_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Preview what would be rolled back without executing",
+    )
+    downgrade_parser.add_argument(
+        "--reason",
+        type=str,
+        help="Reason for the rollback (stored in rollback history)",
+    )
+    downgrade_parser.add_argument(
+        "--use-stored-rollback",
+        action="store_true",
+        default=False,
+        help="Use stored rollback SQL from database instead of migration files",
+    )
     downgrade_parser.set_defaults(func=cmd_downgrade)
+
+    # rollback-history command
+    history_parser = subparsers.add_parser("rollback-history", help="Show rollback audit history")
+    add_common_args(history_parser)
+    history_parser.set_defaults(func=cmd_rollback_history)
 
     # status command
     status_parser = subparsers.add_parser("status", help="Show migration status")

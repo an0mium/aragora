@@ -9,6 +9,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async
@@ -33,7 +34,7 @@ _fv_imports, FORMAL_VERIFICATION_AVAILABLE = try_import(
 get_formal_verification_manager = _fv_imports.get("get_formal_verification_manager")
 
 
-def _safe_float(value, default: float = 0.0) -> float:
+def _safe_float(value: Any, default: float = 0.0) -> float:
     """Safely convert value to float, returning default on failure."""
     try:
         return float(value)
@@ -54,14 +55,18 @@ class VerificationHandler(BaseHandler):
         return path in self.ROUTES
 
     @require_permission("verification:read")
-    def handle(self, path: str, query_params: dict, handler=None) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         if path == "/api/v1/verification/status":
             return self._get_status()
         return None
 
     @require_permission("verification:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/verification/formal-verify":
             return self._verify_claim(handler)
@@ -93,7 +98,7 @@ class VerificationHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=10, burst=3, limiter_name="formal_verification")
     @handle_errors("formal verification")
-    def _verify_claim(self, handler) -> HandlerResult:
+    def _verify_claim(self, handler: Any) -> HandlerResult:
         """Attempt formal verification of a claim using Z3 SMT solver.
 
         POST body:

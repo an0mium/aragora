@@ -10,7 +10,7 @@ This reduces frontend latency by 80% (1 request instead of 6).
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from aragora.config import (
     CACHE_TTL_LB_INTROSPECTION,
@@ -63,7 +63,12 @@ class LeaderboardViewHandler(SecureHandler):
         return strip_version_prefix(path) == "/api/leaderboard-view"
 
     def _safe_fetch_section(
-        self, data: dict, errors: dict, key: str, fetch_fn, fallback: dict
+        self,
+        data: dict[str, Any],
+        errors: dict[str, Any],
+        key: str,
+        fetch_fn: Callable[[], Any],
+        fallback: dict[str, Any],
     ) -> None:
         """Safely fetch a leaderboard section with error handling and logging.
 
