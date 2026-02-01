@@ -342,8 +342,9 @@ for agent_id in pool.current_agents:
     await ws.assign_agent_to_rig(rig.rig_id, agent_id)
 ```
 
-Note: Workspace convoys/beads persist only when `ARAGORA_CANONICAL_STORE_PERSIST=1`
-or `ARAGORA_STORE_DIR` is set. Otherwise, local runs use an ephemeral temp store.
+Note: Workspace convoys/beads persist by default under the canonical store
+directory. Set `ARAGORA_STORE_DIR` for an explicit location or
+`ARAGORA_CANONICAL_STORE_PERSIST=0` to force a temp store.
 
 ### With Gateway
 

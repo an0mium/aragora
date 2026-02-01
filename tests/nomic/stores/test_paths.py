@@ -44,22 +44,21 @@ def test_legacy_gt_fallback(tmp_path, monkeypatch):
         monkeypatch.chdir(cwd)
 
 
-def test_runtime_store_defaults_to_ephemeral(tmp_path, monkeypatch):
+def test_runtime_store_defaults_to_persistent(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("ARAGORA_CANONICAL_STORE_PERSIST", raising=False)
     monkeypatch.delenv("NOMIC_CANONICAL_STORE_PERSIST", raising=False)
     monkeypatch.delenv("ARAGORA_STORE_DIR", raising=False)
     path = resolve_runtime_store_dir()
+    assert path.resolve() == (tmp_path / ".aragora_beads").resolve()
+
+
+def test_runtime_store_uses_ephemeral_when_disabled(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ARAGORA_CANONICAL_STORE_PERSIST", "0")
+    path = resolve_runtime_store_dir()
     assert path.exists()
     assert str(path).startswith(tempfile.gettempdir())
-    assert path != tmp_path / ".aragora_beads"
-
-
-def test_runtime_store_persists_when_enabled(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("ARAGORA_CANONICAL_STORE_PERSIST", "1")
-    path = resolve_runtime_store_dir(workspace_root=tmp_path)
-    assert path == tmp_path / ".aragora_beads"
 
 
 def test_runtime_store_uses_env_dir(tmp_path, monkeypatch):

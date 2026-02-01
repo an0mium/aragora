@@ -11,9 +11,8 @@ while allowing compatibility adapters to evolve independently.
 
 - Canonical store: `aragora.nomic.beads.BeadStore` (via `NomicBeadStore`).
 - Workspace adapter: `aragora.workspace.bead.BeadManager` (Nomic-backed).
-- Persistence: canonical stores persist only when `ARAGORA_CANONICAL_STORE_PERSIST=1` (or
-  `ARAGORA_STORE_DIR` is set). Otherwise, workspace adapters use an ephemeral temp store
-  for local/dev safety.
+- Persistence: canonical stores persist by default. Set `ARAGORA_STORE_DIR` for an
+  explicit location or `ARAGORA_CANONICAL_STORE_PERSIST=0` to force an ephemeral temp store.
 - Identity:
   - `bead_id`: Nomic bead ID (opaque string)
   - `workspace_id`: owning workspace

@@ -13,15 +13,12 @@ The `aragora.workspace` module provides project management capabilities:
 
 ## Storage & persistence
 
-By default, workspace bead/convoy adapters use the canonical Nomic stores with
-an **ephemeral temp directory** unless you enable persistence.
+By default, workspace bead/convoy adapters use the canonical Nomic stores and
+persist under the canonical store directory.
 
-To persist canonical stores:
-- Set `ARAGORA_CANONICAL_STORE_PERSIST=1` (preferred)
-- Or set `ARAGORA_STORE_DIR=/path/to/.aragora_beads`
-
-This keeps dev/test runs isolated while allowing production deployments to
-persist convoy/bead state.
+To control persistence or location:
+- Set `ARAGORA_STORE_DIR=/path/to/.aragora_beads` for an explicit location
+- Set `ARAGORA_CANONICAL_STORE_PERSIST=0` to force an ephemeral temp directory
 
 Gastown workspace metadata (workspaces/rigs) is persisted to
 `state.json` under the canonical store directory when using the

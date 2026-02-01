@@ -145,13 +145,14 @@ convoy = await manager.create_convoy(
 
 #### Convoy Executor Storage
 
-The Gastown-style convoy executor can optionally use the canonical store root:
+The Gastown-style convoy executor uses the canonical store root by default.
+To opt out, set:
 
 ```bash
-export NOMIC_CONVOY_CANONICAL_STORE=1
+export NOMIC_CONVOY_CANONICAL_STORE=0
 ```
 
-When enabled and no explicit `bead_dir` is supplied, the executor will resolve
+When enabled and no explicit `bead_dir` is supplied, the executor resolves
 its bead/convoy storage under `<workspace_root>/.aragora_beads`.
 
 ## Recovery & Resilience

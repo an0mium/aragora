@@ -27,11 +27,11 @@ def _should_persist_canonical_store() -> bool:
     env_value = os.getenv("ARAGORA_CANONICAL_STORE_PERSIST") or os.getenv(
         "NOMIC_CANONICAL_STORE_PERSIST"
     )
-    if env_value is not None:
-        return env_value.strip().lower() in {"1", "true", "yes", "on"}
     if _env_store_dir() is not None:
         return True
-    return False
+    if env_value is not None:
+        return env_value.strip().lower() in {"1", "true", "yes", "on"}
+    return True
 
 
 def resolve_store_dir(
@@ -63,9 +63,9 @@ def resolve_runtime_store_dir(
     workspace_root: str | Path | None = None,
     override: str | Path | None = None,
     prefer_legacy_gt: bool = True,
-    prefer_ephemeral: bool = True,
+    prefer_ephemeral: bool = False,
 ) -> Path:
-    """Resolve store dir, preferring ephemeral temp storage when unset."""
+    """Resolve store dir, optionally preferring ephemeral temp storage."""
     if override:
         return Path(override).expanduser()
 
@@ -87,10 +87,7 @@ def resolve_runtime_store_dir(
             prefer_legacy_gt=prefer_legacy_gt,
         )
 
-    if prefer_ephemeral:
-        return Path(tempfile.mkdtemp(prefix="aragora-beads-"))
-
-    return Path(".aragora_beads")
+    return Path(tempfile.mkdtemp(prefix="aragora-beads-"))
 
 
 def resolve_bead_and_convoy_dirs(
