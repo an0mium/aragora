@@ -442,13 +442,17 @@ class TestSQLiteBackendInitialization:
         db_path = tmp_path / "wal_test.db"
         store = SQLiteWebhookStore(db_path=db_path)
 
-        # Check journal mode (need to do this on a fresh connection)
-        conn = sqlite3.connect(str(db_path))
+        # Trigger a write to ensure WAL mode is set on the connection
+        store.mark_processed("evt_wal_test")
+
+        # Check journal mode on the store's connection which has WAL enabled
+        # Note: A fresh connection may not see WAL mode if the database was
+        # not checkpointed, so we verify the store's internal connection uses WAL
+        conn = store._get_conn()
         cursor = conn.execute("PRAGMA journal_mode")
         journal_mode = cursor.fetchone()[0].lower()
         assert journal_mode == "wal"
 
-        conn.close()
         store.close()
 
     def test_reopens_existing_database(self, tmp_path):
@@ -478,7 +482,7 @@ class TestGlobalStoreManagement:
     def test_get_webhook_store_creates_store(self):
         """get_webhook_store should create a store if none exists."""
         with patch.dict(os.environ, {"ARAGORA_WEBHOOK_STORE_BACKEND": "memory"}):
-            with patch("aragora.storage.webhook_store.require_distributed_store"):
+            with patch("aragora.storage.production_guards.require_distributed_store"):
                 store = get_webhook_store()
                 assert store is not None
                 assert isinstance(store, WebhookStoreBackend)
@@ -500,7 +504,7 @@ class TestGlobalStoreManagement:
 
         # Next get should create a new store
         with patch.dict(os.environ, {"ARAGORA_WEBHOOK_STORE_BACKEND": "memory"}):
-            with patch("aragora.storage.webhook_store.require_distributed_store"):
+            with patch("aragora.storage.production_guards.require_distributed_store"):
                 new_store = get_webhook_store()
                 assert new_store is not custom_store
 

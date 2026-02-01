@@ -361,11 +361,16 @@ class TestAgentHealth:
         True,
     )
     def test_get_agent_health_timeout(self, server_context, mock_handler):
-        """Agent health check that raises an exception returns 'unknown' status."""
+        """Agent health check that raises a connection error returns 'unavailable' status.
+
+        Note: The handler distinguishes between:
+        - 'unknown' for configuration errors (AttributeError, TypeError, ValueError)
+        - 'unavailable' for runtime errors (RuntimeError, TimeoutError, OSError, ConnectionError)
+        """
         agent = MockExternalAgent(
             name="timeout-agent",
             available=False,
-            raise_on_check=True,
+            raise_on_check=True,  # Raises ConnectionError
         )
         server_context["external_agents"] = {"timeout-agent": agent}
         h = GatewayHealthHandler(server_context)
@@ -375,7 +380,7 @@ class TestAgentHealth:
 
         assert status == 200
         assert data["name"] == "timeout-agent"
-        assert data["status"] == "unknown"
+        assert data["status"] == "unavailable"  # Runtime error -> unavailable
         assert "response_time_ms" in data
 
     @patch(

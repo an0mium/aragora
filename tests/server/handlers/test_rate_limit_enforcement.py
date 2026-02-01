@@ -348,29 +348,53 @@ class TestIntegrationStatsRateLimits:
 
 
 class TestWhatsAppWebhookRateLimits:
-    """Tests for WhatsApp webhook handler rate limiting (1000 req/min per IP)."""
+    """Tests for WhatsApp webhook handler rate limiting (1000 req/min per IP).
+
+    Note: The WhatsApp handler's rate limit decorator is evaluated at module import
+    time, which means the limiter is created when the module is first loaded.
+    To test the correct RPM value, we need to ensure the module is reloaded
+    after clearing the limiters registry.
+    """
 
     @pytest.fixture(autouse=True)
-    def reset_limiters(self):
-        """Reset rate limiters before each test."""
-        from aragora.server.handlers.utils.rate_limit import (
-            clear_all_limiters,
-            _limiters,
-            _limiters_lock,
-        )
+    def reset_limiters_and_reload_whatsapp(self):
+        """Reset rate limiters and reload WhatsApp module before each test.
 
-        clear_all_limiters()
-        # Also remove any existing limiter entries to force re-creation
-        with _limiters_lock:
-            _limiters.clear()
+        This is necessary because the rate_limit decorator creates the limiter
+        at module import time, so we need to:
+        1. Clear the limiters registry
+        2. Remove the WhatsApp module from sys.modules
+        3. Reimport to get fresh decorator evaluation
+        """
+        import sys
+        import importlib
+
+        # Import the rate_limit module to access _limiters
+        rate_limit_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
+
+        # Clear all limiters
+        rate_limit_mod.clear_all_limiters()
+        with rate_limit_mod._limiters_lock:
+            rate_limit_mod._limiters.clear()
+
+        # Remove WhatsApp module from cache to force reimport
+        whatsapp_modules = [k for k in sys.modules.keys() if "whatsapp" in k.lower()]
+        for mod_name in whatsapp_modules:
+            del sys.modules[mod_name]
+
         yield
-        clear_all_limiters()
+
+        # Cleanup
+        rate_limit_mod.clear_all_limiters()
 
     def test_whatsapp_handler_has_high_rate_limit(self, mock_server_context):
         """Verify WhatsApp handler uses the whatsapp_webhook limiter with 1000 rpm."""
-        from aragora.server.handlers.bots.whatsapp import WhatsAppHandler
+        import importlib
+        import aragora.server.handlers.bots.whatsapp as whatsapp_mod
 
-        handler = WhatsAppHandler(mock_server_context)
+        whatsapp_mod = importlib.reload(whatsapp_mod)
+
+        handler = whatsapp_mod.WhatsAppHandler(mock_server_context)
 
         # Check that handle_post method has rate limit decorator
         assert hasattr(handler.handle_post, "_rate_limited")
@@ -382,9 +406,12 @@ class TestWhatsAppWebhookRateLimits:
 
     def test_allows_high_volume_webhook_requests(self, mock_server_context):
         """Should allow high volume of webhook requests (up to 1000/min)."""
-        from aragora.server.handlers.bots.whatsapp import WhatsAppHandler
+        import importlib
+        import aragora.server.handlers.bots.whatsapp as whatsapp_mod
 
-        handler = WhatsAppHandler(mock_server_context)
+        whatsapp_mod = importlib.reload(whatsapp_mod)
+
+        handler = whatsapp_mod.WhatsAppHandler(mock_server_context)
 
         # Get the limiter from the decorated method
         limiter = handler.handle_post._rate_limiter
@@ -399,9 +426,12 @@ class TestWhatsAppWebhookRateLimits:
 
     def test_blocks_after_1000_requests(self, mock_server_context):
         """Should block requests after 1000/min limit exceeded."""
-        from aragora.server.handlers.bots.whatsapp import WhatsAppHandler
+        import importlib
+        import aragora.server.handlers.bots.whatsapp as whatsapp_mod
 
-        handler = WhatsAppHandler(mock_server_context)
+        whatsapp_mod = importlib.reload(whatsapp_mod)
+
+        handler = whatsapp_mod.WhatsAppHandler(mock_server_context)
 
         # Get the limiter from the decorated method
         limiter = handler.handle_post._rate_limiter
@@ -415,9 +445,12 @@ class TestWhatsAppWebhookRateLimits:
 
     def test_separate_limits_per_ip(self, mock_server_context):
         """Should maintain separate limits per IP for webhooks."""
-        from aragora.server.handlers.bots.whatsapp import WhatsAppHandler
+        import importlib
+        import aragora.server.handlers.bots.whatsapp as whatsapp_mod
 
-        handler = WhatsAppHandler(mock_server_context)
+        whatsapp_mod = importlib.reload(whatsapp_mod)
+
+        handler = whatsapp_mod.WhatsAppHandler(mock_server_context)
         limiter = handler.handle_post._rate_limiter
 
         # Exhaust limit for one IP

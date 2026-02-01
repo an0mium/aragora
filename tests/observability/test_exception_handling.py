@@ -70,34 +70,40 @@ class TestMetricsExceptionHandling:
         result = stop_metrics_server()
         assert result is False
 
-    def test_stop_metrics_server_marks_for_shutdown(self):
-        """stop_metrics_server should mark server for shutdown when running."""
-        from aragora.observability.metrics import stop_metrics_server, _init_metrics
-        import aragora.observability.metrics as metrics_module
+    def test_stop_metrics_server_logic(self):
+        """Test the logic of stop_metrics_server function."""
+        import sys
 
-        _init_metrics()
+        # Access the implementation module directly
+        impl = sys.modules.get("_aragora_metrics_impl")
+        if impl is None:
+            # Force load if not yet imported
+            from aragora.observability.metrics import _init_metrics
 
-        # Save original state
-        original_server = metrics_module._metrics_server
+            _init_metrics()
+            impl = sys.modules["_aragora_metrics_impl"]
 
-        # Set server as "running" by assigning a port number
-        metrics_module._metrics_server = 9090
+        # Save original state to restore later
+        original = impl._metrics_server
 
-        # Call stop - should mark for shutdown
-        result = stop_metrics_server()
+        try:
+            # Test 1: When server is not running (None), should return False
+            impl._metrics_server = None
+            result = impl.stop_metrics_server()
+            assert result is False
 
-        # Result should be True since server was "running"
-        assert result is True, (
-            f"Expected True but got {result}, _metrics_server was {original_server}"
-        )
+            # Test 2: When server is "running" (has a port), should return True
+            impl._metrics_server = 9090
+            result = impl.stop_metrics_server()
+            assert result is True
+            assert impl._metrics_server is None
 
-        # After calling stop, _metrics_server should be None
-        assert metrics_module._metrics_server is None, (
-            f"Expected None but got {metrics_module._metrics_server}"
-        )
-
-        # Restore original state for other tests (may already be None)
-        metrics_module._metrics_server = original_server
+            # Test 3: Calling again should return False since already stopped
+            result = impl.stop_metrics_server()
+            assert result is False
+        finally:
+            # Restore original state
+            impl._metrics_server = original
 
 
 # =============================================================================

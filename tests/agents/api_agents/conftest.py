@@ -478,3 +478,17 @@ def mock_env_with_grok_key(monkeypatch):
     """Set up environment with Grok/xAI API key."""
     monkeypatch.setenv("XAI_API_KEY", "test-xai-key")
     monkeypatch.setenv("GROK_API_KEY", "test-grok-key")
+
+
+@pytest.fixture(autouse=True)
+def _allow_localhost_for_api_agents(monkeypatch):
+    """Ensure localhost is allowed for API agent tests.
+
+    Many API agents (AutoGen, CrewAI, etc.) default to localhost URLs.
+    This requires:
+    1. ARAGORA_SSRF_ALLOW_LOCALHOST=true (from test_environment fixture)
+    2. ARAGORA_ENV must NOT be 'production' (blocks localhost even with override)
+
+    This fixture ensures ARAGORA_ENV doesn't block localhost access for these tests.
+    """
+    monkeypatch.delenv("ARAGORA_ENV", raising=False)
