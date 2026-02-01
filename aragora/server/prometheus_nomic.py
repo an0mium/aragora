@@ -8,7 +8,7 @@ Provides metrics for Nomic loop phase execution and cycle tracking.
 import logging
 import time
 from functools import wraps
-from typing import Callable
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def timed_nomic_phase(phase: str) -> Callable[[Callable], Callable]:
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             start = time.perf_counter()
             outcome = "success"
             try:

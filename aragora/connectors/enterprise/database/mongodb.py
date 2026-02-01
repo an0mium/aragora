@@ -72,7 +72,7 @@ class MongoDBConnector(EnterpriseConnector):
 
         self._client = None
         self._db = None
-        self._change_stream_task = None
+        self._change_stream_task: asyncio.Task[None] | None = None
 
         # CDC support
         self._cdc_manager: CDCStreamManager | None = None
@@ -481,6 +481,8 @@ class MongoDBConnector(EnterpriseConnector):
                 if resume_after:
                     watch_kwargs["resume_after"] = resume_after
 
+                if self._db is None:
+                    raise RuntimeError("Database not initialized")
                 async with self._db.watch(**watch_kwargs) as stream:
                     logger.info(f"[{self.name}] Change stream started")
                     async for change in stream:

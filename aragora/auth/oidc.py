@@ -154,7 +154,7 @@ class OIDCConfig(SSOConfig):
     # Google specific (hosted domain)
     hd: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.provider_type:
             self.provider_type = SSOProviderType.OIDC
 
@@ -165,7 +165,7 @@ class OIDCConfig(SSOConfig):
         client_id: str,
         client_secret: str,
         callback_url: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> "OIDCConfig":
         """Create configuration for Azure AD / Microsoft Entra ID."""
         return cls(
@@ -187,7 +187,7 @@ class OIDCConfig(SSOConfig):
         client_id: str,
         client_secret: str,
         callback_url: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> "OIDCConfig":
         """Create configuration for Okta."""
         # Normalize org_url (remove trailing slash)
@@ -210,7 +210,7 @@ class OIDCConfig(SSOConfig):
         client_secret: str,
         callback_url: str,
         hd: str = "",
-        **kwargs,
+        **kwargs: Any,
     ) -> "OIDCConfig":
         """Create configuration for Google Workspace.
 
@@ -401,7 +401,7 @@ class OIDCProvider(SSOProvider):
         redirect_uri: str | None = None,
         scopes: Optional[list[str]] = None,
         nonce: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         """
         Generate OIDC authorization URL.

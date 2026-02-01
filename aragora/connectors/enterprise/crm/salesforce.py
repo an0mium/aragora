@@ -363,7 +363,7 @@ class SalesforceConnector(EnterpriseConnector):
         use_bulk_api: bool = True,
         bulk_threshold: int = 2000,
         is_sandbox: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Salesforce connector.
@@ -725,7 +725,7 @@ class SalesforceConnector(EnterpriseConnector):
         query: str,
         limit: int = 25,
         object_types: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Salesforce using SOSL."""
         from aragora.connectors.base import Evidence

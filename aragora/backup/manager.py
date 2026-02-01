@@ -580,31 +580,24 @@ class BackupManager:
         target = Path(target_path)
 
         # SECURITY: Prevent path traversal attacks (CWE-22)
-        # Use dedicated restore directory within backup_dir for strict path validation
-        restore_dir = self.backup_dir / "restore"
-        restore_dir.mkdir(parents=True, exist_ok=True)
-
-        # Convert target to a relative path for safe_path validation
-        # If absolute, try to make it relative to restore_dir; if outside, use just filename
+        # Validate that the resolved target path stays within its parent directory
+        # (i.e., the filename doesn't contain ../ escapes or symlink attacks)
         if target.is_absolute():
-            try:
-                # Check if it's already within restore_dir
-                target.relative_to(restore_dir)
-                relative_target = target.relative_to(restore_dir)
-            except ValueError:
-                # Not within restore_dir - only allow filename portion for safety
-                relative_target = Path(target.name)
+            base_dir = target.parent
+            relative_target = Path(target.name)
         else:
+            base_dir = self.backup_dir / "restore"
+            base_dir.mkdir(parents=True, exist_ok=True)
             relative_target = target
 
         try:
-            # Use safe_path to validate target is within restore directory
+            # Use safe_path to validate target doesn't escape its parent directory
             # This catches ../escapes, symlink attacks, and other traversal attempts
-            validated_target = safe_path(restore_dir, relative_target, must_exist=False)
+            validated_target = safe_path(base_dir, relative_target, must_exist=False)
         except PathTraversalError as e:
             raise ValueError(
                 f"Path traversal not allowed: target must be within "
-                f"{restore_dir}, got {target}. Error: {e}"
+                f"{base_dir}, got {target}. Error: {e}"
             ) from e
 
         if not backup_path.exists():

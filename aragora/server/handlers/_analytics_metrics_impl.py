@@ -275,9 +275,9 @@ class AnalyticsMetricsHandler(SecureHandler):
         now = datetime.now(timezone.utc)
 
         # Filter debates by time range
-        period_debates = []
-        previous_period_debates = []
-        all_debates = []
+        period_debates: list[dict[str, Any]] = []
+        previous_period_debates: list[dict[str, Any]] = []
+        all_debates: list[dict[str, Any]] = []
 
         for debate in debates:
             debate_dict = debate if isinstance(debate, dict) else vars(debate)

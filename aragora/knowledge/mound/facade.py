@@ -107,6 +107,17 @@ class KnowledgeMound(
         """Apply confidence decay - delegates to ConfidenceDecayMixin."""
         return await ConfidenceDecayMixin.apply_confidence_decay(self, *args, **kwargs)
 
+    async def ingest(self, item: Any) -> Any:
+        """Ingest a knowledge item (alias for store).
+
+        Args:
+            item: Knowledge item or IngestionRequest to store
+
+        Returns:
+            IngestionResult with stored item details
+        """
+        return await self.store(item)
+
     """
     Unified knowledge facade for the Aragora multi-agent control plane.
 

@@ -385,7 +385,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         try:
             # ConsensusStore with record_vote is a planned feature.
             # This import will fail until it's implemented.
-            from aragora.memory.consensus import ConsensusStore
+            from aragora.memory.consensus import ConsensusMemory as ConsensusStore
 
             store: VoteRecordingStore = cast(VoteRecordingStore, ConsensusStore())
             store.record_vote(

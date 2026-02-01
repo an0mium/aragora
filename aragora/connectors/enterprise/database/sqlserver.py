@@ -95,7 +95,7 @@ class SQLServerConnector(EnterpriseConnector):
         use_change_tracking: bool = False,  # Use Change Tracking
         poll_interval_seconds: int = 5,
         pool_size: int = 5,
-        **kwargs,
+        **kwargs: Any,
     ):
         connector_id = f"sqlserver_{host}_{database}_{schema}"
         super().__init__(connector_id=connector_id, **kwargs)
@@ -148,7 +148,7 @@ class SQLServerConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"SQL Server ({self.database}.{self.schema})"
 
-    async def _get_pool(self):
+    async def _get_pool(self) -> Any:
         """Get or create connection pool."""
         if self._pool is not None:
             return self._pool
@@ -321,7 +321,7 @@ class SQLServerConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """
         Search across indexed tables using LIKE queries.
@@ -380,7 +380,7 @@ class SQLServerConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str):
+    async def fetch(self, evidence_id: str) -> Any:
         """Fetch a specific row by evidence ID."""
         from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
 
@@ -492,7 +492,7 @@ class SQLServerConnector(EnterpriseConnector):
             logger.error(f"[SQL Server CDC] Polling error: {e}")
             raise
 
-    async def _process_table_cdc_changes(self, pool, table: str) -> None:
+    async def _process_table_cdc_changes(self, pool: Any, table: str) -> None:
         """Process CDC changes for a single table."""
         # Get the CDC capture instance name
         capture_instance = f"{self.schema}_{table}"
@@ -599,7 +599,7 @@ class SQLServerConnector(EnterpriseConnector):
             logger.error(f"[SQL Server CT] Polling error: {e}")
             raise
 
-    async def _process_table_ct_changes(self, pool, table: str) -> None:
+    async def _process_table_ct_changes(self, pool: Any, table: str) -> None:
         """Process Change Tracking changes for a single table."""
         async with pool.acquire() as conn:
             async with conn.cursor() as cursor:

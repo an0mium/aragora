@@ -148,7 +148,7 @@ class ImpersonationManager:
         self._store = None
         self._use_persistence = True  # Can be disabled for testing
 
-    def _get_store(self):
+    def _get_store(self) -> Any:
         """Lazily get the impersonation store."""
         if self._store is None and self._use_persistence:
             try:

@@ -26,6 +26,30 @@ class ArenaDelegatesMixin:
     They delegate to composed sub-objects to keep the orchestrator module lean.
     """
 
+    # Type stubs for attributes provided by Arena (the host class)
+    _km_manager: Any
+    _checkpoint_ops: Any
+    _context_delegator: Any
+    _event_emitter: Any
+    _grounded_ops: Any
+    _prompt_context: Any
+    agent_pool: Any
+    agents: Any
+    audience_manager: Any
+    citation_extractor: Any
+    debate_embeddings: Any
+    env: Any
+    evidence_collector: Any
+    prompt_builder: Any
+    protocol: Any
+    rlm_limiter: Any
+    roles_manager: Any
+    termination_checker: Any
+    use_rlm_limiter: Any
+    voting_phase: Any
+    _extract_debate_domain: Any
+    _sync_prompt_builder_state: Any
+
     # ------------------------------------------------------------------
     # Knowledge Mound Delegates
     # ------------------------------------------------------------------

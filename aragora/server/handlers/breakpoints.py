@@ -51,7 +51,7 @@ class BreakpointsHandler(BaseHandler):
     def __init__(self, storage: Any = None):
         """Initialize with optional storage backend."""
         super().__init__(storage)
-        self._breakpoint_manager = None
+        self._breakpoint_manager: Any = None
 
     @property
     def breakpoint_manager(self) -> Any:

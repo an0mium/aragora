@@ -80,7 +80,7 @@ class GmailConnector(  # type: ignore[misc]  # Mixin Protocol bases unsupported 
         max_results: int = 100,
         include_spam_trash: bool = False,
         user_id: str = "me",
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Gmail connector.

@@ -29,6 +29,7 @@ from .base import (
     HandlerResult,
     error_response,
     json_response,
+    safe_error_message,
 )
 from .secure import SecureHandler, ForbiddenError, UnauthorizedError
 from .utils.rate_limit import RateLimiter, get_client_ip
@@ -227,17 +228,21 @@ class EndpointAnalyticsHandler(SecureHandler):
         client_ip = get_client_ip(handler)
         if not _endpoint_analytics_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for endpoint analytics: {client_ip}")
-            return error_response("Rate limit exceeded. Please try again later.", 429)
+            return error_response(
+                "Rate limit exceeded. Please try again later.",
+                429,
+                code="RATE_LIMIT_EXCEEDED",
+            )
 
         # RBAC: Require authentication and analytics:read permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
             self.check_permission(auth_context, ENDPOINT_ANALYTICS_PERMISSION)
         except UnauthorizedError:
-            return error_response("Authentication required", 401)
+            return error_response("Authentication required", 401, code="AUTH_REQUIRED")
         except ForbiddenError as e:
             logger.warning(f"Endpoint analytics access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response(str(e), 403, code="PERMISSION_DENIED")
 
         # Route to specific handlers
         if normalized == "/api/analytics/endpoints":
@@ -255,7 +260,11 @@ class EndpointAnalyticsHandler(SecureHandler):
             endpoint_name = unquote(match.group(1))
             return self._get_endpoint_performance(endpoint_name, query_params)
 
-        return error_response(f"Unknown endpoint analytics path: {path}", 404)
+        return error_response(
+            f"Unknown endpoint analytics path: {path}",
+            404,
+            code="NOT_FOUND",
+        )
 
     def _get_all_endpoints(self, query_params: dict) -> HandlerResult:
         """GET /api/analytics/endpoints - List all endpoints with metrics."""
@@ -292,13 +301,23 @@ class EndpointAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error getting endpoint metrics: {e}")
-            return error_response(f"Failed to get endpoint metrics: {str(e)}", 500)
+            return error_response(
+                safe_error_message(e, "endpoint metrics"),
+                500,
+                code="ENDPOINT_METRICS_ERROR",
+            )
 
     def _get_slowest_endpoints(self, query_params: dict) -> HandlerResult:
         """GET /api/analytics/endpoints/slowest - Top N slowest endpoints."""
         try:
             limit = safe_query_int(query_params, "limit", default=10, max_val=100)
             percentile = query_params.get("percentile", "p95")  # p50, p95, p99
+            if percentile not in ("p50", "p95", "p99"):
+                return error_response(
+                    f"Invalid percentile: {percentile}. Must be p50, p95, or p99.",
+                    400,
+                    code="INVALID_PERCENTILE",
+                )
 
             endpoints = _metrics_store.get_all_endpoints()
 
@@ -323,7 +342,11 @@ class EndpointAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error getting slowest endpoints: {e}")
-            return error_response(f"Failed to get slowest endpoints: {str(e)}", 500)
+            return error_response(
+                safe_error_message(e, "slowest endpoints"),
+                500,
+                code="SLOWEST_ENDPOINTS_ERROR",
+            )
 
     def _get_error_endpoints(self, query_params: dict) -> HandlerResult:
         """GET /api/analytics/endpoints/errors - Top N endpoints by error rate."""
@@ -352,7 +375,11 @@ class EndpointAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error getting error endpoints: {e}")
-            return error_response(f"Failed to get error endpoints: {str(e)}", 500)
+            return error_response(
+                safe_error_message(e, "error endpoints"),
+                500,
+                code="ERROR_ENDPOINTS_ERROR",
+            )
 
     def _get_endpoint_performance(self, endpoint_name: str, query_params: dict) -> HandlerResult:
         """GET /api/analytics/endpoints/{endpoint}/performance - Specific endpoint metrics."""
@@ -368,7 +395,11 @@ class EndpointAnalyticsHandler(SecureHandler):
                     metrics = _metrics_store.get_endpoint(f"/{endpoint_name}", method)
 
             if not metrics:
-                return error_response(f"No metrics found for endpoint: {endpoint_name}", 404)
+                return error_response(
+                    f"No metrics found for endpoint: {endpoint_name}",
+                    404,
+                    code="ENDPOINT_NOT_FOUND",
+                )
 
             return json_response(
                 {
@@ -379,7 +410,11 @@ class EndpointAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error getting endpoint performance: {e}")
-            return error_response(f"Failed to get endpoint performance: {str(e)}", 500)
+            return error_response(
+                safe_error_message(e, "endpoint performance"),
+                500,
+                code="ENDPOINT_PERFORMANCE_ERROR",
+            )
 
     def _get_health_summary(self, query_params: dict) -> HandlerResult:
         """GET /api/analytics/endpoints/health - Overall API health summary."""
@@ -449,7 +484,11 @@ class EndpointAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error getting health summary: {e}")
-            return error_response(f"Failed to get health summary: {str(e)}", 500)
+            return error_response(
+                safe_error_message(e, "health summary"),
+                500,
+                code="HEALTH_SUMMARY_ERROR",
+            )
 
 
 __all__ = [

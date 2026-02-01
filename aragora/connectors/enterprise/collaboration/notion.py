@@ -90,7 +90,7 @@ class NotionConnector(EnterpriseConnector):
         max_depth: int = 5,
         recursive_pages: bool = True,
         inline_child_content: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Notion connector.
@@ -872,7 +872,7 @@ class NotionConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Notion content."""
         from aragora.connectors.base import Evidence

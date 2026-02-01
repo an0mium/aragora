@@ -87,7 +87,7 @@ class DPOExporter(BaseExporter):
         include_head_to_head: bool = True,
         include_calibration: bool = True,
         include_domain_specific: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
         Export DPO preference pairs.

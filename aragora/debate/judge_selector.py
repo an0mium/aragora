@@ -43,6 +43,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Awaitable, Callable, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from aragora.core import Agent, Message
     from aragora.memory.consensus import ConsensusMemory
     from aragora.ranking.elo import EloSystem
@@ -1093,7 +1095,7 @@ class JudgePanel:
 
         import asyncio
 
-        async def get_assessment(judge: "Agent"):
+        async def get_assessment(judge: "Agent") -> tuple[str, dict[str, Any] | None]:
             try:
                 response = await generate_fn(judge, prompt, context)
                 # Parse assessment (simple extraction)
@@ -1155,7 +1157,7 @@ class JudgePanel:
 
         import asyncio
 
-        async def deliberate(judge: "Agent"):
+        async def deliberate(judge: "Agent") -> tuple[str, dict[str, Any] | None]:
             try:
                 # Build deliberation prompt with other judges' assessments
                 other_assessments = {k: v for k, v in assessments.items() if k != judge.name}

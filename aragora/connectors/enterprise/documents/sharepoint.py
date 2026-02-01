@@ -133,7 +133,7 @@ class SharePointConnector(EnterpriseConnector):
         include_lists: bool = False,
         file_extensions: Optional[set[str]] = None,
         exclude_paths: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize SharePoint connector.
@@ -533,7 +533,7 @@ class SharePointConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search SharePoint content via Microsoft Graph Search API."""
         from aragora.connectors.base import Evidence

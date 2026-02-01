@@ -892,8 +892,12 @@ def get_coordinator() -> CrossWorkspaceCoordinator:
     return _coordinator
 
 
+# Backward-compatible alias
+CrossWorkspaceOperation = OperationType
+
 __all__ = [
     "CrossWorkspaceCoordinator",
+    "CrossWorkspaceOperation",
     "FederatedWorkspace",
     "FederationPolicy",
     "FederationMode",

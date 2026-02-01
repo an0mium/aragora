@@ -112,7 +112,7 @@ class GatewayHealthHandler(BaseHandler):
         if not GATEWAY_AVAILABLE:
             return error_response("Gateway module not available", 503)
 
-        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}
+        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}  # type: ignore[assignment]
         now = datetime.now(timezone.utc).isoformat()
 
         # Build per-agent health info
@@ -180,7 +180,7 @@ class GatewayHealthHandler(BaseHandler):
         if not GATEWAY_AVAILABLE:
             return error_response("Gateway module not available", 503)
 
-        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}
+        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}  # type: ignore[assignment]
 
         if agent_name not in external_agents:
             return error_response(f"Agent not found: {agent_name}", 404)

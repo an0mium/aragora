@@ -50,7 +50,7 @@ RLM_EARLY_TERMINATION_THRESHOLD = 0.75
 RLM_MAJORITY_LEAD_THRESHOLD = 0.25
 
 
-def get_complexity_governor():
+def get_complexity_governor() -> Any:
     """Get the global complexity governor instance."""
     from aragora.debate.complexity_governor import get_complexity_governor as _get_governor
 
@@ -215,7 +215,7 @@ class VoteCollector:
         votes: list["Vote"] = []
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent"):
+        async def cast_vote(agent: "Agent") -> tuple[Any, Any] | None:
             """Cast a vote for a single agent."""
             logger.debug(f"agent_voting_permutation agent={agent.name} perm={permutation_idx}")
             try:
@@ -364,7 +364,7 @@ class VoteCollector:
         votes: list["Vote"] = []
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent"):
+        async def cast_vote(agent: "Agent") -> tuple[Any, Any]:
             """Cast a vote for a single agent with timeout protection."""
             logger.debug(f"agent_voting agent={agent.name}")
             try:
@@ -384,7 +384,7 @@ class VoteCollector:
                 logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
                 return (agent, e)
 
-        async def collect_all_votes():
+        async def collect_all_votes() -> None:
             """Collect votes from all agents concurrently with RLM early termination."""
             total_agents = len(ctx.agents)
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]
@@ -473,7 +473,7 @@ class VoteCollector:
         voting_errors = 0
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent"):
+        async def cast_vote(agent: "Agent") -> tuple[Any, Any]:
             """Cast a vote for unanimous consensus with timeout protection."""
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
@@ -495,7 +495,7 @@ class VoteCollector:
                 )
                 return (agent, e)
 
-        async def collect_all_votes():
+        async def collect_all_votes() -> None:
             """Collect votes from all agents with error counting for unanimity checks."""
             nonlocal voting_errors
             vote_tasks = [asyncio.create_task(cast_vote(agent)) for agent in ctx.agents]

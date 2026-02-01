@@ -969,7 +969,7 @@ class PostgresCDCHandler(BaseCDCHandler):
         username: str | None = None,
         password: str | None = None,
         ssl: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         connector_id = kwargs.pop("connector_id", f"pg_cdc_{host}_{database}")
         super().__init__(
@@ -1062,7 +1062,7 @@ class PostgresCDCHandler(BaseCDCHandler):
             except (ValueError, json.JSONDecodeError) as e:
                 logger.warning(f"[PostgresCDC] Failed to parse notification: {e}")
 
-    async def execute_query(self, query: str, *args) -> list[Any]:
+    async def execute_query(self, query: str, *args: Any) -> list[Any]:
         """Execute a query on the connection (for setup/maintenance)."""
         if not self._conn:
             raise RuntimeError("Not connected to PostgreSQL")
@@ -1111,7 +1111,7 @@ class MySQLCDCHandler(BaseCDCHandler):
         server_id: int = 100,
         blocking: bool = True,
         resume_stream: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ):
         connector_id = kwargs.pop("connector_id", f"mysql_cdc_{host}_{database or 'all'}")
         super().__init__(
@@ -1208,7 +1208,7 @@ class MySQLCDCHandler(BaseCDCHandler):
 
         loop = asyncio.get_event_loop()
 
-        def get_next_event():
+        def get_next_event() -> Any:
             """Get next event from binlog stream (blocking)."""
             if self._stream is None:
                 return None
@@ -1323,7 +1323,7 @@ class MongoDBCDCHandler(BaseCDCHandler):
         watch_database: bool = True,
         full_document: str = "updateLookup",
         full_document_before_change: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         connector_id = kwargs.pop("connector_id", f"mongo_cdc_{host}_{database}")
         super().__init__(

@@ -393,7 +393,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         self.record_success()
         return response.json() if response.content else {}
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Get HTTP client context manager for API requests."""
         from aragora.server.http_client_pool import get_http_pool
 

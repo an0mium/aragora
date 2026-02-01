@@ -113,7 +113,7 @@ class SAMLConfig(SSOConfig):
         }
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.provider_type:
             self.provider_type = SSOProviderType.SAML
 
@@ -197,7 +197,7 @@ class SAMLProvider(SSOProvider):
         state: str | None = None,
         redirect_uri: str | None = None,
         relay_state: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         """
         Generate SAML AuthnRequest URL.
@@ -298,7 +298,7 @@ class SAMLProvider(SSOProvider):
         code: str | None = None,
         saml_response: str | None = None,
         relay_state: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> SSOUser:
         """
         Authenticate user from SAML Response.

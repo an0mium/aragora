@@ -170,7 +170,7 @@ class KafkaConnector(EnterpriseConnector):
         self,
         config: KafkaConfig,
         dlq_sender: Callable[[str, DLQMessage], Awaitable[None]] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Kafka connector.
@@ -482,7 +482,7 @@ class KafkaConnector(EnterpriseConnector):
         else:
             await process_fn(message)
 
-    def _deserialize_message(self, msg) -> KafkaMessage:
+    def _deserialize_message(self, msg: Any) -> KafkaMessage:
         """Deserialize a Kafka message."""
         # Decode value
         value = msg.value
@@ -588,7 +588,7 @@ class KafkaConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[Evidence]:
         """
         Search is not supported for streaming connectors.

@@ -162,7 +162,7 @@ def validate_params(
             extracted = {}
             for name, spec in param_specs.items():
                 param_type, default, min_val, max_val = spec
-
+                val: Any
                 if param_type is int:
                     val = get_int_param(params, name, default)
                     if min_val is not None:

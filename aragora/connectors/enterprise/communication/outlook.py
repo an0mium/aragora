@@ -91,7 +91,7 @@ class OutlookConnector(EnterpriseConnector):
         max_results: int = 100,
         include_deleted: bool = False,
         user_id: str = "me",
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Outlook connector.
@@ -412,7 +412,7 @@ class OutlookConnector(EnterpriseConnector):
             logger.error(f"Outlook API error: {e}")
             raise
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """Get HTTP client context manager for API requests.
 
         Note: This method is deprecated. Use get_http_pool().get_session('outlook') instead.
@@ -683,7 +683,7 @@ class OutlookConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[Any]:
         """Search Outlook messages."""
         from aragora.connectors.base import Evidence

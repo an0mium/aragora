@@ -250,7 +250,7 @@ class PromptContextBuilder:
             logger.warning(f"Flip context error for {agent.name}: {e}")
             return ""
 
-    def _notify_spectator(self, event_type: str, **kwargs) -> None:
+    def _notify_spectator(self, event_type: str, **kwargs: Any) -> None:
         """Notify spectator of an event."""
         if self._notify_callback:
             self._notify_callback(event_type, **kwargs)

@@ -717,10 +717,10 @@ class ArenaControlPlaneBridge:
     ) -> dict[str, Callable]:
         """Create event_hooks dict for Arena initialization."""
 
-        def sync_wrapper(coro_func):
+        def sync_wrapper(coro_func: Any) -> Callable[..., Any]:
             """Wrap async function for sync event hooks."""
 
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> None:
                 try:
                     asyncio.get_running_loop()  # Check if loop exists
                     asyncio.ensure_future(coro_func(*args, **kwargs))

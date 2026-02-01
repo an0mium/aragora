@@ -75,7 +75,7 @@ class PostgreSQLConnector(EnterpriseConnector):
         self.pool_size = pool_size
 
         self._pool = None
-        self._listener_task = None
+        self._listener_task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()  # For graceful shutdown of listener loop
 
         # CDC support

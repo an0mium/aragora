@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Optional
 from aragora.server.metrics import track_circuit_breaker_state
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from aragora.debate.protocol import CircuitBreaker
     from aragora.debate.state_cache import DebateStateCache
 
@@ -47,7 +49,7 @@ class LifecycleManager:
         self,
         cache: Optional["DebateStateCache"] = None,
         circuit_breaker: Optional["CircuitBreaker"] = None,
-        checkpoint_manager=None,
+        checkpoint_manager: Any = None,
     ) -> None:
         """Initialize lifecycle manager.
 
@@ -105,7 +107,7 @@ class LifecycleManager:
         if self.circuit_breaker:
             track_circuit_breaker_state(self.count_open_circuit_breakers())
 
-    def log_phase_failures(self, execution_result) -> None:
+    def log_phase_failures(self, execution_result: Any) -> None:
         """Log any failed phases from the execution result."""
         if execution_result.success:
             return

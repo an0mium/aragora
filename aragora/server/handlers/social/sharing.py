@@ -329,7 +329,7 @@ class SharingHandler(BaseHandler):
         query_params: dict,
         handler: Any,
         method: str = "GET",
-        user=None,
+        user: Any = None,
     ) -> HandlerResult | None:
         """Handle requests for sharing endpoints."""
         if hasattr(handler, "command"):
@@ -425,7 +425,7 @@ class SharingHandler(BaseHandler):
         self,
         handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """List social shares."""
         db_user = self._resolve_social_user(handler, user)
@@ -442,7 +442,7 @@ class SharingHandler(BaseHandler):
         self,
         share_id: str,
         handler: Any,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Get a social share by ID."""
         share = self._social_store.get_by_id(share_id)
@@ -454,7 +454,7 @@ class SharingHandler(BaseHandler):
         self,
         handler: Any,
         query_params: dict,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Create a social share."""
         body = self.read_json_body(handler)
@@ -489,7 +489,7 @@ class SharingHandler(BaseHandler):
         self,
         share_id: str,
         handler: Any,
-        user=None,
+        user: Any = None,
     ) -> HandlerResult:
         """Delete a social share."""
         deleted = self._social_store.delete(share_id)

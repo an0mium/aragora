@@ -97,7 +97,7 @@ class ConfluenceConnector(EnterpriseConnector):
         include_attachments: bool = True,
         include_comments: bool = True,
         exclude_labels: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Confluence connector.
@@ -458,7 +458,7 @@ class ConfluenceConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         space_key: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Confluence content via CQL."""
         from aragora.connectors.base import Evidence

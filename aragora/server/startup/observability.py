@@ -169,13 +169,13 @@ async def init_otlp_exporter() -> bool:
             )
             return False
 
-        config = get_otlp_config()
-        provider = configure_otlp_exporter(config)
+        otlp_config = get_otlp_config()
+        provider = configure_otlp_exporter(otlp_config)
 
         if provider:
             logger.info(
-                f"OTLP exporter initialized: type={config.exporter_type.value}, "
-                f"endpoint={config.get_effective_endpoint()}"
+                f"OTLP exporter initialized: type={otlp_config.exporter_type.value}, "
+                f"endpoint={otlp_config.get_effective_endpoint()}"
             )
             return True
         else:

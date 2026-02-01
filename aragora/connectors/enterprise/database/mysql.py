@@ -101,7 +101,7 @@ class MySQLConnector(EnterpriseConnector):
         enable_binlog_cdc: bool = False,
         server_id: int = 100,  # For binlog replication
         pool_size: int = 5,
-        **kwargs,
+        **kwargs: Any,
     ):
         connector_id = f"mysql_{host}_{database}"
         super().__init__(connector_id=connector_id, **kwargs)
@@ -153,7 +153,7 @@ class MySQLConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"MySQL ({self.database})"
 
-    async def _get_pool(self):
+    async def _get_pool(self) -> Any:
         """Get or create connection pool."""
         if self._pool is not None:
             return self._pool
@@ -325,7 +325,7 @@ class MySQLConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """
         Search across indexed tables using LIKE queries.
@@ -378,7 +378,7 @@ class MySQLConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str):
+    async def fetch(self, evidence_id: str) -> Any:
         """Fetch a specific row by evidence ID."""
         from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
 

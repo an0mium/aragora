@@ -26,6 +26,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from typing import Any
 import os
 import struct
 from pathlib import Path
@@ -92,7 +93,7 @@ def get_embedding_cache() -> EmbeddingCache:
     return _get_embedding_cache()
 
 
-async def _retry_with_backoff(coro_fn, max_retries=3, base_delay=1.0):
+async def _retry_with_backoff(coro_fn: Any, max_retries: int = 3, base_delay: float = 1.0) -> Any:
     """Retry async function with exponential backoff."""
     for attempt in range(max_retries):
         try:
@@ -177,7 +178,7 @@ class OpenAIEmbedding(EmbeddingProvider):
             logger.debug("Embedding cache hit for OpenAI")
             return cached
 
-        async def _call():
+        async def _call() -> list[float]:
             async with aiohttp.ClientSession(timeout=_API_TIMEOUT) as session:
                 async with session.post(
                     "https://api.openai.com/v1/embeddings",
@@ -203,7 +204,7 @@ class OpenAIEmbedding(EmbeddingProvider):
         return embedding
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        async def _call():
+        async def _call() -> list[list[float]]:
             async with aiohttp.ClientSession(timeout=_API_TIMEOUT) as session:
                 async with session.post(
                     "https://api.openai.com/v1/embeddings",
@@ -245,7 +246,7 @@ class GeminiEmbedding(EmbeddingProvider):
         # Use header-based auth instead of URL parameter (security best practice)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:embedContent"
 
-        async def _call():
+        async def _call() -> list[float]:
             async with aiohttp.ClientSession(timeout=_API_TIMEOUT) as session:
                 async with session.post(
                     url,
@@ -365,7 +366,7 @@ class SemanticRetriever:
             # Fall back to hash-based embeddings (always works, no API needed)
             return EmbeddingProvider(dimension=256)
 
-    def _init_tables(self):
+    def _init_tables(self) -> None:
         """Initialize embedding tables."""
         with self.db.connection() as conn:
             cursor = conn.cursor()

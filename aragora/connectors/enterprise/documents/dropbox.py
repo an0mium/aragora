@@ -179,7 +179,7 @@ class DropboxConnector(EnterpriseConnector):
         """Check if connector is properly configured."""
         return bool(self.app_key and self.app_secret)
 
-    async def _get_session(self):
+    async def _get_session(self) -> Any:
         """Get or create aiohttp session with timeout protection."""
         if self._session is None:
             import aiohttp
@@ -189,7 +189,7 @@ class DropboxConnector(EnterpriseConnector):
             self._session = aiohttp.ClientSession(timeout=DEFAULT_TIMEOUT)
         return self._session
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the session."""
         if self._session:
             await self._session.close()
@@ -287,7 +287,7 @@ class DropboxConnector(EnterpriseConnector):
                 logger.error(f"Token refresh failed: {error}")
                 return False
 
-    async def _ensure_valid_token(self):
+    async def _ensure_valid_token(self) -> None:
         """Ensure we have a valid access token."""
         if not self._access_token:
             raise ValueError("Not authenticated")

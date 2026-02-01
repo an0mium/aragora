@@ -594,6 +594,15 @@ def create_persistent_store(
     return sqlite_class(db_path)
 
 
+def get_postgres_pool() -> Optional["Pool"]:
+    """Get the cached PostgreSQL connection pool, if available.
+
+    Returns:
+        The cached asyncpg Pool, or None if not yet initialized.
+    """
+    return _postgres_pool
+
+
 __all__ = [
     "StorageBackendType",
     "DatabaseConfig",
@@ -606,4 +615,5 @@ __all__ = [
     "reset_pools",
     "is_production_environment",
     "create_persistent_store",
+    "get_postgres_pool",
 ]

@@ -40,6 +40,10 @@ class CurationHandlerProtocol(Protocol):
 class CurationOperationsMixin:
     """Mixin providing curation management endpoints."""
 
+    def read_json_body(self, handler: Any) -> dict[str, Any] | None:
+        """Read JSON body from request. Provided by host class."""
+        ...
+
     def _get_mound(self) -> Optional["KnowledgeMound"]:
         """Provided by host class."""
         ...

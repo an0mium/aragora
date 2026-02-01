@@ -212,7 +212,7 @@ class EvolutionFeedback:
             # Build a minimal DebateResult-like object for the evolver
             # The evolver expects objects with specific attributes
             class DebateResultProxy:
-                def __init__(self, ctx_result, ctx_obj):
+                def __init__(self, ctx_result: Any, ctx_obj: Any) -> None:
                     self.id = ctx_obj.debate_id
                     self.consensus_reached = ctx_result.consensus_reached
                     self.confidence = ctx_result.confidence
@@ -225,7 +225,7 @@ class EvolutionFeedback:
                             if getattr(msg, "role", "") == "critic":
                                 # Create a critique-like object
                                 class CritiqueProxy:
-                                    def __init__(self, m):
+                                    def __init__(self, m: Any) -> None:
                                         self.severity = getattr(m, "severity", 0.5)
                                         self.issues = getattr(m, "issues", [])
                                         self.suggestions = getattr(m, "suggestions", [])

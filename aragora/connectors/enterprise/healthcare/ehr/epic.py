@@ -140,7 +140,7 @@ class EpicAdapter(EHRAdapter):
         identifier: str | None = None,
         mrn: str | None = None,
         ssn_last4: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
         Search for patients in Epic.

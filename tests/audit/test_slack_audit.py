@@ -24,6 +24,17 @@ from aragora.audit.slack_audit import (
 # ===========================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_storage_guard_config():
+    """Reset cached storage guard config so monkeypatched env vars take effect."""
+    import aragora.storage.production_guards as pg
+
+    old_config = pg._config
+    pg._config = None
+    yield
+    pg._config = old_config
+
+
 @pytest.fixture
 def mock_audit_log(tmp_path):
     """Create a real AuditLog backed by a temporary SQLite database."""

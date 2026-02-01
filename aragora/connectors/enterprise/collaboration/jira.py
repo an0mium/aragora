@@ -116,7 +116,7 @@ class JiraConnector(EnterpriseConnector):
         include_attachments: bool = False,
         exclude_statuses: Optional[list[str]] = None,
         exclude_types: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Jira connector.
@@ -625,7 +625,7 @@ class JiraConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         project_key: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Jira issues via JQL text search."""
         from aragora.connectors.base import Evidence

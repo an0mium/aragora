@@ -144,7 +144,7 @@ class TinkerClient:
     async def __aenter__(self) -> "TinkerClient":
         return self
 
-    async def __aexit__(self, *args) -> None:
+    async def __aexit__(self, *args: Any) -> None:
         await self.close()
 
     async def test_connection(self) -> bool:
@@ -173,7 +173,7 @@ class TinkerClient:
         training_data: list[dict[str, Any]],
         model: str | TinkerModel = TinkerModel.LLAMA_3_3_70B,
         adapter_name: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> TrainingResult:
         """
         Train a model using Supervised Fine-Tuning (SFT).
@@ -220,7 +220,7 @@ class TinkerClient:
         model: str | TinkerModel = TinkerModel.LLAMA_3_3_70B,
         adapter_name: str | None = None,
         beta: float = 0.1,
-        **kwargs,
+        **kwargs: Any,
     ) -> TrainingResult:
         """
         Train a model using Direct Preference Optimization (DPO).
@@ -349,7 +349,7 @@ class TinkerClient:
         model_id: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.7,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         """
         Generate text from a fine-tuned model.
@@ -392,7 +392,7 @@ class TinkerClient:
         model_id: str | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.7,
-        **kwargs,
+        **kwargs: Any,
     ) -> AsyncIterator[str]:
         """
         Stream text generation from a fine-tuned model.
@@ -523,7 +523,7 @@ if __name__ == "__main__":
 
     if args.test_connection:
 
-        async def test():
+        async def test() -> None:
             client = TinkerClient()
             try:
                 await client.test_connection()

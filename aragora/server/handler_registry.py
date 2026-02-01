@@ -19,8 +19,10 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import glob as glob_mod
 import importlib
 import logging
+import os
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Optional
 
@@ -1183,6 +1185,70 @@ def validate_all_handlers(raise_on_error: bool = False) -> dict[str, Any]:
     return results
 
 
+def check_handler_coverage() -> None:
+    """Log warnings for handler classes that exist in the codebase but aren't registered.
+
+    Scans aragora/server/handlers/ for classes ending in 'Handler' and compares
+    against HANDLER_REGISTRY. Unregistered handlers are logged as warnings.
+    Called during _init_handlers to surface gaps early.
+    """
+    import ast
+
+    registered_names = {
+        handler_class.__name__ for _, handler_class in HANDLER_REGISTRY if handler_class is not None
+    }
+
+    # Also include base/abstract classes that shouldn't be registered
+    skip_names = {
+        "BaseHandler",
+        "BaseHTTPRequestHandler",
+        "SecureHandler",
+        "AuthenticatedHandler",
+        "AsyncTypedHandler",
+        "TypedHandler",
+        "ResourceHandler",
+        "VersionedAPIHandler",
+        "CompositeHandler",
+        "PermissionHandler",
+        "ExampleAsyncHandler",
+        "ExampleAuthenticatedHandler",
+        "ExamplePermissionHandler",
+        "ExampleResourceHandler",
+        "ExampleTypedHandler",
+        "HandlerResult",
+        "MockHandler",
+        "MyHandler",
+        "MyResourceHandler",
+        "MyBotHandler",
+    }
+
+    handler_dir = os.path.join(os.path.dirname(__file__), "handlers")
+    if not os.path.isdir(handler_dir):
+        return
+
+    unregistered = []
+    for py_file in glob_mod.glob(os.path.join(handler_dir, "**", "*.py"), recursive=True):
+        try:
+            with open(py_file) as f:
+                tree = ast.parse(f.read(), filename=py_file)
+        except SyntaxError:
+            continue
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name.endswith("Handler"):
+                name = node.name
+                if name not in registered_names and name not in skip_names:
+                    rel_path = os.path.relpath(py_file, handler_dir)
+                    unregistered.append((name, rel_path))
+
+    if unregistered:
+        logger.warning(
+            f"[handlers] {len(unregistered)} handler class(es) found but not registered:"
+        )
+        for name, path in sorted(unregistered):
+            logger.warning(f"[handlers]   - {name} ({path})")
+
+
 def validate_handlers_on_init(registry_mixin: Any) -> dict[str, Any]:
     """
     Validate instantiated handlers after initialization.
@@ -1401,6 +1467,12 @@ class HandlerRegistryMixin:
 
         cls._handlers_initialized = True
         logger.info(f"[handlers] Modular handlers initialized ({len(HANDLER_REGISTRY)} handlers)")
+
+        # Check for unregistered handler classes in the codebase
+        try:
+            check_handler_coverage()
+        except Exception as e:
+            logger.debug(f"[handlers] Handler coverage check failed: {e}")
 
         # Validate instantiated handlers
         validation_results = validate_handlers_on_init(cls)

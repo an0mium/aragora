@@ -181,12 +181,12 @@ class TestObservabilityConfig:
         assert c.training_exporter is None
         assert c.auto_export_training is False
         assert c.training_export_min_confidence == 0.75
-        assert c.enable_ml_delegation is False
+        assert c.enable_ml_delegation is True
         assert c.ml_delegation_strategy is None
         assert c.ml_delegation_weight == 0.3
-        assert c.enable_quality_gates is False
+        assert c.enable_quality_gates is True
         assert c.quality_gate_threshold == 0.6
-        assert c.enable_consensus_estimation is False
+        assert c.enable_consensus_estimation is True
         assert c.consensus_early_termination_threshold == 0.85
         assert c.post_debate_workflow is None
         assert c.enable_post_debate_workflow is False
@@ -264,17 +264,27 @@ class TestKnowledgeConfig:
 class TestMLConfig:
     def test_defaults(self):
         c = MLConfig()
-        assert c.enable_ml_delegation is False
+        assert c.enable_ml_delegation is True
         assert c.ml_delegation_weight == 0.3
-        assert c.enable_quality_gates is False
+        assert c.enable_quality_gates is True
         assert c.quality_gate_threshold == 0.6
-        assert c.enable_consensus_estimation is False
+        assert c.enable_consensus_estimation is True
         assert c.consensus_early_termination_threshold == 0.85
 
-    def test_enabled(self):
+    def test_custom_weight(self):
         c = MLConfig(enable_ml_delegation=True, ml_delegation_weight=0.7)
         assert c.enable_ml_delegation is True
         assert c.ml_delegation_weight == 0.7
+
+    def test_can_be_disabled(self):
+        c = MLConfig(
+            enable_ml_delegation=False,
+            enable_quality_gates=False,
+            enable_consensus_estimation=False,
+        )
+        assert c.enable_ml_delegation is False
+        assert c.enable_quality_gates is False
+        assert c.enable_consensus_estimation is False
 
 
 class TestRLMConfig:

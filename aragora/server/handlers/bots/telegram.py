@@ -335,7 +335,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
 
         try:
-            from aragora.memory.consensus import ConsensusStore
+            from aragora.memory.consensus import ConsensusMemory as ConsensusStore
 
             # Record the vote
             store: VoteRecordingStore = ConsensusStore()

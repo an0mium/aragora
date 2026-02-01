@@ -452,7 +452,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[Any]:
         """Search Gmail messages."""
         from aragora.connectors.base import Evidence

@@ -616,12 +616,12 @@ class TestTerminationChecking:
 class TestAgentFiltering:
     """Tests for agent filtering and quality gates."""
 
-    def test_filter_responses_disabled_by_default(self, arena):
-        """Quality gates are disabled by default."""
-        assert arena.enable_quality_gates is False
+    def test_filter_responses_enabled_by_default(self, arena):
+        """Quality gates are enabled by default."""
+        assert arena.enable_quality_gates is True
 
-    def test_filter_responses_returns_all_when_disabled(self, arena):
-        """_filter_responses_by_quality returns all when disabled."""
+    def test_filter_responses_returns_all_when_no_ml_module(self, arena):
+        """_filter_responses_by_quality returns all when ML module is unavailable."""
         responses = [
             ("agent1", "Response 1"),
             ("agent2", "Response 2"),
@@ -650,14 +650,9 @@ class TestAgentFiltering:
 
         assert len(filtered) >= 0
 
-    def test_should_terminate_early_disabled(self, arena):
-        """_should_terminate_early returns False when disabled."""
-        assert arena.enable_consensus_estimation is False
-
-        responses = [("agent1", "Response 1")]
-        should_terminate = arena._should_terminate_early(responses, current_round=2)
-
-        assert should_terminate is False
+    def test_consensus_estimation_enabled_by_default(self, arena):
+        """Consensus estimation is enabled by default."""
+        assert arena.enable_consensus_estimation is True
 
 
 # =============================================================================
@@ -668,9 +663,9 @@ class TestAgentFiltering:
 class TestMLIntegration:
     """Tests for ML-based features."""
 
-    def test_ml_delegation_disabled_by_default(self, arena):
-        """ML delegation is disabled by default."""
-        assert arena.enable_ml_delegation is False
+    def test_ml_delegation_enabled_by_default(self, arena):
+        """ML delegation is enabled by default."""
+        assert arena.enable_ml_delegation is True
 
     def test_ml_delegation_weight_configurable(self, environment, mock_agents):
         """ML delegation weight is configurable."""

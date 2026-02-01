@@ -270,7 +270,7 @@ class CrossDebateMemory:
 
         self._initialized = True
 
-    async def _get_compressor(self):
+    async def _get_compressor(self) -> Any:
         """Lazy-load the RLM compressor via factory."""
         if self._compressor is None and self.config.enable_rlm:
             if get_compressor is not None:

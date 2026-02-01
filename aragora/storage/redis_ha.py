@@ -940,6 +940,10 @@ async def check_async_redis_health(config: RedisHAConfig | None = None) -> dict:
     return result
 
 
+# Backward-compatible aliases
+get_cached_client = get_cached_redis_client
+close_cached_clients = reset_cached_clients
+
 __all__ = [
     # Enums and config
     "RedisMode",
@@ -951,6 +955,9 @@ __all__ = [
     "get_cached_redis_client",
     "get_cached_async_redis_client",
     "reset_cached_clients",
+    # Backward-compatible aliases
+    "get_cached_client",
+    "close_cached_clients",
     # Health checks
     "check_redis_health",
     "check_async_redis_health",

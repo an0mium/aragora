@@ -6,6 +6,9 @@ Tests the integration of enable_* flags with the Arena:
 2. enable_coordinated_writes - MemoryCoordinator
 3. enable_skills - SkillRegistry during evidence collection
 4. enable_propulsion - PropulsionEngine at stage transitions
+5. enable_ml_delegation - ML-based agent selection (stable)
+6. enable_quality_gates - Response quality filtering (stable)
+7. enable_consensus_estimation - Early termination (stable)
 """
 
 import pytest
@@ -511,3 +514,210 @@ class TestFlagSubsystemConsistency:
 
         assert config.propulsion_engine is not None
         assert config.enable_propulsion is True
+
+
+# ============================================================================
+# Tests: ML Integration Flags (Graduated from BETA to STABLE)
+# ============================================================================
+
+
+class TestEnableMLDelegation:
+    """Tests for enable_ml_delegation flag (graduated to stable)."""
+
+    def test_flag_defaults_to_true(self):
+        """Verify enable_ml_delegation defaults to True after graduation."""
+        config = ArenaConfig()
+        assert config.enable_ml_delegation is True
+
+    def test_flag_can_be_disabled(self):
+        """Verify enable_ml_delegation can be explicitly disabled."""
+        config = ArenaConfig(enable_ml_delegation=False)
+        assert config.enable_ml_delegation is False
+
+    def test_flag_can_be_explicitly_enabled(self):
+        """Verify enable_ml_delegation can be explicitly set to True."""
+        config = ArenaConfig(enable_ml_delegation=True)
+        assert config.enable_ml_delegation is True
+
+    def test_ml_delegation_weight_configurable(self):
+        """Verify ML delegation weight can be customized."""
+        config = ArenaConfig(ml_delegation_weight=0.6)
+        assert config.ml_delegation_weight == 0.6
+
+    def test_ml_delegation_strategy_injectable(self):
+        """Verify custom MLDelegationStrategy can be provided."""
+        mock_strategy = MagicMock()
+        config = ArenaConfig(
+            enable_ml_delegation=True,
+            ml_delegation_strategy=mock_strategy,
+        )
+        assert config.ml_delegation_strategy is mock_strategy
+
+
+class TestEnableQualityGates:
+    """Tests for enable_quality_gates flag (graduated to stable)."""
+
+    def test_flag_defaults_to_true(self):
+        """Verify enable_quality_gates defaults to True after graduation."""
+        config = ArenaConfig()
+        assert config.enable_quality_gates is True
+
+    def test_flag_can_be_disabled(self):
+        """Verify enable_quality_gates can be explicitly disabled."""
+        config = ArenaConfig(enable_quality_gates=False)
+        assert config.enable_quality_gates is False
+
+    def test_flag_can_be_explicitly_enabled(self):
+        """Verify enable_quality_gates can be explicitly set to True."""
+        config = ArenaConfig(enable_quality_gates=True)
+        assert config.enable_quality_gates is True
+
+    def test_quality_gate_threshold_configurable(self):
+        """Verify quality gate threshold can be customized."""
+        config = ArenaConfig(quality_gate_threshold=0.8)
+        assert config.quality_gate_threshold == 0.8
+
+    def test_default_threshold(self):
+        """Verify default quality gate threshold is 0.6."""
+        config = ArenaConfig()
+        assert config.quality_gate_threshold == 0.6
+
+
+class TestEnableConsensusEstimation:
+    """Tests for enable_consensus_estimation flag (graduated to stable)."""
+
+    def test_flag_defaults_to_true(self):
+        """Verify enable_consensus_estimation defaults to True after graduation."""
+        config = ArenaConfig()
+        assert config.enable_consensus_estimation is True
+
+    def test_flag_can_be_disabled(self):
+        """Verify enable_consensus_estimation can be explicitly disabled."""
+        config = ArenaConfig(enable_consensus_estimation=False)
+        assert config.enable_consensus_estimation is False
+
+    def test_flag_can_be_explicitly_enabled(self):
+        """Verify enable_consensus_estimation can be explicitly set to True."""
+        config = ArenaConfig(enable_consensus_estimation=True)
+        assert config.enable_consensus_estimation is True
+
+    def test_early_termination_threshold_configurable(self):
+        """Verify early termination threshold can be customized."""
+        config = ArenaConfig(consensus_early_termination_threshold=0.95)
+        assert config.consensus_early_termination_threshold == 0.95
+
+    def test_default_threshold(self):
+        """Verify default early termination threshold is 0.85."""
+        config = ArenaConfig()
+        assert config.consensus_early_termination_threshold == 0.85
+
+
+class TestMLFlagsCombined:
+    """Tests for all three ML flags working together."""
+
+    def test_all_ml_flags_enabled_by_default(self):
+        """Verify all ML flags default to True."""
+        config = ArenaConfig()
+        assert config.enable_ml_delegation is True
+        assert config.enable_quality_gates is True
+        assert config.enable_consensus_estimation is True
+
+    def test_all_ml_flags_can_be_disabled(self):
+        """Verify all ML flags can be disabled simultaneously."""
+        config = ArenaConfig(
+            enable_ml_delegation=False,
+            enable_quality_gates=False,
+            enable_consensus_estimation=False,
+        )
+        assert config.enable_ml_delegation is False
+        assert config.enable_quality_gates is False
+        assert config.enable_consensus_estimation is False
+
+    def test_selective_ml_flags(self):
+        """Verify ML flags can be selectively enabled/disabled."""
+        config = ArenaConfig(
+            enable_ml_delegation=True,
+            enable_quality_gates=False,
+            enable_consensus_estimation=True,
+        )
+        assert config.enable_ml_delegation is True
+        assert config.enable_quality_gates is False
+        assert config.enable_consensus_estimation is True
+
+    def test_backward_compatible_explicit_true(self):
+        """Verify existing code that explicitly passes True still works."""
+        config = ArenaConfig(
+            enable_ml_delegation=True,
+            enable_quality_gates=True,
+            enable_consensus_estimation=True,
+            ml_delegation_weight=0.5,
+            quality_gate_threshold=0.7,
+            consensus_early_termination_threshold=0.9,
+        )
+        assert config.enable_ml_delegation is True
+        assert config.enable_quality_gates is True
+        assert config.enable_consensus_estimation is True
+        assert config.ml_delegation_weight == 0.5
+        assert config.quality_gate_threshold == 0.7
+        assert config.consensus_early_termination_threshold == 0.9
+
+    def test_backward_compatible_explicit_false(self):
+        """Verify existing code that explicitly passes False still works."""
+        config = ArenaConfig(
+            enable_ml_delegation=False,
+            enable_quality_gates=False,
+            enable_consensus_estimation=False,
+        )
+        assert config.enable_ml_delegation is False
+        assert config.enable_quality_gates is False
+        assert config.enable_consensus_estimation is False
+
+
+class TestMLFlagsWithFeatureFlagRegistry:
+    """Tests verifying feature flag registry reflects graduation."""
+
+    def test_ml_delegation_flag_is_active(self):
+        """Verify enable_ml_delegation is registered as ACTIVE in the flag registry."""
+        from aragora.config.feature_flags import FeatureFlagRegistry, FlagStatus
+
+        registry = FeatureFlagRegistry()
+        flag = registry.get_definition("enable_ml_delegation")
+        assert flag is not None
+        assert flag.default is True
+        assert flag.status == FlagStatus.ACTIVE
+
+    def test_quality_gates_flag_is_active(self):
+        """Verify enable_quality_gates is registered as ACTIVE in the flag registry."""
+        from aragora.config.feature_flags import FeatureFlagRegistry, FlagStatus
+
+        registry = FeatureFlagRegistry()
+        flag = registry.get_definition("enable_quality_gates")
+        assert flag is not None
+        assert flag.default is True
+        assert flag.status == FlagStatus.ACTIVE
+
+    def test_consensus_estimation_flag_is_active(self):
+        """Verify enable_consensus_estimation is registered as ACTIVE in the flag registry."""
+        from aragora.config.feature_flags import FeatureFlagRegistry, FlagStatus
+
+        registry = FeatureFlagRegistry()
+        flag = registry.get_definition("enable_consensus_estimation")
+        assert flag is not None
+        assert flag.default is True
+        assert flag.status == FlagStatus.ACTIVE
+
+    def test_ml_flags_no_longer_beta(self):
+        """Verify none of the three ML flags are in BETA status."""
+        from aragora.config.feature_flags import FeatureFlagRegistry, FlagStatus
+
+        registry = FeatureFlagRegistry()
+        for flag_name in [
+            "enable_ml_delegation",
+            "enable_quality_gates",
+            "enable_consensus_estimation",
+        ]:
+            flag = registry.get_definition(flag_name)
+            assert flag is not None, f"Flag {flag_name} not found"
+            assert flag.status != FlagStatus.BETA, (
+                f"Flag {flag_name} should not be BETA after graduation"
+            )

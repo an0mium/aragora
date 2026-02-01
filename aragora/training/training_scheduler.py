@@ -160,7 +160,7 @@ class TrainingScheduler:
         adapter_name: str | None = None,
         min_confidence: float | None = None,
         limit: int | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> TrainingJob:
         """
         Schedule an SFT training job.
@@ -208,7 +208,7 @@ class TrainingScheduler:
         min_elo_difference: float | None = None,
         limit: int | None = None,
         beta: float = 0.1,
-        **kwargs,
+        **kwargs: Any,
     ) -> TrainingJob:
         """
         Schedule a DPO training job.
@@ -254,7 +254,7 @@ class TrainingScheduler:
         self,
         model: str | TinkerModel = TinkerModel.LLAMA_3_3_70B,
         adapter_name: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> TrainingJob:
         """
         Schedule a combined SFT + DPO training pipeline.

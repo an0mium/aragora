@@ -431,7 +431,7 @@ class MondayConnector(EnterpriseConnector):
         workspace_ids: Optional[list[int]] = None,
         board_ids: Optional[list[int]] = None,
         max_results: int = 100,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Monday.com connector.

@@ -123,7 +123,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         include_discussions: bool = False,
         file_extensions: Optional[set[str]] = None,
         exclude_paths: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         # Validate repo format
         if not re.match(r"^[\w.-]+/[\w.-]+$", repo):
@@ -646,7 +646,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         search_type: str = "code",
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search GitHub (delegates to existing GitHubConnector for compatibility)."""
         from aragora.connectors.github import GitHubConnector
@@ -654,7 +654,7 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         connector = GitHubConnector(repo=self.repo, use_gh_cli=True)
         return await connector.search(query, limit=limit, search_type=search_type, **kwargs)
 
-    async def fetch(self, evidence_id: str):
+    async def fetch(self, evidence_id: str) -> Any:
         """Fetch specific evidence (delegates to existing GitHubConnector)."""
         from aragora.connectors.github import GitHubConnector
 

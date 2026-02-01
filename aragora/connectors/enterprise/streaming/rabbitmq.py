@@ -200,7 +200,7 @@ class RabbitMQConnector(EnterpriseConnector):
         self,
         config: RabbitMQConfig,
         dlq_sender: Callable[[str, DLQMessage], Awaitable[None]] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize RabbitMQ connector.
@@ -560,7 +560,7 @@ class RabbitMQConnector(EnterpriseConnector):
         else:
             await process_fn(message)
 
-    def _deserialize_message(self, message) -> RabbitMQMessage:
+    def _deserialize_message(self, message: Any) -> RabbitMQMessage:
         """Deserialize a RabbitMQ message."""
         # Decode body
         body = message.body
@@ -767,7 +767,7 @@ class RabbitMQConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[Evidence]:
         """
         Search is not supported for message queue connectors.

@@ -605,10 +605,7 @@ class SyncScheduler:
         # Remove from left (oldest) while they're too old
         # Use popleft() for deque or pop(0) for list (backwards compatible)
         while self._history and self._history[0].started_at < cutoff:
-            if hasattr(self._history, "popleft"):
-                self._history.popleft()
-            else:
-                self._history.pop(0)
+            self._history.popleft()
 
     def get_history(
         self,
@@ -618,16 +615,16 @@ class SyncScheduler:
         limit: int = 100,
     ) -> list[SyncHistory]:
         """Get sync history with optional filters."""
-        history = self._history
+        filtered: list[SyncHistory] = list(self._history)
 
         if job_id:
-            history = [h for h in history if h.job_id == job_id]
+            filtered = [h for h in filtered if h.job_id == job_id]
         if tenant_id:
-            history = [h for h in history if h.tenant_id == tenant_id]
+            filtered = [h for h in filtered if h.tenant_id == tenant_id]
         if status:
-            history = [h for h in history if h.status == status]
+            filtered = [h for h in filtered if h.status == status]
 
-        return sorted(history, key=lambda h: h.started_at, reverse=True)[:limit]
+        return sorted(filtered, key=lambda h: h.started_at, reverse=True)[:limit]
 
     def get_stats(self, tenant_id: str | None = None) -> dict[str, Any]:
         """Get scheduler statistics."""

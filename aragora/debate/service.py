@@ -95,10 +95,10 @@ class DebateOptions:
     enable_memory: bool = True
     enable_knowledge_retrieval: bool = False
 
-    # ML options
-    enable_ml_delegation: bool = False
-    enable_quality_gates: bool = False
-    enable_consensus_estimation: bool = False
+    # ML options (stable - enabled by default)
+    enable_ml_delegation: bool = True
+    enable_quality_gates: bool = True
+    enable_consensus_estimation: bool = True
 
     # Telemetry
     org_id: str = ""

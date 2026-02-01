@@ -272,6 +272,9 @@ class MLIntegrationConfig:
     Groups parameters for ML-based agent delegation, quality gates,
     and consensus estimation for early termination.
 
+    All three ML features (delegation, quality gates, consensus estimation)
+    are enabled by default as stable features.
+
     Example::
 
         ml_cfg = MLIntegrationConfig(
@@ -281,12 +284,12 @@ class MLIntegrationConfig:
         )
     """
 
-    enable_ml_delegation: bool = False  # Use ML-based agent selection
+    enable_ml_delegation: bool = True  # Use ML-based agent selection
     ml_delegation_strategy: Any | None = None  # Custom MLDelegationStrategy
     ml_delegation_weight: float = 0.3  # Weight for ML scoring vs ELO (0.0-1.0)
-    enable_quality_gates: bool = False  # Filter low-quality responses via QualityGate
+    enable_quality_gates: bool = True  # Filter low-quality responses via QualityGate
     quality_gate_threshold: float = 0.6  # Minimum quality score (0.0-1.0)
-    enable_consensus_estimation: bool = False  # Use ConsensusEstimator for early termination
+    enable_consensus_estimation: bool = True  # Use ConsensusEstimator for early termination
     consensus_early_termination_threshold: float = 0.85  # Probability threshold for early stop
 
 
@@ -1349,13 +1352,13 @@ class ObservabilityConfig:
     auto_export_training: bool = False  # Auto-export training data
     training_export_min_confidence: float = 0.75  # Min confidence to export
 
-    # ML Integration
-    enable_ml_delegation: bool = False  # ML-based agent selection
+    # ML Integration (stable - enabled by default)
+    enable_ml_delegation: bool = True  # ML-based agent selection
     ml_delegation_strategy: Any | None = None  # MLDelegationStrategy
     ml_delegation_weight: float = 0.3  # Weight for ML vs ELO
-    enable_quality_gates: bool = False  # Filter low-quality responses
+    enable_quality_gates: bool = True  # Filter low-quality responses
     quality_gate_threshold: float = 0.6  # Min quality score
-    enable_consensus_estimation: bool = False  # Early termination estimation
+    enable_consensus_estimation: bool = True  # Early termination estimation
     consensus_early_termination_threshold: float = 0.85  # Probability threshold
 
     # Post-debate workflow
@@ -1465,12 +1468,12 @@ class KnowledgeConfig:
 class MLConfig:
     """Machine learning integration configuration."""
 
-    enable_ml_delegation: bool = False
+    enable_ml_delegation: bool = True
     ml_delegation_strategy: Any | None = None
     ml_delegation_weight: float = 0.3
-    enable_quality_gates: bool = False
+    enable_quality_gates: bool = True
     quality_gate_threshold: float = 0.6
-    enable_consensus_estimation: bool = False
+    enable_consensus_estimation: bool = True
     consensus_early_termination_threshold: float = 0.85
 
 

@@ -543,6 +543,7 @@ def get_password_reset_store() -> PasswordResetStore:
     except ImportError:
         data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
 
+    backend: PasswordResetBackend
     if backend_type == "memory":
         backend = InMemoryPasswordResetStore()
     elif backend_type == "postgres":

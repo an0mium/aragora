@@ -541,8 +541,27 @@ class AgentPool:
         }
 
 
+_default_pool: AgentPool | None = None
+
+
+def get_agent_pool(config: AgentPoolConfig | None = None) -> AgentPool:
+    """Get or create the default agent pool singleton.
+
+    Args:
+        config: Optional configuration (only used on first call)
+
+    Returns:
+        The global AgentPool instance
+    """
+    global _default_pool
+    if _default_pool is None:
+        _default_pool = AgentPool(config or AgentPoolConfig())
+    return _default_pool
+
+
 __all__ = [
     "AgentPool",
     "AgentPoolConfig",
     "AgentMetrics",
+    "get_agent_pool",
 ]

@@ -199,8 +199,8 @@ class ReportResponse:
             ]
 
         # Add metric columns
-        for i, header in enumerate(self.metric_headers):
-            result[header.name] = [
+        for i, m_header in enumerate(self.metric_headers):
+            result[m_header.name] = [
                 row.metric_values[i] if i < len(row.metric_values) else None for row in self.rows
             ]
 

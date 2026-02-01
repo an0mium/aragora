@@ -234,7 +234,7 @@ class SSOProvider(ABC):
         self,
         state: str | None = None,
         redirect_uri: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         """
         Generate the authorization URL to redirect user to IdP.
@@ -254,7 +254,7 @@ class SSOProvider(ABC):
         self,
         code: str | None = None,
         saml_response: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> SSOUser:
         """
         Authenticate user from IdP callback.
@@ -624,7 +624,7 @@ class SSOAuditLogger:
         logs = await logger.get_logs(user_id="...")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the audit logger."""
         self._logs: list[SSOAuditEntry] = []
 

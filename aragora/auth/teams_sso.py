@@ -61,7 +61,7 @@ class TeamsTokenInfo:
     iat: int | None = None  # Issued at
     raw_claims: dict[str, Any] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.raw_claims is None:
             self.raw_claims = {}
 
@@ -101,7 +101,7 @@ class TeamsSSO:
         self._jwks_cache: Any | None = None  # PyJWKClient when available
         self._jwks_cache_time: float = 0
 
-    def _get_identity_bridge(self):
+    def _get_identity_bridge(self) -> Any:
         """Lazy-load the identity bridge."""
         if self._identity_bridge is None:
             from aragora.connectors.chat.teams_identity import get_teams_identity_bridge

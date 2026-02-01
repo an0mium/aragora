@@ -235,7 +235,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         time_range_str = query_params.get("time_range", "30d")
 
@@ -251,13 +251,19 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except ValueError as e:
             logger.warning(f"Invalid analytics summary parameter: {e}")
-            return error_response(f"Invalid time_range: {time_range_str}", 400)
+            return error_response(
+                f"Invalid time_range: {time_range_str}", 400, code="INVALID_TIME_RANGE"
+            )
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in analytics summary: {e}")
-            return error_response(safe_error_message(e, "analytics summary"), 400)
+            return error_response(
+                safe_error_message(e, "analytics summary"), 400, code="DATA_ERROR"
+            )
         except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting analytics summary: {e}")
-            return error_response(safe_error_message(e, "analytics summary"), 500)
+            return error_response(
+                safe_error_message(e, "analytics summary"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get finding trends")
@@ -293,7 +299,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         time_range_str = query_params.get("time_range", "30d")
         granularity_str = query_params.get("granularity", "day")
@@ -324,13 +330,15 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except ValueError as e:
             logger.warning(f"Invalid finding trends parameter: {e}")
-            return error_response(f"Invalid parameter: {e}", 400)
+            return error_response(f"Invalid parameter: {e}", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in finding trends: {e}")
-            return error_response(safe_error_message(e, "finding trends"), 400)
+            return error_response(safe_error_message(e, "finding trends"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting finding trends: {e}")
-            return error_response(safe_error_message(e, "finding trends"), 500)
+            return error_response(
+                safe_error_message(e, "finding trends"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get remediation metrics")
@@ -359,7 +367,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         time_range_str = query_params.get("time_range", "30d")
 
@@ -381,13 +389,17 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except ValueError as e:
             logger.warning(f"Invalid remediation metrics parameter: {e}")
-            return error_response(f"Invalid parameter: {e}", 400)
+            return error_response(f"Invalid parameter: {e}", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in remediation metrics: {e}")
-            return error_response(safe_error_message(e, "remediation metrics"), 400)
+            return error_response(
+                safe_error_message(e, "remediation metrics"), 400, code="DATA_ERROR"
+            )
         except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting remediation metrics: {e}")
-            return error_response(safe_error_message(e, "remediation metrics"), 500)
+            return error_response(
+                safe_error_message(e, "remediation metrics"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get agent metrics")
@@ -419,7 +431,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         time_range_str = query_params.get("time_range", "30d")
 
@@ -441,13 +453,15 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except ValueError as e:
             logger.warning(f"Invalid agent metrics parameter: {e}")
-            return error_response(f"Invalid parameter: {e}", 400)
+            return error_response(f"Invalid parameter: {e}", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in agent metrics: {e}")
-            return error_response(safe_error_message(e, "agent metrics"), 400)
+            return error_response(safe_error_message(e, "agent metrics"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting agent metrics: {e}")
-            return error_response(safe_error_message(e, "agent metrics"), 500)
+            return error_response(
+                safe_error_message(e, "agent metrics"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get cost metrics")
@@ -473,7 +487,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         time_range_str = query_params.get("time_range", "30d")
 
@@ -495,13 +509,13 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except ValueError as e:
             logger.warning(f"Invalid cost metrics parameter: {e}")
-            return error_response(f"Invalid parameter: {e}", 400)
+            return error_response(f"Invalid parameter: {e}", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in cost metrics: {e}")
-            return error_response(safe_error_message(e, "cost metrics"), 400)
+            return error_response(safe_error_message(e, "cost metrics"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting cost metrics: {e}")
-            return error_response(safe_error_message(e, "cost metrics"), 500)
+            return error_response(safe_error_message(e, "cost metrics"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
     @handle_errors("get compliance scorecard")
@@ -531,7 +545,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         frameworks_str = query_params.get("frameworks", "SOC2,GDPR,HIPAA,PCI-DSS")
         frameworks = [f.strip() for f in frameworks_str.split(",")]
@@ -552,13 +566,17 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except ValueError as e:
             logger.warning(f"Invalid compliance scorecard parameter: {e}")
-            return error_response(f"Invalid parameter: {e}", 400)
+            return error_response(f"Invalid parameter: {e}", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in compliance scorecard: {e}")
-            return error_response(safe_error_message(e, "compliance scorecard"), 400)
+            return error_response(
+                safe_error_message(e, "compliance scorecard"), 400, code="DATA_ERROR"
+            )
         except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting compliance scorecard: {e}")
-            return error_response(safe_error_message(e, "compliance scorecard"), 500)
+            return error_response(
+                safe_error_message(e, "compliance scorecard"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get risk heatmap")
@@ -585,7 +603,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         workspace_id = query_params.get("workspace_id")
         if not workspace_id:
-            return error_response("workspace_id is required", 400)
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
 
         time_range_str = query_params.get("time_range", "30d")
 
@@ -607,13 +625,13 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except ValueError as e:
             logger.warning(f"Invalid risk heatmap parameter: {e}")
-            return error_response(f"Invalid parameter: {e}", 400)
+            return error_response(f"Invalid parameter: {e}", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in risk heatmap: {e}")
-            return error_response(safe_error_message(e, "risk heatmap"), 400)
+            return error_response(safe_error_message(e, "risk heatmap"), 400, code="DATA_ERROR")
         except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting risk heatmap: {e}")
-            return error_response(safe_error_message(e, "risk heatmap"), 500)
+            return error_response(safe_error_message(e, "risk heatmap"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
     @handle_errors("get token usage")
@@ -641,7 +659,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
@@ -677,7 +695,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Unexpected error getting token usage: {e}")
-            return error_response(safe_error_message(e, "token usage"), 500)
+            return error_response(safe_error_message(e, "token usage"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
     @handle_errors("get token trends")
@@ -702,7 +720,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
@@ -772,7 +790,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Unexpected error getting token trends: {e}")
-            return error_response(safe_error_message(e, "token trends"), 500)
+            return error_response(safe_error_message(e, "token trends"), 500, code="INTERNAL_ERROR")
 
     @require_user_auth
     @handle_errors("get provider breakdown")
@@ -803,7 +821,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
@@ -893,7 +911,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Unexpected error getting provider breakdown: {e}")
-            return error_response(safe_error_message(e, "provider breakdown"), 500)
+            return error_response(
+                safe_error_message(e, "provider breakdown"), 500, code="INTERNAL_ERROR"
+            )
 
     @handle_errors("get flip summary")
     def _get_flip_summary(self, query_params: dict) -> HandlerResult:
@@ -918,7 +938,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting flip summary: {e}")
-            return error_response(safe_error_message(e, "flip summary"), 500)
+            return error_response(safe_error_message(e, "flip summary"), 500, code="INTERNAL_ERROR")
 
     @handle_errors("get recent flips")
     def _get_recent_flips(self, query_params: dict) -> HandlerResult:
@@ -972,7 +992,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting recent flips: {e}")
-            return error_response(safe_error_message(e, "recent flips"), 500)
+            return error_response(safe_error_message(e, "recent flips"), 500, code="INTERNAL_ERROR")
 
     @handle_errors("get agent consistency")
     def _get_agent_consistency(self, query_params: dict) -> HandlerResult:
@@ -1032,7 +1052,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting agent consistency: {e}")
-            return error_response(safe_error_message(e, "agent consistency"), 500)
+            return error_response(
+                safe_error_message(e, "agent consistency"), 500, code="INTERNAL_ERROR"
+            )
 
     @handle_errors("get flip trends")
     def _get_flip_trends(self, query_params: dict) -> HandlerResult:
@@ -1158,7 +1180,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting flip trends: {e}")
-            return error_response(safe_error_message(e, "flip trends"), 500)
+            return error_response(safe_error_message(e, "flip trends"), 500, code="INTERNAL_ERROR")
 
     # ========== Deliberation Analytics ==========
 
@@ -1193,7 +1215,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
@@ -1245,7 +1267,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting deliberation summary: {e}")
-            return error_response(safe_error_message(e, "deliberation summary"), 500)
+            return error_response(
+                safe_error_message(e, "deliberation summary"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get deliberation by channel")
@@ -1284,7 +1308,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
@@ -1346,7 +1370,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
         except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting deliberation by channel: {e}")
-            return error_response(safe_error_message(e, "deliberation channels"), 500)
+            return error_response(
+                safe_error_message(e, "deliberation channels"), 500, code="INTERNAL_ERROR"
+            )
 
     @require_user_auth
     @handle_errors("get consensus rates")
@@ -1391,7 +1417,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
@@ -1487,7 +1513,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         """
         org_id = query_params.get("org_id")
         if not org_id:
-            return error_response("org_id is required", 400)
+            return error_response("org_id is required", 400, code="MISSING_ORG_ID")
 
         days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 

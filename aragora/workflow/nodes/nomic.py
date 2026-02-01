@@ -220,7 +220,7 @@ class NomicLoopStep(BaseStep):
                     log_fn=logger.info,
                 )
 
-                executor = None
+                executor: Any = None
                 if config.get("use_gastown_executor", True):
                     try:
                         from aragora.nomic.convoy_executor import GastownConvoyExecutor

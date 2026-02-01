@@ -188,13 +188,13 @@ class ArenaInitializer:
         training_exporter=None,
         auto_export_training: bool = False,
         training_export_min_confidence: float = 0.75,
-        # ML Integration
-        enable_ml_delegation: bool = False,
+        # ML Integration (stable - enabled by default)
+        enable_ml_delegation: bool = True,
         ml_delegation_strategy=None,
         ml_delegation_weight: float = 0.3,
-        enable_quality_gates: bool = False,
+        enable_quality_gates: bool = True,
         quality_gate_threshold: float = 0.6,
-        enable_consensus_estimation: bool = False,
+        enable_consensus_estimation: bool = True,
         consensus_early_termination_threshold: float = 0.85,
     ) -> CoreComponents:
         """Initialize core Arena components.

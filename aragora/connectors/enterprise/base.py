@@ -317,13 +317,13 @@ class EnterpriseConnector(BaseConnector):
         enable_circuit_breaker: bool = True,
         circuit_breaker_failures: int = DEFAULT_CIRCUIT_BREAKER_FAILURES,
         circuit_breaker_cooldown: float = DEFAULT_CIRCUIT_BREAKER_COOLDOWN,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__(**kwargs)
         self.connector_id = connector_id
         self.tenant_id = tenant_id
         # Use factory function for flexible credential provider auto-detection
-        self.credentials = credentials or get_credential_provider()
+        self.credentials: CredentialProviderProtocol = credentials or get_credential_provider()
         self.state_dir = state_dir or Path.home() / ".aragora" / "sync_state"
 
         # Circuit breaker

@@ -106,7 +106,7 @@ class CernerAdapter(EHRAdapter):
         given: str | None = None,
         birthdate: str | None = None,
         identifier: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
         Search for patients in Cerner.

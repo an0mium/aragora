@@ -701,6 +701,42 @@ __all__ = [
     "get_encryption_service",
     "init_encryption_service",
     "is_encryption_required",
+    "encrypt_data",
+    "decrypt_data",
     "CRYPTO_AVAILABLE",
     "ENCRYPTION_REQUIRED",
 ]
+
+
+def encrypt_data(data: bytes, key_id: str = "") -> bytes:
+    """Encrypt data using the global encryption service.
+
+    Args:
+        data: Data to encrypt
+        key_id: Optional key identifier to use
+
+    Returns:
+        Encrypted data bytes
+    """
+    service = get_encryption_service()
+    result = service.encrypt(
+        data if isinstance(data, str) else data.decode("utf-8", errors="replace")
+    )
+    return result.encode("utf-8") if isinstance(result, str) else result
+
+
+def decrypt_data(data: bytes, key_id: str = "") -> bytes:
+    """Decrypt data using the global encryption service.
+
+    Args:
+        data: Encrypted data to decrypt
+        key_id: Optional key identifier to use
+
+    Returns:
+        Decrypted data bytes
+    """
+    service = get_encryption_service()
+    result = service.decrypt(
+        data if isinstance(data, str) else data.decode("utf-8", errors="replace")
+    )
+    return result.encode("utf-8") if isinstance(result, str) else result

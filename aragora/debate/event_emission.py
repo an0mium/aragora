@@ -67,7 +67,7 @@ class EventEmitter:
         """Set the current debate ID for event context."""
         self._current_debate_id = debate_id
 
-    def notify_spectator(self, event_type: str, **kwargs) -> None:
+    def notify_spectator(self, event_type: str, **kwargs: Any) -> None:
         """Emit event via EventBus or fallback to event_bridge.
 
         Args:

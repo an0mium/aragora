@@ -357,7 +357,7 @@ class CompositeHandler(BaseHandler):
         This method checks for a registered proxy in the handler context.
         """
         # Check if we have an airlock proxy registry in the context
-        airlock_registry: dict[str, Any] | None = self.ctx.get("airlock_registry")
+        airlock_registry: dict[str, Any] | None = self.ctx.get("airlock_registry")  # type: ignore[assignment]
         if airlock_registry is not None:
             proxy = airlock_registry.get(agent_id)
             if proxy is not None and hasattr(proxy, "metrics"):

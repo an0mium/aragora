@@ -2173,26 +2173,36 @@ class TestMLIntegration:
     def agents(self):
         return [MockAgent(name="a1"), MockAgent(name="a2")]
 
-    def test_ml_delegation_disabled_by_default(self, environment, agents):
-        """ML delegation is disabled by default."""
+    def test_ml_delegation_enabled_by_default(self, environment, agents):
+        """ML delegation is enabled by default."""
         arena = Arena(environment, agents)
-
-        assert arena.enable_ml_delegation is False
-
-    def test_ml_delegation_can_be_enabled(self, environment, agents):
-        """ML delegation can be enabled."""
-        arena = Arena(environment, agents, enable_ml_delegation=True)
 
         assert arena.enable_ml_delegation is True
 
-    def test_quality_gates_disabled_by_default(self, environment, agents):
-        """Quality gates are disabled by default."""
+    def test_ml_delegation_can_be_disabled(self, environment, agents):
+        """ML delegation can be explicitly disabled."""
+        arena = Arena(environment, agents, enable_ml_delegation=False)
+
+        assert arena.enable_ml_delegation is False
+
+    def test_quality_gates_enabled_by_default(self, environment, agents):
+        """Quality gates are enabled by default."""
         arena = Arena(environment, agents)
+
+        assert arena.enable_quality_gates is True
+
+    def test_quality_gates_can_be_disabled(self, environment, agents):
+        """Quality gates can be explicitly disabled."""
+        arena = Arena(
+            environment,
+            agents,
+            enable_quality_gates=False,
+        )
 
         assert arena.enable_quality_gates is False
 
-    def test_quality_gates_can_be_enabled(self, environment, agents):
-        """Quality gates can be enabled."""
+    def test_quality_gates_threshold_configurable(self, environment, agents):
+        """Quality gate threshold is configurable."""
         arena = Arena(
             environment,
             agents,
@@ -2203,14 +2213,24 @@ class TestMLIntegration:
         assert arena.enable_quality_gates is True
         assert arena.quality_gate_threshold == 0.7
 
-    def test_consensus_estimation_disabled_by_default(self, environment, agents):
-        """Consensus estimation is disabled by default."""
+    def test_consensus_estimation_enabled_by_default(self, environment, agents):
+        """Consensus estimation is enabled by default."""
         arena = Arena(environment, agents)
+
+        assert arena.enable_consensus_estimation is True
+
+    def test_consensus_estimation_can_be_disabled(self, environment, agents):
+        """Consensus estimation can be explicitly disabled."""
+        arena = Arena(
+            environment,
+            agents,
+            enable_consensus_estimation=False,
+        )
 
         assert arena.enable_consensus_estimation is False
 
-    def test_consensus_estimation_can_be_enabled(self, environment, agents):
-        """Consensus estimation can be enabled."""
+    def test_consensus_estimation_threshold_configurable(self, environment, agents):
+        """Consensus estimation threshold is configurable."""
         arena = Arena(
             environment,
             agents,

@@ -1045,7 +1045,7 @@ class LinearConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[Evidence]:
         """Search Linear for issues matching query.
 

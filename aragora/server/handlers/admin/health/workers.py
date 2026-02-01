@@ -114,11 +114,11 @@ def worker_health_status(handler: Any) -> HandlerResult:
                 {
                     "name": "notification",
                     "running": worker_running,
-                    "queue_enabled": dispatcher.config.queue_enabled
-                    if dispatcher.config
+                    "queue_enabled": dispatcher._config.queue_enabled
+                    if dispatcher._config
                     else False,
                     "max_concurrent": (
-                        dispatcher.config.max_concurrent_deliveries if dispatcher.config else 0
+                        dispatcher._config.max_concurrent_deliveries if dispatcher._config else 0
                     ),
                 }
             )

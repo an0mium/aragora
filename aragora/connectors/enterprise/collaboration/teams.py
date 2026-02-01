@@ -139,7 +139,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         messages_per_channel: int = 1000,
         use_delta_sync: bool = True,
         tenant_id: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Teams enterprise connector.
@@ -663,7 +663,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         query: str,
         limit: int = 25,
         team_ids: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Teams messages using Microsoft Search API."""
         from aragora.connectors.base import Evidence

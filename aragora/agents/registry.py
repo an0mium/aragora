@@ -52,7 +52,7 @@ _agent_access_order: list[tuple[str, str, str, str | None, str | None]] = []
 _CACHE_MAX_SIZE = 32
 
 
-def _run_async_in_thread(coro):
+def _run_async_in_thread(coro: Any) -> Any:
     """Run an async coroutine in a thread-safe manner.
 
     Creates a new event loop for the thread to avoid RuntimeError when

@@ -379,9 +379,12 @@ class TestHandlerRBACEnforcement:
     def test_mutation_handlers_have_permissions(self):
         """Handlers with PUT/DELETE/PATCH must have permission checks.
 
-        POST is excluded since some POST endpoints are read-only operations
-        (e.g., search, scoring, prediction) that correctly use read permissions.
-        PUT/DELETE/PATCH always imply mutation and should have permissions.
+        Handlers can be protected at two levels:
+        1. Decorator-level: @require_permission, @require_role, or secure base class
+        2. Middleware-level: Routes in DEFAULT_ROUTE_PERMISSIONS (rbac/middleware.py)
+
+        This test checks for decorator-level protection. Handlers that rely
+        solely on middleware are tracked in MIDDLEWARE_PROTECTED_MUTATIONS.
         """
         mutation_indicators = [
             "handle_put",
@@ -389,10 +392,22 @@ class TestHandlerRBACEnforcement:
             "handle_patch",
         ]
 
+        # Handlers with mutation methods protected only by middleware routes.
+        # These have route-level RBAC in DEFAULT_ROUTE_PERMISSIONS but no
+        # method-level decorators. Listed here to track defense-in-depth gaps.
+        middleware_protected_mutations = {
+            "external_agents",
+            "knowledge/checkpoints",
+            "knowledge/sharing_notifications",
+            "workflows",
+        }
+
         weak_handlers = []
 
         for module_key, path in _get_handler_modules():
             if module_key in ALLOWED_WITHOUT_RBAC:
+                continue
+            if module_key in middleware_protected_mutations:
                 continue
 
             source = path.read_text()

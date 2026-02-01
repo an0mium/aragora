@@ -188,11 +188,11 @@ class TestInitCore:
         result = self._call_init_core(initial_messages=None)
         assert result.initial_messages == []
 
-    def test_ml_defaults_disabled(self):
+    def test_ml_defaults_enabled(self):
         result = self._call_init_core()
-        assert result.enable_ml_delegation is False
-        assert result.enable_quality_gates is False
-        assert result.enable_consensus_estimation is False
+        assert result.enable_ml_delegation is True
+        assert result.enable_quality_gates is True
+        assert result.enable_consensus_estimation is True
 
 
 # ===========================================================================

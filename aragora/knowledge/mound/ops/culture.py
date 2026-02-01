@@ -37,6 +37,8 @@ class CultureProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
 
+    def get_org_culture_manager(self) -> "OrganizationCultureManager": ...
+
 
 class CultureOperationsMixin:
     """Mixin providing culture management for KnowledgeMound."""

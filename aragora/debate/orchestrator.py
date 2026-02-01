@@ -30,10 +30,6 @@ from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.knowledge_manager import ArenaKnowledgeManager
 from aragora.debate.context import DebateContext
 from aragora.debate.context_delegation import ContextDelegator
-from aragora.debate.convergence import (
-    ConvergenceDetector,
-    cleanup_embedding_cache,
-)
 from aragora.debate.event_emission import EventEmitter
 from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.grounded_operations import GroundedOperations
@@ -42,7 +38,6 @@ from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
 from aragora.debate.judge_selector import JudgeSelector
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
-from aragora.debate.roles_manager import RolesManager
 from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.state_cache import DebateStateCache
 from aragora.debate.termination_checker import TerminationChecker
@@ -69,6 +64,14 @@ from aragora.debate.orchestrator_checkpoints import (
     save_checkpoint as _cp_save_checkpoint,
 )
 from aragora.debate.orchestrator_config import merge_config_objects
+from aragora.debate.orchestrator_convergence import (
+    cleanup_convergence as _conv_cleanup_convergence,
+    init_convergence as _conv_init_convergence,
+    reinit_convergence_for_debate as _conv_reinit_convergence_for_debate,
+)
+from aragora.debate.orchestrator_roles import (
+    init_roles_and_stances as _roles_init_roles_and_stances,
+)
 from aragora.debate.orchestrator_delegates import ArenaDelegatesMixin
 from aragora.debate.orchestrator_domains import (
     compute_domain_from_task as _compute_domain_from_task,
@@ -274,12 +277,12 @@ class Arena(ArenaDelegatesMixin):
         training_exporter: Any = None,
         auto_export_training: bool = False,
         training_export_min_confidence: float = 0.75,
-        enable_ml_delegation: bool = False,
+        enable_ml_delegation: bool = True,
         ml_delegation_strategy: Optional["MLDelegationStrategy"] = None,
         ml_delegation_weight: float = 0.3,
-        enable_quality_gates: bool = False,
+        enable_quality_gates: bool = True,
         quality_gate_threshold: float = 0.6,
-        enable_consensus_estimation: bool = False,
+        enable_consensus_estimation: bool = True,
         consensus_early_termination_threshold: float = 0.85,
         use_rlm_limiter: bool = True,
         rlm_limiter: Optional["RLMCognitiveLoadLimiter"] = None,
@@ -925,54 +928,19 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_roles_and_stances(self) -> None:
         """Initialize cognitive role rotation and agent stances."""
-        self.roles_manager = RolesManager(
-            agents=self.agents,
-            protocol=self.protocol,
-            prompt_builder=self.prompt_builder if hasattr(self, "prompt_builder") else None,
-            calibration_tracker=(
-                self.calibration_tracker if hasattr(self, "calibration_tracker") else None
-            ),
-            persona_manager=self.persona_manager if hasattr(self, "persona_manager") else None,
-        )
-        self.role_rotator = self.roles_manager.role_rotator
-        self.role_matcher = self.roles_manager.role_matcher
-        self.current_role_assignments = self.roles_manager.current_role_assignments
-        self.roles_manager.assign_initial_roles()
-        self.roles_manager.assign_stances(round_num=0)
-        self.roles_manager.apply_agreement_intensity()
+        _roles_init_roles_and_stances(self)
 
     def _init_convergence(self, debate_id: str | None = None) -> None:
         """Initialize convergence detection if enabled."""
-        self.convergence_detector = None
-        self._convergence_debate_id = debate_id
-        if self.protocol.convergence_detection:
-            self.convergence_detector = ConvergenceDetector(
-                convergence_threshold=self.protocol.convergence_threshold,
-                divergence_threshold=self.protocol.divergence_threshold,
-                min_rounds_before_check=1,
-                debate_id=debate_id,
-            )
-        self._previous_round_responses: dict[str, str] = {}
+        _conv_init_convergence(self, debate_id)
 
     def _reinit_convergence_for_debate(self, debate_id: str) -> None:
         """Reinitialize convergence detector with debate-specific cache."""
-        if self._convergence_debate_id == debate_id:
-            return
-        self._convergence_debate_id = debate_id
-        if self.protocol.convergence_detection:
-            self.convergence_detector = ConvergenceDetector(
-                convergence_threshold=self.protocol.convergence_threshold,
-                divergence_threshold=self.protocol.divergence_threshold,
-                min_rounds_before_check=1,
-                debate_id=debate_id,
-            )
-            logger.debug(f"Reinitialized convergence detector for debate {debate_id}")
+        _conv_reinit_convergence_for_debate(self, debate_id)
 
     def _cleanup_convergence_cache(self) -> None:
         """Cleanup embedding cache for the current debate."""
-        if self._convergence_debate_id:
-            cleanup_embedding_cache(self._convergence_debate_id)
-            logger.debug(f"Cleaned up embedding cache for debate {self._convergence_debate_id}")
+        _conv_cleanup_convergence(self)
 
     def _init_caches(self) -> None:
         """Initialize caches for computed values."""

@@ -66,7 +66,7 @@ class S3Connector(EnterpriseConnector):
         region: str = "us-east-1",
         extensions: Optional[set[str]] = None,
         exclude_patterns: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         connector_id = f"s3_{bucket}_{prefix.replace('/', '_')}"
         super().__init__(connector_id=connector_id, **kwargs)
@@ -88,7 +88,7 @@ class S3Connector(EnterpriseConnector):
     def name(self) -> str:
         return f"S3 ({self.bucket}/{self.prefix})"
 
-    async def _get_client(self):
+    async def _get_client(self) -> Any:
         """Get or create boto3 S3 client."""
         if self._client is not None:
             return self._client
@@ -348,13 +348,13 @@ class S3Connector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search is not directly supported by S3. Returns empty list."""
         logger.debug(f"[{self.name}] Search not supported, use Knowledge Mound")
         return []
 
-    async def fetch(self, evidence_id: str):
+    async def fetch(self, evidence_id: str) -> Any:
         """Fetch a specific document by S3 key."""
         if not evidence_id.startswith("s3:"):
             return None

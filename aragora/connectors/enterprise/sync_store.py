@@ -108,7 +108,7 @@ record_encryption_error = _noop_record_encryption_error
 METRICS_AVAILABLE = False
 
 try:
-    from aragora.observability.metrics import (
+    from aragora.observability.metrics import (  # type: ignore[attr-defined]
         record_encryption_operation as _real_record_encryption_operation,
         record_encryption_error as _real_record_encryption_error,
     )
@@ -946,6 +946,7 @@ class SyncStore:
         jobs = []
 
         if self._connection and self._database_url.startswith("sqlite"):
+            params: tuple[Any, ...]
             if connector_id:
                 query = """
                     SELECT * FROM sync_jobs
@@ -1001,6 +1002,7 @@ class SyncStore:
         }
 
         if self._connection and self._database_url.startswith("sqlite"):
+            stats_params: tuple[Any, ...]
             if connector_id:
                 query = """
                     SELECT
@@ -1013,7 +1015,7 @@ class SyncStore:
                     FROM sync_jobs
                     WHERE connector_id = ?
                 """
-                params = (connector_id,)
+                stats_params = (connector_id,)
             else:
                 query = """
                     SELECT
@@ -1025,9 +1027,9 @@ class SyncStore:
                         AVG(duration_seconds) as avg_duration
                     FROM sync_jobs
                 """
-                params = ()
+                stats_params = ()
 
-            async with self._connection.execute(query, params) as cursor:
+            async with self._connection.execute(query, stats_params) as cursor:
                 row = await cursor.fetchone()
                 if row:
                     stats["total_syncs"] = row[0] or 0

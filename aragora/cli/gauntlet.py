@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from aragora.agents.base import AgentType
 
 logger = logging.getLogger(__name__)
@@ -81,7 +83,7 @@ def _format_agent_error(agent_type: str, error: str) -> str:
     return f"  - {agent_type}: {error}"
 
 
-def _save_receipt(receipt, output_path: Path, format_ext: str) -> Path:
+def _save_receipt(receipt: Any, output_path: Path, format_ext: str) -> Path:
     """Save decision receipt in the specified format."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -288,7 +290,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
-def create_gauntlet_parser(subparsers) -> argparse.ArgumentParser:
+def create_gauntlet_parser(subparsers: Any) -> argparse.ArgumentParser:
     """Create the gauntlet subcommand parser."""
     gauntlet_parser = subparsers.add_parser(
         "gauntlet",

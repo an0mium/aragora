@@ -553,30 +553,30 @@ class FeatureFlagRegistry:
             FlagCategory.CORE,
         )
 
-        # Experimental flags
+        # ML integration flags (graduated from BETA to STABLE)
         self.register(
             "enable_ml_delegation",
             bool,
-            False,
+            True,
             "Use ML-based agent selection",
-            FlagCategory.EXPERIMENTAL,
-            FlagStatus.BETA,
+            FlagCategory.PERFORMANCE,
+            FlagStatus.ACTIVE,
         )
         self.register(
             "enable_quality_gates",
             bool,
-            False,
+            True,
             "Filter low-quality responses via QualityGate",
-            FlagCategory.EXPERIMENTAL,
-            FlagStatus.BETA,
+            FlagCategory.PERFORMANCE,
+            FlagStatus.ACTIVE,
         )
         self.register(
             "enable_consensus_estimation",
             bool,
-            False,
+            True,
             "Use ConsensusEstimator for early termination",
-            FlagCategory.EXPERIMENTAL,
-            FlagStatus.BETA,
+            FlagCategory.PERFORMANCE,
+            FlagStatus.ACTIVE,
         )
         self.register(
             "enable_prompt_evolution",

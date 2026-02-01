@@ -88,7 +88,7 @@ class QualityFilterHelper:
 
     def __init__(
         self,
-        enable_quality_gates: bool = False,
+        enable_quality_gates: bool = True,
         quality_gate: Any = None,
     ):
         self._enable_quality_gates = enable_quality_gates
@@ -125,7 +125,7 @@ class ConsensusEstimationHelper:
 
     def __init__(
         self,
-        enable_consensus_estimation: bool = False,
+        enable_consensus_estimation: bool = True,
         consensus_estimator: Any = None,
     ):
         self._enable_consensus_estimation = enable_consensus_estimation
@@ -178,7 +178,7 @@ class TeamSelectionHelper:
 
     def __init__(
         self,
-        enable_ml_delegation: bool = False,
+        enable_ml_delegation: bool = True,
         ml_delegation_strategy: Any = None,
         use_performance_selection: bool = False,
         agent_pool: Any = None,

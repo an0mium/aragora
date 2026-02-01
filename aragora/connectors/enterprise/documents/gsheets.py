@@ -99,7 +99,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         max_rows_per_sheet: int = 50000,
         max_sheets_per_file: int = 100,
         header_row: int = 1,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Google Sheets connector.
@@ -179,7 +179,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         url: str,
         method: str = "GET",
         params: Optional[dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Make a request to Google API."""
         token = await self._get_access_token()
@@ -565,7 +565,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         folder_id: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Google Sheets by name or content."""
         from aragora.connectors.base import Evidence

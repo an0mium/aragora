@@ -211,7 +211,7 @@ class EHRAdapter(ABC):
         await self.connect()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         await self.disconnect()
 
@@ -473,7 +473,7 @@ class EHRAdapter(ABC):
         self,
         method: str,
         path: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Make authenticated request to EHR."""
         if not self._http_client:
@@ -529,7 +529,7 @@ class EHRAdapter(ABC):
         given: str | None = None,
         birthdate: str | None = None,
         identifier: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Search for patients."""
         ...

@@ -1060,7 +1060,7 @@ class HL7v2Connector(EnterpriseConnector):
         # Audit
         enable_audit_log: bool = True,
         audit_log_path: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__(connector_id=connector_id, tenant_id=tenant_id, **kwargs)
 

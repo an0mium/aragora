@@ -728,6 +728,25 @@ class DebateStorage(SQLiteStore):
         """
         return self.get_by_slug(slug)
 
+    def delete_debate(self, debate_id: str, cascade_critiques: bool = False) -> bool:
+        """
+        Delete debate by ID (handler-compatible alias).
+
+        Args:
+            debate_id: Debate ID
+            cascade_critiques: Whether to cascade delete critiques (reserved for future use)
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM debates WHERE id = ? OR slug = ?", (debate_id, debate_id)
+            )
+            deleted = cursor.rowcount > 0
+            conn.commit()
+        return deleted
+
     def list_debates(self, limit: int = 20, org_id: str | None = None) -> list[DebateMetadata]:
         """
         List debates (handler-compatible alias for list_recent).

@@ -1220,7 +1220,7 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         # Wire to handler
         from aragora.server.handler_registry import UnifiedHandler
 
-        UnifiedHandler.user_store = store
+        setattr(UnifiedHandler, "user_store", store)
     except (ImportError, OSError, ConnectionError, RuntimeError, AttributeError) as e:
         # Import, connection, or wiring errors - continue with SQLite store
         logger.info(f"[upgrade] UserStore upgrade failed: {type(e).__name__}: {e}")
@@ -1269,7 +1269,7 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
                 # governance_store uses _postgres_store module global
                 import aragora.storage.governance_store as _gov_mod
 
-                _gov_mod._postgres_store = store
+                setattr(_gov_mod, "_postgres_store", store)
 
             results[name] = "postgres"
             logger.info(f"[upgrade] {name} upgraded to PostgreSQL")

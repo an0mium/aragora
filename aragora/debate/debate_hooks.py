@@ -603,7 +603,7 @@ class DebateHooks:
 
             webhook_url = self.slack_webhook_url
 
-            def send_webhook():
+            def send_webhook() -> None:
                 """Send webhook in background thread."""
                 try:
                     resp = httpx.post(

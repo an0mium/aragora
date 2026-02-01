@@ -46,6 +46,7 @@ class SyncProtocol(Protocol):
     _facts: Optional["FactStore"]
     _evidence: Optional["EvidenceStore"]
     _critique: Optional["CritiqueStore"]
+    _batch_store: Any
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...

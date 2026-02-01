@@ -492,7 +492,7 @@ class FHIRConnector(EnterpriseConnector):
         audit_reason: str = "clinical_decision_support",
         circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ):
         connector_id = f"fhir_{hashlib.sha256(base_url.encode()).hexdigest()[:12]}"
         super().__init__(connector_id=connector_id, **kwargs)
@@ -533,8 +533,8 @@ class FHIRConnector(EnterpriseConnector):
             user_role="service",
         )
 
-        self._client = None
-        self._access_token = None
+        self._client: Any = None
+        self._access_token: str | None = None
         self._token_expires_at: datetime | None = None
 
     @property
@@ -545,7 +545,15 @@ class FHIRConnector(EnterpriseConnector):
     def name(self) -> str:
         return f"FHIR ({self.base_url})"
 
-    async def _ensure_authenticated(self):
+    async def _get_client(self) -> Any:
+        """Get or create an authenticated HTTP client session."""
+        await self._ensure_authenticated()
+        from aragora.server.http_client_pool import get_http_pool
+
+        pool = get_http_pool()
+        return pool.get_session("fhir")
+
+    async def _ensure_authenticated(self) -> None:
         """Ensure authentication is current."""
         from aragora.server.http_client_pool import get_http_pool
 
@@ -616,7 +624,7 @@ class FHIRConnector(EnterpriseConnector):
                 self._circuit_breaker.record_failure()
             raise FHIRError(f"Connection error: {e}", status_code=503)
 
-    async def _authenticate(self):
+    async def _authenticate(self) -> None:
         """Authenticate using SMART on FHIR OAuth2."""
         from aragora.server.http_client_pool import get_http_pool
 
@@ -911,7 +919,7 @@ class FHIRConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         resource_type: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """
         Search FHIR resources.
@@ -971,7 +979,7 @@ class FHIRConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str):
+    async def fetch(self, evidence_id: str) -> Any:
         """Fetch a specific FHIR resource."""
         if not evidence_id.startswith("fhir:"):
             return None

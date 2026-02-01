@@ -8,7 +8,7 @@ Provides metrics for RLM compression, queries, caching, and refinement.
 import logging
 import time
 from functools import wraps
-from typing import Callable
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +230,7 @@ def timed_rlm_compression(source_type: str) -> Callable[[Callable], Callable]:
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             start = time.perf_counter()
             success = True
             original_tokens = 0
@@ -285,7 +285,7 @@ def timed_rlm_refinement(strategy: str = "auto") -> Callable[[Callable], Callabl
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             start = time.perf_counter()
             iterations = 1
             success = False

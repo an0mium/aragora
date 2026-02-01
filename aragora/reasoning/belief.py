@@ -36,7 +36,7 @@ _CRUX_EXPORTS = {
 }
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name in _CRUX_EXPORTS:
         from aragora.reasoning import crux_detector
 

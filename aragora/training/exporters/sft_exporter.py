@@ -74,7 +74,7 @@ class SFTExporter(BaseExporter):
         include_critiques: bool = True,
         include_patterns: bool = True,
         include_debates: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
         Export SFT training data.

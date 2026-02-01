@@ -23,6 +23,7 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
+from typing import Any
 
 # Emit deprecation warning on import
 warnings.warn(
@@ -261,7 +262,7 @@ PROPOSAL_STAGGER_SECONDS = _env_float("ARAGORA_PROPOSAL_STAGGER_SECONDS", 0.0)
 HEARTBEAT_INTERVAL_SECONDS = _env_int("ARAGORA_HEARTBEAT_INTERVAL", 15)
 
 
-def get_concurrency_settings():
+def get_concurrency_settings() -> Any:
     """Get concurrency settings with Pydantic validation.
 
     Preferred over direct constant access for new code.

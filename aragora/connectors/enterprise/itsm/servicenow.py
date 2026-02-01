@@ -198,7 +198,7 @@ class ServiceNowConnector(EnterpriseConnector):
         include_knowledge: bool = False,
         exclude_states: Optional[list[str]] = None,
         use_oauth: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize ServiceNow connector.
@@ -618,7 +618,7 @@ class ServiceNowConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         table: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search ServiceNow records via text search."""
         from aragora.connectors.base import Evidence

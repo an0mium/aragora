@@ -486,7 +486,7 @@ class LeaderElection:
 class _InMemoryRedis:
     """In-memory Redis mock for single-node deployments without Redis."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._data: dict[str, Any] = {}
         self._hashes: dict[str, dict[str, str]] = {}
 

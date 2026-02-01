@@ -111,7 +111,7 @@ class SlackConnector(EnterpriseConnector):
         include_files: bool = True,
         exclude_bots: bool = True,
         max_messages_per_channel: int = 1000,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Slack connector.
@@ -531,7 +531,7 @@ class SlackConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Slack messages."""
         from aragora.connectors.base import Evidence

@@ -48,8 +48,8 @@ class ContextDelegator:
         memory_manager: Optional["MemoryManager"] = None,
         cache: Optional["DebateStateCache"] = None,
         evidence_grounder: Optional["EvidenceGrounder"] = None,
-        continuum_memory=None,
-        env=None,
+        continuum_memory: Any = None,
+        env: Any = None,
         extract_domain_fn: Optional[Callable[..., Any]] = None,
     ) -> None:
         self.context_gatherer = context_gatherer
@@ -112,10 +112,10 @@ class ContextDelegator:
     async def refresh_evidence_for_round(
         self,
         combined_text: str,
-        evidence_collector,
+        evidence_collector: Any,
         task: str,
-        evidence_store_callback,
-        prompt_builder=None,
+        evidence_store_callback: Any,
+        prompt_builder: Any = None,
     ) -> int:
         """Refresh evidence based on claims made during a debate round.
 

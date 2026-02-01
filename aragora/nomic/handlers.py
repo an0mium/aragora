@@ -598,7 +598,7 @@ def create_handlers(
         record_replay_fn=record_replay_fn,
     )
 
-    executor = None
+    executor: Any = None
     if os.environ.get("NOMIC_USE_GASTOWN_EXECUTOR", "1") == "1":
         try:
             from aragora.nomic.convoy_executor import GastownConvoyExecutor

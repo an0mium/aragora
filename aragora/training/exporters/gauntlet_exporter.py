@@ -68,7 +68,7 @@ class GauntletExporter(BaseExporter):
         limit: int = 200,
         include_attack_patterns: bool = True,
         include_defense_training: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """
         Export Gauntlet adversarial training data.

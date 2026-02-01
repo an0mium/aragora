@@ -116,7 +116,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         export_google_docs: bool = True,
         max_file_size_mb: int = 100,
         exclude_patterns: Optional[list[str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Initialize Google Drive connector.
@@ -197,7 +197,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         endpoint: str,
         method: str = "GET",
         params: Optional[dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Make a request to Google Drive API."""
         token = await self._get_access_token()
@@ -617,7 +617,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         folder_id: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """Search Google Drive files."""
         from aragora.connectors.base import Evidence
