@@ -235,7 +235,7 @@ from .generated_types import (
 )
 from .websocket import AragoraWebSocket, WebSocketEvent, WebSocketOptions, stream_debate
 
-__version__ = "0.1.0"
+__version__ = "2.5.0"
 __all__ = [
     # --- Client ---
     "AragoraClient",

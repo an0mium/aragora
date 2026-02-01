@@ -7,7 +7,7 @@ Main HTTP client for interacting with the Aragora platform.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 if TYPE_CHECKING:
@@ -24,8 +24,6 @@ from .exceptions import (
     ServerError,
     ValidationError,
 )
-
-T = TypeVar("T")
 
 
 class AragoraClient:
@@ -75,7 +73,7 @@ class AragoraClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "aragora-python/0.1.0",
+            "User-Agent": "aragora-python/2.5.0",
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -367,7 +365,7 @@ class AragoraClient:
         try:
             body = response.json()
             message = body.get("error", body.get("message", response.text))
-        except Exception:
+        except (ValueError, AttributeError):
             body = None
             message = response.text or "Unknown error"
 
@@ -458,7 +456,7 @@ class AragoraAsyncClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "aragora-python/0.1.0",
+            "User-Agent": "aragora-python/2.5.0",
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -748,7 +746,7 @@ class AragoraAsyncClient:
         try:
             body = response.json()
             message = body.get("error", body.get("message", response.text))
-        except Exception:
+        except (ValueError, AttributeError):
             body = None
             message = response.text or "Unknown error"
 
