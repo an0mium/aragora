@@ -24,7 +24,10 @@ from aragora.nomic.beads import Bead, BeadPriority, BeadStatus, BeadStore, BeadT
 from aragora.nomic.convoy_coordinator import AssignmentStatus, ConvoyCoordinator
 from aragora.nomic.convoys import ConvoyManager, ConvoyPriority
 from aragora.nomic.hook_queue import HookQueue
-from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
+from aragora.nomic.stores.paths import (
+    resolve_bead_and_convoy_dirs,
+    should_use_canonical_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +82,15 @@ class GastownConvoyExecutor:
 
         use_canonical_store = should_use_canonical_store(default=True)
         if bead_dir is None and use_canonical_store:
-            base_dir = resolve_store_dir(workspace_root=self.repo_path)
+            resolved_bead_dir, resolved_convoy_dir = resolve_bead_and_convoy_dirs(
+                workspace_root=self.repo_path
+            )
+            self.bead_dir = Path(resolved_bead_dir)
+            self.convoy_dir = Path(convoy_dir or resolved_convoy_dir)
         else:
             base_dir = bead_dir or (self.repo_path / ".nomic" / "convoys")
-        self.bead_dir = Path(base_dir)
-        self.convoy_dir = Path(convoy_dir or base_dir)
+            self.bead_dir = Path(base_dir)
+            self.convoy_dir = Path(convoy_dir or base_dir)
 
         self.bead_store = BeadStore(bead_dir=self.bead_dir, git_enabled=True, auto_commit=False)
         self.convoy_manager = ConvoyManager(bead_store=self.bead_store, convoy_dir=self.convoy_dir)
