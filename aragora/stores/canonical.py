@@ -111,14 +111,18 @@ def get_canonical_workspace_stores(
     convoy_dir: str | None = None,
     git_enabled: bool = True,
     auto_commit: bool = False,
+    bead_store: "BeadStore | None" = None,
 ) -> CanonicalWorkspaceStores:
     """Return a canonical workspace stores accessor."""
-    return CanonicalWorkspaceStores(
+    stores = CanonicalWorkspaceStores(
         bead_dir=bead_dir,
         convoy_dir=convoy_dir,
         git_enabled=git_enabled,
         auto_commit=auto_commit,
     )
+    if bead_store is not None:
+        stores._bead_store = bead_store
+    return stores
 
 
 def get_canonical_gateway_stores() -> CanonicalGatewayStores:

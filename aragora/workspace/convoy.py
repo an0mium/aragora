@@ -21,7 +21,6 @@ from datetime import datetime, timezone
 from aragora.nomic.stores import (
     BeadStore as NomicBeadStore,
     Convoy as NomicConvoy,
-    ConvoyManager as NomicConvoyManager,
     ConvoyStatus as NomicConvoyStatus,
 )
 from aragora.nomic.stores.paths import should_use_canonical_store
@@ -223,17 +222,23 @@ class ConvoyTracker:
             self._use_nomic_store = True
         self._canonical_stores = canonical_stores
         self._bead_store = bead_store
-        if self._use_nomic_store and self._bead_store is None and self._canonical_stores is None:
+        if self._use_nomic_store and self._canonical_stores is None:
             self._canonical_stores = get_canonical_workspace_stores(
                 git_enabled=False,
                 auto_commit=False,
+                bead_store=self._bead_store,
             )
-        self._nomic_manager = NomicConvoyManager(self._bead_store) if self._bead_store else None
+        self._nomic_manager = None
         self._nomic_initialized = False
 
     async def _ensure_nomic_manager(self) -> None:
-        if self._nomic_manager is None and self._canonical_stores is not None:
-            self._nomic_manager = await self._canonical_stores.convoy_manager()
+        if self._nomic_manager is None:
+            if self._canonical_stores is not None:
+                self._nomic_manager = await self._canonical_stores.convoy_manager()
+            elif self._bead_store is not None:
+                from aragora.nomic.convoys import get_convoy_manager
+
+                self._nomic_manager = await get_convoy_manager(self._bead_store)
         if self._nomic_manager and not self._nomic_initialized:
             await self._nomic_manager.bead_store.initialize()
             await self._nomic_manager.initialize()
