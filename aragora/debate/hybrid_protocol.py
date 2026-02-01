@@ -67,6 +67,7 @@ class HybridDebateConfig:
     auto_execute_on_consensus: bool = False
     critique_concurrency: int = 5
     refinement_feedback_limit: int = 5
+    min_verification_quorum: int = 1  # Minimum critiques needed for valid consensus
 
 
 @dataclass
@@ -148,10 +149,28 @@ class HybridDebateProtocol:
             config: Configuration including external agent and verification agents.
 
         Raises:
-            ValueError: If no verification agents are provided.
+            ValueError: If no verification agents are provided or consensus_threshold
+                is out of range.
+            SSRFValidationError: If external agent URL is unsafe.
         """
         if not config.verification_agents:
             raise ValueError("At least one verification agent is required")
+
+        if not (0.0 <= config.consensus_threshold <= 1.0):
+            raise ValueError(
+                f"consensus_threshold must be between 0.0 and 1.0, got {config.consensus_threshold}"
+            )
+
+        # Validate external agent URL if it's an ExternalFrameworkAgent
+        if hasattr(config.external_agent, "base_url") and config.external_agent.base_url:
+            from aragora.security.ssrf_protection import SSRFValidationError, validate_url
+
+            result = validate_url(config.external_agent.base_url)
+            if not result.is_safe:
+                raise SSRFValidationError(
+                    f"External agent URL is unsafe: {result.error}",
+                    url=config.external_agent.base_url,
+                )
 
         self.config = config
         self.external_agent = config.external_agent
@@ -196,6 +215,8 @@ class HybridDebateProtocol:
             logger.error(f"[{debate_id[:8]}] External agent failed: {e}")
             raise
 
+        quorum_met = False
+
         for round_num in range(self.config.max_refinement_rounds):
             logger.debug(
                 f"[{debate_id[:8]}] Verification round {round_num + 1}/{self.config.max_refinement_rounds}"
@@ -204,6 +225,19 @@ class HybridDebateProtocol:
             # 2. Collect critiques from verification agents
             critiques = await self._collect_critiques(proposal, task, context)
             critiques_all.extend(critiques)
+
+            # 2b. Check verification quorum
+            if len(critiques) < self.config.min_verification_quorum:
+                logger.warning(
+                    f"[{debate_id[:8]}] Insufficient critiques "
+                    f"({len(critiques)}/{self.config.min_verification_quorum})"
+                )
+                # On final round with insufficient quorum, mark as unverified
+                if round_num == self.config.max_refinement_rounds - 1:
+                    break
+                continue
+            else:
+                quorum_met = True
 
             # 3. Calculate consensus score
             consensus_score = await self._calculate_consensus(proposal, critiques)
@@ -254,10 +288,16 @@ class HybridDebateProtocol:
                 )
 
         # Max rounds reached without consensus
-        logger.warning(
-            f"[{debate_id[:8]}] Max rounds ({self.config.max_refinement_rounds}) "
-            f"reached without consensus (score: {consensus_score:.0%})"
-        )
+        if not quorum_met:
+            logger.warning(
+                f"[{debate_id[:8]}] Verification quorum never met across "
+                f"{self.config.max_refinement_rounds} rounds"
+            )
+        else:
+            logger.warning(
+                f"[{debate_id[:8]}] Max rounds ({self.config.max_refinement_rounds}) "
+                f"reached without consensus (score: {consensus_score:.0%})"
+            )
 
         return VerificationResult(
             proposal=proposal,
@@ -342,7 +382,8 @@ class HybridDebateProtocol:
             Consensus score from 0.0 (no support) to 1.0 (full support).
         """
         if not critiques:
-            return 1.0  # No critiques = consensus by default
+            logger.warning("No critiques received - defaulting to zero consensus (fail-safe)")
+            return 0.0  # Fail-safe: no verification means no consensus
 
         # Keywords indicating support
         supportive_keywords = [

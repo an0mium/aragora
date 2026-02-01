@@ -19,7 +19,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -448,10 +448,10 @@ class TestConsensusCalculation:
 
     @pytest.mark.asyncio
     async def test_empty_critiques(self, protocol: HybridDebateProtocol):
-        """Empty critique list returns 1.0 (default consensus)."""
+        """Empty critique list returns 0.0 (fail-safe)."""
         score = await protocol._calculate_consensus("proposal", [])
 
-        assert score == 1.0
+        assert score == 0.0
 
     @pytest.mark.asyncio
     async def test_neutral_critiques(self, protocol: HybridDebateProtocol):
@@ -728,3 +728,213 @@ class TestConcurrencyAndLimits:
             ]
             # Should have at most refinement_feedback_limit critiques
             assert len(critique_lines) <= 3
+
+
+class TestConsensusFailSafe:
+    """Tests for consensus fail-safe behavior."""
+
+    @pytest.mark.asyncio
+    async def test_empty_critiques_returns_zero(self):
+        """Empty critiques should return 0.0, not 1.0."""
+        external = MockExternalAgent()
+        verifiers = [MockAgent()]
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        score = await protocol._calculate_consensus("proposal", [])
+        assert score == 0.0
+
+    @pytest.mark.asyncio
+    async def test_quorum_not_met_returns_unverified(self):
+        """If min_verification_quorum not met, result should be unverified."""
+
+        class FailingVerifier(MockAgent):
+            async def critique(self, *args, **kwargs) -> Critique:
+                raise RuntimeError("Verifier unreachable")
+
+        external = MockExternalAgent()
+        # All verifiers fail, so 0 critiques collected
+        verifiers = [FailingVerifier("fail-1"), FailingVerifier("fail-2")]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+            min_verification_quorum=1,
+            max_refinement_rounds=2,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        result = await protocol.run_with_external("Test task")
+
+        assert result.verified is False
+
+    @pytest.mark.asyncio
+    async def test_quorum_zero_allows_no_critiques(self):
+        """Setting min_verification_quorum=0 should allow empty critiques."""
+
+        class FailingVerifier(MockAgent):
+            async def critique(self, *args, **kwargs) -> Critique:
+                raise RuntimeError("Verifier unreachable")
+
+        external = MockExternalAgent()
+        verifiers = [FailingVerifier("fail-1")]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+            min_verification_quorum=0,
+            max_refinement_rounds=1,
+            consensus_threshold=0.0,  # 0.0 threshold so empty critiques (score 0.0) meets it
+        )
+        protocol = HybridDebateProtocol(config)
+
+        result = await protocol.run_with_external("Test task")
+
+        # With quorum=0, empty critiques are allowed; consensus of 0.0 meets threshold 0.0
+        assert result.verified is True
+
+    @pytest.mark.asyncio
+    async def test_single_critique_meets_default_quorum(self):
+        """One critique should meet the default quorum of 1."""
+        external = MockExternalAgent()
+        verifiers = [MockAgent("v1", critique_content="I agree this is correct and valid.")]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+            min_verification_quorum=1,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        result = await protocol.run_with_external("Test task")
+
+        assert result.verified is True
+        assert result.consensus_score >= 0.7
+
+    @pytest.mark.asyncio
+    async def test_insufficient_critiques_across_rounds(self):
+        """If critiques insufficient across all rounds, debate returns unverified."""
+
+        class FailingVerifier(MockAgent):
+            async def critique(self, *args, **kwargs) -> Critique:
+                raise RuntimeError("Verifier unreachable")
+
+        external = MockExternalAgent()
+        verifiers = [FailingVerifier("fail-1")]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+            min_verification_quorum=1,
+            max_refinement_rounds=3,
+        )
+        protocol = HybridDebateProtocol(config)
+
+        result = await protocol.run_with_external("Test task")
+
+        assert result.verified is False
+        assert result.rounds_used == 3
+
+    def test_min_verification_quorum_config_default(self):
+        """Default min_verification_quorum should be 1."""
+        external = MockExternalAgent()
+        verifiers = [MockAgent()]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+
+        assert config.min_verification_quorum == 1
+
+    def test_min_verification_quorum_config_custom(self):
+        """Custom quorum value should be respected."""
+        external = MockExternalAgent()
+        verifiers = [MockAgent()]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+            min_verification_quorum=3,
+        )
+
+        assert config.min_verification_quorum == 3
+
+
+class TestURLValidation:
+    """Tests for URL validation in HybridDebateProtocol."""
+
+    def test_rejects_unsafe_external_agent_url(self):
+        """Should reject external agents with unsafe URLs."""
+        from aragora.security.ssrf_protection import SSRFValidationError
+
+        class UnsafeExternalAgent:
+            name = "unsafe-agent"
+            base_url = "http://169.254.169.254/latest/meta-data/"
+
+            async def generate(self, prompt, context=None):
+                return "response"
+
+        external = UnsafeExternalAgent()
+        verifiers = [MockAgent()]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+
+        with pytest.raises(SSRFValidationError):
+            HybridDebateProtocol(config)
+
+    def test_accepts_safe_external_agent_url(self):
+        """Should accept external agents with safe URLs."""
+
+        class SafeExternalAgent:
+            name = "safe-agent"
+            base_url = "https://api.example.com/v1/agent"
+
+            async def generate(self, prompt, context=None):
+                return "response"
+
+        external = SafeExternalAgent()
+        verifiers = [MockAgent()]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+        )
+
+        # Should not raise
+        protocol = HybridDebateProtocol(config)
+        assert protocol.external_agent is external
+
+    def test_consensus_threshold_validation_too_high(self):
+        """Should reject consensus_threshold > 1.0."""
+        external = MockExternalAgent()
+        verifiers = [MockAgent()]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+            consensus_threshold=1.5,
+        )
+
+        with pytest.raises(ValueError, match="consensus_threshold must be between 0.0 and 1.0"):
+            HybridDebateProtocol(config)
+
+    def test_consensus_threshold_validation_too_low(self):
+        """Should reject consensus_threshold < 0.0."""
+        external = MockExternalAgent()
+        verifiers = [MockAgent()]
+
+        config = HybridDebateConfig(
+            external_agent=external,
+            verification_agents=verifiers,
+            consensus_threshold=-0.1,
+        )
+
+        with pytest.raises(ValueError, match="consensus_threshold must be between 0.0 and 1.0"):
+            HybridDebateProtocol(config)
