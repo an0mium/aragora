@@ -437,15 +437,89 @@ def _get_next_step(current: OnboardingStep) -> OnboardingStep:
 
 
 def _get_recommended_templates(use_case: str | None) -> list[StarterTemplate]:
-    """Get templates recommended for a use case."""
+    """Get templates recommended for a use case.
+
+    Merges hardcoded starter templates with marketplace templates,
+    prioritizing marketplace templates that match the use case and
+    have higher ratings.
+    """
+    # Collect marketplace templates (lazy import to avoid circular deps)
+    marketplace_starters = _load_marketplace_templates()
+
+    # Combine: marketplace first (higher quality metadata), then starters
+    all_templates = marketplace_starters + STARTER_TEMPLATES
+
+    # Deduplicate by id (marketplace wins if same id exists)
+    seen: set[str] = set()
+    unique: list[StarterTemplate] = []
+    for t in all_templates:
+        if t.id not in seen:
+            seen.add(t.id)
+            unique.append(t)
+
     if not use_case:
-        return STARTER_TEMPLATES[:3]
+        return unique[:8]
 
     # Prioritize templates matching the use case
-    matching = [t for t in STARTER_TEMPLATES if use_case in t.use_cases]
-    others = [t for t in STARTER_TEMPLATES if use_case not in t.use_cases]
+    matching = [t for t in unique if use_case in t.use_cases]
+    others = [t for t in unique if use_case not in t.use_cases]
 
-    return (matching + others)[:5]
+    return (matching + others)[:8]
+
+
+# Category → UseCase mapping for marketplace templates
+_CATEGORY_USE_CASE_MAP: dict[str, list[str]] = {
+    "security": [UseCase.SECURITY_AUDIT.value, UseCase.COMPLIANCE.value],
+    "legal": [UseCase.POLICY_REVIEW.value, UseCase.COMPLIANCE.value],
+    "sme": [UseCase.TEAM_DECISIONS.value, UseCase.VENDOR_SELECTION.value],
+    "research": [UseCase.GENERAL.value, UseCase.TECHNICAL_PLANNING.value],
+    "data": [UseCase.TECHNICAL_PLANNING.value],
+    "content": [UseCase.GENERAL.value],
+    "quickstart": [UseCase.GENERAL.value],
+}
+
+# Pattern → default agent/round estimates
+_PATTERN_DEFAULTS: dict[str, tuple[int, int, int]] = {
+    # (agents_count, rounds, estimated_minutes)
+    "debate": (3, 2, 4),
+    "review_cycle": (4, 3, 6),
+    "pipeline": (3, 2, 5),
+    "hive_mind": (4, 2, 5),
+    "map_reduce": (3, 2, 5),
+}
+
+
+def _load_marketplace_templates() -> list[StarterTemplate]:
+    """Load marketplace templates and convert to StarterTemplate format."""
+    try:
+        from aragora.server.handlers.template_marketplace import (
+            _marketplace_templates,
+            _seed_marketplace_templates,
+        )
+
+        _seed_marketplace_templates()
+
+        return [_marketplace_to_starter(t) for t in _marketplace_templates.values()]
+    except Exception:
+        logger.debug("Marketplace templates unavailable, using starters only")
+        return []
+
+
+def _marketplace_to_starter(t: Any) -> StarterTemplate:
+    """Convert a MarketplaceTemplate to a StarterTemplate."""
+    agents, rounds, minutes = _PATTERN_DEFAULTS.get(t.pattern, (3, 2, 5))
+    return StarterTemplate(
+        id=t.id,
+        name=t.name,
+        description=t.description,
+        use_cases=_CATEGORY_USE_CASE_MAP.get(t.category, [UseCase.GENERAL.value]),
+        agents_count=agents,
+        rounds=rounds,
+        estimated_minutes=minutes,
+        example_prompt=t.description,
+        tags=t.tags[:5] if t.tags else [],
+        difficulty="beginner" if t.category == "quickstart" else "intermediate",
+    )
 
 
 def _track_event(

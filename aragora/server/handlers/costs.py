@@ -7,6 +7,7 @@ Provides API endpoints for tracking and visualizing AI costs:
 - Usage timeline data
 - Budget alerts and projections
 - Optimization suggestions
+- Usage data export (CSV/JSON)
 
 Endpoints:
 - GET /api/costs - Get cost dashboard data
@@ -14,12 +15,15 @@ Endpoints:
 - GET /api/costs/timeline - Get usage timeline
 - GET /api/costs/alerts - Get budget alerts
 - POST /api/costs/budget - Set budget limits
+- GET /api/costs/export - Export usage data (CSV/JSON)
 
 Now integrated with CostTracker for persistent storage.
 """
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -866,6 +870,117 @@ class CostHandler:
             logger.exception(f"Failed to simulate forecast: {e}")
             return web_error_response(str(e), 500)
 
+    @rate_limit(requests_per_minute=10)  # Export can be expensive
+    @require_permission("costs:read")
+    async def handle_export(self, request: web.Request) -> web.Response:
+        """
+        GET /api/costs/export
+
+        Export usage data as CSV or JSON.
+
+        Query params:
+            - format: Export format (csv, json). Default: json
+            - range: Time range (24h, 7d, 30d, 90d). Default: 30d
+            - workspace_id: Workspace ID (default: default)
+            - group_by: Grouping (daily, provider, feature). Default: daily
+        """
+        try:
+            export_format = request.query.get("format", "json")
+            time_range = request.query.get("range", "30d")
+            workspace_id = request.query.get("workspace_id", "default")
+            group_by = request.query.get("group_by", "daily")
+
+            if export_format not in ("csv", "json"):
+                return web_error_response("format must be 'csv' or 'json'", 400)
+
+            summary = await get_cost_summary(
+                workspace_id=workspace_id,
+                time_range=time_range,
+            )
+
+            # Build export rows based on grouping
+            rows = _build_export_rows(summary, group_by)
+
+            if export_format == "csv":
+                return _export_csv_response(rows, workspace_id, time_range)
+
+            # JSON export
+            return web.json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "time_range": time_range,
+                    "group_by": group_by,
+                    "exported_at": datetime.now(timezone.utc).isoformat(),
+                    "total_cost": summary.total_cost,
+                    "total_tokens": summary.tokens_used,
+                    "total_api_calls": summary.api_calls,
+                    "rows": rows,
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Failed to export costs: {e}")
+            return web_error_response(str(e), 500)
+
+
+def _build_export_rows(summary: CostSummary, group_by: str) -> list[dict[str, Any]]:
+    """Build export rows from cost summary based on grouping."""
+    if group_by == "provider":
+        return [
+            {
+                "name": entry["name"],
+                "cost": entry["cost"],
+                "percentage": entry["percentage"],
+            }
+            for entry in summary.cost_by_provider
+        ]
+    elif group_by == "feature":
+        return [
+            {
+                "name": entry["name"],
+                "cost": entry["cost"],
+                "percentage": entry["percentage"],
+            }
+            for entry in summary.cost_by_feature
+        ]
+    else:
+        # daily (default)
+        return [
+            {
+                "date": entry.get("date", ""),
+                "cost": entry.get("cost", 0),
+                "tokens": entry.get("tokens", 0),
+            }
+            for entry in summary.daily_costs
+        ]
+
+
+def _export_csv_response(
+    rows: list[dict[str, Any]], workspace_id: str, time_range: str
+) -> web.Response:
+    """Generate a CSV response from export rows."""
+    if not rows:
+        return web.Response(
+            text="",
+            content_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="costs_{workspace_id}_{time_range}.csv"'
+            },
+        )
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+    writer.writeheader()
+    writer.writerows(rows)
+
+    return web.Response(
+        text=output.getvalue(),
+        content_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="costs_{workspace_id}_{time_range}.csv"'
+        },
+    )
+
 
 def register_routes(app: web.Application) -> None:
     """Register cost visibility routes."""
@@ -919,6 +1034,10 @@ def register_routes(app: web.Application) -> None:
         "/api/costs/recommendations/{recommendation_id}/dismiss",
         handler.handle_dismiss_recommendation,
     )
+
+    # Export endpoints (v1 canonical + legacy)
+    app.router.add_get("/api/v1/costs/export", handler.handle_export)
+    app.router.add_get("/api/costs/export", handler.handle_export)
 
     # Efficiency metrics (v1 canonical + legacy)
     app.router.add_get("/api/v1/costs/efficiency", handler.handle_get_efficiency)

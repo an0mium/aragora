@@ -531,3 +531,31 @@ class PopulationManager:
             )
 
             conn.commit()
+
+
+def select_by_fitness(population: list, count: int = 2) -> list:
+    """Select top agents from a population based on fitness.
+
+    Sorts agents by fitness score (or ELO rating) in descending order
+    and returns the top ``count`` agents.
+
+    Args:
+        population: List of agents with ``fitness_score`` or ``elo_rating``.
+        count: Number of agents to select.
+
+    Returns:
+        List of selected agents, highest fitness first.
+    """
+    if not population:
+        return []
+    count = min(count, len(population))
+
+    def _fitness_key(agent):
+        for attr in ("fitness_score", "elo_rating"):
+            val = getattr(agent, attr, None)
+            if isinstance(val, (int, float)):
+                return val
+        return 0
+
+    ranked = sorted(population, key=_fitness_key, reverse=True)
+    return ranked[:count]
