@@ -18,10 +18,10 @@ from typing import Any
 
 from datetime import datetime, timezone
 
-from aragora.nomic.convoys import ConvoyManager
 from aragora.nomic.stores import (
     BeadStore as NomicBeadStore,
     Convoy as NomicConvoy,
+    ConvoyManager,
     ConvoyStatus as NomicConvoyStatus,
 )
 from aragora.nomic.stores.paths import should_use_canonical_store
@@ -237,7 +237,7 @@ class ConvoyTracker:
             if self._canonical_stores is not None:
                 self._nomic_manager = await self._canonical_stores.convoy_manager()
             elif self._bead_store is not None:
-                from aragora.nomic.convoys import get_convoy_manager
+                from aragora.nomic.stores import get_convoy_manager
 
                 self._nomic_manager = await get_convoy_manager(self._bead_store)
         if self._nomic_manager and not self._nomic_initialized:

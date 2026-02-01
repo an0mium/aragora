@@ -16,7 +16,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from aragora.nomic.convoys import ConvoyStatus as NomicConvoyStatus
+    from aragora.nomic.stores import ConvoyStatus as NomicConvoyStatus
 
 
 class ConvoyStatus(Enum):
@@ -47,7 +47,7 @@ class ConvoyStatus(Enum):
 
     def to_nomic(self) -> "NomicConvoyStatus":
         """Convert to canonical nomic status."""
-        from aragora.nomic.convoys import ConvoyStatus as NomicConvoyStatus
+        from aragora.nomic.stores import ConvoyStatus as NomicConvoyStatus
 
         mapping = {
             ConvoyStatus.PENDING: NomicConvoyStatus.PENDING,
@@ -70,7 +70,7 @@ class ConvoyStatus(Enum):
         If gastown_status is provided (from metadata), use that for
         finer-grained status like BLOCKED vs REVIEW.
         """
-        from aragora.nomic.convoys import ConvoyStatus as NomicConvoyStatus
+        from aragora.nomic.stores import ConvoyStatus as NomicConvoyStatus
 
         if gastown_status:
             try:

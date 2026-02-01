@@ -1,6 +1,14 @@
 """
 Beads: Git-Backed Atomic Work Units.
 
+.. deprecated::
+    External consumers should import from the canonical stores package::
+
+        from aragora.nomic.stores import BeadStore, Bead, BeadStatus, BeadType
+
+    Direct imports from ``aragora.nomic.beads`` are reserved for internal
+    nomic-package use only.
+
 Inspired by Gastown's Beads pattern, this module provides persistent work tracking
 that survives agent restarts. Beads are stored in JSONL format and can be backed
 by git for durability and auditability.

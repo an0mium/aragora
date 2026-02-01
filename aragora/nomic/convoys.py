@@ -1,6 +1,14 @@
 """
 Convoys: Grouped Work Orders.
 
+.. deprecated::
+    External consumers should import from the canonical stores package::
+
+        from aragora.nomic.stores import ConvoyManager, Convoy, ConvoyStatus
+
+    Direct imports from ``aragora.nomic.convoys`` are reserved for internal
+    nomic-package use only.
+
 Inspired by Gastown's Convoy pattern, this module provides batch assignment
 and tracking of related beads. Convoys wrap multiple beads into a single
 work order that can be assigned to agents.
