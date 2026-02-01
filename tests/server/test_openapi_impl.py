@@ -547,6 +547,43 @@ class TestResponseFormatCompliance:
         ]
         assert len(critical_missing) == 0, f"Missing success responses: {critical_missing[:5]}"
 
+    def test_stable_responses_have_schema(self, openapi_schema):
+        """Stable endpoints should include a response schema for success codes."""
+
+        def has_schema(response: dict[str, Any]) -> bool:
+            content = response.get("content", {})
+            if not isinstance(content, dict):
+                return False
+            for payload in content.values():
+                if isinstance(payload, dict) and payload.get("schema"):
+                    return True
+            return False
+
+        missing_schema = []
+        for path, spec in openapi_schema["paths"].items():
+            for method, operation in spec.items():
+                if not isinstance(operation, dict):
+                    continue
+                if operation.get("x-aragora-stability") != "stable":
+                    continue
+                responses = operation.get("responses", {})
+                success_codes = [code for code in responses if str(code).startswith("2")]
+                if not success_codes:
+                    missing_schema.append(f"{method} {path} (no 2xx)")
+                    continue
+                ok = False
+                for code in success_codes:
+                    response = responses.get(code, {})
+                    if str(code) == "204":
+                        ok = True
+                        break
+                    if isinstance(response, dict) and has_schema(response):
+                        ok = True
+                        break
+                if not ok:
+                    missing_schema.append(f"{method} {path}")
+        assert not missing_schema, f"Stable endpoints missing response schema: {missing_schema[:5]}"
+
 
 # ---------------------------------------------------------------------------
 # Test Class: Authentication/Authorization Integration

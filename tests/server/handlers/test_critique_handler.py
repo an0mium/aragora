@@ -195,12 +195,9 @@ class TestReputationEndpoints:
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_all_reputations_with_data(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_all_reputations_with_data(self, mock_get_store, tmp_path):
         """Should return all reputations when data exists."""
-        db_path = tmp_path / "debates.db"
-        db_path.touch()
-
         mock_store = MagicMock()
         mock_store.get_all_reputations.return_value = [
             MockReputation(
@@ -212,7 +209,7 @@ class TestReputationEndpoints:
                 debates_participated=150,
             ),
         ]
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -224,12 +221,9 @@ class TestReputationEndpoints:
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_agent_reputation_found(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_agent_reputation_found(self, mock_get_store, tmp_path):
         """Should return agent reputation when found."""
-        db_path = tmp_path / "debates.db"
-        db_path.touch()
-
         mock_store = MagicMock()
         mock_store.get_reputation.return_value = MockReputation(
             agent_name="claude",
@@ -239,7 +233,7 @@ class TestReputationEndpoints:
             critique_value=0.88,
             debates_participated=150,
         )
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -252,15 +246,12 @@ class TestReputationEndpoints:
         mock_store.get_reputation.assert_called_once_with("claude")
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_agent_reputation_not_found(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_agent_reputation_not_found(self, mock_get_store, tmp_path):
         """Should return null reputation when agent not found."""
-        db_path = tmp_path / "debates.db"
-        db_path.touch()
-
         mock_store = MagicMock()
         mock_store.get_reputation.return_value = None
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -345,8 +336,8 @@ class TestResponseBodyValidation:
     """Test JSON response body structure."""
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_patterns_response_structure(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_patterns_response_structure(self, mock_get_store, tmp_path):
         """Should return correct JSON structure for patterns."""
         import json
 
@@ -363,7 +354,7 @@ class TestResponseBodyValidation:
             ),
         ]
         mock_store.get_stats.return_value = {"total": 100, "active": 80}
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -383,8 +374,8 @@ class TestResponseBodyValidation:
         assert body["patterns"][0]["usage_count"] == 25
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_all_reputations_response_structure(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_all_reputations_response_structure(self, mock_get_store, tmp_path):
         """Should return correct JSON structure for all reputations."""
         import json
 
@@ -402,7 +393,7 @@ class TestResponseBodyValidation:
                 debates_participated=100,
             ),
         ]
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -424,8 +415,8 @@ class TestResponseBodyValidation:
         assert rep["debates_participated"] == 100
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_agent_reputation_response_structure(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_agent_reputation_response_structure(self, mock_get_store, tmp_path):
         """Should return correct JSON structure for agent reputation."""
         import json
 
@@ -441,7 +432,7 @@ class TestResponseBodyValidation:
             critique_value=0.80,
             debates_participated=75,
         )
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -461,8 +452,8 @@ class TestResponseBodyValidation:
         assert rep["debates_participated"] == 75
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_agent_not_found_response_structure(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_agent_not_found_response_structure(self, mock_get_store, tmp_path):
         """Should return correct JSON structure when agent not found."""
         import json
 
@@ -471,7 +462,7 @@ class TestResponseBodyValidation:
 
         mock_store = MagicMock()
         mock_store.get_reputation.return_value = None
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -490,15 +481,15 @@ class TestErrorHandling:
     """Test error handling scenarios."""
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_patterns_store_exception(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_patterns_store_exception(self, mock_get_store, tmp_path):
         """Should return 500 when store raises exception."""
         db_path = tmp_path / "debates.db"
         db_path.touch()
 
         mock_store = MagicMock()
         mock_store.retrieve_patterns.side_effect = Exception("Database connection failed")
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -510,15 +501,15 @@ class TestErrorHandling:
         assert result.status_code == 500
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_archive_store_exception(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_archive_store_exception(self, mock_get_store, tmp_path):
         """Should return 500 when archive stats raises exception."""
         db_path = tmp_path / "debates.db"
         db_path.touch()
 
         mock_store = MagicMock()
         mock_store.get_archive_stats.side_effect = Exception("IO Error")
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -530,15 +521,15 @@ class TestErrorHandling:
         assert result.status_code == 500
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_all_reputations_store_exception(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_all_reputations_store_exception(self, mock_get_store, tmp_path):
         """Should return 500 when get_all_reputations raises exception."""
         db_path = tmp_path / "debates.db"
         db_path.touch()
 
         mock_store = MagicMock()
         mock_store.get_all_reputations.side_effect = Exception("Query failed")
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -550,15 +541,15 @@ class TestErrorHandling:
         assert result.status_code == 500
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_agent_reputation_store_exception(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_agent_reputation_store_exception(self, mock_get_store, tmp_path):
         """Should return 500 when get_reputation raises exception."""
         db_path = tmp_path / "debates.db"
         db_path.touch()
 
         mock_store = MagicMock()
         mock_store.get_reputation.side_effect = Exception("Timeout")
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -725,8 +716,8 @@ class TestIntegration:
         assert handler.can_handle("/api/critiques/patterns") is True
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_multiple_patterns_returned(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_multiple_patterns_returned(self, mock_get_store, tmp_path):
         """Should handle multiple patterns in response."""
         import json
 
@@ -740,7 +731,7 @@ class TestIntegration:
             MockCritiquePattern("evidence", "Cite sources", 0.8, 25),
         ]
         mock_store.get_stats.return_value = {"total": 200}
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
@@ -754,8 +745,8 @@ class TestIntegration:
         assert len(body["patterns"]) == 3
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
-    @patch("aragora.server.handlers.critique.CritiqueStore")
-    def test_multiple_reputations_returned(self, mock_store_class, tmp_path):
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_multiple_reputations_returned(self, mock_get_store, tmp_path):
         """Should handle multiple reputations in response."""
         import json
 
@@ -768,7 +759,7 @@ class TestIntegration:
             MockReputation("gpt-4", 0.88, 1.1, 0.70, 0.85, 120),
             MockReputation("gemini", 0.85, 1.0, 0.68, 0.82, 100),
         ]
-        mock_store_class.return_value = mock_store
+        mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
         mock_handler = MagicMock()
