@@ -24,13 +24,14 @@ from aragora.nomic.stores import (
     ConvoyManager as NomicConvoyManager,
     ConvoyStatus as NomicConvoyStatus,
 )
-from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
+from aragora.nomic.stores.paths import should_use_canonical_store
 from aragora.nomic.stores.adapters.workspace import (
     nomic_convoy_to_workspace,
     resolve_workspace_convoy_status,
     workspace_convoy_metadata,
     workspace_convoy_status_to_nomic,
 )
+from aragora.stores.canonical import WorkspaceStores, get_canonical_workspace_stores
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +212,7 @@ class ConvoyTracker:
         self,
         bead_store: NomicBeadStore | None = None,
         use_nomic_store: bool | None = None,
+        canonical_stores: WorkspaceStores | None = None,
     ) -> None:
         default_use = should_use_canonical_store(default=True) or bool(bead_store)
         self._use_nomic_store = use_nomic_store if use_nomic_store is not None else default_use
@@ -219,12 +221,19 @@ class ConvoyTracker:
                 "Workspace ConvoyTracker fallback store is deprecated; using canonical store."
             )
             self._use_nomic_store = True
-        if self._use_nomic_store and bead_store is None:
-            bead_store = NomicBeadStore(resolve_store_dir(), git_enabled=False, auto_commit=False)
-        self._nomic_manager = NomicConvoyManager(bead_store) if bead_store else None
+        self._canonical_stores = canonical_stores
+        self._bead_store = bead_store
+        if self._use_nomic_store and self._bead_store is None and self._canonical_stores is None:
+            self._canonical_stores = get_canonical_workspace_stores(
+                git_enabled=False,
+                auto_commit=False,
+            )
+        self._nomic_manager = NomicConvoyManager(self._bead_store) if self._bead_store else None
         self._nomic_initialized = False
 
     async def _ensure_nomic_manager(self) -> None:
+        if self._nomic_manager is None and self._canonical_stores is not None:
+            self._nomic_manager = await self._canonical_stores.convoy_manager()
         if self._nomic_manager and not self._nomic_initialized:
             await self._nomic_manager.bead_store.initialize()
             await self._nomic_manager.initialize()

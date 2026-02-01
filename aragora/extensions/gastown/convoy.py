@@ -18,6 +18,7 @@ from aragora.nomic.stores import BeadStore as NomicBeadStore
 from aragora.nomic.stores import ConvoyManager as NomicConvoyManager
 from aragora.nomic.stores import ConvoyStatus as NomicConvoyStatus
 from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
+from aragora.stores.canonical import WorkspaceStores, get_canonical_workspace_stores
 from aragora.workspace.convoy import (
     Convoy as WorkspaceConvoy,
     ConvoyStatus as WorkspaceConvoyStatus,
@@ -55,6 +56,7 @@ class ConvoyTracker:
         self,
         storage_path: str | Path | None = None,
         use_nomic_store: bool | None = None,
+        canonical_stores: WorkspaceStores | None = None,
     ) -> None:
         """
         Initialize the convoy tracker.
@@ -71,20 +73,25 @@ class ConvoyTracker:
                 "Gastown ConvoyTracker fallback store is deprecated; using canonical store."
             )
             self._use_nomic_store = True
-        self._bead_store: NomicBeadStore | None = None
+        self._canonical_stores = canonical_stores
         if self._use_nomic_store and self._storage_path is None:
             self._storage_path = resolve_store_dir()
         if self._storage_path:
             self._storage_path.mkdir(parents=True, exist_ok=True)
-            if self._use_nomic_store:
-                self._bead_store = NomicBeadStore(
-                    self._storage_path,
+            if self._use_nomic_store and self._canonical_stores is None:
+                self._canonical_stores = get_canonical_workspace_stores(
+                    bead_dir=str(self._storage_path),
                     git_enabled=False,
                     auto_commit=False,
                 )
+        if self._use_nomic_store and self._canonical_stores is None and self._storage_path is None:
+            self._canonical_stores = get_canonical_workspace_stores(
+                git_enabled=False,
+                auto_commit=False,
+            )
         self._workspace_tracker = WorkspaceConvoyTracker(
-            bead_store=self._bead_store,
             use_nomic_store=self._use_nomic_store,
+            canonical_stores=self._canonical_stores,
         )
         self._default_workspace_id = "gastown"
 

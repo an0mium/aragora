@@ -21,7 +21,7 @@ from aragora.nomic.stores import (
     BeadStatus as NomicBeadStatus,
     BeadStore as NomicBeadStore,
 )
-from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
+from aragora.nomic.stores.paths import should_use_canonical_store
 from aragora.nomic.stores.adapters.workspace import (
     nomic_bead_to_workspace,
     workspace_bead_metadata,
@@ -29,6 +29,7 @@ from aragora.nomic.stores.adapters.workspace import (
     workspace_bead_to_nomic,
     resolve_workspace_bead_status,
 )
+from aragora.stores.canonical import WorkspaceStores, get_canonical_workspace_stores
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,7 @@ class BeadManager:
         storage_dir: str | Path | None = None,
         use_nomic_store: bool | None = None,
         nomic_store: NomicBeadStore | None = None,
+        canonical_stores: WorkspaceStores | None = None,
     ) -> None:
         self._storage_dir = Path(storage_dir) if storage_dir else None
         default_use = should_use_canonical_store(default=True) or bool(storage_dir)
@@ -149,17 +151,29 @@ class BeadManager:
             )
             self._use_nomic_store = True
         self._nomic_store = nomic_store
+        self._canonical_stores = canonical_stores
         self._nomic_initialized = False
         if self._storage_dir:
             self._storage_dir.mkdir(parents=True, exist_ok=True)
         if self._use_nomic_store and self._nomic_store is None:
-            if not self._storage_dir:
-                self._storage_dir = resolve_store_dir()
-            self._nomic_store = NomicBeadStore(
-                self._storage_dir, git_enabled=False, auto_commit=False
-            )
+            if self._canonical_stores is None:
+                bead_dir = str(self._storage_dir) if self._storage_dir else None
+                self._canonical_stores = get_canonical_workspace_stores(
+                    bead_dir=bead_dir,
+                    git_enabled=False,
+                    auto_commit=False,
+                )
 
     async def _ensure_nomic_store(self) -> None:
+        if self._nomic_store is None:
+            if self._canonical_stores is None:
+                bead_dir = str(self._storage_dir) if self._storage_dir else None
+                self._canonical_stores = get_canonical_workspace_stores(
+                    bead_dir=bead_dir,
+                    git_enabled=False,
+                    auto_commit=False,
+                )
+            self._nomic_store = await self._canonical_stores.bead_store()
         if self._nomic_store and not self._nomic_initialized:
             await self._nomic_store.initialize()
             self._nomic_initialized = True
