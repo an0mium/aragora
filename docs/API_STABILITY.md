@@ -32,6 +32,13 @@ python scripts/sdk_parity_audit.py \
 If you need to promote or demote individual endpoints, update the manifest and
 re-export the OpenAPI spec.
 
+You can also add manual overrides:
+
+- `beta`: endpoints to surface as beta
+- `internal`: endpoints reserved for internal use
+
+These overrides are preserved when regenerating the manifest.
+
 ## OpenAPI Integration
 
 `aragora/server/openapi_impl.py` applies the stability marker to every operation

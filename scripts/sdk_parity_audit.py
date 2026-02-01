@@ -362,6 +362,22 @@ def render_stability_manifest(
     }
 
 
+def _load_stability_overrides(path: Path) -> dict[str, list[str]]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+    overrides: dict[str, list[str]] = {}
+    if isinstance(data, dict):
+        for key in ("beta", "internal"):
+            value = data.get(key)
+            if isinstance(value, list):
+                overrides[key] = [v for v in value if isinstance(v, str)]
+    return overrides
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate SDK parity report")
     parser.add_argument("--openapi", default="docs/api/openapi.json")
@@ -417,6 +433,9 @@ def main() -> None:
         stable = stable & schema_covered
         criteria = f"{criteria}; includes 2xx response schema coverage"
         manifest = render_stability_manifest(stable, criteria=criteria)
+        overrides = _load_stability_overrides(Path(args.stable_out))
+        for key, values in overrides.items():
+            manifest[key] = values
         Path(args.stable_out).write_text(json.dumps(manifest, indent=2))
         print(f"Wrote {args.stable_out}")
 
