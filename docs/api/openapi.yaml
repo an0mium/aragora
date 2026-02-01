@@ -6652,7 +6652,6 @@
           "Debates"
         ],
         "summary": "Get meta-critique",
-        "operationId": "getDebateMetaCritique",
         "description": "Get meta-level critique analyzing the debate's reasoning quality.",
         "parameters": [
           {
@@ -6702,7 +6701,6 @@
           "Debates"
         ],
         "summary": "Get debate graph stats",
-        "operationId": "getDebateGraphStats",
         "description": "Get graph statistics showing argument structure and relationships.",
         "parameters": [
           {
@@ -6809,7 +6807,6 @@
           "Debates"
         ],
         "summary": "Fork debate",
-        "operationId": "forkDebate",
         "description": "Create a counterfactual branch from a specific round",
         "parameters": [
           {
@@ -18850,16 +18847,31 @@
     },
     "/api/v1/workflows": {
       "get": {
-        "summary": "List workflows",
         "tags": [
           "Workflows"
         ],
-        "description": "List all workflows with optional filtering by category, tags, or search query.",
-        "operationId": "_handle_list_workflows",
+        "summary": "List workflows",
+        "operationId": "listWorkflows",
+        "description": "Get list of workflows with optional filtering by category, tags, or search term.",
         "parameters": [
           {
             "name": "category",
             "in": "query",
+            "description": "Filter by workflow category",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "debate",
+                "analysis",
+                "integration",
+                "custom"
+              ]
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Filter by tags (comma-separated)",
             "schema": {
               "type": "string"
             }
@@ -18867,6 +18879,7 @@
           {
             "name": "search",
             "in": "query",
+            "description": "Search in workflow name and description",
             "schema": {
               "type": "string"
             }
@@ -18876,7 +18889,8 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "default": 50
+              "default": 50,
+              "maximum": 200
             }
           },
           {
@@ -18890,85 +18904,121 @@
         ],
         "responses": {
           "200": {
-            "description": "List of workflows with pagination"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      },
-      "post": {
-        "summary": "Create workflow",
-        "tags": [
-          "Workflows"
-        ],
-        "description": "Create a new workflow definition with steps and transitions.",
-        "operationId": "_handle_create_workflow",
-        "responses": {
-          "201": {
-            "description": "Workflow created successfully"
-          },
-          "400": {
-            "description": "Invalid workflow definition"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/workflows/{workflow_id}": {
-      "delete": {
-        "tags": [
-          "Workflows"
-        ],
-        "summary": "Delete workflow",
-        "description": "Delete a workflow definition.",
-        "parameters": [
-          {
-            "name": "workflow_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+            "description": "List of workflows with pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowList"
+                }
+              }
             }
           }
+        }
+      },
+      "post": {
+        "tags": [
+          "Workflows"
         ],
+        "summary": "Create workflow",
+        "operationId": "createWorkflows",
+        "description": "Create a new workflow definition with steps and transitions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "steps"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "debate",
+                      "analysis",
+                      "integration",
+                      "custom"
+                    ]
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/StepDefinition"
+                    }
+                  },
+                  "transitions": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TransitionRule"
+                    }
+                  },
+                  "input_schema": {
+                    "type": "object"
+                  },
+                  "output_schema": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": "Workflow deleted"
+          "201": {
+            "description": "Workflow created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
           },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
                 "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
                     "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
                       "trace_id": "req_abc123xyz"
                     }
                   }
@@ -18976,9 +19026,10 @@
               }
             }
           }
-        },
-        "deprecated": true
-      },
+        }
+      }
+    },
+    "/api/workflows/{workflow_id}": {
       "get": {
         "tags": [
           "Workflows"
@@ -19031,66 +19082,12 @@
         },
         "deprecated": true
       },
-      "patch": {
-        "summary": "Autogenerated placeholder (spec pending)",
+      "put": {
         "tags": [
           "Workflows"
         ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false,
-        "deprecated": true
-      }
-    },
-    "/api/v1/workflows/{workflow_id}": {
-      "get": {
-        "summary": "Get workflow",
-        "tags": [
-          "Workflows"
-        ],
-        "description": "Get a workflow by ID with full definition and metadata.",
-        "operationId": "_handle_get_workflow",
-        "parameters": [
-          {
-            "name": "workflow_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Workflow details"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
-          },
-          "404": {
-            "description": "Workflow not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      },
-      "patch": {
         "summary": "Update workflow",
-        "tags": [
-          "Workflows"
-        ],
         "description": "Update an existing workflow definition. Creates a new version.",
-        "operationId": "_handle_update_workflow",
         "parameters": [
           {
             "name": "workflow_id",
@@ -19101,36 +19098,96 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Workflow updated successfully"
+            "description": "Workflow updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid workflow definition"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
-            "description": "Workflow not found"
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "deprecated": true
       },
       "delete": {
-        "summary": "Delete workflow",
         "tags": [
           "Workflows"
         ],
-        "description": "Delete a workflow and all its version history.",
-        "operationId": "_handle_delete_workflow",
+        "summary": "Delete workflow",
+        "description": "Delete a workflow definition.",
         "parameters": [
           {
             "name": "workflow_id",
@@ -19145,21 +19202,229 @@
           "200": {
             "description": "Workflow deleted"
           },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
-          },
           "404": {
-            "description": "Workflow not found"
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
-        "security": [
+        "deprecated": true
+      }
+    },
+    "/api/v1/workflows/{workflow_id}": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Get workflow",
+        "operationId": "getWorkflow",
+        "description": "Get detailed workflow definition by ID.",
+        "parameters": [
           {
-            "bearerAuth": []
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Update workflow",
+        "operationId": "updateWorkflow",
+        "description": "Update an existing workflow definition. Creates a new version.",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workflow updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Delete workflow",
+        "operationId": "deleteWorkflow",
+        "description": "Delete a workflow definition.",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow deleted"
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/workflows/{workflow_id}/execute": {
@@ -19291,13 +19556,12 @@
     },
     "/api/v1/workflows/{workflow_id}/execute": {
       "post": {
-        "summary": "Execute workflow",
         "tags": [
-          "Workflows",
-          "Executions"
+          "Workflows"
         ],
-        "description": "Execute a workflow with the given input parameters.",
-        "operationId": "_handle_execute",
+        "summary": "Execute workflow",
+        "operationId": "createWorkflowsExecute",
+        "description": "Start execution of a workflow with provided inputs.",
         "parameters": [
           {
             "name": "workflow_id",
@@ -19308,28 +19572,113 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Execution started/completed"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
-          },
-          "404": {
-            "description": "Workflow not found"
-          },
-          "503": {
-            "description": "Execution service unavailable"
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "inputs": {
+                    "type": "object",
+                    "description": "Input parameters for the workflow"
+                  },
+                  "async": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run asynchronously and return execution ID"
+                  }
+                }
+              }
+            }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
+        "responses": {
+          "200": {
+            "description": "Workflow execution result or execution ID"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
           }
-        ]
+        }
       }
     },
     "/api/workflows/{workflow_id}/versions": {
@@ -19476,17 +19825,17 @@
     },
     "/api/v1/workflow-templates": {
       "get": {
-        "summary": "List workflow templates",
         "tags": [
-          "Workflows",
-          "Templates"
+          "Workflows"
         ],
-        "description": "List available workflow templates for quick workflow creation.",
-        "operationId": "_handle_list_templates",
+        "summary": "List workflow templates",
+        "operationId": "listWorkflowTemplatesLegacy",
+        "description": "Get gallery of workflow templates for quick start.",
         "parameters": [
           {
             "name": "category",
             "in": "query",
+            "description": "Filter templates by category",
             "schema": {
               "type": "string"
             }
@@ -19494,20 +19843,16 @@
         ],
         "responses": {
           "200": {
-            "description": "List of workflow templates"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
+            "description": "List of workflow templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowTemplateList"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/workflow-templates/{template_id}": {
@@ -19675,17 +20020,17 @@
     },
     "/api/v1/workflow-executions": {
       "get": {
-        "summary": "List workflow executions",
         "tags": [
-          "Workflows",
-          "Executions"
+          "Workflows"
         ],
-        "description": "List all workflow executions for runtime monitoring dashboard.",
-        "operationId": "_handle_list_executions",
+        "summary": "List workflow executions",
+        "operationId": "listWorkflowExecutions",
+        "description": "Get list of all workflow executions for the runtime dashboard.",
         "parameters": [
           {
             "name": "workflow_id",
             "in": "query",
+            "description": "Filter by workflow ID",
             "schema": {
               "type": "string"
             }
@@ -19693,8 +20038,16 @@
           {
             "name": "status",
             "in": "query",
+            "description": "Filter by execution status",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+              ]
             }
           },
           {
@@ -19708,20 +20061,16 @@
         ],
         "responses": {
           "200": {
-            "description": "List of workflow executions"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
+            "description": "List of workflow executions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionList"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/workflow-executions/{execution_id}": {
@@ -20462,20 +20811,15 @@
     },
     "/api/v1/workflow-approvals": {
       "get": {
-        "summary": "List pending approvals",
         "tags": [
-          "Workflows",
-          "Approvals"
+          "Workflows"
         ],
-        "description": "List workflow steps pending human approval.",
-        "operationId": "_handle_list_approvals",
-        "parameters": [
+        "summary": "List pending approvals",
+        "operationId": "listWorkflowApprovals",
+        "description": "Get list of workflow steps awaiting human approval.",
+        "security": [
           {
-            "name": "workflow_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -20483,17 +20827,34 @@
             "description": "List of pending approvals"
           },
           "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/workflow-approvals/{approval_id}": {
@@ -62042,6 +62403,180 @@
         ]
       }
     },
+    "/api/v1/debates/{debate_id}/meta-critique": {
+      "get": {
+        "summary": "Get meta-critique analysis",
+        "tags": [
+          "Debates",
+          "Analysis"
+        ],
+        "description": "Get meta-level analysis of a debate including repetition and circular argument detection.",
+        "operationId": "_get_meta_critique",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Meta-critique analysis returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Debate trace not found"
+          },
+          "503": {
+            "description": "Module not available"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/{debate_id}/graph/stats": {
+      "get": {
+        "summary": "Get argument graph statistics",
+        "tags": [
+          "Debates",
+          "Analysis"
+        ],
+        "description": "Get argument graph statistics including node counts, edge counts, depth, and complexity.",
+        "operationId": "_get_graph_stats",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Graph statistics returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Debate not found"
+          },
+          "503": {
+            "description": "Module not available"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/batch": {
+      "post": {
+        "summary": "Submit batch of debates",
+        "tags": [
+          "Debates",
+          "Batch"
+        ],
+        "description": "Submit multiple debates for parallel processing with optional webhook notification.",
+        "operationId": "_submit_batch",
+        "responses": {
+          "200": {
+            "description": "Batch submitted successfully"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "503": {
+            "description": "Queue not available"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/batch/{batch_id}/status": {
+      "get": {
+        "summary": "Get batch status",
+        "tags": [
+          "Debates",
+          "Batch"
+        ],
+        "description": "Get status of a batch request including all items.",
+        "operationId": "_get_batch_status",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch status returned"
+          },
+          "400": {
+            "description": "Invalid batch ID"
+          },
+          "404": {
+            "description": "Batch not found"
+          },
+          "503": {
+            "description": "Queue not initialized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/queue/status": {
+      "get": {
+        "summary": "Get debate queue status",
+        "tags": [
+          "Debates",
+          "Batch"
+        ],
+        "description": "Get overall queue health and processing statistics.",
+        "operationId": "_get_queue_status",
+        "responses": {
+          "200": {
+            "description": "Queue status returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/debates/export/batch": {
       "post": {
         "summary": "Start batch export",
@@ -62128,6 +62663,120 @@
           },
           "404": {
             "description": "Export job not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/{debate_id}/fork": {
+      "post": {
+        "summary": "Fork a debate",
+        "tags": [
+          "Debates",
+          "Fork"
+        ],
+        "description": "Create a counterfactual fork of a debate at a specific branch point.",
+        "operationId": "_fork_debate",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fork created successfully"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/{debate_id}/followups": {
+      "get": {
+        "summary": "Get follow-up suggestions",
+        "tags": [
+          "Debates",
+          "Fork"
+        ],
+        "description": "Get follow-up debate suggestions based on identified cruxes and uncertainty metrics.",
+        "operationId": "_get_followup_suggestions",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Follow-up suggestions returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/{debate_id}/forks": {
+      "get": {
+        "summary": "List debate forks",
+        "tags": [
+          "Debates",
+          "Fork"
+        ],
+        "description": "List all forks (counterfactual branches) of a debate.",
+        "operationId": "_list_debate_forks",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of forks returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Debate not found"
           }
         },
         "security": [
@@ -62949,45 +63598,6 @@
         ]
       }
     },
-    "/api/v1/workflows/{workflow_id}/simulate": {
-      "post": {
-        "summary": "Simulate workflow",
-        "tags": [
-          "Workflows"
-        ],
-        "description": "Dry-run a workflow to validate and preview the execution plan.",
-        "operationId": "_handle_simulate",
-        "parameters": [
-          {
-            "name": "workflow_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Simulation results with execution plan"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Permission denied"
-          },
-          "404": {
-            "description": "Workflow not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
     "/api/v1/email/prioritize": {
       "post": {
         "summary": "Score an email for priority",
@@ -63575,129 +64185,6 @@
         "x-method-inferred": false
       }
     },
-    "/api/v1/debates/batch": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "patch": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/debates/batch/{param}/status": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "patch": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/debates/queue/status": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "patch": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
     "/api/v1/debates/export/batch/{param}/stream": {
       "delete": {
         "summary": "Autogenerated placeholder (spec pending)",
@@ -63822,88 +64309,6 @@
       }
     },
     "/api/v1/debates/{param}/followup": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "patch": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/debates/{param}/followups": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "patch": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/debates/{param}/forks": {
       "delete": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -64464,6 +64869,51 @@
       }
     },
     "/api/v1/platform/health": {
+      "get": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": false
+      }
+    },
+    "/api/v1/health/workers": {
+      "get": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": false
+      }
+    },
+    "/api/v1/health/job-queue": {
+      "get": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": false
+      }
+    },
+    "/api/v1/health/workers/all": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -77905,6 +78355,180 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": false
+      }
+    },
+    "/api/external-agents/tasks": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true,
+        "deprecated": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true,
+        "deprecated": true
+      }
+    },
+    "/api/v1/external-agents/tasks": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      }
+    },
+    "/api/external-agents/adapters": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true,
+        "deprecated": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true,
+        "deprecated": true
+      }
+    },
+    "/api/v1/external-agents/adapters": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      }
+    },
+    "/api/external-agents/health": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true,
+        "deprecated": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true,
+        "deprecated": true
+      }
+    },
+    "/api/v1/external-agents/health": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
       }
     },
     "/api/onboarding/flow": {

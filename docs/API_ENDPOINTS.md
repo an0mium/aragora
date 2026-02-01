@@ -6,7 +6,6 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 
 - [A2A](#a2a)
 - [Accounting](#accounting)
-- [Analytics](#analytics)
 - [Analytics Dashboard](#analytics-dashboard)
 - [AnalyticsMetrics](#analyticsmetrics)
 - [Ap Automation](#ap-automation)
@@ -42,6 +41,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Evaluation](#evaluation)
 - [Expenses](#expenses)
 - [Explainability](#explainability)
+- [External Agents](#external-agents)
 - [External Integrations](#external-integrations)
 - [Feedback](#feedback)
 - [Gallery](#gallery)
@@ -61,6 +61,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Nomic](#nomic)
 - [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
+- [Openclaw Gateway](#openclaw-gateway)
 - [Orchestration](#orchestration)
 - [Organizations](#organizations)
 - [Partner](#partner)
@@ -200,32 +201,6 @@ Payroll run details
 ### `POST` `/api/accounting/gusto/payrolls/{payroll_id}/journal-entry`
 
 Generate journal entry
-
----
-
-## Analytics
-
-Analytics and metrics endpoint handlers.
-
-### `GET` `/api/analytics/disagreements`
-
-Get disagreement statistics
-
-### `GET` `/api/analytics/role-rotation`
-
-Get role rotation statistics
-
-### `GET` `/api/analytics/early-stops`
-
-Get early stopping statistics
-
-### `GET` `/api/ranking/stats`
-
-Get ranking statistics
-
-### `GET` `/api/memory/stats`
-
-Get memory statistics
 
 ---
 
@@ -1335,6 +1310,32 @@ GET /api/v1/explain/*
 
 ---
 
+## External Agents
+
+External Agent Gateway endpoint handlers.
+
+### `POST` `/api/external-agents/tasks`
+
+Submit task to external agent
+
+### `GET` `/api/external-agents/tasks/{id}`
+
+Get task status/result
+
+### `DELETE` `/api/external-agents/tasks/{id}`
+
+Cancel task
+
+### `GET` `/api/external-agents/adapters`
+
+List registered adapters
+
+### `GET` `/api/external-agents/health`
+
+Health check all adapters
+
+---
+
 ## External Integrations
 
 External Integrations API Handler.
@@ -1952,6 +1953,24 @@ Apply quick-start configuration
 ### `GET` `/api/v1/onboarding/analytics`
 
 Get onboarding funnel analytics
+
+---
+
+## Openclaw Gateway
+
+HTTP Handlers for OpenClaw Gateway.
+
+### `GET` `/api/gateway/openclaw/health`
+
+Gateway health
+
+### `GET` `/api/gateway/openclaw/metrics`
+
+Gateway metrics
+
+### `GET` `/api/gateway/openclaw/audit`
+
+Audit log
 
 ---
 
@@ -3003,7 +3022,7 @@ Execute a template
 
 HTTP request handler for workflow API endpoints.
 
-### `GET` `/api/v1/workflows` 🔒
+### `GET` `/api/v1/workflows`
 
 Handle GET /api/workflows
 
@@ -3015,7 +3034,7 @@ GET /api/v1/workflows/*
 
 GET /api/v1/workflow-templates
 
-### `GET` `/api/v1/workflows/templates` 🔒
+### `GET` `/api/v1/workflows/templates`
 
 Handle GET /api/workflow-templates
 
@@ -3039,7 +3058,7 @@ GET /api/v1/workflow-executions
 
 GET /api/v1/workflow-executions/*
 
-### `GET` `/api/v1/workflows/executions` 🔒
+### `GET` `/api/v1/workflows/executions`
 
 Handle GET /api/workflow-executions
 

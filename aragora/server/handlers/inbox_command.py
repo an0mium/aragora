@@ -23,7 +23,7 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar
 
 from aiohttp import web
 
@@ -162,7 +162,7 @@ class InboxCommandHandler:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
                 if registry.has(GmailConnector):
-                    self.gmail_connector = cast("GmailConnector", registry.resolve(GmailConnector))
+                    self.gmail_connector = registry.resolve(GmailConnector)
                     logger.debug("Resolved GmailConnector from registry")
             except ImportError as e:
                 logger.debug(f"GmailConnector module not available: {e}")

@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from aragora.debate.protocol import DebateProtocol as DebateProtocolClass
     from aragora.core import Environment as EnvironmentClass
     from aragora.server.stream.emitter import SyncEventEmitter
-    from aragora.type_protocols import EventEmitterProtocol
+    from aragora.types.protocols import EventEmitterProtocol
 
     # Consensus type from DebateProtocol
     ConsensusType = Literal[
