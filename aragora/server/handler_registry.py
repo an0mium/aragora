@@ -491,6 +491,41 @@ CoordinatorHandler = _safe_import(
 # Voice handler
 VoiceHandler = _safe_import("aragora.server.handlers.voice.handler", "VoiceHandler")
 
+# External agents and gateway
+ExternalAgentsHandler = _safe_import(
+    "aragora.server.handlers.external_agents", "ExternalAgentsHandler"
+)
+ERC8004Handler = _safe_import("aragora.server.handlers.erc8004", "ERC8004Handler")
+GatewayConfigHandler = _safe_import(
+    "aragora.server.handlers.gateway_config_handler", "GatewayConfigHandler"
+)
+
+# Hybrid debates
+HybridDebateHandler = _safe_import(
+    "aragora.server.handlers.hybrid_debate_handler", "HybridDebateHandler"
+)
+
+# Partner API
+PartnerHandler = _safe_import("aragora.server.handlers.partner", "PartnerHandler")
+
+# Collaboration
+CollaborationHandler = _safe_import(
+    "aragora.server.handlers.social.collaboration", "CollaborationHandler"
+)
+
+# Outlook integration
+OutlookHandler = _safe_import("aragora.server.handlers.features.outlook", "OutlookHandler")
+
+# Smart upload
+SmartUploadHandler = _safe_import(
+    "aragora.server.handlers.features.smart_upload", "SmartUploadHandler"
+)
+
+# Workflow pattern templates
+WorkflowPatternTemplatesHandler = _safe_import(
+    "aragora.server.handlers.workflow_templates", "WorkflowPatternTemplatesHandler"
+)
+
 # Base handler result
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 
@@ -778,6 +813,22 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_coordinator_handler", CoordinatorHandler),
     # Voice handler
     ("_voice_handler", VoiceHandler),
+    # External agents and gateway
+    ("_external_agents_handler", ExternalAgentsHandler),
+    ("_erc8004_handler", ERC8004Handler),
+    ("_gateway_config_handler", GatewayConfigHandler),
+    # Hybrid debates
+    ("_hybrid_debate_handler", HybridDebateHandler),
+    # Partner API
+    ("_partner_handler", PartnerHandler),
+    # Collaboration
+    ("_collaboration_handler", CollaborationHandler),
+    # Outlook integration
+    ("_outlook_handler", OutlookHandler),
+    # Smart upload
+    ("_smart_upload_handler", SmartUploadHandler),
+    # Workflow pattern templates
+    ("_workflow_pattern_templates_handler", WorkflowPatternTemplatesHandler),
 ]
 
 
