@@ -366,7 +366,7 @@ class AuthHandler(SecureHandler):
 
     @rate_limit(requests_per_minute=20, limiter_name="auth_refresh")
     @handle_errors("token refresh")
-    def _handle_refresh(self, handler: Any) -> HandlerResult:
+    async def _handle_refresh(self, handler: Any) -> HandlerResult:
         """Handle token refresh."""
         from aragora.billing.jwt_auth import (
             create_token_pair,
@@ -392,8 +392,11 @@ class AuthHandler(SecureHandler):
         if not user_store:
             return error_response("Authentication service unavailable", 503)
 
-        # Get user to ensure they still exist and are active
-        user = user_store.get_user_by_id(payload.user_id)
+        # Get user to ensure they still exist and are active (use async if available)
+        if hasattr(user_store, "get_user_by_id_async"):
+            user = await user_store.get_user_by_id_async(payload.user_id)
+        else:
+            user = user_store.get_user_by_id(payload.user_id)
         if not user:
             return error_response("User not found", 401)
 

@@ -220,10 +220,10 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
         Decorator function that wraps handler methods with error handling.
     """
     import asyncio
-    import inspect
 
     def decorator(func: Callable) -> Callable:
         if asyncio.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 trace_id = generate_trace_id()
@@ -244,6 +244,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
 
             return async_wrapper
         else:
+
             @wraps(func)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 trace_id = generate_trace_id()
