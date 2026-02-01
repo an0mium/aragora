@@ -85,10 +85,10 @@ def openapi_response_schema_endpoints(spec: dict[str, object]) -> set[Endpoint]:
                 return True
         return False
 
-    endpoints: set[Endpoint] = set()
+    coverage: dict[Endpoint, bool] = {}
     paths = spec.get("paths", {})
     if not isinstance(paths, dict):
-        return endpoints
+        return set()
     for raw_path, methods in paths.items():
         if not isinstance(methods, dict):
             continue
@@ -114,9 +114,12 @@ def openapi_response_schema_endpoints(spec: dict[str, object]) -> set[Endpoint]:
                 if isinstance(response, dict) and has_schema(response):
                     ok = True
                     break
-            if ok:
-                endpoints.add(Endpoint(method_upper, raw_path).normalized())
-    return endpoints
+            key = Endpoint(method_upper, raw_path).normalized()
+            if key in coverage:
+                coverage[key] = coverage[key] and ok
+            else:
+                coverage[key] = ok
+    return {endpoint for endpoint, ok in coverage.items() if ok}
 
 
 REQUEST_RE = re.compile(

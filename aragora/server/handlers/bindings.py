@@ -31,6 +31,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from .openapi_decorator import api_endpoint, path_param, query_param
 from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 from .utils import parse_json_body

@@ -40,6 +40,12 @@ class KMPersistenceMixin:
     - _agent_domains: dict[str, list[str]]
     """
 
+    # Attribute declarations for mypy (provided by host class)
+    EXPERTISE_PREFIX: str
+    _expertise: dict[str, dict[str, Any]]
+    _domain_agents: dict[str, list[str]]
+    _agent_domains: dict[str, list[str]]
+
     # =========================================================================
     # Knowledge Item Conversion
     # =========================================================================

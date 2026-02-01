@@ -259,7 +259,17 @@ GMAIL_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": False,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "is_read": {"type": "boolean"},
+                                "user_id": {"type": "string"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Message updated", "StandardSuccessResponse"),
@@ -285,7 +295,17 @@ GMAIL_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": False,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "is_starred": {"type": "boolean"},
+                                "user_id": {"type": "string"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Message updated", "StandardSuccessResponse"),
@@ -333,7 +353,17 @@ GMAIL_ENDPOINTS = {
             ],
             "requestBody": {
                 "required": False,
-                "content": {"application/json": {"schema": {"type": "object"}}},
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "trash": {"type": "boolean"},
+                                "user_id": {"type": "string"},
+                            },
+                        }
+                    }
+                },
             },
             "responses": {
                 "200": _ok_response("Message trashed", "StandardSuccessResponse"),

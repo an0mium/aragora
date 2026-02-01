@@ -54,6 +54,9 @@ class FusionImplementationMixin:
     - _emit_event(event_type, data): method for event emission
     """
 
+    # Attribute declarations for mypy (provided by host class)
+    _emit_event: Any
+
     def _get_fusion_sources(self) -> list[str]:
         """Return list of adapter names this adapter can fuse data from.
 
@@ -178,6 +181,14 @@ class SemanticSearchImplementationMixin:
     - _calibrations: dict[str, dict[str, Any]]
     """
 
+    # Attribute declarations for mypy (provided by host class)
+    ELO_PREFIX: str
+    EXPERTISE_PREFIX: str
+    _ratings: dict[str, dict[str, Any]]
+    _expertise: dict[str, dict[str, Any]]
+    _matches: dict[str, dict[str, Any]]
+    _calibrations: dict[str, dict[str, Any]]
+
     def _get_record_by_id(self, record_id: str) -> Optional[dict[str, Any]]:
         """Get a performance record by ID (required by SemanticSearchMixin).
 
@@ -250,6 +261,13 @@ class SearchMixin:
     - _calibrations: dict[str, dict[str, Any]]
     - _get_record_by_id(record_id): method from SemanticSearchImplementationMixin
     """
+
+    # Attribute declarations for mypy (provided by host class)
+    _ratings: dict[str, dict[str, Any]]
+    _expertise: dict[str, dict[str, Any]]
+    _matches: dict[str, dict[str, Any]]
+    _calibrations: dict[str, dict[str, Any]]
+    _get_record_by_id: Any  # Method from SemanticSearchImplementationMixin
 
     def get(self, record_id: str) -> Optional[dict[str, Any]]:
         """Get a single performance record by ID.
