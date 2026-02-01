@@ -308,6 +308,147 @@ TemplateRecommendationsHandler = _safe_import(
     "aragora.server.handlers.template_marketplace", "TemplateRecommendationsHandler"
 )
 
+# Cross-pollination handlers (Knowledge Mound federation)
+CrossPollinationBridgeHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationBridgeHandler"
+)
+
+# RLM and ML handlers
+RLMHandler = _safe_import("aragora.server.handlers.features.rlm", "RLMHandler")
+MLHandler = _safe_import("aragora.server.handlers.ml", "MLHandler")
+
+# Notifications and SSO
+NotificationsHandler = _safe_import(
+    "aragora.server.handlers.social.notifications", "NotificationsHandler"
+)
+SSOHandler = _safe_import("aragora.server.handlers.sso", "SSOHandler")
+
+# GitHub integration handlers
+PRReviewHandler = _safe_import("aragora.server.handlers.github.pr_review", "PRReviewHandler")
+AuditGitHubBridgeHandler = _safe_import(
+    "aragora.server.handlers.github.audit_bridge", "AuditGitHubBridgeHandler"
+)
+
+# Privacy and audit
+PrivacyHandler = _safe_import("aragora.server.handlers.privacy", "PrivacyHandler")
+AuditTrailHandler = _safe_import("aragora.server.handlers.audit_trail", "AuditTrailHandler")
+
+# Public handlers
+StatusPageHandler = _safe_import("aragora.server.handlers.public.status_page", "StatusPageHandler")
+
+# Speech and selection
+SpeechHandler = _safe_import("aragora.server.handlers.features.speech", "SpeechHandler")
+SelectionHandler = _safe_import("aragora.server.handlers.selection", "SelectionHandler")
+
+# Repository and scheduler
+RepositoryHandler = _safe_import("aragora.server.handlers.repository", "RepositoryHandler")
+SchedulerHandler = _safe_import("aragora.server.handlers.features.scheduler", "SchedulerHandler")
+
+# Threat intelligence
+ThreatIntelHandler = _safe_import("aragora.server.handlers.threat_intel", "ThreatIntelHandler")
+
+# SME workflow handler
+SMEWorkflowsHandler = _safe_import(
+    "aragora.server.handlers.workflow_templates", "SMEWorkflowsHandler"
+)
+
+# Gauntlet v1 sub-handlers
+GauntletSecureHandler = _safe_import("aragora.server.handlers.gauntlet_v1", "GauntletSecureHandler")
+GauntletSchemaHandler = _safe_import("aragora.server.handlers.gauntlet_v1", "GauntletSchemaHandler")
+GauntletTemplateHandler = _safe_import(
+    "aragora.server.handlers.gauntlet_v1", "GauntletTemplateHandler"
+)
+GauntletValidateReceiptHandler = _safe_import(
+    "aragora.server.handlers.gauntlet_v1", "GauntletValidateReceiptHandler"
+)
+
+# Feature handlers
+FindingWorkflowHandler = _safe_import(
+    "aragora.server.handlers.features.finding_workflow", "FindingWorkflowHandler"
+)
+ReceiptDeliveryHandler = _safe_import(
+    "aragora.server.handlers.sme.receipt_delivery", "ReceiptDeliveryHandler"
+)
+CodeReviewHandler = _safe_import("aragora.server.handlers.code_review", "CodeReviewHandler")
+EvidenceEnrichmentHandler = _safe_import(
+    "aragora.server.handlers.features.evidence_enrichment", "EvidenceEnrichmentHandler"
+)
+EmailDebateHandler = _safe_import("aragora.server.handlers.email_debate", "EmailDebateHandler")
+KMCheckpointHandler = _safe_import(
+    "aragora.server.handlers.knowledge.checkpoints", "KMCheckpointHandler"
+)
+UsageMeteringHandler = _safe_import(
+    "aragora.server.handlers.usage_metering", "UsageMeteringHandler"
+)
+
+# Agent config handler
+AgentConfigHandler = _safe_import("aragora.server.handlers.agents.config", "AgentConfigHandler")
+
+# Platform analytics and routing
+CrossPlatformAnalyticsHandler = _safe_import(
+    "aragora.server.handlers.features.cross_platform_analytics", "CrossPlatformAnalyticsHandler"
+)
+RoutingRulesHandler = _safe_import(
+    "aragora.server.handlers.features.routing_rules", "RoutingRulesHandler"
+)
+DocumentQueryHandler = _safe_import(
+    "aragora.server.handlers.features.document_query", "DocumentQueryHandler"
+)
+
+# SME handlers
+BudgetControlsHandler = _safe_import(
+    "aragora.server.handlers.sme.budget_controls", "BudgetControlsHandler"
+)
+SMESuccessDashboardHandler = _safe_import(
+    "aragora.server.handlers.sme_success_dashboard", "SMESuccessDashboardHandler"
+)
+
+# Automation and credits
+AutomationHandler = _safe_import(
+    "aragora.server.handlers.integrations.automation", "AutomationHandler"
+)
+CreditsAdminHandler = _safe_import("aragora.server.handlers.admin.credits", "CreditsAdminHandler")
+
+# Gateway sub-handlers
+GatewayAgentsHandler = _safe_import(
+    "aragora.server.handlers.gateway_agents_handler", "GatewayAgentsHandler"
+)
+GatewayCredentialsHandler = _safe_import(
+    "aragora.server.handlers.gateway_credentials_handler", "GatewayCredentialsHandler"
+)
+GatewayHealthHandler = _safe_import(
+    "aragora.server.handlers.gateway_health_handler", "GatewayHealthHandler"
+)
+
+# Knowledge sharing
+SharingHandler = _safe_import("aragora.server.handlers.social.sharing", "SharingHandler")
+SharingNotificationsHandler = _safe_import(
+    "aragora.server.handlers.knowledge.sharing_notifications", "SharingNotificationsHandler"
+)
+
+# Skill marketplace
+SkillMarketplaceHandler = _safe_import(
+    "aragora.server.handlers.skill_marketplace", "SkillMarketplaceHandler"
+)
+
+# Miscellaneous
+BindingsHandler = _safe_import("aragora.server.handlers.bindings", "BindingsHandler")
+DependencyAnalysisHandler = _safe_import(
+    "aragora.server.handlers.dependency_analysis", "DependencyAnalysisHandler"
+)
+EmailWebhooksHandler = _safe_import(
+    "aragora.server.handlers.features.email_webhooks", "EmailWebhooksHandler"
+)
+
+# Workspace handlers (Teams/Slack)
+SlackWorkspaceHandler = _safe_import(
+    "aragora.server.handlers.sme.slack_workspace", "SlackWorkspaceHandler"
+)
+TeamsHandler = _safe_import("aragora.server.handlers.bots.teams", "TeamsHandler")
+TeamsWorkspaceHandler = _safe_import(
+    "aragora.server.handlers.sme.teams_workspace", "TeamsWorkspaceHandler"
+)
+
 # Base handler result
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 
@@ -479,6 +620,28 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_gateway_handler", GatewayHandler),
     ("_scim_handler", SCIMHandler),
     ("_computer_use_handler", ComputerUseHandler),
+    # Workflow templates and patterns
+    ("_workflow_templates_handler", WorkflowTemplatesHandler),
+    ("_workflow_patterns_handler", WorkflowPatternsHandler),
+    ("_workflow_categories_handler", WorkflowCategoriesHandler),
+    # Accounting handlers
+    ("_ap_automation_handler", APAutomationHandler),
+    ("_ar_automation_handler", ARAutomationHandler),
+    ("_invoice_handler", InvoiceHandler),
+    ("_expense_handler", ExpenseHandler),
+    # Chat and bot handlers
+    ("_chat_handler", ChatHandler),
+    ("_telegram_handler", TelegramHandler),
+    ("_whatsapp_handler", WhatsAppHandler),
+    ("_discord_handler", DiscordHandler),
+    ("_zoom_handler", ZoomHandler),
+    # Skills handler
+    ("_skills_handler", SkillsHandler),
+    # Shared inbox handler
+    ("_shared_inbox_handler", SharedInboxHandler),
+    # Template marketplace handlers
+    ("_template_marketplace_handler", TemplateMarketplaceHandler),
+    ("_template_recommendations_handler", TemplateRecommendationsHandler),
 ]
 
 

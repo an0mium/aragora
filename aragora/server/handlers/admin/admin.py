@@ -44,6 +44,7 @@ from ..base import (
     log_request,
     validate_path_segment,
 )
+from ..openapi_decorator import api_endpoint
 from ..utils.sanitization import sanitize_user_response
 from ..secure import (
     SecureHandler,
@@ -417,6 +418,22 @@ class AdminHandler(SecureHandler):
 
         return error_response("Method not allowed", 405)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/admin/organizations",
+        summary="List all organizations",
+        tags=["Admin"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "tier", "in": "query", "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "Paginated list of organizations"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("list organizations")
     def _list_organizations(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List all organizations with pagination.
@@ -453,6 +470,28 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/admin/users",
+        summary="List all users",
+        tags=["Admin"],
+        parameters=[
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            {"name": "role", "in": "query", "schema": {"type": "string"}},
+            {
+                "name": "active_only",
+                "in": "query",
+                "schema": {"type": "string", "default": "false"},
+            },
+        ],
+        responses={
+            "200": {"description": "Paginated list of users"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("list users")
     def _list_users(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List all users with pagination and filtering.
@@ -496,6 +535,17 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/admin/stats",
+        summary="Get system-wide statistics",
+        tags=["Admin"],
+        responses={
+            "200": {"description": "System-wide statistics"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("get admin stats")
     def _get_stats(self, handler: Any) -> HandlerResult:
         """Get system-wide statistics.
@@ -515,6 +565,17 @@ class AdminHandler(SecureHandler):
 
         return json_response({"stats": stats})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/admin/system/metrics",
+        summary="Get aggregated system metrics",
+        tags=["Admin"],
+        responses={
+            "200": {"description": "Aggregated system metrics from all sources"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("get system metrics")
     def _get_system_metrics(self, handler: Any) -> HandlerResult:
         """Get aggregated system metrics from various sources.
@@ -577,6 +638,17 @@ class AdminHandler(SecureHandler):
 
         return json_response({"metrics": metrics})
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/admin/revenue",
+        summary="Get revenue and billing statistics",
+        tags=["Admin"],
+        responses={
+            "200": {"description": "Revenue statistics including MRR and ARR"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("get revenue stats")
     def _get_revenue_stats(self, handler: Any) -> HandlerResult:
         """Get revenue and billing statistics.
@@ -628,6 +700,21 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/impersonate/{user_id}",
+        summary="Create impersonation token for a user",
+        tags=["Admin"],
+        parameters=[
+            {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "Impersonation token created"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+            "404": {"description": "User not found"},
+        },
+    )
     @handle_errors("impersonate user")
     @log_request("admin impersonate")
     def _impersonate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
@@ -695,6 +782,22 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/users/{user_id}/deactivate",
+        summary="Deactivate a user account",
+        tags=["Admin"],
+        parameters=[
+            {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "User deactivated successfully"},
+            "400": {"description": "Cannot deactivate yourself"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+            "404": {"description": "User not found"},
+        },
+    )
     @handle_errors("deactivate user")
     @log_request("admin deactivate user")
     def _deactivate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
@@ -739,6 +842,21 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/users/{user_id}/activate",
+        summary="Activate a user account",
+        tags=["Admin"],
+        parameters=[
+            {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "User activated successfully"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+            "404": {"description": "User not found"},
+        },
+    )
     @handle_errors("activate user")
     @log_request("admin activate user")
     def _activate_user(self, handler: Any, target_user_id: str) -> HandlerResult:
@@ -779,6 +897,21 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/users/{user_id}/unlock",
+        summary="Unlock a locked user account",
+        tags=["Admin"],
+        parameters=[
+            {"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "User account unlocked successfully"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+            "404": {"description": "User not found"},
+        },
+    )
     @handle_errors("unlock user")
     @log_request("admin unlock user")
     def _unlock_user(self, handler: Any, target_user_id: str) -> HandlerResult:
@@ -865,6 +998,19 @@ class AdminHandler(SecureHandler):
         nomic_dir = self.ctx.get("nomic_dir", ".nomic")
         return str(nomic_dir) if nomic_dir else ".nomic"
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/admin/nomic/status",
+        summary="Get detailed nomic loop status",
+        tags=["Admin"],
+        responses={
+            "200": {
+                "description": "Nomic loop status including state machine, metrics, and circuit breakers"
+            },
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("get nomic status")
     def _get_nomic_status(self, handler: Any) -> HandlerResult:
         """
@@ -952,6 +1098,18 @@ class AdminHandler(SecureHandler):
 
         return json_response(status)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/admin/nomic/circuit-breakers",
+        summary="Get nomic circuit breaker status",
+        tags=["Admin"],
+        responses={
+            "200": {"description": "Circuit breaker details and open circuit list"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+            "503": {"description": "Nomic recovery module not available"},
+        },
+    )
     @handle_errors("get nomic circuit breakers")
     def _get_nomic_circuit_breakers(self, handler: Any) -> HandlerResult:
         """Get detailed circuit breaker status for the nomic loop.
@@ -983,6 +1141,45 @@ class AdminHandler(SecureHandler):
             logger.error(f"Failed to get circuit breakers: {e}", exc_info=True)
             return error_response(f"Failed to get circuit breakers: {e}", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/nomic/reset",
+        summary="Reset nomic loop to a specific phase",
+        tags=["Admin"],
+        request_body={
+            "description": "Reset parameters",
+            "required": False,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "target_phase": {
+                                "type": "string",
+                                "enum": [
+                                    "idle",
+                                    "context",
+                                    "debate",
+                                    "design",
+                                    "implement",
+                                    "verify",
+                                    "commit",
+                                ],
+                            },
+                            "clear_errors": {"type": "boolean", "default": False},
+                            "reason": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        },
+        responses={
+            "200": {"description": "Nomic phase reset successfully"},
+            "400": {"description": "Invalid target phase or JSON body"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("reset nomic phase")
     @log_request("admin reset nomic")
     def _reset_nomic_phase(self, handler: Any) -> HandlerResult:
@@ -1104,6 +1301,31 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/nomic/pause",
+        summary="Pause the nomic loop",
+        tags=["Admin"],
+        request_body={
+            "description": "Pause parameters",
+            "required": False,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "reason": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        },
+        responses={
+            "200": {"description": "Nomic loop paused successfully"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("pause nomic")
     @log_request("admin pause nomic")
     def _pause_nomic(self, handler: Any) -> HandlerResult:
@@ -1191,6 +1413,32 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/nomic/resume",
+        summary="Resume a paused nomic loop",
+        tags=["Admin"],
+        request_body={
+            "description": "Resume parameters",
+            "required": False,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "target_phase": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        },
+        responses={
+            "200": {"description": "Nomic loop resumed successfully"},
+            "400": {"description": "Nomic is not currently paused"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+        },
+    )
     @handle_errors("resume nomic")
     @log_request("admin resume nomic")
     def _resume_nomic(self, handler: Any) -> HandlerResult:
@@ -1282,6 +1530,18 @@ class AdminHandler(SecureHandler):
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/admin/nomic/circuit-breakers/reset",
+        summary="Reset all nomic circuit breakers",
+        tags=["Admin"],
+        responses={
+            "200": {"description": "All circuit breakers reset successfully"},
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Forbidden - requires admin role and MFA"},
+            "503": {"description": "Nomic recovery module not available"},
+        },
+    )
     @handle_errors("reset nomic circuit breakers")
     @log_request("admin reset circuit breakers")
     def _reset_nomic_circuit_breakers(self, handler: Any) -> HandlerResult:
