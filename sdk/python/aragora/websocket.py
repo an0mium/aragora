@@ -68,12 +68,22 @@ class WebSocketOptions:
 
 @dataclass
 class WebSocketEvent:
-    """A single event received over the WebSocket connection."""
+    """A single event received over the WebSocket connection.
+
+    Attributes:
+        type: Event type string (e.g. ``"debate_start"``, ``"agent_message"``).
+        data: Raw event payload as a dictionary.
+        timestamp: ISO timestamp of when the event occurred.
+        debate_id: ID of the debate this event belongs to.
+        typed_data: Parsed typed event object, if available. Check this for
+            type-safe access to event fields instead of using ``data``.
+    """
 
     type: str
     data: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
     debate_id: str | None = None
+    typed_data: Any = None
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +300,19 @@ class AragoraWebSocket:
             timestamp=payload.get("timestamp", ""),
             debate_id=payload.get("debate_id"),
         )
+
+        # Parse typed event data if a matching event class exists
+        from .events import EVENT_CLASS_MAP
+
+        cls = EVENT_CLASS_MAP.get(event.type)
+        if cls:
+            try:
+                # Only pass fields that exist in the dataclass
+                event.typed_data = cls(
+                    **{k: v for k, v in event.data.items() if k in cls.__dataclass_fields__}
+                )
+            except (TypeError, KeyError):
+                pass  # Fall back to untyped data dict
 
         # Emit to the generic ``message`` handlers.
         self._emit("message", event)

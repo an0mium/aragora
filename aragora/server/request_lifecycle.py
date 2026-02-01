@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from typing import TYPE_CHECKING, Any, Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -25,31 +26,31 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Timeout middleware integration (graceful degradation if not available)
-_timeout_config = None
-_timeout_executor: ThreadPoolExecutor | None = None
+_timeout_config_factory: Callable | None = None
+_timeout_executor_factory: Callable | None = None
 
 try:
     from aragora.server.middleware.timeout import (
-        get_timeout_config as _get_timeout_config,
         get_executor as _get_timeout_executor,
+        get_timeout_config as _get_timeout_config,
     )
 
-    _timeout_config = _get_timeout_config
+    _timeout_config_factory = _get_timeout_config
     _timeout_executor_factory = _get_timeout_executor
 except ImportError:
     logger.debug(
         "Timeout middleware not available, requests will proceed without timeout enforcement"
     )
-    _timeout_config = None
+    _timeout_config_factory = None
     _timeout_executor_factory = None
 
 
 def _get_request_timeout(path: str) -> float | None:
     """Get the timeout for a request path, or None if timeout is not available."""
-    if _timeout_config is None:
+    if _timeout_config_factory is None:
         return None
     try:
-        config = _timeout_config()
+        config = _timeout_config_factory()
         return config.get_timeout(path)
     except Exception as e:
         logger.debug(f"Could not get timeout config: {e}")
@@ -74,6 +75,7 @@ class RequestLifecycleManager:
     - State reset
     - Timing measurement
     - Distributed tracing
+    - Timeout enforcement
     - Error handling with proper span recording
     - Prometheus metrics recording
     - Request logging
@@ -145,20 +147,52 @@ class RequestLifecycleManager:
         if self.tracing and (is_api_request or not trace_api_only):
             span = self.tracing.start_request_span(method, path, dict(self.handler.headers))
 
+        # Determine timeout for this request
+        timeout_seconds = _get_request_timeout(path)
+        timed_out = False
+
         try:
-            # Call the internal handler
-            if with_query:
-                internal_handler(path, query)
+            # Call the internal handler with timeout enforcement if available
+            if timeout_seconds is not None:
+                executor = _get_executor()
+                if executor is not None:
+                    # Execute handler in thread pool with timeout
+                    if with_query:
+                        future = executor.submit(internal_handler, path, query)
+                    else:
+                        future = executor.submit(internal_handler, path)
+
+                    try:
+                        future.result(timeout=timeout_seconds)
+                    except FuturesTimeoutError:
+                        timed_out = True
+                        future.cancel()
+                        self.handler._response_status = 504
+                        logger.warning(
+                            f"[request] Request timeout after {timeout_seconds}s: {method} {path}"
+                        )
+                        self._send_timeout_response(timeout_seconds, path)
+                else:
+                    # Executor not available, fall through to direct call
+                    if with_query:
+                        internal_handler(path, query)
+                    else:
+                        internal_handler(path)
             else:
-                internal_handler(path)
+                # No timeout configured, call directly (graceful degradation)
+                if with_query:
+                    internal_handler(path, query)
+                else:
+                    internal_handler(path)
 
         except Exception as e:
-            # Top-level safety net for handlers
-            self.handler._response_status = 500
-            logger.exception(f"[request] Unhandled exception in {method} {path}: {e}")
-            if span:
-                span.set_error(e)
-            self._send_error_response()
+            # Top-level safety net for handlers (not triggered for timeout)
+            if not timed_out:
+                self.handler._response_status = 500
+                logger.exception(f"[request] Unhandled exception in {method} {path}: {e}")
+                if span:
+                    span.set_error(e)
+                self._send_error_response()
 
         finally:
             status_code = getattr(self.handler, "_response_status", 200)
@@ -186,6 +220,37 @@ class RequestLifecycleManager:
             self.handler._send_json({"error": "Internal server error"}, status=500)
         except Exception as send_err:
             logger.debug(f"Could not send error response (already sent?): {send_err}")
+
+    def _send_timeout_response(self, timeout_seconds: float, path: str) -> None:
+        """Send a 504 Gateway Timeout response.
+
+        Args:
+            timeout_seconds: The timeout that was exceeded
+            path: The request path
+        """
+        try:
+            # Calculate Retry-After header (suggest waiting before retry)
+            retry_after = min(int(timeout_seconds * 0.5), 60)  # Half of timeout, max 60s
+
+            response_body = {
+                "error": "Gateway Timeout",
+                "message": f"Request timed out after {timeout_seconds}s",
+                "code": "request_timeout",
+                "timeout_seconds": timeout_seconds,
+                "path": path,
+            }
+
+            # Send response with timeout headers
+            self.handler._send_json(
+                response_body,
+                status=504,
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-Timeout-Seconds": str(timeout_seconds),
+                },
+            )
+        except Exception as send_err:
+            logger.debug(f"Could not send timeout response (already sent?): {send_err}")
 
 
 def create_lifecycle_manager(handler: Any) -> RequestLifecycleManager:

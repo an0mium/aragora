@@ -71,38 +71,38 @@ class TestMongoDBCredentialSecurity:
         )
         connector.credentials = mock_credentials
 
-        # Mock AsyncIOMotorClient to capture how it's called
-        with patch(
-            "aragora.connectors.enterprise.database.mongodb.AsyncIOMotorClient"
-        ) as mock_client_class:
-            mock_client = MagicMock()
-            mock_client.__getitem__ = MagicMock(return_value=MagicMock())
-            mock_client_class.return_value = mock_client
+        # Create mock client
+        mock_client = MagicMock()
+        mock_client.__getitem__ = MagicMock(return_value=MagicMock())
+        mock_client_class = MagicMock(return_value=mock_client)
 
-            # Patch the import inside the method
-            with patch.dict(
-                "sys.modules",
-                {"motor.motor_asyncio": MagicMock(AsyncIOMotorClient=mock_client_class)},
-            ):
-                await connector._get_client()
+        # Create a mock motor module
+        mock_motor = MagicMock()
+        mock_motor.AsyncIOMotorClient = mock_client_class
 
-            # Verify AsyncIOMotorClient was called
-            mock_client_class.assert_called_once()
+        # Patch the motor.motor_asyncio module before the import happens
+        import sys
 
-            # Get the call arguments
-            call_args = mock_client_class.call_args
+        with patch.dict(sys.modules, {"motor": MagicMock(), "motor.motor_asyncio": mock_motor}):
+            await connector._get_client()
 
-            # The first positional arg should be the connection string WITHOUT credentials
-            conn_str = call_args[0][0]
-            assert "supersecretpassword123" not in conn_str
-            assert "testuser:supersecretpassword123" not in conn_str
-            assert conn_str == "mongodb://localhost:27017/testdb"
+        # Verify AsyncIOMotorClient was called
+        mock_client_class.assert_called_once()
 
-            # Credentials should be passed as kwargs
-            kwargs = call_args[1]
-            assert kwargs.get("username") == "testuser"
-            assert kwargs.get("password") == "supersecretpassword123"
-            assert kwargs.get("authSource") == "testdb"
+        # Get the call arguments
+        call_args = mock_client_class.call_args
+
+        # The first positional arg should be the connection string WITHOUT credentials
+        conn_str = call_args[0][0]
+        assert "supersecretpassword123" not in conn_str
+        assert "testuser:supersecretpassword123" not in conn_str
+        assert conn_str == "mongodb://localhost:27017/testdb"
+
+        # Credentials should be passed as kwargs
+        kwargs = call_args[1]
+        assert kwargs.get("username") == "testuser"
+        assert kwargs.get("password") == "supersecretpassword123"
+        assert kwargs.get("authSource") == "testdb"
 
     @pytest.mark.asyncio
     async def test_no_auth_kwargs_when_no_credentials(self):
@@ -122,28 +122,29 @@ class TestMongoDBCredentialSecurity:
         mock_credentials.get_credential = AsyncMock(return_value=None)
         connector.credentials = mock_credentials
 
-        # Mock AsyncIOMotorClient
-        with patch(
-            "aragora.connectors.enterprise.database.mongodb.AsyncIOMotorClient"
-        ) as mock_client_class:
-            mock_client = MagicMock()
-            mock_client.__getitem__ = MagicMock(return_value=MagicMock())
-            mock_client_class.return_value = mock_client
+        # Create mock client
+        mock_client = MagicMock()
+        mock_client.__getitem__ = MagicMock(return_value=MagicMock())
+        mock_client_class = MagicMock(return_value=mock_client)
 
-            with patch.dict(
-                "sys.modules",
-                {"motor.motor_asyncio": MagicMock(AsyncIOMotorClient=mock_client_class)},
-            ):
-                await connector._get_client()
+        # Create a mock motor module
+        mock_motor = MagicMock()
+        mock_motor.AsyncIOMotorClient = mock_client_class
 
-            # Get the call arguments
-            call_args = mock_client_class.call_args
-            kwargs = call_args[1]
+        # Patch the motor.motor_asyncio module
+        import sys
 
-            # No auth kwargs should be present
-            assert "username" not in kwargs
-            assert "password" not in kwargs
-            assert "authSource" not in kwargs
+        with patch.dict(sys.modules, {"motor": MagicMock(), "motor.motor_asyncio": mock_motor}):
+            await connector._get_client()
+
+        # Get the call arguments
+        call_args = mock_client_class.call_args
+        kwargs = call_args[1]
+
+        # No auth kwargs should be present
+        assert "username" not in kwargs
+        assert "password" not in kwargs
+        assert "authSource" not in kwargs
 
 
 # =============================================================================
@@ -306,6 +307,7 @@ class TestSecurityIntegration:
         Verify that logging statements use masked connection strings.
         """
         import logging
+        import sys
         from aragora.connectors.enterprise.database.mongodb import MongoDBConnector
 
         connector = MongoDBConnector(
@@ -330,19 +332,18 @@ class TestSecurityIntegration:
         logger.setLevel(logging.DEBUG)
 
         try:
-            # Mock AsyncIOMotorClient
-            with patch(
-                "aragora.connectors.enterprise.database.mongodb.AsyncIOMotorClient"
-            ) as mock_client_class:
-                mock_client = MagicMock()
-                mock_client.__getitem__ = MagicMock(return_value=MagicMock())
-                mock_client_class.return_value = mock_client
+            # Create mock client
+            mock_client = MagicMock()
+            mock_client.__getitem__ = MagicMock(return_value=MagicMock())
+            mock_client_class = MagicMock(return_value=mock_client)
 
-                with patch.dict(
-                    "sys.modules",
-                    {"motor.motor_asyncio": MagicMock(AsyncIOMotorClient=mock_client_class)},
-                ):
-                    await connector._get_client()
+            # Create a mock motor module
+            mock_motor = MagicMock()
+            mock_motor.AsyncIOMotorClient = mock_client_class
+
+            # Patch the motor.motor_asyncio module
+            with patch.dict(sys.modules, {"motor": MagicMock(), "motor.motor_asyncio": mock_motor}):
+                await connector._get_client()
 
             # Check no log message contains the raw password
             for message in log_records:

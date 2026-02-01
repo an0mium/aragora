@@ -411,19 +411,23 @@ class KMOutcomeBridge:
 
         return result
 
-    async def _get_km_item(self, item_id: str) -> Optional[dict[str, Any]]:
-        """Get a KM item by ID."""
+    async def _get_km_item(self, item_id: str) -> Any:
+        """Get a KM item by ID.
+
+        Returns item in various formats depending on KM interface (KnowledgeItem, dict, etc).
+        """
         if not self._knowledge_mound:
             return None
 
         try:
+            km: Any = self._knowledge_mound  # Cast to Any for duck-typed access
             # Try different accessor patterns
-            if hasattr(self._knowledge_mound, "get"):
-                return await self._knowledge_mound.get(item_id)
-            elif hasattr(self._knowledge_mound, "get_item"):
-                return await self._knowledge_mound.get_item(item_id)
-            elif hasattr(self._knowledge_mound, "query"):
-                query_result = await self._knowledge_mound.query(item_id, limit=1)
+            if hasattr(km, "get"):
+                return await km.get(item_id)
+            elif hasattr(km, "get_item"):
+                return await km.get_item(item_id)
+            elif hasattr(km, "query"):
+                query_result = await km.query(item_id, limit=1)
                 # query() returns QueryResult with items attribute
                 items = query_result.items if hasattr(query_result, "items") else query_result
                 return items[0] if items else None
@@ -445,14 +449,13 @@ class KMOutcomeBridge:
             return False
 
         try:
+            km: Any = self._knowledge_mound  # Cast to Any for duck-typed access
             # Try different update patterns
-            if hasattr(self._knowledge_mound, "update_confidence"):
-                return await self._knowledge_mound.update_confidence(
-                    item_id, new_confidence, validation_metadata
-                )
-            elif hasattr(self._knowledge_mound, "update"):
+            if hasattr(km, "update_confidence"):
+                return await km.update_confidence(item_id, new_confidence, validation_metadata)
+            elif hasattr(km, "update"):
                 # update(node_id, updates: dict) - pass updates as a dict
-                result = await self._knowledge_mound.update(
+                result = await km.update(
                     item_id, {"confidence": new_confidence, "metadata": validation_metadata}
                 )
                 return result is not None
@@ -480,18 +483,17 @@ class KMOutcomeBridge:
         related: list[tuple[str, int]] = []
 
         try:
+            km: Any = self._knowledge_mound  # Cast to Any for duck-typed access
             # Try graph traversal if available
-            if hasattr(self._knowledge_mound, "get_graph_neighbors"):
+            if hasattr(km, "get_graph_neighbors"):
                 for depth in range(1, max_depth + 1):
-                    neighbors = await self._knowledge_mound.get_graph_neighbors(
-                        item_id, depth=depth
-                    )
+                    neighbors = await km.get_graph_neighbors(item_id, depth=depth)
                     for neighbor_id in neighbors:
                         if neighbor_id != item_id:
                             related.append((neighbor_id, depth))
-            elif hasattr(self._knowledge_mound, "get_relationships"):
+            elif hasattr(km, "get_relationships"):
                 # Simpler relationship query
-                rels = await self._knowledge_mound.get_relationships(item_id)
+                rels = await km.get_relationships(item_id)
                 for rel in rels:
                     target_id = rel.get("target_id") or rel.get("to_id")
                     if target_id and target_id != item_id:

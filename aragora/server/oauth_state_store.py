@@ -12,6 +12,7 @@ If Redis is unavailable, automatically falls back to in-memory storage.
 from __future__ import annotations
 
 import binascii
+import contextvars
 import json
 import logging
 import os
@@ -181,27 +182,38 @@ class SQLiteOAuthStateStore(OAuthStateStore):
     """SQLite-backed OAuth state storage (persistent, single-instance).
 
     Provides persistence across restarts for single-instance deployments
-    without requiring Redis. Uses thread-local connections for thread safety.
+    without requiring Redis. Uses context-local connections for async safety.
     """
 
     def __init__(self, db_path: str = "aragora_oauth.db", max_size: int = MAX_OAUTH_STATES):
         self._db_path = Path(resolve_db_path(db_path))
         self._max_size = max_size
-        self._local = threading.local()
+        # ContextVar for per-async-context connection (async-safe replacement for threading.local)
+        self._conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
+            f"oauth_conn_{id(self)}", default=None
+        )
+        # Track all connections for proper cleanup
+        self._connections: set[sqlite3.Connection] = set()
+        self._connections_lock = threading.Lock()
         self._init_lock = threading.Lock()
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        if not hasattr(self._local, "connection"):
-            self._local.connection = sqlite3.connect(
+        """Get context-local database connection (async-safe)."""
+        conn = self._conn_var.get()
+        if conn is None:
+            conn = sqlite3.connect(
                 str(self._db_path),
                 check_same_thread=False,
                 timeout=30.0,
             )
-            self._local.connection.execute("PRAGMA journal_mode=WAL")
-            self._local.connection.execute("PRAGMA synchronous=NORMAL")
-        return self._local.connection
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            self._conn_var.set(conn)
+            # Track connection for cleanup
+            with self._connections_lock:
+                self._connections.add(conn)
+        return conn
 
     def _init_db(self) -> None:
         """Initialize database schema."""
@@ -356,13 +368,20 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             return 0
 
     def close(self) -> None:
-        """Close the database connection."""
-        if hasattr(self._local, "connection"):
-            try:
-                self._local.connection.close()
-            except (OSError, sqlite3.Error) as e:
-                logger.debug(f"Error closing SQLite connection: {e}")
-            delattr(self._local, "connection")
+        """Close all database connections across all contexts."""
+        # Close all tracked connections
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except (OSError, sqlite3.Error):
+                    pass  # Connection may already be closed
+            self._connections.clear()
+        # Clear context-local reference
+        try:
+            self._conn_var.set(None)
+        except LookupError:
+            pass  # No context, nothing to clear
 
 
 class RedisOAuthStateStore(OAuthStateStore):

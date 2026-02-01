@@ -211,8 +211,8 @@ class TestPasswordConstants:
     """Test password length constants."""
 
     def test_min_password_length_value(self) -> None:
-        """MIN_PASSWORD_LENGTH should be 8."""
-        assert MIN_PASSWORD_LENGTH == 8
+        """MIN_PASSWORD_LENGTH should be 12 (strengthened from 8)."""
+        assert MIN_PASSWORD_LENGTH == 12
 
     def test_max_password_length_value(self) -> None:
         """MAX_PASSWORD_LENGTH should be 128."""
@@ -237,18 +237,24 @@ class TestPasswordConstants:
 
 
 class TestValidatePasswordSuccess:
-    """Test validate_password with valid inputs."""
+    """Test validate_password with valid inputs.
+
+    Note: Password validation now requires:
+    - Minimum 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+    - Not a common password
+    """
 
     @pytest.mark.parametrize(
         "password",
         [
-            "password",  # Exactly 8 chars
-            "12345678",  # All numbers, exactly 8 chars
-            "abcdefgh",  # All letters, exactly 8 chars
-            "pass word",  # Contains space
-            "MyS3cur3P@ssw0rd!",  # Complex password
-            "a" * 128,  # Exactly max length
-            "correct horse battery staple",  # Passphrase with spaces
+            "MyS3cur3P@ss!",  # 13 chars, meets all requirements
+            "Abcdefgh123!",  # 12 chars, meets all requirements
+            "P@$$w0rd!#%^",  # 12 chars with many special chars
+            "Aa1!" + "x" * 124,  # Exactly max length with requirements
         ],
     )
     def test_valid_password_returns_true_empty_error(self, password: str) -> None:
@@ -258,14 +264,15 @@ class TestValidatePasswordSuccess:
         assert err == ""
 
     def test_password_with_unicode_is_valid(self) -> None:
-        """Unicode characters are allowed in passwords."""
-        valid, err = validate_password("pässwörd123")
+        """Unicode characters are allowed in passwords if other requirements met."""
+        # Unicode password that meets all complexity requirements
+        valid, err = validate_password("Pässwörd123!")
         assert valid is True
         assert err == ""
 
     def test_password_with_emoji_is_valid(self) -> None:
-        """Emoji characters are allowed in passwords."""
-        valid, err = validate_password("password123!")
+        """Password with special chars is valid if all requirements met."""
+        valid, err = validate_password("Password123!!")
         assert valid is True
 
     def test_password_with_special_chars(self) -> None:
@@ -296,15 +303,19 @@ class TestValidatePasswordErrors:
         assert valid is False
 
     def test_exact_minimum_length_valid(self) -> None:
-        """Password at exact minimum length is valid."""
-        password = "a" * MIN_PASSWORD_LENGTH
+        """Password at exact minimum length is valid if complexity requirements met."""
+        # Build a 12-char password that meets all complexity requirements
+        password = "Abcdef123!@#"  # 12 chars with upper, lower, digit, special
+        assert len(password) == MIN_PASSWORD_LENGTH
         valid, err = validate_password(password)
         assert valid is True
         assert err == ""
 
     def test_one_above_minimum_valid(self) -> None:
-        """Password with MIN_PASSWORD_LENGTH + 1 chars is valid."""
-        password = "a" * (MIN_PASSWORD_LENGTH + 1)
+        """Password with MIN_PASSWORD_LENGTH + 1 chars is valid if complexity requirements met."""
+        # Build a 13-char password that meets all complexity requirements
+        password = "Abcdefg123!@#"  # 13 chars with upper, lower, digit, special
+        assert len(password) == MIN_PASSWORD_LENGTH + 1
         valid, err = validate_password(password)
         assert valid is True
 
@@ -321,15 +332,19 @@ class TestValidatePasswordErrors:
         assert valid is False
 
     def test_exact_maximum_length_valid(self) -> None:
-        """Password at exact maximum length is valid."""
-        password = "a" * MAX_PASSWORD_LENGTH
+        """Password at exact maximum length is valid if complexity requirements met."""
+        # Build a 128-char password that meets all complexity requirements
+        password = "Aa1!" + "x" * 124  # 128 chars with upper, lower, digit, special
+        assert len(password) == MAX_PASSWORD_LENGTH
         valid, err = validate_password(password)
         assert valid is True
         assert err == ""
 
     def test_one_below_maximum_valid(self) -> None:
-        """Password with MAX_PASSWORD_LENGTH - 1 chars is valid."""
-        password = "a" * (MAX_PASSWORD_LENGTH - 1)
+        """Password with MAX_PASSWORD_LENGTH - 1 chars is valid if complexity requirements met."""
+        # Build a 127-char password that meets all complexity requirements
+        password = "Aa1!" + "x" * 123  # 127 chars with upper, lower, digit, special
+        assert len(password) == MAX_PASSWORD_LENGTH - 1
         valid, err = validate_password(password)
         assert valid is True
 

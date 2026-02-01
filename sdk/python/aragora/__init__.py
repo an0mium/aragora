@@ -14,6 +14,30 @@ All generated Pydantic types are re-exported here for convenient access.
 """
 
 from .client import AragoraAsyncClient, AragoraClient
+
+# Import typed event classes
+from .events import (
+    EVENT_CLASS_MAP,
+    AgentMessageEvent,
+    AudienceSuggestionEvent,
+    ConnectedEvent,
+    ConsensusEvent,
+    ConsensusReachedEvent,
+    CritiqueEvent,
+    DebateEndEvent,
+    DebateStartEvent,
+    DisconnectedEvent,
+    ErrorEvent,
+    MessageEvent,
+    PhaseChangeEvent,
+    ProposeEvent,
+    RevisionEvent,
+    RoundStartEvent,
+    SynthesisEvent,
+    UserVoteEvent,
+    VoteEvent,
+    WarningEvent,
+)
 from .exceptions import (
     AragoraError,
     AuthenticationError,
@@ -233,6 +257,9 @@ from .generated_types import (
     Workspace,
     WorkspaceList,
 )
+
+# Alias Code as ErrorCode for clarity in exception handling contexts
+from .generated_types import Code as ErrorCode
 from .websocket import AragoraWebSocket, WebSocketEvent, WebSocketOptions, stream_debate
 
 __version__ = "2.5.0"
@@ -245,6 +272,27 @@ __all__ = [
     "WebSocketEvent",
     "WebSocketOptions",
     "stream_debate",
+    # --- Typed WebSocket Events ---
+    "EVENT_CLASS_MAP",
+    "AgentMessageEvent",
+    "AudienceSuggestionEvent",
+    "ConnectedEvent",
+    "ConsensusEvent",
+    "ConsensusReachedEvent",
+    "CritiqueEvent",
+    "DebateEndEvent",
+    "DebateStartEvent",
+    "DisconnectedEvent",
+    "ErrorEvent",
+    "MessageEvent",
+    "PhaseChangeEvent",
+    "ProposeEvent",
+    "RevisionEvent",
+    "RoundStartEvent",
+    "SynthesisEvent",
+    "UserVoteEvent",
+    "VoteEvent",
+    "WarningEvent",
     # --- Exceptions ---
     "AragoraError",
     "AuthenticationError",
@@ -260,6 +308,7 @@ __all__ = [
     "BudgetPeriod",
     "BudgetStatus",
     "Code",
+    "ErrorCode",
     "Consensus",
     "DebateStatus",
     "Event",

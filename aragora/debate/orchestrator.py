@@ -25,13 +25,9 @@ from aragora.debate.arena_initializer import ArenaInitializer
 from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.batch_loaders import debate_loader_context
 from aragora.debate.budget_coordinator import BudgetCoordinator
-from aragora.debate.audience_manager import AudienceManager
-from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.knowledge_manager import ArenaKnowledgeManager
 from aragora.debate.context import DebateContext
 from aragora.debate.context_delegation import ContextDelegator
-from aragora.debate.event_emission import EventEmitter
-from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.grounded_operations import GroundedOperations
 from aragora.debate.hierarchy import AgentHierarchy, HierarchyConfig
 from aragora.debate.prompt_context import PromptContextBuilder
@@ -39,7 +35,6 @@ from aragora.debate.event_bus import EventBus
 from aragora.debate.judge_selector import JudgeSelector
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.debate.sanitization import OutputSanitizer
-from aragora.debate.state_cache import DebateStateCache
 from aragora.debate.termination_checker import TerminationChecker
 from aragora.logging_config import get_logger as get_structured_logger
 from aragora.observability.n1_detector import n1_detection_scope
@@ -68,6 +63,16 @@ from aragora.debate.orchestrator_convergence import (
     cleanup_convergence as _conv_cleanup_convergence,
     init_convergence as _conv_init_convergence,
     reinit_convergence_for_debate as _conv_reinit_convergence_for_debate,
+)
+from aragora.debate.orchestrator_lifecycle import (
+    init_caches as _lifecycle_init_caches,
+    init_checkpoint_ops as _lifecycle_init_checkpoint_ops,
+    init_event_emitter as _lifecycle_init_event_emitter,
+    init_lifecycle_manager as _lifecycle_init_lifecycle_manager,
+)
+from aragora.debate.orchestrator_participation import (
+    init_event_bus as _participation_init_event_bus,
+    init_user_participation as _participation_init_user_participation,
 )
 from aragora.debate.orchestrator_roles import (
     init_roles_and_stances as _roles_init_roles_and_stances,
@@ -910,22 +915,11 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_user_participation(self) -> None:
         """Initialize user participation tracking and event subscription."""
-        self.audience_manager = AudienceManager(
-            loop_id=self.loop_id,
-            strict_loop_scoping=self.strict_loop_scoping,
-        )
-        self.audience_manager.set_notify_callback(self._notify_spectator)
-        if self.event_emitter:
-            self.audience_manager.subscribe_to_emitter(self.event_emitter)
+        _participation_init_user_participation(self)
 
     def _init_event_bus(self) -> None:
         """Initialize EventBus for pub/sub event handling."""
-        self.event_bus = EventBus(
-            event_bridge=self.event_bridge,
-            audience_manager=self.audience_manager,
-            immune_system=self.immune_system,
-            spectator=self.spectator,
-        )
+        _participation_init_event_bus(self)
 
     @property
     def user_votes(self) -> deque[dict[str, Any]]:
@@ -955,32 +949,19 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_caches(self) -> None:
         """Initialize caches for computed values."""
-        self._cache = DebateStateCache()
+        _lifecycle_init_caches(self)
 
     def _init_lifecycle_manager(self) -> None:
         """Initialize LifecycleManager for cleanup and task cancellation."""
-        self._lifecycle = LifecycleManager(
-            cache=self._cache,
-            circuit_breaker=self.circuit_breaker,
-            checkpoint_manager=self.checkpoint_manager,
-        )
+        _lifecycle_init_lifecycle_manager(self)
 
     def _init_event_emitter(self) -> None:
         """Initialize EventEmitter for spectator/websocket events."""
-        self._event_emitter = EventEmitter(
-            event_bus=self.event_bus,
-            event_bridge=self.event_bridge,
-            hooks=self.hooks,
-            persona_manager=self.persona_manager,
-        )
+        _lifecycle_init_event_emitter(self)
 
     def _init_checkpoint_ops(self) -> None:
         """Initialize CheckpointOperations for checkpoint and memory operations."""
-        self._checkpoint_ops = CheckpointOperations(
-            checkpoint_manager=self.checkpoint_manager,
-            memory_manager=None,  # Set after _init_phases when memory_manager exists
-            cache=self._cache,
-        )
+        _lifecycle_init_checkpoint_ops(self)
 
     def _init_checkpoint_bridge(self) -> None:
         """Initialize optional checkpoint bridge. Delegates to orchestrator_memory."""

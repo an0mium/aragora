@@ -325,9 +325,9 @@ class AgentFactory:
             logger.warning(
                 "agent_factory_partial_creation",
                 extra={
-                    "created": len(agents),
-                    "failed": len(errors),
-                    "errors": errors,
+                    "agents_created": len(agents),
+                    "agents_failed": len(errors),
+                    "creation_errors": errors,
                 },
             )
 
