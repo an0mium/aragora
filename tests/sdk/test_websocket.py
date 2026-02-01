@@ -104,7 +104,7 @@ class TestWebSocketEvent:
     def test_is_dataclass(self):
         event = WebSocketEvent(type="x")
         field_names = {f.name for f in fields(event)}
-        assert field_names == {"type", "data", "timestamp", "debate_id"}
+        assert field_names == {"type", "data", "timestamp", "debate_id", "typed_data"}
 
 
 # ===========================================================================

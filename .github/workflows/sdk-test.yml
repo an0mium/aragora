@@ -5,11 +5,15 @@ on:
     branches: [main]
     paths:
       - 'aragora-py/**'
+      - 'sdk/python/**'
+      - 'tests/sdk/**'
       - '.github/workflows/sdk-test.yml'
   pull_request:
     branches: [main]
     paths:
       - 'aragora-py/**'
+      - 'sdk/python/**'
+      - 'tests/sdk/**'
   workflow_dispatch:
 
 concurrency:
@@ -47,3 +51,26 @@ jobs:
       - name: Run SDK lint
         run: |
           cd aragora-py && python -m ruff check aragora_client/ tests/
+
+  sdk-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: SDK Integration Tests
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run SDK integration tests
+        run: |
+          python -m pytest tests/sdk/ -v --tb=short --timeout=60
