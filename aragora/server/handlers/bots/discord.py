@@ -219,9 +219,9 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         }
 
     @rate_limit(requests_per_minute=30)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "MaybeAsyncHandlerResult":
+    ) -> HandlerResult | None:
         """Route Discord requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/discord/status":
             # Use BotHandlerMixin's RBAC-protected status handler

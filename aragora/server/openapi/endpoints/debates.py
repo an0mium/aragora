@@ -1114,4 +1114,219 @@ DEBATE_ENDPOINTS = {
             },
         },
     },
+    "/api/v1/debates/{id}": {
+        "delete": {
+            "tags": ["Debates"],
+            "summary": "Delete debate",
+            "operationId": "deleteDebateV1",
+            "description": "Delete a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response("Delete result", {"success": {"type": "boolean"}}),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/cancel": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Cancel debate",
+            "operationId": "cancelDebateV1",
+            "description": "Cancel a running debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Cancel result",
+                    {"success": {"type": "boolean"}, "status": {"type": "string"}},
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/followup": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Create follow-up debate",
+            "operationId": "createDebateFollowupV1",
+            "description": "Create a follow-up debate from an existing one.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "cruxId": {"type": "string"},
+                                "context": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Follow-up created", {"debate_id": {"type": "string"}}),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}/verification-report": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get verification report",
+            "operationId": "getDebateVerificationReportV1",
+            "description": "Get the verification report for debate conclusions.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Verification report",
+                    {
+                        "debate_id": {"type": "string"},
+                        "verified": {"type": "boolean"},
+                        "confidence": {"type": "number"},
+                        "claims_verified": {"type": "integer"},
+                        "claims_total": {"type": "integer"},
+                        "verification_details": {"type": "array", "items": {"type": "object"}},
+                        "bonuses": {"type": "array", "items": {"type": "object"}},
+                        "generated_at": {"type": "string"},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/batch": {
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Submit batch debates",
+            "operationId": "submitDebateBatchV1",
+            "description": "Submit multiple debates for batch processing.",
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "requests": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/components/schemas/DebateCreateRequest"},
+                                },
+                            },
+                            "required": ["requests"],
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Batch submitted",
+                    {
+                        "batch_id": {"type": "string"},
+                        "jobs": {"type": "array", "items": {"type": "object"}},
+                        "total_jobs": {"type": "integer"},
+                        "submitted_at": {"type": "string"},
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+            },
+        },
+    },
+    "/api/v1/debates/batch/{id}/status": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get batch status",
+            "operationId": "getDebateBatchStatusV1",
+            "description": "Get the status of a batch job.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Batch status",
+                    {
+                        "batch_id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "total_jobs": {"type": "integer"},
+                        "completed_jobs": {"type": "integer"},
+                        "failed_jobs": {"type": "integer"},
+                        "jobs": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/queue/status": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get queue status",
+            "operationId": "getDebateQueueStatusV1",
+            "description": "Get the current queue status.",
+            "responses": {
+                "200": _ok_response(
+                    "Queue status",
+                    {
+                        "pending_count": {"type": "integer"},
+                        "running_count": {"type": "integer"},
+                        "completed_today": {"type": "integer"},
+                        "average_wait_time_ms": {"type": "integer"},
+                        "estimated_completion_time": {"type": "string", "nullable": True},
+                    },
+                ),
+            },
+        },
+    },
+    "/api/v1/debates/graph/{id}": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get debate graph",
+            "operationId": "getDebateGraphV1",
+            "description": "Get the argument graph for a debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Debate graph",
+                    {
+                        "nodes": {"type": "array", "items": {"type": "object"}},
+                        "edges": {"type": "array", "items": {"type": "object"}},
+                        "metadata": {"type": "object"},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/debates/matrix/{id}": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get matrix comparison",
+            "operationId": "getDebateMatrixV1",
+            "description": "Get matrix comparison for a multi-scenario debate.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Matrix comparison",
+                    {
+                        "debate_id": {"type": "string"},
+                        "scenarios": {"type": "array", "items": {"type": "object"}},
+                        "comparison_matrix": {"type": "array", "items": {"type": "array"}},
+                        "dominant_scenario": {"type": "string", "nullable": True},
+                        "sensitivity_analysis": {"type": "object", "nullable": True},
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
 }

@@ -23,7 +23,10 @@ import json
 import logging
 import os
 import re
-from typing import Any, Coroutine, Optional
+from typing import Any, Coroutine, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -55,18 +58,31 @@ from ..base import (
 from ..utils.rate_limit import rate_limit
 
 # RBAC imports - optional dependency
-try:
-    from aragora.billing.auth.context import UserAuthContext, extract_user_from_request
-    from aragora.rbac.checker import check_permission
-    from aragora.rbac.models import AuthorizationContext
+# Declare module-level types for optional RBAC components
+check_permission: Callable[..., Any] | None
+extract_user_from_request: Callable[..., Any] | None
+AuthorizationContext: type[Any] | None
+UserAuthContext: type[Any] | None
 
+try:
+    from aragora.billing.auth.context import (
+        UserAuthContext as _UserAuthCtx,
+        extract_user_from_request as _extract_user,
+    )
+    from aragora.rbac.checker import check_permission as _check_perm
+    from aragora.rbac.models import AuthorizationContext as _AuthCtx
+
+    check_permission = _check_perm
+    extract_user_from_request = _extract_user
+    AuthorizationContext = _AuthCtx
+    UserAuthContext = _UserAuthCtx
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
-    check_permission = None  # type: ignore[misc, no-redef]
-    extract_user_from_request = None  # type: ignore[misc, no-redef]
-    AuthorizationContext = None  # type: ignore[misc, no-redef]
-    UserAuthContext = None  # type: ignore[misc, no-redef]
+    check_permission = None
+    extract_user_from_request = None
+    AuthorizationContext = None
+    UserAuthContext = None
 
 # Environment configuration
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID")

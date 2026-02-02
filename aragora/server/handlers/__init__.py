@@ -646,7 +646,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
     "RepositoryHandler": Stability.STABLE,  # Repository indexing API - Graduated from Phase A3
     "UncertaintyHandler": Stability.STABLE,  # Uncertainty estimation API - Graduated from Phase A1
-    "VerticalsHandler": Stability.EXPERIMENTAL,  # Vertical specialist API - Phase A1
+    "VerticalsHandler": Stability.STABLE,  # Vertical specialist API - Graduated from Phase A1, circuit breaker + validation
     # Bot platform handlers - Graduated Jan 2026
     "DiscordHandler": Stability.STABLE,  # Discord Interactions API - 14 tests
     "GoogleChatHandler": Stability.STABLE,  # Google Chat Cards API - follows Discord pattern

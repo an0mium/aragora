@@ -1076,3 +1076,580 @@ class TestTokenTracking:
         # Should have saved tokens
         assert manager._state.tokens_saved > 0
         assert manager._state.compressions_performed == 1
+
+
+# =============================================================================
+# Additional Comprehensive Tests
+# =============================================================================
+
+
+class TestRoundExtensionLogic:
+    """Additional tests for round extension logic."""
+
+    def test_max_rounds_boundary(self):
+        """Test configuration at max rounds boundary."""
+        config = ExtendedDebateConfig(max_rounds=50)
+        manager = RLMContextManager(config)
+
+        # Manager should accept max_rounds config
+        assert manager.config.max_rounds == 50
+
+    def test_soft_limit_trigger(self):
+        """Test soft limit triggers hierarchical strategy."""
+        config = ExtendedDebateConfig(
+            context_strategy=ContextStrategy.ADAPTIVE,
+            compression_threshold=100,  # Very low to ensure threshold is exceeded
+            soft_limit_rounds=10,
+        )
+        manager = RLMContextManager(config)
+
+        # Above soft limit should use HIERARCHICAL
+        result = manager._select_strategy(total_tokens=500, round_num=15)
+        assert result == ContextStrategy.HIERARCHICAL
+
+        # Below soft limit should use SLIDING_WINDOW
+        result = manager._select_strategy(total_tokens=500, round_num=8)
+        assert result == ContextStrategy.SLIDING_WINDOW
+
+    def test_all_strategies_configured(self):
+        """Test all context strategies can be configured."""
+        for strategy in ContextStrategy:
+            config = ExtendedDebateConfig(context_strategy=strategy)
+            manager = RLMContextManager(config)
+            assert manager.config.context_strategy == strategy
+
+
+class TestContextCompressionSummarization:
+    """Additional tests for context compression and summarization."""
+
+    @pytest.mark.asyncio
+    async def test_compression_preserves_task(self):
+        """Test that compression always preserves the task."""
+        config = ExtendedDebateConfig(
+            context_window_rounds=2,
+            compression_threshold=100,
+        )
+        manager = RLMContextManager(config)
+        manager._state.compressed_history = "Compressed history"
+
+        messages = [MockMessage(round=i, content=f"Content {i}" * 50) for i in range(20)]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Critical task to preserve"),
+            context_messages=messages,
+        )
+
+        result = await manager._apply_sliding_window(debate_context, round_num=20)
+
+        # Task should always be present
+        assert "Critical task to preserve" in result
+
+    @pytest.mark.asyncio
+    async def test_compression_statistics_accuracy(self):
+        """Test compression statistics are accurately tracked."""
+        config = ExtendedDebateConfig(enable_rlm=True, context_window_rounds=3)
+        manager = RLMContextManager(config)
+
+        mock_rlm = MagicMock()
+        mock_result = MockRLMResult(answer="Tiny")  # Very short compression
+        mock_rlm.compress_and_query = AsyncMock(return_value=mock_result)
+        manager._rlm = mock_rlm
+
+        messages = [
+            MockMessage(round=i, content="Verbose content " * 50)  # Long messages
+            for i in range(15)
+        ]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Stats test"),
+            context_messages=messages,
+        )
+
+        initial_compressions = manager._state.compressions_performed
+        await manager._apply_hierarchical_compression(debate_context, round_num=14)
+
+        # Verify compression was counted
+        assert manager._state.compressions_performed == initial_compressions + 1
+        # Verify time was tracked
+        assert manager._state.compression_time_total > 0
+
+    @pytest.mark.asyncio
+    async def test_rlm_result_empty_answer_handling(self):
+        """Test handling of RLM result with empty answer."""
+        config = ExtendedDebateConfig(enable_rlm=True, context_window_rounds=3)
+        manager = RLMContextManager(config)
+
+        mock_rlm = MagicMock()
+        # Return result with empty answer
+        mock_result = MockRLMResult(answer="")
+        mock_rlm.compress_and_query = AsyncMock(return_value=mock_result)
+        manager._rlm = mock_rlm
+
+        messages = [MockMessage(round=i, content=f"Content {i}" * 20) for i in range(15)]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Empty answer test"),
+            context_messages=messages,
+        )
+
+        # Should not crash with empty answer
+        result = await manager._apply_hierarchical_compression(debate_context, round_num=14)
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_rlm_result_none_handling(self):
+        """Test handling of None RLM result."""
+        config = ExtendedDebateConfig(enable_rlm=True, context_window_rounds=3)
+        manager = RLMContextManager(config)
+
+        mock_rlm = MagicMock()
+        mock_rlm.compress_and_query = AsyncMock(return_value=None)
+        manager._rlm = mock_rlm
+
+        messages = [MockMessage(round=i, content=f"Content {i}" * 20) for i in range(15)]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="None result test"),
+            context_messages=messages,
+        )
+
+        # Should not crash with None result
+        result = await manager._apply_hierarchical_compression(debate_context, round_num=14)
+        assert result is not None
+
+
+class TestTokenLimitManagement:
+    """Additional tests for token limit management."""
+
+    def test_min_context_ratio_config(self):
+        """Test min_context_ratio configuration."""
+        config = ExtendedDebateConfig(min_context_ratio=0.5)
+        assert config.min_context_ratio == 0.5
+
+        config2 = ExtendedDebateConfig(min_context_ratio=0.1)
+        assert config2.min_context_ratio == 0.1
+
+    def test_token_estimation_unicode(self):
+        """Test token estimation with unicode characters."""
+        manager = RLMContextManager()
+
+        # Unicode characters (typically more bytes but still 1 char)
+        unicode_text = "\u4e2d\u6587\u6587\u672c" * 100  # Chinese characters
+        estimated = manager._estimate_tokens(unicode_text)
+        assert estimated == 100  # 400 chars / 4
+
+    def test_token_estimation_whitespace(self):
+        """Test token estimation with various whitespace."""
+        manager = RLMContextManager()
+
+        whitespace_text = "word   word\n\nword\tword"
+        estimated = manager._estimate_tokens(whitespace_text)
+        assert estimated > 0
+
+    @pytest.mark.asyncio
+    async def test_very_high_token_count(self):
+        """Test handling of very high token counts."""
+        config = ExtendedDebateConfig(
+            compression_threshold=100,
+            context_window_rounds=2,
+            soft_limit_rounds=5,
+        )
+        manager = RLMContextManager(config)
+
+        # Create massive context
+        messages = [
+            MockMessage(round=i, content="x" * 10000)  # 2500 tokens each
+            for i in range(100)
+        ]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="High token test"),
+            context_messages=messages,
+        )
+
+        # Should handle without crashing
+        result = await manager.prepare_round_context(debate_context, round_num=99)
+        assert result is not None
+        assert manager._state.total_tokens > 100000  # Very high token count
+
+
+class TestMultiRoundExtendedScenarios:
+    """Additional multi-round scenario tests."""
+
+    @pytest.mark.asyncio
+    async def test_exactly_50_rounds(self):
+        """Test exactly 50 rounds - at soft limit boundary."""
+        config = ExtendedDebateConfig(
+            soft_limit_rounds=50,
+            context_window_rounds=10,
+            compression_threshold=500,
+        )
+        manager = RLMContextManager(config)
+        manager._state.compressed_history = "Rounds 1-40 summary"
+
+        messages = [MockMessage(round=i, content=f"Round {i} content" * 5) for i in range(50)]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="50 rounds"),
+            context_messages=messages,
+        )
+
+        result = await manager.prepare_round_context(debate_context, round_num=50)
+
+        assert manager._state.current_round == 50
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_100_round_debate_stress(self):
+        """Stress test with 100 rounds."""
+        config = ExtendedDebateConfig(
+            max_rounds=100,
+            soft_limit_rounds=50,
+            context_window_rounds=10,
+            compression_threshold=1000,
+            enable_rlm=False,
+        )
+        manager = RLMContextManager(config)
+        manager._state.compressed_history = "Extensive summary of rounds 1-90"
+
+        messages = [
+            MockMessage(
+                round=i,
+                agent=f"agent{i % 5}",
+                content=f"Round {i}: Extended discussion point " * 3,
+            )
+            for i in range(100)
+        ]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="100 round stress test"),
+            context_messages=messages,
+        )
+
+        result = await manager.prepare_round_context(debate_context, round_num=100)
+
+        assert manager._state.current_round == 100
+        assert result is not None
+        # Should include recent rounds
+        assert "Round 99" in result or "Round 95" in result
+
+    @pytest.mark.asyncio
+    async def test_sparse_round_numbers(self):
+        """Test with non-contiguous round numbers."""
+        config = ExtendedDebateConfig(context_window_rounds=5)
+        manager = RLMContextManager(config)
+
+        # Create messages with gaps in round numbers
+        messages = [
+            MockMessage(round=1, content="Round 1"),
+            MockMessage(round=5, content="Round 5"),
+            MockMessage(round=10, content="Round 10"),
+            MockMessage(round=20, content="Round 20"),
+        ]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Sparse rounds"),
+            context_messages=messages,
+        )
+
+        result = await manager.prepare_round_context(debate_context, round_num=20)
+
+        assert manager._state.current_round == 20
+
+
+class TestEdgeCasesExtended:
+    """Extended edge case tests."""
+
+    @pytest.mark.asyncio
+    async def test_empty_message_content(self):
+        """Test handling of messages with empty content."""
+        manager = RLMContextManager()
+
+        messages = [
+            MockMessage(round=1, content=""),
+            MockMessage(round=2, content="Non-empty"),
+            MockMessage(round=3, content=""),
+        ]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Empty content test"),
+            context_messages=messages,
+        )
+
+        result = manager._build_full_context(debate_context)
+        assert "Non-empty" in result
+
+    @pytest.mark.asyncio
+    async def test_special_characters_in_content(self):
+        """Test handling of special characters in content."""
+        manager = RLMContextManager()
+
+        messages = [
+            MockMessage(round=1, content="Content with <html> tags"),
+            MockMessage(round=2, content="Content with 'quotes' and \"double quotes\""),
+            MockMessage(round=3, content="Content with $pecial ch@racters!"),
+        ]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Special chars test"),
+            context_messages=messages,
+        )
+
+        result = manager._build_full_context(debate_context)
+        assert "<html>" in result
+        assert "quotes" in result
+        assert "$pecial" in result
+
+    @pytest.mark.asyncio
+    async def test_very_long_agent_names(self):
+        """Test handling of very long agent names."""
+        manager = RLMContextManager()
+
+        long_name = "agent_" + "x" * 500
+        messages = [MockMessage(round=1, agent=long_name, content="Content")]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Long agent name test"),
+            context_messages=messages,
+        )
+
+        result = manager._build_full_context(debate_context)
+        assert long_name in result
+
+    @pytest.mark.asyncio
+    async def test_first_round_edge_case(self):
+        """Test first round with specific edge conditions."""
+        manager = RLMContextManager()
+
+        # First round with one message
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="First round"),
+            context_messages=[MockMessage(round=0, content="Initial proposal")],
+        )
+
+        result = await manager.prepare_round_context(debate_context, round_num=0)
+
+        assert manager._state.current_round == 0
+        assert "First round" in result
+        assert "Initial proposal" in result
+
+    @pytest.mark.asyncio
+    async def test_window_larger_than_messages(self):
+        """Test when context window is larger than message count."""
+        config = ExtendedDebateConfig(context_window_rounds=100)  # Very large window
+        manager = RLMContextManager(config)
+
+        messages = [MockMessage(round=i, content=f"Content {i}") for i in range(5)]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Small debate"),
+            context_messages=messages,
+        )
+
+        result = await manager._apply_sliding_window(debate_context, round_num=5)
+
+        # All messages should be included
+        for i in range(5):
+            assert f"Content {i}" in result
+
+    def test_reset_preserves_config(self):
+        """Test that reset preserves configuration."""
+        config = ExtendedDebateConfig(max_rounds=200, compression_threshold=5000)
+        manager = RLMContextManager(config)
+
+        manager._state.current_round = 50
+        manager._state.compressions_performed = 10
+
+        manager.reset()
+
+        # State should be reset
+        assert manager._state.current_round == 0
+        assert manager._state.compressions_performed == 0
+
+        # Config should be preserved
+        assert manager.config.max_rounds == 200
+        assert manager.config.compression_threshold == 5000
+
+    @pytest.mark.asyncio
+    async def test_multiple_sequential_compressions(self):
+        """Test multiple sequential compression operations."""
+        config = ExtendedDebateConfig(
+            enable_rlm=True,
+            context_window_rounds=3,
+        )
+        manager = RLMContextManager(config)
+
+        mock_rlm = MagicMock()
+        call_count = 0
+
+        async def track_calls(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return MockRLMResult(answer=f"Compression {call_count}")
+
+        mock_rlm.compress_and_query = track_calls
+        manager._rlm = mock_rlm
+
+        for round_num in range(10, 30, 5):
+            messages = [MockMessage(round=i, content=f"Content {i}" * 20) for i in range(round_num)]
+            debate_context = MockDebateContext(
+                env=MockEnvironment(task="Sequential compressions"),
+                context_messages=messages,
+            )
+            await manager._apply_hierarchical_compression(debate_context, round_num=round_num)
+
+        # Should have performed multiple compressions
+        assert manager._state.compressions_performed > 1
+
+
+class TestRLMContextManagerLevelHints:
+    """Test level hints for drill-down queries."""
+
+    @pytest.mark.asyncio
+    async def test_drill_down_abstract_level(self):
+        """Test drill-down with ABSTRACT level hint."""
+        manager = RLMContextManager()
+        manager._state.compressed_history = "Summary content"
+
+        mock_rlm = MagicMock()
+        mock_rlm.compress_and_query = AsyncMock(
+            return_value=MockRLMResult(answer="Abstract answer")
+        )
+        manager._rlm = mock_rlm
+
+        result = await manager.get_drill_down_context("query", level="ABSTRACT")
+        assert result == "Abstract answer"
+
+    @pytest.mark.asyncio
+    async def test_drill_down_full_level(self):
+        """Test drill-down with FULL level hint."""
+        manager = RLMContextManager()
+        manager._state.compressed_history = "Detailed content"
+
+        mock_rlm = MagicMock()
+        mock_rlm.compress_and_query = AsyncMock(return_value=MockRLMResult(answer="Full answer"))
+        manager._rlm = mock_rlm
+
+        result = await manager.get_drill_down_context("query", level="FULL")
+        assert result == "Full answer"
+
+
+class TestRLMTrueRLMFlag:
+    """Test handling of used_true_rlm flag."""
+
+    @pytest.mark.asyncio
+    async def test_true_rlm_used_logging(self):
+        """Test logging when TRUE RLM is used."""
+        config = ExtendedDebateConfig(enable_rlm=True, context_window_rounds=3)
+        manager = RLMContextManager(config)
+
+        mock_rlm = MagicMock()
+        mock_result = MockRLMResult(
+            answer="Compressed content",
+            used_true_rlm=True,
+            used_compression_fallback=False,
+        )
+        mock_rlm.compress_and_query = AsyncMock(return_value=mock_result)
+        manager._rlm = mock_rlm
+
+        messages = [MockMessage(round=i, content=f"Content {i}" * 20) for i in range(15)]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="TRUE RLM test"),
+            context_messages=messages,
+        )
+
+        with patch("aragora.debate.extended_rounds.logger") as mock_logger:
+            await manager._apply_hierarchical_compression(debate_context, round_num=14)
+            # Should log that TRUE RLM was used
+            assert any("TRUE RLM" in str(call) for call in mock_logger.debug.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_compression_fallback_logging(self):
+        """Test logging when compression fallback is used."""
+        config = ExtendedDebateConfig(enable_rlm=True, context_window_rounds=3)
+        manager = RLMContextManager(config)
+
+        mock_rlm = MagicMock()
+        mock_result = MockRLMResult(
+            answer="Compressed content",
+            used_true_rlm=False,
+            used_compression_fallback=True,
+        )
+        mock_rlm.compress_and_query = AsyncMock(return_value=mock_result)
+        manager._rlm = mock_rlm
+
+        messages = [MockMessage(round=i, content=f"Content {i}" * 20) for i in range(15)]
+        debate_context = MockDebateContext(
+            env=MockEnvironment(task="Fallback test"),
+            context_messages=messages,
+        )
+
+        with patch("aragora.debate.extended_rounds.logger") as mock_logger:
+            await manager._apply_hierarchical_compression(debate_context, round_num=14)
+            # Should log that compression fallback was used
+            assert any(
+                "compression fallback" in str(call) for call in mock_logger.debug.call_args_list
+            )
+
+
+class TestRoundSummaryExtended:
+    """Extended tests for RoundSummary dataclass."""
+
+    def test_round_summary_with_compressed_at(self):
+        """Test RoundSummary with compressed_at timestamp."""
+        import time
+
+        current_time = time.time()
+        summary = RoundSummary(
+            round_num=10,
+            proposals={"agent1": "proposal"},
+            critiques=["critique1"],
+            key_points=["key1", "key2"],
+            consensus_progress=0.9,
+            token_count=750,
+            compressed_at=current_time,
+        )
+
+        assert summary.compressed_at == current_time
+        assert summary.round_num == 10
+        assert summary.consensus_progress == 0.9
+
+    def test_round_summary_empty_collections(self):
+        """Test RoundSummary with empty collections."""
+        summary = RoundSummary(
+            round_num=1,
+            proposals={},
+            critiques=[],
+            key_points=[],
+            consensus_progress=0.0,
+            token_count=0,
+        )
+
+        assert len(summary.proposals) == 0
+        assert len(summary.critiques) == 0
+        assert len(summary.key_points) == 0
+
+
+class TestExtendedContextStateMutability:
+    """Test ExtendedContextState mutability and independence."""
+
+    def test_state_round_summaries_independence(self):
+        """Test that round_summaries are independent between instances."""
+        state1 = ExtendedContextState()
+        state2 = ExtendedContextState()
+
+        state1.round_summaries[1] = RoundSummary(
+            round_num=1,
+            proposals={"a": "b"},
+            critiques=[],
+            key_points=[],
+            consensus_progress=0.5,
+            token_count=100,
+        )
+
+        assert 1 not in state2.round_summaries
+        assert len(state2.round_summaries) == 0
+
+    def test_state_rlm_context_none_default(self):
+        """Test that rlm_context defaults to None."""
+        state = ExtendedContextState()
+        assert state.rlm_context is None
+
+    def test_state_all_counters_zero(self):
+        """Test all statistical counters start at zero."""
+        state = ExtendedContextState()
+
+        assert state.current_round == 0
+        assert state.total_tokens == 0
+        assert state.compressed_tokens == 0
+        assert state.compressions_performed == 0
+        assert state.tokens_saved == 0
+        assert state.compression_time_total == 0.0

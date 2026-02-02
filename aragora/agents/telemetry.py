@@ -294,7 +294,9 @@ def with_telemetry(
                 return result
 
             except BaseException as e:
-                telemetry.complete(success=False, error=e)  # type: ignore[arg-type]
+                # BaseException includes Exception; AgentTelemetry.complete accepts Exception
+                # but we catch BaseException to ensure telemetry is recorded for all failures
+                telemetry.complete(success=False, error=e if isinstance(e, Exception) else None)
                 raise
 
             finally:
@@ -348,7 +350,9 @@ def with_telemetry(
                 return result
 
             except BaseException as e:
-                telemetry.complete(success=False, error=e)  # type: ignore[arg-type]
+                # BaseException includes Exception; AgentTelemetry.complete accepts Exception
+                # but we catch BaseException to ensure telemetry is recorded for all failures
+                telemetry.complete(success=False, error=e if isinstance(e, Exception) else None)
                 raise
 
             finally:

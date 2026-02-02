@@ -21,12 +21,12 @@ import json
 import logging
 import os
 import threading
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from aragora.audit.unified import audit_data
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import MaybeAsyncHandlerResult
+    pass
 
 
 class VoteRecordingStore(Protocol):
@@ -171,9 +171,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         }
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "MaybeAsyncHandlerResult":
+    ) -> HandlerResult | None:
         """Route Telegram GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/telegram/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -343,7 +343,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             from aragora.memory.consensus import ConsensusStore
 
             # Record the vote
-            store: VoteRecordingStore = ConsensusStore()  # type: ignore[assignment]
+            # ConsensusStore.record_vote is planned but not yet implemented.
+            # Cast is safe because we catch AttributeError if method is missing.
+            store = cast(VoteRecordingStore, ConsensusStore())
             store.record_vote(
                 debate_id=debate_id,
                 user_id=f"telegram:{user_id}",

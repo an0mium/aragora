@@ -13,11 +13,13 @@ from datetime import datetime
 from typing import Any, Callable, cast
 
 try:
+    # supabase-py lacks comprehensive type stubs; the library exports these at runtime
     from supabase import Client, create_client  # type: ignore[attr-defined]
 
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
+    # Fallback placeholders when supabase is not installed
     Client = None  # type: ignore[misc,assignment]
     create_client = None  # type: ignore[misc,assignment]
 
@@ -91,6 +93,7 @@ class SupabaseClient:
             )
             return
 
+        # create_client is guaranteed non-None here since SUPABASE_AVAILABLE is True
         self.client = create_client(self.url, self.key)  # type: ignore[misc]
         logger.info(f"Supabase client initialized for {self.url}")
 
@@ -122,7 +125,8 @@ class SupabaseClient:
             _log_slow_query("save_cycle", elapsed, f"cycle={cycle.cycle_number}")
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
+                # result.data is a list when successful; index access is safe
+                row = cast(dict[str, Any], result.data[0])
                 return row.get("id")
             return None
         except Exception as e:
@@ -135,6 +139,7 @@ class SupabaseClient:
             return None
 
         try:
+            # postgrest-py query builder returns chainable objects; execute() is dynamically attached
             result = (
                 self.client.table("nomic_cycles")
                 .select("*")
@@ -230,7 +235,8 @@ class SupabaseClient:
             result = self.client.table("debate_artifacts").insert(data).execute()
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
+                # result.data is a list when successful; index access is safe
+                row = cast(dict[str, Any], result.data[0])
                 return row.get("id")
             return None
         except Exception as e:
@@ -243,6 +249,7 @@ class SupabaseClient:
             return None
 
         try:
+            # postgrest-py query builder returns chainable objects; execute() is dynamically attached
             result = (
                 self.client.table("debate_artifacts")
                 .select("*")
@@ -322,7 +329,8 @@ class SupabaseClient:
             result = self.client.table("stream_events").insert(data).execute()
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
+                # result.data is a list when successful; index access is safe
+                row = cast(dict[str, Any], result.data[0])
                 return row.get("id")
             return None
         except Exception as e:
@@ -402,7 +410,8 @@ class SupabaseClient:
             result = self.client.table("agent_metrics").insert(data).execute()
 
             if result.data:
-                row = cast(dict[str, Any], result.data[0])  # type: ignore[index]
+                # result.data is a list when successful; index access is safe
+                row = cast(dict[str, Any], result.data[0])
                 return row.get("id")
             return None
         except Exception as e:
@@ -473,6 +482,7 @@ class SupabaseClient:
         try:
             if self.client is None:
                 raise RuntimeError("Supabase client not initialized - call configure() first")
+            # supabase-py realtime channel method lacks proper type stubs
             channel = self.client.channel(f"events:{loop_id}")  # type: ignore[attr-defined]
 
             def handle_insert(payload):

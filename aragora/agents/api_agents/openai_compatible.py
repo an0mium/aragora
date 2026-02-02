@@ -105,10 +105,14 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     timeout: int
 
     def _record_token_usage(self, tokens_in: int, tokens_out: int) -> None:
-        """Record token usage (delegates to APIAgent base class)."""
-        # Cast super() to protocol for proper typing of mixin cooperative inheritance
-        parent: _APIAgentProtocol = super()  # type: ignore[assignment]
-        parent._record_token_usage(tokens_in, tokens_out)
+        """Record token usage (delegates to APIAgent base class).
+
+        This mixin uses cooperative inheritance via super(). The type checker
+        cannot verify that the MRO will include APIAgent, but the class is
+        designed to be mixed with APIAgent-derived classes only.
+        """
+        # super() returns the next class in MRO which should be APIAgent or a subclass
+        super()._record_token_usage(tokens_in, tokens_out)  # type: ignore[misc]
 
     # Methods inherited from CritiqueMixin (via APIAgent) - delegate to parent
     def _build_context_prompt(
@@ -117,10 +121,14 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         truncate: bool = False,
         sanitize_fn: object | None = None,
     ) -> str:
-        """Build context from previous messages (delegates to CritiqueMixin)."""
-        # Cast super() to protocol for proper typing of mixin cooperative inheritance
-        parent: _APIAgentProtocol = super()  # type: ignore[assignment]
-        return parent._build_context_prompt(context, truncate, sanitize_fn)
+        """Build context from previous messages (delegates to CritiqueMixin).
+
+        This mixin uses cooperative inheritance via super(). The type checker
+        cannot verify that the MRO will include CritiqueMixin, but the class is
+        designed to be mixed with APIAgent-derived classes only.
+        """
+        # super() returns the next class in MRO which should include CritiqueMixin
+        return super()._build_context_prompt(context, truncate, sanitize_fn)  # type: ignore[misc]
 
     def _parse_critique(
         self,
@@ -128,10 +136,14 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         target_agent: str,
         target_content: str,
     ) -> Critique:
-        """Parse critique response (delegates to CritiqueMixin)."""
-        # Cast super() to protocol for proper typing of mixin cooperative inheritance
-        parent: _APIAgentProtocol = super()  # type: ignore[assignment]
-        return parent._parse_critique(response, target_agent, target_content)
+        """Parse critique response (delegates to CritiqueMixin).
+
+        This mixin uses cooperative inheritance via super(). The type checker
+        cannot verify that the MRO will include CritiqueMixin, but the class is
+        designed to be mixed with APIAgent-derived classes only.
+        """
+        # super() returns the next class in MRO which should include CritiqueMixin
+        return super()._parse_critique(response, target_agent, target_content)  # type: ignore[misc]
 
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""

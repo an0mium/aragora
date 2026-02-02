@@ -38,7 +38,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import MaybeAsyncHandlerResult
+    pass
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_ROUNDS
@@ -745,7 +745,7 @@ Each debate uses a dynamic team selected based on task requirements and agent pe
         ]
 
         if vote_counts:
-            top_agent = max(vote_counts, key=vote_counts.get)  # type: ignore[arg-type]
+            top_agent = max(vote_counts.keys(), key=lambda k: vote_counts[k])
             facts.append(
                 {
                     "title": "Leading Agent",
@@ -1583,9 +1583,9 @@ class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):
         return path in self.ROUTES
 
     @rate_limit(requests_per_minute=30, limiter_name="teams_status")
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "MaybeAsyncHandlerResult":
+    ) -> HandlerResult | None:
         """Route Teams requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/teams/status":
             # Use BotHandlerMixin's RBAC-protected status handler

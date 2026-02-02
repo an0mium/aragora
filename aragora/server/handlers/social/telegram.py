@@ -26,7 +26,10 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Coroutine, Optional
+from typing import Any, Coroutine, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -58,17 +61,25 @@ from ..base import (
 )
 
 # RBAC imports - optional dependency
-try:
-    from aragora.rbac.checker import check_permission
-    from aragora.rbac.models import AuthorizationContext
-    from aragora.billing.auth import extract_user_from_request
+# Declare module-level types for optional RBAC components
+check_permission: Callable[..., Any] | None
+extract_user_from_request: Callable[..., Any] | None
+AuthorizationContext: type[Any] | None
 
+try:
+    from aragora.rbac.checker import check_permission as _check_perm
+    from aragora.rbac.models import AuthorizationContext as _AuthCtx
+    from aragora.billing.auth import extract_user_from_request as _extract_user
+
+    check_permission = _check_perm
+    AuthorizationContext = _AuthCtx
+    extract_user_from_request = _extract_user
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
-    check_permission = None  # type: ignore[misc, no-redef]
-    extract_user_from_request = None  # type: ignore[misc, no-redef]
-    AuthorizationContext = None  # type: ignore[misc, no-redef]
+    check_permission = None
+    extract_user_from_request = None
+    AuthorizationContext = None
 from ..utils.rate_limit import rate_limit
 from .telemetry import (
     record_api_call,

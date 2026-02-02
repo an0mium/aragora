@@ -44,11 +44,12 @@ except ImportError:
             pass
 
     @contextmanager
-    def trace_context(  # type: ignore[misc]
+    def trace_context(
         operation: str,
         trace_id: str | None = None,
         parent_span_id: str | None = None,
-    ) -> Iterator[Any]:
+    ) -> Iterator[_MockSpan]:
+        """Mock trace_context for when tracing is not available."""
         yield _MockSpan()
 
 

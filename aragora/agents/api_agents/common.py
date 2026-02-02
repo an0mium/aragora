@@ -34,15 +34,20 @@ from aragora.utils.error_sanitizer import sanitize_error_text as _sanitize_error
 
 # Distributed tracing support
 try:
-    from aragora.observability.tracing import build_trace_headers
+    from aragora.observability.tracing import build_trace_headers as _build_trace_headers
 
     TRACING_AVAILABLE = True
 except ImportError:
     TRACING_AVAILABLE = False
 
-    def build_trace_headers() -> dict[str, str]:  # type: ignore[no-redef]
+    def _build_trace_headers() -> dict[str, str]:
         """Fallback when tracing module not available."""
         return {}
+
+
+def build_trace_headers() -> dict[str, str]:
+    """Build trace headers for distributed tracing, with fallback if tracing unavailable."""
+    return _build_trace_headers()
 
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -243,9 +248,7 @@ def get_trace_headers() -> dict[str, str]:
     Returns:
         Dictionary of trace headers to include in HTTP requests.
     """
-    if TRACING_AVAILABLE:
-        return build_trace_headers()
-    return {}
+    return build_trace_headers()
 
 
 def is_openrouter_fallback_available() -> bool:
@@ -390,7 +393,10 @@ async def iter_chunks_with_timeout(
     if chunk_timeout is None:
         chunk_timeout = _get_stream_chunk_timeout()
 
-    async_iter: AsyncGenerator[bytes, None] = response_content.iter_any().__aiter__()  # type: ignore[assignment]
+    # aiohttp's iter_any() returns an async iterator, but the type stubs don't
+    # reflect this accurately. We use __aiter__() and __anext__() directly for
+    # explicit async iteration with timeout support.
+    async_iter = response_content.iter_any().__aiter__()
     while True:
         try:
             chunk: bytes = await asyncio.wait_for(async_iter.__anext__(), timeout=chunk_timeout)

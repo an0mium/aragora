@@ -10,7 +10,10 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, Callable, Pattern
+from typing import Any, Callable, Pattern, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -273,8 +276,9 @@ try:
 except ImportError as e:
     logger.warning(f"Failed to import handler utilities: {e}")
     # Define stubs to prevent import errors
-    HandlerResult = None  # type: ignore[assignment]
-    SecureHandler = None  # type: ignore[assignment]
+    # Note: These are typed as Any at module level (lines 243-244), so None is valid
+    HandlerResult = None
+    SecureHandler = None
     ForbiddenError = Exception
     UnauthorizedError = Exception
 

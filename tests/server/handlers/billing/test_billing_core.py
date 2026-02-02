@@ -147,17 +147,23 @@ class FakeHandler:
         method: str = "GET",
         body: dict | None = None,
         headers: dict | None = None,
+        query_params: dict | None = None,
     ):
         self.command = method
         self._body = json.dumps(body).encode() if body else b"{}"
         self.headers = headers or {}
         self.client_address = ("127.0.0.1", 12345)
+        self._query_params = query_params or {}
 
     @property
     def rfile(self):
         import io
 
         return io.BytesIO(self._body)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support get_string_param() calls on the handler."""
+        return self._query_params.get(key, default)
 
 
 # ---------------------------------------------------------------------------
@@ -625,12 +631,14 @@ class TestRateLimiting:
 
         handler = FakeHandler()
 
-        # Exhaust rate limit
-        for _ in range(25):
-            _billing_limiter.is_allowed("127.0.0.1")
+        # Disable test name suffix so we use consistent key "127.0.0.1"
+        with patch.dict("os.environ", {"PYTEST_CURRENT_TEST": ""}, clear=False):
+            # Exhaust rate limit
+            for _ in range(25):
+                _billing_limiter.is_allowed("127.0.0.1")
 
-        # Next request should be rejected
-        result = billing_handler.handle("/api/v1/billing/plans", {}, handler, method="GET")
+            # Next request should be rejected
+            result = billing_handler.handle("/api/v1/billing/plans", {}, handler, method="GET")
 
         assert result.status_code == 429
 
@@ -638,13 +646,15 @@ class TestRateLimiting:
         """Stripe webhooks are not rate limited."""
         from aragora.server.handlers.billing.core import _billing_limiter
 
-        # Exhaust rate limit
-        for _ in range(25):
-            _billing_limiter.is_allowed("127.0.0.1")
+        # Disable test name suffix
+        with patch.dict("os.environ", {"PYTEST_CURRENT_TEST": ""}, clear=False):
+            # Exhaust rate limit
+            for _ in range(25):
+                _billing_limiter.is_allowed("127.0.0.1")
 
-        # Webhook handler should be accessed (though it will fail for other reasons)
-        handler = FakeHandler(method="POST", headers={})
-        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, method="POST")
+            # Webhook handler should be accessed (though it will fail for other reasons)
+            handler = FakeHandler(method="POST", headers={})
+            result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, method="POST")
 
         # Should not be 429 (rate limited)
         assert result.status_code != 429

@@ -32,7 +32,10 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -65,9 +68,17 @@ from ..base import (
 from ..utils.rate_limit import rate_limit
 
 # RBAC imports - optional dependency
+# Declare module-level types for optional RBAC components
+check_permission: Callable[..., Any] | None
+extract_user_from_request: Callable[..., Any] | None
+AuthorizationContext: type[Any] | None
+
 try:
-    from aragora.rbac.checker import check_permission
-    from aragora.rbac.models import AuthorizationContext
+    from aragora.rbac.checker import check_permission as _check_perm
+    from aragora.rbac.models import AuthorizationContext as _AuthCtx
+
+    check_permission = _check_perm
+    AuthorizationContext = _AuthCtx
 
     # extract_user_from_request is in billing.auth.context, not rbac.middleware
     # Import it from the correct location for proper typing
@@ -76,16 +87,16 @@ try:
             extract_user_from_request as _extract_user,
         )
 
-        extract_user_from_request: Callable[..., Any] | None = _extract_user
+        extract_user_from_request = _extract_user
     except ImportError:
         extract_user_from_request = None
 
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
-    check_permission = None  # type: ignore[misc]
+    check_permission = None
     extract_user_from_request = None
-    AuthorizationContext = None  # type: ignore[misc]
+    AuthorizationContext = None
 from .telemetry import (
     record_api_call,
     record_api_latency,

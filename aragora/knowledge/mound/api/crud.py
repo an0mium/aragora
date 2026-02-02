@@ -47,11 +47,12 @@ except ImportError:
     from contextlib import contextmanager
 
     @contextmanager
-    def trace_context(  # type: ignore[misc]
+    def trace_context(
         operation: str,
         trace_id: str | None = None,
         parent_span_id: str | None = None,
-    ) -> Generator[Any, None, None]:
+    ) -> Generator[_MockSpan, None, None]:
+        """Mock trace_context for when tracing is not available."""
         yield _MockSpan()
 
 

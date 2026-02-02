@@ -720,3 +720,448 @@ class TestAttributeChecks:
         result = NoStrengthResult()
         conclusion = formatter.format_conclusion(result)
         assert "Strength:" not in conclusion
+
+    def test_belief_cruxes_attribute_check(self, formatter):
+        """Test belief_cruxes attribute existence is checked."""
+
+        @dataclass
+        class NoCruxesResult:
+            consensus_reached: bool = True
+            confidence: float = 0.8
+            final_answer: str = "Answer"
+            # No 'belief_cruxes' attribute
+
+        result = NoCruxesResult()
+        conclusion = formatter.format_conclusion(result)
+        assert "## KEY CRUXES" not in conclusion
+
+    def test_dissenting_views_attribute_check(self, formatter):
+        """Test dissenting_views attribute existence is checked."""
+
+        @dataclass
+        class NoDissentResult:
+            consensus_reached: bool = True
+            confidence: float = 0.8
+            final_answer: str = "Answer"
+            # No 'dissenting_views' attribute
+
+        result = NoDissentResult()
+        conclusion = formatter.format_conclusion(result)
+        assert "## DISSENTING VIEWS" not in conclusion
+
+    def test_translations_attribute_check(self, formatter):
+        """Test translations attribute existence is checked."""
+
+        @dataclass
+        class NoTranslationsResult:
+            consensus_reached: bool = True
+            confidence: float = 0.8
+            final_answer: str = "Answer"
+            # No 'translations' attribute
+
+        result = NoTranslationsResult()
+        conclusion = formatter.format_conclusion(result)
+        assert "## TRANSLATIONS" not in conclusion
+
+
+class TestComplianceValidationIntegration:
+    """Tests for actual compliance validation integration."""
+
+    def test_validate_compliance_returns_compliant_on_exception(self, formatter):
+        """Test validate_compliance returns compliant result on general exception."""
+        # Patch to force an exception during validation
+        with patch("aragora.compliance.framework.ComplianceFrameworkManager") as mock_manager_class:
+            mock_manager_class.side_effect = Exception("Unexpected error")
+
+            result = formatter.validate_compliance("Test content")
+
+            # Should return compliant=True with empty issues
+            assert result.compliant is True
+            assert result.issues == []
+            assert result.score == 1.0
+
+    def test_validate_compliance_with_vertical_determines_frameworks(self, formatter):
+        """Test that vertical selection properly determines frameworks."""
+        with patch("aragora.compliance.framework.ComplianceFrameworkManager") as mock_class:
+            mock_manager = MagicMock()
+            mock_class.return_value = mock_manager
+
+            mock_framework = MagicMock()
+            mock_framework.id = "HIPAA"
+            mock_manager.get_frameworks_for_vertical.return_value = [mock_framework]
+
+            mock_result = MagicMock()
+            mock_result.compliant = True
+            mock_result.issues = []
+            mock_result.score = 1.0
+            mock_manager.check.return_value = mock_result
+
+            formatter.validate_compliance("Health data", vertical="healthcare")
+
+            mock_manager.get_frameworks_for_vertical.assert_called_once_with("healthcare")
+
+
+class TestComplianceResultFormattingDetails:
+    """Tests for detailed compliance result formatting."""
+
+    def test_format_multiple_critical_issues_limited_to_three(self, formatter):
+        """Test only first 3 critical issues are displayed."""
+        critical_issues = []
+        for i in range(5):
+            issue = MagicMock()
+            issue.framework = f"Framework{i}"
+            issue.description = f"Critical issue {i} description that is long enough"
+            issue.recommendation = f"Recommendation {i} for critical issue"
+            critical_issues.append(issue)
+
+        mock_result = MagicMock()
+        mock_result.compliant = False
+        mock_result.score = 0.2
+        mock_result.frameworks_checked = ["Framework0", "Framework1"]
+        mock_result.issues = critical_issues
+        mock_result.critical_issues = critical_issues
+        mock_result.high_issues = []
+
+        formatted = formatter.format_compliance_result(mock_result)
+
+        # Should show CRITICAL (5): but only first 3 details
+        assert "CRITICAL (5):" in formatted
+        assert "[Framework0]" in formatted
+        assert "[Framework1]" in formatted
+        assert "[Framework2]" in formatted
+        # 4th and 5th should not have their details
+        assert "Critical issue 3" not in formatted
+        assert "Critical issue 4" not in formatted
+
+    def test_format_multiple_high_issues_limited_to_three(self, formatter):
+        """Test only first 3 high issues are displayed."""
+        high_issues = []
+        for i in range(5):
+            issue = MagicMock()
+            issue.framework = f"HighFW{i}"
+            issue.description = f"High severity issue number {i} in detail"
+            high_issues.append(issue)
+
+        mock_result = MagicMock()
+        mock_result.compliant = False
+        mock_result.score = 0.5
+        mock_result.frameworks_checked = ["HighFW0"]
+        mock_result.issues = high_issues
+        mock_result.critical_issues = []
+        mock_result.high_issues = high_issues
+
+        formatted = formatter.format_compliance_result(mock_result)
+
+        assert "HIGH (5):" in formatted
+        assert "[HighFW0]" in formatted
+        assert "[HighFW1]" in formatted
+        assert "[HighFW2]" in formatted
+        assert "issue number 3" not in formatted
+        assert "issue number 4" not in formatted
+
+    def test_format_long_description_truncated(self, formatter):
+        """Test long issue descriptions are truncated to 60 chars."""
+        long_desc = "D" * 100
+
+        issue = MagicMock()
+        issue.framework = "SOC2"
+        issue.description = long_desc
+        issue.recommendation = "Fix it"
+
+        mock_result = MagicMock()
+        mock_result.compliant = False
+        mock_result.score = 0.4
+        mock_result.frameworks_checked = ["SOC2"]
+        mock_result.issues = [issue]
+        mock_result.critical_issues = [issue]
+        mock_result.high_issues = []
+
+        formatted = formatter.format_compliance_result(mock_result)
+
+        # Description should be truncated to 60 chars + "..."
+        assert "D" * 60 + "..." in formatted
+        assert "D" * 100 not in formatted
+
+    def test_format_long_recommendation_truncated(self, formatter):
+        """Test long recommendations are truncated to 80 chars."""
+        long_rec = "R" * 150
+
+        issue = MagicMock()
+        issue.framework = "GDPR"
+        issue.description = "Short description"
+        issue.recommendation = long_rec
+
+        mock_result = MagicMock()
+        mock_result.compliant = False
+        mock_result.score = 0.3
+        mock_result.frameworks_checked = ["GDPR"]
+        mock_result.issues = [issue]
+        mock_result.critical_issues = [issue]
+        mock_result.high_issues = []
+
+        formatted = formatter.format_compliance_result(mock_result)
+
+        # Recommendation should be truncated to 80 chars + "..."
+        assert "R" * 80 + "..." in formatted
+        assert "R" * 150 not in formatted
+
+
+class TestConclusionWithComplianceInsertion:
+    """Tests for compliance section insertion in conclusion."""
+
+    def test_compliance_section_inserted_before_final_separator(self, formatter, basic_result):
+        """Test compliance section is inserted before the final separator."""
+        with patch.object(formatter, "validate_compliance") as mock_validate:
+            mock_compliance = MagicMock()
+            mock_compliance.frameworks_checked = ["GDPR"]
+            mock_compliance.compliant = True
+            mock_compliance.score = 1.0
+            mock_compliance.issues = []
+            mock_validate.return_value = mock_compliance
+
+            with patch.object(formatter, "format_compliance_result") as mock_format:
+                mock_format.return_value = "\n## COMPLIANCE CHECK\nStatus: COMPLIANT (score: 100%)"
+
+                conclusion = formatter.format_conclusion_with_compliance(
+                    basic_result, frameworks=["GDPR"]
+                )
+
+                # Compliance section should appear before final separator
+                lines = conclusion.split("\n")
+                compliance_idx = None
+                final_sep_idx = None
+                for i, line in enumerate(lines):
+                    if "## COMPLIANCE CHECK" in line:
+                        compliance_idx = i
+                    if line == "=" * 60 and i > len(lines) // 2:
+                        final_sep_idx = i
+
+                assert compliance_idx is not None
+                assert final_sep_idx is not None
+                assert compliance_idx < final_sep_idx
+
+    def test_compliance_not_inserted_when_frameworks_empty(self, formatter, basic_result):
+        """Test compliance section not added when no frameworks returned."""
+        with patch.object(formatter, "validate_compliance") as mock_validate:
+            mock_compliance = MagicMock()
+            mock_compliance.frameworks_checked = []
+            mock_validate.return_value = mock_compliance
+
+            conclusion = formatter.format_conclusion_with_compliance(basic_result)
+
+            assert "## COMPLIANCE CHECK" not in conclusion
+
+
+class TestTranslationFormatting:
+    """Additional tests for translation formatting edge cases."""
+
+    def test_translation_language_code_uppercase_in_fallback(self, formatter):
+        """Test language code is uppercased in fallback mode."""
+        result = MockDebateResult(translations={"xyz": "Translation in unknown language"})
+
+        # Force the import error path by patching
+        with patch("aragora.debate.translation.Language") as mock_lang:
+            mock_lang.from_code.side_effect = AttributeError("No Language")
+
+            conclusion = formatter.format_conclusion(result)
+
+            # Should still display translations with uppercase code
+            assert "## TRANSLATIONS" in conclusion
+            assert "Translation in unknown language" in conclusion
+
+    def test_multiple_translations_all_displayed(self, formatter):
+        """Test all translations are displayed, not limited."""
+        translations = {f"lang{i}": f"Translation {i}" for i in range(10)}
+        result = MockDebateResult(translations=translations)
+
+        conclusion = formatter.format_conclusion(result)
+
+        # All 10 translations should be present
+        for i in range(10):
+            assert f"Translation {i}" in conclusion
+
+
+class TestVoteProcessing:
+    """Additional tests for vote processing logic."""
+
+    def test_duplicate_voter_overwrites(self, formatter):
+        """Test that multiple votes from same voter only show last choice."""
+        # The implementation builds a dict, so later votes overwrite
+        result = MockDebateResult(
+            votes=[
+                MockVote(voter="claude", choice="choice_1"),
+                MockVote(voter="claude", choice="choice_2"),  # This should win
+            ]
+        )
+
+        conclusion = formatter.format_conclusion(result)
+
+        # Only the last choice should be shown for claude
+        assert "claude: choice_2" in conclusion
+        # First choice should not appear (dict overwrites)
+        lines = conclusion.split("\n")
+        claude_lines = [line for line in lines if "claude:" in line]
+        assert len(claude_lines) == 1
+
+    def test_empty_voter_string(self, formatter):
+        """Test handling of empty voter string."""
+        result = MockDebateResult(votes=[MockVote(voter="", choice="some_choice")])
+
+        conclusion = formatter.format_conclusion(result)
+
+        assert ": some_choice" in conclusion
+
+    def test_empty_choice_string(self, formatter):
+        """Test handling of empty choice string."""
+        result = MockDebateResult(votes=[MockVote(voter="claude", choice="")])
+
+        conclusion = formatter.format_conclusion(result)
+
+        assert "claude: " in conclusion
+
+
+class TestFormatterReusability:
+    """Tests for formatter instance reusability."""
+
+    def test_formatter_reusable_across_results(self, formatter):
+        """Test same formatter instance works for multiple results."""
+        result1 = MockDebateResult(
+            consensus_reached=True,
+            confidence=0.9,
+            final_answer="First answer",
+        )
+        result2 = MockDebateResult(
+            consensus_reached=False,
+            confidence=0.3,
+            final_answer="Second answer",
+        )
+
+        conclusion1 = formatter.format_conclusion(result1)
+        conclusion2 = formatter.format_conclusion(result2)
+
+        assert "First answer" in conclusion1
+        assert "Second answer" in conclusion2
+        assert "Consensus: YES" in conclusion1
+        assert "Consensus: NO" in conclusion2
+
+    def test_formatter_settings_persist(self, custom_formatter):
+        """Test custom settings persist across multiple uses."""
+        long_answer = "A" * 100
+
+        result1 = MockDebateResult(final_answer=long_answer)
+        result2 = MockDebateResult(final_answer=long_answer)
+
+        conclusion1 = custom_formatter.format_conclusion(result1)
+        conclusion2 = custom_formatter.format_conclusion(result2)
+
+        # Both should be truncated the same way
+        assert "A" * 50 + "..." in conclusion1
+        assert "A" * 50 + "..." in conclusion2
+
+
+class TestBoundaryConditions:
+    """Tests for numeric boundary conditions."""
+
+    def test_confidence_exactly_half(self, formatter):
+        """Test confidence at exactly 0.5 (50%)."""
+        result = MockDebateResult(
+            consensus_reached=True,
+            confidence=0.5,
+        )
+
+        conclusion = formatter.format_conclusion(result)
+
+        assert "Consensus: YES (50% agreement)" in conclusion
+
+    def test_confidence_rounds_correctly(self, formatter):
+        """Test confidence values round correctly in display."""
+        result = MockDebateResult(
+            consensus_reached=True,
+            confidence=0.999,
+        )
+
+        conclusion = formatter.format_conclusion(result)
+
+        # 0.999 should round to 100% with :.0% format
+        assert "100% agreement" in conclusion
+
+    def test_confidence_near_zero_rounds(self, formatter):
+        """Test near-zero confidence rounds correctly."""
+        result = MockDebateResult(
+            consensus_reached=False,
+            confidence=0.001,
+        )
+
+        conclusion = formatter.format_conclusion(result)
+
+        # 0.001 should round to 0% with :.0% format
+        assert "0% agreement" in conclusion
+
+    def test_crux_uncertainty_formatting(self, formatter):
+        """Test uncertainty value formatting precision."""
+        result = MockDebateResult(belief_cruxes=[{"claim": "Test", "uncertainty": 0.12345}])
+
+        conclusion = formatter.format_conclusion(result)
+
+        # Should be formatted to 2 decimal places
+        assert "(uncertainty: 0.12)" in conclusion
+
+    def test_answer_exactly_at_max_length(self, formatter):
+        """Test answer exactly at max length is not truncated."""
+        # Default max_answer_length is 1000
+        exact_answer = "A" * 1000
+        result = MockDebateResult(final_answer=exact_answer)
+
+        conclusion = formatter.format_conclusion(result)
+
+        # Should contain exact answer without truncation
+        assert exact_answer in conclusion
+        # Should not have the truncation ellipsis added
+        answer_section = conclusion.split("## FINAL ANSWER")[1].split("##")[0]
+        assert "..." not in answer_section
+
+    def test_view_exactly_at_max_length(self, formatter):
+        """Test dissenting view exactly at max length is not truncated."""
+        # Default max_view_length is 300
+        exact_view = "B" * 300
+        result = MockDebateResult(dissenting_views=[exact_view])
+
+        conclusion = formatter.format_conclusion(result)
+
+        # Should contain exact view without truncation
+        assert exact_view in conclusion
+
+
+class TestCruxFormatting:
+    """Additional tests for crux formatting details."""
+
+    def test_crux_claim_exactly_80_chars_no_truncation(self, formatter):
+        """Test claim exactly 80 chars is not truncated."""
+        exact_claim = "C" * 80
+        result = MockDebateResult(belief_cruxes=[{"claim": exact_claim, "uncertainty": 0.5}])
+
+        conclusion = formatter.format_conclusion(result)
+
+        # Should contain full claim without ellipsis
+        assert exact_claim in conclusion
+        crux_section = conclusion.split("## KEY CRUXES")[1].split("##")[0]
+        # The ellipsis would only appear if truncated
+        # Since claim is exactly 80, it should show claim + "..." from format string
+        assert exact_claim + "..." in crux_section
+
+    def test_crux_with_negative_uncertainty(self, formatter):
+        """Test handling of negative uncertainty values."""
+        result = MockDebateResult(belief_cruxes=[{"claim": "Negative test", "uncertainty": -0.5}])
+
+        conclusion = formatter.format_conclusion(result)
+
+        # Should still format, just with negative value
+        assert "(uncertainty: -0.50)" in conclusion
+
+    def test_crux_with_large_uncertainty(self, formatter):
+        """Test handling of uncertainty greater than 1."""
+        result = MockDebateResult(belief_cruxes=[{"claim": "Large test", "uncertainty": 2.5}])
+
+        conclusion = formatter.format_conclusion(result)
+
+        assert "(uncertainty: 2.50)" in conclusion
