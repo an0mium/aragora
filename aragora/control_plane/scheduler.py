@@ -18,7 +18,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.server.prometheus_control_plane import (
     record_control_plane_task_submitted,
@@ -37,10 +37,19 @@ from aragora.observability import (
     add_span_attributes,
 )
 
+# Type hints for optional imports (available at type-checking time only)
+if TYPE_CHECKING:
+    from aragora.control_plane.policy import (
+        ControlPlanePolicyManager,
+    )
+    from aragora.control_plane.cost_enforcement import (
+        CostEnforcer,
+    )
+
 # Policy imports (optional - graceful fallback if not available)
 try:
     from aragora.control_plane.policy import (
-        ControlPlanePolicyManager,
+        ControlPlanePolicyManager as _ControlPlanePolicyManager,
         PolicyViolationError,
         EnforcementLevel,
     )
@@ -48,14 +57,15 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    ControlPlanePolicyManager = None  # type: ignore[misc, no-redef]
-    PolicyViolationError = None  # type: ignore[misc, no-redef]
-    EnforcementLevel = None  # type: ignore[misc, no-redef]
+    # Runtime values when module unavailable - type checker uses TYPE_CHECKING imports
+    _ControlPlanePolicyManager: type[Any] | None = None
+    PolicyViolationError: type[Exception] | None = None
+    EnforcementLevel: type[Enum] | None = None
 
 # Cost enforcement imports (optional - graceful fallback if not available)
 try:
     from aragora.control_plane.cost_enforcement import (
-        CostEnforcer,
+        CostEnforcer as _CostEnforcer,
         CostLimitExceededError,
         CostEnforcementMode,
         ThrottleLevel,
@@ -64,10 +74,11 @@ try:
     HAS_COST_ENFORCEMENT = True
 except ImportError:
     HAS_COST_ENFORCEMENT = False
-    CostEnforcer = None  # type: ignore[misc, no-redef]
-    CostLimitExceededError = None  # type: ignore[misc, no-redef]
-    CostEnforcementMode = None  # type: ignore[misc, no-redef]
-    ThrottleLevel = None  # type: ignore[misc, no-redef]
+    # Runtime values when module unavailable - type checker uses TYPE_CHECKING imports
+    _CostEnforcer: type[Any] | None = None
+    CostLimitExceededError: type[Exception] | None = None
+    CostEnforcementMode: type[Enum] | None = None
+    ThrottleLevel: type[Enum] | None = None
 
 # Resilience patterns
 from aragora.resilience import get_v2_circuit_breaker as get_circuit_breaker

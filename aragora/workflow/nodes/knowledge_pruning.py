@@ -80,7 +80,9 @@ class KnowledgePruningStep(BaseStep):
             from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
             from aragora.knowledge.mound.ops.pruning import PruningAction, PruningPolicy
 
-            mound = KnowledgeMoundClass(workspace_id=workspace_id) # type: ignore[abstract]
+            # KnowledgeMound's MRO includes Protocol classes from mixins, causing mypy
+            # to flag it as abstract. The class is fully concrete at runtime.
+            mound = KnowledgeMoundClass(workspace_id=workspace_id)  # type: ignore[abstract]
             await mound.initialize()
 
             # Create policy
@@ -192,7 +194,9 @@ class KnowledgeDedupStep(BaseStep):
         try:
             from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
 
-            mound = KnowledgeMoundClass(workspace_id=workspace_id) # type: ignore[abstract]
+            # KnowledgeMound's MRO includes Protocol classes from mixins, causing mypy
+            # to flag it as abstract. The class is fully concrete at runtime.
+            mound = KnowledgeMoundClass(workspace_id=workspace_id)  # type: ignore[abstract]
             await mound.initialize()
 
             # Generate dedup report
@@ -290,7 +294,9 @@ class ConfidenceDecayStep(BaseStep):
         try:
             from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
 
-            mound = KnowledgeMoundClass(workspace_id=workspace_id) # type: ignore[abstract]
+            # KnowledgeMound's MRO includes Protocol classes from mixins, causing mypy
+            # to flag it as abstract. The class is fully concrete at runtime.
+            mound = KnowledgeMoundClass(workspace_id=workspace_id)  # type: ignore[abstract]
             await mound.initialize()
 
             items_decayed = await mound.apply_confidence_decay(

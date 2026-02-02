@@ -118,6 +118,7 @@ class GlobalKnowledgeMixin:
             VisibilityLevel,
         )
 
+        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
         self._ensure_initialized()  # type: ignore[attr-defined]
 
         request = IngestionRequest(
@@ -138,6 +139,7 @@ class GlobalKnowledgeMixin:
             },
         )
 
+        # Mixin pattern: store provided by CRUDOperationsMixin
         result = await self.store(request)  # type: ignore[attr-defined]
         logger.info(f"Stored verified fact {result.node_id} in global knowledge")
         return result.node_id
@@ -165,6 +167,7 @@ class GlobalKnowledgeMixin:
         """
         from aragora.knowledge.mound.types import ConfidenceLevel, QueryFilters
 
+        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
         self._ensure_initialized()  # type: ignore[attr-defined]
 
         filters = None
@@ -186,6 +189,7 @@ class GlobalKnowledgeMixin:
                 tags=topics,  # QueryFilters uses 'tags', not 'topics'
             )
 
+        # Mixin pattern: query provided by QueryOperationsMixin
         result = await self.query(  # type: ignore[attr-defined]
             query=query,
             workspace_id=SYSTEM_WORKSPACE_ID,
@@ -222,9 +226,11 @@ class GlobalKnowledgeMixin:
         Raises:
             ValueError: If the original item is not found
         """
+        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
         self._ensure_initialized()  # type: ignore[attr-defined]
 
         # Get the original item
+        # Mixin pattern: get provided by CRUDOperationsMixin
         item = await self.get(item_id, workspace_id=workspace_id)  # type: ignore[attr-defined]
         if not item:
             raise ValueError(f"Item {item_id} not found in workspace {workspace_id}")
@@ -301,6 +307,7 @@ class GlobalKnowledgeMixin:
         Returns:
             Merged list with workspace results + relevant global facts
         """
+        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
         self._ensure_initialized()  # type: ignore[attr-defined]
 
         # Get global results

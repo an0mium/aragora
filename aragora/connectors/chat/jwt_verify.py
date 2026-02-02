@@ -39,9 +39,10 @@ try:
 
     HAS_JWT = True
 except ImportError:
-    jwt = None  # type: ignore[assignment]
-    PyJWKClient = None  # type: ignore[assignment,misc]
-    PyJWTError = Exception  # type: ignore[assignment,misc]
+    # PyJWT is optional; set fallbacks for when library is not installed
+    jwt = None  # type: ignore[assignment] - None sentinel when pyjwt unavailable
+    PyJWKClient = None  # type: ignore[assignment,misc] - None sentinel when pyjwt unavailable
+    PyJWTError = Exception  # type: ignore[assignment,misc] - use base Exception as fallback
     HAS_JWT = False
     logger.warning(
         "PyJWT library not installed - JWT verification unavailable. "
@@ -317,8 +318,7 @@ class JWTVerifier:
             # Invalidate cache on signature-related errors that might indicate key rotation
             if "signature" in error_str or "key" in error_str or "kid" in error_str:
                 logger.info(
-                    "Invalidating Microsoft JWT cache due to potential key rotation "
-                    f"(error: {e})"
+                    f"Invalidating Microsoft JWT cache due to potential key rotation (error: {e})"
                 )
                 self.invalidate_microsoft_cache()
             logger.warning(f"Microsoft token verification failed: {e}")
@@ -419,8 +419,7 @@ class JWTVerifier:
             # Invalidate cache on signature-related errors that might indicate key rotation
             if "signature" in error_str or "key" in error_str or "kid" in error_str:
                 logger.info(
-                    "Invalidating Google JWT cache due to potential key rotation "
-                    f"(error: {e})"
+                    f"Invalidating Google JWT cache due to potential key rotation (error: {e})"
                 )
                 self.invalidate_google_cache()
             logger.warning(f"Google token verification failed: {e}")

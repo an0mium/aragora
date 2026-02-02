@@ -44,6 +44,8 @@ try:
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
+    # Fallback when Pydantic is not installed. BaseModel is conditionally defined
+    # as object to allow class definitions to succeed without Pydantic.
     BaseModel: Any = object  # type: ignore[no-redef]
 
 

@@ -46,8 +46,13 @@ logger = logging.getLogger(__name__)
 # Rate limiter for dashboard endpoints (60 requests per minute - frequently accessed)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
 
-# Permission required for dashboard access
-DASHBOARD_PERMISSION = "dashboard.read"
+# RBAC Permission constants for admin dashboard endpoints
+PERM_ADMIN_DASHBOARD_READ = "admin:dashboard:read"
+PERM_ADMIN_DASHBOARD_WRITE = "admin:dashboard:write"
+PERM_ADMIN_METRICS_READ = "admin:metrics:read"
+
+# Legacy permission alias (kept for backward compatibility)
+DASHBOARD_PERMISSION = PERM_ADMIN_DASHBOARD_READ
 
 
 class DashboardHandler(SecureHandler):
@@ -110,10 +115,10 @@ class DashboardHandler(SecureHandler):
             logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # RBAC: Require authentication and dashboard.read permission
+        # RBAC: Require authentication and admin:dashboard:read permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
-            self.check_permission(auth_context, DASHBOARD_PERMISSION)
+            self.check_permission(auth_context, PERM_ADMIN_DASHBOARD_READ)
         except UnauthorizedError as e:
             logger.warning(f"Dashboard auth error: {e}")
             return error_response("Authentication required", 401)
@@ -191,6 +196,12 @@ class DashboardHandler(SecureHandler):
             return self._search_dashboard(query)
 
         if path == "/api/v1/dashboard/quality-metrics":
+            # Additional permission check for metrics endpoints
+            try:
+                self.check_permission(auth_context, PERM_ADMIN_METRICS_READ)
+            except ForbiddenError as e:
+                logger.warning(f"Metrics access denied: {e}")
+                return error_response(str(e), 403)
             return self._get_quality_metrics()
 
         return None
@@ -205,10 +216,10 @@ class DashboardHandler(SecureHandler):
             logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # RBAC: Require authentication and dashboard.read permission
+        # RBAC: Require authentication and admin:dashboard:write permission for POST operations
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
-            self.check_permission(auth_context, DASHBOARD_PERMISSION)
+            self.check_permission(auth_context, PERM_ADMIN_DASHBOARD_WRITE)
         except UnauthorizedError as e:
             logger.warning(f"Dashboard auth error: {e}")
             return error_response("Authentication required", 401)

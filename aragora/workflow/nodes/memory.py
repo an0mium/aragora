@@ -79,7 +79,9 @@ class MemoryReadStep(BaseStep):
             )
 
             # Execute query
-            mound = KnowledgeMound(workspace_id=request.tenant_id) # type: ignore[abstract]
+            # KnowledgeMound's MRO includes Protocol classes from mixins, causing mypy
+            # to flag it as abstract. The class is fully concrete at runtime.
+            mound = KnowledgeMound(workspace_id=request.tenant_id)  # type: ignore[abstract]
             await mound.initialize()
 
             result = await mound.query(
@@ -222,7 +224,9 @@ class MemoryWriteStep(BaseStep):
                         request.derived_from.append(target)
 
             # Execute write
-            mound = KnowledgeMound(workspace_id=tenant_id) # type: ignore[abstract]
+            # KnowledgeMound's MRO includes Protocol classes from mixins, causing mypy
+            # to flag it as abstract. The class is fully concrete at runtime.
+            mound = KnowledgeMound(workspace_id=tenant_id)  # type: ignore[abstract]
             await mound.initialize()
 
             result: IngestionResult = await mound.store(request)

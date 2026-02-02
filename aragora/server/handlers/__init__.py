@@ -573,7 +573,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AudioHandler": Stability.STABLE,  # Podcast generation, TTS
     "DeviceHandler": Stability.STABLE,  # Device registration and notifications - RBAC, rate limiting, circuit breaker
     "TranscriptionHandler": Stability.STABLE,  # Speech-to-text transcription - circuit breaker, RBAC, rate limiting
-    "TrainingHandler": Stability.EXPERIMENTAL,  # RLM training data collection - new
+    "TrainingHandler": Stability.STABLE,  # Training data export - circuit breaker, rate limiting, RBAC, 90+ tests
     "VerificationHandler": Stability.STABLE,  # Z3 formal verification
     "PulseHandler": Stability.STABLE,  # Trending topics API
     "GalleryHandler": Stability.STABLE,  # Consensus gallery

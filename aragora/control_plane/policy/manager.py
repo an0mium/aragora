@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Protocol
 
 from aragora.observability import get_logger
 
@@ -23,6 +23,28 @@ from .types import (
 
 logger = get_logger(__name__)
 
+
+# Protocol for optional audit function
+class _LogPolicyDecisionProto(Protocol):
+    async def __call__(
+        self,
+        *,
+        policy_id: str,
+        decision: str,
+        task_type: str,
+        reason: str,
+        workspace_id: str | None = None,
+        task_id: str | None = None,
+        agent_id: str | None = None,
+        violations: list[str] | None = None,
+    ) -> Any: ...
+
+
+# Protocol for optional Prometheus function
+class _RecordPolicyDecisionProto(Protocol):
+    def __call__(self, *, decision: str, policy_type: str) -> None: ...
+
+
 # Audit logging (optional)
 try:
     from aragora.control_plane.audit import log_policy_decision
@@ -30,7 +52,7 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_policy_decision = None  # type: ignore[misc, no-redef]
+    log_policy_decision: _LogPolicyDecisionProto | None = None
 
 # Prometheus metrics (optional)
 try:
@@ -41,7 +63,7 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    prometheus_record_policy = None  # type: ignore[misc, no-redef]
+    prometheus_record_policy: _RecordPolicyDecisionProto | None = None
 
 
 class ControlPlanePolicyManager:

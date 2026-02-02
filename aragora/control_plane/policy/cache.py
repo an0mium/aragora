@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from types import ModuleType
 from typing import Any
 
 from aragora.observability import get_logger
@@ -27,7 +28,7 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    aioredis = None  # type: ignore[misc, no-redef]
+    aioredis: ModuleType | None = None
 
 
 class RedisPolicyCache:

@@ -628,9 +628,11 @@ class WorkflowEngine:
             return None
 
         try:
-            # Create step instance with config
-            # Step classes are registered dynamically and may have various signatures
-            # Try to call the constructor, letting it handle its own argument parsing
+            # Create step instance with config.
+            # Step classes are registered dynamically via register_step_type() and have
+            # varying constructor signatures. The WorkflowStep protocol intentionally
+            # doesn't specify __init__ to allow flexibility. BaseStep subclasses accept
+            # (name, config) but external step types may differ.
             step = step_class(name=step_def.name, config=step_def.config)  # type: ignore[call-arg]
             self._step_instances[cache_key] = step
             return step

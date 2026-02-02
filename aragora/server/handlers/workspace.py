@@ -64,7 +64,8 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: ignore[misc, no-redef]
+    # Fallback: RBAC module not available, set to None for optional feature checks
+    AuthorizationContext = None  # type: ignore[misc,assignment]
     check_permission = None
 from aragora.privacy import (
     AccessDeniedException,
@@ -95,7 +96,8 @@ try:
     PROFILES_AVAILABLE = True
 except ImportError:
     PROFILES_AVAILABLE = False
-    RBACProfile = None  # type: ignore[misc, no-redef]
+    # Fallback: RBAC profiles module not available
+    RBACProfile = None  # type: ignore[misc,assignment]
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.openapi_decorator import api_endpoint

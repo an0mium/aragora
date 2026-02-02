@@ -452,6 +452,8 @@ class OrchestrationHandler(SecureHandler):
 
         return None
 
+    # Signature differs from BaseHandler to support data-first calling convention
+    # used by unified_server's POST routing. This is intentional.
     async def handle_post(  # type: ignore[override]
         self,
         path: str,

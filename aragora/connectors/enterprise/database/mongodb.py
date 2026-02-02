@@ -440,7 +440,7 @@ class MongoDBConnector(EnterpriseConnector):
 
         return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:limit]
 
-    async def fetch(self, evidence_id: str) -> dict[str, Any] | None:  # type: ignore[override]
+    async def fetch(self, evidence_id: str) -> dict[str, Any] | None:  # type: ignore[override] - returns dict with document data instead of base Evidence type
         """Fetch a specific document by evidence ID."""
         from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
 

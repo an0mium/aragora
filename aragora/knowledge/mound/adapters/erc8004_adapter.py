@@ -258,6 +258,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 config = provider.get_config()
 
                 # Step 1: Get agent identity mappings
+                # _get_identity_bridge is defined below in this class
                 identity_bridge = self._get_identity_bridge()  # type: ignore[attr-defined]
                 linked_agents = identity_bridge.get_all_links()
 
@@ -272,6 +273,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     )
 
                 # Step 2: Push ELO ratings as reputation feedback
+                # _push_elo_as_reputation is defined below in this class
                 if push_elo_ratings and config.has_reputation_registry:
                     elo_result = await self._push_elo_as_reputation(linked_agents)  # type: ignore[attr-defined]
                     analyzed += elo_result["analyzed"]
@@ -280,6 +282,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     errors.extend(elo_result["errors"])
 
                 # Step 3: Push gauntlet receipts as validation records
+                # _push_receipts_as_validations is defined below in this class
                 if push_receipts and config.has_validation_registry:
                     receipt_result = await self._push_receipts_as_validations(linked_agents)  # type: ignore[attr-defined]
                     analyzed += receipt_result["analyzed"]

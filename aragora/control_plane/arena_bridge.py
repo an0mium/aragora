@@ -25,9 +25,72 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from aragora.control_plane.deliberation_events import DeliberationEventType
+
+
+# Protocols for optional audit functions
+class _LogDeliberationStartedProto(Protocol):
+    async def __call__(
+        self,
+        *,
+        task_id: str,
+        question: str,
+        agents: list[str],
+        sla_timeout_seconds: float,
+        workspace_id: str | None = None,
+    ) -> Any: ...
+
+
+class _LogDeliberationCompletedProto(Protocol):
+    async def __call__(
+        self,
+        *,
+        task_id: str,
+        success: bool,
+        consensus_reached: bool,
+        confidence: float,
+        duration_seconds: float,
+        sla_compliant: bool,
+        workspace_id: str | None = None,
+        winner: str | None = None,
+    ) -> Any: ...
+
+
+class _LogDeliberationSlaEventProto(Protocol):
+    async def __call__(
+        self,
+        *,
+        task_id: str,
+        level: str,
+        elapsed_seconds: float,
+        timeout_seconds: float,
+    ) -> Any: ...
+
+
+# Protocols for optional Prometheus functions
+class _RecordDeliberationCompleteProto(Protocol):
+    def __call__(
+        self,
+        *,
+        duration_seconds: float,
+        status: str,
+        consensus_reached: bool,
+        confidence: float,
+        round_count: int,
+        agent_count: int,
+    ) -> None: ...
+
+
+class _RecordDeliberationSlaProto(Protocol):
+    def __call__(self, level: str, /) -> None: ...
+
+
+class _RecordAgentUtilizationProto(Protocol):
+    def __call__(self, agent_id: str, utilization_ratio: float, /) -> None: ...
+
+
 from aragora.control_plane.deliberation import (
     AgentPerformance,
     DeliberationOutcome,
@@ -46,9 +109,9 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_deliberation_started = None  # type: ignore[misc, no-redef]
-    log_deliberation_completed = None  # type: ignore[misc, no-redef]
-    log_deliberation_sla_event = None  # type: ignore[misc, no-redef]
+    log_deliberation_started: _LogDeliberationStartedProto | None = None
+    log_deliberation_completed: _LogDeliberationCompletedProto | None = None
+    log_deliberation_sla_event: _LogDeliberationSlaEventProto | None = None
 
 # Prometheus metrics (optional)
 try:
@@ -61,9 +124,9 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    record_deliberation_complete = None  # type: ignore[misc, no-redef]
-    record_deliberation_sla = None  # type: ignore[misc, no-redef]
-    record_agent_utilization = None  # type: ignore[misc, no-redef]
+    record_deliberation_complete: _RecordDeliberationCompleteProto | None = None
+    record_deliberation_sla: _RecordDeliberationSlaProto | None = None
+    record_agent_utilization: _RecordAgentUtilizationProto | None = None
 
 if TYPE_CHECKING:
     from aragora.control_plane.shared_state import SharedControlPlaneState

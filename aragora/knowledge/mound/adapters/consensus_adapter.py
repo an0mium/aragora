@@ -677,6 +677,8 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
         return result
 
+    # Override has different signature than base class - intentionally accepts
+    # km_items list instead of generic interface for consensus-specific sync.
     async def sync_validations_from_km(  # type: ignore[override]
         self,
         km_items: list[dict[str, Any]],

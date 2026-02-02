@@ -280,7 +280,7 @@ class EpicAdapter(EHRAdapter):
         logger.info(f"Patient $match found {len(matches)} potential matches")
         return matches
 
-    async def get_patient_records(  # type: ignore[override]
+    async def get_patient_records(  # type: ignore[override] - Epic adds resource_types and date range kwargs to base signature
         self,
         patient_id: str,
         resource_types: Optional[list[str]] = None,

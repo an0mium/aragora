@@ -135,6 +135,9 @@ class DebateStep(BaseStep):
                             interpolated_config[key] = value
 
                     # Filter to only valid ArenaConfig fields
+                    # ArenaConfig is a dataclass imported dynamically; dataclasses.fields
+                    # works correctly at runtime but mypy cannot verify the type statically
+                    # since it's only available inside this try block.
                     valid_fields = {f.name for f in dataclasses.fields(ArenaConfig)}  # type: ignore[arg-type]
                     filtered_config = {
                         k: v for k, v in interpolated_config.items() if k in valid_fields
