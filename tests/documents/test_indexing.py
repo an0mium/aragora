@@ -6,6 +6,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass
 
+pytest.importorskip("weaviate")
+
 from aragora.documents.indexing.weaviate_store import (
     WeaviateStore,
     WeaviateConfig,
@@ -20,8 +22,6 @@ from aragora.documents.indexing.hybrid_search import (
     SimpleEmbedder,
 )
 from aragora.documents.models import DocumentChunk, ChunkType
-
-pytest.importorskip("weaviate")
 
 
 class TestWeaviateConfig:
