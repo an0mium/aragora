@@ -18,6 +18,46 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 
+# =============================================================================
+# Auth bypass fixture for RBAC decorator
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def mock_auth_for_training_tests(monkeypatch):
+    """Bypass RBAC authentication for training handler tests.
+
+    This autouse fixture patches _get_context_from_args to return a mock
+    AuthorizationContext with admin permissions, allowing tests to call
+    decorated methods directly without authentication setup.
+    """
+    try:
+        from aragora.rbac.models import AuthorizationContext
+        from aragora.rbac import decorators
+
+        # Create a mock auth context with admin permissions
+        mock_auth_ctx = AuthorizationContext(
+            user_id="test-user-001",
+            user_email="test@example.com",
+            org_id="test-org-001",
+            roles={"admin", "owner"},
+            permissions={"*"},  # Wildcard grants all permissions
+        )
+
+        original_get_context = decorators._get_context_from_args
+
+        def patched_get_context_from_args(args, kwargs, context_param):
+            """Return mock context if no real context found."""
+            result = original_get_context(args, kwargs, context_param)
+            if result is None:
+                return mock_auth_ctx
+            return result
+
+        monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context_from_args)
+    except (ImportError, AttributeError):
+        pass
+
+
 class MockHandler:
     """Mock HTTP request handler."""
 
