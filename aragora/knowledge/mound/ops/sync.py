@@ -16,8 +16,8 @@ Performance optimizations:
 
 NOTE: This is a mixin class designed to be composed with KnowledgeMound.
 Attribute accesses like self._ensure_initialized, self.workspace_id, self.store, etc.
-are provided by the composed class. The ``# type: ignore[attr-defined]``
-comments suppress mypy warnings that are expected for this mixin pattern.
+are provided by the composed class. The mixin uses a conditional Protocol base class
+pattern for proper type checking without runtime overhead.
 """
 
 from __future__ import annotations
@@ -103,7 +103,14 @@ class SyncProtocol(Protocol):
 _SYNC_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["knowledge_mound"]
 
 
-class SyncOperationsMixin:
+# Use Protocol as base class only for type checking
+if TYPE_CHECKING:
+    _SyncMixinBase = SyncProtocol
+else:
+    _SyncMixinBase = object
+
+
+class SyncOperationsMixin(_SyncMixinBase):
     """Mixin providing sync operations for KnowledgeMound."""
 
     @with_retry(_SYNC_RETRY_CONFIG)
@@ -142,7 +149,7 @@ class SyncOperationsMixin:
             ) -> tuple[bool, bool, int, str | None]:
                 """Store a single request and return status."""
                 try:
-                    result = await self.store(req)  # type: ignore[attr-defined]
+                    result = await self.store(req)
                     return (
                         not result.deduplicated,  # is_new
                         result.deduplicated,  # is_update
@@ -207,7 +214,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         start_time = time.time()
         self._continuum = continuum
@@ -233,7 +240,7 @@ class SyncOperationsMixin:
                     # Create ingestion request from continuum entry
                     request = IngestionRequest(
                         content=entry.content,
-                        workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                        workspace_id=self.workspace_id,
                         source_type=KnowledgeSource.CONTINUUM,
                         node_type="memory",
                         confidence=entry.importance,
@@ -303,7 +310,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         start_time = time.time()
         self._consensus = consensus
@@ -354,7 +361,7 @@ class SyncOperationsMixin:
                         # Create ingestion request
                         request = IngestionRequest(
                             content=f"{topic}: {conclusion}",
-                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                            workspace_id=self.workspace_id,
                             source_type=KnowledgeSource.CONSENSUS,
                             debate_id=record_id,
                             node_type="consensus",
@@ -432,7 +439,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         start_time = time.time()
         self._facts = facts
@@ -448,7 +455,7 @@ class SyncOperationsMixin:
                 from aragora.knowledge.types import FactFilters
 
                 filters = FactFilters(
-                    workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                    workspace_id=self.workspace_id,
                     limit=10000,
                 )
                 all_facts = facts.query_facts(query="", filters=filters)
@@ -459,7 +466,7 @@ class SyncOperationsMixin:
                     try:
                         request = IngestionRequest(
                             content=fact.statement,
-                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                            workspace_id=self.workspace_id,
                             source_type=KnowledgeSource.FACT,
                             document_id=fact.source_documents[0] if fact.source_documents else None,
                             node_type="fact",
@@ -534,7 +541,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         start_time = time.time()
         self._evidence = evidence
@@ -556,7 +563,7 @@ class SyncOperationsMixin:
                     try:
                         request = IngestionRequest(
                             content=ev.content,
-                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                            workspace_id=self.workspace_id,
                             source_type=KnowledgeSource.EVIDENCE,
                             debate_id=getattr(ev, "debate_id", None),
                             agent_id=getattr(ev, "agent_id", None),
@@ -625,7 +632,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         start_time = time.time()
         self._critique = critique
@@ -652,7 +659,7 @@ class SyncOperationsMixin:
 
                         request = IngestionRequest(
                             content=content,
-                            workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                            workspace_id=self.workspace_id,
                             source_type=KnowledgeSource.CRITIQUE,
                             agent_id=getattr(pattern, "agent_name", None),
                             node_type="critique",
@@ -705,7 +712,7 @@ class SyncOperationsMixin:
         Only syncs from sources that have been connected.
         """
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
         results: dict[str, SyncResult] = {}
 
         continuum = self._continuum
@@ -771,7 +778,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         if not self._continuum:
             return SyncResult(
@@ -785,7 +792,7 @@ class SyncOperationsMixin:
             )
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
@@ -894,7 +901,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         if not self._consensus:
             return SyncResult(
@@ -908,7 +915,7 @@ class SyncOperationsMixin:
             )
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0
@@ -1034,7 +1041,7 @@ class SyncOperationsMixin:
             SyncResult,
         )
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         if not self._facts:
             return SyncResult(
@@ -1048,7 +1055,7 @@ class SyncOperationsMixin:
             )
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id
         nodes_synced = 0
         nodes_updated = 0
         nodes_skipped = 0

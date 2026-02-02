@@ -54,7 +54,14 @@ class SharingProtocol(Protocol):
     ) -> list[Any]: ...
 
 
-class KnowledgeSharingMixin:
+# Use Protocol as base class only for type checking
+if TYPE_CHECKING:
+    _SharingMixinBase = SharingProtocol
+else:
+    _SharingMixinBase = object
+
+
+class KnowledgeSharingMixin(_SharingMixinBase):
     """Mixin providing cross-workspace sharing for KnowledgeMound."""
 
     async def share_with_workspace(
@@ -88,13 +95,13 @@ class KnowledgeSharingMixin:
         """
         from aragora.knowledge.mound.types import AccessGrant, AccessGrantType
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         if from_workspace_id == to_workspace_id:
             raise ValueError("Cannot share item with the same workspace")
 
         # Verify item exists
-        item = await self.get(item_id, workspace_id=from_workspace_id)  # type: ignore[attr-defined]
+        item = await self.get(item_id, workspace_id=from_workspace_id)
         if not item:
             raise ValueError(f"Item {item_id} not found in workspace {from_workspace_id}")
 
@@ -110,8 +117,8 @@ class KnowledgeSharingMixin:
         )
 
         # Persist grant
-        if hasattr(self._meta_store, "save_access_grant_async"):  # type: ignore[attr-defined]
-            await self._meta_store.save_access_grant_async(grant)  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "save_access_grant_async"):
+            await self._meta_store.save_access_grant_async(grant)
         else:
             logger.warning("Store does not support access grants, grant not persisted")
 
@@ -170,10 +177,10 @@ class KnowledgeSharingMixin:
         """
         from aragora.knowledge.mound.types import AccessGrant, AccessGrantType
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         # Verify item exists
-        item = await self.get(item_id, workspace_id=from_workspace_id)  # type: ignore[attr-defined]
+        item = await self.get(item_id, workspace_id=from_workspace_id)
         if not item:
             raise ValueError(f"Item {item_id} not found in workspace {from_workspace_id}")
 
@@ -189,8 +196,8 @@ class KnowledgeSharingMixin:
         )
 
         # Persist grant
-        if hasattr(self._meta_store, "save_access_grant_async"):  # type: ignore[attr-defined]
-            await self._meta_store.save_access_grant_async(grant)  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "save_access_grant_async"):
+            await self._meta_store.save_access_grant_async(grant)
         else:
             logger.warning("Store does not support access grants, grant not persisted")
 
@@ -229,21 +236,21 @@ class KnowledgeSharingMixin:
         """
         from aragora.knowledge.mound.types import AccessGrantType
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         items: list["KnowledgeItem"] = []
         seen_ids = set()
 
-        if hasattr(self._meta_store, "get_grants_for_grantee_async"):  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "get_grants_for_grantee_async"):
             # Get workspace grants
-            workspace_grants = await self._meta_store.get_grants_for_grantee_async(  # type: ignore[attr-defined]
+            workspace_grants = await self._meta_store.get_grants_for_grantee_async(
                 workspace_id, AccessGrantType.WORKSPACE
             )
 
             # Get user grants if user_id provided
             user_grants = []
             if user_id:
-                user_grants = await self._meta_store.get_grants_for_grantee_async(  # type: ignore[attr-defined]
+                user_grants = await self._meta_store.get_grants_for_grantee_async(
                     user_id, AccessGrantType.USER
                 )
 
@@ -257,7 +264,7 @@ class KnowledgeSharingMixin:
                     continue
                 seen_ids.add(grant.item_id)
 
-                item = await self.get(grant.item_id)  # type: ignore[attr-defined]
+                item = await self.get(grant.item_id)
                 if item:
                     items.append(item)
 
@@ -283,10 +290,10 @@ class KnowledgeSharingMixin:
         Returns:
             True if grant was revoked, False if not found
         """
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
-        if hasattr(self._meta_store, "delete_access_grant_async"):  # type: ignore[attr-defined]
-            result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "delete_access_grant_async"):
+            result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
             if result:
                 logger.info(f"Revoked share for item {item_id} from {grantee_id} by {revoked_by}")
             return result
@@ -311,19 +318,19 @@ class KnowledgeSharingMixin:
         Returns:
             List of AccessGrant objects
         """
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         # If filtering by item_id, use the standard method
-        if item_id and hasattr(self._meta_store, "get_access_grants_async"):  # type: ignore[attr-defined]
-            grants = await self._meta_store.get_access_grants_async(item_id)  # type: ignore[attr-defined]
+        if item_id and hasattr(self._meta_store, "get_access_grants_async"):
+            grants = await self._meta_store.get_access_grants_async(item_id)
             # Apply additional filters if provided
             if shared_by:
                 grants = [g for g in grants if g.granted_by == shared_by]
             return grants
 
         # If filtering by shared_by or workspace_id only
-        if hasattr(self._meta_store, "get_grants_by_grantor_async"):  # type: ignore[attr-defined]
-            return await self._meta_store.get_grants_by_grantor_async(  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "get_grants_by_grantor_async"):
+            return await self._meta_store.get_grants_by_grantor_async(
                 shared_by=shared_by, workspace_id=workspace_id
             )
 
@@ -358,7 +365,7 @@ class KnowledgeSharingMixin:
         Returns:
             Updated AccessGrant or None if not found
         """
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         # Support both parameter names for permissions
         perms = new_permissions or permissions
@@ -384,8 +391,8 @@ class KnowledgeSharingMixin:
             expires_at=expires_at if expires_at is not None else existing.expires_at,
         )
 
-        if hasattr(self._meta_store, "save_access_grant_async"):  # type: ignore[attr-defined]
-            await self._meta_store.save_access_grant_async(updated_grant)  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "save_access_grant_async"):
+            await self._meta_store.save_access_grant_async(updated_grant)
 
         logger.info(
             f"Updated permissions for item {item_id} grantee {grantee_id}: {perms or existing.permissions}"
@@ -507,7 +514,7 @@ class KnowledgeSharingMixin:
         """
         from aragora.knowledge.mound.types import VisibilityLevel
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         # Validate visibility level
         try:
@@ -519,12 +526,12 @@ class KnowledgeSharingMixin:
             )
 
         # Update visibility in store
-        if hasattr(self._meta_store, "update_visibility_async"):  # type: ignore[attr-defined]
-            await self._meta_store.update_visibility_async(item_id, vis_level, set_by)  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "update_visibility_async"):
+            await self._meta_store.update_visibility_async(item_id, vis_level, set_by)
             logger.info(f"Set visibility of item {item_id} to {visibility} by {set_by}")
             return True
-        elif hasattr(self._meta_store, "update_node_async"):  # type: ignore[attr-defined]
-            await self._meta_store.update_node_async(  # type: ignore[attr-defined]
+        elif hasattr(self._meta_store, "update_node_async"):
+            await self._meta_store.update_node_async(
                 item_id,
                 {
                     "visibility": visibility,
@@ -566,7 +573,7 @@ class KnowledgeSharingMixin:
         """
         from aragora.knowledge.mound.types import AccessGrant, AccessGrantType
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         # Validate grantee type
         try:
@@ -589,8 +596,8 @@ class KnowledgeSharingMixin:
         )
 
         # Persist grant
-        if hasattr(self._meta_store, "save_access_grant_async"):  # type: ignore[attr-defined]
-            await self._meta_store.save_access_grant_async(grant)  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "save_access_grant_async"):
+            await self._meta_store.save_access_grant_async(grant)
             logger.info(
                 f"Granted {permissions or ['read']} access on item {item_id} "
                 f"to {grantee_type}:{grantee_id} by {granted_by}"
@@ -617,10 +624,10 @@ class KnowledgeSharingMixin:
         Returns:
             True if access was revoked, False if grant not found
         """
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
-        if hasattr(self._meta_store, "delete_access_grant_async"):  # type: ignore[attr-defined]
-            result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)  # type: ignore[attr-defined]
+        if hasattr(self._meta_store, "delete_access_grant_async"):
+            result = await self._meta_store.delete_access_grant_async(item_id, grantee_id)
             if result:
                 logger.info(f"Revoked access on item {item_id} from {grantee_id} by {revoked_by}")
             return result

@@ -8,8 +8,8 @@ Provides staleness detection and revalidation:
 
 NOTE: This is a mixin class designed to be composed with KnowledgeMound.
 Attribute accesses like self._ensure_initialized, self._staleness_detector, self.update, etc.
-are provided by the composed class. The ``# type: ignore[attr-defined]``
-comments suppress mypy warnings that are expected for this mixin pattern.
+are provided by the composed class. The mixin inherits from StalenessProtocol at type-check
+time (via TYPE_CHECKING) to provide proper type information to static analyzers.
 """
 
 from __future__ import annotations
@@ -37,7 +37,14 @@ class StalenessProtocol(Protocol):
     async def update(self, node_id: str, updates: dict[str, Any]) -> Optional["KnowledgeItem"]: ...
 
 
-class StalenessOperationsMixin:
+# Use Protocol as base class only for type checking
+if TYPE_CHECKING:
+    _StalenessOperationsMixinBase = StalenessProtocol
+else:
+    _StalenessOperationsMixinBase = object
+
+
+class StalenessOperationsMixin(_StalenessOperationsMixinBase):
     """Mixin providing staleness management for KnowledgeMound."""
 
     async def get_stale_knowledge(
@@ -47,13 +54,13 @@ class StalenessOperationsMixin:
         workspace_id: str | None = None,
     ) -> list["StalenessCheck"]:
         """Get knowledge items that may be stale."""
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
-        if not self._staleness_detector:  # type: ignore[attr-defined]
+        if not self._staleness_detector:
             return []
 
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
-        return await self._staleness_detector.get_stale_nodes(  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id
+        return await self._staleness_detector.get_stale_nodes(
             workspace_id=ws_id,
             threshold=threshold,
             limit=limit,
@@ -66,7 +73,7 @@ class StalenessOperationsMixin:
         confidence: float | None = None,
     ) -> None:
         """Mark a knowledge node as validated."""
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         updates: dict[str, Any] = {
             "validation_status": "majority_agreed",  # Valid ValidationStatus value
@@ -76,7 +83,7 @@ class StalenessOperationsMixin:
         if confidence is not None:
             updates["confidence"] = confidence
 
-        await self.update(node_id, updates)  # type: ignore[attr-defined]
+        await self.update(node_id, updates)
 
     async def schedule_revalidation(
         self,
@@ -97,14 +104,14 @@ class StalenessOperationsMixin:
         Returns:
             List of created task IDs
         """
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         task_ids = []
         now = datetime.now().isoformat()
 
         for node_id in node_ids:
             # Mark node as needing revalidation
-            await self.update(node_id, {"revalidation_requested": True})  # type: ignore[attr-defined]
+            await self.update(node_id, {"revalidation_requested": True})
 
             # Create control plane task
             task_id = f"reval_{uuid.uuid4().hex[:12]}"
@@ -114,7 +121,7 @@ class StalenessOperationsMixin:
                 "priority": priority,
                 "status": "pending",
                 "node_id": node_id,
-                "workspace_id": self.workspace_id,  # type: ignore[attr-defined]
+                "workspace_id": self.workspace_id,
                 "created_at": now,
                 "metadata": {
                     "source": "knowledge_mound",

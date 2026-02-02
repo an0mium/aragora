@@ -9,8 +9,8 @@ Provides culture management operations:
 
 NOTE: This is a mixin class designed to be composed with KnowledgeMound.
 Attribute accesses like self._ensure_initialized, self._culture_accumulator, self._cache, etc.
-are provided by the composed class. The ``# type: ignore[attr-defined]``
-comments suppress mypy warnings that are expected for this mixin pattern.
+are provided by the composed class. Type safety is achieved by using CultureProtocol
+as the base class during type checking (via TYPE_CHECKING conditional).
 """
 
 from __future__ import annotations
@@ -45,7 +45,14 @@ class CultureProtocol(Protocol):
     def get_org_culture_manager(self) -> "OrganizationCultureManager": ...
 
 
-class CultureOperationsMixin:
+# Use Protocol as base class only for type checking
+if TYPE_CHECKING:
+    _CultureMixinBase = CultureProtocol
+else:
+    _CultureMixinBase = object
+
+
+class CultureOperationsMixin(_CultureMixinBase):
     """Mixin providing culture management for KnowledgeMound."""
 
     async def get_culture_profile(
@@ -55,17 +62,17 @@ class CultureOperationsMixin:
         """Get aggregated culture profile for a workspace."""
         from aragora.knowledge.mound.types import CultureProfile
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id
 
         # Check cache
-        if self._cache:  # type: ignore[attr-defined]
-            cached = await self._cache.get_culture(ws_id)  # type: ignore[attr-defined]
+        if self._cache:
+            cached = await self._cache.get_culture(ws_id)
             if cached:
                 return cached
 
-        if not self._culture_accumulator:  # type: ignore[attr-defined]
+        if not self._culture_accumulator:
             return CultureProfile(
                 workspace_id=ws_id,
                 patterns={},
@@ -73,11 +80,11 @@ class CultureOperationsMixin:
                 total_observations=0,
             )
 
-        profile = await self._culture_accumulator.get_profile(ws_id)  # type: ignore[attr-defined]
+        profile = await self._culture_accumulator.get_profile(ws_id)
 
         # Cache result
-        if self._cache:  # type: ignore[attr-defined]
-            await self._cache.set_culture(ws_id, profile)  # type: ignore[attr-defined]
+        if self._cache:
+            await self._cache.set_culture(ws_id, profile)
 
         return profile
 
@@ -86,12 +93,12 @@ class CultureOperationsMixin:
         debate_result: Any,
     ) -> list["CulturePattern"]:
         """Extract and store cultural patterns from a completed debate."""
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
-        if not self._culture_accumulator:  # type: ignore[attr-defined]
+        if not self._culture_accumulator:
             return []
 
-        return await self._culture_accumulator.observe_debate(debate_result, self.workspace_id)  # type: ignore[attr-defined]
+        return await self._culture_accumulator.observe_debate(debate_result, self.workspace_id)
 
     async def recommend_agents(
         self,
@@ -99,13 +106,13 @@ class CultureOperationsMixin:
         workspace_id: str | None = None,
     ) -> list[str]:
         """Recommend agents based on cultural patterns."""
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
-        if not self._culture_accumulator:  # type: ignore[attr-defined]
+        if not self._culture_accumulator:
             return []
 
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
-        return await self._culture_accumulator.recommend_agents(task_type, ws_id)  # type: ignore[attr-defined]
+        ws_id = workspace_id or self.workspace_id
+        return await self._culture_accumulator.recommend_agents(task_type, ws_id)
 
     # =========================================================================
     # Organization-Level Culture
@@ -118,7 +125,7 @@ class CultureOperationsMixin:
         Returns:
             OrganizationCultureManager instance
         """
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._ensure_initialized()
 
         # Access _org_culture_manager attribute from composed class
         manager: Optional["OrganizationCultureManager"] = getattr(
@@ -129,9 +136,9 @@ class CultureOperationsMixin:
 
             manager = OrganizationCultureManager(
                 mound=self,  # type: ignore[arg-type]
-                culture_accumulator=self._culture_accumulator,  # type: ignore[attr-defined]
+                culture_accumulator=self._culture_accumulator,
             )
-            self._org_culture_manager = manager  # type: ignore[attr-defined]
+            self._org_culture_manager = manager
 
         return manager
 
