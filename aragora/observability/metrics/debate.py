@@ -46,59 +46,92 @@ def init_debate_metrics() -> None:
         return
 
     try:
-        from prometheus_client import Counter, Gauge, Histogram
+        from prometheus_client import Counter, Gauge, Histogram, REGISTRY
 
-        DEBATE_DURATION = Histogram(
+        def _get_or_create_histogram(
+            name: str, desc: str, labels: list | None = None, buckets: list | None = None
+        ):
+            """Get existing metric or create new one."""
+            # Try to get from registry first
+            collectors = list(REGISTRY._names_to_collectors.values())
+            for c in collectors:
+                if hasattr(c, "_name") and c._name == name:
+                    return c
+            # Create new
+            if labels:
+                return Histogram(name, desc, labels, buckets=buckets or Histogram.DEFAULT_BUCKETS)
+            return Histogram(name, desc, buckets=buckets or Histogram.DEFAULT_BUCKETS)
+
+        def _get_or_create_counter(name: str, desc: str, labels: list | None = None):
+            """Get existing metric or create new one."""
+            collectors = list(REGISTRY._names_to_collectors.values())
+            for c in collectors:
+                if hasattr(c, "_name") and c._name == name:
+                    return c
+            if labels:
+                return Counter(name, desc, labels)
+            return Counter(name, desc)
+
+        def _get_or_create_gauge(name: str, desc: str):
+            """Get existing metric or create new one."""
+            collectors = list(REGISTRY._names_to_collectors.values())
+            for c in collectors:
+                if hasattr(c, "_name") and c._name == name:
+                    return c
+            return Gauge(name, desc)
+
+        DEBATE_DURATION = _get_or_create_histogram(
             "aragora_debate_duration_seconds",
             "Total debate duration in seconds",
             ["outcome"],
-            buckets=[1, 5, 10, 30, 60, 120, 300, 600, 1200],
+            [1, 5, 10, 30, 60, 120, 300, 600, 1200],
         )
 
-        DEBATE_ROUNDS = Histogram(
+        DEBATE_ROUNDS = _get_or_create_histogram(
             "aragora_debate_rounds_total",
             "Number of rounds per debate",
             ["outcome"],
-            buckets=[1, 2, 3, 4, 5, 7, 10, 15, 20],
+            [1, 2, 3, 4, 5, 7, 10, 15, 20],
         )
 
-        DEBATE_PHASE_DURATION = Histogram(
+        DEBATE_PHASE_DURATION = _get_or_create_histogram(
             "aragora_debate_phase_duration_seconds",
             "Duration of debate phases",
             ["phase"],
-            buckets=[0.1, 0.5, 1, 2, 5, 10, 30, 60],
+            [0.1, 0.5, 1, 2, 5, 10, 30, 60],
         )
 
-        AGENT_PARTICIPATION = Counter(
+        AGENT_PARTICIPATION = _get_or_create_counter(
             "aragora_agent_participation_total",
             "Agent participation in debates",
             ["agent", "role"],
         )
 
-        SLOW_DEBATES_TOTAL = Counter(
+        SLOW_DEBATES_TOTAL = _get_or_create_counter(
             "aragora_slow_debates_total",
             "Count of debates exceeding time threshold",
             ["severity"],
         )
 
-        SLOW_ROUNDS_TOTAL = Counter(
+        SLOW_ROUNDS_TOTAL = _get_or_create_counter(
             "aragora_slow_rounds_total",
             "Count of rounds exceeding time threshold",
             ["phase"],
         )
 
-        DEBATE_ROUND_LATENCY = Histogram(
+        DEBATE_ROUND_LATENCY = _get_or_create_histogram(
             "aragora_debate_round_latency_seconds",
             "Per-round latency in debates",
-            buckets=[0.5, 1, 2, 5, 10, 20, 30, 60],
+            None,
+            [0.5, 1, 2, 5, 10, 20, 30, 60],
         )
 
-        ACTIVE_DEBATES = Gauge(
+        ACTIVE_DEBATES = _get_or_create_gauge(
             "aragora_active_debates",
             "Number of currently active debates",
         )
 
-        CONSENSUS_RATE = Gauge(
+        CONSENSUS_RATE = _get_or_create_gauge(
             "aragora_consensus_rate",
             "Rolling consensus achievement rate",
         )
