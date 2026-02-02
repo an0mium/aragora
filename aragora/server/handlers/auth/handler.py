@@ -218,15 +218,23 @@ class AuthHandler(SecureHandler):
             return self._handle_change_password(handler)
 
         if path == "/api/auth/password/forgot" and method == "POST":
+            if not self.ctx.get("enable_password_reset_routes", False):
+                return error_response("Password reset not implemented", 501)
             return self._handle_forgot_password(handler)
 
         if path == "/api/auth/password/reset" and method == "POST":
+            if not self.ctx.get("enable_password_reset_routes", False):
+                return error_response("Password reset not implemented", 501)
             return self._handle_reset_password(handler)
 
         if path == "/api/auth/forgot-password" and method == "POST":
+            if not self.ctx.get("enable_password_reset_routes", False):
+                return error_response("Password reset not implemented", 501)
             return self._handle_forgot_password(handler)
 
         if path == "/api/auth/reset-password" and method == "POST":
+            if not self.ctx.get("enable_password_reset_routes", False):
+                return error_response("Password reset not implemented", 501)
             return self._handle_reset_password(handler)
 
         if path == "/api/auth/revoke" and method == "POST":
@@ -342,10 +350,6 @@ class AuthHandler(SecureHandler):
         if callable(login_tracker):
             return login_tracker()
         return _ORIGINAL_LOCKOUT_TRACKER()
-
-    def _password_reset_enabled(self) -> bool:
-        """Check if password reset endpoints are enabled."""
-        return bool(self.ctx.get("enable_password_reset", False))
 
     def _check_permission(
         self, handler: Any, permission_key: str, resource_id: str | None = None
@@ -761,14 +765,10 @@ class AuthHandler(SecureHandler):
 
     def _handle_forgot_password(self, handler: Any) -> HandlerResult:
         """Handle forgot password request."""
-        if not self._password_reset_enabled():
-            return error_response("Password reset not implemented", 501)
         return handle_forgot_password(self, handler)
 
     def _handle_reset_password(self, handler: Any) -> HandlerResult:
         """Handle password reset with token."""
-        if not self._password_reset_enabled():
-            return error_response("Password reset not implemented", 501)
         return handle_reset_password(self, handler)
 
     def _send_password_reset_email(self, user: Any, reset_link: str) -> None:
