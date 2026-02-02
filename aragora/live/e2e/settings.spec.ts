@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, mockApiResponse } from './fixtures';
 
 /**
  * E2E tests for Settings page.
@@ -77,6 +77,67 @@ test.describe('Settings - Features Tab', () => {
     // State should change
     const newState = await toggleSwitch.getAttribute('aria-checked');
     expect(newState).not.toBe(initialState);
+  });
+
+  test('should disable Supermemory toggle when unavailable', async ({ page, aragoraPage }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('aragora_tokens', JSON.stringify({
+        access_token: 'test-token',
+        refresh_token: 'test-refresh',
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      }));
+      localStorage.setItem('aragora_user', JSON.stringify({
+        id: 'user-test-1',
+        email: 'test@aragora.ai',
+        name: 'Test User',
+        role: 'member',
+        org_id: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      }));
+    });
+
+    await mockApiResponse(page, '**/api/auth/me', {
+      user: {
+        id: 'user-test-1',
+        email: 'test@aragora.ai',
+        name: 'Test User',
+        role: 'member',
+        org_id: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      },
+      organization: null,
+      organizations: [],
+    });
+
+    await mockApiResponse(page, '**/api/features', {
+      available: [],
+      unavailable: ['supermemory'],
+      features: {
+        supermemory: {
+          name: 'Supermemory',
+          description: 'External cross-session memory persistence with context injection',
+          available: false,
+          reason: 'SUPERMEMORY_API_KEY not set',
+          category: 'memory',
+        },
+      },
+    });
+
+    await page.goto('/settings');
+    await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
+
+    const featuresTab = page.getByRole('tab', { name: /features/i });
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
+
+    const supermemoryToggle = page.getByRole('switch', { name: /supermemory/i });
+    await expect(supermemoryToggle).toBeVisible();
+    await expect(supermemoryToggle).toBeDisabled();
+    await expect(page.getByText(/SUPERMEMORY_API_KEY not set/i)).toBeVisible();
   });
 });
 

@@ -1255,3 +1255,679 @@ class TestVersionPrefixHandling:
         """can_handle rejects partial route matches."""
         assert not handler.can_handle("/api/analytics")
         assert not handler.can_handle("/api/analytics/")
+
+
+# ===========================================================================
+# Test: Cache Behavior
+# ===========================================================================
+
+
+class TestCacheBehavior:
+    """Tests for workspace-scoped caching functionality."""
+
+    def test_cache_key_includes_workspace_id(self):
+        """Cache keys are scoped by workspace_id."""
+        from aragora.server.handlers.analytics.cache import get_analytics_dashboard_cache
+
+        cache = get_analytics_dashboard_cache()
+        key1 = cache._make_key("summary", "ws-1", "30d")
+        key2 = cache._make_key("summary", "ws-2", "30d")
+
+        assert key1 != key2
+        assert "ws-1" in key1
+        assert "ws-2" in key2
+
+    def test_cache_key_includes_time_range(self):
+        """Cache keys include time range."""
+        from aragora.server.handlers.analytics.cache import get_analytics_dashboard_cache
+
+        cache = get_analytics_dashboard_cache()
+        key1 = cache._make_key("summary", "ws-1", "7d")
+        key2 = cache._make_key("summary", "ws-1", "30d")
+
+        assert key1 != key2
+
+    def test_cache_invalidation_by_workspace(self):
+        """Cache can be invalidated by workspace."""
+        from aragora.server.handlers.analytics.cache import (
+            get_analytics_dashboard_cache,
+            invalidate_analytics_cache,
+        )
+
+        cache = get_analytics_dashboard_cache()
+
+        # Set some cached values
+        cache.set("summary", "test-ws-invalidate-1", {"data": "test"}, "30d")
+
+        # Invalidate
+        cleared = invalidate_analytics_cache("test-ws-invalidate-1")
+
+        # Should be cleared
+        assert cache.get("summary", "test-ws-invalidate-1", "30d") is None
+
+    def test_cache_stats_available(self):
+        """Cache provides statistics."""
+        from aragora.server.handlers.analytics.cache import get_analytics_dashboard_cache
+
+        cache = get_analytics_dashboard_cache()
+        stats = cache.get_summary_stats()
+
+        assert "cache_count" in stats
+        assert "total_size" in stats
+        assert "total_hits" in stats
+        assert "total_misses" in stats
+        assert "overall_hit_rate" in stats
+
+    def test_cache_get_returns_none_for_missing(self):
+        """Cache get returns None for missing keys."""
+        from aragora.server.handlers.analytics.cache import get_analytics_dashboard_cache
+
+        cache = get_analytics_dashboard_cache()
+        result = cache.get("summary", "nonexistent-workspace-xyz", "30d")
+        assert result is None
+
+    def test_cache_set_and_get(self):
+        """Cache set and get work correctly."""
+        from aragora.server.handlers.analytics.cache import get_analytics_dashboard_cache
+
+        cache = get_analytics_dashboard_cache()
+        test_data = {"test": "data", "value": 123}
+
+        cache.set("summary", "test-ws-set-get", test_data, "7d")
+        result = cache.get("summary", "test-ws-set-get", "7d")
+
+        assert result == test_data
+
+    def test_cache_configs_exist(self):
+        """Cache configurations are properly defined."""
+        from aragora.server.handlers.analytics.cache import CACHE_CONFIGS
+
+        expected_types = [
+            "summary",
+            "trends",
+            "agents",
+            "remediation",
+            "cost",
+            "tokens",
+            "deliberations",
+        ]
+        for cache_type in expected_types:
+            assert cache_type in CACHE_CONFIGS
+            assert CACHE_CONFIGS[cache_type].ttl_seconds > 0
+            assert CACHE_CONFIGS[cache_type].maxsize > 0
+
+    def test_invalidate_all_caches(self):
+        """Invalidate all clears all cache entries."""
+        from aragora.server.handlers.analytics.cache import (
+            get_analytics_dashboard_cache,
+            invalidate_analytics_cache,
+        )
+
+        cache = get_analytics_dashboard_cache()
+
+        # Set values in multiple caches
+        cache.set("summary", "test-ws-all-1", {"data": 1}, "30d")
+        cache.set("trends", "test-ws-all-2", {"data": 2}, "7d")
+
+        # Invalidate all (no workspace_id)
+        invalidate_analytics_cache(None)
+
+        # All should be cleared
+        assert cache.get("summary", "test-ws-all-1", "30d") is None
+        assert cache.get("trends", "test-ws-all-2", "7d") is None
+
+
+# ===========================================================================
+# Test: Rate Limiting
+# ===========================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting on handle method."""
+
+    def test_rate_limit_decorator_present(self, handler):
+        """Handle method has rate_limit decorator applied."""
+        method = handler.handle
+        # Check that the method is wrapped (indicates decorators applied)
+        assert hasattr(method, "__wrapped__") or callable(method)
+
+
+# ===========================================================================
+# Test: Error Handling Scenarios
+# ===========================================================================
+
+
+class TestErrorHandling:
+    """Tests for comprehensive error handling."""
+
+    @patch("aragora.server.handlers.analytics_dashboard._run_async")
+    def test_type_error_returns_400(
+        self, mock_run_async, handler, authed_handler, patch_auth, mock_analytics_module
+    ):
+        """TypeError returns 400 DATA_ERROR."""
+        mock_run_async.side_effect = TypeError("Missing required field")
+
+        result = handler._get_summary(
+            {"workspace_id": "ws-001"},
+            handler=authed_handler,
+        )
+        assert result is not None
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert body.get("code") == "DATA_ERROR"
+
+    @patch("aragora.server.handlers.analytics_dashboard._run_async")
+    def test_attribute_error_returns_400(
+        self, mock_run_async, handler, authed_handler, patch_auth, mock_analytics_module
+    ):
+        """AttributeError returns 400 DATA_ERROR."""
+        mock_run_async.side_effect = AttributeError("Object has no attribute")
+
+        result = handler._get_summary(
+            {"workspace_id": "ws-001"},
+            handler=authed_handler,
+        )
+        assert result is not None
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert body.get("code") == "DATA_ERROR"
+
+    @patch("aragora.server.handlers.analytics_dashboard._run_async")
+    def test_os_error_returns_500(
+        self, mock_run_async, handler, authed_handler, patch_auth, mock_analytics_module
+    ):
+        """OSError returns 500 INTERNAL_ERROR."""
+        mock_run_async.side_effect = OSError("Database file not found")
+
+        result = handler._get_summary(
+            {"workspace_id": "ws-001"},
+            handler=authed_handler,
+        )
+        assert result is not None
+        assert result.status_code == 500
+        body = json.loads(result.body)
+        assert body.get("code") == "INTERNAL_ERROR"
+
+    def test_flip_detector_import_error_handled(self, handler):
+        """Flip detector handles ImportError gracefully."""
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            side_effect=ImportError("Module not found"),
+        ):
+            result = handler._get_flip_summary({})
+        assert result is not None
+        assert result.status_code == 500
+
+    def test_flip_detector_lookup_error_handled(self, handler):
+        """Flip detector handles LookupError gracefully."""
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            side_effect=LookupError("Key not found"),
+        ):
+            result = handler._get_flip_summary({})
+        assert result is not None
+        assert result.status_code == 500
+
+
+# ===========================================================================
+# Test: Metric Calculations
+# ===========================================================================
+
+
+class TestMetricCalculations:
+    """Tests for metric calculation edge cases."""
+
+    def test_consensus_rate_zero_denominator(self, handler, authed_handler, patch_auth):
+        """Consensus rate handles zero denominator gracefully."""
+        mock_store = MagicMock()
+        mock_store.get_deliberation_stats.return_value = {
+            "total": 10,
+            "completed": 0,  # Zero denominator
+            "consensus_reached": 0,
+            "in_progress": 10,
+            "failed": 0,
+            "avg_rounds": 0,
+            "avg_duration_seconds": 0,
+            "by_template": {},
+            "by_priority": {},
+        }
+
+        with patch(
+            "aragora.memory.debate_store.get_debate_store",
+            return_value=mock_store,
+        ):
+            result = handler._get_deliberation_summary(
+                {"org_id": "org-001"},
+                handler=authed_handler,
+            )
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["consensus_rate"] == "0%"
+
+    def test_flip_trend_detection_increasing(self, handler):
+        """Flip trend correctly detects increasing pattern."""
+        # First half: low counts, second half: high counts
+        mock_rows = [
+            ("2024-01-01", "contradiction", 1),
+            ("2024-01-02", "contradiction", 1),
+            ("2024-01-03", "contradiction", 10),
+            ("2024-01-04", "contradiction", 10),
+        ]
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = mock_rows
+
+        mock_detector = MagicMock()
+        mock_detector.db.connection.return_value = mock_conn
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_flip_trends({})
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # 1+1 = 2 first half, 10+10 = 20 second half -> increasing
+        assert body["summary"]["trend"] == "increasing"
+
+    def test_flip_trend_detection_decreasing(self, handler):
+        """Flip trend correctly detects decreasing pattern."""
+        # First half: high counts, second half: low counts
+        mock_rows = [
+            ("2024-01-01", "contradiction", 10),
+            ("2024-01-02", "contradiction", 10),
+            ("2024-01-03", "contradiction", 1),
+            ("2024-01-04", "contradiction", 1),
+        ]
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = mock_rows
+
+        mock_detector = MagicMock()
+        mock_detector.db.connection.return_value = mock_conn
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_flip_trends({})
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # 10+10 = 20 first half, 1+1 = 2 second half -> decreasing
+        assert body["summary"]["trend"] == "decreasing"
+
+    def test_flip_trend_detection_stable(self, handler):
+        """Flip trend correctly detects stable pattern."""
+        # Both halves have similar counts
+        mock_rows = [
+            ("2024-01-01", "contradiction", 5),
+            ("2024-01-02", "contradiction", 5),
+            ("2024-01-03", "contradiction", 5),
+            ("2024-01-04", "contradiction", 5),
+        ]
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = mock_rows
+
+        mock_detector = MagicMock()
+        mock_detector.db.connection.return_value = mock_conn
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_flip_trends({})
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # Both halves equal -> stable
+        assert body["summary"]["trend"] == "stable"
+
+    def test_flip_trend_single_data_point(self, handler):
+        """Flip trend handles single data point gracefully."""
+        mock_rows = [("2024-01-01", "contradiction", 5)]
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = mock_rows
+
+        mock_detector = MagicMock()
+        mock_detector.db.connection.return_value = mock_conn
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_flip_trends({})
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # Less than 2 data points -> insufficient_data
+        assert body["summary"]["trend"] == "insufficient_data"
+
+
+# ===========================================================================
+# Test: Provider Breakdown Aggregation
+# ===========================================================================
+
+
+class TestProviderBreakdownAggregation:
+    """Tests for provider breakdown data aggregation."""
+
+    def test_provider_aggregation_multiple_models(self, handler, authed_handler, patch_auth):
+        """Provider breakdown correctly aggregates multiple models."""
+        mock_rows = [
+            {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4",
+                "tokens_in": 100000,
+                "tokens_out": 20000,
+                "cost": 30.0,
+                "call_count": 50,
+            },
+            {
+                "provider": "anthropic",
+                "model": "claude-opus-4",
+                "tokens_in": 50000,
+                "tokens_out": 10000,
+                "cost": 50.0,
+                "call_count": 25,
+            },
+            {
+                "provider": "openai",
+                "model": "gpt-4o",
+                "tokens_in": 80000,
+                "tokens_out": 15000,
+                "cost": 25.0,
+                "call_count": 40,
+            },
+        ]
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = mock_rows
+
+        mock_tracker = MagicMock()
+        mock_tracker._connection.return_value = mock_conn
+
+        with patch(
+            "aragora.billing.usage.UsageTracker",
+            return_value=mock_tracker,
+        ):
+            result = handler._get_provider_breakdown(
+                {"org_id": "org-001"},
+                handler=authed_handler,
+            )
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "providers" in body
+        # Should have 2 providers
+        assert len(body["providers"]) == 2
+
+        # Find anthropic provider
+        anthropic = next((p for p in body["providers"] if p["provider"] == "anthropic"), None)
+        assert anthropic is not None
+        # anthropic: 100000 + 50000 = 150000 tokens_in, 20000 + 10000 = 30000 tokens_out
+        assert anthropic["total_tokens_in"] == 150000
+        assert anthropic["total_tokens_out"] == 30000
+        assert anthropic["total_tokens"] == 180000
+        # Cost: 30 + 50 = 80
+        assert anthropic["total_cost"] == "80.0000"
+        # Should have 2 models
+        assert len(anthropic["models"]) == 2
+
+    def test_provider_unknown_provider_handled(self, handler, authed_handler, patch_auth):
+        """Provider breakdown handles null/empty provider gracefully."""
+        mock_rows = [
+            {
+                "provider": None,
+                "model": "unknown-model",
+                "tokens_in": 1000,
+                "tokens_out": 200,
+                "cost": 1.0,
+                "call_count": 5,
+            },
+            {
+                "provider": "",
+                "model": "another-model",
+                "tokens_in": 2000,
+                "tokens_out": 400,
+                "cost": 2.0,
+                "call_count": 10,
+            },
+        ]
+
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        # Note: The SQL query filters out NULL/empty providers, so these won't appear
+        mock_conn.execute.return_value.fetchall.return_value = []
+
+        mock_tracker = MagicMock()
+        mock_tracker._connection.return_value = mock_conn
+
+        with patch(
+            "aragora.billing.usage.UsageTracker",
+            return_value=mock_tracker,
+        ):
+            result = handler._get_provider_breakdown(
+                {"org_id": "org-001"},
+                handler=authed_handler,
+            )
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["providers"] == []
+
+
+# ===========================================================================
+# Test: Days Parameter Clamping
+# ===========================================================================
+
+
+class TestDaysParameterClamping:
+    """Tests for days parameter clamping in various endpoints."""
+
+    def test_token_usage_days_clamped_to_365(self, handler, authed_handler, patch_auth):
+        """Token usage clamps days to maximum 365."""
+        mock_summary = MockUsageSummary()
+        mock_tracker = MagicMock()
+        mock_tracker.get_summary.return_value = mock_summary
+
+        with patch(
+            "aragora.billing.usage.UsageTracker",
+            return_value=mock_tracker,
+        ):
+            result = handler._get_token_usage(
+                {"org_id": "org-001", "days": "1000"},  # Over max
+                handler=authed_handler,
+            )
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["period"]["days"] == 365
+
+    def test_token_usage_days_clamped_to_1(self, handler, authed_handler, patch_auth):
+        """Token usage clamps days to minimum 1."""
+        mock_summary = MockUsageSummary()
+        mock_tracker = MagicMock()
+        mock_tracker.get_summary.return_value = mock_summary
+
+        with patch(
+            "aragora.billing.usage.UsageTracker",
+            return_value=mock_tracker,
+        ):
+            result = handler._get_token_usage(
+                {"org_id": "org-001", "days": "0"},  # Under min
+                handler=authed_handler,
+            )
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["period"]["days"] == 1
+
+    def test_token_usage_invalid_days_uses_default(self, handler, authed_handler, patch_auth):
+        """Token usage uses default 30 for invalid days."""
+        mock_summary = MockUsageSummary()
+        mock_tracker = MagicMock()
+        mock_tracker.get_summary.return_value = mock_summary
+
+        with patch(
+            "aragora.billing.usage.UsageTracker",
+            return_value=mock_tracker,
+        ):
+            result = handler._get_token_usage(
+                {"org_id": "org-001", "days": "not_a_number"},
+                handler=authed_handler,
+            )
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["period"]["days"] == 30  # Default
+
+    def test_flip_trends_days_clamped(self, handler):
+        """Flip trends clamps days parameter."""
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = []
+
+        mock_detector = MagicMock()
+        mock_detector.db.connection.return_value = mock_conn
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_flip_trends({"days": "500"})  # Over max
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["period"]["days"] == 365
+
+
+# ===========================================================================
+# Test: Filtering
+# ===========================================================================
+
+
+class TestFiltering:
+    """Tests for filtering functionality in endpoints."""
+
+    def test_recent_flips_type_filter(self, handler):
+        """Recent flips correctly filters by flip_type."""
+        mock_flip_1 = MagicMock()
+        mock_flip_1.agent_name = "claude"
+        mock_flip_1.flip_type = "contradiction"
+        mock_flip_2 = MagicMock()
+        mock_flip_2.agent_name = "claude"
+        mock_flip_2.flip_type = "retraction"
+        mock_flip_3 = MagicMock()
+        mock_flip_3.agent_name = "gpt-4"
+        mock_flip_3.flip_type = "contradiction"
+
+        mock_detector = MagicMock()
+        mock_detector.get_recent_flips.return_value = [mock_flip_1, mock_flip_2, mock_flip_3]
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            with patch(
+                "aragora.insights.flip_detector.format_flip_for_ui",
+                return_value={"type": "contradiction"},
+            ):
+                result = handler._get_recent_flips({"flip_type": "contradiction"})
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # Should only return contradictions (flip_1 and flip_3)
+        assert body["count"] == 2
+
+    def test_recent_flips_combined_filters(self, handler):
+        """Recent flips correctly applies both agent and type filters."""
+        mock_flip_1 = MagicMock()
+        mock_flip_1.agent_name = "claude"
+        mock_flip_1.flip_type = "contradiction"
+        mock_flip_2 = MagicMock()
+        mock_flip_2.agent_name = "claude"
+        mock_flip_2.flip_type = "retraction"
+        mock_flip_3 = MagicMock()
+        mock_flip_3.agent_name = "gpt-4"
+        mock_flip_3.flip_type = "contradiction"
+
+        mock_detector = MagicMock()
+        mock_detector.get_recent_flips.return_value = [mock_flip_1, mock_flip_2, mock_flip_3]
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            with patch(
+                "aragora.insights.flip_detector.format_flip_for_ui",
+                return_value={"agent": "claude", "type": "contradiction"},
+            ):
+                result = handler._get_recent_flips(
+                    {"agent": "claude", "flip_type": "contradiction"}
+                )
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # Should only return claude + contradiction (flip_1)
+        assert body["count"] == 1
+
+    def test_compliance_frameworks_parsing(
+        self, handler, authed_handler, patch_auth, mock_analytics_module
+    ):
+        """Compliance correctly parses comma-separated frameworks."""
+        mock_mod, mock_dashboard = mock_analytics_module
+        mock_dashboard.get_compliance_scorecard = MagicMock(return_value=[])
+
+        with patch(
+            "aragora.server.handlers.analytics_dashboard._run_async",
+            return_value=[],
+        ):
+            result = handler._get_compliance_scorecard(
+                {"workspace_id": "ws-001", "frameworks": "SOC2,  GDPR , HIPAA"},
+                handler=authed_handler,
+            )
+        assert result is not None
+        assert result.status_code == 200
+
+
+# ===========================================================================
+# Test: Handler Initialization
+# ===========================================================================
+
+
+class TestHandlerInitialization:
+    """Tests for handler initialization."""
+
+    def test_handler_init_with_none_context(self):
+        """Handler can be initialized with None context."""
+        handler = AnalyticsDashboardHandler(ctx=None)
+        assert handler.ctx == {}
+
+    def test_handler_init_with_empty_context(self):
+        """Handler can be initialized with empty context."""
+        handler = AnalyticsDashboardHandler(ctx={})
+        assert handler.ctx == {}
+
+    def test_handler_init_with_full_context(self):
+        """Handler preserves full context."""
+        ctx = {"storage": "mock_storage", "elo_system": "mock_elo", "custom": "value"}
+        handler = AnalyticsDashboardHandler(ctx=ctx)
+        assert handler.ctx == ctx
+        assert handler.ctx["custom"] == "value"

@@ -406,6 +406,9 @@ ignore = ["E402", "E501"]
 "aragora/debate/context_strategies/*.py" = ["BLE001", "G004"]
 "aragora/server/handlers/_analytics_metrics_impl.py" = ["BLE001", "G004"]
 "aragora/server/handlers/social/_slack_impl/*.py" = ["BLE001", "G004"]
+"aragora/server/handlers/bots/*.py" = ["BLE001", "G004"]
+"aragora/gateway/enterprise/audit_interceptor*.py" = ["BLE001", "G004"]
+"aragora/gateway/enterprise/audit_interceptor/*.py" = ["BLE001", "G004"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
