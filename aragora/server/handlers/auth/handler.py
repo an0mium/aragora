@@ -19,6 +19,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -91,6 +92,15 @@ except ImportError:
     audit_security = None
 
 logger = logging.getLogger(__name__)
+
+
+def _run_maybe_async(result: Any) -> Any:
+    """Resolve a coroutine result if needed, otherwise return as-is."""
+    if asyncio.iscoroutine(result):
+        from aragora.server.http_utils import run_async
+
+        return run_async(result)
+    return result
 
 
 class AuthHandler(SecureHandler):
@@ -394,9 +404,7 @@ class AuthHandler(SecureHandler):
 
         # Get user to ensure they still exist and are active (use async if available)
         if hasattr(user_store, "get_user_by_id_async"):
-            from aragora.server.http_utils import run_async
-
-            user = run_async(user_store.get_user_by_id_async(payload.user_id))
+            user = _run_maybe_async(user_store.get_user_by_id_async(payload.user_id))
         else:
             user = user_store.get_user_by_id(payload.user_id)
         if not user:
@@ -574,9 +582,7 @@ class AuthHandler(SecureHandler):
 
         # Get full user data (use async method if available)
         if hasattr(user_store, "get_user_by_id_async"):
-            from aragora.server.http_utils import run_async
-
-            user = run_async(user_store.get_user_by_id_async(auth_ctx.user_id))
+            user = _run_maybe_async(user_store.get_user_by_id_async(auth_ctx.user_id))
         else:
             user = user_store.get_user_by_id(auth_ctx.user_id)
         logger.debug(f"Auth /me: user lookup {'found' if user else 'not found'}")
@@ -587,9 +593,7 @@ class AuthHandler(SecureHandler):
         org_data = None
         if user.org_id:
             if hasattr(user_store, "get_organization_by_id_async"):
-                from aragora.server.http_utils import run_async
-
-                org = run_async(user_store.get_organization_by_id_async(user.org_id))
+                org = _run_maybe_async(user_store.get_organization_by_id_async(user.org_id))
             else:
                 org = user_store.get_organization_by_id(user.org_id)
             if org:
@@ -626,9 +630,7 @@ class AuthHandler(SecureHandler):
 
         # Get user (use async method if available)
         if hasattr(user_store, "get_user_by_id_async"):
-            from aragora.server.http_utils import run_async
-
-            user = run_async(user_store.get_user_by_id_async(auth_ctx.user_id))
+            user = _run_maybe_async(user_store.get_user_by_id_async(auth_ctx.user_id))
         else:
             user = user_store.get_user_by_id(auth_ctx.user_id)
         if not user:
@@ -642,10 +644,8 @@ class AuthHandler(SecureHandler):
         # Save updates
         if updates:
             if hasattr(user_store, "update_user_async"):
-                from aragora.server.http_utils import run_async
-
-                run_async(user_store.update_user_async(user.id, **updates))
-                user = run_async(user_store.get_user_by_id_async(user.id))
+                _run_maybe_async(user_store.update_user_async(user.id, **updates))
+                user = _run_maybe_async(user_store.get_user_by_id_async(user.id))
             else:
                 user_store.update_user(user.id, **updates)
                 user = user_store.get_user_by_id(user.id)
