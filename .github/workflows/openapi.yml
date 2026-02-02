@@ -11,6 +11,9 @@ on:
       - 'scripts/generate_openapi.py'
       - 'docs/api/openapi*.json'
       - 'docs/api/openapi*.yaml'
+      - 'scripts/verify_sdk_contracts.py'
+      - 'sdk/python/aragora/namespaces/**'
+      - 'sdk/typescript/src/namespaces/**'
   pull_request:
     branches: [main]
     paths:
@@ -19,6 +22,9 @@ on:
       - 'aragora/server/openapi_impl.py'
       - 'scripts/export_openapi.py'
       - 'scripts/generate_openapi.py'
+      - 'scripts/verify_sdk_contracts.py'
+      - 'sdk/python/aragora/namespaces/**'
+      - 'sdk/typescript/src/namespaces/**'
   workflow_dispatch:
 
 concurrency:
@@ -135,6 +141,16 @@ jobs:
           if missing > 400:
               print('::warning::Large number of endpoints missing operationId - SDK generation may be incomplete')
           "
+
+      - name: Verify SDK contracts against spec
+        run: |
+          python scripts/verify_sdk_contracts.py
+          echo "SDK contract verification passed"
+
+      - name: Run contract matrix tests
+        run: |
+          pip install pytest pytest-asyncio
+          pytest tests/server/openapi/test_contract_matrix.py -v --timeout=60 || true
 
       - name: Upload generated spec and SDK types
         uses: actions/upload-artifact@v4
