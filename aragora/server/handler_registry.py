@@ -485,6 +485,57 @@ ChannelHealthHandler = _safe_import(
 CrossPollinationStatsHandler = _safe_import(
     "aragora.server.handlers.cross_pollination", "CrossPollinationStatsHandler"
 )
+CrossPollinationSubscribersHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationSubscribersHandler"
+)
+CrossPollinationMetricsHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationMetricsHandler"
+)
+CrossPollinationResetHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationResetHandler"
+)
+CrossPollinationKMHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationKMHandler"
+)
+CrossPollinationKMSyncHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationKMSyncHandler"
+)
+CrossPollinationKMStalenessHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationKMStalenessHandler"
+)
+CrossPollinationKMCultureHandler = _safe_import(
+    "aragora.server.handlers.cross_pollination", "CrossPollinationKMCultureHandler"
+)
+
+# Gauntlet v1 additional handlers
+GauntletAllSchemasHandler = _safe_import(
+    "aragora.server.handlers.gauntlet_v1", "GauntletAllSchemasHandler"
+)
+GauntletTemplatesListHandler = _safe_import(
+    "aragora.server.handlers.gauntlet_v1", "GauntletTemplatesListHandler"
+)
+GauntletReceiptExportHandler = _safe_import(
+    "aragora.server.handlers.gauntlet_v1", "GauntletReceiptExportHandler"
+)
+GauntletHeatmapExportHandler = _safe_import(
+    "aragora.server.handlers.gauntlet_v1", "GauntletHeatmapExportHandler"
+)
+
+# Code intelligence handlers
+QuickScanHandler = _safe_import(
+    "aragora.server.handlers.codebase.quick_scan", "QuickScanHandler"
+)
+CloudStorageHandler = _safe_import(
+    "aragora.server.handlers.features.cloud_storage", "CloudStorageHandler"
+)
+InboxCommandHandler = _safe_import(
+    "aragora.server.handlers.inbox_command", "InboxCommandHandler"
+)
+
+# Email webhook handler
+EmailWebhookHandler = _safe_import(
+    "aragora.server.handlers.bots.email_webhook", "EmailWebhookHandler"
+)
 
 # Memory coordinator
 CoordinatorHandler = _safe_import(
@@ -833,6 +884,25 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_smart_upload_handler", SmartUploadHandler),
     # Workflow pattern templates
     ("_workflow_pattern_templates_handler", WorkflowPatternTemplatesHandler),
+    # Cross-pollination additional handlers
+    ("_cross_pollination_subscribers_handler", CrossPollinationSubscribersHandler),
+    ("_cross_pollination_metrics_handler", CrossPollinationMetricsHandler),
+    ("_cross_pollination_reset_handler", CrossPollinationResetHandler),
+    ("_cross_pollination_km_handler", CrossPollinationKMHandler),
+    ("_cross_pollination_km_sync_handler", CrossPollinationKMSyncHandler),
+    ("_cross_pollination_km_staleness_handler", CrossPollinationKMStalenessHandler),
+    ("_cross_pollination_km_culture_handler", CrossPollinationKMCultureHandler),
+    # Gauntlet v1 additional handlers
+    ("_gauntlet_all_schemas_handler", GauntletAllSchemasHandler),
+    ("_gauntlet_templates_list_handler", GauntletTemplatesListHandler),
+    ("_gauntlet_receipt_export_handler", GauntletReceiptExportHandler),
+    ("_gauntlet_heatmap_export_handler", GauntletHeatmapExportHandler),
+    # Code intelligence handlers
+    ("_quick_scan_handler", QuickScanHandler),
+    ("_cloud_storage_handler", CloudStorageHandler),
+    ("_inbox_command_handler", InboxCommandHandler),
+    # Email webhook handler
+    ("_email_webhook_handler", EmailWebhookHandler),
 ]
 
 
