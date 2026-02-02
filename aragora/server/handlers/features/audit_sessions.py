@@ -702,6 +702,16 @@ class AuditSessionsHandler(SecureHandler):
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 },
             )
+        except Exception as e:
+            logger.warning(f"Report generation failed, falling back: {e}")
+            return self._json_response(
+                200,
+                {
+                    "session": session,
+                    "findings": findings,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
 
     async def _run_audit_background(self, session_id: str):
         """

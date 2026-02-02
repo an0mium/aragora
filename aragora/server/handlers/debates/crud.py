@@ -362,9 +362,7 @@ class CrudOperationsMixin:
         },
     )
     @require_storage
-    def _patch_debate(
-        self: _DebatesHandlerProtocol, handler: Any, debate_id: str
-    ) -> HandlerResult:
+    def _patch_debate(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Update debate metadata.
 
         Request body can include:

@@ -40,7 +40,6 @@ from typing import Any
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async
 from aragora.server.validation import validate_debate_id
-from aragora.server.debate_utils import _active_debates
 
 from ..base import (
     BaseHandler,
@@ -48,9 +47,7 @@ from ..base import (
     error_response,
     get_int_param,
     handle_errors,
-    json_response,
 )
-from ..openapi_decorator import api_endpoint
 
 # Import all mixins
 from .analysis import AnalysisOperationsMixin

@@ -1002,7 +1002,7 @@ class BaseHandler:
                 return None  # Body too large
             body = handler.rfile.read(content_length)
             return json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError, TypeError):
             return None
 
     def validate_content_length(self, handler: Any, max_size: int | None = None) -> int | None:

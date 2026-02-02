@@ -104,8 +104,11 @@ def get_provider_status(provider: str) -> dict[str, Any]:
     if not connector:
         return {"connected": False, "configured": False}
 
-    # is_configured is a property on the connector classes, not a method
-    is_configured: bool = connector.is_configured
+    # is_configured may be a property or a method depending on connector
+    is_configured_attr = connector.is_configured
+    is_configured: bool = (
+        is_configured_attr() if callable(is_configured_attr) else bool(is_configured_attr)
+    )
     has_token = provider in _tokens and "access_token" in _tokens[provider]
 
     return {

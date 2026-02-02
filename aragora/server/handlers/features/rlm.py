@@ -65,7 +65,14 @@ class RLMCircuitBreaker:
     OPEN = "open"
     HALF_OPEN = "half_open"
 
-    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
+    def __init__(
+        self,
+        ctx: dict | None = None,
+        server_context: dict | None = None,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
         """Initialize circuit breaker.
 
         Args:
@@ -188,9 +195,7 @@ def _get_rlm_circuit_breaker(operation: str) -> RLMCircuitBreaker:
 def get_rlm_circuit_breaker_status() -> dict[str, Any]:
     """Get status of all RLM circuit breakers."""
     with _circuit_breaker_lock:
-        return {
-            name: breaker.get_status() for name, breaker in _rlm_circuit_breakers.items()
-        }
+        return {name: breaker.get_status() for name, breaker in _rlm_circuit_breakers.items()}
 
 
 def _clear_rlm_circuit_breakers() -> None:
@@ -208,7 +213,7 @@ class RLMHandler(BaseHandler):
     - analytics.read: Access RLM metrics
     """
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = server_context or ctx or {}
 
@@ -531,7 +536,11 @@ class RLMHandler(BaseHandler):
                 )
 
         compression_ratio = body.get("compression_ratio", 0.3)
-        if not isinstance(compression_ratio, (int, float)) or compression_ratio <= 0 or compression_ratio > 1:
+        if (
+            not isinstance(compression_ratio, (int, float))
+            or compression_ratio <= 0
+            or compression_ratio > 1
+        ):
             compression_ratio = 0.3
 
         # Check circuit breaker
@@ -637,9 +646,7 @@ class RLMHandler(BaseHandler):
         # Validate level_name
         valid_levels = ["ABSTRACT", "SUMMARY", "DETAILED", "RAW"]
         if level_name.upper() not in valid_levels:
-            return error_response(
-                f"Invalid level. Must be one of: {', '.join(valid_levels)}", 400
-            )
+            return error_response(f"Invalid level. Must be one of: {', '.join(valid_levels)}", 400)
 
         try:
             result = _run_async(self._get_level_content(debate_id, level_name))

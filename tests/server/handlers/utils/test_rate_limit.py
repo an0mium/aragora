@@ -351,7 +351,12 @@ class TestRateLimitDecorator:
         """Should use custom key function when provided."""
 
         class Handler:
-            @rate_limit(rpm=2, key_func=lambda h: "custom-key", limiter_name="test_handler_3", use_distributed=False)
+            @rate_limit(
+                rpm=2,
+                key_func=lambda h: "custom-key",
+                limiter_name="test_handler_3",
+                use_distributed=False,
+            )
             def handle(self, handler):
                 return {"success": True}
 

@@ -33,11 +33,7 @@ from ..base import (
 )
 from ..utils.file_validation import (
     validate_file_upload,
-    validate_filename_security,
-    FileValidationResult,
     MAX_FILE_SIZE,
-    ALLOWED_MIME_TYPES,
-    ALLOWED_EXTENSIONS,
 )
 
 logger = logging.getLogger(__name__)
@@ -408,7 +404,9 @@ class DocumentHandler(BaseHandler):
                 "empty_filename": UploadErrorCode.INVALID_FILENAME,
             }
             error_code = error_code_mapping.get(
-                file_validation.error_code.value if file_validation.error_code else "invalid_filename",
+                file_validation.error_code.value
+                if file_validation.error_code
+                else "invalid_filename",
                 UploadErrorCode.INVALID_FILENAME,
             )
             return UploadError(
