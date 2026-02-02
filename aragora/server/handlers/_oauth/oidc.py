@@ -118,7 +118,7 @@ class OIDCOAuthMixin:
         discovery = self._get_oidc_discovery(oidc_issuer)
 
         try:
-            token_data = self._exchange_oidc_code(code, discovery)
+            token_data = self._exchange_oidc_code(code, discovery)  # type: ignore[arg-type]
             if inspect.isawaitable(token_data):
                 token_data = await token_data
         except Exception as e:
@@ -129,7 +129,7 @@ class OIDCOAuthMixin:
         id_token = token_data.get("id_token")
 
         try:
-            user_info = self._get_oidc_user_info(access_token, id_token, discovery)
+            user_info = self._get_oidc_user_info(access_token, id_token, discovery)  # type: ignore[arg-type]
             if inspect.isawaitable(user_info):
                 user_info = await user_info
         except Exception as e:

@@ -6278,6 +6278,6 @@ _ADDITIONAL_METHODS: dict = {
 # Merge additional methods into SDK_MISSING_ENDPOINTS
 for path, methods in _ADDITIONAL_METHODS.items():
     if path in SDK_MISSING_ENDPOINTS:
-        SDK_MISSING_ENDPOINTS[path].update(methods)
+        SDK_MISSING_ENDPOINTS[path].update(methods)  # type: ignore[attr-defined]
     else:
         SDK_MISSING_ENDPOINTS[path] = methods

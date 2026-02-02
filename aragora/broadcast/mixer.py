@@ -25,7 +25,7 @@ try:
             category=DeprecationWarning,
             message=".*audioop.*",
         )
-        from pydub import AudioSegment
+        from pydub import AudioSegment  # type: ignore[no-redef]
 
     PYDUB_AVAILABLE = True
 except Exception:

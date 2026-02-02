@@ -407,7 +407,7 @@ class GauntletRunnerMixin:
                 logger.warning(f"Failed to persist gauntlet {gauntlet_id}: {storage_err}")
 
             # Auto-persist decision receipt
-            await self._auto_persist_receipt(result, gauntlet_id)
+            await self._auto_persist_receipt(result, gauntlet_id)  # type: ignore[attr-defined]
 
             # Clean up in-memory storage after persisting (keep result_obj for receipt generation)
             # In-memory entry can be removed after a timeout in production

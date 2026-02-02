@@ -62,7 +62,7 @@ except ImportError:
     RBAC_AVAILABLE = False
 
 # Expose RBAC symbols for patching in tests
-AuthorizationContext = _AuthorizationContext
+AuthorizationContext = _AuthorizationContext  # type: ignore[misc]
 check_permission = _check_permission
 extract_user_from_request = _extract_user_from_request
 
@@ -91,7 +91,7 @@ except ImportError:
     COMPUTER_USE_AVAILABLE = False
 
 # Expose computer-use symbols for patching in tests
-ComputerUseOrchestrator = _ComputerUseOrchestrator
+ComputerUseOrchestrator = _ComputerUseOrchestrator  # type: ignore[misc]
 ComputerUseConfig = _ComputerUseConfig
 create_default_computer_policy = _create_default_computer_policy
 TaskStatus = _TaskStatus

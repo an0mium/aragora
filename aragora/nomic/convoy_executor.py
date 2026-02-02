@@ -430,7 +430,7 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
         async with self._test_lock:
             try:
                 result = await asyncio.to_thread(
-                    lambda: subprocess.run(
+                    lambda: subprocess.run(  # type: ignore[call-overload]
                         command,
                         cwd=self.repo_path,
                         capture_output=True,

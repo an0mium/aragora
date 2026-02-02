@@ -828,7 +828,7 @@ class ExpenseHandler(BaseHandler):
             logger.debug(f"Permission check failed: {e}")
             return error_response("Authentication required", status=401)
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         path: str,
         query_params: dict[str, Any],
@@ -869,7 +869,7 @@ class ExpenseHandler(BaseHandler):
         """Compatibility wrapper for GET handlers."""
         return await self.handle(path, query_params, handler)
 
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         query_params: dict[str, Any],
@@ -911,7 +911,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_put(
+    async def handle_put(  # type: ignore[override]
         self,
         path: str,
         query_params: dict[str, Any],
@@ -933,7 +933,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_delete(
+    async def handle_delete(  # type: ignore[override]
         self,
         path: str,
         query_params: dict[str, Any],

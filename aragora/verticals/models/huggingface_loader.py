@@ -381,7 +381,7 @@ class HuggingFaceSpecialistLoader:
 
             # Move to device if not using device_map
             if "device_map" not in load_kwargs and device != "cpu":
-                model = model.to(device)
+                model = model.to(device)  # type: ignore[arg-type]
 
             # Set evaluation mode
             model.eval()

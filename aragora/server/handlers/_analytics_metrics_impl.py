@@ -384,12 +384,12 @@ class AnalyticsMetricsHandler(SecureHandler):
         total_confidence = 0.0
         confidence_count = 0
 
-        for debate in period_debates:
-            if debate.get("consensus_reached"):
+        for debate in period_debates:  # type: ignore[assignment]
+            if debate.get("consensus_reached"):  # type: ignore[attr-defined]
                 consensus_count += 1
 
             # Get rounds from result
-            result = debate.get("result", {})
+            result = debate.get("result", {})  # type: ignore[attr-defined]
             if isinstance(result, dict):
                 rounds = result.get("rounds_used", result.get("rounds", 0))
                 total_rounds += rounds
@@ -399,7 +399,7 @@ class AnalyticsMetricsHandler(SecureHandler):
                     confidence_count += 1
 
             # Count agents
-            agents = debate.get("agents", [])
+            agents = debate.get("agents", [])  # type: ignore[attr-defined]
             if isinstance(agents, list):
                 total_agents += len(agents)
 
