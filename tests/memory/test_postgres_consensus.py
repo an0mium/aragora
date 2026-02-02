@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock, MagicMock
 from contextlib import asynccontextmanager
 import json
 
-import asyncpg
-
 pytest.importorskip("asyncpg")
+
+import asyncpg
 
 
 class TestPostgresConsensusSchema:
