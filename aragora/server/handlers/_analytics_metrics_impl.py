@@ -1220,7 +1220,7 @@ class AnalyticsMetricsHandler(SecureHandler):
                     [{"period": k, "elo": v["elo"]} for k, v in period_data.items()],
                     key=lambda x: x["period"],
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning(f"Failed to get trends for agent {agent_name}: {e}")
                 trends[agent_name] = []
 
@@ -1554,7 +1554,7 @@ class AnalyticsMetricsHandler(SecureHandler):
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to get active users: {e}")
             return json_response(
                 {
