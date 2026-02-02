@@ -56,12 +56,7 @@ _billing_limiter = RateLimiter(requests_per_minute=20)
 
 
 def _get_billing_limiter() -> RateLimiter:
-    """Resolve billing limiter, preferring admin.billing for test patching."""
-    admin_billing = sys.modules.get("aragora.server.handlers.admin.billing")
-    if admin_billing is not None:
-        limiter = getattr(admin_billing, "_billing_limiter", None)
-        if limiter is not None:
-            return limiter
+    """Return the billing rate limiter."""
     return _billing_limiter
 
 

@@ -263,7 +263,9 @@ def get_knowledge_mound(
         logger.info(
             f"[knowledge_mound] Creating singleton instance (workspace={workspace_id}, backend={config.backend.value})"
         )
-        _knowledge_mound_instance = KnowledgeMound( # type: ignore[abstract]
+        # KnowledgeMound composed from multiple mixins satisfies abstract requirements
+        # at runtime but mypy flags this due to complex MRO analysis.
+        _knowledge_mound_instance = KnowledgeMound(  # type: ignore[abstract]
             config=config,
             workspace_id=workspace_id,
         )
