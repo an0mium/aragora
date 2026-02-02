@@ -299,6 +299,7 @@ class ProfiledConnection:
         params_tuple = tuple(parameters) if not isinstance(parameters, tuple) else parameters
         start = time.perf_counter()
         try:
+            # sqlite3 stubs accept only specific parameter types; Iterable[Any] is safe here
             result = self._conn.execute(sql, parameters)  # type: ignore[arg-type]
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
@@ -318,6 +319,7 @@ class ProfiledConnection:
         params_list = list(seq_of_parameters)
         start = time.perf_counter()
         try:
+            # sqlite3 stubs accept only specific parameter types; list[Iterable[Any]] is safe here
             result = self._conn.executemany(sql, params_list)  # type: ignore[arg-type]
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:

@@ -137,7 +137,7 @@ def _validate_review_internal(value: Any) -> tuple[bool, str | None, str]:
         return False, None, "Review must be a string"
     if len(value) > MAX_REVIEW_LENGTH:
         return False, None, f"Review must be at most {MAX_REVIEW_LENGTH} characters"
-    return True, sanitize_string(value, MAX_REVIEW_LENGTH), ""
+    return True, sanitize_string(value), ""
 
 
 def _validate_deployment_name_internal(value: Any, fallback: str) -> tuple[bool, str, str]:
@@ -834,7 +834,7 @@ class MarketplaceHandler:
 
         except Exception as e:
             logger.exception(f"Error in marketplace handler: {e}")
-            return error_response("Internal server error", 500)
+            return error_response(f"Internal error: {e}", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""

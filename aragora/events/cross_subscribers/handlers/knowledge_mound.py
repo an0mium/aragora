@@ -340,7 +340,9 @@ class KnowledgeMoundHandlersMixin:
         try:
             from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
 
-            adapter = RankingAdapter() # type: ignore[abstract]
+            # RankingAdapter is an alias for PerformanceAdapter which implements
+            # all abstract methods via mixins; the type checker cannot verify this.
+            adapter = RankingAdapter()  # type: ignore[abstract]
             adapter.store_agent_expertise(
                 agent_name=agent_name,
                 domain=domain,
@@ -378,7 +380,9 @@ class KnowledgeMoundHandlersMixin:
         try:
             from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
 
-            adapter = RankingAdapter() # type: ignore[abstract]
+            # RankingAdapter is an alias for PerformanceAdapter which implements
+            # all abstract methods via mixins; the type checker cannot verify this.
+            adapter = RankingAdapter()  # type: ignore[abstract]
             # Detect domain from question
             domain = adapter.detect_domain(question)
             experts = adapter.get_domain_experts(domain=domain, limit=10)

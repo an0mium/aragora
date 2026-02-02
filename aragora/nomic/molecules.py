@@ -440,7 +440,9 @@ class DebateStepExecutor(StepExecutor):
         question = step.config.get("question", step.name)
         agents_config = step.config.get("agents", get_settings().agent.default_agent_list)
         rounds: int = step.config.get("rounds", DEFAULT_ROUNDS)
-        consensus_value: str = step.config.get("consensus", DEFAULT_CONSENSUS)
+        consensus_value: ConsensusType = cast(
+            ConsensusType, step.config.get("consensus", DEFAULT_CONSENSUS)
+        )
 
         try:
             from aragora.core import Environment, DebateProtocol
@@ -461,7 +463,7 @@ class DebateStepExecutor(StepExecutor):
 
             # Create and run debate
             env = Environment(task=question)
-            protocol = DebateProtocol(rounds=rounds, consensus=cast(ConsensusType, consensus_value))  # type: ignore[misc]
+            protocol = DebateProtocol(rounds=rounds, consensus=consensus_value)
             arena = Arena(env, agents, protocol)
             result = await arena.run()
 

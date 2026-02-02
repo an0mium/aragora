@@ -11,9 +11,11 @@ import os
 import tempfile
 import warnings
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
+AudioSegment: Any
 try:
     with warnings.catch_warnings():
         # audioop is deprecated in Python 3.11+ and removed in 3.13.
@@ -27,7 +29,7 @@ try:
 
     PYDUB_AVAILABLE = True
 except Exception:
-    AudioSegment = None  # type: ignore[assignment]
+    AudioSegment = None  # type: ignore[no-redef,assignment]
     PYDUB_AVAILABLE = False
 
 # Maximum audio files for FFmpeg filter_complex to prevent command overflow

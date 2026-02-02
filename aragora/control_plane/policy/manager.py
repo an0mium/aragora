@@ -52,7 +52,7 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_policy_decision: _LogPolicyDecisionProto | None = None
+    log_policy_decision: _LogPolicyDecisionProto | None = None  # type: ignore[no-redef]
 
 # Prometheus metrics (optional)
 try:
@@ -63,7 +63,7 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    prometheus_record_policy: _RecordPolicyDecisionProto | None = None
+    prometheus_record_policy: _RecordPolicyDecisionProto | None = None  # type: ignore[no-redef]
 
 
 class ControlPlanePolicyManager:

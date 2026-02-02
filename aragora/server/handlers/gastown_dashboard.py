@@ -259,9 +259,9 @@ class GasTownDashboardHandler(SecureHandler):
         try:
             from aragora.extensions.gastown.agent_roles import AgentHierarchy, AgentRole
 
-            hierarchy = AgentHierarchy()
+            hierarchy: Any = AgentHierarchy()
             for role in AgentRole:
-                agents = await hierarchy.list_agents(role=role)  # type: ignore[attr-defined]
+                agents = await hierarchy.list_agents(role=role)
                 count = len(agents)
                 overview["agents"][role.value] = count
                 overview["agents"]["total"] += count
@@ -387,10 +387,10 @@ class GasTownDashboardHandler(SecureHandler):
                 bead_store = await stores.bead_store()
                 convoy_manager = await stores.convoy_manager()
 
-                filter_status = None
+                filter_status: Any = None
                 if status_filter:
                     try:
-                        filter_status = ConvoyStatus(status_filter)  # type: ignore[assignment]
+                        filter_status = ConvoyStatus(status_filter)
                     except ValueError:
                         return error_response(f"Invalid status: {status_filter}", 400)
 
@@ -465,12 +465,12 @@ class GasTownDashboardHandler(SecureHandler):
         try:
             from aragora.extensions.gastown.agent_roles import AgentHierarchy, AgentRole
 
-            hierarchy = AgentHierarchy()
+            hierarchy: Any = AgentHierarchy()
 
             agents_by_role: dict[str, list[dict[str, Any]]] = {role.value: [] for role in AgentRole}
 
             for role in AgentRole:
-                agents = await hierarchy.list_agents(role=role)  # type: ignore[attr-defined]
+                agents = await hierarchy.list_agents(role=role)
                 for a in agents:
                     agents_by_role[role.value].append(
                         {

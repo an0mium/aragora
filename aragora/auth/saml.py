@@ -53,7 +53,7 @@ try:
 
     HAS_SAML_LIB = True
 except ImportError:
-    OneLogin_Saml2_Auth = None  # type: ignore[no-redef]
+    OneLogin_Saml2_Auth = None  # type: ignore[assignment]  # optional import fallback: class -> None when python3-saml unavailable
     HAS_SAML_LIB = False
     logger.debug("python3-saml not installed - SAML authentication unavailable")
 

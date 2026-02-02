@@ -712,6 +712,7 @@ class IsolatedResource:
             if validate:
                 isolation.validate_ownership(self, tenant_field)
 
+        # Class decorator pattern requires __init__ reassignment; mypy cannot type this
         cls.__init__ = new_init  # type: ignore[method-assign]
         return cls
 

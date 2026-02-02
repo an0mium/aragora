@@ -327,7 +327,8 @@ class LazyValue(Generic[T]):
         """Get the value, loading if necessary."""
         if self._loaded:
             _lazy_load_stats.prefetch_hits += 1
-            # _value is guaranteed to be T (not None) when _loaded is True
+            # _value is T | None but guaranteed to be T when _loaded is True;
+            # mypy may consider this cast redundant depending on inference
             return cast(T, self._value)  # type: ignore[redundant-cast]
 
         # Handle concurrent loads

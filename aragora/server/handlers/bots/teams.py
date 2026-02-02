@@ -1503,7 +1503,7 @@ Ready to make better decisions together!"""
             return False
 
 
-class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):
+class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):  # type: ignore[misc]
     """Handler for Microsoft Teams Bot endpoints.
 
     Uses BotHandlerMixin for shared auth/status patterns.

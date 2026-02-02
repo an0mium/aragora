@@ -539,6 +539,7 @@ class DecisionReceipt:
         Raises:
             ImportError: If weasyprint is not installed
         """
+        # weasyprint does not ship type stubs
         from weasyprint import HTML, CSS  # type: ignore[import-untyped]
 
         # PDF-specific styles for professional printed output

@@ -71,7 +71,7 @@ def _call_run_coro(coro: Any) -> Any:
     if os.environ.get("PYTEST_CURRENT_TEST"):
         side_effect = getattr(runner, "side_effect", None)
         if isinstance(side_effect, list):
-            runner.side_effect = iter(side_effect)
+            runner.side_effect = iter(side_effect)  # type: ignore[attr-defined]
     return runner(coro)
 
 
@@ -100,7 +100,7 @@ class ExternalAgentsHandler(BaseHandler):
         if os.environ.get("PYTEST_CURRENT_TEST"):
             side_effect = getattr(auth_fn, "side_effect", None)
             if side_effect is not None:
-                return auth_fn.return_value
+                return auth_fn.return_value  # type: ignore[attr-defined]
         return auth_fn(handler)
 
     def _list_specs(self) -> list[Any]:

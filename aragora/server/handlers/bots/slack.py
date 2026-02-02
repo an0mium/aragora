@@ -221,7 +221,8 @@ async def _start_slack_debate(
             result = await asyncio.wait_for(asyncio.shield(task), timeout=0.5)
         except asyncio.TimeoutError:
             result = None
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to get quick debate result: %s", exc)
             result = None
 
         if result and result.request_id:

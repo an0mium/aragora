@@ -255,6 +255,7 @@ def tenant_required(
 ) -> Callable[P, T]: ...
 
 
+# Overload impl signature overlaps unavoidable for sync/async decorator pattern
 def tenant_required(  # type: ignore[misc]
     func: Callable[P, T] | Callable[P, Awaitable[T]],
 ) -> Callable[P, T] | Callable[P, Awaitable[T]]:
@@ -295,6 +296,7 @@ def for_tenant(
 ]: ...
 
 
+# Sync overload has identical param signature to async; needed for documentation but cannot match
 @overload
 def for_tenant(  # type: ignore[overload-cannot-match]
     tenant_id: str,
@@ -304,6 +306,7 @@ def for_tenant(  # type: ignore[overload-cannot-match]
 ]: ...
 
 
+# Overload impl signature overlaps unavoidable for sync/async decorator pattern
 def for_tenant(  # type: ignore[misc]
     tenant_id: str,
 ) -> Callable[

@@ -49,7 +49,6 @@ if TYPE_CHECKING:
 # Policy imports (optional - graceful fallback if not available)
 try:
     from aragora.control_plane.policy import (
-        ControlPlanePolicyManager as _ControlPlanePolicyManager,
         PolicyViolationError,
         EnforcementLevel,
     )
@@ -57,28 +56,19 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    # Runtime values when module unavailable - type checker uses TYPE_CHECKING imports
-    _ControlPlanePolicyManager: type[Any] | None = None
-    PolicyViolationError: type[Exception] | None = None
-    EnforcementLevel: type[Enum] | None = None
+    PolicyViolationError: Any = None
+    EnforcementLevel: Any = None
 
 # Cost enforcement imports (optional - graceful fallback if not available)
 try:
     from aragora.control_plane.cost_enforcement import (
-        CostEnforcer as _CostEnforcer,
         CostLimitExceededError,
-        CostEnforcementMode,
-        ThrottleLevel,
     )
 
     HAS_COST_ENFORCEMENT = True
 except ImportError:
     HAS_COST_ENFORCEMENT = False
-    # Runtime values when module unavailable - type checker uses TYPE_CHECKING imports
-    _CostEnforcer: type[Any] | None = None
-    CostLimitExceededError: type[Exception] | None = None
-    CostEnforcementMode: type[Enum] | None = None
-    ThrottleLevel: type[Enum] | None = None
+    CostLimitExceededError: Any = None
 
 # Resilience patterns
 from aragora.resilience import get_v2_circuit_breaker as get_circuit_breaker

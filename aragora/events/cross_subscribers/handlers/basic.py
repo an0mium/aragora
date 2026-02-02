@@ -14,7 +14,7 @@ Handles core subsystem integrations:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent
@@ -194,7 +194,7 @@ class BasicHandlersMixin:
         try:
             from aragora.debate.agent_pool import get_agent_pool
 
-            pool: AgentPoolProtocol | None = get_agent_pool()  # type: ignore[assignment]
+            pool = cast("AgentPoolProtocol | None", get_agent_pool())
             if pool and hasattr(pool, "update_calibration"):
                 pool.update_calibration(
                     agent_name=agent_name,

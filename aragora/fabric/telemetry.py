@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Generator, TypeVar
+from typing import Any, Callable, Generator, TypeVar, cast
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ try:
     _OTEL_AVAILABLE = True
     _propagator = TraceContextTextMapPropagator()
 except ImportError:
+    # opentelemetry is an optional dependency; provide None fallbacks for graceful degradation
     trace = None  # type: ignore[assignment]
     Context = None  # type: ignore[assignment, misc]
     SpanKind = None  # type: ignore[assignment, misc]
@@ -505,8 +506,8 @@ def trace_span(
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(F, async_wrapper)
+        return cast(F, sync_wrapper)
 
     return decorator
 
@@ -526,6 +527,7 @@ class CorrelationLogFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Add correlation context to log record."""
+        # LogRecord supports arbitrary attributes for use in log formatters
         record.correlation_id = get_correlation_id()  # type: ignore[attr-defined]
         record.trace_id = get_current_trace_id() or ""  # type: ignore[attr-defined]
         record.span_id = get_current_span_id() or ""  # type: ignore[attr-defined]

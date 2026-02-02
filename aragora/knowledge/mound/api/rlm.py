@@ -15,8 +15,8 @@ Install TRUE RLM: pip install aragora[rlm]
 
 NOTE: This is a mixin class designed to be composed with KnowledgeMound.
 Attribute accesses like self._ensure_initialized, self.workspace_id, self.query_semantic, etc.
-are provided by the composed class. The ``# type: ignore[attr-defined]``
-comments suppress mypy warnings that are expected for this mixin pattern.
+are provided by the composed class. A Protocol class (RLMProtocol) is used with cast()
+to provide type-safe access to these attributes.
 """
 
 from __future__ import annotations
@@ -42,12 +42,10 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    # Fallback stubs when RLM package is not installed.
-    # Note: type ignore needed because these names are conditionally defined above.
-    get_rlm = None  # type: ignore[misc, assignment]
-    RLMConfig = None  # type: ignore[misc, assignment]
-    RLMMode = None  # type: ignore[misc, assignment]
-    AbstractionLevel = None  # type: ignore[misc, assignment]
+    get_rlm: Any = None
+    RLMConfig: Any = None
+    RLMMode: Any = None
+    AbstractionLevel: Any = None
 
 logger = logging.getLogger(__name__)
 
@@ -109,17 +107,17 @@ class RLMOperationsMixin:
             logger.warning("RLM not available, use query_semantic instead")
             return None
 
-        # Mixin pattern: methods provided by composed KnowledgeMound class
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        # Cast self to Protocol to access methods provided by composed KnowledgeMound class
+        host = cast(RLMProtocol, self)
+        host._ensure_initialized()
 
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        ws_id = workspace_id or host.workspace_id
 
-        # Fetch relevant knowledge items
-        # Mixin pattern: query_semantic provided by QueryOperationsMixin
-        items = await self.query_semantic(  # type: ignore[attr-defined]
+        # Fetch relevant knowledge items via QueryOperationsMixin
+        items = await host.query_semantic(
             text=query,
             limit=limit,
-            workspace_id=ws_id,  # type: ignore[name-defined]
+            workspace_id=ws_id,
         )
 
         if not items:
@@ -234,9 +232,10 @@ class RLMOperationsMixin:
             )
             return None
 
-        # Mixin pattern: methods provided by composed KnowledgeMound class
-        self._ensure_initialized()  # type: ignore[attr-defined]
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        # Cast self to Protocol to access methods provided by composed KnowledgeMound class
+        host = cast(RLMProtocol, self)
+        host._ensure_initialized()
+        ws_id = workspace_id or host.workspace_id
 
         # Check if TRUE RLM is available
         if prefer_true_rlm and not HAS_OFFICIAL_RLM:
@@ -246,12 +245,11 @@ class RLMOperationsMixin:
                 "Install with: pip install aragora[rlm] for better results."
             )
 
-        # Fetch relevant knowledge items
-        # Mixin pattern: query_semantic provided by QueryOperationsMixin
-        items = await self.query_semantic(  # type: ignore[attr-defined]
+        # Fetch relevant knowledge items via QueryOperationsMixin
+        items = await host.query_semantic(
             text=query,
             limit=limit,
-            workspace_id=ws_id,  # type: ignore[name-defined]
+            workspace_id=ws_id,
         )
 
         if not items:
@@ -375,9 +373,10 @@ class RLMOperationsMixin:
             )
             return None
 
-        # Mixin pattern: methods provided by composed KnowledgeMound class
-        self._ensure_initialized()  # type: ignore[attr-defined]
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        # Cast self to Protocol to access methods provided by composed KnowledgeMound class
+        host = cast(RLMProtocol, self)
+        host._ensure_initialized()
+        ws_id = workspace_id or host.workspace_id
 
         try:
             from aragora.rlm import get_repl_adapter
@@ -387,14 +386,14 @@ class RLMOperationsMixin:
             # Create REPL environment with knowledge context
             env = adapter.create_repl_for_knowledge(
                 mound=self,
-                workspace_id=ws_id,  # type: ignore[name-defined]
+                workspace_id=ws_id,
                 content_id=content_id,
             )
 
             if env:
                 logger.info(
                     "[rlm] Created TRUE RLM REPL environment for knowledge (workspace=%s)",
-                    ws_id,  # type: ignore[name-defined]
+                    ws_id,
                 )
 
             return env

@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
@@ -500,10 +500,10 @@ class ConsistencyValidator:
             from aragora.knowledge.mound.ops.contradiction import ContradictionDetector
 
             detector = ContradictionDetector()
-            # ContradictionDetector expects KnowledgeMound facade; self._mound is the
-            # composed class instance which satisfies the interface at runtime.
+            # ContradictionDetector expects KnowledgeMoundProtocol; cast to satisfy
+            # the type checker since KnowledgeMound implements the protocol at runtime.
             report = await detector.detect_contradictions(
-                self._mound,  # type: ignore[arg-type]
+                cast(Any, self._mound),
                 workspace_id,
             )
 
@@ -805,18 +805,19 @@ class ConsistencyValidator:
                 else:
                     try:
                         # Apply fix based on issue type
-                        # _mound is typed as KnowledgeMound | None; methods are provided by
-                        # CRUDOperationsMixin at runtime. Ignore union-attr for these calls.
+                        # Cast _mound to Any since CRUD methods come from mixins
+                        # that the type checker cannot resolve through the complex MRO
+                        mound: Any = self._mound
                         if issue.check_type == ConsistencyCheckType.REFERENTIAL:
                             if issue.item_id and "Broken parent reference" in issue.message:
                                 # Update uses (node_id, updates) signature
-                                await self._mound.update(  # type: ignore[union-attr]
+                                await mound.update(
                                     issue.item_id,
                                     {"metadata": {"parent_id": None}},
                                 )
                             elif issue.item_id and "Broken relationship" in issue.message:
                                 # Remove broken relationship
-                                node = await self._mound.get(issue.item_id)  # type: ignore[union-attr]
+                                node = await mound.get(issue.item_id)
                                 if node:
                                     node_dict = self._item_to_dict(node)
                                     relationships = node_dict.get("relationships", [])
@@ -825,14 +826,14 @@ class ConsistencyValidator:
                                         for r in relationships
                                         if r.get("target_id") not in issue.related_items
                                     ]
-                                    await self._mound.update(  # type: ignore[union-attr]
+                                    await mound.update(
                                         issue.item_id,
                                         {"metadata": {"relationships": relationships}},
                                     )
 
                         elif issue.check_type == ConsistencyCheckType.CONTENT:
                             if issue.item_id and "Empty content" in issue.message:
-                                await self._mound.delete(issue.item_id, archive=False)  # type: ignore[union-attr]
+                                await mound.delete(issue.item_id, archive=False)
 
                         fixes_applied.append(
                             {

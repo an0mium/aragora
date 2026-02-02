@@ -40,6 +40,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
+get_encryption_service: Any
+is_encryption_required: Any
+EncryptionError: Any
+
 try:
     from aragora.security.encryption import (
         get_encryption_service,
@@ -75,10 +79,9 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
-    # Assign fallbacks to module-level names; type: ignore needed due to signature mismatch with stubs
-    get_encryption_service = _fallback_get_encryption_service  # type: ignore[misc, assignment]
-    is_encryption_required = _fallback_is_encryption_required  # type: ignore[misc, assignment]
-    EncryptionError = _FallbackEncryptionError  # type: ignore[misc, assignment]
+    get_encryption_service = _fallback_get_encryption_service
+    is_encryption_required = _fallback_is_encryption_required
+    EncryptionError = _FallbackEncryptionError
 
 
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:

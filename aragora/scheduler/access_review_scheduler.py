@@ -740,6 +740,7 @@ class AccessReviewScheduler:
         review.items = items
 
         # Calculate risk summary
+        # ReviewSummary (TypedDict) is compatible with dict[str, Any] at runtime but mypy treats TypedDict as invariant
         review.summary = self._calculate_summary(items)  # type: ignore[assignment]
 
         # Persist
@@ -857,6 +858,7 @@ class AccessReviewScheduler:
         for item in items:
             risk_level = item.risk_level
             if risk_level in by_risk:
+                # risk_level is str but RiskCounts keys are literals; validated by `in` check above
                 by_risk[risk_level] += 1  # type: ignore[literal-required]
 
             if item.resource_type not in by_type:
@@ -968,6 +970,7 @@ class AccessReviewScheduler:
         pending = [i for i in review.items if i.status == ReviewItemStatus.PENDING]
         if not pending:
             review.status = ReviewStatus.AWAITING_APPROVAL
+            # ReviewSummary (TypedDict) is compatible with dict[str, Any] at runtime but mypy treats TypedDict as invariant
             review.summary = self._calculate_summary(review.items)  # type: ignore[assignment]
 
         self._storage.save_review(review)

@@ -56,20 +56,23 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 # Optional asyncpg import -- the module stays importable without it so that
 # tests and dry-run mode work without a PostgreSQL connection.
+asyncpg: ModuleType | None
+Pool: Any
 try:
-    import asyncpg
-    from asyncpg import Pool
+    import asyncpg  # type: ignore[no-redef]
+    from asyncpg import Pool  # type: ignore[no-redef]
 
     ASYNCPG_AVAILABLE = True
 except ImportError:
-    asyncpg = None  # type: ignore[assignment]
-    Pool = Any  # type: ignore[assignment,misc]
+    asyncpg = None
+    Pool = Any
     ASYNCPG_AVAILABLE = False
 
 
@@ -719,7 +722,8 @@ class MigrationOrchestrator:
                         try:
                             await conn.execute(insert_sql, *row)
                             migrated += 1
-                        except Exception:
+                        except Exception as exc:
+                            logger.debug("Skipped row during migration of table %s: %s", table, exc)
                             skipped += 1
                     result.rows_migrated += migrated
                     result.rows_skipped += skipped

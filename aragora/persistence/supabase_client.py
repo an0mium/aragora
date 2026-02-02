@@ -12,16 +12,18 @@ import time
 from datetime import datetime
 from typing import Any, Callable, cast
 
-try:
-    # supabase-py lacks comprehensive type stubs; the library exports these at runtime
-    from supabase import Client, create_client  # type: ignore[attr-defined]
+# Pre-declare optional supabase names to avoid redefinition errors
+Client: Any = None
+create_client: Any = None
 
+try:
+    import supabase as _supabase_mod
+
+    Client = _supabase_mod.Client
+    create_client = _supabase_mod.create_client
     SUPABASE_AVAILABLE = True
-except ImportError:
+except (ImportError, AttributeError):
     SUPABASE_AVAILABLE = False
-    # Fallback placeholders when supabase is not installed
-    Client = None  # type: ignore[misc,assignment]
-    create_client = None  # type: ignore[misc,assignment]
 
 from aragora.persistence.models import (
     AgentMetrics,
@@ -94,7 +96,7 @@ class SupabaseClient:
             return
 
         # create_client is guaranteed non-None here since SUPABASE_AVAILABLE is True
-        self.client = create_client(self.url, self.key)  # type: ignore[misc]
+        self.client = create_client(self.url, self.key)
         logger.info(f"Supabase client initialized for {self.url}")
 
     @property
@@ -125,8 +127,9 @@ class SupabaseClient:
             _log_slow_query("save_cycle", elapsed, f"cycle={cycle.cycle_number}")
 
             if result.data:
-                # result.data is a list when successful; index access is safe
-                row = cast(dict[str, Any], result.data[0])
+                # result.data is a list when successful; supabase types it as dict
+                rows = cast(list[dict[str, Any]], result.data)
+                row = rows[0]
                 return row.get("id")
             return None
         except Exception as e:
@@ -139,14 +142,13 @@ class SupabaseClient:
             return None
 
         try:
-            # postgrest-py query builder returns chainable objects; execute() is dynamically attached
             result = (
                 self.client.table("nomic_cycles")
                 .select("*")
                 .eq("loop_id", loop_id)
                 .eq("cycle_number", cycle_number)
                 .single()
-                .execute()  # type: ignore[attr-defined]
+                .execute()
             )
 
             if result.data:
@@ -235,8 +237,9 @@ class SupabaseClient:
             result = self.client.table("debate_artifacts").insert(data).execute()
 
             if result.data:
-                # result.data is a list when successful; index access is safe
-                row = cast(dict[str, Any], result.data[0])
+                # result.data is a list when successful; supabase types it as dict
+                rows = cast(list[dict[str, Any]], result.data)
+                row = rows[0]
                 return row.get("id")
             return None
         except Exception as e:
@@ -249,13 +252,12 @@ class SupabaseClient:
             return None
 
         try:
-            # postgrest-py query builder returns chainable objects; execute() is dynamically attached
             result = (
                 self.client.table("debate_artifacts")
                 .select("*")
                 .eq("id", debate_id)
                 .single()
-                .execute()  # type: ignore[attr-defined]
+                .execute()
             )
 
             if result.data:
@@ -329,8 +331,9 @@ class SupabaseClient:
             result = self.client.table("stream_events").insert(data).execute()
 
             if result.data:
-                # result.data is a list when successful; index access is safe
-                row = cast(dict[str, Any], result.data[0])
+                # result.data is a list when successful; supabase types it as dict
+                rows = cast(list[dict[str, Any]], result.data)
+                row = rows[0]
                 return row.get("id")
             return None
         except Exception as e:
@@ -410,8 +413,9 @@ class SupabaseClient:
             result = self.client.table("agent_metrics").insert(data).execute()
 
             if result.data:
-                # result.data is a list when successful; index access is safe
-                row = cast(dict[str, Any], result.data[0])
+                # result.data is a list when successful; supabase types it as dict
+                rows = cast(list[dict[str, Any]], result.data)
+                row = rows[0]
                 return row.get("id")
             return None
         except Exception as e:

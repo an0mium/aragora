@@ -318,6 +318,7 @@ class SlackTokenRefreshScheduler:
 
         try:
             # Call async refresh directly
+            # Protocol defines sync signature but actual store impl is async
             result = await self.store.refresh_workspace_token(  # type: ignore[misc]
                 workspace_id,
                 self.client_id,

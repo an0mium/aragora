@@ -23,15 +23,17 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass, field
+from types import ModuleType
 from typing import Any, Optional, Sequence
 from collections import defaultdict
 
+np: ModuleType | None
 try:
     import numpy as np
 
     HAS_NUMPY = True
 except ImportError:
-    np = None  # type: ignore[assignment]
+    np = None
     HAS_NUMPY = False
 
 logger = logging.getLogger(__name__)

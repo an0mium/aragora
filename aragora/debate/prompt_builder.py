@@ -14,11 +14,14 @@ import logging
 from typing import Any, TYPE_CHECKING, Optional
 
 # Import QuestionClassifier for LLM-based classification
+QuestionClassifier: Any
+QuestionClassification: Any
+
 try:
     from aragora.server.question_classifier import QuestionClassifier, QuestionClassification
 except ImportError:
-    QuestionClassifier: Any = None  # type: ignore[no-redef]  # Fallback when server module unavailable
-    QuestionClassification: Any = None  # type: ignore[no-redef]  # Fallback when server module unavailable
+    QuestionClassifier = None
+    QuestionClassification = None
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
@@ -37,6 +40,9 @@ if TYPE_CHECKING:
     from aragora.rlm.types import RLMContext
 
 # Check for RLM availability (use factory for consistent initialization)
+AbstractionLevel: Any
+RLMContextAdapter: Any
+
 try:
     from aragora.rlm import AbstractionLevel, RLMContextAdapter, HAS_OFFICIAL_RLM
 
@@ -44,8 +50,8 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    AbstractionLevel: Any = None  # type: ignore[no-redef]  # Fallback when RLM not installed
-    RLMContextAdapter: Any = None  # type: ignore[no-redef]  # Fallback when RLM not installed
+    AbstractionLevel = None
+    RLMContextAdapter = None
 
 logger = logging.getLogger(__name__)
 

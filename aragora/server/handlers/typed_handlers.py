@@ -73,7 +73,7 @@ class TypedHandler(BaseHandler):
     """
 
     # Server context containing shared resources
-    ctx: "ServerContext"
+    ctx: "ServerContext"  # type: ignore[assignment]
 
     # Class-level dependency injection points for testing
     # These can be overridden in test fixtures

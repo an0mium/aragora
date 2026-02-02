@@ -126,6 +126,7 @@ def nomic_bead_to_workspace(
 ) -> WorkspaceBeadT:
     metadata = bead.metadata or {}
     status = resolve_workspace_bead_status(bead.status, metadata, status_cls)
+    # TypeVar bound cls: mypy cannot verify constructor args for generic type parameter
     return bead_cls(  # type: ignore[call-arg]
         bead_id=bead.id,
         convoy_id=metadata.get("convoy_id", ""),
@@ -202,7 +203,8 @@ def nomic_convoy_to_workspace(
 ) -> WorkspaceConvoyT:
     metadata = convoy.metadata or {}
     status = resolve_workspace_convoy_status(convoy.status, metadata, status_cls)
-    return convoy_cls(  # type: ignore[call-arg]  # generic factory; concrete cls accepts these kwargs
+    # TypeVar bound cls: mypy cannot verify constructor args for generic type parameter
+    return convoy_cls(  # type: ignore[call-arg]
         convoy_id=convoy.id,
         workspace_id=metadata.get("workspace_id", ""),
         rig_id=metadata.get("rig_id", ""),

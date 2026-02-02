@@ -98,6 +98,14 @@ from aragora.control_plane.deliberation import (
     SLAComplianceLevel,
 )
 
+# Pre-declare optional import names to avoid redefinition errors in except blocks
+log_deliberation_started: _LogDeliberationStartedProto | None = None
+log_deliberation_completed: _LogDeliberationCompletedProto | None = None
+log_deliberation_sla_event: _LogDeliberationSlaEventProto | None = None
+record_deliberation_complete: _RecordDeliberationCompleteProto | None = None
+record_deliberation_sla: _RecordDeliberationSlaProto | None = None
+record_agent_utilization: _RecordAgentUtilizationProto | None = None
+
 # Audit logging (optional)
 try:
     from aragora.control_plane.audit import (
@@ -109,9 +117,6 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_deliberation_started: _LogDeliberationStartedProto | None = None
-    log_deliberation_completed: _LogDeliberationCompletedProto | None = None
-    log_deliberation_sla_event: _LogDeliberationSlaEventProto | None = None
 
 # Prometheus metrics (optional)
 try:
@@ -124,9 +129,6 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    record_deliberation_complete: _RecordDeliberationCompleteProto | None = None
-    record_deliberation_sla: _RecordDeliberationSlaProto | None = None
-    record_agent_utilization: _RecordAgentUtilizationProto | None = None
 
 if TYPE_CHECKING:
     from aragora.control_plane.shared_state import SharedControlPlaneState

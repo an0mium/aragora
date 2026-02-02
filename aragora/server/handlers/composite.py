@@ -518,7 +518,7 @@ class CompositeHandler(BaseHandler):
             continuum = self.ctx.get("continuum_memory")
             if continuum and isinstance(continuum, ContinuumMemory):
                 # Get related memories; recall() added dynamically via plugin
-                memories = continuum.recall(debate_id, limit=5)  # type: ignore[attr-defined]
+                memories = continuum.recall(debate_id, limit=5)
                 memory_data["outcomes"] = [m.to_dict() for m in memories]
                 memory_data["available"] = True
         except ImportError:
@@ -540,7 +540,7 @@ class CompositeHandler(BaseHandler):
             knowledge_mound = self.ctx.get("knowledge_mound")
             if knowledge_mound:
                 # Get related knowledge items; query() on untyped ctx object
-                items = knowledge_mound.query(debate_id, limit=10)  # type: ignore[attr-defined]
+                items = knowledge_mound.query(debate_id, limit=10)
                 knowledge_data["facts"] = items
                 knowledge_data["available"] = True
         except (KeyError, ValueError, TypeError, AttributeError) as e:
@@ -564,7 +564,7 @@ class CompositeHandler(BaseHandler):
             dissent_retriever = self.ctx.get("dissent_retriever")
             if dissent_retriever:
                 # get_cruxes() on untyped ctx object
-                cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)  # type: ignore[attr-defined]
+                cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)
                 belief_data["cruxes"] = cruxes
                 belief_data["available"] = True
         except (KeyError, ValueError, TypeError, AttributeError) as e:
@@ -604,7 +604,7 @@ class CompositeHandler(BaseHandler):
         This method checks for a registered proxy in the handler context.
         """
         # Check if we have an airlock proxy registry in the context
-        airlock_registry: dict[str, Any] | None = self.ctx.get("airlock_registry")  # type: ignore[assignment]  # ctx.get() returns Any; narrowing to dict | None
+        airlock_registry: dict[str, Any] | None = self.ctx.get("airlock_registry")
         if airlock_registry is not None:
             proxy = airlock_registry.get(agent_id)
             if proxy is not None and hasattr(proxy, "metrics"):

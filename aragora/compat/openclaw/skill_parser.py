@@ -164,7 +164,8 @@ class OpenClawSkillParser:
             data = yaml.safe_load(yaml_str) or {}
         except ImportError:
             data = OpenClawSkillParser._simple_yaml_parse(yaml_str)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to parse YAML frontmatter: %s", exc)
             data = {}
 
         if not isinstance(data, dict):

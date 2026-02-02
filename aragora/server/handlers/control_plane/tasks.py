@@ -90,7 +90,7 @@ class TaskHandlerMixin:
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
-        return super().require_auth_or_error(handler)
+        return super().require_auth_or_error(handler)  # type: ignore[misc]
 
     # Attribute declaration - provided by BaseHandler
     ctx: dict[str, Any]

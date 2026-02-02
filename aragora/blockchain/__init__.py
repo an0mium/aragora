@@ -17,6 +17,12 @@ Requires optional dependencies:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.blockchain.provider import Web3Provider
+    from aragora.blockchain.wallet import WalletSigner
+
 from aragora.blockchain.config import (
     ChainConfig,
     get_chain_config,
@@ -42,21 +48,21 @@ _provider_cls = None
 _wallet_cls = None
 
 
-def get_web3_provider(**kwargs: object) -> "Web3Provider":  # type: ignore[name-defined]  # noqa: F821
+def get_web3_provider(**kwargs: Any) -> Web3Provider:
     """Get a Web3Provider instance (lazy import to avoid requiring web3)."""
     global _provider_cls
     if _provider_cls is None:
-        from aragora.blockchain.provider import Web3Provider
+        from aragora.blockchain.provider import Web3Provider as _Web3Provider
 
-        _provider_cls = Web3Provider
-    return _provider_cls(**kwargs)  # type: ignore[arg-type]
+        _provider_cls = _Web3Provider
+    return _provider_cls(**kwargs)
 
 
-def get_wallet_signer(**kwargs: object) -> "WalletSigner":  # type: ignore[name-defined]  # noqa: F821
+def get_wallet_signer(**kwargs: Any) -> WalletSigner:
     """Get a WalletSigner instance (lazy import to avoid requiring web3)."""
     global _wallet_cls
     if _wallet_cls is None:
-        from aragora.blockchain.wallet import WalletSigner
+        from aragora.blockchain.wallet import WalletSigner as _WalletSigner
 
-        _wallet_cls = WalletSigner
-    return _wallet_cls(**kwargs)  # type: ignore[arg-type]
+        _wallet_cls = _WalletSigner
+    return _wallet_cls(**kwargs)

@@ -48,7 +48,8 @@ def get_inbox() -> "InboxManager":
             if state and state.inbox_manager is not None:
                 _inbox = state.inbox_manager
                 return _inbox
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to get inbox from extension state: %s", exc)
             pass
 
         from aragora.extensions.moltbot import InboxManager
@@ -59,7 +60,8 @@ def get_inbox() -> "InboxManager":
                 from aragora.gateway.canonical_api import GatewayRuntime
 
                 gateway_inbox = GatewayRuntime().inbox
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to get gateway inbox from canonical API: %s", exc)
             gateway_inbox = None
 
         _inbox = InboxManager(gateway_inbox=gateway_inbox)

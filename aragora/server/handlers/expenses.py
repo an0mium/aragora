@@ -828,7 +828,7 @@ class ExpenseHandler(BaseHandler):
             logger.debug(f"Permission check failed: {e}")
             return error_response("Authentication required", status=401)
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         path: str,
         query_params: dict[str, Any],
@@ -869,11 +869,11 @@ class ExpenseHandler(BaseHandler):
         """Compatibility wrapper for GET handlers."""
         return await self.handle(path, query_params, handler)
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
         query_params: dict[str, Any],
-        handler: Any | None = None,
+        handler: Any = None,
     ) -> MaybeAsyncHandlerResult:
         """Handle POST requests."""
         # Extract data from query_params for backwards compatibility
@@ -911,11 +911,11 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_put(  # type: ignore[override]
+    async def handle_put(
         self,
         path: str,
         query_params: dict[str, Any],
-        handler: Any | None = None,
+        handler: Any = None,
     ) -> MaybeAsyncHandlerResult:
         """Handle PUT requests."""
         # Extract data from query_params for backwards compatibility
@@ -933,11 +933,11 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_delete(  # type: ignore[override]
+    async def handle_delete(
         self,
         path: str,
-        query_params: dict[str, Any] | None = None,
-        handler: Any | None = None,
+        query_params: dict[str, Any],
+        handler: Any = None,
     ) -> MaybeAsyncHandlerResult:
         """Handle DELETE requests."""
         # Note: handle_delete_expense already has @require_permission("admin:audit")

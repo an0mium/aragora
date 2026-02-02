@@ -485,7 +485,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         ctx: dict[str, Any] = server_context if server_context is not None else {}
         super().__init__(ctx)
 
-    async def handle(self, request: Any, path: str, method: str = "GET") -> HandlerResult:
+    async def handle(self, request: Any, path: str, method: str = "GET") -> HandlerResult:  # type: ignore[override]
         """Compat wrapper for handler-style routing."""
         return await self.handle_request(request, path, method)
 

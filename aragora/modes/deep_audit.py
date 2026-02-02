@@ -194,7 +194,7 @@ class DeepAuditOrchestrator:
         arena = Arena(env, self.agents, protocol)
 
         # Run the debate
-        result = await arena.run(env)  # type: ignore[arg-type]
+        result = await arena.run()
 
         # === Cross-Examination Phase ===
         logger.info("-" * 40)

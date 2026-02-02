@@ -101,7 +101,8 @@ async def query_knowledge_tool(
                         }
                         for edge in graph_result.edges[:5]
                     ]
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Failed to retrieve knowledge relationships: %s", exc)
                     result_item["relationships"] = []
 
             results.append(result_item)

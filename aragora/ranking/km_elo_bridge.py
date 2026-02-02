@@ -501,6 +501,8 @@ class KMEloBridge:
                     limit=100,
                 )
             elif hasattr(self._knowledge_mound, "query"):
+                # KnowledgeMound.query return type varies by mixin; at runtime
+                # it returns list[dict] for this call pattern.
                 return await self._knowledge_mound.query(  # type: ignore[return-value]
                     query=f"agent:{agent_name}",
                     limit=100,

@@ -70,7 +70,7 @@ class AuditTrailHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         method_or_path: str,
         path_or_query: str | dict[str, Any] | Any | None = None,

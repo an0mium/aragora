@@ -48,7 +48,7 @@ try:
 
     HAS_KM_ADAPTER = True
 except ImportError:
-    TaskOutcome = None
+    TaskOutcome = None  # type: ignore[misc]
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 ThreeTierWatchdog: Any = None

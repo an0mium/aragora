@@ -36,6 +36,11 @@ from aragora.debate.cognitive_limiter import (
 )
 
 # Check for official RLM library (use factory for consistent initialization)
+get_rlm: Any
+get_compressor: Any
+DebateContextAdapter: Any
+RLMBackendConfig: Any
+
 try:
     from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
     from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig
@@ -44,10 +49,10 @@ try:
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None  # type: ignore[misc, no-redef]  # Fallback when RLM factory unavailable
-    get_compressor = None  # type: ignore[misc, no-redef]  # Fallback when RLM factory unavailable
-    DebateContextAdapter = None  # type: ignore[misc, no-redef]  # Fallback when RLM bridge unavailable
-    RLMBackendConfig = None  # type: ignore[misc, no-redef]  # Fallback when RLM bridge unavailable
+    get_rlm = None
+    get_compressor = None
+    DebateContextAdapter = None
+    RLMBackendConfig = None
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor

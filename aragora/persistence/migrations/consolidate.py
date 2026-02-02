@@ -281,6 +281,7 @@ MIGRATION_MAP: dict[str, MigrationConfig] = {
                     "created_at",
                     "updated_at",
                 ],
+                # typeddict-item: string method name resolved via getattr at runtime
                 "transform": "_transform_continuum_memory",  # type: ignore[typeddict-item]
             },
             "tier_transitions": {
@@ -1251,16 +1252,13 @@ class DatabaseConsolidator:
         Returns:
             Verification report with row counts and integrity checks
         """
-        report = {
-            "verified_at": datetime.now().isoformat(),
-            "databases": {},
-            "issues": [],
-        }
+        databases: dict[str, Any] = {}
+        issues: list[str] = []
 
         for db_name in ["core.db", "memory.db", "analytics.db", "agents.db"]:
             db_path = self.target_dir / db_name
             if not db_path.exists():
-                report["issues"].append(f"Missing database: {db_name}")  # type: ignore[attr-defined]
+                issues.append(f"Missing database: {db_name}")
                 continue
 
             conn = self._get_connection(db_path)
@@ -1268,7 +1266,7 @@ class DatabaseConsolidator:
                 continue
 
             try:
-                db_report = {"tables": {}, "size_bytes": db_path.stat().st_size}
+                db_tables: dict[str, int] = {}
 
                 # Get all tables
                 cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -1280,16 +1278,20 @@ class DatabaseConsolidator:
 
                     cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")
                     count = cursor.fetchone()[0]
-                    db_report["tables"][table] = count  # type: ignore[index]
+                    db_tables[table] = count
 
-                report["databases"][db_name] = db_report  # type: ignore[index]
+                databases[db_name] = {"tables": db_tables, "size_bytes": db_path.stat().st_size}
 
             except Exception as e:
-                report["issues"].append(f"Error verifying {db_name}: {e}")  # type: ignore[attr-defined]
+                issues.append(f"Error verifying {db_name}: {e}")
             finally:
                 conn.close()
 
-        return report
+        return {
+            "verified_at": datetime.now().isoformat(),
+            "databases": databases,
+            "issues": issues,
+        }
 
 
 def main() -> int:

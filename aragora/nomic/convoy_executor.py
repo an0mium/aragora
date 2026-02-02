@@ -430,13 +430,14 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
         async with self._test_lock:
             try:
                 result = await asyncio.to_thread(
-                    subprocess.run,  # type: ignore[arg-type]
-                    command,
-                    cwd=self.repo_path,
-                    capture_output=True,
-                    text=True,
-                    timeout=self._test_timeout,
-                    shell=use_shell,
+                    lambda: subprocess.run(
+                        command,
+                        cwd=self.repo_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=self._test_timeout,
+                        shell=use_shell,
+                    )
                 )
             except subprocess.TimeoutExpired:
                 return False, "test_timeout"

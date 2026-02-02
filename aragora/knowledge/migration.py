@@ -271,8 +271,9 @@ class KnowledgeMoundMigrator:
                             continue
 
                     # Add to mound using add_node
-                    # add_node returns a str id; misc arises from overloaded signatures
-                    node_id = await self._mound.add_node(node)  # type: ignore[misc]
+                    # Cast to Any since add_node has overloaded signatures in the mixin
+                    mound: Any = self._mound
+                    node_id = await mound.add_node(node)
                     result.node_ids.append(node_id)
                     result.migrated_count += 1
 
@@ -391,10 +392,13 @@ class KnowledgeMoundMigrator:
 
             for record in records:
                 try:
+                    # Cast to Any since add_node/add_relationship have overloaded
+                    # signatures in the mixin that confuse the type checker
+                    mound: Any = self._mound
+
                     # Create main consensus node
                     consensus_node = self._consensus_record_to_node(record, workspace_id)
-                    # misc: overloaded add_node signatures
-                    consensus_id = await self._mound.add_node(consensus_node)  # type: ignore[misc]
+                    consensus_id = await mound.add_node(consensus_node)
                     result.node_ids.append(consensus_id)
                     result.migrated_count += 1
 
@@ -418,13 +422,11 @@ class KnowledgeMoundMigrator:
                                 "consensus_id": record.id,
                             },
                         )
-                        # misc: overloaded add_node signatures
-                        claim_id = await self._mound.add_node(claim_node)  # type: ignore[misc]
+                        claim_id = await mound.add_node(claim_node)
                         result.node_ids.append(claim_id)
 
                         # Add "supports" relationship using correct API
-                        # misc: overloaded add_relationship signatures
-                        rel_result = await self._mound.add_relationship(  # type: ignore[misc]
+                        rel_result = await mound.add_relationship(
                             from_id=claim_id,
                             to_id=consensus_id,
                             relationship_type="supports",
@@ -440,13 +442,11 @@ class KnowledgeMoundMigrator:
                             dissent = get_dissent(dissent_id) if get_dissent else None
                             if dissent:
                                 dissent_node = self._dissent_record_to_node(dissent, workspace_id)
-                                # misc: overloaded add_node signatures
-                                d_node_id = await self._mound.add_node(dissent_node)  # type: ignore[misc]
+                                d_node_id = await mound.add_node(dissent_node)
                                 result.node_ids.append(d_node_id)
 
                                 # Add "contradicts" relationship using correct API
-                                # misc: overloaded add_relationship signatures
-                                rel_result = await self._mound.add_relationship(  # type: ignore[misc]
+                                rel_result = await mound.add_relationship(
                                     from_id=d_node_id,
                                     to_id=consensus_id,
                                     relationship_type="contradicts",
@@ -668,8 +668,10 @@ async def run_migration_cli(
     consensus = ConsensusMemory(db_path=get_db_path(DatabaseType.CONSENSUS_MEMORY))
 
     # Initialize target
-    # KnowledgeMound facade is instantiable despite abstract base methods
-    mound = KnowledgeMound(workspace_id=workspace_id)  # type: ignore[abstract]
+    # KnowledgeMound facade is instantiable despite abstract base methods in the MRO;
+    # cast the class to Any to bypass the abstract instantiation check
+    _MoundClass: Any = KnowledgeMound
+    mound: KnowledgeMound = _MoundClass(workspace_id=workspace_id)
     await mound.initialize()
 
     # Create migrator

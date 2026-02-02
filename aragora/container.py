@@ -613,6 +613,7 @@ def _configure_defaults(container: Container) -> None:
     # These are stateless services that can be instantiated without arguments.
     # For services that require runtime configuration (PromptBuilder, JudgeSelector, etc.),
     # register them explicitly in your application or test setup.
+    # Protocols are used as dict keys for DI lookup, not instantiated directly
     container.register_factory(BudgetCoordinatorProtocol, _create_budget_coordinator)  # type: ignore[type-abstract]
     container.register_factory(ConvergenceDetectorProtocol, _create_convergence_detector)  # type: ignore[type-abstract]
     container.register_factory(EventEmitterProtocol, _create_event_emitter)  # type: ignore[type-abstract]

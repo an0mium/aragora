@@ -12,7 +12,7 @@ import inspect
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Coroutine, cast
 from urllib.parse import urlencode
 
 from aragora.rbac import AuthorizationContext, check_permission
@@ -41,7 +41,7 @@ def _maybe_await(value: Any) -> Any:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(value)  # type: ignore[arg-type]
+            return asyncio.run(cast(Coroutine[Any, Any, Any], value))
     return value
 
 

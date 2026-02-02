@@ -32,6 +32,7 @@ class AppleOAuthMixin:
     _get_user_store: Any
     _redirect_with_error: Any
     _complete_oauth_flow: Any
+    _maybe_await: Any
 
     @handle_errors("Apple OAuth start")
     @log_request("Apple OAuth start")
@@ -127,7 +128,7 @@ class AppleOAuthMixin:
             logger.error(f"Apple OAuth processing failed: {e}")
             return self._redirect_with_error("Failed to process Apple sign-in")
 
-        return self._maybe_await(self._complete_oauth_flow(user_info, state_data))  # type: ignore[attr-defined]
+        return self._maybe_await(self._complete_oauth_flow(user_info, state_data))
 
     def _exchange_apple_code(self, code: str) -> dict:
         """Exchange Apple authorization code for tokens."""

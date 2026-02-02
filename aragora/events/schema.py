@@ -45,7 +45,7 @@ from aragora.events.types import StreamEventType
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
+T = TypeVar("T", bound="EventPayload")
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ class EventPayload:
     def from_dict(cls: type[T], data: dict[str, Any]) -> T:
         """Create payload from dictionary with validation."""
         # Filter to only known fields
-        known_fields = {f.name for f in fields(cls)}  # type: ignore[arg-type]
+        known_fields = {f.name for f in fields(cls)}
         filtered = {k: v for k, v in data.items() if k in known_fields}
         return cls(**filtered)
 

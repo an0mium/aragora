@@ -433,7 +433,8 @@ class OrchestrationHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response(str(e), 403)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Authentication failed for orchestration request: %s", exc)
             return error_response("Authentication required", 401)
 
         # Check read permission

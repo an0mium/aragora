@@ -151,6 +151,8 @@ def init_agent_provider_metrics() -> None:
             """Get existing counter or create a new one."""
             for collector in REGISTRY._names_to_collectors.values():
                 if hasattr(collector, "_name") and collector._name == name:
+                    # prometheus_client registry stores Collector base type;
+                    # the isinstance check is implicit via _name matching.
                     return collector  # type: ignore[return-value]
             return Counter(name, doc, labels)
 
@@ -160,6 +162,8 @@ def init_agent_provider_metrics() -> None:
             """Get existing histogram or create a new one."""
             for collector in REGISTRY._names_to_collectors.values():
                 if hasattr(collector, "_name") and collector._name == name:
+                    # prometheus_client registry stores Collector base type;
+                    # the isinstance check is implicit via _name matching.
                     return collector  # type: ignore[return-value]
             return Histogram(name, doc, labels, buckets=buckets)
 
@@ -167,6 +171,8 @@ def init_agent_provider_metrics() -> None:
             """Get existing gauge or create a new one."""
             for collector in REGISTRY._names_to_collectors.values():
                 if hasattr(collector, "_name") and collector._name == name:
+                    # prometheus_client registry stores Collector base type;
+                    # the isinstance check is implicit via _name matching.
                     return collector  # type: ignore[return-value]
             return Gauge(name, doc, labels)
 

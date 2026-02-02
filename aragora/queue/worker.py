@@ -313,6 +313,7 @@ async def create_default_executor() -> DebateExecutor:
 
         # Create environment and protocol
         env = Environment(task=payload.question)
+        # misc: DebateProtocol dataclass fields have complex default handling
         protocol = DebateProtocol(  # type: ignore[misc]
             rounds=payload.rounds,
             consensus=cast(Any, payload.consensus),

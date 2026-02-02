@@ -176,6 +176,7 @@ async def migrate_sync_store(
                         logger.info(f"[DRY RUN] Would migrate connector: {connector_id}")
                     else:
                         # Re-save triggers encryption
+                        # call-arg: save_connector accepts dynamic kwargs for encryption
                         await store.save_connector(connector_id, connector)  # type: ignore[call-arg,arg-type]
                         logger.info(f"Migrated connector: {connector_id}")
                     result.migrated += 1
@@ -231,6 +232,7 @@ async def migrate_integration_store(
             SENSITIVE_KEYS,
         )
 
+        # call-arg: use_encryption kwarg not in public signature but accepted at runtime
         store = get_integration_store(use_encryption=True)  # type: ignore[call-arg]
 
         # Get all integrations
@@ -306,6 +308,7 @@ async def migrate_gmail_tokens(
             ENCRYPTED_FIELDS,
         )
 
+        # call-arg: use_encryption kwarg not in public signature but accepted at runtime
         store = get_gmail_token_store(use_encryption=True)  # type: ignore[call-arg]
 
         # Get all users with tokens

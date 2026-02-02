@@ -406,7 +406,7 @@ class EmailWebhooksHandler(BaseHandler):
         """Initialize handler with optional server context."""
         super().__init__(server_context if server_context is not None else dict())
 
-    async def handle(self, request: Any, path: str, method: str = "GET") -> HandlerResult:
+    async def handle(self, request: Any, path: str, method: str = "GET") -> HandlerResult:  # type: ignore[override]
         """Compatibility wrapper for handler-style routing."""
         return await self.route_request(request, path, method)
 

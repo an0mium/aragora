@@ -47,8 +47,8 @@ logger = logging.getLogger(__name__)
 try:
     from botocore.exceptions import BotoCoreError, ClientError
 except ImportError:
-    # Define placeholder exceptions if botocore isn't installed
-    # Use type[Exception] to allow these to be used in except clauses
+    # Placeholder exceptions when botocore is not installed; mypy sees these
+    # as redefinitions of the names from the try block.
     ClientError: type[Exception] = type("ClientError", (Exception,), {})  # type: ignore[no-redef]
     BotoCoreError: type[Exception] = type("BotoCoreError", (Exception,), {})  # type: ignore[no-redef]
 

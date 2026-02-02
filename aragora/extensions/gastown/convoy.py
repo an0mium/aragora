@@ -164,6 +164,9 @@ class ConvoyTracker:
                 continue
             user_metadata.setdefault(key, value)
 
+        raw_result = metadata.get("result")
+        result_dict: dict[str, Any] = dict(raw_result) if isinstance(raw_result, dict) else {}
+
         return Convoy(
             id=convoy.convoy_id,
             rig_id=convoy.rig_id,
@@ -181,9 +184,7 @@ class ConvoyTracker:
             current_agent=metadata.get("current_agent"),
             handoff_count=int(metadata.get("handoff_count", 0)),
             artifacts=list(metadata.get("artifacts", [])),
-            result=dict(metadata["result"])  # type: ignore[arg-type]
-            if isinstance(metadata.get("result"), dict)
-            else {},
+            result=result_dict,
             error=metadata.get("error"),
             priority=int(metadata.get("priority", 0)),
             tags=list(metadata.get("tags", [])),

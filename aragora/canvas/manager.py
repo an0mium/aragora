@@ -939,7 +939,8 @@ class CanvasStateManager:
         try:
             from aragora.knowledge.mound.facade import KnowledgeMound
 
-            mound = KnowledgeMound() # type: ignore[abstract]
+            # KnowledgeMound facade is instantiable despite abstract base methods
+            mound = KnowledgeMound()  # type: ignore[abstract]
             results = await mound.query(query, limit=limit)
 
             # Format results

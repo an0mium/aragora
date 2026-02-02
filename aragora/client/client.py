@@ -1063,7 +1063,7 @@ class AragoraClient:
 class AragoraAsyncClient(AragoraClient):
     """Compatibility alias for async-first client usage."""
 
-    async def request(  # type: ignore[override]
+    async def request(  # type: ignore[override]  # intentionally async; parent is sync
         self,
         method: str,
         path: str,

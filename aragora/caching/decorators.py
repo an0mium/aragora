@@ -293,7 +293,7 @@ def cached(
 ) -> Callable[[F], F]: ...
 
 
-def cached(  # type: ignore[misc]
+def cached(  # type: ignore[misc]  # overload implementation signature
     func: Optional[F] = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,
@@ -375,7 +375,7 @@ def async_cached(
 ) -> Callable[[F], F]: ...
 
 
-def async_cached(  # type: ignore[misc]
+def async_cached(  # type: ignore[misc]  # overload implementation signature
     func: Optional[F] = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,

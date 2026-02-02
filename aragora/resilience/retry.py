@@ -457,8 +457,8 @@ def get_provider_retry_config(
             provider_name=provider,
         )
 
-    # Create new config with overrides
-    config_dict = {
+    # Create new config with overrides applied on top of base values
+    config_dict: dict[str, Any] = {
         "max_retries": base_config.max_retries,
         "base_delay": base_config.base_delay,
         "max_delay": base_config.max_delay,
@@ -473,7 +473,19 @@ def get_provider_retry_config(
     }
     config_dict.update(overrides)
 
-    return RetryConfig(**config_dict)  # type: ignore[arg-type]
+    return RetryConfig(
+        max_retries=config_dict["max_retries"],
+        base_delay=config_dict["base_delay"],
+        max_delay=config_dict["max_delay"],
+        strategy=config_dict["strategy"],
+        jitter_mode=config_dict["jitter_mode"],
+        jitter_factor=config_dict["jitter_factor"],
+        retryable_exceptions=config_dict["retryable_exceptions"],
+        should_retry=config_dict["should_retry"],
+        provider_name=config_dict["provider_name"],
+        non_retryable_status_codes=config_dict["non_retryable_status_codes"],
+        circuit_breaker=config_dict["circuit_breaker"],
+    )
 
 
 def calculate_backoff_delay(
