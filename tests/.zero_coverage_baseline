@@ -1,0 +1,7 @@
+# Zero Coverage Baseline
+# Files listed here are known to have zero coverage and are exempt from the CI check.
+# Add files with justification comments when necessary.
+# Format: one file path per line (relative to repo root)
+#
+# This baseline prevents coverage regression - new zero-coverage files will fail CI.
+# To add a file, document WHY it has zero coverage (e.g., test-only, deprecated, etc.)

@@ -20,6 +20,7 @@ Operational runbooks for responding to Aragora alerts and incidents.
 
 | Topic | Runbook | Description |
 |-------|---------|-------------|
+| **Disaster Recovery** | [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md) | **Comprehensive DR runbook with RTO/RPO targets, failover procedures, backup verification** |
 | Server Startup | [RUNBOOK_STARTUP_ISSUES.md](./RUNBOOK_STARTUP_ISSUES.md) | Startup failures, SLO violations |
 | Database Migration | [RUNBOOK_DATABASE_CONSOLIDATION.md](./RUNBOOK_DATABASE_CONSOLIDATION.md) | Consolidating legacy databases |
 | Knowledge Decay | [RUNBOOK_KNOWLEDGE_DECAY.md](./RUNBOOK_KNOWLEDGE_DECAY.md) | Confidence decay monitoring |
@@ -27,6 +28,9 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | Security | [RUNBOOK_SECURITY.md](./RUNBOOK_SECURITY.md) | Security incident response |
 | Key Rotation | [RUNBOOK_KEY_ROTATION.md](./RUNBOOK_KEY_ROTATION.md) | Encryption key rotation |
 | PostgreSQL | [RUNBOOK_POSTGRESQL_MIGRATION.md](./RUNBOOK_POSTGRESQL_MIGRATION.md) | PostgreSQL migration |
+| Backup Automation | [RUNBOOK_BACKUP_AUTOMATION.md](./RUNBOOK_BACKUP_AUTOMATION.md) | Automated backup scheduling and validation |
+| Redis Failover | [redis-failover.md](./redis-failover.md) | Redis HA and recovery procedures |
+| Multi-Region | [RUNBOOK_MULTI_REGION_SETUP.md](./RUNBOOK_MULTI_REGION_SETUP.md) | Multi-region deployment and failover |
 
 ## Incident Severity Levels
 

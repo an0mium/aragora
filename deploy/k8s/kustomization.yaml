@@ -12,6 +12,8 @@ resources:
   - secret.yaml
   - secrets.yaml           # Application secrets template
   - network-policy.yaml    # Zero-trust network segmentation
+  - resourcequota.yaml     # Namespace resource quotas
+  - limitrange.yaml        # Container resource defaults and limits
   # Database (use managed service in production)
   - postgres-statefulset.yaml  # Self-hosted PostgreSQL (dev/small deployments)
   # Redis for shared state and caching

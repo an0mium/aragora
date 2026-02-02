@@ -233,7 +233,7 @@ jobs:
             -m "integration or integration_minimal or not slow" \
             --cov=aragora --cov-report=xml:coverage-integration.xml \
             --cov-report=term-missing \
-            --cov-fail-under=0 \
+            --cov-fail-under=60 \
             --junit-xml=test-results/integration-results.xml
         env:
           PYTHONPATH: .

@@ -1,0 +1,126 @@
+# Aragora Namespace ResourceQuota
+# Defines resource limits for the entire aragora namespace to prevent resource exhaustion
+# and ensure fair resource allocation in multi-tenant clusters.
+#
+# These quotas are sized for production workloads based on the following expected usage:
+# - Backend: 2-10 pods (512Mi-2Gi memory, 250m-1000m CPU each)
+# - Frontend: 2-5 pods (256Mi-512Mi memory, 100m-500m CPU each)
+# - Main server: 2 pods (512Mi-2Gi memory, 500m-2000m CPU each)
+# - Redis: 1 pod (128Mi-512Mi memory, 100m-500m CPU)
+# - Total expected: ~20 pods at max scale
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: aragora-resource-quota
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/part-of: aragora
+spec:
+  hard:
+    # ============================================================
+    # Compute Resources - Requests
+    # ============================================================
+    # Total CPU requests allowed across all pods in namespace
+    # Calculated: (10 backend * 250m) + (5 frontend * 100m) + (2 main * 500m) + (1 redis * 100m) + buffer
+    # = 2500m + 500m + 1000m + 100m + buffer = ~8 cores with headroom
+    requests.cpu: "16"
+
+    # Total memory requests allowed across all pods
+    # Calculated: (10 backend * 512Mi) + (5 frontend * 256Mi) + (2 main * 512Mi) + (1 redis * 128Mi) + buffer
+    # = 5Gi + 1.25Gi + 1Gi + 128Mi + buffer = ~16Gi with headroom
+    requests.memory: "32Gi"
+
+    # ============================================================
+    # Compute Resources - Limits
+    # ============================================================
+    # Total CPU limits allowed across all pods
+    # Calculated: (10 backend * 1000m) + (5 frontend * 500m) + (2 main * 2000m) + (1 redis * 500m) + buffer
+    # = 10 + 2.5 + 4 + 0.5 + buffer = ~32 cores with headroom
+    limits.cpu: "48"
+
+    # Total memory limits allowed across all pods
+    # Calculated: (10 backend * 2Gi) + (5 frontend * 512Mi) + (2 main * 2Gi) + (1 redis * 512Mi) + buffer
+    # = 20Gi + 2.5Gi + 4Gi + 0.5Gi + buffer = ~64Gi with headroom
+    limits.memory: "96Gi"
+
+    # ============================================================
+    # Object Count Limits
+    # ============================================================
+    # Maximum number of pods allowed in the namespace
+    # Accounts for: backend (10) + frontend (5) + main (2) + redis (1) + jobs/migrations (5)
+    pods: "30"
+
+    # Maximum number of services
+    # Accounts for: backend, frontend, main server, redis, postgres, plus headroom
+    services: "15"
+
+    # Maximum number of secrets
+    # Accounts for: API keys, DB credentials, TLS certs, external secrets
+    secrets: "50"
+
+    # Maximum number of configmaps
+    # Accounts for: application config, feature flags, environment-specific settings
+    configmaps: "30"
+
+    # Maximum number of replication controllers (legacy, but good to limit)
+    replicationcontrollers: "0"
+
+    # ============================================================
+    # Storage Resources
+    # ============================================================
+    # Total number of PersistentVolumeClaims allowed
+    # Accounts for: data (1), knowledge (1), redis (1), postgres (3 for HA), backups (2)
+    persistentvolumeclaims: "15"
+
+    # Total storage requested across all PVCs
+    # Calculated: data (10Gi) + knowledge (20Gi) + redis (1Gi) + postgres (50Gi) + backups (100Gi) + buffer
+    requests.storage: "250Gi"
+
+    # ============================================================
+    # Ephemeral Storage
+    # ============================================================
+    # Limit ephemeral storage to prevent node disk pressure
+    # Used for: container logs, emptyDir volumes, container writable layers
+    requests.ephemeral-storage: "20Gi"
+    limits.ephemeral-storage: "50Gi"
+
+---
+# Separate quota for best-effort pods (no resource requests/limits)
+# This prevents uncontrolled best-effort pods from consuming namespace resources
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: aragora-besteffort-quota
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/part-of: aragora
+spec:
+  hard:
+    # Limit best-effort pods to prevent resource starvation
+    # Only allow a few for debugging/testing purposes
+    pods: "5"
+  # Only applies to BestEffort QoS class pods
+  scopeSelector:
+    matchExpressions:
+      - operator: In
+        scopeName: PriorityClass
+        values:
+          - low-priority
+---
+# Quota for terminating pods (ensures cleanup doesn't stall)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: aragora-terminating-quota
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/part-of: aragora
+spec:
+  hard:
+    # Allow reasonable number of terminating pods during deployments
+    pods: "10"
+  scopes:
+    - Terminating

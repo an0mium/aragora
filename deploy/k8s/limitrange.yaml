@@ -1,0 +1,130 @@
+# Aragora Namespace LimitRange
+# Defines default resource requests/limits and constraints for containers in the aragora namespace.
+# This ensures all containers have appropriate resource allocations even if not explicitly specified,
+# and prevents individual containers from requesting excessive resources.
+#
+# Resource tiers in this namespace:
+# - Small (frontend): 100m-500m CPU, 256Mi-512Mi memory
+# - Medium (backend/main): 250m-1000m CPU, 512Mi-2Gi memory
+# - Large (heavy processing): 500m-2000m CPU, 1Gi-4Gi memory
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: aragora-limit-range
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/part-of: aragora
+spec:
+  limits:
+    # ============================================================
+    # Container-level limits (most commonly used)
+    # ============================================================
+    - type: Container
+
+      # ------------------------------------------------------------
+      # Default limits - Applied when container has no limits specified
+      # Sized for medium workloads (backend services)
+      # ------------------------------------------------------------
+      default:
+        cpu: "1000m"           # 1 CPU core
+        memory: "1Gi"          # 1 GiB memory
+        ephemeral-storage: "2Gi"  # Temporary storage for logs, caches
+
+      # ------------------------------------------------------------
+      # Default requests - Applied when container has no requests specified
+      # Should be ~25-50% of limits for efficient scheduling
+      # ------------------------------------------------------------
+      defaultRequest:
+        cpu: "250m"            # 0.25 CPU cores
+        memory: "256Mi"        # 256 MiB memory
+        ephemeral-storage: "500Mi"  # Temporary storage
+
+      # ------------------------------------------------------------
+      # Minimum resources - Prevents under-provisioned containers
+      # Set low enough for init containers and sidecars
+      # ------------------------------------------------------------
+      min:
+        cpu: "50m"             # Minimum 50 millicores (0.05 CPU)
+        memory: "64Mi"         # Minimum 64 MiB memory
+        ephemeral-storage: "50Mi"  # Minimum ephemeral storage
+
+      # ------------------------------------------------------------
+      # Maximum resources - Prevents single container from hogging resources
+      # Should accommodate the largest expected container (main aragora server)
+      # ------------------------------------------------------------
+      max:
+        cpu: "4000m"           # Maximum 4 CPU cores per container
+        memory: "8Gi"          # Maximum 8 GiB memory per container
+        ephemeral-storage: "10Gi"  # Maximum ephemeral storage per container
+
+      # ------------------------------------------------------------
+      # Max limit/request ratio - Ensures predictable resource allocation
+      # Lower ratio = more predictable performance, higher cost
+      # Higher ratio = better resource efficiency, potential throttling
+      # Recommended: 2-4 for production workloads
+      # ------------------------------------------------------------
+      maxLimitRequestRatio:
+        cpu: "4"               # Limit can be up to 4x request (allows bursting)
+        memory: "4"            # Limit can be up to 4x request
+
+    # ============================================================
+    # Pod-level limits (aggregate of all containers in pod)
+    # ============================================================
+    - type: Pod
+
+      # Maximum resources for entire pod (sum of all containers)
+      max:
+        cpu: "8000m"           # Maximum 8 CPU cores per pod
+        memory: "16Gi"         # Maximum 16 GiB memory per pod
+        ephemeral-storage: "20Gi"  # Maximum ephemeral storage per pod
+
+      # Minimum resources for entire pod
+      min:
+        cpu: "50m"             # Minimum 50 millicores per pod
+        memory: "64Mi"         # Minimum 64 MiB memory per pod
+
+    # ============================================================
+    # PersistentVolumeClaim limits
+    # ============================================================
+    - type: PersistentVolumeClaim
+
+      # Minimum PVC size - prevents tiny volumes that waste inode/metadata
+      min:
+        storage: "1Gi"         # Minimum 1 GiB per PVC
+
+      # Maximum PVC size - prevents single claim from exhausting storage quota
+      max:
+        storage: "100Gi"       # Maximum 100 GiB per PVC
+
+---
+# Additional LimitRange for init containers (often need less resources)
+# Useful if you want different defaults for init vs regular containers
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: aragora-init-container-limits
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/part-of: aragora
+  annotations:
+    description: "Lighter resource constraints for init containers"
+spec:
+  limits:
+    - type: Container
+      # Lower defaults for init containers (applied via admission controller selection)
+      # Note: Kubernetes doesn't natively distinguish init containers in LimitRange,
+      # but this serves as documentation for expected init container resources
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "100m"
+        memory: "128Mi"
+      min:
+        cpu: "10m"
+        memory: "32Mi"
+      max:
+        cpu: "2000m"
+        memory: "2Gi"

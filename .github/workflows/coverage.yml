@@ -47,7 +47,7 @@ jobs:
             --cov-report=term-missing \
             --timeout=120 \
             -q \
-            || true  # Don't fail here, check thresholds below
+            --cov-fail-under=70
 
       - name: Generate coverage report
         run: |
