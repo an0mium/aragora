@@ -100,14 +100,14 @@ class SharingNotificationsHandler(BaseHandler):
                     roles={user.role} if user and user.role else {"member"},
                 )
                 checker = get_permission_checker()
-                decision = checker.check_permission(auth_ctx, NOTIFICATIONS_READ_PERMISSION)
+                decision = checker.check_permission(auth_ctx, KNOWLEDGE_WRITE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"Notifications read access denied for {user_id}: {decision.reason}"
+                        f"Knowledge write access denied for {user_id}: {decision.reason}"
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except Exception as e:
-                logger.warning(f"RBAC check failed for notifications: {e}")
+                logger.warning(f"RBAC check failed for knowledge notifications: {e}")
                 # Continue without RBAC if it fails (graceful degradation)
 
         if path == "/api/v1/knowledge/notifications":
@@ -153,14 +153,14 @@ class SharingNotificationsHandler(BaseHandler):
                     roles={user.role} if user and user.role else {"member"},
                 )
                 checker = get_permission_checker()
-                decision = checker.check_permission(auth_ctx, NOTIFICATIONS_WRITE_PERMISSION)
+                decision = checker.check_permission(auth_ctx, KNOWLEDGE_WRITE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"Notifications write access denied for {user_id}: {decision.reason}"
+                        f"Knowledge write access denied for {user_id}: {decision.reason}"
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except Exception as e:
-                logger.warning(f"RBAC check failed for notifications write: {e}")
+                logger.warning(f"RBAC check failed for knowledge notifications write: {e}")
                 # Continue without RBAC if it fails (graceful degradation)
 
         if path == "/api/v1/knowledge/notifications/read-all":
@@ -214,14 +214,14 @@ class SharingNotificationsHandler(BaseHandler):
                     roles={user.role} if user and user.role else {"member"},
                 )
                 checker = get_permission_checker()
-                decision = checker.check_permission(auth_ctx, NOTIFICATIONS_WRITE_PERMISSION)
+                decision = checker.check_permission(auth_ctx, KNOWLEDGE_WRITE_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
-                        f"Notifications write access denied for {user_id}: {decision.reason}"
+                        f"Knowledge write access denied for {user_id}: {decision.reason}"
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
             except Exception as e:
-                logger.warning(f"RBAC check failed for notifications write: {e}")
+                logger.warning(f"RBAC check failed for knowledge notifications write: {e}")
                 # Continue without RBAC if it fails (graceful degradation)
 
         if path == "/api/v1/knowledge/notifications/preferences":

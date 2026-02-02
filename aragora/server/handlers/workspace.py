@@ -1626,7 +1626,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Audit"],
     )
     @handle_errors("get actor history")
-    def _handle_actor_history(self, handler, actor_id: str, query_params: dict) -> HandlerResult:
+    def _handle_actor_history(
+        self, handler: HTTPRequestHandler, actor_id: str, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Get all actions by a specific actor."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1659,7 +1661,7 @@ class WorkspaceHandler(SecureHandler):
     )
     @handle_errors("get resource history")
     def _handle_resource_history(
-        self, handler, resource_id: str, query_params: dict
+        self, handler: HTTPRequestHandler, resource_id: str, query_params: dict[str, Any]
     ) -> HandlerResult:
         """Get all actions on a specific resource."""
         user_store = self._get_user_store()
@@ -1694,7 +1696,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Audit"],
     )
     @handle_errors("get denied access attempts")
-    def _handle_denied_access(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_denied_access(
+        self, handler: HTTPRequestHandler, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Get all denied access attempts."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)

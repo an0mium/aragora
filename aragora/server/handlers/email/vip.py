@@ -32,6 +32,7 @@ PERM_EMAIL_UPDATE = "email:update"
 import aragora.server.handlers.email.storage as storage_module
 
 
+@require_permission(PERM_EMAIL_UPDATE, context_param="auth_context")
 async def handle_add_vip(
     user_id: str = "default",
     email: str | None = None,
@@ -53,11 +54,6 @@ async def handle_add_vip(
 
     Now persists to SQLite for durability.
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:write")
-    if perm_error:
-        return perm_error
-
     try:
         # Thread-safe config update
         with _user_configs_lock:
@@ -110,6 +106,7 @@ async def handle_add_vip(
         }
 
 
+@require_permission(PERM_EMAIL_UPDATE, context_param="auth_context")
 async def handle_remove_vip(
     user_id: str = "default",
     email: str | None = None,
@@ -127,11 +124,6 @@ async def handle_remove_vip(
 
     Now persists removal to SQLite.
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:write")
-    if perm_error:
-        return perm_error
-
     try:
         # Thread-safe config update
         with _user_configs_lock:

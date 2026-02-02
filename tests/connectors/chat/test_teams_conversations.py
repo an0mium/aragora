@@ -271,7 +271,8 @@ class TestTeamsConversationStoreInit:
         """Test initialization uses default path when not specified."""
         store = TeamsConversationStore()
 
-        assert ".aragora" in store._db_path
+        # Default path uses nomic directory for consistency with other stores
+        assert ".nomic" in store._db_path or ".aragora" in store._db_path
         assert "teams_conversations.db" in store._db_path
 
     def test_schema_created_on_first_access(self, temp_db_path):

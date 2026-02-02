@@ -97,10 +97,12 @@ class TeamsMessagingMixin:
     - _record_failure(): Record failure for circuit breaker
     """
 
-    # Note: Methods expected from the main connector class are documented
-    # in _TeamsConnectorProtocol above. They are provided by:
-    # - HTTPResilienceMixin: _http_request, _check_circuit_breaker, _record_failure
-    # - TeamsConnector: _get_access_token
+    # Attribute declarations for methods expected from the main connector class
+    # These are provided by HTTPResilienceMixin and TeamsConnector
+    _check_circuit_breaker: Any
+    _get_access_token: Any
+    _http_request: Any
+    _record_failure: Any
 
     async def send_message(
         self,

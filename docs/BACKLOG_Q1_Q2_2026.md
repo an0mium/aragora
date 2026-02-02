@@ -69,18 +69,15 @@ Several test files use `@pytest.mark.skip` with reasons referencing tickets or d
 
 **Description:**
 Currently two TypeScript packages exist:
-- `@aragora/sdk` (sdk/typescript) - Full featured
-- `@aragora/client` (aragora-js) - Simpler client
+- `@aragora/sdk` (sdk/typescript) - Full featured (canonical)
+- `@aragora/client` (aragora-js) - Deprecated legacy client
 
-Decision: Keep both but clarify purposes:
-- `@aragora/client` → lightweight REST client
-- `@aragora/sdk` → full SDK with WebSocket, types, helpers
+Decision: consolidate on `@aragora/sdk` and keep `@aragora/client` deprecated only for legacy compatibility.
 
 **Acceptance Criteria:**
-- [ ] Update README in both packages explaining differences
-- [ ] Ensure version parity (both at 2.1.14)
-- [ ] Cross-reference in documentation
-- [ ] Deprecation notice if consolidating
+- [ ] Keep deprecation notice in legacy package
+- [ ] Ensure docs point to `@aragora/sdk` only
+- [ ] Exclude legacy package from release pipeline
 
 **Files:**
 - `sdk/typescript/README.md`
