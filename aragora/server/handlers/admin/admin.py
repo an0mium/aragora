@@ -1061,13 +1061,19 @@ class AdminHandler(SecureHandler):
         lockout state. Use this to help users who have been locked out.
 
         Endpoint: POST /api/admin/users/:user_id/unlock
+
+        Requires permission: admin:users:write
         """
+        # Validate user_id path parameter
+        if not validate_path_segment(target_user_id, "target_user_id", SAFE_ID_PATTERN)[0]:
+            return error_response("Invalid target user ID format", 400)
+
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
 
-        # Check granular RBAC permission
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.unlock", target_user_id)
+        # Check granular RBAC permission (CRITICAL: admin:users:write)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_USERS_WRITE, target_user_id)
         if perm_err:
             return perm_err
 
@@ -1372,10 +1378,11 @@ class AdminHandler(SecureHandler):
     def _reset_nomic_phase(self, handler: Any) -> HandlerResult:
         """
         Reset nomic loop to a specific phase.
-        Requires admin:nomic:write permission.
 
         This is a recovery action for stuck or failed nomic cycles.
         Supports resetting to: idle, context, debate, design, implement, verify, commit.
+
+        Requires permission: admin:nomic:write
 
         Request body:
             {
@@ -1388,8 +1395,8 @@ class AdminHandler(SecureHandler):
         if err:
             return err
 
-        # Check RBAC permission
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        # Check RBAC permission (CRITICAL: admin:nomic:write)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_NOMIC_WRITE)
         if perm_err:
             return perm_err
 
@@ -1534,17 +1541,18 @@ class AdminHandler(SecureHandler):
     def _pause_nomic(self, handler: Any) -> HandlerResult:
         """
         Pause the nomic loop for manual intervention.
-        Requires admin:nomic:write permission.
 
         This sets the state to 'paused' and prevents further phase transitions
         until resumed.
+
+        Requires permission: admin:nomic:write
         """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
 
-        # Check RBAC permission
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        # Check RBAC permission (CRITICAL: admin:nomic:write)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_NOMIC_WRITE)
         if perm_err:
             return perm_err
 
@@ -1662,17 +1670,18 @@ class AdminHandler(SecureHandler):
     def _resume_nomic(self, handler: Any) -> HandlerResult:
         """
         Resume a paused nomic loop.
-        Requires admin:nomic:write permission.
 
         Resumes from the phase that was active before the pause, or from
         a specified target phase.
+
+        Requires permission: admin:nomic:write
         """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
 
-        # Check RBAC permission
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        # Check RBAC permission (CRITICAL: admin:nomic:write)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_NOMIC_WRITE)
         if perm_err:
             return perm_err
 
@@ -1782,17 +1791,18 @@ class AdminHandler(SecureHandler):
     def _reset_nomic_circuit_breakers(self, handler: Any) -> HandlerResult:
         """
         Reset all nomic circuit breakers.
-        Requires admin:nomic:write permission.
 
         This clears the failure counts and closes all open circuit breakers,
         allowing the nomic loop to retry previously failing operations.
+
+        Requires permission: admin:system:write
         """
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
 
-        # Check RBAC permission
-        perm_err = self._check_rbac_permission(auth_ctx, "admin.nomic.write")
+        # Check RBAC permission (CRITICAL: admin:system:write)
+        perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_SYSTEM_WRITE)
         if perm_err:
             return perm_err
 

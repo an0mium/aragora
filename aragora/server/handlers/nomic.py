@@ -200,7 +200,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
 
         endpoint_handler = handlers.get(path)
         if endpoint_handler:
-            return endpoint_handler()
+            result = endpoint_handler()
+            if asyncio.iscoroutine(result):
+                result = await result
+            return result
 
         # Endpoints with parameters
         if path == "/api/nomic/log":

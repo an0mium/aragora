@@ -184,12 +184,20 @@ class TranscriptionHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "transcription:create")
+        if perm_error:
+            return perm_error
+
         if path == "/api/v1/transcription/upload":
             return self._upload_and_transcribe(handler)
         return None
 
     def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
+        _, perm_error = self.require_permission_or_error(handler, "transcription:delete")
+        if perm_error:
+            return perm_error
+
         if path.startswith("/api/v1/transcription/"):
             parts = path.split("/")
             if len(parts) == 4 and parts[3] != "upload":

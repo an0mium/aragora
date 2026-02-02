@@ -29,6 +29,11 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.rbac.decorators import require_permission  # noqa: F401
+
 from aragora.config import CACHE_TTL_ANALYTICS
 from aragora.server.validation.query_params import safe_query_int
 from aragora.server.versioning.compat import strip_version_prefix

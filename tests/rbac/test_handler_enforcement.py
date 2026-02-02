@@ -249,6 +249,24 @@ ALLOWED_WITHOUT_RBAC = {
     "compliance/audit",
     "compliance/governance",
     "knowledge",
+    # Control plane routing (delegates to mixins with RBAC decorators)
+    "control_plane/__init__",
+    # Debates routing mixin (utility with inline token validation)
+    "debates/routing",
+    # Gauntlet modules (handler delegates to mixins with RBAC, others are utilities)
+    "gauntlet/__init__",
+    "gauntlet/handler",
+    "gauntlet/storage",
+    # File validation utility
+    "utils/file_validation",
+    # Workflow service layer (handler.py has RBAC via check_permission)
+    "workflows/__init__",
+    "workflows/approvals",
+    "workflows/core",
+    "workflows/crud",
+    "workflows/execution",
+    "workflows/templates",
+    "workflows/versions",
 }
 
 

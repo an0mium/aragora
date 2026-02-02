@@ -299,6 +299,10 @@ async def list_quick_scans(
 class QuickScanHandler:
     """Handler for quick scan API endpoints."""
 
+    def __init__(self, _ctx: Any | None = None) -> None:
+        """Allow handler registry to pass server context without error."""
+        self._ctx = _ctx
+
     async def handle_post_quick_scan(self, request: web.Request) -> web.Response:
         """
         POST /api/codebase/quick-scan

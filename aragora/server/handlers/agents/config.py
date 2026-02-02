@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.rbac.decorators import require_permission  # noqa: F401
 
 
 from ..base import (

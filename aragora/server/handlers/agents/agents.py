@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.protocols import HTTPRequestHandler
+    from aragora.rbac.decorators import require_permission  # noqa: F401
 
 from aragora.config import (
     CACHE_TTL_AGENT_FLIPS,
