@@ -121,6 +121,7 @@ class DecisionExplainHandler(SecureHandler):
         method="GET",
         summary="Get comprehensive decision explanation",
         tags=["Decisions", "Explainability"],
+        operation_id="getDecisionRequestExplanation",
         description="""Retrieve a detailed explanation of a debate decision including:
 - Decision summary (answer, confidence, consensus)
 - Key claims with evidence strength

@@ -242,6 +242,7 @@ class WebhookHandler(SecureHandler):
         method="GET",
         summary="List registered webhooks",
         tags=["Webhooks"],
+        operation_id="listRegisteredWebhooks",
         description="Retrieve all webhooks registered by the authenticated user. Supports filtering by active status.",
         parameters=[
             query_param(
@@ -332,6 +333,7 @@ class WebhookHandler(SecureHandler):
         method="POST",
         summary="Register a new webhook",
         tags=["Webhooks"],
+        operation_id="registerWebhook",
         description="""Register a new webhook to receive HTTP POST notifications when subscribed events occur.
 All webhook payloads include HMAC-SHA256 signatures for verification.
 The webhook secret is only returned once on creation - save it securely.""",
@@ -433,6 +435,7 @@ The webhook secret is only returned once on creation - save it securely.""",
         method="DELETE",
         summary="Delete a webhook",
         tags=["Webhooks"],
+        operation_id="deleteRegisteredWebhook",
         description="Remove a registered webhook. Only the webhook owner can delete it.",
         parameters=[
             path_param("webhook_id", "The webhook ID to delete"),

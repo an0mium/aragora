@@ -16505,7 +16505,7 @@ export interface paths {
          *
          *     Supports multiple output formats via the 'format' query parameter.
          */
-        get: operations["handle"];
+        get: operations["getDecisionRequestExplanation"];
         put?: never;
         post?: never;
         delete?: never;
@@ -19113,7 +19113,7 @@ export interface paths {
          * List registered webhooks
          * @description Retrieve all webhooks registered by the authenticated user. Supports filtering by active status.
          */
-        get: operations["handle"];
+        get: operations["listRegisteredWebhooks"];
         put?: never;
         /**
          * Register a new webhook
@@ -19121,7 +19121,7 @@ export interface paths {
          *     All webhook payloads include HMAC-SHA256 signatures for verification.
          *     The webhook secret is only returned once on creation - save it securely.
          */
-        post: operations["handle_post"];
+        post: operations["registerWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26443,13 +26443,13 @@ export interface paths {
          * List all message bindings
          * @description Retrieve all registered message bindings or filter by provider.
          */
-        get: operations["handle_get"];
+        get: operations["listBindings"];
         put?: never;
         /**
          * Create a new message binding
          * @description Register a new message binding to route messages from a provider/account to an agent.
          */
-        post: operations["handle_post"];
+        post: operations["createBinding"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26541,7 +26541,7 @@ export interface paths {
          * Delete a message binding
          * @description Remove a message binding by provider, account, and peer pattern.
          */
-        delete: operations["handle_delete"];
+        delete: operations["deleteBinding"];
         options?: never;
         head?: never;
         patch?: never;
@@ -26639,6 +26639,86 @@ export interface paths {
          * @description Get overall queue health and processing statistics.
          */
         get: operations["_get_queue_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a running debate
+         * @description Cancel a debate that is currently running. Marks as cancelled and attempts to cancel running tasks.
+         */
+        post: operations["_cancel_debate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get debate by slug
+         * @description Retrieve a debate by its slug/ID. Returns in-progress debates if not yet persisted.
+         */
+        get: operations["_get_debate_by_slug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/verification-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get verification report
+         * @description Get verification results and bonuses applied during consensus, useful for analyzing claim quality.
+         */
+        get: operations["_get_verification_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/{id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get debate summary
+         * @description Get a human-readable summary with verdict, key points, confidence assessment, and actionable next steps.
+         */
+        get: operations["_get_summary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -26841,86 +26921,6 @@ export interface paths {
         get: operations["_get_nodes"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/debates/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get debate by slug
-         * @description Retrieve a debate by its slug/ID. Returns in-progress debates if not yet persisted.
-         */
-        get: operations["_get_debate_by_slug"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/debates/{id}/verification-report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get verification report
-         * @description Get verification results and bonuses applied during consensus, useful for analyzing claim quality.
-         */
-        get: operations["_get_verification_report"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/debates/{id}/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get debate summary
-         * @description Get a human-readable summary with verdict, key points, confidence assessment, and actionable next steps.
-         */
-        get: operations["_get_summary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/debates/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a running debate
-         * @description Cancel a debate that is currently running. Marks as cancelled and attempts to cancel running tasks.
-         */
-        post: operations["_cancel_debate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27320,7 +27320,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/gauntlet/personas": {
+    "/api/v1/gauntlet/{gauntlet_id}/heatmap": {
         parameters: {
             query?: never;
             header?: never;
@@ -27328,32 +27328,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List available personas
-         * @description List all available regulatory personas for gauntlet stress-testing.
+         * Get risk heatmap
+         * @description Get the risk heatmap visualization for a completed gauntlet run.
          */
-        get: operations["_list_personas"];
+        get: operations["_get_heatmap"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/gauntlet/run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start gauntlet stress-test
-         * @description Start a new adversarial stress-test with regulatory personas.
-         */
-        post: operations["_start_gauntlet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27400,7 +27380,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/gauntlet/{gauntlet_id}/heatmap": {
+    "/api/v1/gauntlet/personas": {
         parameters: {
             query?: never;
             header?: never;
@@ -27408,10 +27388,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get risk heatmap
-         * @description Get the risk heatmap visualization for a completed gauntlet run.
+         * List available personas
+         * @description List all available regulatory personas for gauntlet stress-testing.
          */
-        get: operations["_get_heatmap"];
+        get: operations["_list_personas"];
         put?: never;
         post?: never;
         delete?: never;
@@ -27474,6 +27454,26 @@ export interface paths {
         get: operations["_export_report"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gauntlet/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start gauntlet stress-test
+         * @description Start a new adversarial stress-test with regulatory personas.
+         */
+        post: operations["_start_gauntlet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27602,7 +27602,7 @@ export interface paths {
          * Delete a webhook
          * @description Remove a registered webhook. Only the webhook owner can delete it.
          */
-        delete: operations["handle_delete"];
+        delete: operations["deleteRegisteredWebhook"];
         options?: never;
         head?: never;
         patch?: never;
@@ -74678,7 +74678,7 @@ export interface operations {
             };
         };
     };
-    handle: {
+    getDecisionRequestExplanation: {
         parameters: {
             query?: {
                 /** @description Output format for the explanation */
@@ -81167,7 +81167,7 @@ export interface operations {
             };
         };
     };
-    handle: {
+    listRegisteredWebhooks: {
         parameters: {
             query?: {
                 /** @description Filter to only active webhooks */
@@ -81209,7 +81209,7 @@ export interface operations {
             };
         };
     };
-    handle_post: {
+    registerWebhook: {
         parameters: {
             query?: never;
             header?: never;
@@ -92297,7 +92297,7 @@ export interface operations {
             };
         };
     };
-    handle_get: {
+    listBindings: {
         parameters: {
             query?: {
                 /** @description Filter bindings by provider name */
@@ -92337,7 +92337,7 @@ export interface operations {
             };
         };
     };
-    handle_post: {
+    createBinding: {
         parameters: {
             query?: never;
             header?: never;
@@ -92408,7 +92408,7 @@ export interface operations {
             };
         };
     };
-    handle_delete: {
+    deleteBinding: {
         parameters: {
             query?: never;
             header?: never;
@@ -92663,6 +92663,156 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    _cancel_debate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Debate cancelled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        debate_id?: string;
+                        status?: string;
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Debate cannot be cancelled */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Debate not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    _get_debate_by_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Debate details returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id?: string;
+                        debate_id?: string;
+                        task?: string;
+                        status?: string;
+                        agents?: string[];
+                        rounds?: number;
+                        in_progress?: boolean;
+                    };
+                };
+            };
+            /** @description Debate not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    _get_verification_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verification report returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        verification_enabled?: boolean;
+                        verification_results?: Record<string, never>;
+                        verification_bonuses?: Record<string, never>;
+                        summary?: Record<string, never>;
+                        winner?: string;
+                        consensus_reached?: boolean;
+                    };
+                };
+            };
+            /** @description Debate not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    _get_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Debate summary returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id?: string;
+                        summary?: Record<string, never>;
+                        task?: string;
+                        consensus_reached?: boolean;
+                        confidence?: number;
+                    };
+                };
+            };
+            /** @description Debate not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -93045,156 +93195,6 @@ export interface operations {
             };
             /** @description Storage not configured */
             503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    _get_debate_by_slug: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Debate details returned */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        id?: string;
-                        debate_id?: string;
-                        task?: string;
-                        status?: string;
-                        agents?: string[];
-                        rounds?: number;
-                        in_progress?: boolean;
-                    };
-                };
-            };
-            /** @description Debate not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    _get_verification_report: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Verification report returned */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        debate_id?: string;
-                        verification_enabled?: boolean;
-                        verification_results?: Record<string, never>;
-                        verification_bonuses?: Record<string, never>;
-                        summary?: Record<string, never>;
-                        winner?: string;
-                        consensus_reached?: boolean;
-                    };
-                };
-            };
-            /** @description Debate not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    _get_summary: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Debate summary returned */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        debate_id?: string;
-                        summary?: Record<string, never>;
-                        task?: string;
-                        consensus_reached?: boolean;
-                        confidence?: number;
-                    };
-                };
-            };
-            /** @description Debate not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    _cancel_debate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Debate cancelled successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        debate_id?: string;
-                        status?: string;
-                        message?: string;
-                    };
-                };
-            };
-            /** @description Debate cannot be cancelled */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Debate not found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -93765,48 +93765,27 @@ export interface operations {
             };
         };
     };
-    _list_personas: {
+    _get_heatmap: {
         parameters: {
-            query?: never;
+            query?: {
+                format?: "json" | "svg" | "ascii";
+            };
             header?: never;
-            path?: never;
+            path: {
+                gauntlet_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description List of available personas */
+            /** @description Risk heatmap in requested format */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    _start_gauntlet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Gauntlet started successfully */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid request body */
+            /** @description Gauntlet not completed */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -93820,8 +93799,8 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Quota exceeded */
-            429: {
+            /** @description Gauntlet run not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -93907,28 +93886,17 @@ export interface operations {
             };
         };
     };
-    _get_heatmap: {
+    _list_personas: {
         parameters: {
-            query?: {
-                format?: "json" | "svg" | "ascii";
-            };
+            query?: never;
             header?: never;
-            path: {
-                gauntlet_id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Risk heatmap in requested format */
+            /** @description List of available personas */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Gauntlet not completed */
-            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -93936,13 +93904,6 @@ export interface operations {
             };
             /** @description Authentication required */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Gauntlet run not found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -94067,6 +94028,45 @@ export interface operations {
             };
             /** @description Gauntlet run not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    _start_gauntlet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gauntlet started successfully */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Quota exceeded */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -94234,7 +94234,7 @@ export interface operations {
             };
         };
     };
-    handle_delete: {
+    deleteRegisteredWebhook: {
         parameters: {
             query?: never;
             header?: never;

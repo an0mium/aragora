@@ -85,6 +85,7 @@ class BindingsHandler(BaseHandler):
         method="GET",
         summary="List all message bindings",
         tags=["Bindings"],
+        operation_id="listBindings",
         description="Retrieve all registered message bindings or filter by provider.",
         parameters=[
             query_param(
@@ -159,6 +160,7 @@ class BindingsHandler(BaseHandler):
         method="POST",
         summary="Create a new message binding",
         tags=["Bindings"],
+        operation_id="createBinding",
         description="Register a new message binding to route messages from a provider/account to an agent.",
         request_body={
             "description": "Binding configuration",
@@ -259,6 +261,7 @@ class BindingsHandler(BaseHandler):
         method="DELETE",
         summary="Delete a message binding",
         tags=["Bindings"],
+        operation_id="deleteBinding",
         description="Remove a message binding by provider, account, and peer pattern.",
         parameters=[
             path_param("provider", "Message provider name"),
