@@ -10,8 +10,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass
-from typing import Any
+
+# Use canonical ValidationResult from core types
+from aragora.core.types import ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,8 @@ logger = logging.getLogger(__name__)
 MAX_JSON_BODY_SIZE = 1 * 1024 * 1024
 
 
-@dataclass
-class ValidationResult:
-    """Result of validation check."""
-
-    is_valid: bool
-    error: str | None = None
-    data: Any | None = None
+# Re-export for backward compatibility
+__all__ = ["ValidationResult", "validate_json_body", "validate_content_type"]
 
 
 def validate_json_body(

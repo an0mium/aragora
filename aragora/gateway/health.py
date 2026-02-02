@@ -40,8 +40,10 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Callable, Awaitable
+
+# Use canonical HealthLevel from core types (HealthStatus is an alias)
+from aragora.core.types import HealthLevel as HealthStatus
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +52,8 @@ logger = logging.getLogger(__name__)
 # Data types
 # ===========================================================================
 
-
-class HealthStatus(str, Enum):
-    """Possible health states for a component or the aggregate gateway."""
-
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
-    UNKNOWN = "unknown"
+# HealthStatus is imported from aragora.core.types.HealthLevel
+# Re-exported for backward compatibility
 
 
 @dataclass
