@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "aragora"
 version = "2.5.0"
-description = "Official Python SDK for the Aragora multi-agent debate platform"
+description = "Deprecated legacy Python SDK for the Aragora multi-agent debate platform"
 readme = "README.md"
 license = "MIT"
 authors = [

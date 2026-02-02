@@ -128,9 +128,9 @@ Use with React hooks:
 
 ```tsx
 import { useState, useEffect } from 'react';
-import { AragoraClient, Debate } from 'aragora-js';
+import { createClient, Debate } from '@aragora/sdk';
 
-const client = new AragoraClient({ baseUrl: 'http://localhost:8080' });
+const client = createClient({ baseUrl: 'http://localhost:8080' });
 
 function useDebate(debateId: string) {
   const [debate, setDebate] = useState<Debate | null>(null);
@@ -140,7 +140,7 @@ function useDebate(debateId: string) {
   useEffect(() => {
     const fetchDebate = async () => {
       try {
-        const result = await client.debates.get(debateId);
+        const result = await client.getDebate(debateId);
         setDebate(result);
       } catch (e) {
         setError(e as Error);
@@ -292,10 +292,10 @@ console.log(`Task result: ${JSON.stringify(task.result)}`);
 ## Error Handling
 
 ```typescript
-import { AragoraError } from 'aragora-js';
+import { AragoraError } from '@aragora/sdk';
 
 try {
-  const result = await client.debates.get('invalid-id');
+  const result = await client.getDebate('invalid-id');
 } catch (error) {
   if (error instanceof AragoraError) {
     switch (error.statusCode) {
@@ -336,9 +336,9 @@ const client = new AragoraClient({
 ```typescript
 // pages/api/debate.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { AragoraClient } from 'aragora-js';
+import { createClient } from '@aragora/sdk';
 
-const client = new AragoraClient({
+const client = createClient({
   baseUrl: process.env.ARAGORA_API_URL || 'http://localhost:8080',
 });
 
@@ -353,7 +353,7 @@ export default async function handler(
   try {
     const { topic, agents } = req.body;
 
-    const debate = await client.debates.create({
+    const debate = await client.createDebate({
       topic,
       agents: agents || ['anthropic-api', 'openai-api'],
       rounds: 2,

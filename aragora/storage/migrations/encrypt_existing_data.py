@@ -306,7 +306,7 @@ async def migrate_gmail_tokens(
             ENCRYPTED_FIELDS,
         )
 
-        store = get_gmail_token_store(use_encryption=True)
+        store = get_gmail_token_store(use_encryption=True)  # type: ignore[call-arg]
 
         # Get all users with tokens
         list_users_method = getattr(store, "list_users", None)
