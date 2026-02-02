@@ -49,6 +49,7 @@ from ..base import (
 )
 from ..utils.rate_limit import rate_limit
 from ..secure import SecureHandler
+from aragora.auth import lockout as _lockout_module
 from aragora.auth.lockout import get_lockout_tracker  # noqa: F401
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -93,6 +94,7 @@ except ImportError:
     audit_security = None
 
 logger = logging.getLogger(__name__)
+_ORIGINAL_LOCKOUT_TRACKER = _lockout_module.get_lockout_tracker
 
 
 def _run_maybe_async(result: Any) -> Any:
@@ -329,11 +331,17 @@ class AuthHandler(SecureHandler):
         from aragora.server.handlers.auth import login as login_module
 
         login_tracker = getattr(login_module, "get_lockout_tracker", None)
-        if get_lockout_tracker is not login_tracker and callable(get_lockout_tracker):
-            return get_lockout_tracker()
+        handler_tracker = get_lockout_tracker
+
+        if handler_tracker is not _ORIGINAL_LOCKOUT_TRACKER and callable(handler_tracker):
+            return handler_tracker()
+        if login_tracker is not _ORIGINAL_LOCKOUT_TRACKER and callable(login_tracker):
+            return login_tracker()
+        if callable(handler_tracker):
+            return handler_tracker()
         if callable(login_tracker):
             return login_tracker()
-        return get_lockout_tracker()
+        return _ORIGINAL_LOCKOUT_TRACKER()
 
     def _check_permission(
         self, handler: Any, permission_key: str, resource_id: str | None = None
