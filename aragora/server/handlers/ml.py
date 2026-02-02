@@ -1,6 +1,8 @@
 """
 ML (Machine Learning) endpoint handlers.
 
+Stability: STABLE
+
 Exposes ML capabilities via REST API for:
 - Agent routing recommendations
 - Response quality scoring
@@ -15,15 +17,27 @@ Endpoints:
 - POST /api/ml/export-training - Export debate data for training
 - GET /api/ml/models - List available ML models/capabilities
 - GET /api/ml/stats - Get ML module statistics
+
+Features:
+- Circuit breaker pattern for resilient ML component access
+- Rate limiting (60 requests/minute for compute-intensive operations)
+- RBAC permission checks (ml:read, ml:train)
+- Input validation with size limits
+- Comprehensive error handling with safe error messages
 """
 
 from __future__ import annotations
 
 __all__ = [
     "MLHandler",
+    "MLCircuitBreaker",
+    "get_ml_circuit_breaker_status",
+    "_clear_ml_components",
 ]
 
 import logging
+import threading
+import time
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -45,38 +59,225 @@ logger = logging.getLogger(__name__)
 # Rate limiter for ML endpoints (60 requests per minute - computationally intensive)
 _ml_limiter = RateLimiter(requests_per_minute=60)
 
-# Lazy load ML components
+
+# =============================================================================
+# Circuit Breaker for ML Components
+# =============================================================================
+
+
+class MLCircuitBreaker:
+    """Circuit breaker for ML component access.
+
+    Prevents cascading failures when ML components are unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("ML circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("ML circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("ML circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"ML circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Per-component circuit breakers
+_ml_circuit_breakers: dict[str, MLCircuitBreaker] = {}
+_circuit_breaker_lock = threading.Lock()
+
+
+def _get_circuit_breaker(component: str) -> MLCircuitBreaker:
+    """Get or create a circuit breaker for an ML component."""
+    with _circuit_breaker_lock:
+        if component not in _ml_circuit_breakers:
+            _ml_circuit_breakers[component] = MLCircuitBreaker()
+        return _ml_circuit_breakers[component]
+
+
+# Lazy load ML components with thread safety
 _ml_components: dict[str, Any] = {}
+_ml_components_lock = threading.Lock()
 
 
-def _get_ml_component(name: str):
-    """Lazy load ML components to avoid import overhead."""
-    if name not in _ml_components:
-        try:
-            if name == "router":
-                from aragora.ml import get_agent_router
+def _get_ml_component(name: str) -> Any:
+    """Lazy load ML components with circuit breaker protection.
 
-                _ml_components[name] = get_agent_router()
-            elif name == "scorer":
-                from aragora.ml import get_quality_scorer
+    Args:
+        name: Component name (router, scorer, predictor, embeddings, exporter)
 
-                _ml_components[name] = get_quality_scorer()
-            elif name == "predictor":
-                from aragora.ml import get_consensus_predictor
+    Returns:
+        The component instance, or None if unavailable or circuit is open
+    """
+    # Check circuit breaker first
+    circuit_breaker = _get_circuit_breaker(name)
+    if not circuit_breaker.can_proceed():
+        logger.debug(f"ML component {name} circuit breaker is open, skipping")
+        return None
 
-                _ml_components[name] = get_consensus_predictor()
-            elif name == "embeddings":
-                from aragora.ml import get_embedding_service
+    with _ml_components_lock:
+        if name not in _ml_components:
+            try:
+                if name == "router":
+                    from aragora.ml import get_agent_router
 
-                _ml_components[name] = get_embedding_service()
-            elif name == "exporter":
-                from aragora.debate.ml_integration import get_training_exporter
+                    _ml_components[name] = get_agent_router()
+                elif name == "scorer":
+                    from aragora.ml import get_quality_scorer
 
-                _ml_components[name] = get_training_exporter()
-        except ImportError as e:
-            logger.warning(f"ML component {name} not available: {e}")
-            _ml_components[name] = None
-    return _ml_components.get(name)
+                    _ml_components[name] = get_quality_scorer()
+                elif name == "predictor":
+                    from aragora.ml import get_consensus_predictor
+
+                    _ml_components[name] = get_consensus_predictor()
+                elif name == "embeddings":
+                    from aragora.ml import get_embedding_service
+
+                    _ml_components[name] = get_embedding_service()
+                elif name == "exporter":
+                    from aragora.debate.ml_integration import get_training_exporter
+
+                    _ml_components[name] = get_training_exporter()
+                else:
+                    _ml_components[name] = None
+
+                # Record success if component loaded
+                if _ml_components.get(name) is not None:
+                    circuit_breaker.record_success()
+            except ImportError as e:
+                logger.warning(f"ML component {name} not available: {e}")
+                _ml_components[name] = None
+                circuit_breaker.record_failure()
+            except Exception as e:
+                logger.error(f"Error loading ML component {name}: {e}")
+                _ml_components[name] = None
+                circuit_breaker.record_failure()
+
+        return _ml_components.get(name)
+
+
+def _clear_ml_components() -> None:
+    """Clear cached ML components (useful for testing)."""
+    with _ml_components_lock:
+        _ml_components.clear()
+    with _circuit_breaker_lock:
+        _ml_circuit_breakers.clear()
+
+
+def get_ml_circuit_breaker_status() -> dict[str, Any]:
+    """Get status of all ML component circuit breakers."""
+    with _circuit_breaker_lock:
+        return {name: cb.get_status() for name, cb in _ml_circuit_breakers.items()}
 
 
 class MLHandler(BaseHandler):
@@ -623,8 +824,8 @@ class MLHandler(BaseHandler):
         )
 
     def _handle_stats(self) -> HandlerResult:
-        """Get ML module statistics."""
-        stats = {}
+        """Get ML module statistics including circuit breaker status."""
+        stats: dict[str, Any] = {}
 
         # Router stats
         router = _get_ml_component("router")
@@ -649,9 +850,13 @@ class MLHandler(BaseHandler):
                 "recall": round(calibration.get("recall", 0), 3),
             }
 
+        # Circuit breaker status
+        circuit_breaker_status = get_ml_circuit_breaker_status()
+
         return json_response(
             {
                 "stats": stats,
+                "circuit_breakers": circuit_breaker_status,
                 "status": "healthy" if stats else "limited",
             }
         )
