@@ -332,9 +332,7 @@ class TestValidateImpersonationSession:
             assert call_kwargs["outcome"] == "denied"
 
     def test_uses_global_manager_when_not_provided(self):
-        with patch(
-            "aragora.server.middleware.impersonation.get_impersonation_manager"
-        ) as mock_get:
+        with patch("aragora.server.middleware.impersonation.get_impersonation_manager") as mock_get:
             mock_manager = MagicMock(spec=ImpersonationManager)
             mock_manager.validate_session.return_value = None
             mock_get.return_value = mock_manager
@@ -613,9 +611,12 @@ class TestImpersonationMiddleware:
         assert result["is_impersonated"] is True
         assert result["session_id"] == session.session_id
 
+    @patch("aragora.server.middleware.impersonation._error_response")
     @patch("aragora.server.middleware.impersonation.get_current_user")
     @patch("aragora.server.middleware.impersonation.get_impersonation_manager")
-    def test_invalid_session_returns_403(self, mock_get_manager, mock_get_user):
+    def test_invalid_session_returns_403(
+        self, mock_get_manager, mock_get_user, mock_error_response
+    ):
         mock_manager = MagicMock(spec=ImpersonationManager)
         mock_manager.validate_session.return_value = None
         mock_get_manager.return_value = mock_manager
@@ -623,20 +624,22 @@ class TestImpersonationMiddleware:
         mock_user = MockUser(id="admin-123")
         mock_get_user.return_value = mock_user
 
+        mock_error_response.return_value = ({"error": "Forbidden"}, 403)
+
         @impersonation_middleware
         def endpoint(handler):
             return {"success": True}
 
-        handler = make_mock_handler(
-            headers={IMPERSONATION_SESSION_HEADER: "invalid-session"}
-        )
+        handler = make_mock_handler(headers={IMPERSONATION_SESSION_HEADER: "invalid-session"})
         result = endpoint(handler)
 
         assert get_status(result) == 403
+        mock_error_response.assert_called_once()
 
+    @patch("aragora.server.middleware.impersonation._error_response")
     @patch("aragora.server.middleware.impersonation.get_current_user")
     @patch("aragora.server.middleware.impersonation.get_impersonation_manager")
-    def test_expired_session_blocked(self, mock_get_manager, mock_get_user):
+    def test_expired_session_blocked(self, mock_get_manager, mock_get_user, mock_error_response):
         mock_manager = MagicMock(spec=ImpersonationManager)
         mock_manager.validate_session.return_value = None  # Returns None for expired
         mock_get_manager.return_value = mock_manager
@@ -644,16 +647,17 @@ class TestImpersonationMiddleware:
         mock_user = MockUser(id="admin-123")
         mock_get_user.return_value = mock_user
 
+        mock_error_response.return_value = ({"error": "Forbidden"}, 403)
+
         @impersonation_middleware
         def endpoint(handler):
             return {"success": True}
 
-        handler = make_mock_handler(
-            headers={IMPERSONATION_SESSION_HEADER: "expired-session"}
-        )
+        handler = make_mock_handler(headers={IMPERSONATION_SESSION_HEADER: "expired-session"})
         result = endpoint(handler)
 
         assert get_status(result) == 403
+        mock_error_response.assert_called_once()
 
     @patch("aragora.server.middleware.impersonation.get_current_user")
     @patch("aragora.server.middleware.impersonation.get_impersonation_manager")
@@ -683,9 +687,10 @@ class TestImpersonationMiddleware:
         assert call_kwargs["session"] is session
         assert call_kwargs["action_type"] == "request"
 
+    @patch("aragora.server.middleware.impersonation._error_response")
     @patch("aragora.server.middleware.impersonation.get_current_user")
     @patch("aragora.server.middleware.impersonation.get_impersonation_manager")
-    def test_wrong_user_blocked(self, mock_get_manager, mock_get_user):
+    def test_wrong_user_blocked(self, mock_get_manager, mock_get_user, mock_error_response):
         session = make_mock_session(admin_user_id="admin-123")
         mock_manager = MagicMock(spec=ImpersonationManager)
         mock_manager.validate_session.return_value = session
@@ -695,16 +700,17 @@ class TestImpersonationMiddleware:
         mock_user = MockUser(id="different-user-456")
         mock_get_user.return_value = mock_user
 
+        mock_error_response.return_value = ({"error": "Forbidden"}, 403)
+
         @impersonation_middleware
         def endpoint(handler):
             return {"success": True}
 
-        handler = make_mock_handler(
-            headers={IMPERSONATION_SESSION_HEADER: "session-abc"}
-        )
+        handler = make_mock_handler(headers={IMPERSONATION_SESSION_HEADER: "session-abc"})
         result = endpoint(handler)
 
         assert get_status(result) == 403
+        mock_error_response.assert_called_once()
 
     def test_lowercase_header_name_works(self):
         """Header name matching should be case-insensitive."""
@@ -716,15 +722,21 @@ class TestImpersonationMiddleware:
         # Use lowercase header
         handler = make_mock_handler(headers={"x-impersonation-session-id": "session-abc"})
 
-        with patch(
-            "aragora.server.middleware.impersonation.get_impersonation_manager"
-        ) as mock_get:
+        with patch("aragora.server.middleware.impersonation.get_impersonation_manager") as mock_get:
             mock_manager = MagicMock(spec=ImpersonationManager)
             mock_manager.validate_session.return_value = None
             mock_get.return_value = mock_manager
 
-            with patch("aragora.server.middleware.impersonation.get_current_user"):
-                result = endpoint(handler)
+            mock_user = MockUser(id="admin-123")
+            with patch(
+                "aragora.server.middleware.impersonation.get_current_user",
+                return_value=mock_user,
+            ):
+                with patch(
+                    "aragora.server.middleware.impersonation._error_response",
+                    return_value=({"error": "Forbidden"}, 403),
+                ):
+                    result = endpoint(handler)
 
         # Should have tried to validate (returned 403 for invalid)
         assert get_status(result) == 403
@@ -768,9 +780,7 @@ class TestRequireValidImpersonation:
 
         assert get_status(result) == 403
         body = get_body(result)
-        assert "X-Impersonation-Session-ID" in str(body) or "session required" in str(
-            body
-        ).lower()
+        assert "X-Impersonation-Session-ID" in str(body) or "session required" in str(body).lower()
 
     def test_no_handler_returns_500(self):
         @require_valid_impersonation
@@ -797,9 +807,7 @@ class TestRequireValidImpersonation:
             ctx = get_impersonation_context(handler)
             return {"success": True, "impersonating": ctx.target_user_id}
 
-        handler = make_mock_handler(
-            headers={IMPERSONATION_SESSION_HEADER: "session-abc"}
-        )
+        handler = make_mock_handler(headers={IMPERSONATION_SESSION_HEADER: "session-abc"})
         result = endpoint(handler)
 
         assert result["success"] is True
@@ -819,9 +827,7 @@ class TestRequireValidImpersonation:
         def endpoint(handler):
             return {"success": True}
 
-        handler = make_mock_handler(
-            headers={IMPERSONATION_SESSION_HEADER: "invalid-session"}
-        )
+        handler = make_mock_handler(headers={IMPERSONATION_SESSION_HEADER: "invalid-session"})
         result = endpoint(handler)
 
         assert get_status(result) == 403
@@ -842,9 +848,7 @@ class TestRequireValidImpersonation:
         def endpoint(handler):
             return {"success": True}
 
-        handler = make_mock_handler(
-            headers={IMPERSONATION_SESSION_HEADER: "session-abc"}
-        )
+        handler = make_mock_handler(headers={IMPERSONATION_SESSION_HEADER: "session-abc"})
         endpoint(handler)
 
         mock_log.assert_called_once()
@@ -943,9 +947,7 @@ class TestIntegrationFullFlow:
     @patch("aragora.server.middleware.impersonation.get_current_user")
     @patch("aragora.server.middleware.impersonation.get_impersonation_manager")
     @patch("aragora.server.middleware.impersonation.audit_event")
-    def test_full_valid_impersonation_flow(
-        self, mock_audit, mock_get_manager, mock_get_user
-    ):
+    def test_full_valid_impersonation_flow(self, mock_audit, mock_get_manager, mock_get_user):
         """Test complete flow: valid session, context set, audit logged."""
         session = make_mock_session(
             session_id="session-full-test",
@@ -992,9 +994,7 @@ class TestIntegrationFullFlow:
     @patch("aragora.server.middleware.impersonation.get_current_user")
     @patch("aragora.server.middleware.impersonation.get_impersonation_manager")
     @patch("aragora.server.middleware.impersonation.audit_event")
-    def test_full_expired_session_flow(
-        self, mock_audit, mock_get_manager, mock_get_user
-    ):
+    def test_full_expired_session_flow(self, mock_audit, mock_get_manager, mock_get_user):
         """Test complete flow: expired session rejected with audit."""
         mock_manager = MagicMock(spec=ImpersonationManager)
         mock_manager.validate_session.return_value = None  # Expired/not found

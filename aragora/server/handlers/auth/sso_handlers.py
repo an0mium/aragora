@@ -166,7 +166,7 @@ def _get_sso_provider(provider_type: str = "oidc"):
 # =============================================================================
 
 
-# NOTE: SSO login is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
+@require_permission("auth:manage_sso")
 @auth_rate_limit(
     requests_per_minute=20,
     limiter_name="auth_sso_login",
@@ -219,7 +219,7 @@ async def handle_sso_login(
         return error_response(f"SSO login failed: {str(e)}", status=500)
 
 
-# NOTE: SSO callback is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
+@require_permission("auth:manage_sso")
 @auth_rate_limit(
     requests_per_minute=20,
     limiter_name="auth_sso_callback",
@@ -297,7 +297,7 @@ async def handle_sso_callback(
         return error_response(f"SSO authentication failed: {str(e)}", status=401)
 
 
-@require_permission("auth:read")
+@require_permission("auth:manage_sso")
 @auth_rate_limit(
     requests_per_minute=20,
     limiter_name="auth_sso_refresh",
@@ -354,7 +354,7 @@ async def handle_sso_refresh(
         return error_response(f"Token refresh failed: {str(e)}", status=401)
 
 
-@require_permission("auth:read")
+@require_permission("auth:manage_sso")
 @auth_rate_limit(
     requests_per_minute=20,
     limiter_name="auth_sso_logout",
@@ -407,7 +407,7 @@ async def handle_sso_logout(
 # =============================================================================
 
 
-# NOTE: List providers is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
+@require_permission("auth:manage_sso")
 @auth_rate_limit(
     requests_per_minute=30,
     limiter_name="auth_sso_list_providers",
@@ -471,7 +471,7 @@ async def handle_list_providers(
         return error_response(f"List providers failed: {str(e)}", status=500)
 
 
-@require_permission("admin:system")
+@require_permission("auth:manage_sso")
 @auth_rate_limit(
     requests_per_minute=20,
     limiter_name="auth_sso_config",

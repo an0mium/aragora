@@ -12,13 +12,16 @@ import asyncio
 import hashlib
 import json as _json
 import logging
-import os
-import time
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
-from aragora.observability.metrics import track_handler
+if TYPE_CHECKING:
+    from .handler import GauntletHandler
+
+    # Use GauntletHandler as the protocol type for mixin self
+    GauntletHandlerProtocol = GauntletHandler
+
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.schema import GAUNTLET_RUN_SCHEMA, validate_against_schema
 
@@ -34,8 +37,6 @@ from .storage import (
     is_durable_queue_enabled,
 )
 
-if TYPE_CHECKING:
-    from .handler import GauntletHandler
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class GauntletRunnerMixin:
         },
     )
     @require_permission("gauntlet:run")
-    async def _start_gauntlet(self: "GauntletHandler", handler: Any) -> HandlerResult:
+    async def _start_gauntlet(self, handler: Any) -> HandlerResult:
         """Start a new gauntlet stress-test."""
         # Check quota before proceeding
         from aragora.billing.jwt_auth import extract_user_from_request
@@ -220,7 +221,7 @@ class GauntletRunnerMixin:
         )
 
     async def _run_gauntlet_async(
-        self: "GauntletHandler",
+        self: GauntletHandlerProtocol,
         gauntlet_id: str,
         input_content: str,
         input_type: str,

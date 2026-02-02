@@ -132,9 +132,26 @@ class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by RoutingMixin."""
 
     ctx: dict[str, Any]
+    AUTH_REQUIRED_ENDPOINTS: list[str]
+    ARTIFACT_ENDPOINTS: set[str]
+    SUFFIX_ROUTES: list[SuffixRouteEntry]
 
     def get_storage(self) -> Any | None:
         """Get debate storage instance."""
+        ...
+
+    def _check_auth(self, handler: Any) -> HandlerResult | None:
+        """Check authentication for sensitive endpoints."""
+        ...
+
+    def _extract_debate_id(self, path: str) -> tuple[str | None, str | None]:
+        """Extract and validate debate ID from path."""
+        ...
+
+    def _check_artifact_access(
+        self, debate_id: str, suffix: str, handler: Any
+    ) -> HandlerResult | None:
+        """Check access to artifact endpoints."""
         ...
 
 

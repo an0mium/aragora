@@ -16,7 +16,7 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 
@@ -24,8 +24,6 @@ from ..base import HandlerResult, error_response, get_string_param, json_respons
 from ..openapi_decorator import api_endpoint
 from .storage import _get_storage, get_gauntlet_runs
 
-if TYPE_CHECKING:
-    from .handler import GauntletHandler
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +55,7 @@ class GauntletReceiptsMixin:
         },
     )
     @require_permission("gauntlet:read")
-    async def _get_receipt(
-        self: "GauntletHandler", gauntlet_id: str, query_params: dict
-    ) -> HandlerResult:
+    async def _get_receipt(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get decision receipt for gauntlet run."""
         from aragora.gauntlet.errors import gauntlet_error_response
         from aragora.gauntlet.receipt import DecisionReceipt
@@ -236,9 +232,7 @@ class GauntletReceiptsMixin:
         },
     )
     @require_permission("gauntlet:read")
-    async def _verify_receipt(
-        self: "GauntletHandler", gauntlet_id: str, handler: Any
-    ) -> HandlerResult:
+    async def _verify_receipt(self, gauntlet_id: str, handler: Any) -> HandlerResult:
         """Verify a signed decision receipt.
 
         Validates:
@@ -393,9 +387,7 @@ class GauntletReceiptsMixin:
             # Return 200 with verification failure details (not a client error)
             return json_response(verification_result)
 
-    async def _auto_persist_receipt(
-        self: "GauntletHandler", result: Any, gauntlet_id: str
-    ) -> None:
+    async def _auto_persist_receipt(self, result: Any, gauntlet_id: str) -> None:
         """Auto-persist decision receipt after gauntlet completion.
 
         Generates and stores a decision receipt for compliance and audit trail.
@@ -500,7 +492,7 @@ class GauntletReceiptsMixin:
         except Exception as e:
             logger.warning(f"Failed to auto-persist receipt for {gauntlet_id}: {e}")
 
-    def _risk_level_from_score(self: "GauntletHandler", robustness_score: float) -> str:
+    def _risk_level_from_score(self, robustness_score: float) -> str:
         """Determine risk level from robustness score."""
         if robustness_score >= 0.8:
             return "LOW"

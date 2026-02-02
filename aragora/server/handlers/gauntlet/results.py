@@ -14,7 +14,7 @@ from __future__ import annotations
 import html
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 
@@ -29,8 +29,6 @@ from ..base import (
 from ..openapi_decorator import api_endpoint
 from .storage import _get_storage, get_gauntlet_runs
 
-if TYPE_CHECKING:
-    from .handler import GauntletHandler
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +48,7 @@ class GauntletResultsMixin:
         },
     )
     @require_permission("gauntlet:read")
-    def _list_personas(self: "GauntletHandler") -> HandlerResult:
+    def _list_personas(self) -> HandlerResult:
         """List available regulatory personas."""
         try:
             from aragora.gauntlet.personas import get_persona, list_personas
@@ -115,7 +113,7 @@ class GauntletResultsMixin:
         },
     )
     @require_permission("gauntlet:read")
-    async def _get_status(self: "GauntletHandler", gauntlet_id: str) -> HandlerResult:
+    async def _get_status(self, gauntlet_id: str) -> HandlerResult:
         """Get gauntlet run status."""
         gauntlet_runs = get_gauntlet_runs()
 
@@ -172,7 +170,7 @@ class GauntletResultsMixin:
         },
     )
     @require_permission("gauntlet:read")
-    def _list_results(self: "GauntletHandler", query_params: dict) -> HandlerResult:
+    def _list_results(self, query_params: dict) -> HandlerResult:
         """List recent gauntlet results with pagination."""
         try:
             storage = _get_storage()
@@ -244,9 +242,7 @@ class GauntletResultsMixin:
         },
     )
     @require_permission("gauntlet:compare")
-    def _compare_results(
-        self: "GauntletHandler", id1: str, id2: str, query_params: dict
-    ) -> HandlerResult:
+    def _compare_results(self, id1: str, id2: str, query_params: dict) -> HandlerResult:
         """Compare two gauntlet results."""
         try:
             storage = _get_storage()
@@ -277,9 +273,7 @@ class GauntletResultsMixin:
         },
     )
     @require_permission("gauntlet:delete")
-    def _delete_result(
-        self: "GauntletHandler", gauntlet_id: str, query_params: dict
-    ) -> HandlerResult:
+    def _delete_result(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Delete a gauntlet result."""
         gauntlet_runs = get_gauntlet_runs()
 
@@ -333,7 +327,7 @@ class GauntletResultsMixin:
     )
     @require_permission("gauntlet:export")
     async def _export_report(
-        self: "GauntletHandler",
+        self,
         gauntlet_id: str,
         query_params: dict,
         handler: Any = None,

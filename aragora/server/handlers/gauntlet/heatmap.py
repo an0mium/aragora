@@ -8,7 +8,6 @@ This module contains:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from aragora.rbac.decorators import require_permission
 
@@ -16,8 +15,6 @@ from ..base import HandlerResult, error_response, get_string_param, json_respons
 from ..openapi_decorator import api_endpoint
 from .storage import _get_storage, get_gauntlet_runs
 
-if TYPE_CHECKING:
-    from .handler import GauntletHandler
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +44,7 @@ class GauntletHeatmapMixin:
         },
     )
     @require_permission("gauntlet:read")
-    async def _get_heatmap(
-        self: "GauntletHandler", gauntlet_id: str, query_params: dict
-    ) -> HandlerResult:
+    async def _get_heatmap(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get risk heatmap for gauntlet run."""
         from aragora.gauntlet.heatmap import HeatmapCell, RiskHeatmap
 

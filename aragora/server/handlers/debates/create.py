@@ -14,7 +14,6 @@ import importlib
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
-from aragora.rbac.decorators import require_permission
 from aragora.resilience import with_timeout_sync
 from aragora.server.http_utils import run_async
 from aragora.server.validation.schema import (
@@ -58,6 +57,14 @@ class _DebatesHandlerProtocol(Protocol):
 
     def get_current_user(self, handler: Any) -> "UserAuthContext | None":
         """Get authenticated user from request."""
+        ...
+
+    def _check_spam_content(self, body: dict[str, Any]) -> HandlerResult | None:
+        """Check if debate content contains spam patterns."""
+        ...
+
+    def _create_debate_direct(self, handler: Any, body: dict[str, Any]) -> HandlerResult:
+        """Create debate directly without decision router."""
         ...
 
 
