@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 
@@ -148,8 +148,8 @@ class VoiceHandler:
         if not device_id:
             return None
 
-        registry = cast("DeviceRegistry", self._device_registry)
-        return await registry.get(device_id)
+        registry = self._device_registry
+        return await registry.get(device_id)  # type: ignore[union-attr]
 
     def _get_call_context(self, call_sid: str) -> dict[str, Any]:
         """

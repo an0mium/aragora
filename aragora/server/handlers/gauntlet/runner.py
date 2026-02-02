@@ -226,8 +226,8 @@ class GauntletRunnerMixin:
             status=202,
         )
 
-    async def _run_gauntlet_async(  # type: ignore[misc]
-        self: GauntletHandlerProtocol,
+    async def _run_gauntlet_async(
+        self,
         gauntlet_id: str,
         input_content: str,
         input_type: str,
