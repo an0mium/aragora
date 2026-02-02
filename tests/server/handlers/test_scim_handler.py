@@ -446,9 +446,8 @@ class TestSCIMHandlerErrorHandling:
             result = scim_handler.handle("/scim/v2/Users", {}, mock_handler)
 
             assert result is not None
-            body, status, _ = result
-            assert status == 503
-            assert "not available" in body
+            assert result.status_code == 503
+            assert b"not available" in result.body
 
     def test_scim_server_init_failed(self, scim_handler, mock_handler):
         """Returns 503 when SCIM server initialization fails."""
@@ -457,8 +456,7 @@ class TestSCIMHandlerErrorHandling:
                 result = scim_handler.handle("/scim/v2/Users", {}, mock_handler)
 
                 assert result is not None
-                body, status, _ = result
-                assert status == 503
+                assert result.status_code == 503
 
     def test_invalid_json_body(self, scim_handler, mock_handler, mock_scim_server):
         """Returns 400 for invalid JSON body."""

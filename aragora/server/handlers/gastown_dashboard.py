@@ -635,7 +635,7 @@ class GasTownDashboardHandler(SecureHandler):
                 get_gupp_recovery_count,
             )
 
-            beads_completed = await get_beads_completed_count(hours=hours)
+            beads_completed = get_beads_completed_count(hours=hours)
             metrics["beads_per_hour"] = round(beads_completed / max(hours, 1), 2)
             metrics["convoy_completion_rate"] = get_convoy_completion_rate()
             metrics["gupp_recovery_events"] = get_gupp_recovery_count(hours=hours)

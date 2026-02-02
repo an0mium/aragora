@@ -19,7 +19,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.audit.unified import audit_admin
 
@@ -31,6 +31,9 @@ from ..base import (
     log_request,
 )
 from ..openapi_decorator import api_endpoint
+
+if TYPE_CHECKING:
+    from aragora.auth.context import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,11 @@ class NomicAdminMixin:
     - _require_admin(handler) -> tuple[AuthContext | None, HandlerResult | None]
     - _check_rbac_permission(auth_ctx, permission, resource_id=None) -> HandlerResult | None
     """
+
+    # Type stubs for methods expected from host class (BaseHandler)
+    ctx: dict[str, Any]
+    _require_admin: Callable[[Any], tuple["AuthorizationContext | None", HandlerResult | None]]
+    _check_rbac_permission: Callable[..., HandlerResult | None]
 
     def _get_nomic_dir(self) -> str:
         """Get nomic directory from context or default."""

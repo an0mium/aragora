@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from ..base import (
     HandlerResult,
@@ -22,6 +22,10 @@ from ..base import (
     json_response,
 )
 from ..openapi_decorator import api_endpoint
+
+if TYPE_CHECKING:
+    from aragora.auth.context import AuthorizationContext
+    from aragora.auth.store import UserStore
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,12 @@ class MetricsDashboardMixin:
     - _require_admin(handler) -> tuple[AuthContext | None, HandlerResult | None]
     - _check_rbac_permission(auth_ctx, permission, resource_id=None) -> HandlerResult | None
     """
+
+    # Type stubs for methods expected from host class (BaseHandler)
+    ctx: dict[str, Any]
+    _require_admin: Callable[[Any], tuple["AuthorizationContext | None", HandlerResult | None]]
+    _check_rbac_permission: Callable[..., HandlerResult | None]
+    _get_user_store: Callable[[], "UserStore | None"]
 
     @api_endpoint(
         method="GET",
