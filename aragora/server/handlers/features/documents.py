@@ -362,13 +362,13 @@ class DocumentHandler(BaseHandler):
                 {"received_bytes": content_length},
             ).to_response(400)
 
-        # Check max size (10MB)
-        max_size = 10 * 1024 * 1024
-        if content_length > max_size:
+        # Check max size using centralized limit (configurable via ARAGORA_MAX_FILE_SIZE env var)
+        if content_length > MAX_FILE_SIZE:
+            max_size_mb = MAX_FILE_SIZE / (1024 * 1024)
             return UploadError(
                 UploadErrorCode.FILE_TOO_LARGE,
-                "File too large. Maximum size: 10MB",
-                {"received_bytes": content_length, "max_bytes": max_size},
+                f"File too large. Maximum size: {max_size_mb:.1f}MB",
+                {"received_bytes": content_length, "max_bytes": MAX_FILE_SIZE},
             ).to_response(413)
 
         content_type = handler.headers.get("Content-Type", "")
@@ -387,13 +387,35 @@ class DocumentHandler(BaseHandler):
                 "Could not extract file from upload. Ensure file is included in request.",
             ).to_response(400)
 
-        # Validate filename length
-        if len(filename) > MAX_FILENAME_LENGTH:
+        # Comprehensive file validation using centralized utilities
+        # This performs: filename security (path traversal, null bytes), size, MIME type, extension
+        file_validation = validate_file_upload(
+            filename=filename,
+            size=len(file_content),
+            content_type=content_type if content_type and "multipart" not in content_type else None,
+        )
+        if not file_validation.valid:
+            # Map validation error to appropriate upload error code
+            error_code_mapping = {
+                "file_too_large": UploadErrorCode.FILE_TOO_LARGE,
+                "file_too_small": UploadErrorCode.FILE_TOO_SMALL,
+                "invalid_mime_type": UploadErrorCode.UNSUPPORTED_FORMAT,
+                "invalid_extension": UploadErrorCode.UNSUPPORTED_FORMAT,
+                "path_traversal": UploadErrorCode.INVALID_FILENAME,
+                "invalid_filename": UploadErrorCode.INVALID_FILENAME,
+                "filename_too_long": UploadErrorCode.FILENAME_TOO_LONG,
+                "null_bytes": UploadErrorCode.INVALID_FILENAME,
+                "empty_filename": UploadErrorCode.INVALID_FILENAME,
+            }
+            error_code = error_code_mapping.get(
+                file_validation.error_code.value if file_validation.error_code else "invalid_filename",
+                UploadErrorCode.INVALID_FILENAME,
+            )
             return UploadError(
-                UploadErrorCode.FILENAME_TOO_LONG,
-                f"Filename too long. Maximum: {MAX_FILENAME_LENGTH} characters",
-                {"filename_length": len(filename), "max_length": MAX_FILENAME_LENGTH},
-            ).to_response(400)
+                error_code,
+                file_validation.error_message or "File validation failed",
+                file_validation.details,
+            ).to_response(file_validation.http_status)
 
         # Verify actual content matches declared length (detect truncation)
         if len(file_content) != content_length:

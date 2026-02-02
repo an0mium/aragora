@@ -147,48 +147,44 @@ class OAuthHandlerProtocol(Protocol):
         ...
 
 
-class OAuthRateLimiter(RateLimiter):
-    """Rate limiter with security audit logging for OAuth endpoints."""
+class OAuthRateLimiterWrapper:
+    """Wrapper around the new OAuthRateLimiter for backward compatibility.
 
-    def is_allowed(self, key: str) -> bool:
-        """Check if request is allowed, log security event if rate limited."""
-        allowed = super().is_allowed(key)
-        if not allowed:
-            # Log warning with security context
-            logger.warning(
-                "AUTH RATE LIMIT: OAuth endpoint exceeded (ip=%s, limit=%d/min)",
-                key,
-                self.rpm,
-            )
-            # Log security audit event
-            self._log_security_event(key)
-        return allowed
+    This wrapper provides the old `is_allowed(key)` interface expected by
+    existing code while using the new OAuth rate limiting infrastructure
+    with exponential backoff and stricter limits.
+    """
 
-    def _log_security_event(self, client_ip: str) -> None:
-        """Log security audit event for rate limit hit on OAuth endpoint."""
-        try:
-            from aragora.audit.unified import audit_security
+    def __init__(self):
+        """Initialize wrapper with the global OAuth limiter."""
+        self._limiter = get_oauth_limiter()
 
-            audit_security(
-                event_type="anomaly",
-                actor_id=client_ip,
-                ip_address=client_ip,
-                reason="auth_rate_limit_exceeded:OAuth",
-                details={
-                    "endpoint": "OAuth",
-                    "limiter": "oauth_limiter",
-                    "limit_rpm": self.rpm,
-                },
-            )
-        except ImportError:
-            # Audit module not available - just log
-            pass
-        except Exception as e:
-            logger.debug(f"Failed to log security audit event: {e}")
+    def is_allowed(self, key: str, endpoint_type: str = "auth_start") -> bool:
+        """Check if request is allowed.
+
+        Args:
+            key: Client IP address
+            endpoint_type: Type of endpoint for limit selection
+
+        Returns:
+            True if request is allowed, False if rate limited
+        """
+        result = self._limiter.check(key, endpoint_type)
+        return result.allowed
+
+    @property
+    def rpm(self) -> int:
+        """Get approximate requests per minute (for logging compatibility)."""
+        # Return auth_start limit as RPM equivalent (15 per 15 min = 1/min)
+        return self._limiter.config.auth_start_limit
 
 
-# Rate limiter for OAuth endpoints (20 requests per minute - auth attempts should be limited)
-_oauth_limiter = OAuthRateLimiter(requests_per_minute=20)
+# Rate limiter for OAuth endpoints - now uses the new OAuthRateLimiter with
+# exponential backoff and stricter limits:
+# - Token endpoints: 5 requests per 15 minutes
+# - Callback handlers: 10 requests per 15 minutes
+# - Auth start (redirect): 15 requests per 15 minutes
+_oauth_limiter = OAuthRateLimiterWrapper()
 
 # Module path constant for the backward-compat shim that tests patch against.
 _IMPL_MODULE = "aragora.server.handlers._oauth_impl"

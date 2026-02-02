@@ -21,6 +21,7 @@ from aragora.server.handlers.oauth.models import OAuthUserInfo
 
 from .utils import _impl
 from aragora.server.handlers.utils.rate_limit import get_client_ip
+from aragora.server.middleware.rate_limit.oauth_limiter import get_oauth_limiter
 
 from .google import GoogleOAuthMixin
 from .github import GitHubOAuthMixin
