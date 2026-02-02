@@ -20,6 +20,12 @@ from aragora.agents.codebase_agent import (
 )
 
 
+@pytest.fixture
+def require_networkx() -> None:
+    """Skip tests that require networkx when dependency is missing."""
+    pytest.importorskip("networkx")
+
+
 # Sample code for testing
 SAMPLE_PYTHON_MODULE = """
 \"\"\"Sample module for testing codebase analysis.\"\"\"
@@ -439,7 +445,7 @@ class TestCodebaseUnderstandingAgent:
         )
 
     @pytest.mark.asyncio
-    async def test_audit_codebase(self, agent):
+    async def test_audit_codebase(self, agent, require_networkx):
         """Test comprehensive codebase audit."""
         result = await agent.audit()
 
@@ -450,7 +456,7 @@ class TestCodebaseUnderstandingAgent:
         assert result.files_analyzed >= 0
 
     @pytest.mark.asyncio
-    async def test_audit_finds_security_issues(self, agent):
+    async def test_audit_finds_security_issues(self, agent, require_networkx):
         """Test that audit finds security issues in vulnerable code."""
         result = await agent.audit()
 
@@ -459,7 +465,7 @@ class TestCodebaseUnderstandingAgent:
         assert result.security_findings is not None
 
     @pytest.mark.asyncio
-    async def test_audit_finds_bug_patterns(self, agent):
+    async def test_audit_finds_bug_patterns(self, agent, require_networkx):
         """Test that audit finds bug patterns."""
         result = await agent.audit()
 
@@ -467,7 +473,7 @@ class TestCodebaseUnderstandingAgent:
         assert result.bug_findings is not None
 
     @pytest.mark.asyncio
-    async def test_audit_calculates_risk_score(self, agent):
+    async def test_audit_calculates_risk_score(self, agent, require_networkx):
         """Test that audit calculates a risk score."""
         result = await agent.audit()
 
@@ -475,14 +481,14 @@ class TestCodebaseUnderstandingAgent:
         assert result.risk_score >= 0
 
     @pytest.mark.asyncio
-    async def test_audit_generates_summary(self, agent):
+    async def test_audit_generates_summary(self, agent, require_networkx):
         """Test that audit generates a summary."""
         result = await agent.audit()
 
         assert result.agent_summary is not None
 
     @pytest.mark.asyncio
-    async def test_audit_prioritizes_remediations(self, agent):
+    async def test_audit_prioritizes_remediations(self, agent, require_networkx):
         """Test that audit prioritizes remediations."""
         result = await agent.audit()
 
@@ -490,7 +496,7 @@ class TestCodebaseUnderstandingAgent:
         assert isinstance(result.prioritized_remediations, list)
 
     @pytest.mark.asyncio
-    async def test_audit_without_dead_code(self, agent):
+    async def test_audit_without_dead_code(self, agent, require_networkx):
         """Test audit with dead code analysis disabled."""
         result = await agent.audit(include_dead_code=False)
 
@@ -498,7 +504,7 @@ class TestCodebaseUnderstandingAgent:
         assert result.completed_at is not None
 
     @pytest.mark.asyncio
-    async def test_audit_without_quality(self, agent):
+    async def test_audit_without_quality(self, agent, require_networkx):
         """Test audit with quality analysis disabled."""
         result = await agent.audit(include_quality=False)
 
@@ -581,7 +587,7 @@ class TestCodebaseAgentEdgeCases:
         assert understanding.confidence <= 1
 
     @pytest.mark.asyncio
-    async def test_audit_empty_codebase(self, tmp_path, create_agent):
+    async def test_audit_empty_codebase(self, tmp_path, create_agent, require_networkx):
         """Test audit on empty codebase."""
         agent = create_agent(tmp_path)
 
