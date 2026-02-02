@@ -417,7 +417,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("create portal")
     @require_permission("org:billing")
-    def _create_portal(self, handler, user=None) -> HandlerResult:
+    def _create_portal(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Create Stripe billing portal session.
 
         Requires org:billing permission (owner only).
@@ -464,16 +464,16 @@ class BillingHandler(SecureHandler):
 
     def _log_audit(
         self,
-        user_store,
+        user_store: Any,
         action: str,
         resource_type: str,
         resource_id: str | None = None,
         user_id: str | None = None,
         org_id: str | None = None,
-        old_value: dict | None = None,
-        new_value: dict | None = None,
-        metadata: dict | None = None,
-        handler=None,
+        old_value: dict[str, Any] | None = None,
+        new_value: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        handler: Any | None = None,
     ) -> None:
         """Log an audit event for billing operations."""
         if not user_store or not hasattr(user_store, "log_audit_event"):
@@ -507,7 +507,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("get audit log")
     @require_permission("admin:audit")
-    def _get_audit_log(self, handler, user=None) -> HandlerResult:
+    def _get_audit_log(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Get billing audit log for organization (Enterprise feature).
 
         Requires admin:audit permission (admin/owner only).
@@ -564,7 +564,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("export usage CSV")
     @require_permission("org:billing")
-    def _export_usage_csv(self, handler, user=None) -> HandlerResult:
+    def _export_usage_csv(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Export usage data as CSV.
 
         Requires org:billing permission (owner only).
@@ -646,7 +646,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("get usage forecast")
     @require_permission("org:billing")
-    def _get_usage_forecast(self, handler, user=None) -> HandlerResult:
+    def _get_usage_forecast(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Get usage forecast and cost projection.
 
         Requires org:billing permission (owner only).
@@ -743,7 +743,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("get invoices")
     @require_permission("org:billing")
-    def _get_invoices(self, handler, user=None) -> HandlerResult:
+    def _get_invoices(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Get invoice history from Stripe.
 
         Requires org:billing permission (owner only).
@@ -813,7 +813,7 @@ class BillingHandler(SecureHandler):
     @handle_errors("cancel subscription")
     @log_request("cancel subscription")
     @require_permission("org:billing")
-    def _cancel_subscription(self, handler, user=None) -> HandlerResult:
+    def _cancel_subscription(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Cancel subscription at end of billing period.
 
         Requires org:billing permission (owner only).
@@ -881,7 +881,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("resume subscription")
     @require_permission("org:billing")
-    def _resume_subscription(self, handler, user=None) -> HandlerResult:
+    def _resume_subscription(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Resume a canceled subscription.
 
         Requires org:billing permission (owner only).
@@ -931,7 +931,7 @@ class BillingHandler(SecureHandler):
             return error_response("Failed to resume subscription", 500)
 
     @handle_errors("stripe webhook")
-    def _handle_stripe_webhook(self, handler) -> HandlerResult:
+    def _handle_stripe_webhook(self, handler: Any) -> HandlerResult:
         """Handle Stripe webhook events."""
         from aragora.billing.stripe_client import (
             parse_webhook_event,
@@ -1002,7 +1002,7 @@ class BillingHandler(SecureHandler):
 
         return result
 
-    def _handle_checkout_completed(self, event, user_store) -> HandlerResult:
+    def _handle_checkout_completed(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle checkout.session.completed event."""
         from aragora.billing.models import SubscriptionTier
 
@@ -1056,12 +1056,12 @@ class BillingHandler(SecureHandler):
 
         return json_response({"received": True})
 
-    def _handle_subscription_created(self, event, user_store) -> HandlerResult:
+    def _handle_subscription_created(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle customer.subscription.created event."""
         logger.info(f"Subscription created: {event.subscription_id}")
         return json_response({"received": True})
 
-    def _handle_subscription_updated(self, event, user_store) -> HandlerResult:
+    def _handle_subscription_updated(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle customer.subscription.updated event."""
         from aragora.billing.stripe_client import get_tier_from_price_id
 
@@ -1110,7 +1110,7 @@ class BillingHandler(SecureHandler):
 
         return json_response({"received": True})
 
-    def _handle_subscription_deleted(self, event, user_store) -> HandlerResult:
+    def _handle_subscription_deleted(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle customer.subscription.deleted event."""
         from aragora.billing.models import SubscriptionTier
 
@@ -1145,7 +1145,7 @@ class BillingHandler(SecureHandler):
 
         return json_response({"received": True})
 
-    def _handle_invoice_paid(self, event, user_store) -> HandlerResult:
+    def _handle_invoice_paid(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle invoice.payment_succeeded event."""
         from aragora.billing.payment_recovery import get_recovery_store
 
@@ -1173,7 +1173,7 @@ class BillingHandler(SecureHandler):
 
         return json_response({"received": True})
 
-    def _handle_invoice_failed(self, event, user_store) -> HandlerResult:
+    def _handle_invoice_failed(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle invoice.payment_failed event.
 
         Records failure in recovery store and sends escalating notifications.
@@ -1249,7 +1249,7 @@ class BillingHandler(SecureHandler):
             }
         )
 
-    def _handle_invoice_finalized(self, event, user_store) -> HandlerResult:
+    def _handle_invoice_finalized(self, event: Any, user_store: Any) -> HandlerResult:
         """Handle invoice.finalized event.
 
         Flushes any remainder usage that didn't meet the MIN_TOKENS_THRESHOLD
