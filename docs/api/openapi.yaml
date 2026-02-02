@@ -5534,6 +5534,47 @@
       }
     },
     "/api/v1/debates": {
+      "post": {
+        "summary": "Create a new debate",
+        "tags": [
+          "Debates"
+        ],
+        "description": "Start an ad-hoc debate with specified question, agents, and configuration. Rate limited and quota enforced.",
+        "operationId": "_create_debate",
+        "responses": {
+          "200": {
+            "description": "Debate created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebateCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body or validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "402": {
+            "description": "Quota exceeded"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
+      },
       "get": {
         "summary": "List all debates",
         "tags": [
@@ -5568,47 +5609,6 @@
           },
           "500": {
             "description": "Database error"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-aragora-stability": "stable"
-      },
-      "post": {
-        "summary": "Create a new debate",
-        "tags": [
-          "Debates"
-        ],
-        "description": "Start an ad-hoc debate with specified question, agents, and configuration. Rate limited and quota enforced.",
-        "operationId": "_create_debate",
-        "responses": {
-          "200": {
-            "description": "Debate created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DebateCreateResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request body or validation error"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "402": {
-            "description": "Quota exceeded"
-          },
-          "429": {
-            "description": "Rate limit exceeded"
-          },
-          "500": {
-            "description": "Internal server error"
           }
         },
         "security": [
@@ -28584,7 +28584,7 @@
           "Explainability"
         ],
         "description": "Retrieve a detailed explanation of a debate decision including:\n- Decision summary (answer, confidence, consensus)\n- Key claims with evidence strength\n- Vote records with reasoning\n- Dissenting views and alternative perspectives\n- Unresolved tensions and tradeoffs\n- Audit trail (timing, agents, rounds)\n\nSupports multiple output formats via the 'format' query parameter.",
-        "operationId": "handle",
+        "operationId": "getDecisionRequestExplanation",
         "parameters": [
           {
             "name": "request_id",
@@ -42181,7 +42181,7 @@
           "Webhooks"
         ],
         "description": "Retrieve all webhooks registered by the authenticated user. Supports filtering by active status.",
-        "operationId": "handle",
+        "operationId": "listRegisteredWebhooks",
         "parameters": [
           {
             "name": "active_only",
@@ -42257,7 +42257,7 @@
           "Webhooks"
         ],
         "description": "Register a new webhook to receive HTTP POST notifications when subscribed events occur.\nAll webhook payloads include HMAC-SHA256 signatures for verification.\nThe webhook secret is only returned once on creation - save it securely.",
-        "operationId": "handle_post",
+        "operationId": "registerWebhook",
         "requestBody": {
           "description": "Webhook configuration",
           "required": true,
@@ -64330,6 +64330,659 @@
         "x-aragora-stability": "experimental"
       }
     },
+    "/api/v1/computer-use/approvals": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "List computer-use approvals",
+        "description": "List approval requests for sensitive computer-use actions.",
+        "operationId": "listComputerUseApprovals",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by approval status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "denied",
+                "expired",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of approvals to return (default: 50)",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of approval requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/computer-use/approvals/{request_id}": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Get approval request",
+        "description": "Get details for a specific computer-use approval request.",
+        "operationId": "getComputerUseApproval",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "description": "Approval request ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approval request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/computer-use/approvals/{request_id}/approve": {
+      "post": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Approve a computer-use request",
+        "description": "Approve a pending computer-use approval request.",
+        "operationId": "approveComputerUseRequest",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "description": "Approval request ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Approval granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approved": {
+                      "type": "boolean"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/computer-use/approvals/{request_id}/deny": {
+      "post": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Deny a computer-use request",
+        "description": "Deny a pending computer-use approval request.",
+        "operationId": "denyComputerUseRequest",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "description": "Approval request ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Approval denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "denied": {
+                      "type": "boolean"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
     "/api/v1/gateway/channels": {
       "get": {
         "tags": [
@@ -68587,7 +69240,7 @@
           "Bindings"
         ],
         "description": "Retrieve all registered message bindings or filter by provider.",
-        "operationId": "handle_get",
+        "operationId": "listBindings",
         "parameters": [
           {
             "name": "provider",
@@ -68640,7 +69293,7 @@
           "Bindings"
         ],
         "description": "Register a new message binding to route messages from a provider/account to an agent.",
-        "operationId": "handle_post",
+        "operationId": "createBinding",
         "requestBody": {
           "description": "Binding configuration",
           "required": true,
@@ -68817,7 +69470,7 @@
           "Bindings"
         ],
         "description": "Remove a message binding by provider, account, and peer pattern.",
-        "operationId": "handle_delete",
+        "operationId": "deleteBinding",
         "parameters": [
           {
             "name": "provider",
@@ -69136,6 +69789,254 @@
           }
         ],
         "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/debates/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a running debate",
+        "tags": [
+          "Debates"
+        ],
+        "description": "Cancel a debate that is currently running. Marks as cancelled and attempts to cancel running tasks.",
+        "operationId": "_cancel_debate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Debate cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Debate cannot be cancelled"
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v1/debates/{slug}": {
+      "get": {
+        "summary": "Get debate by slug",
+        "tags": [
+          "Debates"
+        ],
+        "description": "Retrieve a debate by its slug/ID. Returns in-progress debates if not yet persisted.",
+        "operationId": "_get_debate_by_slug",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Debate details returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "task": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rounds": {
+                      "type": "integer"
+                    },
+                    "in_progress": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v1/debates/{id}/verification-report": {
+      "get": {
+        "summary": "Get verification report",
+        "tags": [
+          "Debates",
+          "Verification"
+        ],
+        "description": "Get verification results and bonuses applied during consensus, useful for analyzing claim quality.",
+        "operationId": "_get_verification_report",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification report returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "verification_enabled": {
+                      "type": "boolean"
+                    },
+                    "verification_results": {
+                      "type": "object"
+                    },
+                    "verification_bonuses": {
+                      "type": "object"
+                    },
+                    "summary": {
+                      "type": "object"
+                    },
+                    "winner": {
+                      "type": "string"
+                    },
+                    "consensus_reached": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v1/debates/{id}/summary": {
+      "get": {
+        "summary": "Get debate summary",
+        "tags": [
+          "Debates"
+        ],
+        "description": "Get a human-readable summary with verdict, key points, confidence assessment, and actionable next steps.",
+        "operationId": "_get_summary",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Debate summary returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "object"
+                    },
+                    "task": {
+                      "type": "string"
+                    },
+                    "consensus_reached": {
+                      "type": "boolean"
+                    },
+                    "confidence": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/export/batch": {
@@ -69586,254 +70487,6 @@
           }
         ],
         "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/debates/{slug}": {
-      "get": {
-        "summary": "Get debate by slug",
-        "tags": [
-          "Debates"
-        ],
-        "description": "Retrieve a debate by its slug/ID. Returns in-progress debates if not yet persisted.",
-        "operationId": "_get_debate_by_slug",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Debate details returned",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "task": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "agents": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "rounds": {
-                      "type": "integer"
-                    },
-                    "in_progress": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Debate not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-aragora-stability": "stable"
-      }
-    },
-    "/api/v1/debates/{id}/verification-report": {
-      "get": {
-        "summary": "Get verification report",
-        "tags": [
-          "Debates",
-          "Verification"
-        ],
-        "description": "Get verification results and bonuses applied during consensus, useful for analyzing claim quality.",
-        "operationId": "_get_verification_report",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Verification report returned",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "verification_enabled": {
-                      "type": "boolean"
-                    },
-                    "verification_results": {
-                      "type": "object"
-                    },
-                    "verification_bonuses": {
-                      "type": "object"
-                    },
-                    "summary": {
-                      "type": "object"
-                    },
-                    "winner": {
-                      "type": "string"
-                    },
-                    "consensus_reached": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Debate not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-aragora-stability": "stable"
-      }
-    },
-    "/api/v1/debates/{id}/summary": {
-      "get": {
-        "summary": "Get debate summary",
-        "tags": [
-          "Debates"
-        ],
-        "description": "Get a human-readable summary with verdict, key points, confidence assessment, and actionable next steps.",
-        "operationId": "_get_summary",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Debate summary returned",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "summary": {
-                      "type": "object"
-                    },
-                    "task": {
-                      "type": "string"
-                    },
-                    "consensus_reached": {
-                      "type": "boolean"
-                    },
-                    "confidence": {
-                      "type": "number"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Debate not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-aragora-stability": "stable"
-      }
-    },
-    "/api/v1/debates/{id}/cancel": {
-      "post": {
-        "summary": "Cancel a running debate",
-        "tags": [
-          "Debates"
-        ],
-        "description": "Cancel a debate that is currently running. Marks as cancelled and attempts to cancel running tasks.",
-        "operationId": "_cancel_debate",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Debate cancelled successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Debate cannot be cancelled"
-          },
-          "404": {
-            "description": "Debate not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/matrix/{matrix_id}": {
@@ -70590,50 +71243,48 @@
         "x-aragora-stability": "stable"
       }
     },
-    "/api/v1/gauntlet/personas": {
+    "/api/v1/gauntlet/{gauntlet_id}/heatmap": {
       "get": {
-        "summary": "List available personas",
+        "summary": "Get risk heatmap",
         "tags": [
           "Gauntlet"
         ],
-        "description": "List all available regulatory personas for gauntlet stress-testing.",
-        "operationId": "_list_personas",
+        "description": "Get the risk heatmap visualization for a completed gauntlet run.",
+        "operationId": "_get_heatmap",
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "svg",
+                "ascii"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of available personas"
-          },
-          "401": {
-            "description": "Authentication required"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/gauntlet/run": {
-      "post": {
-        "summary": "Start gauntlet stress-test",
-        "tags": [
-          "Gauntlet"
-        ],
-        "description": "Start a new adversarial stress-test with regulatory personas.",
-        "operationId": "_start_gauntlet",
-        "responses": {
-          "202": {
-            "description": "Gauntlet started successfully"
+            "description": "Risk heatmap in requested format"
           },
           "400": {
-            "description": "Invalid request body"
+            "description": "Gauntlet not completed"
           },
           "401": {
             "description": "Authentication required"
           },
-          "429": {
-            "description": "Quota exceeded"
+          "404": {
+            "description": "Gauntlet run not found"
           }
         },
         "security": [
@@ -70746,48 +71397,20 @@
         "x-aragora-stability": "experimental"
       }
     },
-    "/api/v1/gauntlet/{gauntlet_id}/heatmap": {
+    "/api/v1/gauntlet/personas": {
       "get": {
-        "summary": "Get risk heatmap",
+        "summary": "List available personas",
         "tags": [
           "Gauntlet"
         ],
-        "description": "Get the risk heatmap visualization for a completed gauntlet run.",
-        "operationId": "_get_heatmap",
-        "parameters": [
-          {
-            "name": "gauntlet_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "json",
-                "svg",
-                "ascii"
-              ]
-            }
-          }
-        ],
+        "description": "List all available regulatory personas for gauntlet stress-testing.",
+        "operationId": "_list_personas",
         "responses": {
           "200": {
-            "description": "Risk heatmap in requested format"
-          },
-          "400": {
-            "description": "Gauntlet not completed"
+            "description": "List of available personas"
           },
           "401": {
             "description": "Authentication required"
-          },
-          "404": {
-            "description": "Gauntlet run not found"
           }
         },
         "security": [
@@ -70964,6 +71587,36 @@
           },
           "404": {
             "description": "Gauntlet run not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/gauntlet/run": {
+      "post": {
+        "summary": "Start gauntlet stress-test",
+        "tags": [
+          "Gauntlet"
+        ],
+        "description": "Start a new adversarial stress-test with regulatory personas.",
+        "operationId": "_start_gauntlet",
+        "responses": {
+          "202": {
+            "description": "Gauntlet started successfully"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "429": {
+            "description": "Quota exceeded"
           }
         },
         "security": [
@@ -71248,7 +71901,7 @@
           "Webhooks"
         ],
         "description": "Remove a registered webhook. Only the webhook owner can delete it.",
-        "operationId": "handle_delete",
+        "operationId": "deleteRegisteredWebhook",
         "parameters": [
           {
             "name": "webhook_id",
