@@ -752,6 +752,7 @@ async def handle_reject_expense(
         return error_response(f"Failed to reject expense: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=120)
 @require_permission("expenses:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
@@ -761,11 +762,21 @@ async def handle_get_pending_approvals(
 
     GET /api/v1/accounting/expenses/pending
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting pending approvals request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
         expenses = await tracker.get_pending_approval()
 
+        cb.record_success()
         return json_response(
             {
                 "expenses": [e.to_dict() for e in expenses],
@@ -774,6 +785,7 @@ async def handle_get_pending_approvals(
         )
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
+        cb.record_failure()
         logger.exception("Error getting pending approvals")
         return error_response(f"Failed to get pending approvals: {e}", status=500)
 
@@ -783,6 +795,7 @@ async def handle_get_pending_approvals(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=30)
 @require_permission("expenses:write")
 async def handle_categorize_expenses(
     data: dict[str, Any],
@@ -796,10 +809,31 @@ async def handle_categorize_expenses(
         expense_ids: list[str] (optional, categorize all uncategorized if empty)
     }
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting categorize request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
         expense_ids = data.get("expense_ids")
+        # Validate expense_ids if provided
+        if expense_ids is not None:
+            if not isinstance(expense_ids, list):
+                return error_response("expense_ids must be a list", status=400)
+            if len(expense_ids) > 1000:
+                return error_response("expense_ids must contain 1000 items or less", status=400)
+            for eid in expense_ids:
+                if not isinstance(eid, str) or len(eid) > 100:
+                    return error_response(
+                        "each expense_id must be a string of 100 characters or less", status=400
+                    )
+
         results = await tracker.bulk_categorize(expense_ids)
 
         # Handle both enum values and string values
@@ -810,6 +844,7 @@ async def handle_categorize_expenses(
             else:
                 categorized[eid] = cat
 
+        cb.record_success()
         return json_response(
             {
                 "categorized": categorized,
@@ -819,6 +854,7 @@ async def handle_categorize_expenses(
         )
 
     except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
+        cb.record_failure()
         logger.exception("Error categorizing expenses")
         return error_response(f"Failed to categorize expenses: {e}", status=500)
 
@@ -828,6 +864,7 @@ async def handle_categorize_expenses(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=10)
 @require_permission("finance:write")
 async def handle_sync_to_qbo(
     data: dict[str, Any],
@@ -841,10 +878,33 @@ async def handle_sync_to_qbo(
         expense_ids: list[str] (optional, sync all approved if empty)
     }
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting QBO sync request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
         expense_ids = data.get("expense_ids")
+        # Validate expense_ids if provided
+        if expense_ids is not None:
+            if not isinstance(expense_ids, list):
+                return error_response("expense_ids must be a list", status=400)
+            if len(expense_ids) > 500:
+                return error_response(
+                    "expense_ids must contain 500 items or less for sync", status=400
+                )
+            for eid in expense_ids:
+                if not isinstance(eid, str) or len(eid) > 100:
+                    return error_response(
+                        "each expense_id must be a string of 100 characters or less", status=400
+                    )
+
         result = await tracker.sync_to_qbo(expense_ids=expense_ids)
 
         # Handle both object with to_dict() and plain dict
@@ -855,6 +915,7 @@ async def handle_sync_to_qbo(
             result_data = result
             success_count = result.get("synced", 0)
 
+        cb.record_success()
         return json_response(
             {
                 "result": result_data,
@@ -863,6 +924,7 @@ async def handle_sync_to_qbo(
         )
 
     except (RuntimeError, OSError, IOError, ConnectionError, TimeoutError) as e:
+        cb.record_failure()
         logger.exception("Error syncing to QBO")
         return error_response(f"Failed to sync to QBO: {e}", status=500)
 
@@ -872,6 +934,7 @@ async def handle_sync_to_qbo(
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=120)
 @require_permission("expenses:read")
 async def handle_get_expense_stats(
     query_params: dict[str, Any],
@@ -885,6 +948,15 @@ async def handle_get_expense_stats(
         start_date: str (ISO format)
         end_date: str (ISO format)
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting stats request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -912,13 +984,16 @@ async def handle_get_expense_stats(
         else:
             stats_data = stats
 
+        cb.record_success()
         return json_response({"stats": stats_data})
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
+        cb.record_failure()
         logger.exception("Error getting expense stats")
         return error_response(f"Failed to get expense stats: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=30)
 @require_permission("admin:audit")
 async def handle_export_expenses(
     query_params: dict[str, Any],
@@ -933,6 +1008,15 @@ async def handle_export_expenses(
         start_date: str (ISO format)
         end_date: str (ISO format)
     """
+    cb = get_expense_circuit_breaker()
+
+    # Check circuit breaker before proceeding
+    if not cb.can_proceed():
+        logger.warning("Expense circuit breaker is open, rejecting export request")
+        return error_response(
+            "Service temporarily unavailable. Please try again later.", status=503
+        )
+
     try:
         tracker = get_expense_tracker()
 
@@ -962,6 +1046,7 @@ async def handle_export_expenses(
             end_date=end_date,
         )
 
+        cb.record_success()
         return json_response(
             {
                 "data": data,
@@ -970,6 +1055,7 @@ async def handle_export_expenses(
         )
 
     except (RuntimeError, OSError, IOError, LookupError) as e:
+        cb.record_failure()
         logger.exception("Error exporting expenses")
         return error_response(f"Failed to export expenses: {e}", status=500)
 
@@ -980,11 +1066,21 @@ async def handle_export_expenses(
 
 
 class ExpenseHandler(BaseHandler):
-    """Handler for expense-related routes."""
+    """Handler for expense-related routes.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for fault tolerance
+    - Rate limiting on all endpoints
+    - Comprehensive input validation
+    - RBAC permission checks
+    """
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+        self._circuit_breaker = get_expense_circuit_breaker()
 
     # RBAC permission keys
     EXPENSE_READ_PERMISSION = "expense.read"

@@ -35,6 +35,7 @@ from .secrets import (
     handle_list_secrets_scans,
     handle_scan_secrets,
 )
+from .storage import safe_repo_id
 from .vulnerability import (
     handle_get_cve_details,
     handle_get_scan_status,
@@ -86,11 +87,29 @@ class SecurityHandler(BaseHandler):
         return None
 
     # =========================================================================
+    # Path Traversal Validation Helper
+    # =========================================================================
+
+    def _validate_repo_id(self, repo_id: str) -> HandlerResult | None:
+        """
+        Validate repo_id to prevent path traversal attacks.
+
+        Returns None if valid, or an error response if invalid.
+        """
+        is_valid, err_msg = safe_repo_id(repo_id)
+        if not is_valid:
+            return error_response(err_msg or "Invalid repo ID", 400)
+        return None
+
+    # =========================================================================
     # Vulnerability Scan Endpoints
     # =========================================================================
 
     async def handle_post_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         repo_path = data.get("repo_path")
         if not repo_path:
             return error_response("repo_path required", 400)
@@ -106,18 +125,27 @@ class SecurityHandler(BaseHandler):
 
     async def handle_get_scan_latest(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/latest"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_scan_status(repo_id=repo_id)
 
     async def handle_get_scan(
         self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/{scan_id}"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_scan_status(repo_id=repo_id, scan_id=scan_id)
 
     async def handle_get_vulnerabilities(
         self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/vulnerabilities"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_vulnerabilities(
             repo_id=repo_id,
             severity=params.get("severity"),
@@ -133,6 +161,9 @@ class SecurityHandler(BaseHandler):
 
     async def handle_list_scans(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_list_scans(
             repo_id=repo_id,
             status=params.get("status"),
@@ -146,6 +177,9 @@ class SecurityHandler(BaseHandler):
 
     async def handle_post_secrets_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/secrets"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         repo_path = data.get("repo_path")
         if not repo_path:
             return error_response("repo_path required", 400)
@@ -166,16 +200,25 @@ class SecurityHandler(BaseHandler):
         self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/secrets/latest"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_secrets_scan_status(repo_id=repo_id)
 
     async def handle_get_secrets_scan(
         self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/secrets/{scan_id}"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_secrets_scan_status(repo_id=repo_id, scan_id=scan_id)
 
     async def handle_get_secrets(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/secrets"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_secrets(
             repo_id=repo_id,
             severity=params.get("severity"),
@@ -189,6 +232,9 @@ class SecurityHandler(BaseHandler):
         self, params: dict[str, Any], repo_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scans/secrets"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_list_secrets_scans(
             repo_id=repo_id,
             status=params.get("status"),
@@ -202,6 +248,9 @@ class SecurityHandler(BaseHandler):
 
     async def handle_scan_sast(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/sast"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_scan_sast(
             repo_path=params.get("repo_path", ""),
             repo_id=repo_id,
@@ -213,10 +262,16 @@ class SecurityHandler(BaseHandler):
         self, params: dict[str, Any], repo_id: str, scan_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/scan/sast/{scan_id}"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_sast_scan_status(repo_id=repo_id, scan_id=scan_id)
 
     async def handle_get_sast_findings(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/findings"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_sast_findings(
             repo_id=repo_id,
             severity=params.get("severity"),
@@ -227,6 +282,9 @@ class SecurityHandler(BaseHandler):
 
     async def handle_get_owasp_summary(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/owasp-summary"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_owasp_summary(repo_id=repo_id)
 
     # =========================================================================
@@ -235,6 +293,9 @@ class SecurityHandler(BaseHandler):
 
     async def handle_post_sbom(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom - Generate SBOM"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         repo_path = data.get("repo_path")
         if not repo_path:
             return error_response("repo_path required", 400)
@@ -248,26 +309,41 @@ class SecurityHandler(BaseHandler):
 
     async def handle_get_sbom_latest(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/latest"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_sbom(repo_id=repo_id)
 
     async def handle_get_sbom_by_id(
         self, params: dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/{sbom_id}"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_get_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
     async def handle_list_sbom(self, params: dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/list"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_list_sboms(repo_id=repo_id)
 
     async def handle_download_sbom_content(
         self, params: dict[str, Any], repo_id: str, sbom_id: str
     ) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sbom/{sbom_id}/download"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         return await handle_download_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
     async def handle_compare_sbom(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom/compare"""
+        if err := self._validate_repo_id(repo_id):
+            return err
+
         sbom_id_a = data.get("sbom_id_a")
         sbom_id_b = data.get("sbom_id_b")
 

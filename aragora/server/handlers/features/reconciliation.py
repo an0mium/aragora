@@ -485,11 +485,25 @@ class ReconciliationHandler:
     # List/Get Reconciliations
     # =========================================================================
 
+    @require_permission("reconciliation:read")
+    @rate_limit(requests_per_minute=60, limiter_name="reconciliation_list")
     async def _handle_list(self, request: Any, tenant_id: str) -> HandlerResult:
         """List past reconciliations."""
         params = self._get_query_params(request)
+
+        # Validate account_id if provided
         account_id = params.get("account_id")
-        limit = int(params.get("limit", 20))
+        if account_id:
+            is_valid, err_msg = validate_path_segment(account_id, "account_id", SAFE_ID_PATTERN)
+            if not is_valid:
+                return error_response(err_msg or "Invalid account_id", 400)
+
+        # Validate and bound limit parameter
+        try:
+            limit = int(params.get("limit", 20))
+            limit = max(1, min(limit, 100))  # Bound between 1 and 100
+        except (ValueError, TypeError):
+            limit = 20
 
         service = get_reconciliation_service(tenant_id)
         if not service:
@@ -504,10 +518,14 @@ class ReconciliationHandler:
             }
         )
 
+    @require_permission("reconciliation:read")
+    @rate_limit(requests_per_minute=60, limiter_name="reconciliation_get")
     async def _handle_get(
         self, request: Any, tenant_id: str, reconciliation_id: str
     ) -> HandlerResult:
         """Get reconciliation details."""
+        # reconciliation_id already validated in handle()
+
         service = get_reconciliation_service(tenant_id)
         if not service:
             return error_response("Service not available", 503)
@@ -524,6 +542,8 @@ class ReconciliationHandler:
             }
         )
 
+    @require_permission("reconciliation:read")
+    @rate_limit(requests_per_minute=60, limiter_name="reconciliation_demo")
     async def _handle_demo(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get demo reconciliation data."""
         try:
@@ -546,6 +566,8 @@ class ReconciliationHandler:
     # Resolve Discrepancies
     # =========================================================================
 
+    @require_permission("reconciliation:write")
+    @rate_limit(requests_per_minute=30, limiter_name="reconciliation_resolve")
     async def _handle_resolve(
         self, request: Any, tenant_id: str, reconciliation_id: str
     ) -> HandlerResult:
@@ -558,6 +580,8 @@ class ReconciliationHandler:
             "action": "create_entry" | "ignore" | "match_manual"
         }
         """
+        # reconciliation_id already validated in handle()
+
         try:
             body = await self._get_json_body(request)
 
@@ -565,8 +589,27 @@ class ReconciliationHandler:
             resolution = body.get("resolution", "")
             action = body.get("action", "resolve")
 
+            # Validate discrepancy_id
             if not discrepancy_id:
                 return error_response("discrepancy_id is required", 400)
+            if not isinstance(discrepancy_id, str) or len(discrepancy_id) > 64:
+                return error_response("Invalid discrepancy_id format", 400)
+            is_valid, err_msg = validate_path_segment(
+                discrepancy_id, "discrepancy_id", SAFE_ID_PATTERN
+            )
+            if not is_valid:
+                return error_response(err_msg or "Invalid discrepancy_id", 400)
+
+            # Validate resolution text length
+            if not isinstance(resolution, str) or len(resolution) > 1000:
+                return error_response("Resolution text too long (max 1000 chars)", 400)
+
+            # Validate action
+            valid_actions = {"create_entry", "ignore", "match_manual", "resolve"}
+            if action not in valid_actions:
+                return error_response(
+                    f"Invalid action. Must be one of: {', '.join(valid_actions)}", 400
+                )
 
             service = get_reconciliation_service(tenant_id)
             if not service:
@@ -606,8 +649,10 @@ class ReconciliationHandler:
 
         except Exception as e:
             logger.exception(f"Error resolving discrepancy: {e}")
-            return error_response(f"Resolution failed: {str(e)}", 500)
+            return error_response("Resolution failed", 500)
 
+    @require_permission("reconciliation:write")
+    @rate_limit(requests_per_minute=10, limiter_name="reconciliation_bulk_resolve")
     async def _handle_bulk_resolve(self, request: Any, tenant_id: str) -> HandlerResult:
         """Bulk resolve discrepancies.
 
@@ -626,8 +671,22 @@ class ReconciliationHandler:
             reconciliation_id = body.get("reconciliation_id")
             resolutions = body.get("resolutions", [])
 
+            # Validate reconciliation_id
             if not reconciliation_id:
                 return error_response("reconciliation_id is required", 400)
+            if not isinstance(reconciliation_id, str) or len(reconciliation_id) > 64:
+                return error_response("Invalid reconciliation_id format", 400)
+            is_valid, err_msg = validate_path_segment(
+                reconciliation_id, "reconciliation_id", SAFE_ID_PATTERN
+            )
+            if not is_valid:
+                return error_response(err_msg or "Invalid reconciliation_id", 400)
+
+            # Validate resolutions array
+            if not isinstance(resolutions, list):
+                return error_response("resolutions must be an array", 400)
+            if len(resolutions) > 100:
+                return error_response("Too many resolutions (max 100)", 400)
 
             service = get_reconciliation_service(tenant_id)
             if not service:
@@ -637,10 +696,25 @@ class ReconciliationHandler:
             success_count = 0
             errors = []
 
+            valid_actions = {"create_entry", "ignore", "match_manual", "resolve"}
+
             for item in resolutions:
+                if not isinstance(item, dict):
+                    continue
+
                 discrepancy_id = item.get("discrepancy_id")
                 resolution = item.get("resolution", "")
                 action = item.get("action", "resolve")
+
+                # Validate each item
+                if not discrepancy_id or not isinstance(discrepancy_id, str):
+                    errors.append(
+                        {"discrepancy_id": discrepancy_id, "error": "Invalid discrepancy_id"}
+                    )
+                    continue
+                if action not in valid_actions:
+                    errors.append({"discrepancy_id": discrepancy_id, "error": "Invalid action"})
+                    continue
 
                 success = await service.resolve_discrepancy(
                     discrepancy_id=discrepancy_id,
@@ -669,12 +743,14 @@ class ReconciliationHandler:
 
         except Exception as e:
             logger.exception(f"Error in bulk resolve: {e}")
-            return error_response(f"Bulk resolution failed: {str(e)}", 500)
+            return error_response("Bulk resolution failed", 500)
 
     # =========================================================================
     # Approve Reconciliation
     # =========================================================================
 
+    @require_permission("reconciliation:approve")
+    @rate_limit(requests_per_minute=20, limiter_name="reconciliation_approve")
     async def _handle_approve(
         self, request: Any, tenant_id: str, reconciliation_id: str
     ) -> HandlerResult:
@@ -685,9 +761,15 @@ class ReconciliationHandler:
             "notes": "Reviewed and approved by finance team"
         }
         """
+        # reconciliation_id already validated in handle()
+
         try:
             body = await self._get_json_body(request)
             notes = body.get("notes", "")
+
+            # Validate notes
+            if not isinstance(notes, str) or len(notes) > 500:
+                return error_response("Notes too long (max 500 chars)", 400)
 
             service = get_reconciliation_service(tenant_id)
             if not service:
@@ -724,7 +806,7 @@ class ReconciliationHandler:
 
         except Exception as e:
             logger.exception(f"Error approving reconciliation: {e}")
-            return error_response(f"Approval failed: {str(e)}", 500)
+            return error_response("Approval failed", 500)
 
     # =========================================================================
     # Get Discrepancies

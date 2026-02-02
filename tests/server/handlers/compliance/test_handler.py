@@ -514,11 +514,12 @@ class TestHeadersExtraction:
     @pytest.mark.asyncio
     async def test_handles_no_headers_attribute(self, compliance_handler):
         """Handles handler without headers attribute."""
-        # Create a mock that doesn't have headers attribute
-        mock_handler = MagicMock()
-        mock_handler.command = "GET"
-        # Delete the headers attribute to simulate it not existing
-        del mock_handler.headers
+
+        # Create a simple object without headers attribute
+        class SimpleHandler:
+            command = "GET"
+
+        mock_handler = SimpleHandler()
 
         with patch.object(compliance_handler, "_get_status", new_callable=AsyncMock) as mock_method:
             mock_method.return_value = HandlerResult(

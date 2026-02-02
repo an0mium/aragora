@@ -2154,7 +2154,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_redis_connection_error_on_save(self, sample_checkpoint):
-        """Redis connection error raises appropriate exception."""
+        """Redis connection error raises ConnectionTimeoutError (error name contains ConnectionError)."""
         mock_redis = MagicMock()
         mock_redis.setex = MagicMock(side_effect=ConnectionError("Connection refused"))
         mock_redis.connection_pool = MagicMock()
@@ -2172,7 +2172,9 @@ class TestErrorHandling:
             store = RedisCheckpointStore()
             store._redis = mock_redis
 
-            with pytest.raises(ConnectionError):
+            # ConnectionError is wrapped in ConnectionTimeoutError because the error name
+            # contains "ConnectionError" which is checked in the exception handler
+            with pytest.raises(ConnectionTimeoutError):
                 await store.save(sample_checkpoint)
 
     @pytest.mark.asyncio
@@ -2544,8 +2546,22 @@ class TestRedisBackendSpecific:
             assert checkpoint is not None
 
     @pytest.mark.asyncio
-    async def test_socket_timeout_configuration(self, mock_redis):
+    async def test_socket_timeout_configuration(self):
         """Socket timeouts are configured on the connection pool."""
+        # Create a mock redis client with mutable connection_kwargs dict
+        mock_redis = MagicMock()
+        mock_redis.setex = MagicMock()
+        mock_redis.get = MagicMock(return_value=None)
+        mock_redis.zadd = MagicMock()
+        mock_redis.zrevrange = MagicMock(return_value=[])
+        mock_redis.delete = MagicMock(return_value=1)
+        mock_redis.zrem = MagicMock()
+        mock_redis.expire = MagicMock()
+        mock_redis.connection_pool = MagicMock()
+        # Use a real dict so the code can modify it
+        connection_kwargs_dict = {}
+        mock_redis.connection_pool.connection_kwargs = connection_kwargs_dict
+
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
@@ -2564,9 +2580,8 @@ class TestRedisBackendSpecific:
             redis = store._get_redis()
 
             # Check connection_kwargs were updated
-            kwargs = mock_redis.connection_pool.connection_kwargs
-            assert kwargs.get("socket_timeout") == 15.0
-            assert kwargs.get("socket_connect_timeout") == 5.0
+            assert connection_kwargs_dict.get("socket_timeout") == 15.0
+            assert connection_kwargs_dict.get("socket_connect_timeout") == 5.0
 
 
 # =============================================================================

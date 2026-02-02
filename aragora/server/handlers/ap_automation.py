@@ -1,12 +1,20 @@
 """
 HTTP API Handlers for Accounts Payable Automation.
 
+Stability: STABLE
+
 Provides REST APIs for AP workflows:
 - Invoice management
 - Payment optimization
 - Batch payment processing
 - Cash flow forecasting
 - Discount opportunity tracking
+
+Features:
+- Circuit breaker pattern for AP service resilience
+- Rate limiting (30-120 requests/minute depending on endpoint)
+- RBAC permission checks (ap:read, finance:write, finance:approve)
+- Comprehensive input validation
 
 Endpoints:
 - POST /api/v1/accounting/ap/invoices - Add payable invoice
@@ -27,6 +35,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from aragora.resilience import CircuitBreaker
+from aragora.resilience import CircuitOpenError  # noqa: F401 - used in exception handling
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -37,6 +47,28 @@ from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for AP automation service
+_ap_circuit_breaker = CircuitBreaker(
+    name="ap_automation_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_ap_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for AP automation service."""
+    return _ap_circuit_breaker
+
+
+def get_ap_circuit_breaker_status() -> dict:
+    """Get current status of the AP automation circuit breaker."""
+    return _ap_circuit_breaker.to_dict()
+
 
 # Thread-safe service instance
 _ap_automation: Any | None = None
@@ -86,45 +118,71 @@ async def handle_add_invoice(
         preferred_payment_method: str (optional - ach, wire, check, credit_card)
     }
     """
+    # Validate required fields
+    vendor_id = data.get("vendor_id")
+    vendor_name = data.get("vendor_name")
+    total_amount = data.get("total_amount")
+
+    if not vendor_id:
+        return error_response("vendor_id is required", status=400)
+    if not isinstance(vendor_id, str) or not vendor_id.strip():
+        return error_response("vendor_id must be a non-empty string", status=400)
+
+    if not vendor_name:
+        return error_response("vendor_name is required", status=400)
+    if not isinstance(vendor_name, str) or not vendor_name.strip():
+        return error_response("vendor_name must be a non-empty string", status=400)
+
+    if total_amount is None:
+        return error_response("total_amount is required", status=400)
+
     try:
-        ap = get_ap_automation()
+        amount_decimal = Decimal(str(total_amount))
+        if amount_decimal <= 0:
+            return error_response("total_amount must be positive", status=400)
+    except (ValueError, TypeError, ArithmeticError):
+        return error_response("total_amount must be a valid number", status=400)
 
-        vendor_id = data.get("vendor_id")
-        vendor_name = data.get("vendor_name")
-        total_amount = data.get("total_amount")
+    # Parse and validate dates
+    invoice_date = None
+    due_date = None
+    discount_deadline = None
 
-        if not vendor_id:
-            return error_response("vendor_id is required", status=400)
-        if not vendor_name:
-            return error_response("vendor_name is required", status=400)
-        if total_amount is None:
-            return error_response("total_amount is required", status=400)
-
-        # Parse dates
-        invoice_date = None
-        due_date = None
-        discount_deadline = None
-
+    try:
         if data.get("invoice_date"):
             invoice_date = datetime.fromisoformat(data["invoice_date"])
         if data.get("due_date"):
             due_date = datetime.fromisoformat(data["due_date"])
         if data.get("discount_deadline"):
             discount_deadline = datetime.fromisoformat(data["discount_deadline"])
+    except ValueError:
+        return error_response("Dates must be in ISO format", status=400)
 
-        invoice = await ap.add_invoice(
-            vendor_id=vendor_id,
-            vendor_name=vendor_name,
-            invoice_number=data.get("invoice_number", ""),
-            invoice_date=invoice_date,
-            due_date=due_date,
-            total_amount=Decimal(str(total_amount)),
-            payment_terms=data.get("payment_terms", "Net 30"),
-            early_pay_discount=data.get("early_pay_discount", 0),
-            discount_deadline=discount_deadline,
-            priority=data.get("priority"),
-            preferred_payment_method=data.get("preferred_payment_method"),
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
         )
+
+    try:
+        ap = get_ap_automation()
+
+        async with _ap_circuit_breaker.protected_call():
+            invoice = await ap.add_invoice(
+                vendor_id=vendor_id.strip(),
+                vendor_name=vendor_name.strip(),
+                invoice_number=data.get("invoice_number", ""),
+                invoice_date=invoice_date,
+                due_date=due_date,
+                total_amount=amount_decimal,
+                payment_terms=data.get("payment_terms", "Net 30"),
+                early_pay_discount=data.get("early_pay_discount", 0),
+                discount_deadline=discount_deadline,
+                priority=data.get("priority"),
+                preferred_payment_method=data.get("preferred_payment_method"),
+            )
 
         return success_response(
             {
@@ -133,6 +191,8 @@ async def handle_add_invoice(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error adding invoice")
         return error_response(f"Failed to add invoice: {e}", status=500)

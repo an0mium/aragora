@@ -146,7 +146,7 @@ class TestAuditVerification:
         )
 
         with patch(
-            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            "aragora.storage.receipt_store.get_receipt_store",
             return_value=mock_receipt_store,
         ):
             result = await compliance_handler._verify_audit({"receipt_ids": ["receipt-001"]})
@@ -176,7 +176,7 @@ class TestAuditVerification:
         )
 
         with patch(
-            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            "aragora.storage.receipt_store.get_receipt_store",
             return_value=mock_receipt_store,
         ):
             result = await compliance_handler._verify_audit(

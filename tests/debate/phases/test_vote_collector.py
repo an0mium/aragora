@@ -73,9 +73,12 @@ def make_context(
 ) -> DebateContext:
     """Create a DebateContext with sensible defaults for testing."""
     result = DebateResult()
+    # Use is None check to allow empty list
+    if agents is None:
+        agents = [MockAgent(name="agent1"), MockAgent(name="agent2")]
     ctx = DebateContext(
         env=MockEnvironment(),
-        agents=agents or [MockAgent(name="agent1"), MockAgent(name="agent2")],
+        agents=agents,
         proposals=proposals
         if proposals is not None
         else {"agent1": "Proposal A", "agent2": "Proposal B"},
@@ -1373,6 +1376,8 @@ class TestVoteCollectorIntegration:
             hooks={"on_vote": on_vote},
             recorder=recorder,
             position_tracker=position_tracker,
+            # Disable early termination to collect all votes
+            enable_rlm_early_termination=False,
         )
         collector = VoteCollector(config)
         ctx = make_context(agents=agents)
@@ -1383,7 +1388,7 @@ class TestVoteCollectorIntegration:
         ):
             votes = await collector.collect_votes(ctx)
 
-        # All votes collected
+        # All votes collected (no early termination)
         assert len(votes) == 3
 
         # All notifications sent
