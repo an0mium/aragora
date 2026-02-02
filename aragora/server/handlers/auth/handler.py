@@ -166,7 +166,11 @@ class AuthHandler(SecureHandler):
         return False
 
     async def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+        method: str | None = None,
     ) -> HandlerResult | None:
         """Route auth requests to appropriate methods.
 
@@ -176,7 +180,7 @@ class AuthHandler(SecureHandler):
         path = strip_version_prefix(path)
 
         # Determine HTTP method from handler
-        method: str = getattr(handler, "command", "GET") if handler else "GET"
+        method = method or (getattr(handler, "command", "GET") if handler else "GET")
 
         if path == "/api/auth/register" and method == "POST":
             return self._handle_register(handler)
