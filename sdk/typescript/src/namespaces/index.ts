@@ -1484,8 +1484,7 @@ export {
   type AdapterHealth,
   type HealthResponse as ExternalAgentsHealthResponse,
   type TaskSubmitOptions,
-  type TaskStatus as ExternalTaskStatus,
-  type TaskResult as ExternalTaskResult,
-  type TaskSubmitResult,
-  type TaskResultResponse,
+  type TaskSubmitResponse,
+  type TaskInfo,
+  type CancelResponse as ExternalAgentsCancelResponse,
 } from './external-agents';

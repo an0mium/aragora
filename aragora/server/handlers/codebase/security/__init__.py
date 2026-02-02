@@ -92,6 +92,14 @@ from .storage import (
     get_secrets_scanner,
 )
 
+# Backward compatibility aliases (for existing tests)
+# These match the original private function names
+_get_scanner = get_scanner
+_get_cve_client = get_cve_client
+_get_secrets_scanner = get_secrets_scanner
+_get_sast_scanner = get_sast_scanner
+_get_or_create_repo_scans = get_or_create_repo_scans
+
 __all__ = [
     # Main handler
     "SecurityHandler",
@@ -140,4 +148,10 @@ __all__ = [
     "get_or_create_sbom_results",
     "get_sbom_lock",
     "get_running_sbom_generations",
+    # Backward compatibility aliases
+    "_get_scanner",
+    "_get_cve_client",
+    "_get_secrets_scanner",
+    "_get_sast_scanner",
+    "_get_or_create_repo_scans",
 ]

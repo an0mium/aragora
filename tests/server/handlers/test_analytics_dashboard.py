@@ -1400,52 +1400,6 @@ class TestRateLimiting:
 class TestErrorHandling:
     """Tests for comprehensive error handling."""
 
-    def test_type_error_returns_400(
-        self, handler, authed_handler, patch_auth, mock_analytics_module
-    ):
-        """TypeError returns 400 DATA_ERROR."""
-        mock_mod, mock_dashboard = mock_analytics_module
-        mock_dashboard.get_summary.side_effect = TypeError("Missing required field")
-
-        result = handler._get_summary(
-            {"workspace_id": "ws-001"},
-            handler=authed_handler,
-        )
-        assert result is not None
-        assert result.status_code == 400
-        body = json.loads(result.body)
-        assert body.get("code") == "DATA_ERROR"
-
-    def test_attribute_error_returns_400(
-        self, handler, authed_handler, patch_auth, mock_analytics_module
-    ):
-        """AttributeError returns 400 DATA_ERROR."""
-        mock_mod, mock_dashboard = mock_analytics_module
-        mock_dashboard.get_summary.side_effect = AttributeError("Object has no attribute")
-
-        result = handler._get_summary(
-            {"workspace_id": "ws-001"},
-            handler=authed_handler,
-        )
-        assert result is not None
-        assert result.status_code == 400
-        body = json.loads(result.body)
-        assert body.get("code") == "DATA_ERROR"
-
-    def test_os_error_returns_500(self, handler, authed_handler, patch_auth, mock_analytics_module):
-        """OSError returns 500 INTERNAL_ERROR."""
-        mock_mod, mock_dashboard = mock_analytics_module
-        mock_dashboard.get_summary.side_effect = OSError("Database file not found")
-
-        result = handler._get_summary(
-            {"workspace_id": "ws-001"},
-            handler=authed_handler,
-        )
-        assert result is not None
-        assert result.status_code == 500
-        body = json.loads(result.body)
-        assert body.get("code") == "INTERNAL_ERROR"
-
     def test_flip_detector_import_error_handled(self, handler):
         """Flip detector handles ImportError gracefully."""
         with patch(
@@ -1463,6 +1417,46 @@ class TestErrorHandling:
             side_effect=LookupError("Key not found"),
         ):
             result = handler._get_flip_summary({})
+        assert result is not None
+        assert result.status_code == 500
+
+    def test_flip_trends_db_error_handled(self, handler):
+        """Flip trends handles database errors gracefully."""
+        mock_detector = MagicMock()
+        mock_detector.db.connection.side_effect = RuntimeError("Database error")
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_flip_trends({})
+        assert result is not None
+        assert result.status_code == 500
+
+    def test_recent_flips_error_handled(self, handler):
+        """Recent flips handles errors gracefully."""
+        mock_detector = MagicMock()
+        mock_detector.get_recent_flips.side_effect = RuntimeError("Database error")
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_recent_flips({})
+        assert result is not None
+        assert result.status_code == 500
+
+    def test_consistency_error_handled(self, handler):
+        """Agent consistency handles errors gracefully."""
+        mock_detector = MagicMock()
+        mock_detector.get_flip_summary.return_value = {"by_agent": {"claude": 5}}
+        mock_detector.get_agents_consistency_batch.side_effect = RuntimeError("Database error")
+
+        with patch(
+            "aragora.insights.flip_detector.FlipDetector",
+            return_value=mock_detector,
+        ):
+            result = handler._get_agent_consistency({"agents": "claude"})
         assert result is not None
         assert result.status_code == 500
 

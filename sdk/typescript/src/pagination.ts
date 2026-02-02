@@ -216,7 +216,7 @@ export class AsyncPaginator<T> implements AsyncIterable<T> {
     }
 
     // Check for cursor-based pagination in response
-    const responseWithCursor = response as Record<string, unknown>;
+    const responseWithCursor = response as unknown as Record<string, unknown>;
     if (responseWithCursor.next_cursor && typeof responseWithCursor.next_cursor === 'string') {
       this.cursor = responseWithCursor.next_cursor;
     }

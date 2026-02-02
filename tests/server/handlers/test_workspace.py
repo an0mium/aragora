@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.server.handlers.workspace import WorkspaceHandler
+from aragora.server.handlers.workspace_module import WorkspaceHandler
 
 
 # ===========================================================================

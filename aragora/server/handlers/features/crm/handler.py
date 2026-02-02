@@ -16,11 +16,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from aragora.server.handlers.base import HandlerResult, json_response
+from aragora.server.handlers.base import HandlerResult
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.rate_limit import rate_limit
-from aragora.server.handlers.utils.responses import error_response
 
 from .circuit_breaker import get_crm_circuit_breaker
 from .contacts import ContactOperationsMixin
@@ -86,9 +85,9 @@ class CRMHandler(
             self.check_permission(auth_context, permission)
             return None
         except UnauthorizedError:
-            return error_response("Authentication required", 401)
+            return self._error_response(401, "Authentication required")
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            return self._error_response(403, str(e))
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -103,9 +102,9 @@ class CRMHandler(
         cb = get_crm_circuit_breaker()
         if not cb.can_proceed():
             logger.warning("CRM circuit breaker is open, rejecting request")
-            return error_response(
-                "CRM service temporarily unavailable (circuit breaker open)",
+            return self._error_response(
                 503,
+                "CRM service temporarily unavailable (circuit breaker open)",
             )
         return None
 
@@ -525,13 +524,17 @@ class CRMHandler(
         body, _err = await parse_json_body(request, context="crm")
         return body if body is not None else {}
 
-    def _json_response(self, status: int, data: Any) -> HandlerResult:
+    def _json_response(self, status: int, data: Any) -> dict[str, Any]:
         """Create a JSON response."""
-        return json_response(data, status=status)
+        return {
+            "status_code": status,
+            "headers": {"Content-Type": "application/json"},
+            "body": data,
+        }
 
-    def _error_response(self, status: int, message: str) -> HandlerResult:
+    def _error_response(self, status: int, message: str) -> dict[str, Any]:
         """Create an error response."""
-        return error_response(message, status=status)
+        return self._json_response(status, {"error": message})
 
 
 __all__ = [
