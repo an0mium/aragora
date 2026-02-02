@@ -8,6 +8,11 @@ Handles incoming voice webhooks from Twilio:
 - /api/voice/gather/confirm - Confirmation input
 
 All endpoints return TwiML responses.
+
+Device Runtime Integration:
+- Voice sessions can be associated with registered devices
+- Device capabilities determine voice routing options
+- Call metadata includes device context when available
 """
 
 from __future__ import annotations
@@ -23,6 +28,16 @@ from aragora.integrations.twilio_voice import (
     get_twilio_voice,
     HAS_TWILIO,
 )
+
+# Try to import device registry for device runtime integration
+try:
+    from aragora.gateway.device_registry import DeviceRegistry, DeviceNode
+
+    HAS_DEVICE_REGISTRY = True
+except ImportError:
+    HAS_DEVICE_REGISTRY = False
+    DeviceRegistry = None  # type: ignore[misc, assignment]
+    DeviceNode = None  # type: ignore[misc, assignment]
 
 # Try to import Twilio request validator
 try:
@@ -50,12 +65,14 @@ class VoiceHandler:
     - Inbound call handling with speech-to-text
     - Call status tracking
     - Debate initiation from voice input
+    - Device runtime integration for device-associated calls
     """
 
     def __init__(
         self,
         voice_integration: TwilioVoiceIntegration | None = None,
         debate_starter: Any | None = None,
+        device_registry: "DeviceRegistry | None" = None,
     ):
         """
         Initialize voice handler.
@@ -63,9 +80,83 @@ class VoiceHandler:
         Args:
             voice_integration: TwilioVoiceIntegration instance
             debate_starter: Optional callable to start debates from voice input
+            device_registry: Optional DeviceRegistry for device runtime integration
         """
         self.voice = voice_integration or get_twilio_voice()
         self.debate_starter = debate_starter
+        self._device_registry = device_registry
+        self._call_device_map: dict[str, str] = {}  # call_sid -> device_id
+
+    @property
+    def device_registry(self) -> "DeviceRegistry | None":
+        """Get the device registry if available."""
+        return self._device_registry
+
+    async def associate_call_with_device(self, call_sid: str, device_id: str) -> bool:
+        """
+        Associate a voice call with a registered device.
+
+        Args:
+            call_sid: Twilio call SID
+            device_id: Device identifier from the device registry
+
+        Returns:
+            True if association succeeded, False otherwise
+        """
+        if not HAS_DEVICE_REGISTRY or not self._device_registry:
+            logger.debug("Device registry not available for call association")
+            return False
+
+        # Verify device exists and has voice capability
+        device = await self._device_registry.get(device_id)
+        if not device:
+            logger.warning(f"Device {device_id} not found for call {call_sid}")
+            return False
+
+        if "voice" not in device.capabilities:
+            logger.warning(f"Device {device_id} lacks voice capability for call {call_sid}")
+            return False
+
+        self._call_device_map[call_sid] = device_id
+        logger.info(f"Associated call {call_sid} with device {device_id}")
+        return True
+
+    async def get_device_for_call(self, call_sid: str) -> "DeviceNode | None":
+        """
+        Get the device associated with a call.
+
+        Args:
+            call_sid: Twilio call SID
+
+        Returns:
+            DeviceNode if associated, None otherwise
+        """
+        if not HAS_DEVICE_REGISTRY or not self._device_registry:
+            return None
+
+        device_id = self._call_device_map.get(call_sid)
+        if not device_id:
+            return None
+
+        return await self._device_registry.get(device_id)
+
+    def _get_call_context(self, call_sid: str) -> dict[str, Any]:
+        """
+        Build context dict for a call including device info if available.
+
+        Args:
+            call_sid: Twilio call SID
+
+        Returns:
+            Dict with call context
+        """
+        context: dict[str, Any] = {"call_sid": call_sid}
+
+        device_id = self._call_device_map.get(call_sid)
+        if device_id:
+            context["device_id"] = device_id
+
+        return context
 
     async def _verify_signature(self, request: "Request", params: dict[str, str]) -> bool:
         """
@@ -301,8 +392,66 @@ class VoiceHandler:
             recording_url=recording_url,
         )
 
+        # Clean up device association when call ends
+        if call_status in ("completed", "failed", "busy", "no-answer", "canceled"):
+            device_id = self._call_device_map.pop(call_sid, None)
+            if device_id:
+                logger.debug(f"Removed device association for ended call {call_sid}")
+
         # Return empty 200 OK
         return web.Response(text="OK", status=200)
+
+    # =========================================================================
+    # Device Runtime Integration
+    # =========================================================================
+
+    async def handle_device_association(self, request: "Request") -> "Response":
+        """
+        Associate a call with a device.
+
+        POST /api/v1/voice/device
+        Body: {"call_sid": "...", "device_id": "..."}
+
+        This endpoint allows devices to register themselves as the source
+        of a voice call, enabling device-specific routing and context.
+        """
+        if not HAS_DEVICE_REGISTRY or not self._device_registry:
+            return web.json_response(
+                {"error": "Device runtime not available"},
+                status=503,
+            )
+
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response(
+                {"error": "Invalid JSON"},
+                status=400,
+            )
+
+        call_sid = data.get("call_sid")
+        device_id = data.get("device_id")
+
+        if not call_sid or not device_id:
+            return web.json_response(
+                {"error": "call_sid and device_id are required"},
+                status=400,
+            )
+
+        success = await self.associate_call_with_device(call_sid, device_id)
+        if not success:
+            return web.json_response(
+                {"error": "Failed to associate call with device"},
+                status=400,
+            )
+
+        return web.json_response(
+            {
+                "status": "associated",
+                "call_sid": call_sid,
+                "device_id": device_id,
+            }
+        )
 
     # =========================================================================
     # Debate Integration
@@ -324,15 +473,27 @@ class VoiceHandler:
             session = self.voice.get_session(call_sid)
             caller = session.caller if session else "unknown"
 
-            logger.info(f"Queuing debate from voice: {question[:100]}... (caller: {caller})")
+            # Build context with device info if available
+            context = self._get_call_context(call_sid)
+            device = await self.get_device_for_call(call_sid)
+            if device:
+                context["device_name"] = device.name
+                context["device_type"] = device.device_type
+                context["device_capabilities"] = device.capabilities
 
-            # Start debate asynchronously
+            logger.info(
+                f"Queuing debate from voice: {question[:100]}... "
+                f"(caller: {caller}, device: {context.get('device_id', 'none')})"
+            )
+
+            # Start debate asynchronously with device context
             debate_id = await self.debate_starter(
                 task=question,
                 source="voice",
                 source_id=call_sid,
                 callback_number=caller,
                 agents=self.voice.config.default_agents,
+                context=context,
             )
 
             if debate_id:
@@ -343,16 +504,24 @@ class VoiceHandler:
             logger.error(f"Failed to start debate from voice: {e}")
 
 
-def setup_voice_routes(app: "Application", handler: VoiceHandler | None = None) -> None:
+def setup_voice_routes(
+    app: "Application",
+    handler: VoiceHandler | None = None,
+    device_registry: "DeviceRegistry | None" = None,
+) -> VoiceHandler:
     """
     Set up voice webhook routes.
 
     Args:
         app: aiohttp Application
         handler: Optional VoiceHandler instance
+        device_registry: Optional DeviceRegistry for device runtime integration
+
+    Returns:
+        The configured VoiceHandler instance
     """
     if handler is None:
-        handler = VoiceHandler()
+        handler = VoiceHandler(device_registry=device_registry)
 
     # v1 canonical routes
     app.router.add_post("/api/v1/voice/inbound", handler.handle_inbound)
@@ -360,13 +529,21 @@ def setup_voice_routes(app: "Application", handler: VoiceHandler | None = None) 
     app.router.add_post("/api/v1/voice/gather", handler.handle_gather)
     app.router.add_post("/api/v1/voice/gather/confirm", handler.handle_gather_confirm)
 
+    # Device association endpoint (requires device runtime)
+    if HAS_DEVICE_REGISTRY and (handler.device_registry or device_registry):
+        app.router.add_post("/api/v1/voice/device", handler.handle_device_association)
+
     # legacy routes
     app.router.add_post("/api/voice/inbound", handler.handle_inbound)
     app.router.add_post("/api/voice/status", handler.handle_status)
     app.router.add_post("/api/voice/gather", handler.handle_gather)
     app.router.add_post("/api/voice/gather/confirm", handler.handle_gather_confirm)
 
-    logger.info("Voice webhook routes registered")
+    logger.info(
+        f"Voice webhook routes registered "
+        f"(device_runtime={'enabled' if handler.device_registry else 'disabled'})"
+    )
+    return handler
 
 
-__all__ = ["VoiceHandler", "setup_voice_routes"]
+__all__ = ["VoiceHandler", "setup_voice_routes", "HAS_DEVICE_REGISTRY"]

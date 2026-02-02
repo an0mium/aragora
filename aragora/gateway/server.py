@@ -17,14 +17,25 @@ Endpoints:
 - POST /device              - Register a device
 - GET  /device/{device_id}  - Get device info
 - WS   /ws                  - Real-time inbox updates
+
+Production Hardening:
+- Request timeouts (configurable per-request type)
+- Graceful shutdown with drain period
+- Rate limiting per client IP
+- Connection limits
+- Structured logging with correlation IDs
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
+import signal
 import time
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,9 +50,63 @@ from aragora.stores import get_canonical_gateway_stores
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Rate Limiting
+# =============================================================================
+
+
+class GatewayRateLimiter:
+    """Simple in-memory rate limiter for the gateway."""
+
+    def __init__(
+        self,
+        requests_per_minute: int = 60,
+        burst_allowance: int = 10,
+    ):
+        self._rpm = requests_per_minute
+        self._burst = burst_allowance
+        self._requests: dict[str, list[float]] = defaultdict(list)
+        self._lock = asyncio.Lock()
+
+    async def is_allowed(self, client_id: str) -> bool:
+        """Check if a request from client_id is allowed."""
+        now = time.time()
+        window_start = now - 60.0
+
+        async with self._lock:
+            # Clean old entries
+            self._requests[client_id] = [t for t in self._requests[client_id] if t > window_start]
+
+            # Check limit (allow burst over base rate)
+            if len(self._requests[client_id]) >= self._rpm + self._burst:
+                return False
+
+            self._requests[client_id].append(now)
+            return True
+
+    def get_remaining(self, client_id: str) -> int:
+        """Get remaining requests for client."""
+        now = time.time()
+        window_start = now - 60.0
+        recent = [t for t in self._requests.get(client_id, []) if t > window_start]
+        return max(0, self._rpm + self._burst - len(recent))
+
+
 @dataclass
 class GatewayConfig:
-    """Configuration for the Local Gateway."""
+    """Configuration for the Local Gateway.
+
+    Production settings are loaded from environment variables when not
+    explicitly configured:
+    - ARAGORA_GATEWAY_HOST: Bind host (default: 127.0.0.1)
+    - ARAGORA_GATEWAY_PORT: Bind port (default: 8090)
+    - ARAGORA_GATEWAY_API_KEY: API key for authentication
+    - ARAGORA_GATEWAY_ENABLE_AUTH: Enable auth (default: true)
+    - ARAGORA_GATEWAY_REQUEST_TIMEOUT: Request timeout in seconds (default: 30)
+    - ARAGORA_GATEWAY_SHUTDOWN_TIMEOUT: Graceful shutdown timeout (default: 30)
+    - ARAGORA_GATEWAY_RATE_LIMIT_RPM: Requests per minute (default: 60)
+    - ARAGORA_GATEWAY_MAX_CONNECTIONS: Max concurrent connections (default: 100)
+    """
 
     host: str = "127.0.0.1"
     port: int = 8090
@@ -50,6 +115,54 @@ class GatewayConfig:
     cloud_proxy_url: str | None = None
     max_inbox_size: int = 10000
     allowed_channels: list[str] = field(default_factory=list)
+
+    # Production hardening settings
+    request_timeout_seconds: float = 30.0
+    shutdown_timeout_seconds: float = 30.0
+    rate_limit_rpm: int = 60
+    rate_limit_burst: int = 10
+    max_connections: int = 100
+    enable_cors: bool = False
+    cors_origins: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_env(cls) -> "GatewayConfig":
+        """Create config from environment variables."""
+
+        def get_bool(key: str, default: bool) -> bool:
+            val = os.environ.get(key, "").lower()
+            if val in ("1", "true", "yes"):
+                return True
+            if val in ("0", "false", "no"):
+                return False
+            return default
+
+        def get_int(key: str, default: int) -> int:
+            try:
+                return int(os.environ.get(key, default))
+            except ValueError:
+                return default
+
+        def get_float(key: str, default: float) -> float:
+            try:
+                return float(os.environ.get(key, default))
+            except ValueError:
+                return default
+
+        return cls(
+            host=os.environ.get("ARAGORA_GATEWAY_HOST", "127.0.0.1"),
+            port=get_int("ARAGORA_GATEWAY_PORT", 8090),
+            api_key=os.environ.get("ARAGORA_GATEWAY_API_KEY", ""),
+            enable_auth=get_bool("ARAGORA_GATEWAY_ENABLE_AUTH", True),
+            cloud_proxy_url=os.environ.get("ARAGORA_GATEWAY_CLOUD_PROXY_URL"),
+            max_inbox_size=get_int("ARAGORA_GATEWAY_MAX_INBOX_SIZE", 10000),
+            request_timeout_seconds=get_float("ARAGORA_GATEWAY_REQUEST_TIMEOUT", 30.0),
+            shutdown_timeout_seconds=get_float("ARAGORA_GATEWAY_SHUTDOWN_TIMEOUT", 30.0),
+            rate_limit_rpm=get_int("ARAGORA_GATEWAY_RATE_LIMIT_RPM", 60),
+            rate_limit_burst=get_int("ARAGORA_GATEWAY_RATE_LIMIT_BURST", 10),
+            max_connections=get_int("ARAGORA_GATEWAY_MAX_CONNECTIONS", 100),
+            enable_cors=get_bool("ARAGORA_GATEWAY_ENABLE_CORS", False),
+        )
 
 
 @dataclass
@@ -95,9 +208,15 @@ class LocalGateway:
         self._devices = DeviceRegistry(store=store)
         self._router = AgentRouter(store=store)
         self._running = False
+        self._shutting_down = False
         self._started_at: float | None = None
         self._messages_routed = 0
         self._messages_failed = 0
+        self._active_connections = 0
+        self._rate_limiter = GatewayRateLimiter(
+            requests_per_minute=self._config.rate_limit_rpm,
+            burst_allowance=self._config.rate_limit_burst,
+        )
 
     def _get_gateway_store(self):
         if self._store is not None:
@@ -255,11 +374,19 @@ class LocalGateway:
 
     def _create_app(self) -> web.Application:
         """Create the aiohttp web application with routes."""
-        app = web.Application(middlewares=[self._auth_middleware])
+        middlewares = [
+            self._shutdown_middleware,
+            self._connection_limit_middleware,
+            self._rate_limit_middleware,
+            self._timeout_middleware,
+            self._auth_middleware,
+        ]
+        app = web.Application(middlewares=middlewares)
         app["gateway"] = self
 
-        # Health and stats
+        # Health and stats (always available)
         app.router.add_get("/health", self._handle_health)
+        app.router.add_get("/ready", self._handle_ready)
         app.router.add_get("/stats", self._handle_stats)
 
         # Inbox operations
@@ -276,6 +403,108 @@ class LocalGateway:
         app.router.add_get("/ws", self._handle_websocket)
 
         return app
+
+    @web.middleware
+    async def _shutdown_middleware(
+        self,
+        request: web.Request,
+        handler: Any,
+    ) -> web.Response:
+        """Reject new requests when shutting down (except health checks)."""
+        if self._shutting_down and request.path not in ("/health", "/ready"):
+            return web.json_response(
+                {"error": "Service shutting down", "code": "SHUTTING_DOWN"},
+                status=503,
+                headers={"Retry-After": "5"},
+            )
+        return await handler(request)
+
+    @web.middleware
+    async def _connection_limit_middleware(
+        self,
+        request: web.Request,
+        handler: Any,
+    ) -> web.Response:
+        """Enforce maximum concurrent connections."""
+        if self._active_connections >= self._config.max_connections:
+            return web.json_response(
+                {"error": "Too many connections", "code": "CONNECTION_LIMIT"},
+                status=503,
+                headers={"Retry-After": "1"},
+            )
+
+        self._active_connections += 1
+        try:
+            return await handler(request)
+        finally:
+            self._active_connections -= 1
+
+    @web.middleware
+    async def _rate_limit_middleware(
+        self,
+        request: web.Request,
+        handler: Any,
+    ) -> web.Response:
+        """Enforce rate limiting per client IP."""
+        # Skip rate limiting for health endpoints
+        if request.path in ("/health", "/ready"):
+            return await handler(request)
+
+        client_ip = self._get_client_ip(request)
+        if not await self._rate_limiter.is_allowed(client_ip):
+            remaining = self._rate_limiter.get_remaining(client_ip)
+            return web.json_response(
+                {"error": "Rate limit exceeded", "code": "RATE_LIMITED"},
+                status=429,
+                headers={
+                    "Retry-After": "60",
+                    "X-RateLimit-Remaining": str(remaining),
+                },
+            )
+        return await handler(request)
+
+    @web.middleware
+    async def _timeout_middleware(
+        self,
+        request: web.Request,
+        handler: Any,
+    ) -> web.Response:
+        """Apply request timeout."""
+        # Skip timeout for WebSocket upgrades and long-polling endpoints
+        if request.path == "/ws":
+            return await handler(request)
+
+        try:
+            return await asyncio.wait_for(
+                handler(request),
+                timeout=self._config.request_timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Request timeout: {request.method} {request.path}")
+            return web.json_response(
+                {"error": "Request timeout", "code": "TIMEOUT"},
+                status=504,
+            )
+
+    def _get_client_ip(self, request: web.Request) -> str:
+        """Extract client IP from request, handling proxies."""
+        # Check X-Forwarded-For header first
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            # Take the first IP (original client)
+            return forwarded.split(",")[0].strip()
+
+        # Check X-Real-IP header
+        real_ip = request.headers.get("X-Real-IP", "")
+        if real_ip:
+            return real_ip.strip()
+
+        # Fall back to peer address
+        peername = request.transport.get_extra_info("peername") if request.transport else None
+        if peername:
+            return peername[0]
+
+        return "unknown"
 
     @web.middleware
     async def _auth_middleware(
@@ -307,12 +536,41 @@ class LocalGateway:
         return await handler(request)
 
     async def _handle_health(self, request: web.Request) -> web.Response:
-        """Health check endpoint."""
+        """Health check endpoint (liveness probe)."""
+        # Liveness: Is the process alive and can respond?
+        status = "healthy" if self._running and not self._shutting_down else "unhealthy"
+        status_code = 200 if status == "healthy" else 503
+
         return web.json_response(
             {
-                "status": "healthy" if self._running else "unhealthy",
+                "status": status,
                 "service": "aragora-gateway",
                 "uptime_seconds": time.time() - self._started_at if self._started_at else 0,
+                "shutting_down": self._shutting_down,
+            },
+            status=status_code,
+        )
+
+    async def _handle_ready(self, request: web.Request) -> web.Response:
+        """Readiness check endpoint (readiness probe)."""
+        # Readiness: Is the service ready to accept traffic?
+        if self._shutting_down:
+            return web.json_response(
+                {"status": "not_ready", "reason": "shutting_down"},
+                status=503,
+            )
+
+        if not self._running:
+            return web.json_response(
+                {"status": "not_ready", "reason": "not_started"},
+                status=503,
+            )
+
+        return web.json_response(
+            {
+                "status": "ready",
+                "active_connections": self._active_connections,
+                "messages_routed": self._messages_routed,
             }
         )
 
@@ -549,6 +807,7 @@ class LocalGateway:
         self,
         host: str | None = None,
         port: int | None = None,
+        setup_signals: bool = True,
     ) -> web.AppRunner:
         """
         Start the gateway as an HTTP server.
@@ -556,6 +815,7 @@ class LocalGateway:
         Args:
             host: Override host (defaults to config).
             port: Override port (defaults to config).
+            setup_signals: Whether to register signal handlers for graceful shutdown.
 
         Returns:
             AppRunner for managing the server lifecycle.
@@ -571,11 +831,104 @@ class LocalGateway:
         await site.start()
 
         self._running = True
+        self._shutting_down = False
         self._started_at = time.time()
         self._runner = runner
 
-        logger.info(f"Local gateway HTTP server started on {actual_host}:{actual_port}")
+        # Setup signal handlers for graceful shutdown
+        if setup_signals:
+            self._setup_signal_handlers()
+
+        await self._hydrate_state()
+
+        logger.info(
+            f"Local gateway HTTP server started on {actual_host}:{actual_port} "
+            f"(timeout={self._config.request_timeout_seconds}s, "
+            f"rate_limit={self._config.rate_limit_rpm}/min)"
+        )
         return runner
+
+    def _setup_signal_handlers(self) -> None:
+        """Register signal handlers for graceful shutdown."""
+        loop = asyncio.get_event_loop()
+
+        def handle_signal(sig: signal.Signals) -> None:
+            logger.info(f"Received {sig.name}, initiating graceful shutdown...")
+            asyncio.create_task(self.graceful_shutdown())
+
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            try:
+                loop.add_signal_handler(sig, lambda s=sig: handle_signal(s))
+            except NotImplementedError:
+                # Windows doesn't support add_signal_handler
+                pass
+
+    async def graceful_shutdown(self) -> dict[str, Any]:
+        """
+        Perform graceful shutdown of the gateway.
+
+        1. Stop accepting new requests (set shutting_down flag)
+        2. Wait for in-flight requests to complete (with timeout)
+        3. Close WebSocket connections
+        4. Flush pending data
+        5. Stop the HTTP server
+
+        Returns:
+            Dict with shutdown statistics.
+        """
+        if self._shutting_down:
+            logger.warning("Graceful shutdown already in progress")
+            return {"status": "already_shutting_down"}
+
+        start_time = time.time()
+        self._shutting_down = True
+        logger.info("Starting graceful shutdown...")
+
+        # Phase 1: Drain active connections
+        drain_timeout = min(self._config.shutdown_timeout_seconds / 2, 15.0)
+        drain_start = time.time()
+        while self._active_connections > 0 and (time.time() - drain_start) < drain_timeout:
+            logger.debug(f"Draining {self._active_connections} active connection(s)...")
+            await asyncio.sleep(0.5)
+
+        if self._active_connections > 0:
+            logger.warning(
+                f"{self._active_connections} connection(s) still active after drain timeout"
+            )
+
+        # Phase 2: Close WebSocket subscribers
+        if hasattr(self, "_ws_subscribers"):
+            ws_count = len(self._ws_subscribers)
+            for ws in list(self._ws_subscribers):
+                if not ws.closed:
+                    try:
+                        await ws.close(code=1001, message=b"Server shutting down")
+                    except Exception:
+                        pass
+            logger.info(f"Closed {ws_count} WebSocket connection(s)")
+
+        # Phase 3: Flush stores
+        try:
+            store = self._store
+            session_store = self._session_store
+            if store:
+                await store.close()
+            if session_store and session_store is not store:
+                await session_store.close()
+        except Exception as e:
+            logger.warning(f"Error closing stores: {e}")
+
+        # Phase 4: Stop HTTP server
+        await self.stop_http()
+
+        elapsed = time.time() - start_time
+        logger.info(f"Graceful shutdown completed in {elapsed:.1f}s")
+
+        return {
+            "status": "shutdown_complete",
+            "elapsed_seconds": elapsed,
+            "connections_drained": self._active_connections == 0,
+        }
 
     async def stop_http(self) -> None:
         """Stop the HTTP server."""
@@ -583,5 +936,7 @@ class LocalGateway:
             await self._runner.cleanup()
             self._runner = None
 
+        self._store = None
+        self._session_store = None
         self._running = False
         logger.info("Local gateway HTTP server stopped")

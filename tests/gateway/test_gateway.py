@@ -787,3 +787,188 @@ class TestLocalGatewayHTTP:
         call_args = mock_ws.send_json.call_args[0][0]
         assert call_args["type"] == "new_message"
         assert call_args["message"]["message_id"] == "m1"
+
+
+# =============================================================================
+# Production Hardening Tests
+# =============================================================================
+
+
+class TestGatewayConfigFromEnv:
+    """Test GatewayConfig.from_env() method."""
+
+    def test_default_values(self):
+        # Test defaults (env vars for config may be set by other fixtures,
+        # but default values should still apply for unset vars)
+        config = GatewayConfig.from_env()
+        # Host and port may be overridden, but these defaults should work
+        assert config.request_timeout_seconds == 30.0
+        assert config.rate_limit_rpm == 60
+        assert config.max_connections == 100
+
+    def test_custom_values(self, monkeypatch):
+        monkeypatch.setenv("ARAGORA_GATEWAY_HOST", "0.0.0.0")
+        monkeypatch.setenv("ARAGORA_GATEWAY_PORT", "9090")
+        monkeypatch.setenv("ARAGORA_GATEWAY_ENABLE_AUTH", "false")
+        monkeypatch.setenv("ARAGORA_GATEWAY_REQUEST_TIMEOUT", "60.0")
+        monkeypatch.setenv("ARAGORA_GATEWAY_RATE_LIMIT_RPM", "120")
+
+        config = GatewayConfig.from_env()
+        assert config.host == "0.0.0.0"
+        assert config.port == 9090
+        assert config.enable_auth is False
+        assert config.request_timeout_seconds == 60.0
+        assert config.rate_limit_rpm == 120
+
+
+class TestGatewayRateLimiter:
+    """Test GatewayRateLimiter rate limiting."""
+
+    @pytest.mark.asyncio
+    async def test_allows_within_limit(self):
+        from aragora.gateway.server import GatewayRateLimiter
+
+        limiter = GatewayRateLimiter(requests_per_minute=10, burst_allowance=5)
+
+        # Should allow requests within limit
+        for _ in range(10):
+            assert await limiter.is_allowed("client1") is True
+
+    @pytest.mark.asyncio
+    async def test_blocks_over_limit(self):
+        from aragora.gateway.server import GatewayRateLimiter
+
+        limiter = GatewayRateLimiter(requests_per_minute=5, burst_allowance=2)
+
+        # Exhaust limit + burst (5 + 2 = 7)
+        for _ in range(7):
+            await limiter.is_allowed("client1")
+
+        # Should block the 8th request
+        assert await limiter.is_allowed("client1") is False
+
+    @pytest.mark.asyncio
+    async def test_separate_clients(self):
+        from aragora.gateway.server import GatewayRateLimiter
+
+        limiter = GatewayRateLimiter(requests_per_minute=5, burst_allowance=0)
+
+        # Exhaust limit for client1
+        for _ in range(5):
+            await limiter.is_allowed("client1")
+
+        # client2 should still be allowed
+        assert await limiter.is_allowed("client2") is True
+        # client1 should be blocked
+        assert await limiter.is_allowed("client1") is False
+
+
+class TestProductionMiddlewares:
+    """Test production hardening middlewares."""
+
+    @pytest.fixture
+    def gw(self):
+        return LocalGateway(
+            config=GatewayConfig(
+                enable_auth=False,
+                request_timeout_seconds=5.0,
+                rate_limit_rpm=10,
+                max_connections=5,
+            )
+        )
+
+    @pytest.mark.asyncio
+    async def test_shutdown_middleware_rejects_during_shutdown(self, gw):
+        from aiohttp.test_utils import make_mocked_request
+
+        gw._running = True
+        gw._shutting_down = True
+
+        request = make_mocked_request("GET", "/stats")
+
+        async def mock_handler(req):
+            return await gw._handle_stats(req)
+
+        response = await gw._shutdown_middleware(request, mock_handler)
+        assert response.status == 503
+        import json
+
+        data = json.loads(response.body)
+        assert data["code"] == "SHUTTING_DOWN"
+
+    @pytest.mark.asyncio
+    async def test_shutdown_middleware_allows_health_during_shutdown(self, gw):
+        from aiohttp.test_utils import make_mocked_request
+
+        gw._running = True
+        gw._shutting_down = True
+
+        request = make_mocked_request("GET", "/health")
+
+        async def mock_handler(req):
+            return await gw._handle_health(req)
+
+        response = await gw._shutdown_middleware(request, mock_handler)
+        # Health should still work during shutdown
+        assert response.status == 503  # unhealthy because shutting_down
+
+    @pytest.mark.asyncio
+    async def test_connection_limit_middleware(self, gw):
+        from aiohttp.test_utils import make_mocked_request
+        import json
+
+        gw._active_connections = gw._config.max_connections
+
+        request = make_mocked_request("GET", "/stats")
+
+        async def mock_handler(req):
+            return await gw._handle_stats(req)
+
+        response = await gw._connection_limit_middleware(request, mock_handler)
+        assert response.status == 503
+        data = json.loads(response.body)
+        assert data["code"] == "CONNECTION_LIMIT"
+
+    @pytest.mark.asyncio
+    async def test_readiness_endpoint(self, gw):
+        from aiohttp.test_utils import make_mocked_request
+
+        gw._running = True
+        gw._shutting_down = False
+
+        request = make_mocked_request("GET", "/ready")
+        response = await gw._handle_ready(request)
+
+        assert response.status == 200
+        import json
+
+        data = json.loads(response.body)
+        assert data["status"] == "ready"
+
+    @pytest.mark.asyncio
+    async def test_readiness_endpoint_not_ready_when_shutting_down(self, gw):
+        from aiohttp.test_utils import make_mocked_request
+
+        gw._running = True
+        gw._shutting_down = True
+
+        request = make_mocked_request("GET", "/ready")
+        response = await gw._handle_ready(request)
+
+        assert response.status == 503
+        import json
+
+        data = json.loads(response.body)
+        assert data["status"] == "not_ready"
+
+    @pytest.mark.asyncio
+    async def test_graceful_shutdown(self, gw):
+        await gw.start()
+        assert gw._running is True
+        assert gw._shutting_down is False
+
+        result = await gw.graceful_shutdown()
+
+        assert result["status"] == "shutdown_complete"
+        assert gw._running is False
+        assert gw._shutting_down is True

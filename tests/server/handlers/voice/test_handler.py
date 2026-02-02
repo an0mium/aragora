@@ -436,6 +436,7 @@ class TestQueueDebateFromVoice:
             source_id="CA123",
             callback_number="+15551234567",
             agents=["claude", "gpt"],
+            context={"call_sid": "CA123"},  # Device runtime integration adds context
         )
         mock_voice.mark_debate_started.assert_called_once_with("CA123", "debate-123")
 
