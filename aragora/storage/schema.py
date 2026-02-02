@@ -57,8 +57,9 @@ def _safe_log(level: int, msg: str) -> None:
         return
     try:
         logger.log(level, msg)
-    except Exception:
+    except Exception as e:
         # Logging failed (likely during shutdown), ignore silently
+        # Cannot log this error since logging itself failed
         pass
 
 
@@ -832,9 +833,10 @@ class DatabaseManager:
         """
         try:
             self.close()
-        except Exception:
+        except Exception as e:
             # Silently ignore errors during shutdown - logging may be unavailable
             # and we just want to close connections without raising
+            _safe_log(logging.DEBUG, f"Error in DatabaseManager.__del__: {e}")
             pass
 
     def __repr__(self) -> str:
@@ -1166,8 +1168,9 @@ class ConnectionPool:
         try:
             if not self._closed:
                 self.close()
-        except Exception:
+        except Exception as e:
             # Silently ignore errors during shutdown
+            _safe_log(logging.DEBUG, f"Error in ConnectionPool.__del__: {e}")
             pass
 
     def __repr__(self) -> str:

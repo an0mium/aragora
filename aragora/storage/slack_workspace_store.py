@@ -230,7 +230,8 @@ class SlackWorkspaceStore:
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception:
+                except Exception as e:
+                    logger.debug("Error closing connection: %s", e)
                     pass
             self._connections.clear()
 
