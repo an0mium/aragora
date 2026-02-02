@@ -23,6 +23,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 from aragora.server.handlers.utils.responses import error_dict
+from aragora.server.handlers.utils.file_validation import (
+    validate_file_upload,
+    validate_filename_security,
+    MAX_FILE_SIZE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -814,6 +819,25 @@ async def smart_upload(
     # Generate unique ID
     content_hash = hashlib.sha256(file_content).hexdigest()[:16]
     upload_id = f"{uuid.uuid4().hex[:8]}_{content_hash}"
+
+    # Comprehensive file validation (size, MIME type, extension, path traversal)
+    file_validation = validate_file_upload(
+        filename=filename,
+        size=len(file_content),
+        content_type=mime_type,
+    )
+    if not file_validation.valid:
+        result = UploadResult(
+            id=upload_id,
+            filename=filename,
+            size=len(file_content),
+            category=FileCategory.UNKNOWN,
+            action=ProcessingAction.SKIP,
+            status="rejected",
+            error=file_validation.error_message or "File validation failed",
+        )
+        _upload_results[upload_id] = result
+        return result
 
     # Validate content type against magic bytes
     validation = validate_content_type(file_content, filename, mime_type)

@@ -817,8 +817,8 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 
 # Moderate settings - fallback for any new handler modules
-# Note: Most handlers promoted to strict in Phase 14 (Jan 2026)
-# This acts as a fallback for __init__.py files and new handlers
+# Note: Handler __init__.py files promoted to strict in Phase 4 (Feb 2026)
+# These should only contain re-exports and have minimal logic
 [[tool.mypy.overrides]]
 module = [
     "aragora.server.handlers.__init__",
@@ -833,6 +833,7 @@ module = [
     "aragora.server.handlers.verification.__init__",
     "aragora.server.handlers.utils.__init__",
 ]
+disallow_untyped_defs = true
 check_untyped_defs = true
 
 # Moderate-strict for complex modules (check untyped defs)
