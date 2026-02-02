@@ -78,14 +78,14 @@ def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerR
     if not current_password or not new_password:
         return error_response("Current and new password required", 400)
 
+    # Get user store
+    if not user_store:
+        return error_response("Authentication service unavailable", 503)
+
     # Validate new password
     valid, err = validate_password(new_password)
     if not valid:
         return error_response(err, 400)
-
-    # Get user store
-    if not user_store:
-        return error_response("Authentication service unavailable", 503)
 
     # Get user
     user = user_store.get_user_by_id(auth_ctx.user_id)
