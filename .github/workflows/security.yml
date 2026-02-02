@@ -126,13 +126,20 @@ jobs:
           fi
 
       - name: Report Python dependency status
-        if: steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure'
+        if: always() && (steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure')
         run: |
+          FAILED=0
           if [ "${{ steps.pip-audit.outcome }}" == "failure" ]; then
-            echo "::error::HIGH/CRITICAL vulnerabilities detected in Python dependencies. Build failed."
+            echo "::error::Vulnerabilities detected by pip-audit (OSV). Build failed."
+            FAILED=1
+          fi
+          if [ "${{ steps.safety.outcome }}" == "failure" ]; then
+            echo "::error::Vulnerabilities detected by Safety. Build failed."
+            FAILED=1
+          fi
+          if [ "$FAILED" -eq 1 ]; then
             exit 1
           fi
-          echo "::warning::Python dependency vulnerabilities detected. Review safety and pip-audit results."
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
