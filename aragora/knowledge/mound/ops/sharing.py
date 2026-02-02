@@ -50,7 +50,10 @@ class SharingProtocol(Protocol):
     ) -> Optional["KnowledgeItem"]: ...
 
     async def get_share_grants(
-        self, item_id: str | None = None, workspace_id: str | None = None
+        self,
+        item_id: str | None = None,
+        shared_by: str | None = None,
+        workspace_id: str | None = None,
     ) -> list[Any]: ...
 
 

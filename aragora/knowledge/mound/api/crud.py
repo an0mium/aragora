@@ -117,7 +117,13 @@ class CRUDProtocol(Protocol):
     async def _increment_update_count(self, node_id: str) -> None: ...
     async def _get_access_grants_impl(self, node_id: str) -> list[dict[str, Any]]: ...
     async def query(
-        self, query: str, filters: Any = None, limit: int = 100, offset: int = 0
+        self,
+        query: str,
+        filters: Any = None,
+        limit: int = 100,
+        offset: int = 0,
+        workspace_id: str | None = None,
+        sources: list[str] | None = None,
     ) -> Any: ...
 
     # Mixin methods that call each other - included for type checking

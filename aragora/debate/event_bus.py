@@ -113,8 +113,8 @@ class EventBus:
         self._async_handlers: dict[str, list[EventHandler]] = {}
         self._sync_handlers: dict[str, list[SyncEventHandler]] = {}
 
-        # User event queue (thread-safe for external input)
-        self._user_event_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+        # User event queue (thread-safe for external input, bounded to prevent OOM)
+        self._user_event_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=5000)
         self._user_event_lock = threading.Lock()
 
         # Metrics

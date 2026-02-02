@@ -198,7 +198,7 @@ class ConsistencyValidator:
         """Query nodes and convert to dictionaries for processing."""
         result = await self._mound.query(
             query="",
-            sources=("all",),
+            sources=["all"],
             limit=limit,
             workspace_id=workspace_id,
         )

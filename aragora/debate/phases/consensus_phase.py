@@ -307,7 +307,7 @@ class ConsensusPhase:
                 logger.debug("PRE_CONSENSUS hook failed: %s", e)
 
         consensus_mode = self.protocol.consensus if self.protocol else "none"
-        logger.info(f"consensus_phase_start mode={consensus_mode}")
+        logger.info("consensus_phase_start mode=%s", consensus_mode)
 
         # Get timeout from protocol or use default
         timeout = getattr(self.protocol, "consensus_timeout", self.DEFAULT_CONSENSUS_TIMEOUT)
@@ -324,16 +324,21 @@ class ConsensusPhase:
 
         except asyncio.TimeoutError:
             logger.warning(
-                f"consensus_timeout mode={consensus_mode} timeout={timeout}s, falling back to none"
+                "consensus_timeout mode=%s timeout=%ss, falling back to none",
+                consensus_mode,
+                timeout,
             )
             await self._handle_fallback_consensus(ctx, reason="timeout")
         except Exception as e:
             category, msg, _ = _build_error_action(e, "consensus")
             logger.error(
-                f"consensus_error mode={consensus_mode} category={category} error={msg}",
+                "consensus_error mode=%s category=%s error=%s",
+                consensus_mode,
+                category,
+                msg,
                 exc_info=True,
             )
-            await self._handle_fallback_consensus(ctx, reason=f"error: {type(e).__name__}")
+            await self._handle_fallback_consensus(ctx, reason="error: %s" % type(e).__name__)
         finally:
             # Record consensus detection latency for SLO tracking (p50/p95/p99)
             consensus_latency = time.perf_counter() - consensus_start
@@ -360,9 +365,9 @@ class ConsensusPhase:
                                 round_num=(self.protocol.rounds if self.protocol else 3) + 1,
                             )
                     except Exception as hook_err:
-                        logger.warning(f"on_message hook failed in fallback: {hook_err}")
+                        logger.warning("on_message hook failed in fallback: %s", hook_err)
         except Exception as e:
-            logger.error(f"synthesis_or_hooks_failed: {e}", exc_info=True)
+            logger.error("synthesis_or_hooks_failed: %s", e, exc_info=True)
         finally:
             logger.info("consensus_phase_emitting_guaranteed_events")
             self._emit_guaranteed_events(ctx)
@@ -391,7 +396,7 @@ class ConsensusPhase:
                 except RuntimeError:
                     logger.debug("No running event loop for POST_CONSENSUS hook")
             except Exception as e:
-                logger.debug(f"POST_CONSENSUS hook failed: {e}")
+                logger.debug("POST_CONSENSUS hook failed: %s", e)
 
         if self.hooks and "on_consensus" in self.hooks:
             try:
@@ -403,7 +408,7 @@ class ConsensusPhase:
                 )
                 logger.debug("consensus_event_emitted reached=%s", ctx.result.consensus_reached)
             except Exception as e:
-                logger.warning(f"Failed to emit consensus event: {e}")
+                logger.warning("Failed to emit consensus event: %s", e)
 
         if self.hooks and "on_debate_end" in self.hooks:
             try:
@@ -414,7 +419,7 @@ class ConsensusPhase:
                 )
                 logger.debug("debate_end_event_emitted duration=%.1fs", duration)
             except Exception as e:
-                logger.warning(f"Failed to emit debate_end event: {e}")
+                logger.warning("Failed to emit debate_end event: %s", e)
 
     async def _execute_consensus(self, ctx: "DebateContext", consensus_mode: str) -> None:
         """Execute the consensus logic for the given mode."""
@@ -441,7 +446,7 @@ class ConsensusPhase:
         elif normalized == "byzantine":
             await self._handle_byzantine_consensus(ctx)
         else:
-            logger.warning(f"Unknown consensus mode: {consensus_mode}, using none")
+            logger.warning("Unknown consensus mode: %s, using none", consensus_mode)
             await self._handle_none_consensus(ctx)
 
     async def _handle_fallback_consensus(self, ctx: "DebateContext", reason: str) -> None:
@@ -449,7 +454,7 @@ class ConsensusPhase:
         result = ctx.result
         proposals = ctx.proposals
 
-        logger.info(f"consensus_fallback reason={reason} proposals={len(proposals)}")
+        logger.info("consensus_fallback reason=%s proposals=%s", reason, len(proposals))
 
         winner_agent = None
         winner_confidence = 0.0
@@ -466,8 +471,9 @@ class ConsensusPhase:
                     vote_counts[winner_agent] / total_votes if total_votes > 0 else 0.0
                 )
                 logger.info(
-                    f"consensus_fallback_winner_from_votes winner={winner_agent} "
-                    f"confidence={winner_confidence:.2f}"
+                    "consensus_fallback_winner_from_votes winner=%s confidence=%s",
+                    winner_agent,
+                    winner_confidence,
                 )
 
         if not winner_agent and ctx.vote_tally:
@@ -477,8 +483,9 @@ class ConsensusPhase:
                 ctx.vote_tally[winner_agent] / tally_total if tally_total > 0 else 0.5
             )
             logger.info(
-                f"consensus_fallback_winner_from_tally winner={winner_agent} "
-                f"confidence={winner_confidence:.2f}"
+                "consensus_fallback_winner_from_tally winner=%s confidence=%s",
+                winner_agent,
+                winner_confidence,
             )
 
         if winner_agent:
@@ -505,7 +512,7 @@ class ConsensusPhase:
             result.confidence = 0.5
             result.consensus_strength = "fallback"
 
-        logger.info(f"consensus_fallback reason={reason} winner={winner_agent}")
+        logger.info("consensus_fallback reason=%s winner=%s", reason, winner_agent)
 
     async def _handle_none_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'none' consensus mode - combine all proposals."""
@@ -625,15 +632,16 @@ class ConsensusPhase:
                     vote_counts[canonical] += 1
                     user_vote_count += 1
                     logger.debug(
-                        f"user_vote_unanimous user={user_vote.get('user_id', 'anonymous')} "
-                        f"choice={choice}"
+                        "user_vote_unanimous user=%s choice=%s",
+                        user_vote.get("user_id", "anonymous"),
+                        choice,
                     )
 
         ctx.vote_tally = dict(vote_counts)
 
         total_voters = len(votes) + user_vote_count
         if voting_errors > 0:
-            logger.info(f"unanimous_vote_errors excluded={voting_errors} from total")
+            logger.info("unanimous_vote_errors excluded=%s from total", voting_errors)
 
         most_common = vote_counts.most_common(1) if vote_counts else []
         if most_common and total_voters > 0:
@@ -689,7 +697,7 @@ class ConsensusPhase:
                     proposals, ctx.context_messages, max_candidates=3
                 )
             except Exception as e:
-                logger.debug(f"Failed to get judge candidates: {e}")
+                logger.debug("Failed to get judge candidates: %s", e)
 
         if not judge_candidates:
             judge = await self._select_judge(proposals, ctx.context_messages)
@@ -705,7 +713,10 @@ class ConsensusPhase:
 
             tried_judges.append(judge.name)
             logger.info(
-                f"judge_attempt judge={judge.name} method={judge_method} attempt={len(tried_judges)}"
+                "judge_attempt judge=%s method=%s attempt=%s",
+                judge.name,
+                judge_method,
+                len(tried_judges),
             )
 
             if self._notify_spectator:
@@ -734,8 +745,10 @@ class ConsensusPhase:
                 result.winner = judge.name
 
                 logger.info(
-                    f"judge_synthesis judge={judge.name} length={len(synthesis)} "
-                    f"attempts={len(tried_judges)}"
+                    "judge_synthesis judge=%s length=%s attempts=%s",
+                    judge.name,
+                    len(synthesis),
+                    len(tried_judges),
                 )
 
                 if self._notify_spectator:
@@ -758,11 +771,11 @@ class ConsensusPhase:
                 return
 
             except asyncio.TimeoutError:
-                logger.warning(f"judge_timeout judge={judge.name} timeout={judge_timeout}s")
+                logger.warning("judge_timeout judge=%s timeout=%ss", judge.name, judge_timeout)
             except Exception as e:
-                logger.error(f"judge_error judge={judge.name} error={type(e).__name__}: {e}")
+                logger.error("judge_error judge=%s error=%s: %s", judge.name, type(e).__name__, e)
 
-        logger.warning(f"judge_all_failed tried={tried_judges} falling back to majority voting")
+        logger.warning("judge_all_failed tried=%s falling back to majority voting", tried_judges)
 
         try:
             await self._handle_majority_consensus(ctx)
@@ -770,7 +783,7 @@ class ConsensusPhase:
                 logger.info("judge_fallback_majority_success")
                 return
         except Exception as e:
-            logger.warning(f"judge_fallback_majority_failed error={e}")
+            logger.warning("judge_fallback_majority_failed error=%s", e)
 
         await self._handle_fallback_consensus(ctx, reason="judge_and_majority_failed")
 
@@ -793,7 +806,9 @@ class ConsensusPhase:
         deliberation_rounds = getattr(self.protocol, "judge_deliberation_rounds", 2)
 
         logger.info(
-            f"judge_deliberation_start proposals={len(proposals)} rounds={deliberation_rounds}"
+            "judge_deliberation_start proposals=%s rounds=%s",
+            len(proposals),
+            deliberation_rounds,
         )
 
         # Get judge candidates (use 3 judges for deliberation)
@@ -806,7 +821,7 @@ class ConsensusPhase:
                     proposals, ctx.context_messages, max_candidates=3
                 )
             except Exception as e:
-                logger.debug(f"Failed to get judge candidates: {e}")
+                logger.debug("Failed to get judge candidates: %s", e)
 
         if not judge_candidates or len(judge_candidates) < 2:
             # Not enough judges for deliberation, fall back to single judge
@@ -848,9 +863,10 @@ class ConsensusPhase:
             )
 
             logger.info(
-                f"judge_deliberation_result approved={deliberation_result.approved} "
-                f"confidence={deliberation_result.confidence:.2f} "
-                f"approval_ratio={deliberation_result.approval_ratio:.2f}"
+                "judge_deliberation_result approved=%s confidence=%s approval_ratio=%s",
+                deliberation_result.approved,
+                deliberation_result.confidence,
+                deliberation_result.approval_ratio,
             )
 
             # If judges approve, use the best proposal as synthesis
@@ -886,7 +902,7 @@ class ConsensusPhase:
                     await self._handle_fallback_consensus(ctx, reason="deliberation_rejected")
 
         except Exception as e:
-            logger.error(f"judge_deliberation_error: {e}")
+            logger.error("judge_deliberation_error: %s", e)
             await self._handle_fallback_consensus(ctx, reason="deliberation_error")
 
     async def _run_single_judge_synthesis(self, ctx: "DebateContext", judge) -> None:
@@ -926,7 +942,7 @@ class ConsensusPhase:
                 )
 
         except Exception as e:
-            logger.error(f"single_judge_synthesis_error judge={judge.name}: {e}")
+            logger.error("single_judge_synthesis_error judge=%s: %s", judge.name, e)
             await self._handle_fallback_consensus(ctx, reason="synthesis_error")
 
     async def _handle_byzantine_consensus(self, ctx: "DebateContext") -> None:
@@ -951,8 +967,9 @@ class ConsensusPhase:
 
         if len(agents) < 4:
             logger.warning(
-                f"Byzantine consensus requires at least 4 agents, got {len(agents)}. "
-                "Falling back to majority voting."
+                "Byzantine consensus requires at least 4 agents, got %s. "
+                "Falling back to majority voting.",
+                len(agents),
             )
             await self._handle_majority_consensus(ctx)
             return
@@ -982,8 +999,10 @@ class ConsensusPhase:
         task = ctx.env.task if ctx.env else ""
 
         logger.info(
-            f"byzantine_consensus_start agents={len(agents)} "
-            f"quorum={protocol.quorum_size} f={protocol.f}"
+            "byzantine_consensus_start agents=%s quorum=%s f=%s",
+            len(agents),
+            protocol.quorum_size,
+            protocol.f,
         )
 
         if self._notify_spectator:
@@ -1016,9 +1035,11 @@ class ConsensusPhase:
                 }
 
                 logger.info(
-                    f"byzantine_consensus_success view={byz_result.view} "
-                    f"commits={byz_result.commit_count}/{byz_result.total_agents} "
-                    f"confidence={byz_result.confidence:.2f}"
+                    "byzantine_consensus_success view=%s commits=%s/%s confidence=%s",
+                    byz_result.view,
+                    byz_result.commit_count,
+                    byz_result.total_agents,
+                    byz_result.confidence,
                 )
 
                 if self._notify_spectator:
@@ -1028,12 +1049,12 @@ class ConsensusPhase:
                         metric=byz_result.confidence,
                     )
             else:
-                logger.warning(f"byzantine_consensus_failed reason={byz_result.failure_reason}")
+                logger.warning("byzantine_consensus_failed reason=%s", byz_result.failure_reason)
                 # Fall back to majority voting
                 await self._handle_majority_consensus(ctx)
 
         except Exception as e:
-            logger.error(f"byzantine_consensus_error: {e}", exc_info=True)
+            logger.error("byzantine_consensus_error: %s", e, exc_info=True)
             # Fall back to majority voting
             await self._handle_majority_consensus(ctx)
 
@@ -1181,7 +1202,7 @@ class ConsensusPhase:
                 else:
                     adjusted_votes.append(vote)
             except Exception as e:
-                logger.debug(f"Calibration adjustment failed for {vote.agent}: {e}")
+                logger.debug("Calibration adjustment failed for %s: %s", vote.agent, e)
                 adjusted_votes.append(vote)
 
         return adjusted_votes
@@ -1233,8 +1254,11 @@ class ConsensusPhase:
                 total_weighted += final_weight
 
                 logger.debug(
-                    f"user_vote user={user_vote.get('user_id', 'anonymous')} "
-                    f"choice={choice} intensity={intensity} weight={final_weight:.2f}"
+                    "user_vote user=%s choice=%s intensity=%s weight=%s",
+                    user_vote.get("user_id", "anonymous"),
+                    choice,
+                    intensity,
+                    final_weight,
                 )
 
         return vote_counts, total_weighted
@@ -1276,7 +1300,7 @@ class ConsensusPhase:
                 if base_name == choice_lower or choice_lower.startswith(base_name):
                     return agent_name
 
-        logger.debug(f"vote_choice_no_match choice={choice} agents={[a.name for a in agents]}")
+        logger.debug("vote_choice_no_match choice=%s agents=%s", choice, [a.name for a in agents])
         return choice
 
     async def _verify_consensus_formally(self, ctx: "DebateContext") -> None:
@@ -1295,7 +1319,7 @@ class ConsensusPhase:
         timeout = getattr(self.protocol, "formal_verification_timeout", 30.0)
         languages = getattr(self.protocol, "formal_verification_languages", ["z3_smt"])
 
-        logger.info(f"formal_verification_start languages={languages} timeout={timeout}")
+        logger.info("formal_verification_start languages=%s timeout=%s", languages, timeout)
 
         try:
             from aragora.verification.formal import get_formal_verification_manager
@@ -1325,9 +1349,10 @@ class ConsensusPhase:
             result.formal_verification = verification_result.to_dict()
 
             logger.info(
-                f"formal_verification_complete status={verification_result.status.value} "
-                f"language={verification_result.language.value if verification_result.language else 'none'} "
-                f"verified={verification_result.is_verified}"
+                "formal_verification_complete status=%s language=%s verified=%s",
+                verification_result.status.value,
+                verification_result.language.value if verification_result.language else "none",
+                verification_result.is_verified,
             )
 
             if ctx.event_emitter:
@@ -1356,24 +1381,24 @@ class ConsensusPhase:
                         )
                     )
                 except Exception as e:
-                    logger.debug(f"formal_verification_event_error: {e}")
+                    logger.debug("formal_verification_event_error: %s", e)
 
         except asyncio.TimeoutError:
-            logger.warning(f"formal_verification_timeout timeout={timeout}s")
+            logger.warning("formal_verification_timeout timeout=%ss", timeout)
             result.formal_verification = {
                 "status": "timeout",
                 "timeout_seconds": timeout,
                 "is_verified": False,
             }
         except ImportError as e:
-            logger.debug(f"formal_verification_import_error: {e}")
+            logger.debug("formal_verification_import_error: %s", e)
             result.formal_verification = {
                 "status": "unavailable",
                 "reason": "Formal verification module not available",
                 "is_verified": False,
             }
         except Exception as e:
-            logger.warning(f"formal_verification_error: {e}")
+            logger.warning("formal_verification_error: %s", e)
             result.formal_verification = {
                 "status": "error",
                 "error": str(e),

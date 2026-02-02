@@ -122,9 +122,15 @@ class ControlPlaneCoordinator:
     def __init__(
         self,
         config: ControlPlaneConfig | None = None,
+        # New modular API
         state_manager: StateManager | None = None,
         policy_enforcer: PolicyEnforcer | None = None,
         scheduler_bridge: SchedulerBridge | None = None,
+        # Backward compatibility - old API (deprecated but still supported)
+        registry: Any | None = None,
+        scheduler: Any | None = None,
+        health_monitor: Any | None = None,
+        # Common parameters
         km_adapter: Optional["ControlPlaneAdapter"] = None,
         knowledge_mound: Any | None = None,
         arena_bridge: Optional["ArenaControlPlaneBridge"] = None,
@@ -140,6 +146,9 @@ class ControlPlaneCoordinator:
             state_manager: Optional pre-configured StateManager
             policy_enforcer: Optional pre-configured PolicyEnforcer
             scheduler_bridge: Optional pre-configured SchedulerBridge
+            registry: (Deprecated) Optional pre-configured AgentRegistry
+            scheduler: (Deprecated) Optional pre-configured TaskScheduler
+            health_monitor: (Deprecated) Optional pre-configured HealthMonitor
             km_adapter: Optional pre-configured ControlPlaneAdapter
             knowledge_mound: Optional KnowledgeMound for auto-creating adapter
             arena_bridge: Optional ArenaControlPlaneBridge for debate execution
@@ -159,9 +168,11 @@ class ControlPlaneCoordinator:
             policy_sync_workspace=self._config.policy_sync_workspace,
         )
 
-        # Initialize state manager
+        # Initialize state manager (with backward compatibility for registry/health_monitor)
         self._state_manager = state_manager or StateManager(
             config=self._config,
+            registry=registry,
+            health_monitor=health_monitor,
             km_adapter=km_adapter,
             knowledge_mound=knowledge_mound,
             stream_server=stream_server,
@@ -183,11 +194,12 @@ class ControlPlaneCoordinator:
             except ImportError:
                 pass
 
-        # Initialize scheduler bridge
+        # Initialize scheduler bridge (with backward compatibility for scheduler param)
         self._scheduler_bridge = scheduler_bridge or SchedulerBridge(
             config=self._config,
             state_manager=self._state_manager,
             policy_enforcer=self._policy_enforcer,
+            scheduler=scheduler,  # Backward compatibility
         )
 
         # Register watchdog handlers if available
@@ -614,6 +626,20 @@ class ControlPlaneCoordinator:
         self._policy_enforcer.set_policy_manager(manager)
         # Also update the scheduler's policy manager
         self._scheduler_bridge.update_policy_manager(manager)
+
+    def _sync_policies_from_store(self) -> int:
+        """Backward compatibility: sync policies from compliance store.
+
+        Delegates to the policy enforcer.
+        """
+        return self._policy_enforcer.sync_policies_from_store()
+
+    def _should_sync_policies_from_store(self) -> bool:
+        """Backward compatibility: check if policy sync should occur.
+
+        Delegates to the policy enforcer.
+        """
+        return self._policy_enforcer._should_sync_policies_from_store()
 
     # =========================================================================
     # Knowledge Mound Integration
