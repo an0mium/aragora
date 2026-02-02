@@ -41,7 +41,7 @@ class TestComplianceAPIEndpoints:
     @pytest.fixture
     def compliance_handler(self):
         """Create ComplianceHandler instance."""
-        from aragora.server.handlers.compliance_handler import ComplianceHandler
+        from aragora.server.handlers.compliance.handler import ComplianceHandler
 
         server_context = {"workspace_id": "test"}
         return ComplianceHandler(server_context)
@@ -196,13 +196,13 @@ class TestComplianceHandlerIntegration:
 
     def test_compliance_handler_import(self):
         """Test that ComplianceHandler can be imported."""
-        from aragora.server.handlers.compliance_handler import ComplianceHandler
+        from aragora.server.handlers.compliance.handler import ComplianceHandler
 
         assert ComplianceHandler is not None
 
     def test_compliance_handler_routes(self):
         """Test that ComplianceHandler has correct routes."""
-        from aragora.server.handlers.compliance_handler import ComplianceHandler
+        from aragora.server.handlers.compliance.handler import ComplianceHandler
 
         handler = ComplianceHandler({})
         assert handler.can_handle("/api/v2/compliance/status", "GET")

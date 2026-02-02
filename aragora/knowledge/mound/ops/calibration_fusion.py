@@ -99,8 +99,8 @@ def _cached_krippendorff_alpha(buckets: tuple[int, ...]) -> float:
         # Fallback pure Python implementation with O(n) optimization
         # Using the identity: sum_{i<j}(x_i - x_j)^2 = n*sum(x^2) - sum(x)^2
         n_pairs = n * (n - 1) // 2
-        sum_sq: float = sum(b * b for b in buckets)  # type: ignore[assignment]
-        sum_val: float = sum(buckets)  # type: ignore[arg-type]
+        sum_sq: float = sum(b * b for b in buckets)  # type: ignore[assignment, misc, no-redef]
+        sum_val: float = sum(buckets)  # type: ignore[assignment, arg-type, no-redef]
         pairwise_sum_sq = n * sum_sq - sum_val * sum_val
         observed_disagreement = pairwise_sum_sq / n_pairs if n_pairs > 0 else 0.0
 

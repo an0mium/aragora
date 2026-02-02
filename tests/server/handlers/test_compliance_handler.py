@@ -25,7 +25,7 @@ from enum import Enum
 
 import pytest
 
-from aragora.server.handlers.compliance_handler import (
+from aragora.server.handlers.compliance.handler import (
     ComplianceHandler,
     create_compliance_handler,
 )
@@ -1535,33 +1535,33 @@ class TestUserIdExtraction:
     """Test user ID extraction from headers."""
 
     def test_extract_user_id_none_headers(self):
-        from aragora.server.handlers.compliance_handler import _extract_user_id_from_headers
+        from aragora.server.handlers.compliance.legal_hold import _extract_user_id_from_headers
 
         assert _extract_user_id_from_headers(None) == "compliance_api"
 
     def test_extract_user_id_empty_headers(self):
-        from aragora.server.handlers.compliance_handler import _extract_user_id_from_headers
+        from aragora.server.handlers.compliance.legal_hold import _extract_user_id_from_headers
 
         assert _extract_user_id_from_headers({}) == "compliance_api"
 
     def test_extract_user_id_no_auth_header(self):
-        from aragora.server.handlers.compliance_handler import _extract_user_id_from_headers
+        from aragora.server.handlers.compliance.legal_hold import _extract_user_id_from_headers
 
         assert _extract_user_id_from_headers({"Content-Type": "json"}) == "compliance_api"
 
     def test_extract_user_id_non_bearer(self):
-        from aragora.server.handlers.compliance_handler import _extract_user_id_from_headers
+        from aragora.server.handlers.compliance.legal_hold import _extract_user_id_from_headers
 
         assert _extract_user_id_from_headers({"Authorization": "Basic xyz"}) == "compliance_api"
 
     def test_extract_user_id_api_key(self):
-        from aragora.server.handlers.compliance_handler import _extract_user_id_from_headers
+        from aragora.server.handlers.compliance.legal_hold import _extract_user_id_from_headers
 
         result = _extract_user_id_from_headers({"Authorization": "Bearer ara_1234567890abcdef"})
         assert result.startswith("api_key:")
 
     def test_extract_user_id_lowercase_auth(self):
-        from aragora.server.handlers.compliance_handler import _extract_user_id_from_headers
+        from aragora.server.handlers.compliance.legal_hold import _extract_user_id_from_headers
 
         result = _extract_user_id_from_headers({"authorization": "Bearer ara_testkey123"})
         assert result.startswith("api_key:")

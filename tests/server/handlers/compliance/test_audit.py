@@ -18,7 +18,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aragora.server.handlers.compliance_handler import ComplianceHandler
+from aragora.server.handlers.compliance.handler import ComplianceHandler
 from aragora.server.handlers.base import HandlerResult
 
 

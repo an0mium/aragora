@@ -26,7 +26,7 @@ import pytest_asyncio
 from aragora.audit.log import AuditEvent, AuditLog, AuditCategory
 from aragora.storage.audit_store import get_audit_store
 from aragora.storage.receipt_store import get_receipt_store
-from aragora.server.handlers.compliance_handler import ComplianceHandler
+from aragora.server.handlers.compliance.handler import ComplianceHandler
 from aragora.server.handlers.base import ServerContext
 
 pytestmark = [pytest.mark.e2e, pytest.mark.compliance]

@@ -4,6 +4,9 @@ Compliance domain handlers for Aragora.
 This module consolidates compliance-related handlers:
 - Audit: Audit trails, exports, logging, security auditing
 - Governance: Policy management, compliance checks, GDPR
+- SOC 2: SOC 2 Type II compliance reporting
+- GDPR: Data export, right-to-be-forgotten, deletion management
+- Legal Hold: Legal hold management
 
 Re-exports for backward compatibility are provided so existing imports continue to work.
 """
@@ -32,10 +35,16 @@ from .audit import (
 from .governance import (
     # policy.py exports
     PolicyHandler,
-    # compliance_handler.py exports
+    # compliance/handler.py exports
     ComplianceHandler,
     create_compliance_handler,
 )
+
+# Mixin classes for compliance functionality
+from .soc2 import SOC2Mixin
+from .gdpr import GDPRMixin
+from .legal_hold import LegalHoldMixin
+from .audit_verify import AuditVerifyMixin
 
 __all__ = [
     # Audit handlers
@@ -54,4 +63,9 @@ __all__ = [
     "PolicyHandler",
     "ComplianceHandler",
     "create_compliance_handler",
+    # Mixin classes
+    "SOC2Mixin",
+    "GDPRMixin",
+    "LegalHoldMixin",
+    "AuditVerifyMixin",
 ]

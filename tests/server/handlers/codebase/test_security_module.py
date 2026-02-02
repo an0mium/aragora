@@ -776,15 +776,21 @@ class TestCVEQueries:
             assert data["vulnerability"]["cve_id"] == "CVE-2023-1234"
 
     @pytest.mark.asyncio
-    async def test_get_cve_details_not_found(self, mock_cve_client):
+    async def test_get_cve_details_not_found(self):
         """Test 404 when CVE not found."""
-        from aragora.server.handlers.codebase.security import handle_get_cve_details
+        from aragora.server.handlers.codebase.security.vulnerability import (
+            handle_get_cve_details,
+        )
 
-        mock_cve_client.get_cve = AsyncMock(return_value=None)
+        # Create a fresh mock with get_cve returning None
+        mock_client = MagicMock()
+        mock_client.get_cve = AsyncMock(return_value=None)
 
+        # The handler imports from aragora.server.handlers.codebase.security (security_module)
+        # and uses security_module.CVEClient(), so we need to patch it there
         with patch(
-            "aragora.server.handlers.codebase.security.vulnerability.CVEClient",
-            return_value=mock_cve_client,
+            "aragora.server.handlers.codebase.security.CVEClient",
+            return_value=mock_client,
         ):
             result = await handle_get_cve_details("CVE-9999-9999")
 

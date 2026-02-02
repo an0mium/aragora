@@ -631,10 +631,19 @@ async def handle_get_discounts(
 
     GET /api/v1/accounting/ap/discounts
     """
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ap = get_ap_automation()
 
-        opportunities = await ap.get_discount_opportunities()
+        async with _ap_circuit_breaker.protected_call():
+            opportunities = await ap.get_discount_opportunities()
 
         return success_response(
             {
@@ -643,6 +652,8 @@ async def handle_get_discounts(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error getting discount opportunities")
         return error_response(f"Failed to get discounts: {e}", status=500)

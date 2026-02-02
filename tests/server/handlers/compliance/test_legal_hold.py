@@ -16,10 +16,8 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aragora.server.handlers.compliance_handler import (
-    ComplianceHandler,
-    _extract_user_id_from_headers,
-)
+from aragora.server.handlers.compliance.handler import ComplianceHandler
+from aragora.server.handlers.compliance.legal_hold import _extract_user_id_from_headers
 from aragora.server.handlers.base import HandlerResult
 
 

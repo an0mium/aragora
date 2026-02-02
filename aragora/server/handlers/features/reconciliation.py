@@ -873,9 +873,7 @@ class ReconciliationHandler:
         # Validate format type
         valid_formats = {"json", "csv"}
         if format_type not in valid_formats:
-            return error_response(
-                f"Invalid format. Must be one of: {', '.join(valid_formats)}", 400
-            )
+            return error_response(f"Unsupported format: {format_type}", 400)
 
         service = get_reconciliation_service(tenant_id)
         if not service:

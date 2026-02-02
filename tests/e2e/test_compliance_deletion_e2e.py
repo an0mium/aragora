@@ -22,7 +22,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 
-from aragora.server.handlers.compliance_handler import ComplianceHandler
+from aragora.server.handlers.compliance.handler import ComplianceHandler
 from aragora.server.handlers.base import ServerContext
 
 pytestmark = [pytest.mark.e2e, pytest.mark.compliance]

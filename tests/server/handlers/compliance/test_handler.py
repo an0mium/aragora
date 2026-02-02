@@ -15,7 +15,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aragora.server.handlers.compliance_handler import (
+from aragora.server.handlers.compliance.handler import (
     ComplianceHandler,
     create_compliance_handler,
 )

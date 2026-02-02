@@ -13,7 +13,7 @@ from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
 
-from .soc2 import evaluate_controls
+from .soc2 import evaluate_controls  # type: ignore[attr-defined]
 
 
 @track_handler("compliance/status", method="GET")
