@@ -173,7 +173,7 @@ class DecisionsAPI:
         Returns:
             Decision receipt with signature and audit data
         """
-        return self._client._request("GET", f"/api/v1/receipts/{decision_id}")
+        return self._client._request("GET", f"/api/v2/receipts/{decision_id}")
 
     def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """
@@ -309,7 +309,7 @@ class AsyncDecisionsAPI:
 
     async def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """Get the receipt for a completed decision."""
-        return await self._client._request("GET", f"/api/v1/receipts/{decision_id}")
+        return await self._client._request("GET", f"/api/v2/receipts/{decision_id}")
 
     async def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """Get the explanation for a completed decision."""

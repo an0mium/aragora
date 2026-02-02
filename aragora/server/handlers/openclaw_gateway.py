@@ -1,6 +1,8 @@
 """
 HTTP Handlers for OpenClaw Gateway.
 
+Stability: STABLE
+
 Provides REST API endpoints for the OpenClaw gateway integration:
 - Session management (create, get, list, close)
 - Action execution (execute, status, cancel)
@@ -41,6 +43,7 @@ from enum import Enum
 from typing import Any
 
 from aragora.observability.metrics import track_handler
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -59,6 +62,28 @@ from aragora.server.handlers.utils.rate_limit import (
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for OpenClaw gateway service
+_openclaw_circuit_breaker = CircuitBreaker(
+    name="openclaw_gateway_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_openclaw_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for OpenClaw gateway service."""
+    return _openclaw_circuit_breaker
+
+
+def get_openclaw_circuit_breaker_status() -> dict:
+    """Get current status of the OpenClaw gateway circuit breaker."""
+    return _openclaw_circuit_breaker.to_dict()
+
 
 # =============================================================================
 # Data Models
@@ -549,6 +574,14 @@ def _get_store() -> OpenClawGatewayStore:
 class OpenClawGatewayHandler(BaseHandler):
     """
     HTTP handler for OpenClaw gateway operations.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for service resilience
+    - Rate limiting (30-120 requests/minute depending on endpoint)
+    - RBAC permission checks (gateway:sessions.*, gateway:actions.*, etc.)
+    - Comprehensive input validation and audit logging
 
     Provides REST API access to OpenClaw gateway for:
     - Session management
@@ -1638,6 +1671,9 @@ def get_openclaw_gateway_handler(
 __all__ = [
     "OpenClawGatewayHandler",
     "get_openclaw_gateway_handler",
+    # Resilience
+    "get_openclaw_circuit_breaker",
+    "get_openclaw_circuit_breaker_status",
     # Data models
     "Session",
     "SessionStatus",

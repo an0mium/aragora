@@ -1,6 +1,9 @@
 """
 HTTP API Handlers for Code Review.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Provides REST APIs for multi-agent code review:
 - Code review requests
 - Diff review
@@ -22,12 +25,14 @@ import threading
 from datetime import datetime
 from typing import Any
 
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -35,6 +40,36 @@ logger = logging.getLogger(__name__)
 # RBAC permissions for code review
 CODE_REVIEW_READ_PERMISSION = "code_review:read"
 CODE_REVIEW_WRITE_PERMISSION = "code_review:write"
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for code review operations
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_code_review_circuit_breaker = CircuitBreaker(
+    name="code_review_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_code_review_circuit_breaker_lock = threading.Lock()
+
+
+def get_code_review_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for code review operations."""
+    return _code_review_circuit_breaker
+
+
+def reset_code_review_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _code_review_circuit_breaker_lock:
+        _code_review_circuit_breaker._single_failures = 0
+        _code_review_circuit_breaker._single_open_at = 0.0
+        _code_review_circuit_breaker._single_successes = 0
+        _code_review_circuit_breaker._single_half_open_calls = 0
+
 
 # Thread-safe service instance
 _code_reviewer: Any | None = None
@@ -76,6 +111,7 @@ def store_review_result(result: Any) -> str:
 # =============================================================================
 
 
+@rate_limit(requests_per_minute=20, limiter_name="code_review_review")
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_code(
     data: dict[str, Any],
@@ -93,6 +129,12 @@ async def handle_review_code(
         context: str (optional, additional context)
     }
     """
+    # Check circuit breaker
+    cb = get_code_review_circuit_breaker()
+    if not cb.can_proceed():
+        logger.warning("Code review circuit breaker is open")
+        return error_response("Service temporarily unavailable due to high error rate", status=503)
+
     try:
         reviewer = get_code_reviewer()
 
@@ -115,6 +157,9 @@ async def handle_review_code(
 
         result_id = store_review_result(result)
 
+        # Record success for circuit breaker
+        cb.record_success()
+
         return success_response(
             {
                 "result": result.to_dict(),
@@ -124,10 +169,13 @@ async def handle_review_code(
         )
 
     except Exception as e:
+        # Record failure for circuit breaker
+        cb.record_failure()
         logger.exception("Error reviewing code")
         return error_response(f"Failed to review code: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=20, limiter_name="code_review_diff")
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_diff(
     data: dict[str, Any],
@@ -145,6 +193,12 @@ async def handle_review_diff(
         context: str (optional)
     }
     """
+    # Check circuit breaker
+    cb = get_code_review_circuit_breaker()
+    if not cb.can_proceed():
+        logger.warning("Code review circuit breaker is open")
+        return error_response("Service temporarily unavailable due to high error rate", status=503)
+
     try:
         reviewer = get_code_reviewer()
 
@@ -162,6 +216,9 @@ async def handle_review_diff(
 
         result_id = store_review_result(result)
 
+        # Record success for circuit breaker
+        cb.record_success()
+
         return success_response(
             {
                 "result": result.to_dict(),
@@ -171,10 +228,13 @@ async def handle_review_diff(
         )
 
     except Exception as e:
+        # Record failure for circuit breaker
+        cb.record_failure()
         logger.exception("Error reviewing diff")
         return error_response(f"Failed to review diff: {e}", status=500)
 
 
+@rate_limit(requests_per_minute=10, limiter_name="code_review_pr")
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_pr(
     data: dict[str, Any],
@@ -190,6 +250,12 @@ async def handle_review_pr(
         post_comments: bool (optional, default false - requires GitHub token)
     }
     """
+    # Check circuit breaker
+    cb = get_code_review_circuit_breaker()
+    if not cb.can_proceed():
+        logger.warning("Code review circuit breaker is open")
+        return error_response("Service temporarily unavailable due to high error rate", status=503)
+
     try:
         reviewer = get_code_reviewer()
 
@@ -212,6 +278,9 @@ async def handle_review_pr(
 
         result_id = store_review_result(result)
 
+        # Record success for circuit breaker
+        cb.record_success()
+
         return success_response(
             {
                 "result": result.to_dict(),
@@ -221,6 +290,8 @@ async def handle_review_pr(
         )
 
     except Exception as e:
+        # Record failure for circuit breaker
+        cb.record_failure()
         logger.exception(f"Error reviewing PR: {data.get('pr_url')}")
         return error_response(f"Failed to review PR: {e}", status=500)
 

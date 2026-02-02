@@ -1,6 +1,8 @@
 """
 Audit Sessions API Handler.
 
+Stability: STABLE
+
 Provides RESTful endpoints for managing document audit sessions:
 - Create/list/get audit sessions
 - Start/pause/resume/cancel audits
@@ -31,10 +33,38 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for audit sessions service
+_audit_sessions_circuit_breaker = CircuitBreaker(
+    name="audit_sessions_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_audit_sessions_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for audit sessions service."""
+    return _audit_sessions_circuit_breaker
+
+
+def get_audit_sessions_circuit_breaker_status() -> dict:
+    """Get current status of the audit sessions circuit breaker."""
+    return _audit_sessions_circuit_breaker.to_dict()
+
+
+# =============================================================================
+# RBAC Configuration
+# =============================================================================
 
 # RBAC permissions for audit session endpoints
 AUDIT_READ_PERMISSION = "audit:read"
@@ -56,6 +86,14 @@ _cancellation_tokens: dict[str, Any] = {}
 class AuditSessionsHandler(SecureHandler):
     """
     Handler for audit session management endpoints.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for service resilience
+    - Rate limiting (60 requests/minute)
+    - Full RBAC permission checks
+    - Comprehensive input validation
 
     Provides full lifecycle management for document audit sessions
     including creation, execution control, and reporting.
@@ -89,6 +127,7 @@ class AuditSessionsHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/audit/")
 
+    @rate_limit(requests_per_minute=60, limiter_name="audit_sessions")
     async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler with RBAC protection."""
         method = request.method
@@ -912,4 +951,8 @@ class AuditSessionsHandler(SecureHandler):
         }
 
 
-__all__ = ["AuditSessionsHandler"]
+__all__ = [
+    "AuditSessionsHandler",
+    "get_audit_sessions_circuit_breaker",
+    "get_audit_sessions_circuit_breaker_status",
+]

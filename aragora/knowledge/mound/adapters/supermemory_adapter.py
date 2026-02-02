@@ -17,6 +17,7 @@ The adapter provides:
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 import time
 from dataclasses import dataclass, field
@@ -137,6 +138,17 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         """Lazily initialize the client if not provided."""
         if self._client is not None:
             return self._client
+
+        # Avoid initializing a client when the SDK isn't available.
+        # This keeps explicit client=None behavior consistent in tests and
+        # prevents circuit breaker trips on missing optional deps.
+        try:
+            if importlib.util.find_spec("supermemory") is None:
+                logger.debug("supermemory package not installed; client unavailable")
+                return None
+        except Exception:
+            logger.debug("Unable to probe supermemory package; client unavailable")
+            return None
 
         try:
             from aragora.connectors.supermemory import SupermemoryClient, get_client

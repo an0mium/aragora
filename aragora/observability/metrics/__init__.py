@@ -1067,8 +1067,44 @@ __all__ = [
     "record_fabric_budget_alert",
     "record_fabric_stats",
     "track_fabric_task",
+    # Backward compatibility
+    "_init_metrics",
+    "_init_noop_metrics",
 ]
 
 
 # Register module alias for compatibility with metrics.base
 sys.modules.setdefault("_aragora_metrics_impl", sys.modules[__name__])
+
+
+# =============================================================================
+# Backward compatibility shims
+# =============================================================================
+
+
+def _init_metrics() -> bool:  # type: ignore[no-redef]
+    """Initialize metrics (backward compatibility shim).
+
+    This function is provided for backward compatibility with tests
+    that expect the old metrics API. Modern code should use
+    init_core_metrics() instead.
+
+    Returns:
+        True if initialization succeeded, False otherwise.
+    """
+    try:
+        init_core_metrics()
+        return True
+    except Exception:
+        return False
+
+
+def _init_noop_metrics() -> bool:  # type: ignore[no-redef]
+    """Initialize no-op metrics (backward compatibility shim).
+
+    No-op metrics are always available (they don't require prometheus_client).
+
+    Returns:
+        True since no-op metrics are always available.
+    """
+    return True

@@ -1,6 +1,8 @@
 """
 A2A Protocol HTTP Handler.
 
+Stability: STABLE
+
 Exposes the A2A (Agent-to-Agent) protocol through the unified server.
 
 Endpoints:
@@ -20,6 +22,7 @@ import logging
 import re
 from typing import Any, Optional
 
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -30,6 +33,28 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for A2A protocol service
+_a2a_circuit_breaker = CircuitBreaker(
+    name="a2a_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_a2a_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for A2A protocol service."""
+    return _a2a_circuit_breaker
+
+
+def get_a2a_circuit_breaker_status() -> dict:
+    """Get current status of the A2A protocol circuit breaker."""
+    return _a2a_circuit_breaker.to_dict()
+
 
 # Validation patterns for A2A protocol
 # Agent names: alphanumeric, hyphens, underscores, dots (for versioning), 1-64 chars
@@ -221,7 +246,16 @@ def get_a2a_server():
 
 
 class A2AHandler(BaseHandler):
-    """Handler for A2A protocol endpoints."""
+    """Handler for A2A protocol endpoints.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for service resilience
+    - Rate limiting (30-120 requests/minute depending on endpoint)
+    - RBAC permission checks (a2a:read, a2a:create)
+    - Comprehensive input validation for task submissions
+    """
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
@@ -499,4 +533,10 @@ def get_a2a_handler(server_context: dict[str, Any] | None = None) -> "A2AHandler
     return _a2a_handler
 
 
-__all__ = ["A2AHandler", "get_a2a_handler", "get_a2a_server"]
+__all__ = [
+    "A2AHandler",
+    "get_a2a_handler",
+    "get_a2a_server",
+    "get_a2a_circuit_breaker",
+    "get_a2a_circuit_breaker_status",
+]

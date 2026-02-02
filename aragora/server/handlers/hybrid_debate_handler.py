@@ -2,6 +2,9 @@
 Hybrid Debate Handler - HTTP endpoints for hybrid debates combining
 external and internal agents.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Provides API endpoints for:
 - Starting hybrid debates (external + internal verification agents)
 - Retrieving hybrid debate results
@@ -17,11 +20,13 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from aragora.rbac.decorators import require_permission
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -35,6 +40,35 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 logger = logging.getLogger(__name__)
 
 HYBRID_AVAILABLE = importlib.util.find_spec("aragora.debate.hybrid_protocol") is not None
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for hybrid debate operations
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_hybrid_debate_circuit_breaker = CircuitBreaker(
+    name="hybrid_debate_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_hybrid_debate_circuit_breaker_lock = threading.Lock()
+
+
+def get_hybrid_debate_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for hybrid debate operations."""
+    return _hybrid_debate_circuit_breaker
+
+
+def reset_hybrid_debate_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _hybrid_debate_circuit_breaker_lock:
+        _hybrid_debate_circuit_breaker._single_failures = 0
+        _hybrid_debate_circuit_breaker._single_open_at = 0.0
+        _hybrid_debate_circuit_breaker._single_successes = 0
+        _hybrid_debate_circuit_breaker._single_half_open_calls = 0
 
 
 class HybridDebateHandler(BaseHandler):

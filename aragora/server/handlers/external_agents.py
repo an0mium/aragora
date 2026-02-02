@@ -1,5 +1,8 @@
 """External Agent Gateway endpoint handlers.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Endpoints:
 - POST /api/external-agents/tasks          - Submit task to external agent
 - GET  /api/external-agents/tasks/{id}     - Get task status/result
@@ -13,11 +16,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 import time
 from typing import Any
 
 from aragora.agents.external.registry import ExternalAgentRegistry
 from aragora.rbac.decorators import require_permission
+from aragora.resilience import CircuitBreaker
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
@@ -48,6 +53,35 @@ AGENTS_WRITE_PERMISSION = "agents:write"
 # Rate limiters
 _submit_limiter = RateLimiter(requests_per_minute=10)
 _read_limiter = RateLimiter(requests_per_minute=60)
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for external agent operations
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_external_agents_circuit_breaker = CircuitBreaker(
+    name="external_agents_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_external_agents_circuit_breaker_lock = threading.Lock()
+
+
+def get_external_agents_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for external agent operations."""
+    return _external_agents_circuit_breaker
+
+
+def reset_external_agents_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _external_agents_circuit_breaker_lock:
+        _external_agents_circuit_breaker._single_failures = 0
+        _external_agents_circuit_breaker._single_open_at = 0.0
+        _external_agents_circuit_breaker._single_successes = 0
+        _external_agents_circuit_breaker._single_half_open_calls = 0
 
 
 def _run_coro(coro: Any) -> Any:
@@ -297,6 +331,12 @@ class ExternalAgentsHandler(BaseHandler):
     @require_permission(AGENTS_WRITE_PERMISSION)
     def _submit_task(self, body: dict[str, Any], user: Any) -> HandlerResult:
         """Submit a task to an external agent."""
+        # Check circuit breaker
+        cb = get_external_agents_circuit_breaker()
+        if not cb.can_proceed():
+            logger.warning("External agents circuit breaker is open")
+            return error_response("Service temporarily unavailable due to high error rate", 503)
+
         try:
             from aragora.agents.external.models import TaskRequest, ToolPermission
             from aragora.agents.external.proxy import (
@@ -381,6 +421,9 @@ class ExternalAgentsHandler(BaseHandler):
             # Record metrics
             _record_metrics("submit", adapter_name, task_type, duration)
 
+            # Record success for circuit breaker
+            cb.record_success()
+
             return json_response(
                 {
                     "task_id": task_id,
@@ -391,6 +434,8 @@ class ExternalAgentsHandler(BaseHandler):
             )
 
         except Exception as e:
+            # Record failure for circuit breaker
+            cb.record_failure()
             logger.error(f"Task submission failed: {e}")
             return error_response(f"Task submission failed: {str(e)}", 500)
 

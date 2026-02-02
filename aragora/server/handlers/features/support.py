@@ -1,6 +1,9 @@
 """
 Support Platform API Handlers.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Unified API for customer support and helpdesk platforms:
 - Zendesk (tickets, users, organizations)
 - Freshdesk (tickets, contacts, companies)
@@ -26,12 +29,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
 
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.responses import error_dict, error_response
@@ -43,6 +48,35 @@ logger = logging.getLogger(__name__)
 # Platform credentials storage
 _platform_credentials: dict[str, dict[str, Any]] = {}
 _platform_connectors: dict[str, Any] = {}
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for support platform operations
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_support_circuit_breaker = CircuitBreaker(
+    name="support_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_support_circuit_breaker_lock = threading.Lock()
+
+
+def get_support_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for support operations."""
+    return _support_circuit_breaker
+
+
+def reset_support_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _support_circuit_breaker_lock:
+        _support_circuit_breaker._single_failures = 0
+        _support_circuit_breaker._single_open_at = 0.0
+        _support_circuit_breaker._single_successes = 0
+        _support_circuit_breaker._single_half_open_calls = 0
 
 
 SUPPORTED_PLATFORMS = {
@@ -152,8 +186,18 @@ class SupportHandler(SecureHandler):
 
     async def handle_request(self, request: Any) -> dict[str, Any]:
         """Route request to appropriate handler."""
+        # Check circuit breaker for write operations
+        cb = get_support_circuit_breaker()
+
         method = request.method
         path = str(request.path)
+
+        # Check circuit breaker for write operations (POST, PUT, DELETE)
+        if method in ("POST", "PUT", "DELETE") and not cb.can_proceed():
+            logger.warning("Support handler circuit breaker is open")
+            return self._error_response(
+                503, "Service temporarily unavailable due to high error rate"
+            )
 
         # Parse path components
         platform = None
@@ -490,6 +534,7 @@ class SupportHandler(SecureHandler):
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        cb = get_support_circuit_breaker()
         try:
             if platform == "zendesk":
                 ticket = await connector.create_ticket(
@@ -499,6 +544,7 @@ class SupportHandler(SecureHandler):
                     priority=body.get("priority"),
                     tags=body.get("tags", []),
                 )
+                cb.record_success()
                 return self._json_response(201, self._normalize_zendesk_ticket(ticket))
 
             elif platform == "freshdesk":
@@ -509,6 +555,7 @@ class SupportHandler(SecureHandler):
                     priority=self._map_priority_to_freshdesk(body.get("priority")),
                     tags=body.get("tags", []),
                 )
+                cb.record_success()
                 return self._json_response(201, self._normalize_freshdesk_ticket(ticket))
 
             elif platform == "intercom":
@@ -516,6 +563,7 @@ class SupportHandler(SecureHandler):
                     user_id=body.get("user_id"),
                     body=description,
                 )
+                cb.record_success()
                 return self._json_response(201, self._normalize_intercom_conversation(conversation))
 
             elif platform == "helpscout":
@@ -525,11 +573,13 @@ class SupportHandler(SecureHandler):
                     subject=subject or "Support Request",
                     text=description,
                 )
+                cb.record_success()
                 return self._json_response(
                     201, self._normalize_helpscout_conversation(conversation)
                 )
 
         except Exception as e:
+            cb.record_failure()
             logger.error("Support create_ticket failed for %s: %s", platform, e, exc_info=True)
             return self._error_response(500, f"Failed to create ticket: {e}")
 

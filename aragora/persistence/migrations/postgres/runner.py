@@ -451,9 +451,26 @@ def get_postgres_migration_runner() -> PostgresMigrationRunner:
 
 
 def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
-    """Register the core Aragora migrations."""
+    """
+    Register the core Aragora migrations.
 
-    # Migration 001: Initial schema
+    This function orchestrates registration of all core migrations by calling
+    stage-specific helper functions. Each helper registers one migration version.
+    """
+    _register_migration_001_initial_schema(runner)
+    _register_migration_002_lockout_support(runner)
+    _register_migration_003_debates_memory(runner)
+    _register_migration_004_knowledge_mound(runner)
+    _register_migration_005_knowledge_mound_advanced(runner)
+
+
+def _register_migration_001_initial_schema(runner: PostgresMigrationRunner) -> None:
+    """
+    Register migration 001: Initial schema.
+
+    Creates core tables for users, organizations, usage tracking, OAuth,
+    audit logging, and organization invitations.
+    """
     runner.register_migration(
         version=1,
         name="Initial schema",
@@ -569,7 +586,14 @@ def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
         """,
     )
 
-    # Migration 002: Add lockout support
+
+def _register_migration_002_lockout_support(runner: PostgresMigrationRunner) -> None:
+    """
+    Register migration 002: Add lockout support.
+
+    Adds columns to the users table for tracking failed login attempts
+    and account lockout state.
+    """
     runner.register_migration(
         version=2,
         name="Add lockout support",
@@ -591,7 +615,14 @@ def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
         """,
     )
 
-    # Migration 003: Debates and memory tables
+
+def _register_migration_003_debates_memory(runner: PostgresMigrationRunner) -> None:
+    """
+    Register migration 003: Debates and memory tables.
+
+    Creates tables for debate tracking, debate messages, agent ELO ratings,
+    and consensus memory storage.
+    """
     runner.register_migration(
         version=3,
         name="Debates and memory tables",
@@ -662,7 +693,14 @@ def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
         """,
     )
 
-    # Migration 004: Knowledge mound tables
+
+def _register_migration_004_knowledge_mound(runner: PostgresMigrationRunner) -> None:
+    """
+    Register migration 004: Knowledge mound tables.
+
+    Creates core knowledge mound tables for items, relationships (links),
+    and staleness tracking.
+    """
     runner.register_migration(
         version=4,
         name="Knowledge mound tables",
@@ -718,7 +756,22 @@ def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
         """,
     )
 
-    # Migration 005: Knowledge Mound advanced tables and performance indexes
+
+def _register_migration_005_knowledge_mound_advanced(runner: PostgresMigrationRunner) -> None:
+    """
+    Register migration 005: Knowledge Mound advanced tables and indexes.
+
+    Creates advanced Knowledge Mound schema including:
+    - knowledge_nodes: Extended node schema with visibility and validation
+    - provenance_chains: Provenance tracking for knowledge origin
+    - knowledge_relationships: Graph relationships between nodes
+    - node_topics: Topic categorization
+    - culture_patterns: Organizational learning patterns
+    - staleness_checks: Staleness tracking
+    - archived_nodes: Archived node storage
+    - access_grants: Fine-grained sharing permissions
+    - Performance indexes for all tables
+    """
     runner.register_migration(
         version=5,
         name="Knowledge Mound advanced tables and indexes",

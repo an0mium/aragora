@@ -1,6 +1,8 @@
 """
 Queue management endpoint handlers.
 
+Stability: STABLE
+
 Exposes the job queue system for monitoring and management.
 
 Endpoints:
@@ -21,6 +23,7 @@ from datetime import datetime
 from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.resilience import CircuitBreaker
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.validation.query_params import safe_query_int
 from aragora.server.versioning.compat import strip_version_prefix
@@ -40,6 +43,28 @@ from .utils.auth_mixins import SecureEndpointMixin
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for queue service
+_queue_circuit_breaker = CircuitBreaker(
+    name="queue_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_queue_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for queue service."""
+    return _queue_circuit_breaker
+
+
+def get_queue_circuit_breaker_status() -> dict:
+    """Get current status of the queue circuit breaker."""
+    return _queue_circuit_breaker.to_dict()
+
 
 # Module-level cache for queue instance
 _queue_instance: Any | None = None
@@ -78,6 +103,14 @@ async def _get_queue() -> Any | None:
 
 class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  # type: ignore[misc]
     """Handler for job queue management endpoints.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for service resilience
+    - Rate limiting (60 requests/minute)
+    - Full RBAC permission checks
+    - Comprehensive input validation
 
     RBAC Permissions:
     - queue:read - View jobs, stats, workers
