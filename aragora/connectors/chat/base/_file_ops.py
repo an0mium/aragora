@@ -28,7 +28,6 @@ class FileOperationsMixin:
     # These attributes/methods are expected from the base class
     webhook_url: str | None
     _http_request: Any
-    upload_file: Any
 
     @property
     @abstractmethod

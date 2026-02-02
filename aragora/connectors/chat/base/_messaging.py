@@ -38,8 +38,6 @@ class MessagingMixin:
     # These attributes/methods are expected from the base class
     webhook_url: str | None
     _http_request: Any
-    send_message: Any
-    update_message: Any
 
     @property
     @abstractmethod
