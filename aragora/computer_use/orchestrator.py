@@ -30,6 +30,7 @@ from aragora.computer_use.actions import (
 from aragora.computer_use.policies import (
     ComputerPolicy,
     ComputerPolicyChecker,
+    PolicyDecision,
     create_default_computer_policy,
 )
 
@@ -187,6 +188,10 @@ class ComputerUseConfig:
     # Human approval callback
     require_approval_callback: Callable[[Action], bool] | None = None
 
+    # Approval workflow settings
+    enforce_sensitive_approvals: bool = False
+    approval_timeout_seconds: float = 300.0
+
 
 class ActionExecutor(Protocol):
     """Protocol for executing actions on the computer."""
@@ -237,6 +242,7 @@ class ComputerUseOrchestrator:
         config: ComputerUseConfig | None = None,
         api_key: str | None = None,
         bridge: Any | None = None,
+        approval_workflow: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -257,6 +263,7 @@ class ComputerUseOrchestrator:
         self._metrics = ComputerUseMetrics()
         self._current_task: TaskResult | None = None
         self._bridge = bridge
+        self._approval_workflow = approval_workflow
 
         # Auto-create bridge if api_key provided but no bridge
         if self._bridge is None and self._api_key:
@@ -360,9 +367,13 @@ class ComputerUseOrchestrator:
                     break
 
                 # Policy check
-                allowed, reason = self._policy_checker.check_action(action, current_url)
+                decision, reason = self._policy_checker.evaluate_action(
+                    action,
+                    current_url,
+                    enforce_sensitive_approvals=self._config.enforce_sensitive_approvals,
+                )
 
-                if not allowed:
+                if decision == PolicyDecision.DENY:
                     step_result = StepResult(
                         step_number=step_number,
                         action=action,
@@ -385,6 +396,39 @@ class ComputerUseOrchestrator:
                     await asyncio.sleep(0.5)
                     screenshot_b64 = await self._executor.take_screenshot()
                     continue
+
+                if decision == PolicyDecision.REQUIRE_APPROVAL:
+                    approved, approval_reason, approval_id = await self._request_approval(
+                        action=action,
+                        reason=reason,
+                        screenshot_b64=screenshot_b64,
+                        current_url=current_url,
+                        metadata=metadata or {},
+                    )
+                    if not approved:
+                        step_result = StepResult(
+                            step_number=step_number,
+                            action=action,
+                            result=ActionResult(
+                                action_id=action.action_id,
+                                action_type=action.action_type,
+                                success=False,
+                                error=f"Approval denied: {approval_reason}",
+                                metadata={"approval_request_id": approval_id}
+                                if approval_id
+                                else {},
+                            ),
+                            status=StepStatus.BLOCKED,
+                            model_response=model_response,
+                            policy_check_passed=False,
+                            policy_reason=approval_reason,
+                        )
+                        result.steps.append(step_result)
+                        self._metrics.policy_blocked_actions += 1
+                        self._policy_checker.record_error()
+                        await asyncio.sleep(0.5)
+                        screenshot_b64 = await self._executor.take_screenshot()
+                        continue
 
                 # Human approval if required
                 if self._config.require_approval_callback:
@@ -461,6 +505,59 @@ class ComputerUseOrchestrator:
                 self._bridge.reset()
 
         return result
+
+    async def _request_approval(
+        self,
+        *,
+        action: Action,
+        reason: str,
+        screenshot_b64: str,
+        current_url: str | None,
+        metadata: dict[str, Any],
+    ) -> tuple[bool, str, str | None]:
+        """Request approval for a sensitive action."""
+        if not self._approval_workflow:
+            return False, "Approval workflow not configured", None
+
+        try:
+            from aragora.computer_use.approval import (
+                ApprovalCategory,
+                ApprovalContext,
+                ApprovalPriority,
+                ApprovalStatus,
+            )
+        except ImportError:
+            return False, "Approval module unavailable", None
+
+        action_details = action.to_tool_input()
+        context = ApprovalContext(
+            task_id=self._current_task.task_id if self._current_task else "unknown",
+            action_type=action.action_type.value,
+            action_details=action_details,
+            category=ApprovalCategory.DESTRUCTIVE_ACTION,
+            reason=reason,
+            risk_level=metadata.get("risk_level", "medium"),
+            screenshot_b64=screenshot_b64,
+            current_url=current_url,
+            user_id=metadata.get("user_id"),
+            tenant_id=metadata.get("tenant_id"),
+            metadata=metadata.get("approval_metadata", {}),
+        )
+
+        request = await self._approval_workflow.request_approval(
+            context=context,
+            priority=ApprovalPriority.HIGH,
+            timeout_seconds=self._config.approval_timeout_seconds,
+        )
+
+        status = await self._approval_workflow.wait_for_decision(
+            request.id,
+            timeout=self._config.approval_timeout_seconds,
+        )
+        if status == ApprovalStatus.APPROVED:
+            return True, "approved", request.id
+
+        return False, status.value, request.id
 
     async def _get_next_action(
         self,

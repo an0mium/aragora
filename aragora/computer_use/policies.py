@@ -33,6 +33,16 @@ class PolicyDecision(str, Enum):
     REQUIRE_APPROVAL = "require_approval"
 
 
+_SENSITIVE_ACTION_TYPES: set[ActionType] = {
+    ActionType.CLICK,
+    ActionType.DOUBLE_CLICK,
+    ActionType.RIGHT_CLICK,
+    ActionType.TYPE,
+    ActionType.KEY,
+    ActionType.DRAG,
+}
+
+
 @dataclass
 class ActionRule:
     """Rule for action type control."""
@@ -229,6 +239,84 @@ class ComputerPolicyChecker:
         self._total_actions = 0
         self._consecutive_errors = 0
 
+    def evaluate_action(
+        self,
+        action: Action,
+        current_url: str | None = None,
+        *,
+        enforce_sensitive_approvals: bool = False,
+    ) -> tuple[PolicyDecision, str]:
+        """
+        Evaluate an action against policy and return a decision.
+
+        Args:
+            action: The action to validate
+            current_url: Current browser URL (if applicable)
+            enforce_sensitive_approvals: Whether to require approval for sensitive actions
+
+        Returns:
+            (decision, reason) tuple
+        """
+        # Check session limits
+        if self._total_actions >= self.policy.max_actions_per_task:
+            return (
+                PolicyDecision.DENY,
+                f"Exceeded max actions per task ({self.policy.max_actions_per_task})",
+            )
+
+        if self._consecutive_errors >= self.policy.max_consecutive_errors:
+            return (
+                PolicyDecision.DENY,
+                f"Too many consecutive errors ({self.policy.max_consecutive_errors})",
+            )
+
+        # Check action type rules
+        decision, reason = self._check_action_type_decision(action.action_type)
+        if decision == PolicyDecision.DENY:
+            self._log_check(action, False, reason)
+            return decision, reason
+        if decision == PolicyDecision.REQUIRE_APPROVAL:
+            self._log_check(action, True, reason)
+            return decision, reason
+
+        # Check domain rules if URL provided
+        if current_url:
+            decision, reason = self._check_domain_decision(current_url)
+            if decision == PolicyDecision.DENY:
+                self._log_check(action, False, reason)
+                return decision, reason
+            if decision == PolicyDecision.REQUIRE_APPROVAL:
+                self._log_check(action, True, reason)
+                return decision, reason
+
+        # Check coordinate boundaries for click/move actions
+        if isinstance(action, ClickAction):
+            allowed, reason = self._check_coordinates(action.x, action.y)
+            if not allowed:
+                self._log_check(action, False, reason)
+                return PolicyDecision.DENY, reason
+
+        # Check text patterns for type actions
+        if isinstance(action, TypeAction):
+            allowed, reason = self._check_text_patterns(action.text)
+            if not allowed:
+                self._log_check(action, False, reason)
+                return PolicyDecision.DENY, reason
+
+        # Optional approval for sensitive actions
+        if (
+            enforce_sensitive_approvals
+            and self.policy.require_human_approval_for_sensitive
+            and action.action_type in _SENSITIVE_ACTION_TYPES
+        ):
+            reason = f"Sensitive action requires approval: {action.action_type.value}"
+            self._log_check(action, True, reason)
+            return PolicyDecision.REQUIRE_APPROVAL, reason
+
+        self._log_check(action, True, "Policy passed")
+        self._total_actions += 1
+        return PolicyDecision.ALLOW, "allowed"
+
     def check_action(
         self,
         action: Action,
@@ -244,64 +332,31 @@ class ComputerPolicyChecker:
         Returns:
             (allowed, reason) tuple
         """
-        # Check session limits
-        if self._total_actions >= self.policy.max_actions_per_task:
-            return False, f"Exceeded max actions per task ({self.policy.max_actions_per_task})"
-
-        if self._consecutive_errors >= self.policy.max_consecutive_errors:
-            return False, f"Too many consecutive errors ({self.policy.max_consecutive_errors})"
-
-        # Check action type rules
-        allowed, reason = self._check_action_type(action.action_type)
+        decision, reason = self.evaluate_action(
+            action, current_url, enforce_sensitive_approvals=False
+        )
+        allowed = decision in (PolicyDecision.ALLOW, PolicyDecision.AUDIT)
         if not allowed:
-            self._log_check(action, allowed, reason)
-            return allowed, reason
-
-        # Check domain rules if URL provided
-        if current_url:
-            allowed, reason = self._check_domain(current_url)
-            if not allowed:
-                self._log_check(action, allowed, reason)
-                return allowed, reason
-
-        # Check coordinate boundaries for click/move actions
-        if isinstance(action, ClickAction):
-            allowed, reason = self._check_coordinates(action.x, action.y)
-            if not allowed:
-                self._log_check(action, allowed, reason)
-                return allowed, reason
-
-        # Check text patterns for type actions
-        if isinstance(action, TypeAction):
-            allowed, reason = self._check_text_patterns(action.text)
-            if not allowed:
-                self._log_check(action, allowed, reason)
-                return allowed, reason
-
-        self._log_check(action, True, "Policy passed")
-        self._total_actions += 1
+            return False, reason
         return True, "allowed"
 
-    def _check_action_type(self, action_type: ActionType) -> tuple[bool, str]:
-        """Check if action type is allowed."""
+    def _check_action_type_decision(self, action_type: ActionType) -> tuple[PolicyDecision, str]:
+        """Check decision for action type."""
         for rule in self.policy.action_rules:
             if rule.action_type == action_type:
-                allowed = rule.decision in (PolicyDecision.ALLOW, PolicyDecision.AUDIT)
-                return allowed, rule.reason or f"Action {action_type.value} policy"
+                return rule.decision, rule.reason or f"Action {action_type.value} policy"
 
         # Default decision
-        allowed = self.policy.default_decision in (PolicyDecision.ALLOW, PolicyDecision.AUDIT)
-        return allowed, "default policy"
+        return self.policy.default_decision, "default policy"
 
-    def _check_domain(self, url: str) -> tuple[bool, str]:
-        """Check if URL is allowed."""
+    def _check_domain_decision(self, url: str) -> tuple[PolicyDecision, str]:
+        """Check decision for URL."""
         for rule in self.policy.domain_rules:
             if rule.matches(url):
-                allowed = rule.decision in (PolicyDecision.ALLOW, PolicyDecision.AUDIT)
-                return allowed, rule.reason or f"Domain policy for {url}"
+                return rule.decision, rule.reason or f"Domain policy for {url}"
 
         # Default to deny for domains
-        return False, "URL not in allowlist"
+        return PolicyDecision.DENY, "URL not in allowlist"
 
     def _check_coordinates(self, x: int, y: int) -> tuple[bool, str]:
         """Check if coordinates are within bounds."""
