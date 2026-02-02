@@ -581,7 +581,9 @@ class TestOrderOperations:
                 order = await connector.get_order(12345)
 
                 assert order.order_id == 12345
-                mock_request.assert_called_once_with("GET", f"{connector.BASE_URL}/orders/12345", json=None, params=None)
+                mock_request.assert_called_once_with(
+                    "GET", f"{connector.BASE_URL}/orders/12345", json=None, params=None
+                )
 
     @pytest.mark.asyncio
     async def test_create_order(self, credentials, sample_address, sample_order_item):
@@ -805,7 +807,12 @@ class TestCarrierOperations:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = [
-            {"code": "fedex_ground", "name": "FedEx Ground", "carrierCode": "fedex", "domestic": True},
+            {
+                "code": "fedex_ground",
+                "name": "FedEx Ground",
+                "carrierCode": "fedex",
+                "domestic": True,
+            },
             {"code": "fedex_2day", "name": "FedEx 2Day", "carrierCode": "fedex", "domestic": True},
         ]
 

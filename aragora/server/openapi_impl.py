@@ -26,7 +26,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 # Import schemas and helpers from submodules
 from aragora.server.openapi.schemas import COMMON_SCHEMAS
@@ -776,7 +776,8 @@ def generate_openapi_schema() -> dict[str, Any]:
 
     for sdk_path, sdk_methods in SDK_MISSING_ENDPOINTS.items():
         if sdk_path in paths:
-            paths[sdk_path] = {**paths[sdk_path], **sdk_methods}  # type: ignore[dict-item]
+            merged = {**paths[sdk_path], **sdk_methods}
+            paths[sdk_path] = cast(dict[str, Any], merged)
         else:
             paths[sdk_path] = sdk_methods
     paths = _autogenerate_missing_paths(paths)

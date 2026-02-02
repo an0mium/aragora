@@ -457,7 +457,7 @@ class TestPreflightHealthCheckRun:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-12345")
 
         async def slow_check():
-            await asyncio.sleep(10)  # Longer than timeout
+            await asyncio.sleep(1)  # Longer than timeout
             return CheckResult(
                 name="slow",
                 status=CheckStatus.PASSED,

@@ -709,7 +709,9 @@ class PersistentOriginStore:
     def _cleanup_sqlite_sync(self) -> int:
         """Synchronous SQLite cleanup."""
         with sqlite3.connect(self._sqlite_path) as conn:
-            cursor = conn.execute("DELETE FROM routing_origins WHERE expires_at < ?", (time.time(),))
+            cursor = conn.execute(
+                "DELETE FROM routing_origins WHERE expires_at < ?", (time.time(),)
+            )
             count = cursor.rowcount
             conn.commit()
         return count

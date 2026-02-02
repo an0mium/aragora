@@ -1109,7 +1109,9 @@ class DebateRoundsPhase:
             total_refreshed = (refreshed or 0) + skill_snippets
 
             if total_refreshed:
-                logger.info("evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed)
+                logger.info(
+                    "evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed
+                )
 
                 # Notify spectator
                 if self._notify_spectator:

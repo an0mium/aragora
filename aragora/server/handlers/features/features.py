@@ -208,6 +208,14 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         install_hint="Memory system is enabled by default.",
         category="memory",
     ),
+    "supermemory": FeatureInfo(
+        name="Supermemory",
+        description="External cross-session memory persistence with context injection",
+        requires=["supermemory_client"],
+        endpoints=[],
+        install_hint="Install supermemory SDK and set SUPERMEMORY_API_KEY. Enable via ArenaConfig: enable_supermemory=True.",
+        category="memory",
+    ),
 }
 
 # =============================================================================
@@ -267,6 +275,7 @@ def _check_requirement(requirement: str) -> tuple[bool, str | None]:
         "trickster": _check_trickster,
         "plugin_runner": _check_plugin_runner,
         "memory_manager": _check_memory_manager,
+        "supermemory_client": _check_supermemory,
     }
 
     check_func = checks.get(requirement)
@@ -465,6 +474,28 @@ def _check_memory_manager() -> tuple[bool, str | None]:
         return True, None
     except ImportError:
         return False, "Memory manager not available"
+
+
+def _check_supermemory() -> tuple[bool, str | None]:
+    try:
+        importlib.import_module("aragora.connectors.supermemory")
+    except ImportError:
+        return False, "Supermemory connector not available"
+
+    try:
+        importlib.import_module("supermemory")
+    except ImportError:
+        return False, "supermemory package not installed"
+
+    try:
+        from aragora.connectors.supermemory.config import SupermemoryConfig
+
+        config = SupermemoryConfig.from_env()
+        if not config or not config.api_key:
+            return False, "SUPERMEMORY_API_KEY not set"
+        return True, None
+    except Exception as exc:
+        return False, f"Supermemory config error: {exc}"
 
 
 def get_all_features() -> dict[str, dict[str, Any]]:

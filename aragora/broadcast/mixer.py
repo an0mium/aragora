@@ -28,7 +28,8 @@ try:
         from pydub import AudioSegment  # type: ignore[no-redef]
 
     PYDUB_AVAILABLE = True
-except Exception:
+except Exception as exc:  # noqa: F841
+    # Import failed (pydub/ffmpeg not available) - exc captured for debugging
     AudioSegment = None  # type: ignore[no-redef,assignment]
     PYDUB_AVAILABLE = False
 

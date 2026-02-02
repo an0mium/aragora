@@ -449,7 +449,7 @@ class TestBinlogCDC:
 
         # Create a mock task
         async def dummy_task():
-            await asyncio.sleep(100)
+            await asyncio.sleep(1)
 
         task = asyncio.create_task(dummy_task())
         mysql_connector._cdc_task = task

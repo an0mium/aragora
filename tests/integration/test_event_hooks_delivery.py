@@ -422,7 +422,7 @@ class TestHookErrorHandling:
         import asyncio
 
         async def slow_handler(**kwargs):
-            await asyncio.sleep(10)  # Very slow
+            await asyncio.sleep(1)  # Very slow
 
         hook_manager.register(
             HookType.POST_DEBATE,

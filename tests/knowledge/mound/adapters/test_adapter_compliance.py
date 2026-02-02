@@ -132,9 +132,7 @@ def _get_adapter_id(spec: dict[str, str]) -> str:
     return spec["class_name"]
 
 
-_ADAPTER_PARAMS = [
-    pytest.param(spec, id=_get_adapter_id(spec)) for spec in ADAPTER_SPECS
-]
+_ADAPTER_PARAMS = [pytest.param(spec, id=_get_adapter_id(spec)) for spec in ADAPTER_SPECS]
 
 
 class TestAdapterCompliance:

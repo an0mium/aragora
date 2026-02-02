@@ -74,9 +74,7 @@ class TestIdentityRegistryContract:
             "0xOWNER1234567890123456789012345678901234"
         )
         mock_contract.functions.tokenURI.return_value.call.return_value = "ipfs://QmTest123"
-        mock_contract.functions.getAgentWallet.return_value.call.return_value = (
-            "0x" + "0" * 40
-        )
+        mock_contract.functions.getAgentWallet.return_value.call.return_value = "0x" + "0" * 40
 
         contract = IdentityRegistryContract(provider=provider, chain_id=1)
         identity = contract.get_agent(token_id=42)
@@ -92,9 +90,7 @@ class TestIdentityRegistryContract:
         )
 
         mock_contract.functions.tokenURI.return_value.call.return_value = "ipfs://QmTest123"
-        mock_contract.functions.getAgentWallet.return_value.call.return_value = (
-            "0x" + "0" * 40
-        )
+        mock_contract.functions.getAgentWallet.return_value.call.return_value = "0x" + "0" * 40
 
         contract = IdentityRegistryContract(provider=provider, chain_id=1)
         identity = contract.get_agent(token_id=42)
@@ -110,9 +106,7 @@ class TestIdentityRegistryContract:
         mock_contract.functions.tokenURI.return_value.call.return_value = sample_agent_identity[
             "metadata_uri"
         ]
-        mock_contract.functions.getAgentWallet.return_value.call.return_value = (
-            "0x" + "0" * 40
-        )
+        mock_contract.functions.getAgentWallet.return_value.call.return_value = "0x" + "0" * 40
 
         contract = IdentityRegistryContract(provider=provider, chain_id=1)
         identity = contract.get_agent(token_id=42)

@@ -1176,12 +1176,18 @@ class TestCostScoreExtended:
         """Test cost score decreases as cost increases."""
         bridge = CalibrationCostBridge()
 
-        costs = [Decimal("0.001"), Decimal("0.02"), Decimal("0.05"), Decimal("0.08"), Decimal("0.10")]
+        costs = [
+            Decimal("0.001"),
+            Decimal("0.02"),
+            Decimal("0.05"),
+            Decimal("0.08"),
+            Decimal("0.10"),
+        ]
         scores = [bridge._cost_score(c) for c in costs]
 
         for i in range(len(scores) - 1):
             assert scores[i] >= scores[i + 1], (
-                f"Score at ${costs[i]} ({scores[i]}) should be >= score at ${costs[i+1]} ({scores[i+1]})"
+                f"Score at ${costs[i]} ({scores[i]}) should be >= score at ${costs[i + 1]} ({scores[i + 1]})"
             )
 
 
@@ -1550,9 +1556,7 @@ class TestRecommendationExtended:
 
     def test_rank_single_agent(self):
         """Test ranking with single agent."""
-        tracker = MockCalibrationTracker(
-            {"claude": MockCalibrationSummary(total_predictions=100)}
-        )
+        tracker = MockCalibrationTracker({"claude": MockCalibrationSummary(total_predictions=100)})
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
         result = bridge.rank_agents_by_cost_efficiency(["claude"])
@@ -1715,9 +1719,7 @@ class TestBudgetAwareSelectionExtended:
 
     def test_zero_budget_empty(self):
         """Test zero budget returns empty list."""
-        tracker = MockCalibrationTracker(
-            {"a": MockCalibrationSummary(total_predictions=100)}
-        )
+        tracker = MockCalibrationTracker({"a": MockCalibrationSummary(total_predictions=100)})
         bridge = CalibrationCostBridge(calibration_tracker=tracker)
 
         result = bridge.get_budget_aware_selection(

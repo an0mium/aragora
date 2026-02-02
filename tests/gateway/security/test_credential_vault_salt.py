@@ -77,6 +77,7 @@ class TestCredentialVaultSaltConfiguration:
             os.environ.pop("ARAGORA_CREDENTIAL_VAULT_SALT", None)
 
             import logging
+
             with caplog.at_level(logging.WARNING):
                 vault = CredentialVault()
 
@@ -106,13 +107,13 @@ class TestCredentialVaultSaltConfiguration:
             os.environ.pop("ARAGORA_ENV", None)
 
             import logging
+
             with caplog.at_level(logging.WARNING):
                 vault = CredentialVault()
 
             # Verify warning was logged
             assert any(
-                "Using default credential vault salt" in record.message
-                for record in caplog.records
+                "Using default credential vault salt" in record.message for record in caplog.records
             )
 
             # Vault should be created successfully
@@ -128,6 +129,7 @@ class TestCredentialVaultSaltConfiguration:
             os.environ.pop("ARAGORA_CREDENTIAL_VAULT_SALT", None)
 
             import logging
+
             with caplog.at_level(logging.WARNING):
                 vault = CredentialVault()
 
@@ -181,6 +183,7 @@ class TestCredentialVaultSaltConfiguration:
             os.environ.pop("ARAGORA_ENV", None)
 
             import logging
+
             with caplog.at_level(logging.WARNING):
                 vault = CredentialVault()
 

@@ -250,9 +250,7 @@ class TestSubmitWisdom:
     @pytest.mark.asyncio
     async def test_submit_with_context_tags(self, injector):
         """Test submission with context tags."""
-        ws = await injector.submit_wisdom(
-            "tagged insight", "user1", context_tags=["perf", "arch"]
-        )
+        ws = await injector.submit_wisdom("tagged insight", "user1", context_tags=["perf", "arch"])
         assert ws is not None
         assert ws.context_tags == ["perf", "arch"]
 
@@ -336,12 +334,18 @@ class TestCalculateRelevance:
     def test_recent_wisdom_scores_higher(self, injector):
         """Test that newer wisdom gets a higher recency score."""
         recent = WisdomSubmission(
-            id="r", text="insight", submitter_id="u",
-            timestamp=time.time(), loop_id="test_loop",
+            id="r",
+            text="insight",
+            submitter_id="u",
+            timestamp=time.time(),
+            loop_id="test_loop",
         )
         old = WisdomSubmission(
-            id="o", text="insight", submitter_id="u",
-            timestamp=time.time() - 86400, loop_id="test_loop",
+            id="o",
+            text="insight",
+            submitter_id="u",
+            timestamp=time.time() - 86400,
+            loop_id="test_loop",
         )
         score_recent = injector._calculate_relevance(recent, {})
         score_old = injector._calculate_relevance(old, {})
@@ -350,12 +354,19 @@ class TestCalculateRelevance:
     def test_upvotes_increase_relevance(self, injector):
         """Test upvotes increase relevance score."""
         base = WisdomSubmission(
-            id="b", text="insight", submitter_id="u",
-            timestamp=time.time(), loop_id="test_loop",
+            id="b",
+            text="insight",
+            submitter_id="u",
+            timestamp=time.time(),
+            loop_id="test_loop",
         )
         upvoted = WisdomSubmission(
-            id="v", text="insight", submitter_id="u",
-            timestamp=time.time(), loop_id="test_loop", upvotes=5,
+            id="v",
+            text="insight",
+            submitter_id="u",
+            timestamp=time.time(),
+            loop_id="test_loop",
+            upvotes=5,
         )
         score_base = injector._calculate_relevance(base, {})
         score_upvoted = injector._calculate_relevance(upvoted, {})
@@ -364,9 +375,12 @@ class TestCalculateRelevance:
     def test_tag_matching_increases_relevance(self, injector):
         """Test tag overlap increases relevance."""
         ws = WisdomSubmission(
-            id="t", text="performance optimization",
-            submitter_id="u", timestamp=time.time(),
-            loop_id="test_loop", context_tags=["performance"],
+            id="t",
+            text="performance optimization",
+            submitter_id="u",
+            timestamp=time.time(),
+            loop_id="test_loop",
+            context_tags=["performance"],
         )
         context_match = {"topic": "performance tuning", "tags": ["performance"]}
         context_no_match = {"topic": "unrelated topic"}
@@ -378,14 +392,20 @@ class TestCalculateRelevance:
         """Test submitter with used wisdom gets higher relevance."""
         injector.submitter_stats["rep_user"]["used"] = 5
         ws = WisdomSubmission(
-            id="s", text="insight", submitter_id="rep_user",
-            timestamp=time.time(), loop_id="test_loop",
+            id="s",
+            text="insight",
+            submitter_id="rep_user",
+            timestamp=time.time(),
+            loop_id="test_loop",
         )
         score = injector._calculate_relevance(ws, {})
         # Should include reputation component
         ws_no_rep = WisdomSubmission(
-            id="s2", text="insight", submitter_id="new_user",
-            timestamp=time.time(), loop_id="test_loop",
+            id="s2",
+            text="insight",
+            submitter_id="new_user",
+            timestamp=time.time(),
+            loop_id="test_loop",
         )
         score_no_rep = injector._calculate_relevance(ws_no_rep, {})
         assert score > score_no_rep
@@ -394,9 +414,12 @@ class TestCalculateRelevance:
         """Test relevance score does not exceed 1.0."""
         injector.submitter_stats["power_user"]["used"] = 100
         ws = WisdomSubmission(
-            id="max", text="performance optimization design architecture",
-            submitter_id="power_user", timestamp=time.time(),
-            loop_id="test_loop", upvotes=100,
+            id="max",
+            text="performance optimization design architecture",
+            submitter_id="power_user",
+            timestamp=time.time(),
+            loop_id="test_loop",
+            upvotes=100,
             context_tags=["performance", "optimization", "design"],
         )
         context = {
@@ -423,9 +446,7 @@ class TestFindRelevantWisdom:
     @pytest.mark.asyncio
     async def test_finds_relevant_wisdom(self, injector):
         """Test finds wisdom relevant to debate context."""
-        await injector.submit_wisdom(
-            "performance matters", "u1", context_tags=["performance"]
-        )
+        await injector.submit_wisdom("performance matters", "u1", context_tags=["performance"])
         results = injector.find_relevant_wisdom(
             {"topic": "performance optimization", "tags": ["performance"]}
         )
@@ -445,7 +466,8 @@ class TestFindRelevantWisdom:
         """Test limits the number of returned results."""
         for i in range(10):
             await injector.submit_wisdom(
-                f"wisdom about performance number {i}", f"user_{i}",
+                f"wisdom about performance number {i}",
+                f"user_{i}",
                 context_tags=["performance"],
             )
         results = injector.find_relevant_wisdom(
@@ -458,7 +480,8 @@ class TestFindRelevantWisdom:
         """Test results are sorted by relevance (highest first)."""
         await injector.submit_wisdom("generic thought", "u1")
         ws2 = await injector.submit_wisdom(
-            "performance optimization is key", "u2",
+            "performance optimization is key",
+            "u2",
             context_tags=["performance"],
         )
         # Give ws2 upvotes to boost relevance
@@ -466,9 +489,7 @@ class TestFindRelevantWisdom:
             injector.upvote_wisdom(ws2.id, "v1")
             injector.upvote_wisdom(ws2.id, "v2")
 
-        results = injector.find_relevant_wisdom(
-            {"topic": "performance", "tags": ["performance"]}
-        )
+        results = injector.find_relevant_wisdom({"topic": "performance", "tags": ["performance"]})
         if len(results) >= 2:
             assert results[0].relevance_score >= results[1].relevance_score
 
@@ -558,8 +579,11 @@ class TestFormatForPrompt:
     def test_single_wisdom(self, injector):
         """Test formatting a single wisdom."""
         ws = WisdomSubmission(
-            id="f1", text="Consider caching", submitter_id="u1",
-            timestamp=0.0, loop_id="test_loop",
+            id="f1",
+            text="Consider caching",
+            submitter_id="u1",
+            timestamp=0.0,
+            loop_id="test_loop",
         )
         result = injector.format_for_prompt([ws])
         assert "[Audience Insights]" in result
@@ -569,8 +593,11 @@ class TestFormatForPrompt:
         """Test multiple wisdoms are numbered correctly."""
         wisdoms = [
             WisdomSubmission(
-                id=f"f{i}", text=f"insight {i}", submitter_id="u1",
-                timestamp=0.0, loop_id="test_loop",
+                id=f"f{i}",
+                text=f"insight {i}",
+                submitter_id="u1",
+                timestamp=0.0,
+                loop_id="test_loop",
             )
             for i in range(3)
         ]

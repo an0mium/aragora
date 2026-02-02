@@ -314,9 +314,7 @@ class TestConvoyManager:
             await convoy_manager.assign_convoy("nonexistent", ["agent-1"])
 
     @pytest.mark.asyncio
-    async def test_get_convoy_progress(
-        self, convoy_manager: ConvoyManager, bead_store: BeadStore
-    ):
+    async def test_get_convoy_progress(self, convoy_manager: ConvoyManager, bead_store: BeadStore):
         """Test getting convoy progress."""
         # Create beads with different statuses
         bead1 = Bead.create(BeadType.TASK, title="Task 1", description="Desc")

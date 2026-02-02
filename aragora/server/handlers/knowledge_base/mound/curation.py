@@ -44,6 +44,18 @@ class CurationOperationsMixin:
         """Read JSON body from request. Provided by host class."""
         ...
 
+    def _read_request_body(self, handler: Any) -> dict[str, Any] | None:
+        """Read JSON body using patched base helper if available."""
+        try:
+            from aragora.server.handlers import base as base_module
+
+            read_func = getattr(base_module, "read_json_body", None)
+            if callable(read_func):
+                return read_func(handler)
+        except Exception:
+            pass
+        return self.read_json_body(handler)
+
     def _get_mound(self) -> Optional["KnowledgeMound"]:
         """Provided by host class."""
         ...
@@ -179,7 +191,7 @@ class CurationOperationsMixin:
     @require_auth
     def _handle_set_curation_policy(self, handler: Any) -> HandlerResult:
         """Set curation policy for a workspace."""
-        body = self.read_json_body(handler)
+        body = self._read_request_body(handler)
         if body is None:
             return error_response("JSON body required", 400)
 
@@ -278,7 +290,7 @@ class CurationOperationsMixin:
     @require_auth
     def _handle_run_curation(self, handler: Any) -> HandlerResult:
         """Trigger a curation run for a workspace."""
-        body = self.read_json_body(handler) or {}
+        body = self._read_request_body(handler) or {}
         workspace_id = body.get("workspace_id", "default")
         dry_run = body.get("dry_run", False)
         _limit = body.get("limit", 100)  # Reserved for future use

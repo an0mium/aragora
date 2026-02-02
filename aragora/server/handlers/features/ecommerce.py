@@ -1,6 +1,8 @@
 """
 E-commerce Platform API Handlers.
 
+Stability: STABLE
+
 Unified API for e-commerce platforms:
 - Shopify (orders, products, customers, inventory)
 - ShipStation (shipping, fulfillment, tracking)
@@ -21,12 +23,22 @@ Usage:
 
     GET    /api/v1/ecommerce/fulfillment          - Get fulfillment status
     POST   /api/v1/ecommerce/ship                 - Create shipment
+
+Features:
+- Circuit breaker pattern for platform API resilience
+- Rate limiting (60 requests/minute)
+- RBAC permission checks (ecommerce:read, ecommerce:write, ecommerce:configure)
+- Comprehensive input validation with safe ID patterns
+- Error isolation (platform failures handled gracefully)
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import re
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
@@ -34,9 +46,276 @@ from typing import Any, cast
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
 from aragora.server.handlers.utils import parse_json_body
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Input Validation Constants
+# =============================================================================
+
+# Platform ID validation: alphanumeric and underscores only
+SAFE_PLATFORM_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,49}$")
+
+# Order/Product/SKU ID validation: alphanumeric, hyphens, underscores
+SAFE_RESOURCE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,127}$")
+
+# Max lengths for input validation
+MAX_SHOP_URL_LENGTH = 512
+MAX_CREDENTIAL_VALUE_LENGTH = 1024
+MAX_SKU_LENGTH = 128
+MAX_ORDER_ID_LENGTH = 128
+MAX_CARRIER_LENGTH = 64
+MAX_SERVICE_LENGTH = 64
+MAX_TRACKING_NUMBER_LENGTH = 128
+
+
+def _validate_platform_id(platform: str) -> tuple[bool, str | None]:
+    """Validate a platform ID.
+
+    Args:
+        platform: Platform identifier to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not platform:
+        return False, "Platform is required"
+    if len(platform) > 50:
+        return False, "Platform name too long (max 50 characters)"
+    if not SAFE_PLATFORM_PATTERN.match(platform):
+        return False, "Invalid platform format (alphanumeric and underscores only)"
+    return True, None
+
+
+def _validate_resource_id(resource_id: str, resource_type: str = "ID") -> tuple[bool, str | None]:
+    """Validate a resource ID (order, product, etc.).
+
+    Args:
+        resource_id: Resource identifier to validate
+        resource_type: Type name for error messages
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not resource_id:
+        return False, f"{resource_type} is required"
+    if len(resource_id) > 128:
+        return False, f"{resource_type} too long (max 128 characters)"
+    if not SAFE_RESOURCE_ID_PATTERN.match(resource_id):
+        return False, f"Invalid {resource_type.lower()} format"
+    return True, None
+
+
+def _validate_sku(sku: str) -> tuple[bool, str | None]:
+    """Validate a SKU.
+
+    Args:
+        sku: SKU to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not sku:
+        return False, "SKU is required"
+    if len(sku) > MAX_SKU_LENGTH:
+        return False, f"SKU too long (max {MAX_SKU_LENGTH} characters)"
+    # SKU can contain alphanumeric, hyphens, underscores, dots
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_\-\.]{0,127}$", sku):
+        return False, "Invalid SKU format"
+    return True, None
+
+
+def _validate_url(url: str, field_name: str = "URL") -> tuple[bool, str | None]:
+    """Validate a URL field.
+
+    Args:
+        url: URL to validate
+        field_name: Field name for error messages
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not url:
+        return False, f"{field_name} is required"
+    if len(url) > MAX_SHOP_URL_LENGTH:
+        return False, f"{field_name} too long (max {MAX_SHOP_URL_LENGTH} characters)"
+    # Basic URL validation
+    if not url.startswith(("http://", "https://")):
+        return False, f"Invalid {field_name} format (must start with http:// or https://)"
+    return True, None
+
+
+def _validate_quantity(quantity: Any) -> tuple[bool, str | None, int | None]:
+    """Validate a quantity value.
+
+    Args:
+        quantity: Quantity value to validate
+
+    Returns:
+        Tuple of (is_valid, error_message, parsed_value)
+    """
+    if quantity is None:
+        return False, "Quantity is required", None
+    try:
+        qty = int(quantity)
+        if qty < 0:
+            return False, "Quantity cannot be negative", None
+        if qty > 1_000_000_000:
+            return False, "Quantity too large", None
+        return True, None, qty
+    except (ValueError, TypeError):
+        return False, "Invalid quantity format", None
+
+
+# =============================================================================
+# Circuit Breaker for E-commerce Platform Access
+# =============================================================================
+
+
+class EcommerceCircuitBreaker:
+    """Circuit breaker for e-commerce platform API access.
+
+    Prevents cascading failures when external platform APIs are unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 2,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Ecommerce circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Ecommerce circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Ecommerce circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Ecommerce circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker instance for e-commerce platform access
+_circuit_breaker = EcommerceCircuitBreaker()
+_circuit_breaker_lock = threading.Lock()
+
+
+def get_ecommerce_circuit_breaker() -> EcommerceCircuitBreaker:
+    """Get the global circuit breaker for e-commerce platform access."""
+    return _circuit_breaker
+
+
+def reset_ecommerce_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _circuit_breaker_lock:
+        _circuit_breaker.reset()
 
 
 # Platform credentials storage
@@ -148,11 +427,27 @@ class UnifiedProduct:
 
 
 class EcommerceHandler(SecureHandler):
-    """Handler for e-commerce platform API endpoints."""
+    """Handler for e-commerce platform API endpoints with RBAC protection.
+
+    Stability: STABLE
+
+    Features:
+    - Circuit breaker pattern for platform API resilience
+    - Rate limiting (60 requests/minute)
+    - RBAC permission checks (ecommerce:read, ecommerce:write, ecommerce:configure)
+    - Comprehensive input validation with safe ID patterns
+    """
+
+    # Input validation constants
+    MAX_LIMIT = 1000
+    MAX_DAYS = 365
+    DEFAULT_LIMIT = 100
+    DEFAULT_DAYS = 30
 
     def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = server_context or ctx or {}
+        self._circuit_breaker = get_ecommerce_circuit_breaker()
 
     RESOURCE_TYPE = "ecommerce"
 
@@ -171,7 +466,12 @@ class EcommerceHandler(SecureHandler):
         "/api/v1/ecommerce/fulfillment",
         "/api/v1/ecommerce/ship",
         "/api/v1/ecommerce/metrics",
+        "/api/v1/ecommerce/circuit-breaker",
     ]
+
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
+        """Get the current status of the circuit breaker."""
+        return self._circuit_breaker.get_status()
 
     async def _check_permission(self, request: Any, permission: str) -> Any:
         """Check if user has the required permission using RBAC system."""
@@ -188,8 +488,13 @@ class EcommerceHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/ecommerce/")
 
+    @rate_limit(requests_per_minute=60)
     async def handle_request(self, request: Any) -> dict[str, Any]:
-        """Route request to appropriate handler."""
+        """Route request to appropriate handler.
+
+        All endpoints are rate limited to 60 requests per minute.
+        Platform API operations are protected by circuit breaker.
+        """
         method = request.method
         path = str(request.path)
 
@@ -202,6 +507,22 @@ class EcommerceHandler(SecureHandler):
             platform = parts[0]
             if len(parts) > 2:
                 resource_id = parts[2]
+
+        # Validate platform ID if present
+        if platform:
+            is_valid, err_msg = _validate_platform_id(platform)
+            if not is_valid:
+                return self._error_response(400, err_msg or "Invalid platform")
+
+        # Validate resource ID if present
+        if resource_id:
+            is_valid, err_msg = _validate_resource_id(resource_id, "Resource ID")
+            if not is_valid:
+                return self._error_response(400, err_msg or "Invalid resource ID")
+
+        # Circuit breaker status endpoint (no auth required)
+        if path.endswith("/circuit-breaker") and method == "GET":
+            return self._json_response(200, self.get_circuit_breaker_status())
 
         # Route to handlers
         if path.endswith("/platforms") and method == "GET":
@@ -217,67 +538,105 @@ class EcommerceHandler(SecureHandler):
                 return err
             return await self._disconnect_platform(request, platform)
 
-        # Orders
+        # Orders - these require circuit breaker protection
         elif path.endswith("/orders") and not platform and method == "GET":
             if err := await self._check_permission(request, "ecommerce:read"):
                 return err
-            return await self._list_all_orders(request)
+            return await self._with_circuit_breaker(self._list_all_orders, request)
 
         elif platform and "orders" in path:
             if method == "GET" and not resource_id:
                 if err := await self._check_permission(request, "ecommerce:read"):
                     return err
-                return await self._list_platform_orders(request, platform)
+                return await self._with_circuit_breaker(
+                    self._list_platform_orders, request, platform
+                )
             elif method == "GET" and resource_id:
                 if err := await self._check_permission(request, "ecommerce:read"):
                     return err
-                return await self._get_order(request, platform, resource_id)
+                return await self._with_circuit_breaker(
+                    self._get_order, request, platform, resource_id
+                )
 
-        # Products
+        # Products - circuit breaker protected
         elif path.endswith("/products") and not platform and method == "GET":
             if err := await self._check_permission(request, "ecommerce:read"):
                 return err
-            return await self._list_all_products(request)
+            return await self._with_circuit_breaker(self._list_all_products, request)
 
         elif platform and "products" in path:
             if method == "GET" and not resource_id:
                 if err := await self._check_permission(request, "ecommerce:read"):
                     return err
-                return await self._list_platform_products(request, platform)
+                return await self._with_circuit_breaker(
+                    self._list_platform_products, request, platform
+                )
             elif method == "GET" and resource_id:
                 if err := await self._check_permission(request, "ecommerce:read"):
                     return err
-                return await self._get_product(request, platform, resource_id)
+                return await self._with_circuit_breaker(
+                    self._get_product, request, platform, resource_id
+                )
 
-        # Inventory
+        # Inventory - circuit breaker protected
         elif path.endswith("/inventory") and method == "GET":
             if err := await self._check_permission(request, "ecommerce:read"):
                 return err
-            return await self._get_inventory(request)
+            return await self._with_circuit_breaker(self._get_inventory, request)
 
         elif path.endswith("/sync-inventory") and method == "POST":
             if err := await self._check_permission(request, "ecommerce:write"):
                 return err
-            return await self._sync_inventory(request)
+            return await self._with_circuit_breaker(self._sync_inventory, request)
 
-        # Fulfillment
+        # Fulfillment - circuit breaker protected
         elif path.endswith("/fulfillment") and method == "GET":
             if err := await self._check_permission(request, "ecommerce:read"):
                 return err
-            return await self._get_fulfillment_status(request)
+            return await self._with_circuit_breaker(self._get_fulfillment_status, request)
 
         elif path.endswith("/ship") and method == "POST":
             if err := await self._check_permission(request, "ecommerce:write"):
                 return err
-            return await self._create_shipment(request)
+            return await self._with_circuit_breaker(self._create_shipment, request)
 
-        # Metrics
+        # Metrics - circuit breaker protected
         elif path.endswith("/metrics") and method == "GET":
             if err := await self._check_permission(request, "ecommerce:read"):
                 return err
-            return await self._get_metrics(request)
+            return await self._with_circuit_breaker(self._get_metrics, request)
 
         return self._error_response(404, "Endpoint not found")
+
+    async def _with_circuit_breaker(self, func: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Execute a function with circuit breaker protection.
+
+        Args:
+            func: Async function to execute
+            *args: Positional arguments for the function
+            **kwargs: Keyword arguments for the function
+
+        Returns:
+            Function result or error response if circuit is open
+        """
+        if not self._circuit_breaker.can_proceed():
+            logger.warning("Ecommerce circuit breaker is open, rejecting request")
+            return self._error_response(
+                503, "E-commerce service temporarily unavailable. Please try again later."
+            )
+
+        try:
+            result = await func(*args, **kwargs)
+            self._circuit_breaker.record_success()
+            return result
+        except (ConnectionError, TimeoutError, OSError) as e:
+            self._circuit_breaker.record_failure()
+            logger.error(f"Ecommerce platform connection error: {e}")
+            return self._error_response(503, "E-commerce platform unavailable")
+        except Exception as e:
+            # Don't count application-level errors as circuit breaker failures
+            logger.error(f"Ecommerce handler error: {e}")
+            raise
 
     async def _list_platforms(self, request: Any) -> dict[str, Any]:
         """List all supported e-commerce platforms and connection status."""
@@ -308,11 +667,17 @@ class EcommerceHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Ecommerce connect_platform: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         platform = body.get("platform")
         if not platform:
             return self._error_response(400, "Platform is required")
+
+        # Validate platform ID format
+        is_valid, err_msg = _validate_platform_id(platform)
+        if not is_valid:
+            return self._error_response(400, err_msg or "Invalid platform")
 
         if platform not in SUPPORTED_PLATFORMS:
             return self._error_response(400, f"Unsupported platform: {platform}")
@@ -321,10 +686,31 @@ class EcommerceHandler(SecureHandler):
         if not credentials:
             return self._error_response(400, "Credentials are required")
 
+        if not isinstance(credentials, dict):
+            return self._error_response(400, "Credentials must be an object")
+
         required_fields = self._get_required_credentials(platform)
         missing = [f for f in required_fields if f not in credentials]
         if missing:
             return self._error_response(400, f"Missing required credentials: {', '.join(missing)}")
+
+        # Validate credential values
+        for field_name, value in credentials.items():
+            if not isinstance(value, str):
+                return self._error_response(400, f"Credential '{field_name}' must be a string")
+            if len(value) > MAX_CREDENTIAL_VALUE_LENGTH:
+                return self._error_response(
+                    400, f"Credential '{field_name}' exceeds maximum length"
+                )
+            if not value.strip():
+                return self._error_response(400, f"Credential '{field_name}' cannot be empty")
+
+        # Platform-specific validation
+        if platform == "shopify":
+            shop_url = credentials.get("shop_url", "")
+            is_valid, err_msg = _validate_url(shop_url, "Shop URL")
+            if not is_valid:
+                return self._error_response(400, err_msg or "Invalid shop URL")
 
         _platform_credentials[platform] = {
             "credentials": credentials,
@@ -641,6 +1027,7 @@ class EcommerceHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Ecommerce sync_inventory: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         sku = body.get("sku")
@@ -648,8 +1035,35 @@ class EcommerceHandler(SecureHandler):
         source_platform = body.get("source_platform")
         target_platforms = body.get("target_platforms", list(_platform_credentials.keys()))
 
+        # Validate SKU
         if not sku:
             return self._error_response(400, "SKU is required")
+        is_valid, err_msg = _validate_sku(sku)
+        if not is_valid:
+            return self._error_response(400, err_msg or "Invalid SKU")
+
+        # Validate quantity if provided
+        if quantity is not None:
+            is_valid, err_msg, parsed_qty = _validate_quantity(quantity)
+            if not is_valid:
+                return self._error_response(400, err_msg or "Invalid quantity")
+            quantity = parsed_qty
+
+        # Validate source platform if provided
+        if source_platform:
+            is_valid, err_msg = _validate_platform_id(source_platform)
+            if not is_valid:
+                return self._error_response(400, err_msg or "Invalid source platform")
+            if source_platform not in SUPPORTED_PLATFORMS:
+                return self._error_response(400, f"Unsupported source platform: {source_platform}")
+
+        # Validate target platforms
+        if not isinstance(target_platforms, list):
+            return self._error_response(400, "target_platforms must be a list")
+        for tp in target_platforms:
+            is_valid, err_msg = _validate_platform_id(tp)
+            if not is_valid:
+                return self._error_response(400, f"Invalid target platform: {err_msg}")
 
         if quantity is None and not source_platform:
             return self._error_response(400, "Either quantity or source_platform is required")
@@ -770,15 +1184,48 @@ class EcommerceHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
+            logger.warning("Ecommerce create_shipment: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         platform = body.get("platform", "shipstation")
         order_id = body.get("order_id")
         carrier = body.get("carrier")
         service = body.get("service")
+        tracking_number = body.get("tracking_number")
 
+        # Validate platform
+        is_valid, err_msg = _validate_platform_id(platform)
+        if not is_valid:
+            return self._error_response(400, err_msg or "Invalid platform")
+
+        # Validate order_id
         if not order_id:
             return self._error_response(400, "order_id is required")
+        is_valid, err_msg = _validate_resource_id(str(order_id), "Order ID")
+        if not is_valid:
+            return self._error_response(400, err_msg or "Invalid order ID")
+
+        # Validate carrier if provided
+        if carrier:
+            if not isinstance(carrier, str) or len(carrier) > MAX_CARRIER_LENGTH:
+                return self._error_response(400, "Invalid carrier format")
+            if not re.match(r"^[a-zA-Z0-9_\-]+$", carrier):
+                return self._error_response(400, "Carrier contains invalid characters")
+
+        # Validate service if provided
+        if service:
+            if not isinstance(service, str) or len(service) > MAX_SERVICE_LENGTH:
+                return self._error_response(400, "Invalid service format")
+            if not re.match(r"^[a-zA-Z0-9_\-]+$", service):
+                return self._error_response(400, "Service contains invalid characters")
+
+        # Validate tracking number if provided
+        if tracking_number:
+            if (
+                not isinstance(tracking_number, str)
+                or len(tracking_number) > MAX_TRACKING_NUMBER_LENGTH
+            ):
+                return self._error_response(400, "Invalid tracking number format")
 
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -1101,4 +1548,12 @@ class EcommerceHandler(SecureHandler):
         return self._json_response(status, {"error": message})
 
 
-__all__ = ["EcommerceHandler"]
+__all__ = [
+    "EcommerceHandler",
+    "EcommerceCircuitBreaker",
+    "get_ecommerce_circuit_breaker",
+    "reset_ecommerce_circuit_breaker",
+    "SUPPORTED_PLATFORMS",
+    "UnifiedOrder",
+    "UnifiedProduct",
+]

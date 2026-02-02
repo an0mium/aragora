@@ -103,6 +103,7 @@ class TestFeatureRegistry:
         assert "pulse" in FEATURE_REGISTRY
         assert "genesis" in FEATURE_REGISTRY
         assert "memory" in FEATURE_REGISTRY
+        assert "supermemory" in FEATURE_REGISTRY
 
     def test_registry_feature_structure(self):
         """Test registry features have required structure."""

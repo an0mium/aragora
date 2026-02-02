@@ -271,18 +271,16 @@ response = llm.generate(prompt)
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        injection_findings = [
-            f for f in findings if "prompt_injection" in f.category
-        ]
+        injection_findings = [f for f in findings if "prompt_injection" in f.category]
         assert len(injection_findings) > 0
 
     @pytest.mark.asyncio
     async def test_detect_fstring_prompt_injection(self, auditor, audit_context):
         """Test detection of f-string prompt injection."""
-        code = '''
+        code = """
 def build_prompt(user_message):
     return f"System: {system_prompt}. User says: {user_message}"
-'''
+"""
         chunk = ChunkData(
             id="chunk-2",
             document_id="test.py",
@@ -317,9 +315,7 @@ response = client.chat.completions.create(model="gpt-4")
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        overflow_findings = [
-            f for f in findings if "context_overflow" in f.category
-        ]
+        overflow_findings = [f for f in findings if "context_overflow" in f.category]
         assert len(overflow_findings) > 0
 
 
@@ -348,9 +344,7 @@ response = client.chat.completions.create(
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        temp_findings = [
-            f for f in findings if "hallucination_risk" in f.category
-        ]
+        temp_findings = [f for f in findings if "hallucination_risk" in f.category]
         assert len(temp_findings) > 0
 
 
@@ -376,9 +370,7 @@ result = eval(response.content)
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        eval_findings = [
-            f for f in findings if "output_validation" in f.category
-        ]
+        eval_findings = [f for f in findings if "output_validation" in f.category]
         assert len(eval_findings) > 0
         assert any(f.severity == FindingSeverity.CRITICAL for f in eval_findings)
 
@@ -396,9 +388,7 @@ exec(code_response.text)
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        exec_findings = [
-            f for f in findings if "output_validation" in f.category
-        ]
+        exec_findings = [f for f in findings if "output_validation" in f.category]
         assert len(exec_findings) > 0
 
 
@@ -424,9 +414,7 @@ log.info(f"Processing message: {message}")
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        leakage_findings = [
-            f for f in findings if "data_leakage" in f.category
-        ]
+        leakage_findings = [f for f in findings if "data_leakage" in f.category]
         assert len(leakage_findings) > 0
 
 
@@ -453,9 +441,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        secret_findings = [
-            f for f in findings if "api_secrets" in f.category
-        ]
+        secret_findings = [f for f in findings if "api_secrets" in f.category]
         assert len(secret_findings) > 0
         assert any("OpenAI" in f.title for f in secret_findings)
 
@@ -474,9 +460,7 @@ client = Anthropic(api_key=anthropic_key)
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        secret_findings = [
-            f for f in findings if "api_secrets" in f.category
-        ]
+        secret_findings = [f for f in findings if "api_secrets" in f.category]
         assert len(secret_findings) > 0
         assert any("Anthropic" in f.title for f in secret_findings)
 
@@ -493,9 +477,7 @@ HF_TOKEN = "hf_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890"
         )
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
-        secret_findings = [
-            f for f in findings if "api_secrets" in f.category
-        ]
+        secret_findings = [f for f in findings if "api_secrets" in f.category]
         assert len(secret_findings) > 0
 
 
@@ -523,9 +505,7 @@ example_key = "sk-abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHijkl"
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
         # Findings should be filtered out for example code
-        secret_findings = [
-            f for f in findings if "api_secrets" in f.category
-        ]
+        secret_findings = [f for f in findings if "api_secrets" in f.category]
         assert len(secret_findings) == 0
 
     @pytest.mark.asyncio
@@ -545,9 +525,7 @@ mock_response = "response.content"
         findings = await auditor.analyze_chunk(chunk, audit_context)
 
         # Test/mock code should be excluded
-        secret_findings = [
-            f for f in findings if "api_secrets" in f.category
-        ]
+        secret_findings = [f for f in findings if "api_secrets" in f.category]
         assert len(secret_findings) == 0
 
 
@@ -577,9 +555,7 @@ class TestCrossDocumentAnalysis:
 
         findings = await auditor.cross_document_analysis(chunks, audit_context)
 
-        guardrail_findings = [
-            f for f in findings if "guardrails" in f.category.lower()
-        ]
+        guardrail_findings = [f for f in findings if "guardrails" in f.category.lower()]
         assert len(guardrail_findings) > 0
 
     @pytest.mark.asyncio
@@ -595,9 +571,7 @@ class TestCrossDocumentAnalysis:
 
         findings = await auditor.cross_document_analysis(chunks, audit_context)
 
-        doc_findings = [
-            f for f in findings if "documentation" in f.category.lower()
-        ]
+        doc_findings = [f for f in findings if "documentation" in f.category.lower()]
         assert len(doc_findings) > 0
 
     @pytest.mark.asyncio
@@ -613,9 +587,7 @@ class TestCrossDocumentAnalysis:
 
         findings = await auditor.cross_document_analysis(chunks, audit_context)
 
-        guardrail_findings = [
-            f for f in findings if "No Guardrail Library" in f.title
-        ]
+        guardrail_findings = [f for f in findings if "No Guardrail Library" in f.title]
         assert len(guardrail_findings) == 0
 
 

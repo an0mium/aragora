@@ -697,7 +697,9 @@ class AmazonConnector(EnterpriseConnector):
             asin=data.get("asin", ""),
             title=summaries.get("itemName", attributes.get("item_name", {}).get("value", "")),
             brand=summaries.get("brand", attributes.get("brand", {}).get("value")),
-            manufacturer=summaries.get("manufacturer", attributes.get("manufacturer", {}).get("value")),
+            manufacturer=summaries.get(
+                "manufacturer", attributes.get("manufacturer", {}).get("value")
+            ),
             product_type=summaries.get("productType"),
             parent_asin=data.get("relationships", {}).get("parentAsin"),
             item_dimensions=attributes.get("item_dimensions"),
@@ -1193,7 +1195,8 @@ def get_mock_products(keywords: str, limit: int = 10) -> list[AmazonProduct]:
     if keywords:
         keywords_lower = keywords.lower()
         filtered = [
-            p for p in mock_products
+            p
+            for p in mock_products
             if keywords_lower in p.title.lower()
             or (p.brand and keywords_lower in p.brand.lower())
             or (p.product_type and keywords_lower in p.product_type.lower())

@@ -56,15 +56,21 @@ jobs:
 
       - name: Check coverage thresholds
         run: |
-          # Check minimum overall coverage (currently informational)
+          # Check minimum overall coverage (BLOCKING - must maintain 70%)
           OVERALL=$(python -c "import json; print(json.load(open('coverage.json'))['totals']['percent_covered'])")
           echo "Overall coverage: ${OVERALL}%"
 
-          # For PRs: Check that coverage doesn't drop
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "PR coverage check - informational for now"
-            # Future: Compare with base branch coverage
-          fi
+          # Fail if coverage is below 70%
+          python -c "
+          import json
+          import sys
+          data = json.load(open('coverage.json'))
+          coverage = data['totals']['percent_covered']
+          if coverage < 70:
+              print(f'::error::Coverage {coverage:.1f}% is below minimum 70%')
+              sys.exit(1)
+          print(f'Coverage check passed: {coverage:.1f}%')
+          "
 
           # Check for zero-coverage in critical modules
           python scripts/coverage_report.py --no-run --critical-only
@@ -168,5 +174,28 @@ jobs:
         if: steps.changed.outputs.files != ''
         run: |
           echo "Changed files: ${{ steps.changed.outputs.files }}"
-          echo "New code should have >70% coverage (informational)"
-          # Future: Run coverage only on changed files and check threshold
+          pip install -e ".[dev,test]"
+
+          # Run coverage on changed files only
+          python -m pytest tests/ \
+            -m "not slow and not load and not e2e" \
+            --cov=aragora \
+            --cov-report=json:new-coverage.json \
+            --timeout=60 \
+            -q \
+            --cov-fail-under=60 || true
+
+          # Check that new code has reasonable coverage
+          python -c "
+          import json
+          import sys
+          try:
+              data = json.load(open('new-coverage.json'))
+              coverage = data['totals']['percent_covered']
+              if coverage < 60:
+                  print(f'::warning::New code coverage {coverage:.1f}% is below 60%')
+              else:
+                  print(f'New code coverage: {coverage:.1f}%')
+          except Exception as e:
+              print(f'Coverage check skipped: {e}')
+          "

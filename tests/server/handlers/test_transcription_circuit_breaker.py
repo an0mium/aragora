@@ -368,6 +368,7 @@ class TestCircuitBreakerIntegration:
                 from aragora.server.handlers.transcription import (
                     reset_transcription_circuit_breaker,
                 )
+
                 reset_transcription_circuit_breaker()
                 yield
                 reset_transcription_circuit_breaker()
@@ -395,10 +396,14 @@ class TestCircuitBreakerIntegration:
         boundary = "----TestBoundary"
         file_data = b"ID3" + b"\x00" * 100  # Valid MP3 header
         body = (
-            f"------{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="audio.mp3"\r\n'
-            f"Content-Type: audio/mpeg\r\n\r\n"
-        ).encode() + file_data + f"\r\n------{boundary}--\r\n".encode()
+            (
+                f"------{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="audio.mp3"\r\n'
+                f"Content-Type: audio/mpeg\r\n\r\n"
+            ).encode()
+            + file_data
+            + f"\r\n------{boundary}--\r\n".encode()
+        )
 
         mock_http = MockHandler(
             headers={
@@ -443,10 +448,14 @@ class TestCircuitBreakerIntegration:
         boundary = "----TestBoundary"
         file_data = b"\x00\x00\x00\x00ftyp" + b"\x00" * 100  # Valid MP4 header
         body = (
-            f"------{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="video.mp4"\r\n'
-            f"Content-Type: video/mp4\r\n\r\n"
-        ).encode() + file_data + f"\r\n------{boundary}--\r\n".encode()
+            (
+                f"------{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="video.mp4"\r\n'
+                f"Content-Type: video/mp4\r\n\r\n"
+            ).encode()
+            + file_data
+            + f"\r\n------{boundary}--\r\n".encode()
+        )
 
         mock_http = MockHandler(
             headers={
@@ -532,10 +541,14 @@ class TestCircuitBreakerIntegration:
         boundary = "----TestBoundary"
         file_data = b"ID3" + b"\x00" * 100
         body = (
-            f"------{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="audio.mp3"\r\n'
-            f"Content-Type: audio/mpeg\r\n\r\n"
-        ).encode() + file_data + f"\r\n------{boundary}--\r\n".encode()
+            (
+                f"------{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="audio.mp3"\r\n'
+                f"Content-Type: audio/mpeg\r\n\r\n"
+            ).encode()
+            + file_data
+            + f"\r\n------{boundary}--\r\n".encode()
+        )
 
         mock_http = MockHandler(
             headers={
@@ -584,6 +597,7 @@ class TestConfigWithCircuitBreaker:
                 from aragora.server.handlers.transcription import (
                     reset_transcription_circuit_breaker,
                 )
+
                 reset_transcription_circuit_breaker()
                 yield
 

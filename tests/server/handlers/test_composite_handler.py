@@ -103,12 +103,14 @@ def handler_with_context():
         "quality": {"information_retained": 0.9},
     }
 
-    return CompositeHandler({
-        "continuum_memory": mock_continuum,
-        "knowledge_mound": mock_mound,
-        "dissent_retriever": mock_dissent,
-        "rlm_handler": mock_rlm,
-    })
+    return CompositeHandler(
+        {
+            "continuum_memory": mock_continuum,
+            "knowledge_mound": mock_mound,
+            "dissent_retriever": mock_dissent,
+            "rlm_handler": mock_rlm,
+        }
+    )
 
 
 @pytest.fixture
@@ -417,7 +419,9 @@ class TestHandleRouting:
 
     def test_routes_to_compression_analysis(self, handler):
         """Routes compression-analysis path correctly."""
-        result = handler.handle("/api/v1/debates/dbt-456/compression-analysis", {}, make_mock_handler())
+        result = handler.handle(
+            "/api/v1/debates/dbt-456/compression-analysis", {}, make_mock_handler()
+        )
         body = get_body(result)
         assert result.status_code == 200
         assert body["debate_id"] == "dbt-456"
@@ -432,9 +436,7 @@ class TestHandleRouting:
         """Rejects invalid debate ID with 400 error."""
         # Path traversal attempt
         result = handler.handle(
-            "/api/v1/debates/../../../etc/passwd/full-context",
-            {},
-            make_mock_handler()
+            "/api/v1/debates/../../../etc/passwd/full-context", {}, make_mock_handler()
         )
         body = get_body(result)
         assert result.status_code == 400
@@ -444,9 +446,7 @@ class TestHandleRouting:
         """Rejects invalid agent ID with 400 error."""
         # Script injection attempt
         result = handler.handle(
-            "/api/v1/agents/<script>alert(1)</script>/reliability",
-            {},
-            make_mock_handler()
+            "/api/v1/agents/<script>alert(1)</script>/reliability", {}, make_mock_handler()
         )
         body = get_body(result)
         assert result.status_code == 400
@@ -467,11 +467,7 @@ class TestRateLimiting:
 
         # First few requests should succeed
         for _ in range(5):
-            result = handler.handle(
-                "/api/v1/debates/dbt-123/full-context",
-                {},
-                mock_handler
-            )
+            result = handler.handle("/api/v1/debates/dbt-123/full-context", {}, mock_handler)
             assert result.status_code == 200
 
     def test_rate_limiting_blocks_excessive_requests(self, handler):
@@ -481,11 +477,7 @@ class TestRateLimiting:
         # Make many requests to trigger rate limit
         rate_limited = False
         for _ in range(100):
-            result = handler.handle(
-                "/api/v1/debates/dbt-123/full-context",
-                {},
-                mock_handler
-            )
+            result = handler.handle("/api/v1/debates/dbt-123/full-context", {}, mock_handler)
             if result.status_code == 429:
                 rate_limited = True
                 body = get_body(result)
@@ -501,16 +493,8 @@ class TestRateLimiting:
         handler2 = make_mock_handler(("10.0.0.2", 12345))
 
         # Both should succeed (different IPs have independent limits)
-        result1 = handler.handle(
-            "/api/v1/debates/dbt-123/full-context",
-            {},
-            handler1
-        )
-        result2 = handler.handle(
-            "/api/v1/debates/dbt-123/full-context",
-            {},
-            handler2
-        )
+        result1 = handler.handle("/api/v1/debates/dbt-123/full-context", {}, handler1)
+        result2 = handler.handle("/api/v1/debates/dbt-123/full-context", {}, handler2)
 
         assert result1.status_code == 200
         assert result2.status_code == 200
@@ -719,9 +703,7 @@ class TestFetchWithCircuitBreaker:
         initial_state = cb.state
 
         result = handler._fetch_with_circuit_breaker(
-            "test_sub",
-            lambda: {"data": "value"},
-            {"error": "fallback"}
+            "test_sub", lambda: {"data": "value"}, {"error": "fallback"}
         )
 
         assert result == {"data": "value"}
@@ -735,7 +717,7 @@ class TestFetchWithCircuitBreaker:
             handler._fetch_with_circuit_breaker(
                 "test_fail",
                 lambda: (_ for _ in ()).throw(ValueError("test error")),
-                {"error": "fallback"}
+                {"error": "fallback"},
             )
 
         assert cb.state == CompositeCircuitBreaker.OPEN
@@ -747,9 +729,7 @@ class TestFetchWithCircuitBreaker:
             cb.record_failure()
 
         result = handler._fetch_with_circuit_breaker(
-            "test_open",
-            lambda: {"should": "not be called"},
-            {"fallback": "value"}
+            "test_open", lambda: {"should": "not be called"}, {"fallback": "value"}
         )
 
         assert result == {"fallback": "value"}
@@ -761,9 +741,7 @@ class TestFetchWithCircuitBreaker:
             cb.record_failure()
 
         result = handler._fetch_with_circuit_breaker(
-            "test_none",
-            lambda: {"should": "not be called"},
-            None
+            "test_none", lambda: {"should": "not be called"}, None
         )
 
         assert result is None

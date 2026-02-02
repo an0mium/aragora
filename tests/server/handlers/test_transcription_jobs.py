@@ -100,6 +100,7 @@ def reset_state():
                 _transcription_jobs,
                 reset_transcription_circuit_breaker,
             )
+
             _transcription_jobs.clear()
             reset_transcription_circuit_breaker()
             yield
@@ -417,9 +418,7 @@ class TestHandlerMethods:
                     "aragora.transcription.whisper_backend.WHISPER_MODELS",
                     {"tiny": {}},
                 ):
-                    result = handler.handle(
-                        "/api/v1/transcription/config", {}, mock_http
-                    )
+                    result = handler.handle("/api/v1/transcription/config", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -446,9 +445,7 @@ class TestHandlerMethods:
             path="/api/v1/transcription/status/my-job-id",
         )
 
-        result = handler.handle(
-            "/api/v1/transcription/status/my-job-id", {}, mock_http
-        )
+        result = handler.handle("/api/v1/transcription/status/my-job-id", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -601,10 +598,14 @@ class TestErrorHandling:
         boundary = "----TestBoundary"
         file_data = b"ID3" + b"\x00" * 100
         body = (
-            f"------{boundary}\r\n"
-            f'Content-Disposition: form-data; name="file"; filename="audio.mp3"\r\n'
-            f"Content-Type: audio/mpeg\r\n\r\n"
-        ).encode() + file_data + f"\r\n------{boundary}--\r\n".encode()
+            (
+                f"------{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="audio.mp3"\r\n'
+                f"Content-Type: audio/mpeg\r\n\r\n"
+            ).encode()
+            + file_data
+            + f"\r\n------{boundary}--\r\n".encode()
+        )
 
         mock_http = MockHandler(
             headers={

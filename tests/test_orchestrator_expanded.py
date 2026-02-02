@@ -174,7 +174,7 @@ class TestOrchestratorTimeout:
         arena = Arena(basic_env, mock_agents, protocol)
 
         async def slow_task():
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
             return "never reached"
 
         with pytest.raises(TimeoutError) as exc_info:
@@ -190,7 +190,7 @@ class TestOrchestratorTimeout:
         arena = Arena(basic_env, mock_agents, protocol)
 
         async def slow_task():
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         with pytest.raises(TimeoutError):
             await arena.autonomic.with_timeout(slow_task(), "claude", timeout_seconds=0.1)

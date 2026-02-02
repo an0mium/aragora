@@ -237,7 +237,7 @@ async def process_gmail_notification(
 
     except Exception as e:
         logger.exception(f"Error processing Gmail notification: {e}")
-        return {}  # type: ignore[return-value]
+        return None
 
 
 async def process_outlook_notification(
@@ -406,7 +406,7 @@ class EmailWebhooksHandler(BaseHandler):
         """Initialize handler with optional server context."""
         super().__init__(server_context if server_context is not None else dict())
 
-    async def handle(self, request: Any, path: str, method: str = "GET") -> HandlerResult:  # type: ignore[override]
+    async def handle(self, request: Any, path: str, method: str = "GET") -> HandlerResult:  # type: ignore[override]  # Different handler-style routing pattern
         """Compatibility wrapper for handler-style routing."""
         return await self.route_request(request, path, method)
 

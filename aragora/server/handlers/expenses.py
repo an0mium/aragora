@@ -936,10 +936,11 @@ class ExpenseHandler(BaseHandler):
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,
-        query_params: dict[str, Any],
+        query_params: dict[str, Any] | None = None,
         handler: Any = None,
     ) -> MaybeAsyncHandlerResult:
         """Handle DELETE requests."""
+        _ = query_params  # retained for signature compatibility
         # Note: handle_delete_expense already has @require_permission("admin:audit")
         # But we also check at handler level for consistency
         if handler:

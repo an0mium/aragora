@@ -507,20 +507,23 @@ class TestTinkerEvaluatorLoadResult:
 
         # Create result file
         with open(tmp_path / "test-load-2.json", "w") as f:
-            json.dump({
-                "test_id": "test-load-2",
-                "fine_tuned_agent": "ft",
-                "baseline_agent": "bl",
-                "num_trials": 2,
-                "fine_tuned_wins": 1,
-                "baseline_wins": 1,
-                "draws": 0,
-                "fine_tuned_win_rate": 0.5,
-                "avg_fine_tuned_score": 0.5,
-                "avg_baseline_score": 0.5,
-                "avg_confidence": 0.7,
-                "consensus_rate": 0.7,
-            }, f)
+            json.dump(
+                {
+                    "test_id": "test-load-2",
+                    "fine_tuned_agent": "ft",
+                    "baseline_agent": "bl",
+                    "num_trials": 2,
+                    "fine_tuned_wins": 1,
+                    "baseline_wins": 1,
+                    "draws": 0,
+                    "fine_tuned_win_rate": 0.5,
+                    "avg_fine_tuned_score": 0.5,
+                    "avg_baseline_score": 0.5,
+                    "avg_confidence": 0.7,
+                    "consensus_rate": 0.7,
+                },
+                f,
+            )
 
         # Create trials file
         with open(tmp_path / "test-load-2_trials.jsonl", "w") as f:
@@ -553,13 +556,16 @@ class TestTinkerEvaluatorListResults:
 
         # Create result files with different names (will affect sorting)
         for i in range(3):
-            with open(tmp_path / f"test-2024-0{i+1}.json", "w") as f:
-                json.dump({
-                    "test_id": f"test-2024-0{i+1}",
-                    "fine_tuned_agent": "ft",
-                    "baseline_agent": "bl",
-                    "fine_tuned_win_rate": 0.5 + i * 0.1,
-                }, f)
+            with open(tmp_path / f"test-2024-0{i + 1}.json", "w") as f:
+                json.dump(
+                    {
+                        "test_id": f"test-2024-0{i + 1}",
+                        "fine_tuned_agent": "ft",
+                        "baseline_agent": "bl",
+                        "fine_tuned_win_rate": 0.5 + i * 0.1,
+                    },
+                    f,
+                )
 
         results = evaluator.list_results()
         assert len(results) == 3
@@ -570,12 +576,15 @@ class TestTinkerEvaluatorListResults:
 
         for i in range(10):
             with open(tmp_path / f"test-{i:04d}.json", "w") as f:
-                json.dump({
-                    "test_id": f"test-{i:04d}",
-                    "fine_tuned_agent": "ft",
-                    "baseline_agent": "bl",
-                    "fine_tuned_win_rate": 0.5,
-                }, f)
+                json.dump(
+                    {
+                        "test_id": f"test-{i:04d}",
+                        "fine_tuned_agent": "ft",
+                        "baseline_agent": "bl",
+                        "fine_tuned_win_rate": 0.5,
+                    },
+                    f,
+                )
 
         results = evaluator.list_results(limit=5)
         assert len(results) == 5
@@ -1441,14 +1450,17 @@ class TestResultListingEdgeCases:
         evaluator = TinkerEvaluator(results_dir=tmp_path)
 
         with open(tmp_path / "test-full.json", "w") as f:
-            json.dump({
-                "test_id": "test-full",
-                "fine_tuned_agent": "ft-agent",
-                "baseline_agent": "bl-agent",
-                "fine_tuned_win_rate": 0.75,
-                "is_significant": True,
-                "created_at": "2024-01-15T10:30:00",
-            }, f)
+            json.dump(
+                {
+                    "test_id": "test-full",
+                    "fine_tuned_agent": "ft-agent",
+                    "baseline_agent": "bl-agent",
+                    "fine_tuned_win_rate": 0.75,
+                    "is_significant": True,
+                    "created_at": "2024-01-15T10:30:00",
+                },
+                f,
+            )
 
         results = evaluator.list_results()
         assert len(results) == 1
@@ -1465,12 +1477,15 @@ class TestResultListingEdgeCases:
         evaluator = TinkerEvaluator(results_dir=tmp_path)
 
         with open(tmp_path / "test-minimal.json", "w") as f:
-            json.dump({
-                "test_id": "test-minimal",
-                "fine_tuned_agent": "ft",
-                "baseline_agent": "bl",
-                "fine_tuned_win_rate": 0.5,
-            }, f)
+            json.dump(
+                {
+                    "test_id": "test-minimal",
+                    "fine_tuned_agent": "ft",
+                    "baseline_agent": "bl",
+                    "fine_tuned_win_rate": 0.5,
+                },
+                f,
+            )
 
         results = evaluator.list_results()
         assert len(results) == 1
@@ -1484,8 +1499,15 @@ class TestResultListingEdgeCases:
 
         # Create various files
         with open(tmp_path / "test-valid.json", "w") as f:
-            json.dump({"test_id": "test-valid", "fine_tuned_agent": "ft",
-                      "baseline_agent": "bl", "fine_tuned_win_rate": 0.5}, f)
+            json.dump(
+                {
+                    "test_id": "test-valid",
+                    "fine_tuned_agent": "ft",
+                    "baseline_agent": "bl",
+                    "fine_tuned_win_rate": 0.5,
+                },
+                f,
+            )
         with open(tmp_path / "other.json", "w") as f:
             json.dump({"test_id": "other"}, f)
         with open(tmp_path / "test-valid_trials.jsonl", "w") as f:
@@ -1509,20 +1531,23 @@ class TestLoadResultEdgeCases:
         evaluator = TinkerEvaluator(results_dir=tmp_path)
 
         with open(tmp_path / "test-no-trials.json", "w") as f:
-            json.dump({
-                "test_id": "test-no-trials",
-                "fine_tuned_agent": "ft",
-                "baseline_agent": "bl",
-                "num_trials": 5,
-                "fine_tuned_wins": 3,
-                "baseline_wins": 2,
-                "draws": 0,
-                "fine_tuned_win_rate": 0.6,
-                "avg_fine_tuned_score": 0.6,
-                "avg_baseline_score": 0.4,
-                "avg_confidence": 0.8,
-                "consensus_rate": 0.8,
-            }, f)
+            json.dump(
+                {
+                    "test_id": "test-no-trials",
+                    "fine_tuned_agent": "ft",
+                    "baseline_agent": "bl",
+                    "num_trials": 5,
+                    "fine_tuned_wins": 3,
+                    "baseline_wins": 2,
+                    "draws": 0,
+                    "fine_tuned_win_rate": 0.6,
+                    "avg_fine_tuned_score": 0.6,
+                    "avg_baseline_score": 0.4,
+                    "avg_confidence": 0.8,
+                    "consensus_rate": 0.8,
+                },
+                f,
+            )
 
         loaded = evaluator.load_result("test-no-trials")
         assert loaded is not None
@@ -1533,20 +1558,23 @@ class TestLoadResultEdgeCases:
         evaluator = TinkerEvaluator(results_dir=tmp_path)
 
         with open(tmp_path / "test-old.json", "w") as f:
-            json.dump({
-                "test_id": "test-old",
-                "fine_tuned_agent": "ft",
-                "baseline_agent": "bl",
-                "num_trials": 10,
-                "fine_tuned_wins": 5,
-                "baseline_wins": 5,
-                "draws": 0,
-                "fine_tuned_win_rate": 0.5,
-                "avg_fine_tuned_score": 0.5,
-                "avg_baseline_score": 0.5,
-                "avg_confidence": 0.7,
-                "consensus_rate": 0.7,
-            }, f)
+            json.dump(
+                {
+                    "test_id": "test-old",
+                    "fine_tuned_agent": "ft",
+                    "baseline_agent": "bl",
+                    "num_trials": 10,
+                    "fine_tuned_wins": 5,
+                    "baseline_wins": 5,
+                    "draws": 0,
+                    "fine_tuned_win_rate": 0.5,
+                    "avg_fine_tuned_score": 0.5,
+                    "avg_baseline_score": 0.5,
+                    "avg_confidence": 0.7,
+                    "consensus_rate": 0.7,
+                },
+                f,
+            )
 
         loaded = evaluator.load_result("test-old")
         assert loaded is not None

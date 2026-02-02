@@ -97,7 +97,7 @@ class ReceiptsHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         method: str,
         path: str,
@@ -495,7 +495,7 @@ class ReceiptsHandler(BaseHandler):
             elif export_format == "sarif":
                 from aragora.gauntlet.api.export import export_receipt, ReceiptExportFormat
 
-                sarif_content = export_receipt(decision_receipt, format=ReceiptExportFormat.SARIF)  # type: ignore[arg-type]
+                sarif_content = export_receipt(decision_receipt, format=ReceiptExportFormat.SARIF)
                 body = (
                     sarif_content.encode("utf-8")
                     if isinstance(sarif_content, str)

@@ -406,6 +406,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_loader_in_invalid_state_error(self):
         """Raises error if loader is in invalid state."""
+
         async def factory():
             return "value"
 

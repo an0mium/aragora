@@ -1646,9 +1646,7 @@ class TestCheckpointStoreIntegration:
             return await store.save(checkpoint)
 
         # Save 5 checkpoints concurrently
-        checkpoint_ids = await asyncio.gather(
-            *[save_checkpoint(i) for i in range(5)]
-        )
+        checkpoint_ids = await asyncio.gather(*[save_checkpoint(i) for i in range(5)])
 
         # All IDs should be unique since each workflow_id is unique
         assert len(set(checkpoint_ids)) == 5

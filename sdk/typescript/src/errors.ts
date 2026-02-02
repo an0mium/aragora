@@ -28,8 +28,16 @@ export class AragoraError extends Error {
   readonly message: string;
   /** HTTP status code, if applicable */
   readonly statusCode: number | undefined;
+  /** Alias for statusCode - matches common error property naming */
+  get status(): number | undefined {
+    return this.statusCode;
+  }
   /** Machine-readable error code from the API (e.g., "RATE_LIMITED") */
   readonly errorCode: ErrorCode | string | undefined;
+  /** Alias for errorCode - matches API response field name */
+  get code(): ErrorCode | string | undefined {
+    return this.errorCode;
+  }
   /** Unique request trace ID for debugging and support */
   readonly traceId: string | undefined;
   /** Raw parsed response body, if available */

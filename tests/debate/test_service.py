@@ -105,10 +105,12 @@ def mock_arena_class(mock_debate_result):
 
 def _make_resolver(agent_map: dict):
     """Create an agent resolver function from a name->agent mapping."""
+
     def resolver(name: str):
         if name not in agent_map:
             raise KeyError(f"Unknown agent: {name}")
         return agent_map[name]
+
     return resolver
 
 
@@ -154,8 +156,16 @@ class TestDebateOptionsInit:
 
     def test_all_consensus_modes_accepted(self):
         """Test all consensus literal values are accepted."""
-        for mode in ["majority", "unanimous", "judge", "none",
-                     "weighted", "supermajority", "any", "byzantine"]:
+        for mode in [
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+            "byzantine",
+        ]:
             opts = DebateOptions(consensus=mode)
             assert opts.consensus == mode
 
@@ -219,11 +229,10 @@ class TestDebateOptionsInit:
     def test_debate_profile_failure_logs_warning(self):
         """Test that failed profile loading logs warning and uses defaults."""
         with patch.dict("os.environ", {"ARAGORA_DEBATE_PROFILE": "nomic"}):
-            with patch(
-                "aragora.debate.service.logger"
-            ) as mock_logger:
+            with patch("aragora.debate.service.logger") as mock_logger:
                 # Force import to fail inside __post_init__
                 import sys
+
                 orig = sys.modules.get("aragora.nomic.debate_profile")
                 sys.modules["aragora.nomic.debate_profile"] = None  # type: ignore
                 try:
@@ -720,9 +729,7 @@ class TestDebateServiceRun:
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
 
-            service = DebateService(
-                default_agents=mock_agent_pair, memory=service_memory
-            )
+            service = DebateService(default_agents=mock_agent_pair, memory=service_memory)
             result = await service.run("Test task", memory=run_memory)
 
             call_kwargs = mock_arena_cls.call_args[1]
@@ -907,9 +914,7 @@ class TestDebateServiceRunQuick:
             mock_arena_cls.return_value = arena_inst
 
             service = DebateService()
-            result = await service.run_quick(
-                "Quick question", agents=mock_agent_pair
-            )
+            result = await service.run_quick("Quick question", agents=mock_agent_pair)
 
             assert result is mock_debate_result
 

@@ -814,7 +814,9 @@ class TestParallelStepExecutor:
         mock_registry = MagicMock()
         mock_registry.is_registered.return_value = False
 
-        with patch.dict("sys.modules", {"aragora.agents.registry": MagicMock(AgentRegistry=mock_registry)}):
+        with patch.dict(
+            "sys.modules", {"aragora.agents.registry": MagicMock(AgentRegistry=mock_registry)}
+        ):
             with patch("aragora.agents.registry.AgentRegistry", mock_registry):
                 result = await executor.execute(step, {})
 
@@ -986,7 +988,9 @@ class TestEscalationStepExecutor:
         executor = EscalationStepExecutor(handlers={"warn": handler, "throttle": handler})
 
         # First escalation
-        step1 = MoleculeStep.create("e1", "escalation", {"level": "warn", "source": "t", "reason": "r"})
+        step1 = MoleculeStep.create(
+            "e1", "escalation", {"level": "warn", "source": "t", "reason": "r"}
+        )
         await executor.execute(step1, {})
 
         # Second escalation
@@ -1001,6 +1005,7 @@ class TestEscalationStepExecutor:
     @pytest.mark.asyncio
     async def test_execute_invalid_level_defaults_to_warn(self):
         """Test that invalid level defaults to warn."""
+
         async def handler(ctx: EscalationContext):
             return ctx.level.value
 
@@ -1150,7 +1155,9 @@ class TestMoleculeEngineExecution:
         await engine.initialize()
 
         step1 = MoleculeStep.create("first", "shell", {"command": "echo first"})
-        step2 = MoleculeStep.create("second", "shell", {"command": "echo second"}, dependencies=[step1.id])
+        step2 = MoleculeStep.create(
+            "second", "shell", {"command": "echo second"}, dependencies=[step1.id]
+        )
 
         # Put step2 first in list to verify dependency ordering
         molecule = Molecule.create("deps", [step2, step1])
@@ -1479,7 +1486,9 @@ class TestMoleculeEngineManagement:
         engine = MoleculeEngine(checkpoint_dir=temp_dir)
         await engine.initialize()
 
-        m1 = Molecule.create("m1", [MoleculeStep.create("s1", "shell"), MoleculeStep.create("s2", "shell")])
+        m1 = Molecule.create(
+            "m1", [MoleculeStep.create("s1", "shell"), MoleculeStep.create("s2", "shell")]
+        )
         m1.status = MoleculeStatus.COMPLETED
         m2 = Molecule.create("m2", [MoleculeStep.create("s3", "shell")])
         m2.status = MoleculeStatus.PENDING
@@ -1588,7 +1597,11 @@ class TestCreateEscalationMolecule:
 
     def test_escalation_steps_have_dependencies(self):
         """Test that escalation steps have correct dependencies."""
-        handlers = {"warn": lambda ctx: None, "throttle": lambda ctx: None, "suspend": lambda ctx: None}
+        handlers = {
+            "warn": lambda ctx: None,
+            "throttle": lambda ctx: None,
+            "suspend": lambda ctx: None,
+        }
 
         molecule = create_escalation_molecule(
             name="chained",

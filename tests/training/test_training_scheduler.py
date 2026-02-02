@@ -557,8 +557,10 @@ class TestTrainingSchedulerListJobs:
         )
         scheduler = TrainingScheduler(config=config)
 
-        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock), \
-             patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+        with (
+            patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock),
+            patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock),
+        ):
             await scheduler.schedule_sft(model="m1")
             await scheduler.schedule_dpo(model="m2")
 
@@ -595,8 +597,10 @@ class TestTrainingSchedulerListJobs:
         )
         scheduler = TrainingScheduler(config=config)
 
-        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock), \
-             patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+        with (
+            patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock),
+            patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock),
+        ):
             await scheduler.schedule_sft(model="m1")
             await scheduler.schedule_dpo(model="m2")
 
@@ -950,9 +954,7 @@ class TestRunSFTJob:
 
         # Mock exporter
         mock_exporter = MagicMock()
-        mock_exporter.export.return_value = [
-            {"instruction": "test", "response": "response"}
-        ]
+        mock_exporter.export.return_value = [{"instruction": "test", "response": "response"}]
 
         # Mock client training result
         mock_result = TrainingResult(
@@ -1300,7 +1302,9 @@ class TestRunDPOJob:
         scheduler._jobs[job.job_id] = job
 
         mock_exporter = MagicMock()
-        mock_exporter.export.return_value = [{"prompt": "test", "chosen": "good", "rejected": "bad"}]
+        mock_exporter.export.return_value = [
+            {"prompt": "test", "chosen": "good", "rejected": "bad"}
+        ]
 
         mock_result = TrainingResult(
             job_id="tinker-dpo-002",
@@ -1480,8 +1484,14 @@ class TestRunCombinedJob:
         mock_client.train_sft.return_value = sft_result
         mock_client.train_dpo.return_value = dpo_result
 
-        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter), \
-             patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter):
+        with (
+            patch(
+                "aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter
+            ),
+            patch(
+                "aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter
+            ),
+        ):
             scheduler._client = mock_client
             await scheduler._run_combined_job(job)
 
@@ -1527,8 +1537,14 @@ class TestRunCombinedJob:
         mock_client = AsyncMock()
         mock_client.train_sft.return_value = sft_result
 
-        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter), \
-             patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter):
+        with (
+            patch(
+                "aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter
+            ),
+            patch(
+                "aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter
+            ),
+        ):
             scheduler._client = mock_client
             await scheduler._run_combined_job(job)
 
@@ -1572,7 +1588,9 @@ class TestRunCombinedJob:
         mock_client = AsyncMock()
         mock_client.train_sft.return_value = sft_result
 
-        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter):
+        with patch(
+            "aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter
+        ):
             scheduler._client = mock_client
             await scheduler._run_combined_job(job)
 
@@ -1629,8 +1647,14 @@ class TestRunCombinedJob:
         mock_client.train_sft.return_value = sft_result
         mock_client.train_dpo.return_value = dpo_result
 
-        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter), \
-             patch("aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter):
+        with (
+            patch(
+                "aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter
+            ),
+            patch(
+                "aragora.training.training_scheduler.DPOExporter", return_value=mock_dpo_exporter
+            ),
+        ):
             scheduler._client = mock_client
             await scheduler._run_combined_job(job)
 
@@ -1657,7 +1681,9 @@ class TestRunCombinedJob:
         mock_sft_exporter = MagicMock()
         mock_sft_exporter.export.return_value = []
 
-        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter):
+        with patch(
+            "aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter
+        ):
             await scheduler._run_combined_job(job)
 
         assert job.status == JobStatus.FAILED
@@ -1683,7 +1709,9 @@ class TestRunCombinedJob:
         mock_sft_exporter = MagicMock()
         mock_sft_exporter.export.side_effect = RuntimeError("Unexpected error")
 
-        with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter):
+        with patch(
+            "aragora.training.training_scheduler.SFTExporter", return_value=mock_sft_exporter
+        ):
             await scheduler._run_combined_job(job)
 
         assert job.status == JobStatus.FAILED
@@ -1954,8 +1982,10 @@ class TestCombinedFiltering:
         )
         scheduler = TrainingScheduler(config=config)
 
-        with patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock), \
-             patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock):
+        with (
+            patch.object(scheduler, "_run_sft_job", new_callable=AsyncMock),
+            patch.object(scheduler, "_run_dpo_job", new_callable=AsyncMock),
+        ):
             sft_completed = await scheduler.schedule_sft(model="m1")
             sft_completed.status = JobStatus.COMPLETED
 

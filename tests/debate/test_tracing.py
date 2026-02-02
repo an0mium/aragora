@@ -32,6 +32,7 @@ from aragora.debate.tracing import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 class FakeAgent:
     """Minimal agent stub for decorator tests."""
 
@@ -43,6 +44,7 @@ class FakeAgent:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _reset_global_tracer():
@@ -500,6 +502,7 @@ class TestTracer:
                 mock_logger.log.assert_called_once()
                 # First arg is the level (DEBUG for OK)
                 import logging
+
                 call_args = mock_logger.log.call_args
                 assert call_args[0][0] == logging.DEBUG
 
@@ -512,6 +515,7 @@ class TestTracer:
                         raise ValueError("x")
                 mock_logger.log.assert_called_once()
                 import logging
+
                 call_args = mock_logger.log.call_args
                 assert call_args[0][0] == logging.WARNING
 

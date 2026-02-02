@@ -617,7 +617,7 @@ class TestTimeoutHandling:
         agent = MockAgent()
 
         async def slow_generate(*args, **kwargs):
-            await asyncio.sleep(10)  # Longer than timeout
+            await asyncio.sleep(1)  # Longer than timeout
             return "Never reached"
 
         agent.generate = slow_generate
@@ -639,7 +639,7 @@ class TestTimeoutHandling:
         agent = MockAgent()
 
         async def slow_generate(*args, **kwargs):
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         agent.generate = slow_generate
 
@@ -661,7 +661,7 @@ class TestTimeoutHandling:
         agent = MockAgent()
 
         async def slow_generate(*args, **kwargs):
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         agent.generate = slow_generate
 
@@ -696,7 +696,7 @@ class TestRetryHandling:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                await asyncio.sleep(10)  # First call times out
+                await asyncio.sleep(1)  # First call times out
             return "Success on retry"
 
         agent.generate = flaky_generate
@@ -965,7 +965,7 @@ class TestFallbackResponses:
         agent = MockAgent(name="my_agent")
 
         async def slow_generate(*args, **kwargs):
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         agent.generate = slow_generate
 
@@ -984,7 +984,7 @@ class TestFallbackResponses:
         agent = MockAgent()
 
         async def slow_generate(*args, **kwargs):
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         agent.generate = slow_generate
 
@@ -1004,7 +1004,7 @@ class TestFallbackResponses:
         agent = MockAgent(name="my_agent")
 
         async def slow_critique(*args, **kwargs):
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         agent.critique = slow_critique
 
@@ -1027,7 +1027,7 @@ class TestFallbackResponses:
         agent = MockAgent(name="my_agent")
 
         async def slow_vote(*args, **kwargs):
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         agent.vote = slow_vote
 
@@ -1300,7 +1300,7 @@ class TestEdgeCases:
         agent = MockAgent()
 
         async def slow_critique(*args, **kwargs):
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         agent.critique = slow_critique
 

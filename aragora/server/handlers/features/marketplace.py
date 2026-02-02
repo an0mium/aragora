@@ -1374,7 +1374,7 @@ async def handle_marketplace(request: Any, path: str, method: str) -> HandlerRes
 _clear_marketplace_components = _clear_marketplace_state
 
 
-def _validate_template_id(value: str) -> tuple[bool, str | None]:  # type: ignore[no-redef]
+def _validate_template_id(value: str) -> tuple[bool, str | None]:  # type: ignore[no-redef]  # Backward-compat alias with different return signature
     """Validate a template ID (backward-compatible signature).
 
     Returns (is_valid, error_or_None).
@@ -1383,7 +1383,7 @@ def _validate_template_id(value: str) -> tuple[bool, str | None]:  # type: ignor
     return valid, err if not valid else None
 
 
-def _validate_deployment_id(value: str) -> tuple[bool, str | None]:  # type: ignore[no-redef]
+def _validate_deployment_id(value: str) -> tuple[bool, str | None]:  # type: ignore[no-redef]  # Backward-compat alias with different return signature
     """Validate a deployment ID (backward-compatible signature).
 
     Returns (is_valid, error_or_None).
@@ -1392,7 +1392,7 @@ def _validate_deployment_id(value: str) -> tuple[bool, str | None]:  # type: ign
     return valid, err if not valid else None
 
 
-def _validate_deployment_name(value: Any, fallback: str = "") -> tuple[bool, str | None]:  # type: ignore[no-redef]
+def _validate_deployment_name(value: Any, fallback: str = "") -> tuple[bool, str | None]:  # type: ignore[no-redef]  # Backward-compat alias with different return signature
     """Validate a deployment name (backward-compatible 2-tuple signature).
 
     Returns (is_valid, error_or_None).
@@ -1401,7 +1401,7 @@ def _validate_deployment_name(value: Any, fallback: str = "") -> tuple[bool, str
     return valid, err if not valid else None
 
 
-def _validate_review(value: Any) -> tuple[bool, str | None]:  # type: ignore[no-redef]
+def _validate_review(value: Any) -> tuple[bool, str | None]:  # type: ignore[no-redef]  # Backward-compat alias with different return signature
     """Validate a review (backward-compatible 2-tuple signature).
 
     Returns (is_valid, error_or_None).
@@ -1410,12 +1410,12 @@ def _validate_review(value: Any) -> tuple[bool, str | None]:  # type: ignore[no-
     return valid, err if not valid else None
 
 
-def _validate_rating(value: Any) -> tuple[bool, int, str]:  # type: ignore[no-redef]
+def _validate_rating(value: Any) -> tuple[bool, int, str]:  # type: ignore[no-redef]  # Backward-compat alias for existing test code
     """Validate a rating value (alias for _validate_rating_value)."""
     return _validate_rating_value(value)
 
 
-def _validate_category(value: Any) -> tuple[bool, TemplateCategory | None, str]:  # type: ignore[no-redef]
+def _validate_category(value: Any) -> tuple[bool, TemplateCategory | None, str]:  # type: ignore[no-redef]  # Backward-compat alias with enum return type
     """Validate a category filter (backward-compatible, returns enum).
 
     Returns (is_valid, TemplateCategory_or_None, error_message).
@@ -1436,7 +1436,7 @@ def _validate_category(value: Any) -> tuple[bool, TemplateCategory | None, str]:
     return True, valid_categories[lower], ""
 
 
-def _clamp_pagination(limit: Any, offset: Any) -> tuple[int, int]:  # type: ignore[no-redef]
+def _clamp_pagination(limit: Any, offset: Any) -> tuple[int, int]:  # type: ignore[no-redef]  # Backward-compat alias with direct args
     """Clamp pagination values (backward-compatible direct args)."""
     try:
         limit_int = int(limit) if limit is not None else DEFAULT_LIMIT

@@ -343,9 +343,7 @@ class TestGenerateProofTool:
                 context="Mathematical context",
             )
 
-        mock_backend.translate.assert_called_once_with(
-            "Test claim", "Mathematical context"
-        )
+        mock_backend.translate.assert_called_once_with("Test claim", "Mathematical context")
 
     @pytest.mark.asyncio
     async def test_generate_translation_fails(self):

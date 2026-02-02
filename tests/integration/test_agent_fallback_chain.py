@@ -93,7 +93,7 @@ class TimeoutAgent(MockAPIAgent):
     async def generate(self, prompt: str, context: list = None) -> str:
         self._call_count += 1
         if self._call_count <= self._timeout_count:
-            await asyncio.sleep(10)  # Will be cancelled by timeout
+            await asyncio.sleep(1)  # Will be cancelled by timeout
         return f"Response after {self._call_count} attempts"
 
 

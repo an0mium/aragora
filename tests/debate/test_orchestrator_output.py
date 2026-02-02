@@ -235,10 +235,7 @@ class TestTranslateConclusions:
         protocol.target_languages = ["en"]
         protocol.default_language = "en"
 
-        with patch.dict(
-            "sys.modules",
-            {"aragora.debate.translation": MagicMock()}
-        ):
+        with patch.dict("sys.modules", {"aragora.debate.translation": MagicMock()}):
             await translate_conclusions(result, protocol)
 
         # Should not translate same language - translations dict stays empty or doesn't add "en"
@@ -255,6 +252,7 @@ class TestTranslateConclusions:
         # The import happens inside the function, so we need to mock sys.modules
         # to make the import raise ImportError
         import sys
+
         original_module = sys.modules.get("aragora.debate.translation")
         try:
             sys.modules["aragora.debate.translation"] = None  # Force import to fail
@@ -310,10 +308,7 @@ class TestTranslateConclusions:
         mock_translation_module.Language.from_code = from_code
         mock_translation_module.Language.ENGLISH = mock_en
 
-        with patch.dict(
-            "sys.modules",
-            {"aragora.debate.translation": mock_translation_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.debate.translation": mock_translation_module}):
             # Should not raise
             await translate_conclusions(result, protocol)
 
@@ -354,10 +349,7 @@ class TestTranslateConclusions:
         mock_translation_module.Language.from_code = from_code
         mock_translation_module.Language.ENGLISH = mock_en
 
-        with patch.dict(
-            "sys.modules",
-            {"aragora.debate.translation": mock_translation_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.debate.translation": mock_translation_module}):
             await translate_conclusions(result, protocol)
 
         # Translation should be added
@@ -398,10 +390,7 @@ class TestTranslateConclusions:
         mock_translation_module.Language.from_code = from_code
         mock_translation_module.Language.ENGLISH = mock_en
 
-        with patch.dict(
-            "sys.modules",
-            {"aragora.debate.translation": mock_translation_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.debate.translation": mock_translation_module}):
             await translate_conclusions(result, protocol)
 
         # Translation should NOT be added due to low confidence
@@ -453,10 +442,7 @@ class TestTranslateConclusions:
         mock_translation_module.Language.from_code = from_code
         mock_translation_module.Language.ENGLISH = mock_en
 
-        with patch.dict(
-            "sys.modules",
-            {"aragora.debate.translation": mock_translation_module}
-        ):
+        with patch.dict("sys.modules", {"aragora.debate.translation": mock_translation_module}):
             await translate_conclusions(result, protocol)
 
         # All translations should be added
@@ -475,9 +461,7 @@ class TestResultFormatterIntegration:
 
     def test_format_conclusion_delegates_to_formatter(self):
         """Test that format_conclusion delegates to ResultFormatter."""
-        with patch(
-            "aragora.debate.result_formatter.ResultFormatter"
-        ) as mock_formatter_cls:
+        with patch("aragora.debate.result_formatter.ResultFormatter") as mock_formatter_cls:
             mock_formatter = MagicMock()
             mock_formatter.format_conclusion.return_value = "Formatted output"
             mock_formatter_cls.return_value = mock_formatter

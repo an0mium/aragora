@@ -598,14 +598,16 @@ class TestVerticalFineTuningPipelineStats:
         pipeline = VerticalFineTuningPipeline(config)
 
         # Add examples from different sources
-        pipeline.add_training_example(TrainingExample(
-            instruction="t1", input="", output="r1",
-            vertical="software", source="custom"
-        ))
-        pipeline.add_training_example(TrainingExample(
-            instruction="t2", input="", output="r2",
-            vertical="legal", source="debate"
-        ))
+        pipeline.add_training_example(
+            TrainingExample(
+                instruction="t1", input="", output="r1", vertical="software", source="custom"
+            )
+        )
+        pipeline.add_training_example(
+            TrainingExample(
+                instruction="t2", input="", output="r2", vertical="legal", source="debate"
+            )
+        )
 
         stats = pipeline.get_training_stats()
         assert stats["num_examples"] == 2
@@ -748,12 +750,14 @@ class TestVerticalFineTuningPipelineDataset:
 
         # Add examples
         for i in range(10):
-            pipeline.add_training_example(TrainingExample(
-                instruction=f"Task {i}",
-                input="",
-                output=f"Result {i}",
-                vertical="software",
-            ))
+            pipeline.add_training_example(
+                TrainingExample(
+                    instruction=f"Task {i}",
+                    input="",
+                    output=f"Result {i}",
+                    vertical="software",
+                )
+            )
 
         mock_dataset = MagicMock()
         mock_split = {"train": MagicMock(), "test": MagicMock()}
@@ -794,9 +798,10 @@ class TestVerticalFineTuningPipelineTrain:
 
         with pytest.raises(ValueError, match="Model not loaded"):
             import asyncio
+
             asyncio.get_event_loop().run_until_complete(
                 pipeline.train.__wrapped__(pipeline, {})
-            ) if hasattr(pipeline.train, '__wrapped__') else pipeline.train({})
+            ) if hasattr(pipeline.train, "__wrapped__") else pipeline.train({})
 
 
 class TestVerticalFineTuningPipelineSaveAdapter:

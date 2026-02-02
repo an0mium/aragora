@@ -4,6 +4,7 @@ Tests for Reputation Registry contract wrapper.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from unittest.mock import MagicMock, patch, AsyncMock
 import pytest
 
@@ -44,95 +45,91 @@ class TestReputationRegistryABI:
         assert "NewFeedback" in event_names
 
 
+@dataclass
+class MockChainConfig:
+    """Mock chain configuration."""
+
+    chain_id: int = 1
+    reputation_registry_address: str = "0x2222222222222222222222222222222222222222"
+    has_reputation_registry: bool = True
+    gas_limit: int = 500_000
+
+
 class TestReputationRegistryContract:
     """Tests for ReputationRegistryContract wrapper."""
 
     @pytest.fixture
     def mock_provider(self):
-        """Create mock Web3Provider."""
+        """Create mock Web3Provider with config."""
         provider = MagicMock()
         mock_w3 = MagicMock()
         mock_contract = MagicMock()
+        mock_config = MockChainConfig()
+
         provider.get_web3.return_value = mock_w3
-        provider.get_contract.return_value = mock_contract
+        provider.get_config.return_value = mock_config
+        mock_w3.to_checksum_address.side_effect = lambda x: x
+        mock_w3.eth.contract.return_value = mock_contract
+
         return provider, mock_w3, mock_contract
 
-    def test_create_contract(self, mock_provider, mainnet_config):
+    def test_create_contract(self, mock_provider):
         """Test creating contract instance."""
         provider, _, _ = mock_provider
         contract = ReputationRegistryContract(
             provider=provider,
-            address=mainnet_config["reputation_registry_address"],
             chain_id=1,
         )
-        assert contract.address == mainnet_config["reputation_registry_address"]
+        # Contract is lazy-loaded, so we just verify the object is created
+        assert contract._provider is provider
+        assert contract._chain_id == 1
 
-    def test_get_feedback_count(self, mock_provider):
-        """Test getting feedback count for an agent."""
-        provider, _, mock_contract = mock_provider
-        mock_contract.functions.feedbackCount.return_value.call.return_value = 15
+    def test_get_summary(self, mock_provider):
+        """Test getting reputation summary."""
+        provider, mock_w3, mock_contract = mock_provider
+
+        # Mock getSummary call
+        mock_contract.functions.getSummary.return_value.call.return_value = (
+            15,  # count
+            850,  # summary_value
+            2,  # summary_value_decimals
+        )
 
         contract = ReputationRegistryContract(
             provider=provider,
-            address="0x2222222222222222222222222222222222222222",
             chain_id=1,
         )
-        count = contract.get_feedback_count(token_id=42)
+        summary = contract.get_summary(agent_id=42)
 
-        assert count == 15
+        assert summary.agent_id == 42
+        assert summary.count == 15
+        assert summary.summary_value == 850
 
     def test_read_feedback(self, mock_provider, sample_reputation_feedback):
         """Test reading a specific feedback entry."""
-        provider, _, mock_contract = mock_provider
+        provider, mock_w3, mock_contract = mock_provider
+
         mock_contract.functions.readFeedback.return_value.call.return_value = (
-            sample_reputation_feedback["reporter"],
-            sample_reputation_feedback["value"],
-            sample_reputation_feedback["tag"],
-            sample_reputation_feedback["comment"],
-            False,  # not revoked
+            sample_reputation_feedback["value"],  # value
+            0,  # value_decimals
+            sample_reputation_feedback["tag"],  # tag1
+            "",  # tag2
+            False,  # is_revoked
         )
 
         contract = ReputationRegistryContract(
             provider=provider,
-            address="0x2222222222222222222222222222222222222222",
             chain_id=1,
         )
-        feedback = contract.read_feedback(token_id=42, index=0)
+        feedback = contract.read_feedback(
+            agent_id=42,
+            client_address=sample_reputation_feedback["reporter"],
+            feedback_index=0,
+        )
 
-        assert feedback.reporter == sample_reputation_feedback["reporter"]
         assert feedback.value == sample_reputation_feedback["value"]
-        assert feedback.tag == sample_reputation_feedback["tag"]
-
-    def test_get_all_feedback(self, mock_provider, sample_reputation_feedbacks):
-        """Test getting all feedback for an agent."""
-        provider, _, mock_contract = mock_provider
-        mock_contract.functions.feedbackCount.return_value.call.return_value = 3
-
-        # Set up individual feedback reads
-        def mock_read(token_id, index):
-            fb = sample_reputation_feedbacks[index]
-            mock_result = MagicMock()
-            mock_result.call.return_value = (
-                fb["reporter"],
-                fb["value"],
-                fb["tag"],
-                fb.get("comment", ""),
-                fb.get("revoked", False),
-            )
-            return mock_result
-
-        mock_contract.functions.readFeedback.side_effect = mock_read
-
-        contract = ReputationRegistryContract(
-            provider=provider,
-            address="0x2222222222222222222222222222222222222222",
-            chain_id=1,
-        )
-        feedbacks = contract.get_all_feedback(token_id=42)
-
-        assert len(feedbacks) == 3
-        assert feedbacks[0].value == 100
-        assert feedbacks[1].value == -50
+        assert feedback.tag1 == sample_reputation_feedback["tag"]
+        assert feedback.is_revoked is False
 
     def test_give_feedback(self, mock_provider):
         """Test submitting reputation feedback."""
@@ -144,26 +141,21 @@ class TestReputationRegistryContract:
             "gas": 100000,
             "nonce": 0,
         }
-        mock_w3.eth.send_raw_transaction.return_value = b"\xab" * 32
-        mock_w3.eth.wait_for_transaction_receipt.return_value = {"status": 1}
+        mock_w3.eth.get_transaction_count.return_value = 0
 
         mock_signer = MagicMock()
         mock_signer.address = "0xSIGNER12345678901234567890123456789012"
-        mock_signed = MagicMock()
-        mock_signed.raw_transaction = b"\x00" * 100
-        mock_signer.sign_transaction.return_value = mock_signed
+        mock_signer.sign_and_send.return_value = "0x" + "ab" * 32
 
         contract = ReputationRegistryContract(
             provider=provider,
-            address="0x2222222222222222222222222222222222222222",
             chain_id=1,
         )
         tx_hash = contract.give_feedback(
-            token_id=42,
+            agent_id=42,
             value=100,
-            tag="accuracy",
-            comment="Great performance",
             signer=mock_signer,
+            tag1="accuracy",
         )
 
         assert tx_hash is not None
@@ -179,41 +171,55 @@ class TestReputationRegistryContract:
             "gas": 50000,
             "nonce": 0,
         }
-        mock_w3.eth.send_raw_transaction.return_value = b"\xcd" * 32
-        mock_w3.eth.wait_for_transaction_receipt.return_value = {"status": 1}
+        mock_w3.eth.get_transaction_count.return_value = 0
 
         mock_signer = MagicMock()
         mock_signer.address = "0xSIGNER12345678901234567890123456789012"
-        mock_signed = MagicMock()
-        mock_signed.raw_transaction = b"\x00" * 100
-        mock_signer.sign_transaction.return_value = mock_signed
+        mock_signer.sign_and_send.return_value = "0x" + "cd" * 32
 
         contract = ReputationRegistryContract(
             provider=provider,
-            address="0x2222222222222222222222222222222222222222",
             chain_id=1,
         )
         tx_hash = contract.revoke_feedback(
-            token_id=42,
-            index=0,
+            agent_id=42,
+            feedback_index=0,
             signer=mock_signer,
         )
 
         assert tx_hash is not None
 
-    def test_get_summary(self, mock_provider, sample_reputation_summary):
-        """Test getting reputation summary."""
-        provider, _, mock_contract = mock_provider
+    def test_get_clients(self, mock_provider):
+        """Test getting client addresses."""
+        provider, mock_w3, mock_contract = mock_provider
 
-        # Mock summary call
-        mock_contract.functions.feedbackCount.return_value.call.return_value = 15
+        expected_clients = [
+            "0x1111111111111111111111111111111111111111",
+            "0x2222222222222222222222222222222222222222",
+        ]
+        mock_contract.functions.getClients.return_value.call.return_value = expected_clients
 
         contract = ReputationRegistryContract(
             provider=provider,
-            address="0x2222222222222222222222222222222222222222",
             chain_id=1,
         )
-        summary = contract.get_summary(token_id=42)
+        clients = contract.get_clients(agent_id=42)
 
-        assert summary.token_id == 42
-        assert summary.total_feedback_count == 15
+        assert clients == expected_clients
+
+    def test_get_last_index(self, mock_provider):
+        """Test getting last feedback index."""
+        provider, mock_w3, mock_contract = mock_provider
+
+        mock_contract.functions.getLastIndex.return_value.call.return_value = 5
+
+        contract = ReputationRegistryContract(
+            provider=provider,
+            chain_id=1,
+        )
+        index = contract.get_last_index(
+            agent_id=42,
+            client_address="0x1111111111111111111111111111111111111111",
+        )
+
+        assert index == 5

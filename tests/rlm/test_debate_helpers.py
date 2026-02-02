@@ -54,10 +54,10 @@ from aragora.rlm.debate_helpers import (
 class FakeMessage:
     """Fake message matching aragora.core_types.Message interface."""
 
-    role: str
     agent: str
     content: str
     round: int = 0
+    role: str = "proposer"
     timestamp: datetime = field(default_factory=datetime.now)
 
 
@@ -237,15 +237,18 @@ class TestLoadDebateContext:
 
     def test_model_dump_messages(self):
         """Should handle objects with model_dump() (e.g., Pydantic models)."""
-        msg = MagicMock()
-        msg.model_dump.return_value = {
-            "agent": "pydantic_agent",
-            "content": "Pydantic msg",
-            "round": 1,
-        }
-        # Remove __dict__ to force model_dump path
-        del msg.__dict__["_mock_children"]  # still has __dict__ but model_dump checked first
 
+        class FakePydanticModel:
+            """Simulates a Pydantic model with model_dump method."""
+
+            def model_dump(self):
+                return {
+                    "agent": "pydantic_agent",
+                    "content": "Pydantic msg",
+                    "round": 1,
+                }
+
+        msg = FakePydanticModel()
         result = FakeDebateResult(messages=[msg])
         ctx = load_debate_context(result)
         assert len(ctx.all_messages) == 1

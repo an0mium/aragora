@@ -506,7 +506,9 @@ class TestSQLiteConnectionCleanup:
         assert len(connections_closed) == 1
 
     @pytest.mark.asyncio
-    async def test_list_pending_sqlite_sync_uses_context_manager(self, store, tmp_path, monkeypatch):
+    async def test_list_pending_sqlite_sync_uses_context_manager(
+        self, store, tmp_path, monkeypatch
+    ):
         """Verify _list_pending_sqlite_sync uses context manager for connection cleanup."""
         import sqlite3 as sqlite3_module
 

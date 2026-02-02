@@ -314,7 +314,7 @@ jobs:
         run: |
           CURRENT=$(grep -rn "TODO\|FIXME\|HACK\|XXX" aragora/ --include="*.py" 2>/dev/null | wc -l | tr -d ' ')
           BASELINE=$(cat aragora/.todo_baseline 2>/dev/null || echo 50)
-          THRESHOLD=3  # Allow up to 3 new TODOs
+          THRESHOLD=1  # Allow only 1 new TODO (tightened Feb 2026)
 
           echo "Current TODO count: $CURRENT"
           echo "Baseline: $BASELINE"

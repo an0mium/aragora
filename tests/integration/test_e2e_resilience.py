@@ -114,7 +114,7 @@ class MockFailingAgent:
 
             # Check timeout
             if random.random() < self.timeout_probability:
-                await asyncio.sleep(10)  # Will timeout
+                await asyncio.sleep(1)  # Will timeout
                 raise TimeoutError(f"{self.name} timed out")
 
             response = f"Response from {self.name} (call {self._call_count})"

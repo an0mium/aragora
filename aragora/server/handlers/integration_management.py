@@ -36,11 +36,16 @@ from aragora.rbac.decorators import require_permission
 logger = logging.getLogger(__name__)
 
 
-def _legacy_error_response(message: str, status: int, code: str | None = None) -> HandlerResult:
+def _legacy_error_response(
+    message: str,
+    status: int,
+    code: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> HandlerResult:
     payload: dict[str, Any] = {"error": message}
     if code:
         payload["code"] = code
-    return json_response(payload, status=status)
+    return json_response(payload, status=status, headers=headers)
 
 
 # Supported integration types
@@ -741,7 +746,7 @@ class IntegrationsHandler(BaseHandler):
                 "Rate limit exceeded. Please try again later.",
                 429,
                 code="RATE_LIMIT_EXCEEDED",
-                headers=headers,  # type: ignore[call-arg]
+                headers=headers,
             )
 
         slack_store = self._get_slack_store()

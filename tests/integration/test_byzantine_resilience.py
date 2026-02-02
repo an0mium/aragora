@@ -86,7 +86,7 @@ class StressTestAgent(Agent):
                 return f"PREPARE: {choice}\nCOMMIT: {choice}\nREASONING: Random"
 
             elif self.byzantine_mode == "slow":
-                await asyncio.sleep(100)  # Very slow
+                await asyncio.sleep(1)  # Very slow
                 return "PREPARE: YES\nREASONING: Finally responding"
 
             elif self.byzantine_mode == "silent":

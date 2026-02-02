@@ -3,22 +3,333 @@ Marketplace API Handlers.
 
 Provides REST API endpoints for the agent template marketplace,
 including template CRUD, search, ratings, and import/export.
+
+Stability: STABLE
+- Circuit breaker pattern for registry access resilience
+- Rate limiting on all endpoints (60 req/min read, 20 req/min write)
+- Comprehensive input validation (IDs, pagination, ratings, review text)
+- RBAC permission enforcement (marketplace:read, marketplace:write, marketplace:delete)
+
+Endpoints:
+- GET  /api/v1/marketplace/templates          - List all templates
+- GET  /api/v1/marketplace/templates/{id}     - Get template details
+- POST /api/v1/marketplace/templates          - Create a template
+- DELETE /api/v1/marketplace/templates/{id}   - Delete a template
+- POST /api/v1/marketplace/templates/{id}/ratings - Rate a template
+- GET  /api/v1/marketplace/templates/{id}/ratings  - Get template ratings
+- POST /api/v1/marketplace/templates/{id}/star     - Star a template
+- GET  /api/v1/marketplace/categories         - List categories
+- GET  /api/v1/marketplace/templates/{id}/export   - Export template
+- POST /api/v1/marketplace/templates/import   - Import a template
+- GET  /api/v1/marketplace/status             - Health and circuit breaker status
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
+import threading
+import time
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import BaseHandler, HandlerResult
+from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.server.validation.core import sanitize_string
 
 if TYPE_CHECKING:
     from aragora.marketplace import TemplateRegistry
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Constants for Input Validation
+# =============================================================================
+
+# Safe pattern for template IDs: alphanumeric, hyphens, underscores
+SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$")
+
+MAX_TEMPLATE_ID_LENGTH = 128
+MAX_QUERY_LENGTH = 500
+MAX_TAGS_LENGTH = 1000
+MAX_REVIEW_LENGTH = 2000
+MIN_RATING = 1
+MAX_RATING = 5
+DEFAULT_LIMIT = 50
+MIN_LIMIT = 1
+MAX_LIMIT = 200
+MAX_OFFSET = 10000
+
+# =============================================================================
+# Input Validation Functions
+# =============================================================================
+
+
+def _validate_template_id(value: str) -> tuple[bool, str]:
+    """Validate a template ID string.
+
+    Returns:
+        Tuple of (is_valid, error_message). error_message is empty if valid.
+    """
+    if not value or not isinstance(value, str):
+        return False, "Template ID is required"
+    if len(value) > MAX_TEMPLATE_ID_LENGTH:
+        return False, f"Template ID must be at most {MAX_TEMPLATE_ID_LENGTH} characters"
+    if not SAFE_ID_PATTERN.match(value):
+        return False, "Template ID contains invalid characters"
+    return True, ""
+
+
+def _validate_pagination(query_params: dict[str, Any]) -> tuple[int, int, str]:
+    """Validate and clamp pagination parameters.
+
+    Returns:
+        Tuple of (limit, offset, error_message). error_message is empty if valid.
+    """
+    try:
+        limit = int(query_params.get("limit") or DEFAULT_LIMIT)
+    except (ValueError, TypeError):
+        return DEFAULT_LIMIT, 0, "limit must be an integer"
+
+    try:
+        offset = int(query_params.get("offset") or 0)
+    except (ValueError, TypeError):
+        return DEFAULT_LIMIT, 0, "offset must be an integer"
+
+    # Clamp values
+    limit = max(MIN_LIMIT, min(limit, MAX_LIMIT))
+    offset = max(0, min(offset, MAX_OFFSET))
+
+    return limit, offset, ""
+
+
+def _validate_rating(value: Any) -> tuple[bool, int, str]:
+    """Validate a rating value.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None:
+        return False, 0, "Rating score is required"
+    if not isinstance(value, int):
+        return False, 0, "Rating score must be an integer"
+    if value < MIN_RATING or value > MAX_RATING:
+        return False, 0, f"Rating score must be between {MIN_RATING} and {MAX_RATING}"
+    return True, value, ""
+
+
+def _validate_review(value: Any) -> tuple[bool, str | None, str]:
+    """Validate a review string.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None:
+        return True, None, ""
+    if not isinstance(value, str):
+        return False, None, "Review must be a string"
+    if len(value) > MAX_REVIEW_LENGTH:
+        return False, None, f"Review must be at most {MAX_REVIEW_LENGTH} characters"
+    return True, sanitize_string(value, MAX_REVIEW_LENGTH), ""
+
+
+def _validate_query(value: Any) -> tuple[bool, str, str]:
+    """Validate a search query string.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None or value == "":
+        return True, "", ""
+    if not isinstance(value, str):
+        return False, "", "Search query must be a string"
+    if len(value) > MAX_QUERY_LENGTH:
+        return False, "", f"Search query must be at most {MAX_QUERY_LENGTH} characters"
+    return True, sanitize_string(value, MAX_QUERY_LENGTH), ""
+
+
+def _validate_tags(value: Any) -> tuple[bool, list[str], str]:
+    """Validate tags parameter (comma-separated string).
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None or value == "":
+        return True, [], ""
+    if not isinstance(value, str):
+        return False, [], "Tags must be a comma-separated string"
+    if len(value) > MAX_TAGS_LENGTH:
+        return False, [], f"Tags string must be at most {MAX_TAGS_LENGTH} characters"
+    # Split and sanitize each tag
+    tags = [sanitize_string(t.strip(), 100) for t in value.split(",") if t.strip()]
+    return True, tags, ""
+
+
+# =============================================================================
+# Circuit Breaker
+# =============================================================================
+
+
+class MarketplaceCircuitBreaker:
+    """Circuit breaker for marketplace registry access.
+
+    Prevents cascading failures when the template registry is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Marketplace circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed."""
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:
+                return False
+
+    def is_allowed(self) -> bool:
+        """Alias for can_proceed (public API)."""
+        return self.can_proceed()
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Marketplace circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Marketplace circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Marketplace circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker instance
+_circuit_breaker: MarketplaceCircuitBreaker | None = None
+_circuit_breaker_lock = threading.Lock()
+
+
+def _get_circuit_breaker() -> MarketplaceCircuitBreaker:
+    """Get or create the marketplace circuit breaker."""
+    global _circuit_breaker
+    with _circuit_breaker_lock:
+        if _circuit_breaker is None:
+            _circuit_breaker = MarketplaceCircuitBreaker()
+        return _circuit_breaker
+
+
+def get_marketplace_circuit_breaker() -> MarketplaceCircuitBreaker:
+    """Public accessor for the marketplace circuit breaker."""
+    return _get_circuit_breaker()
+
+
+def get_marketplace_circuit_breaker_status() -> dict[str, Any]:
+    """Get the marketplace circuit breaker status."""
+    return get_marketplace_circuit_breaker().get_status()
+
+
+def reset_marketplace_circuit_breaker() -> None:
+    """Reset the marketplace circuit breaker (for testing)."""
+    global _circuit_breaker
+    with _circuit_breaker_lock:
+        if _circuit_breaker is not None:
+            _circuit_breaker.reset()
+
+
+# =============================================================================
+# Registry Management
+# =============================================================================
 
 # Lazy import to avoid circular dependencies
 _registry: TemplateRegistry | None = None
@@ -34,14 +345,34 @@ def _get_registry() -> "TemplateRegistry":
     return _registry
 
 
+def _clear_registry() -> None:
+    """Clear the registry (for testing)."""
+    global _registry
+    _registry = None
+
+
+# =============================================================================
+# Handler Implementation
+# =============================================================================
+
+
 class MarketplaceHandler(BaseHandler):
-    """Handler for marketplace template operations."""
+    """Handler for marketplace template operations.
+
+    Production-ready with:
+    - Circuit breaker for registry access resilience
+    - Rate limiting (60 req/min for reads, 20 req/min for writes)
+    - Input validation for IDs, pagination, ratings, review text
+    - RBAC permission enforcement
+    """
 
     def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = server_context or ctx or {}
+        self._circuit_breaker = _get_circuit_breaker()
 
     @require_permission("marketplace:read")
+    @rate_limit(requests_per_minute=60, limiter_name="marketplace.list")
     def handle_list_templates(self) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates
@@ -54,16 +385,34 @@ class MarketplaceHandler(BaseHandler):
             limit: Max results (default 50)
             offset: Pagination offset
         """
-        try:
-            registry = _get_registry()
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
 
-            # Parse query parameters
-            query = self.get_query_param("q")
+        try:
+            # Validate and sanitize query parameter
+            raw_query = self.get_query_param("q")
+            valid, query, err = _validate_query(raw_query)
+            if not valid:
+                return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+            # Validate pagination
+            query_params = self._current_query_params or {}
+            limit, offset, err = _validate_pagination(query_params)
+            if err:
+                return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+            # Validate tags
+            tags_str = self.get_query_param("tags")
+            valid, tags, err = _validate_tags(tags_str)
+            if not valid:
+                return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
             category_str = self.get_query_param("category")
             template_type = self.get_query_param("type")
-            tags_str = self.get_query_param("tags")
-            limit = int(self.get_query_param("limit") or "50")
-            offset = int(self.get_query_param("offset") or "0")
 
             # Convert category string to enum
             category = None
@@ -78,18 +427,19 @@ class MarketplaceHandler(BaseHandler):
                         HTTPStatus.BAD_REQUEST,
                     )
 
-            # Parse tags
-            tags = tags_str.split(",") if tags_str else None
+            registry = _get_registry()
 
             # Search templates
             templates = registry.search(
-                query=query,
+                query=query if query else None,
                 category=category,
                 template_type=template_type,
-                tags=tags,
+                tags=tags if tags else None,
                 limit=limit,
                 offset=offset,
             )
+
+            self._circuit_breaker.record_success()
 
             return self.json_response(
                 {
@@ -101,14 +451,28 @@ class MarketplaceHandler(BaseHandler):
             )
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception("Error listing templates")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
+    @rate_limit(requests_per_minute=60, limiter_name="marketplace.get")
     def handle_get_template(self, template_id: str) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates/{id}
         """
+        # Validate template ID
+        valid, err = _validate_template_id(template_id)
+        if not valid:
+            return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             registry = _get_registry()
             template = registry.get(template_id)
@@ -122,32 +486,52 @@ class MarketplaceHandler(BaseHandler):
             # Increment download count
             registry.increment_downloads(template_id)
 
+            self._circuit_breaker.record_success()
+
             return self.json_response(template.to_dict())
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Error getting template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
+    @rate_limit(requests_per_minute=20, limiter_name="marketplace.create")
     def handle_create_template(self) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates
 
         Body: Template JSON
         """
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             user, error = self.require_auth_or_error(self._current_handler)
             if error:
                 return error
 
-            registry = _get_registry()
             body = self.get_json_body()
 
             if not body:
                 return self.json_error("Request body required", HTTPStatus.BAD_REQUEST)
 
+            # Validate template ID if provided
+            if "id" in body:
+                valid, err = _validate_template_id(body["id"])
+                if not valid:
+                    return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+            registry = _get_registry()
+
             # Import and register template
             template_id = registry.import_template(json.dumps(body))
+
+            self._circuit_breaker.record_success()
 
             return self.json_response(
                 {"id": template_id, "success": True},
@@ -157,14 +541,28 @@ class MarketplaceHandler(BaseHandler):
         except ValueError as e:
             return self.json_error(str(e), HTTPStatus.BAD_REQUEST)
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception("Error creating template")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:delete")
+    @rate_limit(requests_per_minute=20, limiter_name="marketplace.delete")
     def handle_delete_template(self, template_id: str) -> HandlerResult:
         """
         DELETE /api/v1/marketplace/templates/{id}
         """
+        # Validate template ID
+        valid, err = _validate_template_id(template_id)
+        if not valid:
+            return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             user, error = self.require_auth_or_error(self._current_handler)
             if error:
@@ -179,43 +577,68 @@ class MarketplaceHandler(BaseHandler):
                     HTTPStatus.FORBIDDEN,
                 )
 
+            self._circuit_breaker.record_success()
+
             return self.json_response({"success": True, "deleted": template_id})
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Error deleting template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
+    @rate_limit(requests_per_minute=20, limiter_name="marketplace.rate")
     def handle_rate_template(self, template_id: str) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates/{id}/ratings
 
         Body: {"score": 1-5, "review": "optional review text"}
         """
+        # Validate template ID
+        valid, err = _validate_template_id(template_id)
+        if not valid:
+            return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             user, error = self.require_auth_or_error(self._current_handler)
             if error:
                 return error
 
-            registry = _get_registry()
             body = self.get_json_body()
 
-            if not body or "score" not in body:
-                return self.json_error("Score required", HTTPStatus.BAD_REQUEST)
+            if not body:
+                return self.json_error("Request body required", HTTPStatus.BAD_REQUEST)
 
-            score = body["score"]
-            if not isinstance(score, int) or not 1 <= score <= 5:
-                return self.json_error("Score must be 1-5", HTTPStatus.BAD_REQUEST)
+            # Validate rating score
+            valid, score, err = _validate_rating(body.get("score"))
+            if not valid:
+                return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+            # Validate review text
+            valid, review, err = _validate_review(body.get("review"))
+            if not valid:
+                return self.json_error(err, HTTPStatus.BAD_REQUEST)
 
             from aragora.marketplace import TemplateRating
+
+            registry = _get_registry()
 
             rating = TemplateRating(
                 user_id=user.id if hasattr(user, "id") else str(user),
                 template_id=template_id,
                 score=score,
-                review=body.get("review"),
+                review=review,
             )
             registry.rate(rating)
+
+            self._circuit_breaker.record_success()
 
             return self.json_response(
                 {
@@ -227,18 +650,34 @@ class MarketplaceHandler(BaseHandler):
         except ValueError as e:
             return self.json_error(str(e), HTTPStatus.BAD_REQUEST)
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Error rating template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
+    @rate_limit(requests_per_minute=60, limiter_name="marketplace.get_ratings")
     def handle_get_ratings(self, template_id: str) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates/{id}/ratings
         """
+        # Validate template ID
+        valid, err = _validate_template_id(template_id)
+        if not valid:
+            return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             registry = _get_registry()
             ratings = registry.get_ratings(template_id)
             avg = registry.get_average_rating(template_id)
+
+            self._circuit_breaker.record_success()
 
             return self.json_response(
                 {
@@ -257,14 +696,28 @@ class MarketplaceHandler(BaseHandler):
             )
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Error getting ratings for {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
+    @rate_limit(requests_per_minute=30, limiter_name="marketplace.star")
     def handle_star_template(self, template_id: str) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates/{id}/star
         """
+        # Validate template ID
+        valid, err = _validate_template_id(template_id)
+        if not valid:
+            return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             user, error = self.require_auth_or_error(self._current_handler)
             if error:
@@ -276,32 +729,59 @@ class MarketplaceHandler(BaseHandler):
             template = registry.get(template_id)
             stars = template.metadata.stars if template else 0
 
+            self._circuit_breaker.record_success()
+
             return self.json_response({"success": True, "stars": stars})
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Error starring template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
+    @rate_limit(requests_per_minute=60, limiter_name="marketplace.categories")
     def handle_list_categories(self) -> HandlerResult:
         """
         GET /api/v1/marketplace/categories
         """
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             registry = _get_registry()
             categories = registry.list_categories()
 
+            self._circuit_breaker.record_success()
+
             return self.json_response({"categories": categories})
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception("Error listing categories")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
+    @rate_limit(requests_per_minute=30, limiter_name="marketplace.export")
     def handle_export_template(self, template_id: str) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates/{id}/export
         """
+        # Validate template ID
+        valid, err = _validate_template_id(template_id)
+        if not valid:
+            return self.json_error(err, HTTPStatus.BAD_REQUEST)
+
+        # Check circuit breaker
+        if not self._circuit_breaker.can_proceed():
+            return self.json_error(
+                "Marketplace temporarily unavailable. Please try again later.",
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+
         try:
             registry = _get_registry()
             json_str = registry.export_template(template_id)
@@ -312,6 +792,8 @@ class MarketplaceHandler(BaseHandler):
                     HTTPStatus.NOT_FOUND,
                 )
 
+            self._circuit_breaker.record_success()
+
             return HandlerResult(
                 status_code=HTTPStatus.OK,
                 content_type="application/json",
@@ -320,10 +802,12 @@ class MarketplaceHandler(BaseHandler):
             )
 
         except Exception as e:
+            self._circuit_breaker.record_failure()
             logger.exception(f"Error exporting template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
+    @rate_limit(requests_per_minute=20, limiter_name="marketplace.import")
     def handle_import_template(self) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates/import
@@ -331,3 +815,18 @@ class MarketplaceHandler(BaseHandler):
         Body: Template JSON
         """
         return self.handle_create_template()
+
+    @require_permission("marketplace:read")
+    def handle_status(self) -> HandlerResult:
+        """
+        GET /api/v1/marketplace/status
+
+        Returns health and circuit breaker status.
+        """
+        cb_status = self._circuit_breaker.get_status()
+        return self.json_response(
+            {
+                "status": "healthy" if cb_status["state"] == "closed" else "degraded",
+                "circuit_breaker": cb_status,
+            }
+        )

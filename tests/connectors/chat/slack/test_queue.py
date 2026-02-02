@@ -332,9 +332,7 @@ class TestSlackMessageQueue:
     @pytest.mark.asyncio
     async def test_process_pending_delivers(self, queue):
         """Test processing delivers messages successfully."""
-        msg_id = await queue.enqueue(
-            workspace_id="T1", channel_id="C1", text="Deliver me"
-        )
+        msg_id = await queue.enqueue(workspace_id="T1", channel_id="C1", text="Deliver me")
 
         with patch.object(queue, "_send_message", new_callable=AsyncMock) as mock_send:
             mock_send.return_value = True
@@ -347,9 +345,7 @@ class TestSlackMessageQueue:
     @pytest.mark.asyncio
     async def test_process_pending_retries_on_failure(self, queue):
         """Test processing retries failed messages."""
-        msg_id = await queue.enqueue(
-            workspace_id="T1", channel_id="C1", text="Will fail"
-        )
+        msg_id = await queue.enqueue(workspace_id="T1", channel_id="C1", text="Will fail")
 
         with patch.object(queue, "_send_message", new_callable=AsyncMock) as mock_send:
             mock_send.side_effect = Exception("API error")
@@ -365,9 +361,7 @@ class TestSlackMessageQueue:
     @pytest.mark.asyncio
     async def test_process_moves_to_dead_after_max_retries(self, queue):
         """Test messages move to dead letter after max retries."""
-        msg_id = await queue.enqueue(
-            workspace_id="T1", channel_id="C1", text="Die eventually"
-        )
+        msg_id = await queue.enqueue(workspace_id="T1", channel_id="C1", text="Die eventually")
 
         # Manually set retries to max
         msg = queue._store.get(msg_id)
@@ -423,9 +417,7 @@ class TestSlackMessageQueue:
     @pytest.mark.asyncio
     async def test_get_and_retry_dead_letters(self, queue):
         """Test retrieving and retrying dead letters."""
-        msg_id = await queue.enqueue(
-            workspace_id="T1", channel_id="C1", text="Dead letter test"
-        )
+        msg_id = await queue.enqueue(workspace_id="T1", channel_id="C1", text="Dead letter test")
 
         # Move to dead
         queue._store.mark_dead(msg_id, "Test failure")

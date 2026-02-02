@@ -264,7 +264,7 @@ class TestTimeoutHandling:
 
         async def slow_operation():
             cb.record_failure("slow")
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
             cb.record_success("slow")  # Should not execute
 
         task = asyncio.create_task(slow_operation())

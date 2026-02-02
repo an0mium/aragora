@@ -333,7 +333,7 @@ class TestTimeoutsUnderLoad:
         async def request(request_id: int, should_timeout: bool):
             try:
                 if should_timeout:
-                    await asyncio.sleep(10.0)  # Would timeout
+                    await asyncio.sleep(1.0)  # Would timeout
                 else:
                     await asyncio.sleep(0.01)
                     completed.append(request_id)

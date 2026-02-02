@@ -103,6 +103,7 @@ def reset_rate_limiters():
         _youtube_limiter,
         reset_transcription_circuit_breaker,
     )
+
     _audio_limiter._buckets.clear()
     _youtube_limiter._buckets.clear()
     reset_transcription_circuit_breaker()

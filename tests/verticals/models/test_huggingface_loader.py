@@ -402,6 +402,7 @@ class TestHuggingFaceSpecialistLoaderGetDevice:
         loader._torch_available = True
         with patch.dict("sys.modules", {"torch": MagicMock()}):
             import torch
+
             torch.cuda = MagicMock()
             torch.cuda.is_available = MagicMock(return_value=True)
             device = loader._get_device()

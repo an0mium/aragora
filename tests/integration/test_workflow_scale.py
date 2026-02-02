@@ -309,7 +309,7 @@ class TestLongRunningWorkflows:
             nonlocal cleanup_called
 
             try:
-                await asyncio.sleep(10)  # Long task
+                await asyncio.sleep(1)  # Long task
                 return {"completed": True}
             except asyncio.CancelledError:
                 cleanup_called = True

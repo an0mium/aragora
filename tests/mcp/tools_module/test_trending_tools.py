@@ -267,9 +267,7 @@ class TestListTrendingTopicsTool:
         mock_pulse.get_trending_topics.return_value = [mock_topic1, mock_topic2]
 
         mock_selector = MagicMock()
-        mock_selector.score_topic.side_effect = [
-            MagicMock(score=s) for s in scores
-        ]
+        mock_selector.score_topic.side_effect = [MagicMock(score=s) for s in scores]
 
         with (
             patch(

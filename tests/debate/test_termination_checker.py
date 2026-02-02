@@ -541,9 +541,9 @@ class TestJudgeTerminationWithConfidence:
         self, default_protocol, mock_agents, sample_proposals, mock_messages
     ):
         """Test parses JSON embedded in markdown code block."""
-        response = '''```json
+        response = """```json
 {"conclusive": true, "confidence": 0.9, "reason": "Well resolved"}
-```'''
+```"""
         checker = TerminationChecker(
             protocol=default_protocol,
             agents=mock_agents,
@@ -719,9 +719,7 @@ class TestEarlyStopping:
     """Tests for check_early_stopping method."""
 
     @pytest.mark.asyncio
-    async def test_disabled_returns_continue(
-        self, mock_agents, sample_proposals, mock_messages
-    ):
+    async def test_disabled_returns_continue(self, mock_agents, sample_proposals, mock_messages):
         """Test returns continue when early_stopping disabled."""
         protocol = DebateProtocol(early_stopping=False)
         checker = TerminationChecker(
@@ -860,9 +858,7 @@ class TestEarlyStopping:
         assert args[2] == 3  # total_votes
 
     @pytest.mark.asyncio
-    async def test_handles_agent_exceptions(
-        self, mock_agents, sample_proposals, mock_messages
-    ):
+    async def test_handles_agent_exceptions(self, mock_agents, sample_proposals, mock_messages):
         """Test handles exceptions from individual agents."""
         protocol = DebateProtocol(
             early_stopping=True,
@@ -921,9 +917,7 @@ class TestEarlyStopping:
         assert should_continue is True
 
     @pytest.mark.asyncio
-    async def test_handles_timeout(
-        self, mock_agents, sample_proposals, mock_messages
-    ):
+    async def test_handles_timeout(self, mock_agents, sample_proposals, mock_messages):
         """Test handles overall timeout gracefully."""
         protocol = DebateProtocol(
             early_stopping=True,
@@ -1005,9 +999,7 @@ class TestShouldTerminate:
         assert reason != ""
 
     @pytest.mark.asyncio
-    async def test_terminates_on_early_stopping(
-        self, mock_agents, sample_proposals, mock_messages
-    ):
+    async def test_terminates_on_early_stopping(self, mock_agents, sample_proposals, mock_messages):
         """Test terminates when agents vote to stop."""
         protocol = DebateProtocol(
             judge_termination=False,  # Disable judge
@@ -1063,6 +1055,7 @@ class TestShouldTerminate:
         self, default_protocol, mock_agents, sample_proposals, mock_messages
     ):
         """Test judge termination is checked before early stopping."""
+
         # Judge says conclusive, early stopping would say continue
         async def dual_response_generate(agent, prompt, context):
             if "conclusive" in prompt.lower() or "evaluating" in prompt.lower():
@@ -1313,9 +1306,7 @@ class TestEdgeCases:
         assert should_continue is False
 
     @pytest.mark.asyncio
-    async def test_long_proposals_truncation(
-        self, default_protocol, mock_agents, mock_messages
-    ):
+    async def test_long_proposals_truncation(self, default_protocol, mock_agents, mock_messages):
         """Test long proposals are truncated in prompts."""
         long_proposals = {
             "claude": "P" * 1000,

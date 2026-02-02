@@ -123,9 +123,7 @@ class TestCircuitBreakerBasics:
 
     def test_closes_after_successful_half_open_calls(self):
         """Circuit closes after successful calls in half-open state."""
-        cb = RLMCircuitBreaker(
-            failure_threshold=2, cooldown_seconds=0.05, half_open_max_calls=2
-        )
+        cb = RLMCircuitBreaker(failure_threshold=2, cooldown_seconds=0.05, half_open_max_calls=2)
         cb.record_failure()
         cb.record_failure()
 
@@ -272,9 +270,7 @@ class TestInputValidation:
 
     def test_query_rejects_long_query(self, rlm_handler):
         """Query endpoint rejects queries over 10000 characters."""
-        mock_handler = MockHandler(
-            _json_body={"query": "x" * 10001}
-        )
+        mock_handler = MockHandler(_json_body={"query": "x" * 10001})
 
         # Unwrap the decorated method to bypass rate limiting
         result = rlm_handler._query_debate_rlm.__wrapped__(
@@ -307,9 +303,7 @@ class TestInputValidation:
 
     def test_query_rejects_invalid_start_level(self, rlm_handler):
         """Query endpoint rejects invalid start_level."""
-        mock_handler = MockHandler(
-            _json_body={"query": "test query", "start_level": "INVALID"}
-        )
+        mock_handler = MockHandler(_json_body={"query": "test query", "start_level": "INVALID"})
 
         result = rlm_handler._query_debate_rlm.__wrapped__(
             rlm_handler,
@@ -332,9 +326,7 @@ class TestInputValidation:
         )
 
         with patch.object(rlm_handler, "_check_permission", return_value=None):
-            with patch(
-                "aragora.server.handlers.features.rlm._run_async"
-            ) as mock_run:
+            with patch("aragora.server.handlers.features.rlm._run_async") as mock_run:
                 mock_result = MagicMock()
                 mock_result.answer = "test"
                 mock_result.ready = True
@@ -386,9 +378,7 @@ class TestInputValidation:
 
     def test_compress_validates_target_levels(self, rlm_handler):
         """Compress endpoint validates target_levels."""
-        mock_handler = MockHandler(
-            _json_body={"target_levels": ["INVALID_LEVEL"]}
-        )
+        mock_handler = MockHandler(_json_body={"target_levels": ["INVALID_LEVEL"]})
 
         result = rlm_handler._compress_debate.__wrapped__(
             rlm_handler,
@@ -459,9 +449,7 @@ class TestInputValidation:
         )
 
         with patch.object(rlm_handler, "_check_permission", return_value=None):
-            with patch(
-                "aragora.server.handlers.features.rlm._run_async"
-            ) as mock_run:
+            with patch("aragora.server.handlers.features.rlm._run_async") as mock_run:
                 mock_run.return_value = {
                     "answer": "test",
                     "sources": [],
@@ -558,9 +546,7 @@ class TestCircuitBreakerIntegration:
         mock_handler = MockHandler(_json_body={"query": "test query"})
 
         with patch.object(rlm_handler, "_check_permission", return_value=None):
-            with patch(
-                "aragora.server.handlers.features.rlm._run_async"
-            ) as mock_run:
+            with patch("aragora.server.handlers.features.rlm._run_async") as mock_run:
                 mock_result = MagicMock()
                 mock_result.answer = "test"
                 mock_result.ready = True
@@ -773,12 +759,15 @@ class TestErrorHandling:
         ) as mock_metrics:
             # Create a mock response that simulates the fallback behavior
             from aragora.server.handlers.base import json_response
-            mock_metrics.return_value = json_response({
-                "compressions": {"total": 0, "byType": {}, "avgRatio": 0.0, "tokensSaved": 0},
-                "queries": {"total": 0, "byType": {}, "avgDuration": 0.0, "successRate": 0.0},
-                "cache": {"hits": 0, "misses": 0, "hitRate": 0.0, "memoryBytes": 0},
-                "refinement": {"avgIterations": 0.0, "successRate": 0.0, "readyFalseTotal": 0},
-            })
+
+            mock_metrics.return_value = json_response(
+                {
+                    "compressions": {"total": 0, "byType": {}, "avgRatio": 0.0, "tokensSaved": 0},
+                    "queries": {"total": 0, "byType": {}, "avgDuration": 0.0, "successRate": 0.0},
+                    "cache": {"hits": 0, "misses": 0, "hitRate": 0.0, "memoryBytes": 0},
+                    "refinement": {"avgIterations": 0.0, "successRate": 0.0, "readyFalseTotal": 0},
+                }
+            )
             result = mock_metrics()
 
         assert result.status_code == 200
@@ -870,14 +859,8 @@ class TestPathExtraction:
 
     def test_extract_debate_id_valid(self, rlm_handler):
         """Extracts debate ID correctly from valid path."""
-        assert (
-            rlm_handler._extract_debate_id("/api/v1/debates/test-123/query-rlm")
-            == "test-123"
-        )
-        assert (
-            rlm_handler._extract_debate_id("/api/v1/debates/abc_def/compress")
-            == "abc_def"
-        )
+        assert rlm_handler._extract_debate_id("/api/v1/debates/test-123/query-rlm") == "test-123"
+        assert rlm_handler._extract_debate_id("/api/v1/debates/abc_def/compress") == "abc_def"
 
     def test_extract_debate_id_invalid(self, rlm_handler):
         """Returns None for invalid paths."""
@@ -887,14 +870,8 @@ class TestPathExtraction:
 
     def test_extract_level_valid(self, rlm_handler):
         """Extracts level correctly from valid path."""
-        assert (
-            rlm_handler._extract_level("/api/v1/debates/test/context/SUMMARY")
-            == "SUMMARY"
-        )
-        assert (
-            rlm_handler._extract_level("/api/v1/debates/test/context/abstract")
-            == "ABSTRACT"
-        )
+        assert rlm_handler._extract_level("/api/v1/debates/test/context/SUMMARY") == "SUMMARY"
+        assert rlm_handler._extract_level("/api/v1/debates/test/context/abstract") == "ABSTRACT"
 
     def test_extract_level_invalid(self, rlm_handler):
         """Returns None for paths without level."""

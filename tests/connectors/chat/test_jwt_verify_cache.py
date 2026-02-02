@@ -275,9 +275,7 @@ class TestCacheInvalidationMethods:
 class TestCacheInvalidationOnSignatureFailure:
     """Test cache is invalidated on signature verification failures."""
 
-    def test_microsoft_cache_invalidated_on_signature_error(
-        self, rsa_key_pair, mock_jwks_client
-    ):
+    def test_microsoft_cache_invalidated_on_signature_error(self, rsa_key_pair, mock_jwks_client):
         """Microsoft cache is invalidated when signature verification fails."""
         from aragora.connectors.chat.jwt_verify import (
             JWTVerifier,
@@ -324,9 +322,7 @@ class TestCacheInvalidationOnSignatureFailure:
         assert verifier._microsoft_jwks_client is None
         assert verifier._microsoft_cache_time == 0
 
-    def test_google_cache_invalidated_on_signature_error(
-        self, rsa_key_pair, mock_jwks_client
-    ):
+    def test_google_cache_invalidated_on_signature_error(self, rsa_key_pair, mock_jwks_client):
         """Google cache is invalidated when signature verification fails."""
         from aragora.connectors.chat.jwt_verify import (
             JWTVerifier,
@@ -410,9 +406,7 @@ class TestCacheInvalidationOnSignatureFailure:
         assert verifier._microsoft_metadata is None
         assert verifier._microsoft_jwks_client is None
 
-    def test_cache_not_invalidated_on_expiry_error(
-        self, rsa_key_pair, mock_jwks_client
-    ):
+    def test_cache_not_invalidated_on_expiry_error(self, rsa_key_pair, mock_jwks_client):
         """Cache is NOT invalidated for non-signature errors like token expiry."""
         from aragora.connectors.chat.jwt_verify import (
             JWTVerifier,
@@ -571,9 +565,7 @@ class TestCacheRefreshAfterInvalidation:
 class TestCacheHardeningIntegration:
     """Integration tests for cache hardening."""
 
-    def test_key_rotation_recovery_via_cache_invalidation(
-        self, rsa_key_pair, mock_jwks_client
-    ):
+    def test_key_rotation_recovery_via_cache_invalidation(self, rsa_key_pair, mock_jwks_client):
         """
         Test that signature failure triggers cache invalidation,
         allowing subsequent verification to succeed with new keys.

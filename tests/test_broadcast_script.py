@@ -257,7 +257,7 @@ class TestGenerateScript:
         script = generate_script(trace)
 
         # generate_script now returns a Script object with segments attribute
-        assert hasattr(script, 'segments')
+        assert hasattr(script, "segments")
         assert isinstance(script.segments, list)
         assert all(isinstance(s, ScriptSegment) for s in script.segments)
 

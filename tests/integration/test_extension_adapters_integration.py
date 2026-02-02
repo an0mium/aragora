@@ -678,7 +678,7 @@ class TestExtensionAdapterResilience:
 
         class SlowKM:
             async def store(self, *args, **kwargs):
-                await asyncio.sleep(10)  # Simulate slow response
+                await asyncio.sleep(1)  # Simulate slow response
                 return "item-id"
 
         adapter = GatewayAdapter(workspace_id="test")

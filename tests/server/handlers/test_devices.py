@@ -952,6 +952,7 @@ class TestCircuitBreaker:
 
         # Wait for cooldown
         import time
+
         time.sleep(0.02)
 
         # Should transition to half-open
@@ -976,6 +977,7 @@ class TestCircuitBreaker:
 
         # Wait for cooldown
         import time
+
         time.sleep(0.02)
 
         # Transition to half-open
@@ -1042,7 +1044,10 @@ class TestCircuitBreaker:
         self, device_handler, mock_handler, auth_context
     ):
         """Registration fails when circuit breaker is open."""
-        from aragora.server.handlers.devices import _get_circuit_breaker, _clear_device_circuit_breakers
+        from aragora.server.handlers.devices import (
+            _get_circuit_breaker,
+            _clear_device_circuit_breakers,
+        )
 
         # Clear and open the FCM circuit breaker
         _clear_device_circuit_breakers()
@@ -1210,9 +1215,7 @@ class TestInputValidation:
     """Tests for input validation."""
 
     @pytest.mark.asyncio
-    async def test_register_push_token_too_long(
-        self, device_handler, mock_handler, auth_context
-    ):
+    async def test_register_push_token_too_long(self, device_handler, mock_handler, auth_context):
         """Registration fails when push token exceeds max length."""
         mock_handler.command = "POST"
         mock_handler.client_address = ("127.0.0.1", 12345)
@@ -1336,7 +1339,10 @@ class TestHealthWithCircuitBreaker:
         self, device_handler, mock_handler, auth_context
     ):
         """Health endpoint includes circuit breaker status."""
-        from aragora.server.handlers.devices import _get_circuit_breaker, _clear_device_circuit_breakers
+        from aragora.server.handlers.devices import (
+            _get_circuit_breaker,
+            _clear_device_circuit_breakers,
+        )
 
         # Clear and create a circuit breaker
         _clear_device_circuit_breakers()
@@ -1375,7 +1381,10 @@ class TestHealthWithCircuitBreaker:
         self, device_handler, mock_handler, auth_context
     ):
         """Health endpoint returns circuit breaker status even when connectors unavailable."""
-        from aragora.server.handlers.devices import _get_circuit_breaker, _clear_device_circuit_breakers
+        from aragora.server.handlers.devices import (
+            _get_circuit_breaker,
+            _clear_device_circuit_breakers,
+        )
 
         # Clear and create a circuit breaker
         _clear_device_circuit_breakers()

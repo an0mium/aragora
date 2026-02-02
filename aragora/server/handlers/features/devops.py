@@ -1,6 +1,8 @@
 """
 DevOps Incident Management API Handler.
 
+Stability: STABLE
+
 Provides REST APIs for incident management via PagerDuty:
 - Create and manage incidents
 - Add investigation notes
@@ -8,6 +10,13 @@ Provides REST APIs for incident management via PagerDuty:
 - Query on-call schedules
 - Service health status
 - Webhook handling for incident updates
+
+Features:
+- Circuit breaker pattern for resilient PagerDuty API access
+- Rate limiting (30-60 requests/minute depending on endpoint)
+- RBAC permission checks (devops:read, devops:write, devops:webhook)
+- Comprehensive input validation with safe ID patterns
+- Webhook signature verification
 
 Endpoints:
 - POST /api/v1/incidents                    - Create incident
@@ -29,6 +38,9 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import re
+import threading
+import time
 from typing import Any
 
 
@@ -40,7 +52,8 @@ from ..base import (
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils import parse_json_body
-from aragora.server.validation.query_params import safe_query_int
+from ..utils.rate_limit import rate_limit
+from aragora.server.validation.query_params import safe_query_int, safe_query_string
 
 # Permission constants for DevOps operations
 DEVOPS_READ_PERMISSION = "devops:read"
@@ -48,6 +61,299 @@ DEVOPS_WRITE_PERMISSION = "devops:write"
 DEVOPS_WEBHOOK_PERMISSION = "devops:webhook"
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Input Validation Constants
+# =============================================================================
+
+# Valid PagerDuty ID pattern (alphanumeric with specific prefixes)
+PAGERDUTY_ID_PATTERN = re.compile(r"^[A-Z0-9]{7,15}$")
+
+# Valid urgency values
+VALID_URGENCIES = frozenset({"high", "low"})
+
+# Valid incident statuses
+VALID_INCIDENT_STATUSES = frozenset({"triggered", "acknowledged", "resolved"})
+
+# Maximum lengths for text fields
+MAX_TITLE_LENGTH = 500
+MAX_DESCRIPTION_LENGTH = 10000
+MAX_NOTE_CONTENT_LENGTH = 5000
+MAX_RESOLUTION_LENGTH = 2000
+
+# Maximum items in lists
+MAX_USER_IDS = 20
+MAX_SOURCE_INCIDENT_IDS = 50
+
+
+def _validate_pagerduty_id(id_value: str, field_name: str = "id") -> tuple[bool, str | None]:
+    """Validate a PagerDuty ID format.
+
+    Args:
+        id_value: The ID to validate
+        field_name: Name of the field for error messages
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not id_value:
+        return False, f"{field_name} is required"
+    if not isinstance(id_value, str):
+        return False, f"{field_name} must be a string"
+    if len(id_value) > 20:
+        return False, f"{field_name} is too long"
+    if not PAGERDUTY_ID_PATTERN.match(id_value):
+        return False, f"{field_name} has invalid format"
+    return True, None
+
+
+def _validate_urgency(urgency: str | None) -> str:
+    """Validate and normalize urgency value."""
+    if urgency is None:
+        return "high"
+    urgency_lower = str(urgency).lower().strip()
+    if urgency_lower in VALID_URGENCIES:
+        return urgency_lower
+    return "high"  # Default to high if invalid
+
+
+def _validate_string_field(
+    value: Any,
+    field_name: str,
+    required: bool = False,
+    max_length: int = 500,
+) -> tuple[str | None, str | None]:
+    """Validate a string field.
+
+    Args:
+        value: The value to validate
+        field_name: Name of the field for error messages
+        required: Whether the field is required
+        max_length: Maximum allowed length
+
+    Returns:
+        Tuple of (sanitized_value, error_message)
+    """
+    if value is None or value == "":
+        if required:
+            return None, f"{field_name} is required"
+        return None, None
+
+    if not isinstance(value, str):
+        try:
+            value = str(value)
+        except (ValueError, TypeError):
+            return None, f"{field_name} must be a string"
+
+    # Strip whitespace
+    value = value.strip()
+
+    # Check length
+    if len(value) > max_length:
+        return None, f"{field_name} exceeds maximum length of {max_length}"
+
+    return value, None
+
+
+def _validate_id_list(
+    values: Any,
+    field_name: str,
+    max_items: int = 20,
+) -> tuple[list[str] | None, str | None]:
+    """Validate a list of IDs.
+
+    Args:
+        values: The list to validate
+        field_name: Name of the field for error messages
+        max_items: Maximum number of items allowed
+
+    Returns:
+        Tuple of (validated_list, error_message)
+    """
+    if values is None:
+        return None, None
+
+    if not isinstance(values, list):
+        return None, f"{field_name} must be a list"
+
+    if len(values) > max_items:
+        return None, f"{field_name} exceeds maximum of {max_items} items"
+
+    validated = []
+    for i, item in enumerate(values):
+        is_valid, err = _validate_pagerduty_id(str(item), f"{field_name}[{i}]")
+        if not is_valid:
+            return None, err
+        validated.append(str(item))
+
+    return validated, None
+
+
+# =============================================================================
+# Circuit Breaker for PagerDuty API Access
+# =============================================================================
+
+
+class DevOpsCircuitBreaker:
+    """Circuit breaker for PagerDuty API access.
+
+    Prevents cascading failures when PagerDuty API is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                logger.info("DevOps circuit breaker transitioning to HALF_OPEN")
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+        return self._state
+
+    def is_allowed(self) -> bool:
+        """Check if a request should be allowed through.
+
+        Returns:
+            True if request is allowed, False if circuit is open.
+        """
+        with self._lock:
+            state = self._check_state()
+
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                # Allow limited calls in half-open state
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    logger.info("DevOps circuit breaker closing after successful tests")
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                if self._failure_count > 0:
+                    self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Failed during half-open, reopen circuit
+                logger.warning("DevOps circuit breaker reopening after test failure")
+                self._state = self.OPEN
+                self._success_count = 0
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    logger.warning(
+                        "DevOps circuit breaker opening after %d failures",
+                        self._failure_count,
+                    )
+                    self._state = self.OPEN
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status for monitoring."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+
+# Global circuit breaker instance
+_devops_circuit_breaker: DevOpsCircuitBreaker | None = None
+_circuit_breaker_lock = threading.Lock()
+
+
+def get_devops_circuit_breaker() -> DevOpsCircuitBreaker:
+    """Get or create the global DevOps circuit breaker."""
+    global _devops_circuit_breaker
+    with _circuit_breaker_lock:
+        if _devops_circuit_breaker is None:
+            _devops_circuit_breaker = DevOpsCircuitBreaker()
+        return _devops_circuit_breaker
+
+
+def get_devops_circuit_breaker_status() -> dict[str, Any]:
+    """Get the current status of the DevOps circuit breaker."""
+    return get_devops_circuit_breaker().get_status()
+
+
+def _clear_devops_components() -> None:
+    """Clear module-level components for testing."""
+    global _devops_circuit_breaker
+    with _circuit_breaker_lock:
+        if _devops_circuit_breaker is not None:
+            _devops_circuit_breaker.reset()
+        _devops_circuit_breaker = None
+    _connector_instances.clear()
+    _active_contexts.clear()
+
 
 # =============================================================================
 # Connector Instance Management
@@ -287,6 +593,7 @@ class DevOpsHandler(SecureHandler):
     # Incidents
     # =========================================================================
 
+    @rate_limit(requests_per_minute=60)
     async def _handle_list_incidents(self, request: Any, tenant_id: str) -> HandlerResult:
         """List incidents with filtering.
 
@@ -297,18 +604,55 @@ class DevOpsHandler(SecureHandler):
         - limit: Max results (default 25)
         - offset: Pagination offset
         """
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
 
         params = self._get_query_params(request)
-        statuses = params.get("status", "").split(",") if params.get("status") else None
-        service_ids = (
-            params.get("service_ids", "").split(",") if params.get("service_ids") else None
-        )
-        urgencies = params.get("urgency", "").split(",") if params.get("urgency") else None
-        limit = safe_query_int(params, "limit", default=25, min_val=1, max_val=1000)
-        offset = safe_query_int(params, "offset", default=0, min_val=0, max_val=100000)
+
+        # Validate and parse status filter
+        statuses = None
+        status_param = safe_query_string(params, "status", "", max_length=100)
+        if status_param:
+            statuses = [s.strip() for s in status_param.split(",") if s.strip()]
+            # Validate statuses
+            for status in statuses:
+                if status not in VALID_INCIDENT_STATUSES:
+                    return error_response(
+                        f"Invalid status '{status}'. Valid: {', '.join(VALID_INCIDENT_STATUSES)}",
+                        400,
+                    )
+
+        # Validate and parse service_ids filter
+        service_ids = None
+        service_ids_param = safe_query_string(params, "service_ids", "", max_length=500)
+        if service_ids_param:
+            service_ids = [s.strip() for s in service_ids_param.split(",") if s.strip()]
+            for sid in service_ids[:20]:  # Limit to 20 service IDs
+                is_valid, err = _validate_pagerduty_id(sid, "service_id")
+                if not is_valid:
+                    return error_response(err, 400)
+            service_ids = service_ids[:20]
+
+        # Validate and parse urgency filter
+        urgencies = None
+        urgency_param = safe_query_string(params, "urgency", "", max_length=50)
+        if urgency_param:
+            urgencies = [u.strip() for u in urgency_param.split(",") if u.strip()]
+            for urgency in urgencies:
+                if urgency not in VALID_URGENCIES:
+                    return error_response(
+                        f"Invalid urgency '{urgency}'. Valid: {', '.join(VALID_URGENCIES)}",
+                        400,
+                    )
+
+        limit = safe_query_int(params, "limit", default=25, min_val=1, max_val=100)
+        offset = safe_query_int(params, "offset", default=0, min_val=0, max_val=10000)
 
         try:
             incidents, has_more = await connector.list_incidents(
@@ -318,6 +662,8 @@ class DevOpsHandler(SecureHandler):
                 limit=limit,
                 offset=offset,
             )
+
+            circuit_breaker.record_success()
 
             return success_response(
                 {
@@ -341,9 +687,11 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to list incidents: {e}")
-            return error_response(f"Failed to list incidents: {e}", 500)
+            return error_response("Failed to list incidents", 500)
 
+    @rate_limit(requests_per_minute=30)
     async def _handle_create_incident(self, request: Any, tenant_id: str) -> HandlerResult:
         """Create a new incident.
 
@@ -357,17 +705,53 @@ class DevOpsHandler(SecureHandler):
             "priority_id": "PPRI123"  // Optional
         }
         """
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
 
         body = await self._get_json_body(request)
 
-        # Validate required fields
-        if not body.get("title"):
-            return error_response("title is required", 400)
-        if not body.get("service_id"):
-            return error_response("service_id is required", 400)
+        # Validate title
+        title, err = _validate_string_field(
+            body.get("title"), "title", required=True, max_length=MAX_TITLE_LENGTH
+        )
+        if err:
+            return error_response(err, 400)
+
+        # Validate service_id
+        is_valid, err = _validate_pagerduty_id(body.get("service_id", ""), "service_id")
+        if not is_valid:
+            return error_response(err, 400)
+        service_id = body["service_id"]
+
+        # Validate urgency
+        urgency_str = _validate_urgency(body.get("urgency"))
+
+        # Validate description (optional)
+        description, err = _validate_string_field(
+            body.get("body"), "body", required=False, max_length=MAX_DESCRIPTION_LENGTH
+        )
+        if err:
+            return error_response(err, 400)
+
+        # Validate escalation_policy_id (optional)
+        escalation_policy_id = body.get("escalation_policy_id")
+        if escalation_policy_id:
+            is_valid, err = _validate_pagerduty_id(escalation_policy_id, "escalation_policy_id")
+            if not is_valid:
+                return error_response(err, 400)
+
+        # Validate priority_id (optional)
+        priority_id = body.get("priority_id")
+        if priority_id:
+            is_valid, err = _validate_pagerduty_id(priority_id, "priority_id")
+            if not is_valid:
+                return error_response(err, 400)
 
         try:
             from aragora.connectors.devops.pagerduty import (
@@ -375,19 +759,20 @@ class DevOpsHandler(SecureHandler):
                 IncidentUrgency,
             )
 
-            urgency = IncidentUrgency(body.get("urgency", "high"))
+            urgency = IncidentUrgency(urgency_str)
 
             create_request = IncidentCreateRequest(
-                title=body["title"],
-                service_id=body["service_id"],
+                title=title,
+                service_id=service_id,
                 urgency=urgency,
-                description=body.get("body"),
-                escalation_policy_id=body.get("escalation_policy_id"),
-                priority_id=body.get("priority_id"),
+                description=description,
+                escalation_policy_id=escalation_policy_id,
+                priority_id=priority_id,
             )
 
             incident = await connector.create_incident(create_request)
 
+            circuit_breaker.record_success()
             logger.info(f"[DevOps] Created incident {incident.id} for tenant {tenant_id}")
 
             return json_response(
@@ -407,19 +792,33 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to create incident: {e}")
-            return error_response(f"Failed to create incident: {e}", 500)
+            return error_response("Failed to create incident", 500)
 
+    @rate_limit(requests_per_minute=60)
     async def _handle_get_incident(
         self, request: Any, tenant_id: str, incident_id: str
     ) -> HandlerResult:
         """Get incident details."""
+        # Validate incident_id
+        is_valid, err = _validate_pagerduty_id(incident_id, "incident_id")
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
 
         try:
             incident = await connector.get_incident(incident_id)
+
+            circuit_breaker.record_success()
 
             return success_response(
                 {
@@ -443,13 +842,25 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to get incident {incident_id}: {e}")
-            return error_response(f"Failed to get incident: {e}", 500)
+            return error_response("Failed to get incident", 500)
 
+    @rate_limit(requests_per_minute=30)
     async def _handle_acknowledge_incident(
         self, request: Any, tenant_id: str, incident_id: str
     ) -> HandlerResult:
         """Acknowledge an incident."""
+        # Validate incident_id
+        is_valid, err = _validate_pagerduty_id(incident_id, "incident_id")
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
@@ -457,6 +868,7 @@ class DevOpsHandler(SecureHandler):
         try:
             incident = await connector.acknowledge_incident(incident_id)
 
+            circuit_breaker.record_success()
             logger.info(f"[DevOps] Acknowledged incident {incident_id} for tenant {tenant_id}")
 
             return success_response(
@@ -470,9 +882,11 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to acknowledge incident {incident_id}: {e}")
-            return error_response(f"Failed to acknowledge incident: {e}", 500)
+            return error_response("Failed to acknowledge incident", 500)
 
+    @rate_limit(requests_per_minute=30)
     async def _handle_resolve_incident(
         self, request: Any, tenant_id: str, incident_id: str
     ) -> HandlerResult:
@@ -483,16 +897,33 @@ class DevOpsHandler(SecureHandler):
             "resolution": "Fixed by restarting the service"
         }
         """
+        # Validate incident_id
+        is_valid, err = _validate_pagerduty_id(incident_id, "incident_id")
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
 
         body = await self._get_json_body(request)
-        resolution = body.get("resolution")
+
+        # Validate resolution (optional)
+        resolution, err = _validate_string_field(
+            body.get("resolution"), "resolution", required=False, max_length=MAX_RESOLUTION_LENGTH
+        )
+        if err:
+            return error_response(err, 400)
 
         try:
             incident = await connector.resolve_incident(incident_id, resolution)
 
+            circuit_breaker.record_success()
             logger.info(f"[DevOps] Resolved incident {incident_id} for tenant {tenant_id}")
 
             return success_response(
@@ -506,9 +937,11 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to resolve incident {incident_id}: {e}")
-            return error_response(f"Failed to resolve incident: {e}", 500)
+            return error_response("Failed to resolve incident", 500)
 
+    @rate_limit(requests_per_minute=30)
     async def _handle_reassign_incident(
         self, request: Any, tenant_id: str, incident_id: str
     ) -> HandlerResult:
@@ -520,6 +953,16 @@ class DevOpsHandler(SecureHandler):
             "escalation_policy_id": "PESCPOL123"
         }
         """
+        # Validate incident_id
+        is_valid, err = _validate_pagerduty_id(incident_id, "incident_id")
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
@@ -531,6 +974,21 @@ class DevOpsHandler(SecureHandler):
         if not user_ids and not escalation_policy_id:
             return error_response("Either user_ids or escalation_policy_id is required", 400)
 
+        # Validate user_ids (if provided)
+        if user_ids:
+            validated_user_ids, err = _validate_id_list(
+                user_ids, "user_ids", max_items=MAX_USER_IDS
+            )
+            if err:
+                return error_response(err, 400)
+            user_ids = validated_user_ids
+
+        # Validate escalation_policy_id (if provided)
+        if escalation_policy_id:
+            is_valid, err = _validate_pagerduty_id(escalation_policy_id, "escalation_policy_id")
+            if not is_valid:
+                return error_response(err, 400)
+
         try:
             incident = await connector.reassign_incident(
                 incident_id,
@@ -538,6 +996,7 @@ class DevOpsHandler(SecureHandler):
                 escalation_policy_id=escalation_policy_id,
             )
 
+            circuit_breaker.record_success()
             logger.info(f"[DevOps] Reassigned incident {incident_id} for tenant {tenant_id}")
 
             return success_response(
@@ -551,9 +1010,11 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to reassign incident {incident_id}: {e}")
-            return error_response(f"Failed to reassign incident: {e}", 500)
+            return error_response("Failed to reassign incident", 500)
 
+    @rate_limit(requests_per_minute=20)
     async def _handle_merge_incidents(
         self, request: Any, tenant_id: str, incident_id: str
     ) -> HandlerResult:
@@ -564,6 +1025,16 @@ class DevOpsHandler(SecureHandler):
             "source_incident_ids": ["PINC456", "PINC789"]
         }
         """
+        # Validate incident_id
+        is_valid, err = _validate_pagerduty_id(incident_id, "incident_id")
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
@@ -574,10 +1045,18 @@ class DevOpsHandler(SecureHandler):
         if not source_ids:
             return error_response("source_incident_ids is required", 400)
 
-        try:
-            incident = await connector.merge_incidents(incident_id, source_ids)
+        # Validate source_incident_ids
+        validated_source_ids, err = _validate_id_list(
+            source_ids, "source_incident_ids", max_items=MAX_SOURCE_INCIDENT_IDS
+        )
+        if err:
+            return error_response(err, 400)
 
-            logger.info(f"[DevOps] Merged {len(source_ids)} incidents into {incident_id}")
+        try:
+            incident = await connector.merge_incidents(incident_id, validated_source_ids)
+
+            circuit_breaker.record_success()
+            logger.info(f"[DevOps] Merged {len(validated_source_ids)} incidents into {incident_id}")
 
             return success_response(
                 {
@@ -585,28 +1064,42 @@ class DevOpsHandler(SecureHandler):
                         "id": incident.id,
                         "title": incident.title,
                     },
-                    "message": f"Merged {len(source_ids)} incidents",
+                    "message": f"Merged {len(validated_source_ids)} incidents",
                 }
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to merge incidents into {incident_id}: {e}")
-            return error_response(f"Failed to merge incidents: {e}", 500)
+            return error_response("Failed to merge incidents", 500)
 
     # =========================================================================
     # Notes
     # =========================================================================
 
+    @rate_limit(requests_per_minute=60)
     async def _handle_list_notes(
         self, request: Any, tenant_id: str, incident_id: str
     ) -> HandlerResult:
         """List notes for an incident."""
+        # Validate incident_id
+        is_valid, err = _validate_pagerduty_id(incident_id, "incident_id")
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
 
         try:
             notes = await connector.list_notes(incident_id)
+
+            circuit_breaker.record_success()
 
             return success_response(
                 {
@@ -628,9 +1121,11 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to list notes for {incident_id}: {e}")
-            return error_response(f"Failed to list notes: {e}", 500)
+            return error_response("Failed to list notes", 500)
 
+    @rate_limit(requests_per_minute=30)
     async def _handle_add_note(
         self, request: Any, tenant_id: str, incident_id: str
     ) -> HandlerResult:
@@ -641,19 +1136,33 @@ class DevOpsHandler(SecureHandler):
             "content": "Investigation update: found root cause..."
         }
         """
+        # Validate incident_id
+        is_valid, err = _validate_pagerduty_id(incident_id, "incident_id")
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
 
         body = await self._get_json_body(request)
-        content = body.get("content")
 
-        if not content:
-            return error_response("content is required", 400)
+        # Validate content
+        content, err = _validate_string_field(
+            body.get("content"), "content", required=True, max_length=MAX_NOTE_CONTENT_LENGTH
+        )
+        if err:
+            return error_response(err, 400)
 
         try:
             note = await connector.add_note(incident_id, content)
 
+            circuit_breaker.record_success()
             logger.info(f"[DevOps] Added note to incident {incident_id}")
 
             return json_response(
@@ -669,26 +1178,43 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to add note to {incident_id}: {e}")
-            return error_response(f"Failed to add note: {e}", 500)
+            return error_response("Failed to add note", 500)
 
     # =========================================================================
     # On-Call
     # =========================================================================
 
+    @rate_limit(requests_per_minute=60)
     async def _handle_get_oncall(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get current on-call schedules."""
+        # Check circuit breaker
+        circuit_breaker = get_devops_circuit_breaker()
+        if not circuit_breaker.is_allowed():
+            return error_response("PagerDuty service temporarily unavailable", 503)
+
         connector = await get_pagerduty_connector(tenant_id)
         if not connector:
             return error_response("PagerDuty not configured", 503)
 
         params = self._get_query_params(request)
-        schedule_ids = (
-            params.get("schedule_ids", "").split(",") if params.get("schedule_ids") else None
-        )
+
+        # Validate and parse schedule_ids filter
+        schedule_ids = None
+        schedule_ids_param = safe_query_string(params, "schedule_ids", "", max_length=500)
+        if schedule_ids_param:
+            schedule_ids = [s.strip() for s in schedule_ids_param.split(",") if s.strip()]
+            for sid in schedule_ids[:20]:  # Limit to 20 schedule IDs
+                is_valid, err = _validate_pagerduty_id(sid, "schedule_id")
+                if not is_valid:
+                    return error_response(err, 400)
+            schedule_ids = schedule_ids[:20]
 
         try:
             schedules = await connector.get_on_call(schedule_ids=schedule_ids)
+
+            circuit_breaker.record_success()
 
             return success_response(
                 {
@@ -712,8 +1238,9 @@ class DevOpsHandler(SecureHandler):
             )
 
         except Exception as e:
+            circuit_breaker.record_failure()
             logger.error(f"Failed to get on-call: {e}")
-            return error_response(f"Failed to get on-call: {e}", 500)
+            return error_response("Failed to get on-call", 500)
 
     async def _handle_get_oncall_for_service(
         self, request: Any, tenant_id: str, service_id: str

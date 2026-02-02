@@ -84,14 +84,16 @@ class MockRedis:
         ex: Optional[int] = None,
     ) -> Optional[bool]:
         """SET command with NX (not exists) and EX (expiry) support."""
-        self._operation_log.append({
-            "op": "set",
-            "key": key,
-            "value": value,
-            "nx": nx,
-            "ex": ex,
-            "time": time.time(),
-        })
+        self._operation_log.append(
+            {
+                "op": "set",
+                "key": key,
+                "value": value,
+                "nx": nx,
+                "ex": ex,
+                "time": time.time(),
+            }
+        )
 
         if self._disconnected:
             raise ConnectionError("Redis disconnected")
@@ -162,12 +164,14 @@ class MockRedis:
 
     async def expire(self, key: str, seconds: int) -> bool:
         """EXPIRE command."""
-        self._operation_log.append({
-            "op": "expire",
-            "key": key,
-            "seconds": seconds,
-            "time": time.time(),
-        })
+        self._operation_log.append(
+            {
+                "op": "expire",
+                "key": key,
+                "seconds": seconds,
+                "time": time.time(),
+            }
+        )
 
         if self._disconnected:
             raise ConnectionError("Redis disconnected")

@@ -145,7 +145,11 @@ WORKSPACE_ENDPOINTS = {
             "responses": {
                 "200": _ok_response(
                     "Member added",
-                    {"added": {"type": "boolean"}, "user_id": {"type": "string"}, "permission": {"type": "string"}},
+                    {
+                        "added": {"type": "boolean"},
+                        "user_id": {"type": "string"},
+                        "permission": {"type": "string"},
+                    },
                 ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
@@ -284,7 +288,11 @@ WORKSPACE_ENDPOINTS = {
             "responses": {
                 "200": _ok_response(
                     "Role updated successfully",
-                    {"updated": {"type": "boolean"}, "user_id": {"type": "string"}, "new_role": {"type": "string"}},
+                    {
+                        "updated": {"type": "boolean"},
+                        "user_id": {"type": "string"},
+                        "new_role": {"type": "string"},
+                    },
                 ),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],

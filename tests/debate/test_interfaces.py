@@ -125,16 +125,10 @@ class MockCalibrationTracker:
     def get_calibration_score(self, agent_name: str) -> float | None:
         """Get an agent's calibration score."""
         pred_ids = self._agent_predictions.get(agent_name, [])
-        resolved = [
-            p for p in pred_ids
-            if self._predictions[p]["resolved"]
-        ]
+        resolved = [p for p in pred_ids if self._predictions[p]["resolved"]]
         if not resolved:
             return None
-        correct = sum(
-            1 for p in resolved
-            if self._predictions[p]["outcome"]
-        )
+        correct = sum(1 for p in resolved if self._predictions[p]["outcome"])
         return correct / len(resolved)
 
 
@@ -217,10 +211,7 @@ class MockCitationExtractor:
         evidence_store: Any | None = None,
     ) -> list[dict[str, Any]]:
         """Validate extracted citations."""
-        return [
-            {**c, "valid": True}
-            for c in citations
-        ]
+        return [{**c, "valid": True} for c in citations]
 
 
 class MockInsightExtractor:
@@ -267,10 +258,7 @@ class MockInsightStore:
         """Retrieve stored insights."""
         if debate_id is None:
             return list(self._insights.values())[:limit]
-        return [
-            i for i in self._insights.values()
-            if i.get("debate_id") == debate_id
-        ][:limit]
+        return [i for i in self._insights.values() if i.get("debate_id") == debate_id][:limit]
 
     def search_insights(
         self,
@@ -301,10 +289,12 @@ class MockCritiqueStore:
         debate_id: str | None = None,
     ) -> None:
         """Store a critique."""
-        self._critiques.append({
-            "critique": critique,
-            "debate_id": debate_id,
-        })
+        self._critiques.append(
+            {
+                "critique": critique,
+                "debate_id": debate_id,
+            }
+        )
 
     def get_patterns(
         self,
@@ -469,7 +459,7 @@ class TestCalibrationTrackerProtocol:
         tracker.resolve_prediction(p3, True)
 
         score = tracker.get_calibration_score("claude")
-        assert score == pytest.approx(2/3, rel=0.01)
+        assert score == pytest.approx(2 / 3, rel=0.01)
 
     def test_calibration_score_no_predictions(self):
         """Test calibration score for agent with no predictions."""

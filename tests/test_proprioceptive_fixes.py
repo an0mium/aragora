@@ -163,7 +163,7 @@ class TestTimeoutMechanism:
         """Slow agent should trigger timeout and record failure."""
 
         async def slow_coro():
-            await asyncio.sleep(10)  # Simulate slow agent
+            await asyncio.sleep(1)  # Simulate slow agent
             return "never reached"
 
         with pytest.raises(asyncio.TimeoutError):
@@ -174,7 +174,7 @@ class TestTimeoutMechanism:
         """Timed out agent should not block other agents."""
 
         async def slow_agent():
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
             return "slow"
 
         async def fast_agent():
@@ -353,7 +353,7 @@ class TestProprioceptiveIntegration:
         circuit_breaker.record_failure = MagicMock()
 
         async def slow_coro():
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
         try:
             await asyncio.wait_for(slow_coro(), timeout=0.01)

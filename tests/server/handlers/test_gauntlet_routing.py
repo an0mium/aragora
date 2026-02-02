@@ -108,9 +108,7 @@ class TestDirectRouteMatching:
         with patch.object(gauntlet_handler, "_list_personas") as mock_list:
             mock_list.return_value = MagicMock(status_code=200, body=b'{"personas": []}')
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/personas", {}, handler
-            )
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/personas", {}, handler)
 
             mock_list.assert_called_once()
 
@@ -153,7 +151,7 @@ class TestParameterizedRouteMatching:
         }
 
         with patch.object(gauntlet_handler, "_get_receipt", new_callable=AsyncMock) as mock_receipt:
-            mock_receipt.return_value = MagicMock(status_code=200, body=b'{}', headers={})
+            mock_receipt.return_value = MagicMock(status_code=200, body=b"{}", headers={})
 
             result = await gauntlet_handler.handle(
                 "/api/v1/gauntlet/gauntlet-test123/receipt", {}, handler
@@ -170,7 +168,7 @@ class TestParameterizedRouteMatching:
         handler = make_mock_handler(method="GET", path="/api/v1/gauntlet/gauntlet-test123/heatmap")
 
         with patch.object(gauntlet_handler, "_get_heatmap", new_callable=AsyncMock) as mock_heatmap:
-            mock_heatmap.return_value = MagicMock(status_code=200, body=b'{}', headers={})
+            mock_heatmap.return_value = MagicMock(status_code=200, body=b"{}", headers={})
 
             result = await gauntlet_handler.handle(
                 "/api/v1/gauntlet/gauntlet-test123/heatmap", {}, handler
@@ -185,8 +183,10 @@ class TestParameterizedRouteMatching:
         """GET /api/gauntlet/{id}/export should match parameterized route."""
         handler = make_mock_handler(method="GET", path="/api/v1/gauntlet/gauntlet-test123/export")
 
-        with patch.object(gauntlet_handler, "_export_report", new_callable=AsyncMock) as mock_export:
-            mock_export.return_value = MagicMock(status_code=200, body=b'{}', headers={})
+        with patch.object(
+            gauntlet_handler, "_export_report", new_callable=AsyncMock
+        ) as mock_export:
+            mock_export.return_value = MagicMock(status_code=200, body=b"{}", headers={})
 
             result = await gauntlet_handler.handle(
                 "/api/v1/gauntlet/gauntlet-test123/export", {}, handler
@@ -205,7 +205,7 @@ class TestParameterizedRouteMatching:
         )
 
         with patch.object(gauntlet_handler, "_compare_results") as mock_compare:
-            mock_compare.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_compare.return_value = MagicMock(status_code=200, body=b"{}")
 
             result = await gauntlet_handler.handle(
                 "/api/v1/gauntlet/gauntlet-test123/compare/gauntlet-test456", {}, handler
@@ -222,7 +222,11 @@ class TestParameterizedRouteMatching:
         body = {
             "receipt": {"receipt_id": "test"},
             "signature": "sig",
-            "signature_metadata": {"algorithm": "SHA256", "key_id": "key1", "timestamp": "2024-01-01T00:00:00Z"},
+            "signature_metadata": {
+                "algorithm": "SHA256",
+                "key_id": "key1",
+                "timestamp": "2024-01-01T00:00:00Z",
+            },
         }
         handler = make_mock_handler(
             method="POST",
@@ -230,8 +234,10 @@ class TestParameterizedRouteMatching:
             body=body,
         )
 
-        with patch.object(gauntlet_handler, "_verify_receipt", new_callable=AsyncMock) as mock_verify:
-            mock_verify.return_value = MagicMock(status_code=200, body=b'{}', headers={})
+        with patch.object(
+            gauntlet_handler, "_verify_receipt", new_callable=AsyncMock
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(status_code=200, body=b"{}", headers={})
 
             result = await gauntlet_handler.handle(
                 "/api/v1/gauntlet/gauntlet-test123/receipt/verify", {}, handler
@@ -247,11 +253,9 @@ class TestParameterizedRouteMatching:
         handler = make_mock_handler(method="DELETE", path="/api/v1/gauntlet/gauntlet-test123")
 
         with patch.object(gauntlet_handler, "_delete_result") as mock_delete:
-            mock_delete.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_delete.return_value = MagicMock(status_code=200, body=b"{}")
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123", {}, handler
-            )
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/gauntlet-test123", {}, handler)
 
             mock_delete.assert_called_once()
             call_args = mock_delete.call_args
@@ -263,11 +267,9 @@ class TestParameterizedRouteMatching:
         handler = make_mock_handler(method="GET", path="/api/v1/gauntlet/gauntlet-test123")
 
         with patch.object(gauntlet_handler, "_get_status", new_callable=AsyncMock) as mock_status:
-            mock_status.return_value = MagicMock(status_code=200, body=b'{}', headers={})
+            mock_status.return_value = MagicMock(status_code=200, body=b"{}", headers={})
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123", {}, handler
-            )
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/gauntlet-test123", {}, handler)
 
             mock_status.assert_called_once_with("gauntlet-test123")
 
@@ -306,9 +308,7 @@ class TestIdExtractionAndValidation:
 
     def test_invalid_path_too_short(self, gauntlet_handler: GauntletHandler):
         """Should return error for path with too few segments."""
-        gauntlet_id, error = gauntlet_handler._extract_and_validate_id(
-            "/api", segment_index=-5
-        )
+        gauntlet_id, error = gauntlet_handler._extract_and_validate_id("/api", segment_index=-5)
         assert gauntlet_id is None
         assert error is not None
         assert error.status_code == 400
@@ -335,9 +335,7 @@ class TestIdExtractionAndValidation:
 
     def test_empty_id_segment(self, gauntlet_handler: GauntletHandler):
         """Should reject empty ID segments."""
-        gauntlet_id, error = gauntlet_handler._extract_and_validate_id(
-            "/api/gauntlet/"
-        )
+        gauntlet_id, error = gauntlet_handler._extract_and_validate_id("/api/gauntlet/")
         assert gauntlet_id is None
         assert error is not None
 
@@ -365,9 +363,7 @@ class Test404ForUnknownRoutes:
 
         # The handler should return None for unmatched routes when the path
         # doesn't match expected patterns
-        result = await gauntlet_handler.handle(
-            "/api/gauntlet/unknown/path/here", {}, handler
-        )
+        result = await gauntlet_handler.handle("/api/gauntlet/unknown/path/here", {}, handler)
 
         # For paths that don't match any pattern, result may be None
         # or 404 depending on the catch-all behavior
@@ -401,8 +397,10 @@ class TestMethodValidation:
         handler = make_mock_handler(method="POST", path="/api/v1/gauntlet/run")
         handler.user_store = None
 
-        with patch.object(gauntlet_handler, "_start_gauntlet", new_callable=AsyncMock) as mock_start:
-            mock_start.return_value = MagicMock(status_code=202, body=b'{}', headers={})
+        with patch.object(
+            gauntlet_handler, "_start_gauntlet", new_callable=AsyncMock
+        ) as mock_start:
+            mock_start.return_value = MagicMock(status_code=202, body=b"{}", headers={})
 
             result = await gauntlet_handler.handle("/api/v1/gauntlet/run", {}, handler)
 
@@ -414,7 +412,7 @@ class TestMethodValidation:
         handler = make_mock_handler(method="GET", path="/api/v1/gauntlet/personas")
 
         with patch.object(gauntlet_handler, "_list_personas") as mock_list:
-            mock_list.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_list.return_value = MagicMock(status_code=200, body=b"{}")
 
             result = await gauntlet_handler.handle("/api/v1/gauntlet/personas", {}, handler)
 
@@ -426,11 +424,9 @@ class TestMethodValidation:
         handler = make_mock_handler(method="DELETE", path="/api/v1/gauntlet/gauntlet-test123")
 
         with patch.object(gauntlet_handler, "_delete_result") as mock_delete:
-            mock_delete.return_value = MagicMock(status_code=200, body=b'{}')
+            mock_delete.return_value = MagicMock(status_code=200, body=b"{}")
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123", {}, handler
-            )
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/gauntlet-test123", {}, handler)
 
             mock_delete.assert_called_once()
 
@@ -448,8 +444,10 @@ class TestMethodValidation:
             body=body,
         )
 
-        with patch.object(gauntlet_handler, "_verify_receipt", new_callable=AsyncMock) as mock_verify:
-            mock_verify.return_value = MagicMock(status_code=200, body=b'{}', headers={})
+        with patch.object(
+            gauntlet_handler, "_verify_receipt", new_callable=AsyncMock
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(status_code=200, body=b"{}", headers={})
 
             result = await gauntlet_handler.handle(
                 "/api/v1/gauntlet/gauntlet-test123/receipt/verify", {}, handler
@@ -472,7 +470,7 @@ class TestLegacyRouteNormalization:
         handler = make_mock_handler(method="GET", path="/api/gauntlet/personas")
 
         with patch.object(gauntlet_handler, "_list_personas") as mock_list:
-            mock_result = MagicMock(status_code=200, body=b'{}', headers={})
+            mock_result = MagicMock(status_code=200, body=b"{}", headers={})
             mock_list.return_value = mock_result
 
             result = await gauntlet_handler.handle("/api/gauntlet/personas", {}, handler)
@@ -485,7 +483,7 @@ class TestLegacyRouteNormalization:
     async def test_versioned_and_legacy_routes_equivalent(self, gauntlet_handler: GauntletHandler):
         """Both versioned and legacy routes should dispatch to the same handler."""
         with patch.object(gauntlet_handler, "_list_personas") as mock_list:
-            mock_result = MagicMock(status_code=200, body=b'{}', headers={})
+            mock_result = MagicMock(status_code=200, body=b"{}", headers={})
             mock_list.return_value = mock_result
 
             # Test versioned route

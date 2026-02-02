@@ -1757,7 +1757,7 @@ class TestSyncWithPrioritization:
         mock_prioritizer = AsyncMock()
 
         async def slow_score(*args, **kwargs):
-            await asyncio.sleep(10)  # Will timeout
+            await asyncio.sleep(1)  # Will timeout
 
         mock_prioritizer.score_email = slow_score
 

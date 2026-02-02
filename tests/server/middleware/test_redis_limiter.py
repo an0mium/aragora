@@ -226,6 +226,7 @@ class TestModuleConstants:
         """Module __all__ should list expected exports."""
         import sys
         from aragora.server.middleware.rate_limit.redis_limiter import RedisRateLimiter
+
         mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         expected = {
@@ -263,6 +264,7 @@ class TestGetRedisClient:
         """reset_redis_client should handle close errors gracefully."""
         import sys
         from aragora.server.middleware.rate_limit.redis_limiter import reset_redis_client
+
         mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         # Set up a mock client that raises on close
@@ -288,6 +290,7 @@ class TestGetRedisClient:
         """get_redis_client should return None when Redis not available."""
         import sys
         from aragora.server.middleware.rate_limit.redis_limiter import get_redis_client
+
         mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         old_client = mod._redis_client
@@ -309,6 +312,7 @@ class TestGetRedisClient:
         """get_redis_client should return cached client on repeat calls."""
         import sys
         from aragora.server.middleware.rate_limit.redis_limiter import get_redis_client
+
         mod = sys.modules["aragora.server.middleware.rate_limit.redis_limiter"]
 
         old_client = mod._redis_client

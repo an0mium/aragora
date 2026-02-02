@@ -260,6 +260,7 @@ class TestRhetoricalObserverIntegration:
 
             mock_observer.detect_patterns.assert_called()
 
+
 class TestPatternMarkers:
     """Tests for rhetorical pattern markers/keywords."""
 

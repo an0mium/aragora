@@ -165,7 +165,10 @@ class DashboardOperationsMixin:
             coordinator = getattr(mound, "_coordinator", None)
             if coordinator is None:
                 # Try from server context
-                coordinator = self.ctx.get("km_coordinator")
+                ctx = getattr(self, "ctx", None)
+                if ctx is None:
+                    ctx = getattr(self, "server_context", {})
+                coordinator = ctx.get("km_coordinator") if isinstance(ctx, dict) else None
 
             if coordinator is None:
                 return success_response(

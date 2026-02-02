@@ -702,7 +702,7 @@ class TestListener:
 
         # Create a real task that can be cancelled and awaited
         async def dummy_listener():
-            await asyncio.sleep(100)  # Will be cancelled
+            await asyncio.sleep(1)  # Will be cancelled
 
         task = asyncio.create_task(dummy_listener())
         postgres_connector._listener_task = task

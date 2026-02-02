@@ -57,9 +57,10 @@ def _safe_log(level: int, msg: str) -> None:
         return
     try:
         logger.log(level, msg)
-    except Exception:
+    except Exception as exc:  # noqa: F841
         # Logging failed (likely during shutdown), ignore silently
         # Cannot log this error since logging itself failed
+        # exc: captured for debugging if needed
         pass
 
 

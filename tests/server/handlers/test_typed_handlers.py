@@ -486,7 +486,11 @@ class TestTypedHandlerPermissions:
             # has_permission is imported inside the method, mock it at import location
             with patch.dict(
                 "sys.modules",
-                {"aragora.server.handlers.utils.decorators": MagicMock(has_permission=lambda r, p: False)},
+                {
+                    "aragora.server.handlers.utils.decorators": MagicMock(
+                        has_permission=lambda r, p: False
+                    )
+                },
             ):
                 user, err = handler.require_permission_or_error(mock_http, "admin:write")
 
@@ -659,7 +663,11 @@ class TestPermissionHandler:
             # Mock the has_permission import to return False
             with patch.dict(
                 "sys.modules",
-                {"aragora.server.handlers.utils.decorators": MagicMock(has_permission=lambda r, p: False)},
+                {
+                    "aragora.server.handlers.utils.decorators": MagicMock(
+                        has_permission=lambda r, p: False
+                    )
+                },
             ):
                 user, err = handler._ensure_permission(mock_http, "GET")
 
@@ -692,7 +700,11 @@ class TestPermissionHandler:
             # Mock the has_permission import to return False
             with patch.dict(
                 "sys.modules",
-                {"aragora.server.handlers.utils.decorators": MagicMock(has_permission=lambda r, p: False)},
+                {
+                    "aragora.server.handlers.utils.decorators": MagicMock(
+                        has_permission=lambda r, p: False
+                    )
+                },
             ):
                 user, err = handler._check_custom_permission(mock_http, "admin:special")
 
@@ -922,7 +934,9 @@ class TestResourceHandler:
         handler = CustomResourceHandler(server_context)
         mock_http = make_mock_handler(method="GET", path="/api/v1/items")
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle("/api/v1/items", {}, mock_http)
 
         assert handler.list_called
@@ -948,7 +962,9 @@ class TestResourceHandler:
         handler = CustomResourceHandler(server_context)
         mock_http = make_mock_handler(method="GET", path="/api/v1/items/item-123")
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle("/api/v1/items/item-123", {}, mock_http)
 
         assert handler.get_called
@@ -973,7 +989,9 @@ class TestResourceHandler:
         handler = CustomResourceHandler(server_context)
         mock_http = make_mock_handler(method="POST", body={"name": "New Item"})
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_post("/api/v1/items", {}, mock_http)
 
         assert handler.create_called
@@ -999,7 +1017,9 @@ class TestResourceHandler:
         handler = CustomResourceHandler(server_context)
         mock_http = make_mock_handler(method="PUT", body={"name": "Updated"})
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_put("/api/v1/items/item-123", {}, mock_http)
 
         assert handler.update_called
@@ -1015,7 +1035,9 @@ class TestResourceHandler:
         handler = ItemHandler(server_context)
         mock_http = make_mock_handler(method="PUT")
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_put("/api/v1/items", {}, mock_http)
 
         assert result.status_code == 400
@@ -1040,7 +1062,9 @@ class TestResourceHandler:
         handler = CustomResourceHandler(server_context)
         mock_http = make_mock_handler(method="PATCH")
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_patch("/api/v1/items/item-123", {}, mock_http)
 
         assert handler.patch_called
@@ -1064,7 +1088,9 @@ class TestResourceHandler:
         handler = CustomResourceHandler(server_context)
         mock_http = make_mock_handler(method="PATCH")
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_patch("/api/v1/items/item-123", {}, mock_http)
 
         assert handler.update_called
@@ -1089,7 +1115,9 @@ class TestResourceHandler:
         handler = CustomResourceHandler(server_context)
         mock_http = make_mock_handler(method="DELETE")
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_delete("/api/v1/items/item-123", {}, mock_http)
 
         assert handler.delete_called
@@ -1105,7 +1133,9 @@ class TestResourceHandler:
         handler = ItemHandler(server_context)
         mock_http = make_mock_handler(method="DELETE")
 
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_delete("/api/v1/items", {}, mock_http)
 
         assert result.status_code == 400
@@ -1181,7 +1211,7 @@ class TestEdgeCases:
     def test_special_unicode_characters(self, server_context):
         """Handler handles special Unicode characters."""
         handler = TypedHandler(server_context)
-        body = {"emoji": "Hello! \U0001F600", "chinese": "Chinese characters"}
+        body = {"emoji": "Hello! \U0001f600", "chinese": "Chinese characters"}
         mock_http = make_mock_handler(body=body)
 
         result = handler.read_json_body(mock_http)
@@ -1402,31 +1432,41 @@ class TestHandlerIntegration:
 
         # Create
         mock_post = make_mock_handler(method="POST", body={"name": "Test Item"})
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_post("/api/items", {}, mock_post)
         assert result.status_code == 201
         created = json.loads(result.body)
         item_id = created["id"]
 
         # Read
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle(f"/api/items/{item_id}", {}, make_mock_handler())
         assert result.status_code == 200
         assert json.loads(result.body)["name"] == "Test Item"
 
         # List
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle("/api/items", {}, make_mock_handler())
         assert result.status_code == 200
         assert len(json.loads(result.body)["items"]) == 1
 
         # Delete
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle_delete(f"/api/items/{item_id}", {}, make_mock_handler())
         assert result.status_code == 204
 
         # Verify deleted
-        with patch.object(handler, "_ensure_permission", return_value=(mock_authenticated_user, None)):
+        with patch.object(
+            handler, "_ensure_permission", return_value=(mock_authenticated_user, None)
+        ):
             result = handler.handle(f"/api/items/{item_id}", {}, make_mock_handler())
         assert result.status_code == 404
 

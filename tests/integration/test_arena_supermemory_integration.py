@@ -186,10 +186,8 @@ async def test_supermemory_outcome_sync_on_conclusion(supermemory_adapter, mock_
     result = DebateResult(
         task="Design a rate limiter",
         debate_id="debate-456",
-        conclusion="Use token bucket with Redis backend",
-        consensus_type="majority",
+        final_answer="Use token bucket with Redis backend",
         confidence=0.85,
-        key_claims=["Token bucket is efficient", "Redis provides HA"],
     )
 
     sync_result = await supermemory_adapter.sync_debate_outcome(result)
@@ -423,7 +421,7 @@ async def test_multi_debate_memory_loop():
     result1 = DebateResult(
         task="Design rate limiter",
         debate_id="debate-loop-001",
-        conclusion="Token bucket is optimal",
+        final_answer="Token bucket is optimal",
         confidence=0.9,
     )
     sync_result = await adapter.sync_debate_outcome(result1)
@@ -517,15 +515,12 @@ async def test_arena_continues_without_supermemory(mock_agents):
     env = Environment(task="Design a simple cache")
     protocol = DebateProtocol(rounds=1, consensus="any")
 
-    # Create arena with knowledge manager that has failing Supermemory
-    km_manager = ArenaKnowledgeManager(
+    # Arena should still work - Supermemory failures are logged but don't stop debate
+    config = ArenaConfig(
         enable_supermemory=True,
         supermemory_adapter=failing_adapter,
     )
-
-    # Arena should still work - Supermemory failures are logged but don't stop debate
-    config = ArenaConfig()
-    arena = Arena(env, mock_agents, protocol, config)
+    arena = Arena.from_config(env, mock_agents, protocol, config)
 
     # The debate should complete successfully despite Supermemory issues
     result = await asyncio.wait_for(arena.run(), timeout=10.0)
@@ -578,7 +573,7 @@ async def test_privacy_filter_on_sensitive_content():
     result = DebateResult(
         task="API key rotation",
         debate_id="debate-privacy-001",
-        conclusion="Use secret_api_key_12345 and contact user@email.com",
+        final_answer="Use secret_api_key_12345 and contact user@email.com",
         confidence=0.9,
     )
 
@@ -619,7 +614,7 @@ async def test_privacy_filter_disabled():
     result = DebateResult(
         task="Test",
         debate_id="debate-no-filter",
-        conclusion="Contains sensitive_data_xyz",
+        final_answer="Contains sensitive_data_xyz",
         confidence=0.9,
     )
 
@@ -842,11 +837,15 @@ def test_arena_config_with_supermemory():
 
 def test_arena_config_supermemory_builder():
     """ArenaConfig should have a builder for Supermemory settings."""
-    config = ArenaConfig().with_supermemory(
-        enabled=True,
-        inject_on_start=False,
-        sync_on_conclusion=True,
-        min_confidence=0.6,
+    config = (
+        ArenaConfig.builder()
+        .with_supermemory(
+            enable_supermemory=True,
+            supermemory_inject_on_start=False,
+            supermemory_sync_on_conclusion=True,
+            supermemory_min_confidence_for_sync=0.6,
+        )
+        .build()
     )
 
     assert config.enable_supermemory is True

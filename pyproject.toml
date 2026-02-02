@@ -355,11 +355,34 @@ ignore = ["E402", "E501"]
 "tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004"]  # F821: SSO tests need refactor
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
-# BLE001: Ignore bare exception handlers in all modules (to be fixed incrementally)
-# 4,673 existing violations documented - 87 fixed in Phase 30 (auth, storage modules)
+# BLE001: Now enforced on new code - Phase 12 (Feb 2026)
+# Only exempted in specific modules above (cli, migrations, scripts, tests)
 # G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)
 # New code should use lazy % formatting: logger.info("msg %s", var) instead of logger.info(f"msg {var}")
-"aragora/*" = ["BLE001", "G004"]
+"aragora/*" = ["G004"]
+# Legacy modules with known bare exceptions - to be fixed incrementally
+# BLE001 is now enforced on new code as of Phase 12 (Feb 2026)
+# These exemptions cover pre-existing patterns that need gradual migration
+"aragora/analysis/codebase/bug_detector.py" = ["BLE001", "G004"]
+"aragora/agents/code_reviewer.py" = ["BLE001", "G004"]
+"aragora/broadcast/mixer.py" = ["BLE001", "G004"]
+"aragora/connectors/ecommerce/*.py" = ["BLE001", "G004"]
+"aragora/debate/phases/*.py" = ["BLE001", "G004"]
+"aragora/debate/prompt_builder.py" = ["BLE001", "G004"]
+"aragora/knowledge/mound/adapters/*.py" = ["BLE001", "G004"]
+"aragora/rlm/*.py" = ["BLE001", "G004"]
+"aragora/server/handlers/control_plane/*.py" = ["BLE001", "G004"]
+"aragora/server/handlers/features/*.py" = ["BLE001", "G004"]
+"aragora/server/handlers/integrations/*.py" = ["BLE001", "G004"]
+"aragora/server/handlers/integration_management.py" = ["BLE001", "G004"]
+"aragora/server/handlers/knowledge_base/mound/*.py" = ["BLE001", "G004"]
+"aragora/server/handlers/external_agents.py" = ["BLE001", "G004"]
+"aragora/server/handlers/receipts.py" = ["BLE001", "G004"]
+"aragora/server/handlers/sme_success_dashboard.py" = ["BLE001", "G004"]
+"aragora/server/persistent_origin_store.py" = ["BLE001", "G004"]
+"aragora/server/state.py" = ["BLE001", "G004"]
+"aragora/server/openapi_impl.py" = ["BLE001", "G004"]
+"aragora/storage/*.py" = ["BLE001", "G004"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

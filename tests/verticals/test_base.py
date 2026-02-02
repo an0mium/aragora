@@ -320,9 +320,7 @@ class TestVerticalSpecialistAgentShouldBlock:
 
     def test_should_block_enforced_violation(self, agent):
         """Test blocking on enforced violation."""
-        violations = [
-            {"framework": "SOC2", "message": "Missing encryption", "severity": "high"}
-        ]
+        violations = [{"framework": "SOC2", "message": "Missing encryption", "severity": "high"}]
         assert agent.should_block_on_compliance(violations) is True
 
     def test_should_not_block_advisory_violation(self, agent):
@@ -448,7 +446,12 @@ class TestVerticalSpecialistAgentCritique:
     async def test_critique_with_violations(self, agent):
         """Test critique with violations."""
         agent._check_framework_mock.return_value = [
-            {"framework": "SOC2", "message": "Missing audit", "rule": "audit_logging", "severity": "high"}
+            {
+                "framework": "SOC2",
+                "message": "Missing audit",
+                "rule": "audit_logging",
+                "severity": "high",
+            }
         ]
 
         critique = await agent.critique(

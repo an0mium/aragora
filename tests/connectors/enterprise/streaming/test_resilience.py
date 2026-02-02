@@ -1575,7 +1575,7 @@ class TestGracefulShutdown:
         shutdown = GracefulShutdown()
 
         async def slow_cleanup():
-            await asyncio.sleep(100)  # Very slow
+            await asyncio.sleep(1)  # Very slow
 
         async def fast_cleanup():
             pass

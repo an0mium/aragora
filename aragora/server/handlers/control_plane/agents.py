@@ -12,7 +12,7 @@ from __future__ import annotations
 import inspect
 import logging
 import sys
-from typing import Any
+from typing import Any, cast
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.handlers.base import (
@@ -85,7 +85,8 @@ class AgentHandlerMixin:
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""
-        return super().require_auth_or_error(handler)  # type: ignore[misc]
+        # Cast super() to Any - mixin expects base class to provide this method
+        return cast(Any, super()).require_auth_or_error(handler)
 
     # Attribute declaration - provided by BaseHandler
     ctx: dict[str, Any]

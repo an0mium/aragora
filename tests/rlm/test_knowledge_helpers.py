@@ -116,10 +116,20 @@ def mock_mound():
         {"id": "fact-002", "content": "Another fact about security", "confidence": 0.8},
     ]
     mound.get_claims.return_value = [
-        {"id": "claim-001", "content": "Test claim", "confidence": 0.6, "metadata": {"validated": True}},
+        {
+            "id": "claim-001",
+            "content": "Test claim",
+            "confidence": 0.6,
+            "metadata": {"validated": True},
+        },
     ]
     mound.get_evidence.return_value = [
-        {"id": "evidence-001", "content": "Test evidence", "confidence": 0.85, "metadata": {"source_type": "document"}},
+        {
+            "id": "evidence-001",
+            "content": "Test evidence",
+            "confidence": 0.85,
+            "metadata": {"source_type": "document"},
+        },
     ]
     return mound
 
@@ -255,8 +265,16 @@ class TestGetFacts:
 
     def test_get_facts_with_query(self):
         """get_facts should filter by query string."""
-        fact1 = KnowledgeItem(id="f1", content="Rate limiting is important", source="fact", confidence=0.9, created_at="")
-        fact2 = KnowledgeItem(id="f2", content="Security best practices", source="fact", confidence=0.8, created_at="")
+        fact1 = KnowledgeItem(
+            id="f1",
+            content="Rate limiting is important",
+            source="fact",
+            confidence=0.9,
+            created_at="",
+        )
+        fact2 = KnowledgeItem(
+            id="f2", content="Security best practices", source="fact", confidence=0.8, created_at=""
+        )
         context = KnowledgeREPLContext(
             workspace_id="ws",
             facts=[fact1, fact2],
@@ -293,8 +311,22 @@ class TestGetClaims:
 
     def test_get_claims_validated_only(self):
         """get_claims should filter by validation status."""
-        claim1 = KnowledgeItem(id="c1", content="Claim 1", source="claim", confidence=0.7, created_at="", metadata={"validated": True})
-        claim2 = KnowledgeItem(id="c2", content="Claim 2", source="claim", confidence=0.5, created_at="", metadata={"validated": False})
+        claim1 = KnowledgeItem(
+            id="c1",
+            content="Claim 1",
+            source="claim",
+            confidence=0.7,
+            created_at="",
+            metadata={"validated": True},
+        )
+        claim2 = KnowledgeItem(
+            id="c2",
+            content="Claim 2",
+            source="claim",
+            confidence=0.5,
+            created_at="",
+            metadata={"validated": False},
+        )
         context = KnowledgeREPLContext(
             workspace_id="ws",
             facts=[],
@@ -350,7 +382,9 @@ class TestFilterByConfidence:
 
     def test_filter_by_confidence_range(self, sample_context):
         """filter_by_confidence should filter by range."""
-        results = filter_by_confidence(sample_context.all_items, min_confidence=0.7, max_confidence=0.9)
+        results = filter_by_confidence(
+            sample_context.all_items, min_confidence=0.7, max_confidence=0.9
+        )
         assert len(results) == 2  # fact (0.9) and evidence (0.85)
 
 
@@ -379,7 +413,9 @@ class TestSearchKnowledge:
 
     def test_search_knowledge_case_sensitive(self):
         """search_knowledge should support case sensitive search."""
-        item = KnowledgeItem(id="i1", content="API endpoint", source="fact", confidence=0.9, created_at="")
+        item = KnowledgeItem(
+            id="i1", content="API endpoint", source="fact", confidence=0.9, created_at=""
+        )
         context = KnowledgeREPLContext(
             workspace_id="ws",
             facts=[item],
@@ -475,7 +511,9 @@ class TestPartitionByTopic:
 
     def test_partition_by_topic_other_category(self):
         """partition_by_topic should put non-matching items in 'other'."""
-        item = KnowledgeItem(id="i1", content="Unrelated content", source="fact", confidence=0.9, created_at="")
+        item = KnowledgeItem(
+            id="i1", content="Unrelated content", source="fact", confidence=0.9, created_at=""
+        )
         context = KnowledgeREPLContext(
             workspace_id="ws",
             facts=[item],
@@ -631,7 +669,11 @@ class TestToKnowledgeItem:
     def test_from_object_with_model_dump(self):
         """_to_knowledge_item should handle objects with model_dump."""
         mock_obj = MagicMock()
-        mock_obj.model_dump.return_value = {"id": "obj-id", "content": "Object content", "confidence": 0.7}
+        mock_obj.model_dump.return_value = {
+            "id": "obj-id",
+            "content": "Object content",
+            "confidence": 0.7,
+        }
         item = _to_knowledge_item(mock_obj, "evidence")
 
         assert item.id == "obj-id"

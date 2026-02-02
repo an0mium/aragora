@@ -94,7 +94,7 @@ def load_debate_context(debate_result: "DebateResult") -> DebateREPLContext:
     agent_names: set[str] = set()
 
     # Process messages from debate result
-    messages = getattr(debate_result, "messages", [])
+    messages = getattr(debate_result, "messages", []) or []
     for msg in messages:
         # Normalize message to dict
         if hasattr(msg, "model_dump"):
@@ -222,7 +222,7 @@ def search_debate(
 
     matching = []
     for msg in context.all_messages:
-        content = msg.get("content", "")
+        content = msg.get("content") or ""
         if regex.search(content):
             matching.append(msg)
 

@@ -362,7 +362,7 @@ class TestPluginRunnerExtended:
         """Run handles timeout correctly."""
 
         async def slow_plugin(context):
-            await asyncio.sleep(10)  # Longer than timeout
+            await asyncio.sleep(1)  # Longer than timeout
             return {}
 
         manifest = PluginManifest(

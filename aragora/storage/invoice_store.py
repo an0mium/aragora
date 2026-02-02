@@ -28,7 +28,12 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
+
 from aragora.config import resolve_db_path
+from aragora.storage.invoice_common import (
+    DecimalEncoder,
+    decimal_decoder,
+)
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -38,32 +43,6 @@ logger = logging.getLogger(__name__)
 # Global singleton
 _invoice_store: Optional["InvoiceStoreBackend"] = None
 _store_lock = threading.RLock()
-
-
-class DecimalEncoder(json.JSONEncoder):
-    """JSON encoder that handles Decimal types."""
-
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, Decimal):
-            return str(obj)
-        return super().default(obj)
-
-
-def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
-    """JSON decoder hook that converts decimal strings back to Decimal."""
-    for key in [
-        "subtotal",
-        "tax_amount",
-        "total_amount",
-        "amount_paid",
-        "balance_due",
-    ]:
-        if key in dct and isinstance(dct[key], str):
-            try:
-                dct[key] = Decimal(dct[key])
-            except Exception as e:
-                logger.debug("Failed to convert field '%s' to Decimal: %s", key, e)
-    return dct
 
 
 class InvoiceStoreBackend(ABC):

@@ -184,9 +184,7 @@ class TestCSRFConfig:
         """Should read SameSite from environment."""
         from aragora.server.middleware.csrf import CSRFConfig
 
-        with patch.dict(
-            os.environ, {"ARAGORA_CSRF_COOKIE_SAMESITE": "None"}, clear=True
-        ):
+        with patch.dict(os.environ, {"ARAGORA_CSRF_COOKIE_SAMESITE": "None"}, clear=True):
             config = CSRFConfig()
             assert config.cookie_samesite == "None"
 
@@ -1524,9 +1522,7 @@ class TestSecurityEdgeCases:
         middleware = CSRFMiddleware(config)
 
         handler = MagicMock()
-        handler.headers = {
-            "Cookie": "session=abc; _csrf_token=correcttoken; other=xyz"
-        }
+        handler.headers = {"Cookie": "session=abc; _csrf_token=correcttoken; other=xyz"}
 
         token = middleware.extract_cookie_token(handler)
         assert token == "correcttoken"

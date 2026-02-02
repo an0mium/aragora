@@ -165,8 +165,16 @@ class TestAnalyzeConversationTool:
     async def test_analyze_success(self):
         """Test successful conversation analysis."""
         messages = [
-            {"content": "What should we do?", "author": "user1", "timestamp": "2024-01-01T10:00:00Z"},
-            {"content": "I think we decided to go with option A", "author": "user2", "timestamp": "2024-01-01T10:05:00Z"},
+            {
+                "content": "What should we do?",
+                "author": "user1",
+                "timestamp": "2024-01-01T10:00:00Z",
+            },
+            {
+                "content": "I think we decided to go with option A",
+                "author": "user2",
+                "timestamp": "2024-01-01T10:05:00Z",
+            },
             {"content": "Great idea!", "author": "user1", "timestamp": "2024-01-01T10:06:00Z"},
         ]
 

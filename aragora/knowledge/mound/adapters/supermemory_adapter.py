@@ -289,8 +289,10 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         try:
             # Build content from debate result
             content_parts = []
-            if hasattr(debate_result, "conclusion"):
+            if hasattr(debate_result, "conclusion") and getattr(debate_result, "conclusion"):
                 content_parts.append(f"Conclusion: {debate_result.conclusion}")
+            elif hasattr(debate_result, "final_answer") and getattr(debate_result, "final_answer"):
+                content_parts.append(f"Final answer: {debate_result.final_answer}")
             if hasattr(debate_result, "consensus_type"):
                 content_parts.append(f"Consensus: {debate_result.consensus_type}")
             if hasattr(debate_result, "key_claims") and debate_result.key_claims:
@@ -305,11 +307,17 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
                 content = privacy_filter.filter(content)
 
             # Build metadata
+            round_count = getattr(debate_result, "round_count", None)
+            if round_count is None:
+                round_count = getattr(debate_result, "rounds_used", None)
+            if round_count is None:
+                round_count = getattr(debate_result, "rounds_completed", None)
+
             metadata = {
                 "debate_id": getattr(debate_result, "debate_id", None),
                 "confidence": confidence,
                 "consensus_type": getattr(debate_result, "consensus_type", None),
-                "round_count": getattr(debate_result, "round_count", None),
+                "round_count": round_count,
                 "timestamp": datetime.utcnow().isoformat(),
                 "source": "aragora",
             }

@@ -722,6 +722,9 @@ class PromptBuilder:
         """
         if not self.supermemory_adapter:
             return ""
+        # Return cached context if already injected for this prompt builder.
+        if self._supermemory_context_cache:
+            return self._supermemory_context_cache
 
         try:
             topic = debate_topic or self.env.task
