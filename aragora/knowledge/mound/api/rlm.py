@@ -42,10 +42,12 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm = None  # type: ignore[misc, no-redef]
-    RLMConfig = None  # type: ignore[misc, no-redef]
-    RLMMode = None  # type: ignore[misc, no-redef]
-    AbstractionLevel = None  # type: ignore[misc, no-redef]
+    # Fallback stubs when RLM package is not installed.
+    # type: ignore needed because these names are conditionally defined above.
+    get_rlm = None  # type: ignore[misc, assignment]
+    RLMConfig = None  # type: ignore[misc, assignment]
+    RLMMode = None  # type: ignore[misc, assignment]
+    AbstractionLevel = None  # type: ignore[misc, assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -107,11 +109,13 @@ class RLMOperationsMixin:
             logger.warning("RLM not available, use query_semantic instead")
             return None
 
+        # Mixin pattern: methods provided by composed KnowledgeMound class
         self._ensure_initialized()  # type: ignore[attr-defined]
 
         ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Fetch relevant knowledge items
+        # Mixin pattern: query_semantic provided by QueryOperationsMixin
         items = await self.query_semantic(  # type: ignore[attr-defined]
             text=query,
             limit=limit,
@@ -230,6 +234,7 @@ class RLMOperationsMixin:
             )
             return None
 
+        # Mixin pattern: methods provided by composed KnowledgeMound class
         self._ensure_initialized()  # type: ignore[attr-defined]
         ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
@@ -242,6 +247,7 @@ class RLMOperationsMixin:
             )
 
         # Fetch relevant knowledge items
+        # Mixin pattern: query_semantic provided by QueryOperationsMixin
         items = await self.query_semantic(  # type: ignore[attr-defined]
             text=query,
             limit=limit,
@@ -369,6 +375,7 @@ class RLMOperationsMixin:
             )
             return None
 
+        # Mixin pattern: methods provided by composed KnowledgeMound class
         self._ensure_initialized()  # type: ignore[attr-defined]
         ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
