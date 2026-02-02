@@ -38,13 +38,15 @@ _WORKFLOWS_PATH = os.path.join(
     "aragora",
     "server",
     "handlers",
-    "workflows.py",
+    "workflows",
+    "handler.py",
 )
 _WORKFLOWS_PATH = os.path.abspath(_WORKFLOWS_PATH)
 
 # Ensure parent package modules exist in sys.modules (but skip the broken __init__)
 for _pkg in [
     "aragora.server.handlers",
+    "aragora.server.handlers.workflows",
 ]:
     if _pkg not in sys.modules:
         _stub = types.ModuleType(_pkg)
@@ -52,9 +54,11 @@ for _pkg in [
         _stub.__package__ = _pkg
         sys.modules[_pkg] = _stub
 
-_spec = importlib.util.spec_from_file_location("aragora.server.handlers.workflows", _WORKFLOWS_PATH)
+_spec = importlib.util.spec_from_file_location(
+    "aragora.server.handlers.workflows.handler", _WORKFLOWS_PATH
+)
 _workflows_mod = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
-sys.modules["aragora.server.handlers.workflows"] = _workflows_mod
+sys.modules["aragora.server.handlers.workflows.handler"] = _workflows_mod
 _spec.loader.exec_module(_workflows_mod)  # type: ignore[union-attr]
 
 WorkflowHandler = _workflows_mod.WorkflowHandler  # type: ignore[attr-defined]

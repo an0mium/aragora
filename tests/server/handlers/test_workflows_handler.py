@@ -13,7 +13,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 import pytest
 
-from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
+from aragora.server.handlers.workflows.handler import WorkflowHandler, RBAC_AVAILABLE
 
 
 @pytest.fixture
