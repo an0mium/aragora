@@ -509,7 +509,7 @@ class TestCompressionMiddleware:
 
         call_next = AsyncMock(return_value=response)
 
-        with patch("aragora.performance.compression.Response") as MockResponse:
+        with patch("starlette.responses.Response") as MockResponse:
             MockResponse.return_value = MagicMock()
             result = await middleware(request, call_next)
 
