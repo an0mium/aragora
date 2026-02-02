@@ -78,6 +78,7 @@ class TestAdapterSpecsRegistry:
             "control_plane",
             "culture",
             "receipt",
+            "supermemory",
             "rlm",
             "erc8004",
         }
@@ -252,6 +253,18 @@ class TestCreateFromSubsystems:
 
         # The adapter should have received the callback
         assert "consensus" in adapters
+
+    def test_supermemory_adapter_created_when_api_key_set(self, monkeypatch):
+        """Supermemory adapter should be created when SUPERMEMORY_API_KEY is set."""
+        monkeypatch.setenv("SUPERMEMORY_API_KEY", "sm_test_key")
+        factory = AdapterFactory()
+
+        adapters = factory.create_from_subsystems()
+
+        assert "supermemory" in adapters
+        from aragora.knowledge.mound.adapters import SupermemoryAdapter
+
+        assert isinstance(adapters["supermemory"].adapter, SupermemoryAdapter)
 
 
 # =============================================================================
@@ -442,3 +455,32 @@ class TestRegisterWithCoordinator:
 
         count = factory.register_with_coordinator(coordinator, adapters)
         assert count == 0
+
+    def test_enable_overrides_force_enable(self):
+        factory = AdapterFactory()
+        coordinator = MagicMock()
+        coordinator.register_adapter.return_value = True
+        coordinator.enable_adapter = MagicMock()
+        coordinator.disable_adapter = MagicMock()
+
+        spec = AdapterSpec(
+            name="test",
+            adapter_class=MagicMock,
+            required_deps=[],
+            enabled_by_default=False,
+        )
+        adapters = {
+            "test": CreatedAdapter(
+                name="test",
+                adapter=MagicMock(),
+                spec=spec,
+            )
+        }
+
+        factory.register_with_coordinator(
+            coordinator,
+            adapters,
+            enable_overrides={"test"},
+        )
+        coordinator.enable_adapter.assert_called_once_with("test")
+        coordinator.disable_adapter.assert_not_called()

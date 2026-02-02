@@ -486,8 +486,7 @@ class SupabaseClient:
         try:
             if self.client is None:
                 raise RuntimeError("Supabase client not initialized - call configure() first")
-            # supabase-py realtime channel method lacks proper type stubs
-            channel = self.client.channel(f"events:{loop_id}")  # type: ignore[attr-defined]
+            channel = self.client.channel(f"events:{loop_id}")
 
             def handle_insert(payload):
                 event = self._dict_to_event(payload["new"])

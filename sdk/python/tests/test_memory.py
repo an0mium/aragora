@@ -20,7 +20,7 @@ class TestMemoryStore:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"stored": True, "tier": "fast"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.store("my-key", {"data": "value"})
+            result = client.memory.store("my-key", {"data": "value"})
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory",
@@ -33,7 +33,7 @@ class TestMemoryStore:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"stored": True, "tier": "slow"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.store(
+            result = client.memory.store(
                 "my-key",
                 {"data": "value"},
                 tier="slow",
@@ -66,7 +66,7 @@ class TestMemoryRetrieve:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"value": {"data": "test"}, "tier": "fast"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.retrieve("my-key")
+            result = client.memory.retrieve("my-key")
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/my-key",
@@ -107,7 +107,7 @@ class TestMemoryUpdate:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"updated": True, "tier": "fast"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.update("my-key", {"new": "value"})
+            result = client.memory.update("my-key", {"new": "value"})
             mock_request.assert_called_once_with(
                 "PUT",
                 "/api/v1/memory/my-key",
@@ -141,7 +141,7 @@ class TestMemoryDelete:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"deleted": True}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.delete("my-key")
+            result = client.memory.delete("my-key")
             mock_request.assert_called_once_with(
                 "DELETE",
                 "/api/v1/memory/my-key",
@@ -175,7 +175,7 @@ class TestMemorySearch:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"results": [{"id": "r1"}], "total": 1}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.search("consensus algorithm")
+            result = client.memory.search("consensus algorithm")
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/search",
@@ -221,7 +221,7 @@ class TestMemoryQuery:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"entries": [], "total": 0}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.query()
+            result = client.memory.query()
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/query",
@@ -263,7 +263,7 @@ class TestSemanticSearch:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"entries": [], "total": 0}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.semantic_search("rate limiting patterns")
+            client.memory.semantic_search("rate limiting patterns")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/semantic-search",
@@ -313,7 +313,7 @@ class TestMemoryStats:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"total_entries": 1000, "total_size_bytes": 5000000}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.stats()
+            result = client.memory.stats()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/stats")
             assert result["total_entries"] == 1000
             client.close()
@@ -322,7 +322,7 @@ class TestMemoryStats:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"fast": {"count": 120}, "medium": {"count": 45}}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.get_tier_stats()
+            result = client.memory.get_tier_stats()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/tier-stats")
             assert result["fast"]["count"] == 120
             client.close()
@@ -331,7 +331,7 @@ class TestMemoryStats:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"total_archived": 500, "size_mb": 12.3}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.get_archive_stats()
+            result = client.memory.get_archive_stats()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/archive-stats")
             assert result["total_archived"] == 500
             client.close()
@@ -340,7 +340,7 @@ class TestMemoryStats:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"utilization": 0.72, "pressure": "moderate"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.get_pressure()
+            result = client.memory.get_pressure()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/pressure")
             assert result["pressure"] == "moderate"
             client.close()
@@ -349,7 +349,7 @@ class TestMemoryStats:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"data": [{"timestamp": "2024-01-01", "entries": 100}]}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.get_analytics(
+            client.memory.get_analytics(
                 start_time="2024-01-01T00:00:00Z",
                 end_time="2024-01-02T00:00:00Z",
                 granularity="day",
@@ -383,7 +383,7 @@ class TestTierOperations:
                 ],
             }
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.list_tiers()
+            result = client.memory.list_tiers()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/tiers")
             assert len(result["tiers"]) == 2
             client.close()
@@ -400,7 +400,7 @@ class TestTierOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"entries": [{"key": "k1"}], "total": 1}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.get_tier("fast", limit=100, offset=50)
+            result = client.memory.get_tier("fast", limit=100, offset=50)
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/tier/fast",
@@ -418,7 +418,7 @@ class TestTierOperations:
                 "to_tier": "slow",
             }
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.move_tier("my-key", "fast", "slow")
+            result = client.memory.move_tier("my-key", "fast", "slow")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/my-key/move",
@@ -431,7 +431,7 @@ class TestTierOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"promoted": True, "new_tier": "fast"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.promote("my-key", reason="high access frequency")
+            result = client.memory.promote("my-key", reason="high access frequency")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/my-key/promote",
@@ -444,7 +444,7 @@ class TestTierOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"demoted": True, "new_tier": "glacial"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.demote("my-key", reason="low importance")
+            result = client.memory.demote("my-key", reason="low importance")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/my-key/demote",
@@ -466,7 +466,7 @@ class TestContinuumOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"id": "entry-123", "tier": "medium"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.store_to_continuum(
+            result = client.memory.store_to_continuum(
                 "Important debate outcome about rate limiting",
                 importance=0.9,
                 tags=["debate", "rate-limiting"],
@@ -489,7 +489,7 @@ class TestContinuumOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"memories": [], "total": 0}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.retrieve_continuum()
+            result = client.memory.retrieve_continuum()
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/continuum/retrieve",
@@ -502,7 +502,7 @@ class TestContinuumOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"memories": [{"id": "m1", "tier": "fast"}]}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.retrieve_continuum(
+            result = client.memory.retrieve_continuum(
                 query="rate limiter",
                 tiers=["fast", "medium"],
                 limit=5,
@@ -545,7 +545,7 @@ class TestContinuumOperations:
                 "by_tier": {"fast": 100, "slow": 400},
             }
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.continuum_stats()
+            result = client.memory.continuum_stats()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/continuum/stats")
             assert result["total_entries"] == 500
             client.close()
@@ -554,7 +554,7 @@ class TestContinuumOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"success": True, "entries_archived": 50}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.consolidate()
+            result = client.memory.consolidate()
             mock_request.assert_called_once_with("POST", "/api/v1/memory/consolidate", json={})
             assert result["success"] is True
             client.close()
@@ -572,7 +572,7 @@ class TestCritiqueOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"critiques": [], "total": 0}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.list_critiques()
+            result = client.memory.list_critiques()
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/critiques",
@@ -585,7 +585,7 @@ class TestCritiqueOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"critiques": [{"id": "c1", "agent": "claude"}]}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.list_critiques(agent="claude", limit=5, offset=10)
+            result = client.memory.list_critiques(agent="claude", limit=5, offset=10)
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/critiques",
@@ -610,7 +610,7 @@ class TestCritiqueOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"id": "critique-123"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.store_critique(
+            result = client.memory.store_critique(
                 "The proposal lacks consideration for edge cases",
                 agent="claude",
                 debate_id="debate-456",
@@ -644,7 +644,7 @@ class TestContextManagement:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"context_id": "ctx-123", "data": {"user_id": "u1"}}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.get_context()
+            result = client.memory.get_context()
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/context",
@@ -669,7 +669,7 @@ class TestContextManagement:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"context_id": "ctx-789", "data": {"session": "s1"}}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.set_context(
+            client.memory.set_context(
                 {"session": "s1", "user": "u1"},
                 context_id="ctx-789",
                 ttl_seconds=3600,
@@ -689,7 +689,7 @@ class TestContextManagement:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"cleared": True}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.clear_context(context_id="ctx-123")
+            result = client.memory.clear_context(context_id="ctx-123")
             mock_request.assert_called_once_with(
                 "DELETE",
                 "/api/v1/memory/context",
@@ -711,7 +711,7 @@ class TestCrossDebateMemory:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"entries": [{"id": "e1", "topic": "rate-limiting"}]}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.get_cross_debate(
+            result = client.memory.get_cross_debate(
                 topic="rate-limiting",
                 limit=5,
                 min_relevance=0.7,
@@ -728,7 +728,7 @@ class TestCrossDebateMemory:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"id": "xd-123"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.store_cross_debate(
+            result = client.memory.store_cross_debate(
                 "Rate limiting should use token bucket algorithm",
                 debate_id="debate-789",
                 topic="rate-limiting",
@@ -753,7 +753,7 @@ class TestCrossDebateMemory:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"injected_count": 3}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.inject_institutional(
+            result = client.memory.inject_institutional(
                 "debate-999",
                 topic="architecture",
                 max_entries=5,
@@ -783,7 +783,7 @@ class TestExportImport:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"download_url": "https://storage/backup.json"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.export_memory(
+            client.memory.export_memory(
                 tiers=["slow", "glacial"],
                 tags=["important"],
                 format="json",
@@ -804,7 +804,7 @@ class TestExportImport:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"imported": 100, "skipped": 5}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.import_memory(
+            result = client.memory.import_memory(
                 [{"key": "k1", "value": "v1"}, {"key": "k2", "value": "v2"}],
                 overwrite=True,
                 target_tier="slow",
@@ -834,7 +834,7 @@ class TestSnapshots:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"id": "snap-123", "created_at": "2024-01-01T00:00:00Z"}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.create_snapshot(
+            result = client.memory.create_snapshot(
                 name="pre-migration",
                 description="Snapshot before schema migration",
             )
@@ -850,7 +850,7 @@ class TestSnapshots:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"snapshots": [{"id": "s1"}, {"id": "s2"}]}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.list_snapshots(limit=10, offset=5)
+            result = client.memory.list_snapshots(limit=10, offset=5)
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/snapshots",
@@ -863,7 +863,7 @@ class TestSnapshots:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"restored": True, "entries_restored": 500}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.restore_snapshot("snap-123", overwrite=True)
+            result = client.memory.restore_snapshot("snap-123", overwrite=True)
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/snapshots/snap-123/restore",
@@ -876,7 +876,7 @@ class TestSnapshots:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"deleted": True}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.delete_snapshot("snap-123")
+            result = client.memory.delete_snapshot("snap-123")
             mock_request.assert_called_once_with(
                 "DELETE",
                 "/api/v1/memory/snapshots/snap-123",
@@ -897,7 +897,7 @@ class TestMaintenanceOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"pruned_count": 150, "freed_bytes": 1024000}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.prune(
+            result = client.memory.prune(
                 older_than_days=30,
                 min_importance=0.1,
                 tiers=["fast", "medium"],
@@ -924,7 +924,7 @@ class TestMaintenanceOperations:
                 "space_saved_bytes": 512000,
             }
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.compact(tier="slow", merge_threshold=0.85)
+            result = client.memory.compact(tier="slow", merge_threshold=0.85)
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/compact",
@@ -941,7 +941,7 @@ class TestMaintenanceOperations:
                 "conflicts_resolved": 5,
             }
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.sync(
+            result = client.memory.sync(
                 target="all",
                 conflict_resolution="merge",
                 tiers=["slow", "glacial"],
@@ -962,7 +962,7 @@ class TestMaintenanceOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"vacuumed": True, "space_reclaimed_bytes": 2048000}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.vacuum()
+            result = client.memory.vacuum()
             mock_request.assert_called_once_with("POST", "/api/v1/memory/vacuum", json={})
             assert result["vacuumed"] is True
             client.close()
@@ -971,7 +971,7 @@ class TestMaintenanceOperations:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"rebuilt": True, "entries_indexed": 1000}
             client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = client.memory.rebuild_index(tier="slow")
+            result = client.memory.rebuild_index(tier="slow")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/rebuild-index",
@@ -994,7 +994,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"stored": True, "tier": "fast"}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.store("key", {"value": 1}, tier="fast")
+            result = await client.memory.store("key", {"value": 1}, tier="fast")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory",
@@ -1008,7 +1008,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"value": "data", "tier": "fast"}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.retrieve("key")
+            result = await client.memory.retrieve("key")
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/key",
@@ -1022,7 +1022,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"updated": True}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.update("key", {"new": "value"}, merge=True)
+            result = await client.memory.update("key", {"new": "value"}, merge=True)
             mock_request.assert_called_once_with(
                 "PUT",
                 "/api/v1/memory/key",
@@ -1036,7 +1036,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"deleted": True}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.delete("key")
+            result = await client.memory.delete("key")
             mock_request.assert_called_once_with(
                 "DELETE",
                 "/api/v1/memory/key",
@@ -1050,7 +1050,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"results": [], "total": 0}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.search("fallback strategy", sort="timestamp")
+            result = await client.memory.search("fallback strategy", sort="timestamp")
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/search",
@@ -1069,7 +1069,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"entries": [], "total": 0}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.query(filter={"tags": ["test"]})
+            await client.memory.query(filter={"tags": ["test"]})
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/query",
@@ -1087,7 +1087,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"total_entries": 1000}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.stats()
+            result = await client.memory.stats()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/stats")
             assert result["total_entries"] == 1000
             await client.close()
@@ -1097,7 +1097,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"utilization": 0.95, "pressure": "high"}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.get_pressure()
+            result = await client.memory.get_pressure()
             mock_request.assert_called_once_with("GET", "/api/v1/memory/pressure")
             assert result["pressure"] == "high"
             await client.close()
@@ -1107,7 +1107,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"memories": [{"id": "m1"}]}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.retrieve_continuum(
+            result = await client.memory.retrieve_continuum(
                 query="design patterns",
                 tiers=["fast"],
                 limit=3,
@@ -1130,7 +1130,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"critiques": [{"id": "c1"}], "total": 1}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.list_critiques(agent="gemini", limit=10)
+            result = await client.memory.list_critiques(agent="gemini", limit=10)
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/critiques",
@@ -1144,7 +1144,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"context_id": "ctx-123", "data": {}}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.get_context()
+            result = await client.memory.get_context()
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/context",
@@ -1158,7 +1158,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"context_id": "ctx-123", "data": {"key": "value"}}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.set_context({"key": "value"}, ttl_seconds=3600)
+            await client.memory.set_context({"key": "value"}, ttl_seconds=3600)
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/context",
@@ -1171,7 +1171,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"pruned_count": 100}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.prune(older_than_days=30)
+            result = await client.memory.prune(older_than_days=30)
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/prune",
@@ -1185,7 +1185,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"compacted": True}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.compact(tier="slow")
+            result = await client.memory.compact(tier="slow")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/compact",
@@ -1199,7 +1199,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"synced": True}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.sync(conflict_resolution="merge")
+            result = await client.memory.sync(conflict_resolution="merge")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/sync",
@@ -1213,7 +1213,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"entries": [], "total": 0}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.get_tier("fast")
+            await client.memory.get_tier("fast")
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/tier/fast",
@@ -1226,7 +1226,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"moved": True}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.move_tier("key", "fast", "slow")
+            result = await client.memory.move_tier("key", "fast", "slow")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/key/move",
@@ -1240,7 +1240,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"id": "entry-123"}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.store_to_continuum("content", importance=0.9)
+            result = await client.memory.store_to_continuum("content", importance=0.9)
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/continuum",
@@ -1254,7 +1254,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"download_url": "https://storage/backup.json"}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.export_memory(tiers=["slow"])
+            await client.memory.export_memory(tiers=["slow"])
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/export",
@@ -1267,7 +1267,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"imported": 50}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.import_memory([{"key": "k1", "value": "v1"}])
+            result = await client.memory.import_memory([{"key": "k1", "value": "v1"}])
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/import",
@@ -1281,7 +1281,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"id": "snap-123"}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.create_snapshot(name="test-snap")
+            result = await client.memory.create_snapshot(name="test-snap")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/snapshots",
@@ -1295,7 +1295,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"entries": []}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.get_cross_debate(topic="architecture")
+            await client.memory.get_cross_debate(topic="architecture")
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/memory/cross-debate",
@@ -1308,7 +1308,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"vacuumed": True}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.vacuum()
+            result = await client.memory.vacuum()
             mock_request.assert_called_once_with("POST", "/api/v1/memory/vacuum", json={})
             assert result["vacuumed"] is True
             await client.close()
@@ -1318,7 +1318,7 @@ class TestAsyncMemory:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"rebuilt": True}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            _ = await client.memory.rebuild_index()
+            result = await client.memory.rebuild_index()
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/v1/memory/rebuild-index",

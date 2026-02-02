@@ -671,9 +671,7 @@ class TestDebateTracer:
 
     def test_record_event(self, tracer):
         """Test recording a basic event."""
-        event = tracer.record(
-            EventType.MESSAGE, {"text": "Hello"}, agent="claude"
-        )
+        event = tracer.record(EventType.MESSAGE, {"text": "Hello"}, agent="claude")
 
         assert event.event_id.startswith("tracer-test-001-e")
         assert event.event_type == EventType.MESSAGE
@@ -764,9 +762,7 @@ class TestDebateTracer:
 
     def test_record_consensus(self, tracer):
         """Test recording consensus check."""
-        tracer.record_consensus(
-            reached=True, confidence=0.92, votes={"claude": True, "gpt4": True}
-        )
+        tracer.record_consensus(reached=True, confidence=0.92, votes={"claude": True, "gpt4": True})
 
         consensus = tracer.trace.get_events_by_type(EventType.CONSENSUS_CHECK)
         assert len(consensus) == 1
@@ -788,9 +784,7 @@ class TestDebateTracer:
 
     def test_record_tool_result(self, tracer):
         """Test recording tool result linked to call."""
-        call_id = tracer.record_tool_call(
-            agent="claude", tool="web_search", args={"query": "test"}
-        )
+        call_id = tracer.record_tool_call(agent="claude", tool="web_search", args={"query": "test"})
         tracer.record_tool_result(
             agent="claude",
             tool="web_search",
@@ -804,9 +798,7 @@ class TestDebateTracer:
 
     def test_record_tool_result_truncation(self, tracer):
         """Test tool result truncation for large results."""
-        call_id = tracer.record_tool_call(
-            agent="claude", tool="search", args={}
-        )
+        call_id = tracer.record_tool_call(agent="claude", tool="search", args={})
         large_result = "x" * 2000
         tracer.record_tool_result(
             agent="claude", tool="search", result=large_result, call_event_id=call_id
@@ -863,9 +855,7 @@ class TestDebateTracer:
         tracer.start_round(1)
         tracer.record_proposal("claude", "Claude proposal", confidence=0.8)
         tracer.record_proposal("gpt4", "GPT4 proposal", confidence=0.75)
-        tracer.record_critique(
-            "gpt4", "claude", ["Issue"], severity=5.0, suggestions=[]
-        )
+        tracer.record_critique("gpt4", "claude", ["Issue"], severity=5.0, suggestions=[])
         tracer.record_consensus(True, 0.85, {"claude": True, "gpt4": True})
 
         # Get the last event ID
@@ -1312,9 +1302,7 @@ class TestEdgeCases:
 
     def test_special_characters_in_content(self):
         """Test event with special characters."""
-        special_content = {
-            "text": "Special chars: <>&\"'\\n\\t\u0000\u2603"
-        }
+        special_content = {"text": "Special chars: <>&\"'\\n\\t\u0000\u2603"}
         event = TraceEvent(
             event_id="special-chars",
             event_type=EventType.MESSAGE,
@@ -1493,9 +1481,7 @@ class TestReplayerFromDatabase:
         tracer.finalize({"answer": "Done"})
 
         # Load via replayer
-        replayer = DebateReplayer.from_database(
-            f"trace-db-load-test", db_path=temp_db_path
-        )
+        replayer = DebateReplayer.from_database("trace-db-load-test", db_path=temp_db_path)
 
         assert replayer.trace.debate_id == "db-load-test"
         assert len(replayer.trace.events) > 0

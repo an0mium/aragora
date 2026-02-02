@@ -45,9 +45,7 @@ class ConformingEventEmitter:
     def subscribe(self, event_type: str, handler: EventHandlerProtocol) -> None:
         self._handlers.setdefault(event_type, []).append(handler)
 
-    def subscribe_sync(
-        self, event_type: str, handler: SyncEventHandlerProtocol
-    ) -> None:
+    def subscribe_sync(self, event_type: str, handler: SyncEventHandlerProtocol) -> None:
         self._handlers.setdefault(event_type, []).append(handler)
 
     def unsubscribe(self, event_type: str, handler: EventHandlerProtocol) -> bool:
@@ -124,9 +122,7 @@ class ConformingAgent:
     def model(self) -> str:
         return "test-model-v1"
 
-    async def generate(
-        self, prompt: str, context: dict[str, Any] | None = None
-    ) -> str:
+    async def generate(self, prompt: str, context: dict[str, Any] | None = None) -> str:
         return f"Response to: {prompt}"
 
 
@@ -137,17 +133,13 @@ class ConformingMemory:
         self._memories: dict[str, dict[str, Any]] = {}
         self._counter = 0
 
-    async def store(
-        self, content: str, metadata: dict[str, Any] | None = None
-    ) -> str:
+    async def store(self, content: str, metadata: dict[str, Any] | None = None) -> str:
         self._counter += 1
         mid = f"mem-{self._counter}"
         self._memories[mid] = {"content": content, "metadata": metadata or {}}
         return mid
 
-    async def retrieve(
-        self, query: str, limit: int = 10
-    ) -> list[dict[str, Any]]:
+    async def retrieve(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         return list(self._memories.values())[:limit]
 
     async def forget(self, memory_id: str) -> bool:
@@ -205,7 +197,10 @@ class TestEventEmitterProtocol:
     def test_subscribe_sync(self):
         """Test sync handler subscription."""
         emitter = ConformingEventEmitter()
-        handler = lambda event: None
+
+        def handler(event):
+            return None
+
         emitter.subscribe_sync("sync_event", handler)
         assert handler in emitter._handlers["sync_event"]
 
@@ -417,6 +412,7 @@ class TestTypeAliases:
 
     def test_event_handler_is_callable(self):
         """EventHandlerProtocol should accept async callables."""
+
         async def handler(event: Any) -> None:
             pass
 
@@ -426,6 +422,7 @@ class TestTypeAliases:
 
     def test_sync_event_handler_is_callable(self):
         """SyncEventHandlerProtocol should accept sync callables."""
+
         def handler(event: Any) -> None:
             pass
 
@@ -476,6 +473,6 @@ class TestModuleExports:
             AgentProtocol,
             MemoryProtocol,
         ]:
-            assert hasattr(proto, "__protocol_attrs__") or hasattr(
-                proto, "_is_runtime_protocol"
-            ), f"{proto.__name__} should be runtime_checkable"
+            assert hasattr(proto, "__protocol_attrs__") or hasattr(proto, "_is_runtime_protocol"), (
+                f"{proto.__name__} should be runtime_checkable"
+            )

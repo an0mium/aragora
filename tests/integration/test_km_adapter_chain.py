@@ -130,6 +130,26 @@ class TestAdapterFactoryChain:
         status = coordinator.get_status()
         assert status["total_adapters"] >= 2
 
+    def test_supermemory_adapter_enabled_when_override_set(self, monkeypatch):
+        """Supermemory adapter should be enabled when override flag is true."""
+        from aragora.debate.knowledge_manager import ArenaKnowledgeManager
+
+        monkeypatch.setenv("SUPERMEMORY_API_KEY", "sm_test_key")
+
+        km_manager = ArenaKnowledgeManager(
+            knowledge_mound=MagicMock(),
+            enable_retrieval=False,
+            enable_ingestion=False,
+            supermemory_enable_km_adapter=True,
+        )
+        km_manager.initialize()
+
+        coordinator = km_manager._km_coordinator
+        assert coordinator is not None
+        status = coordinator.get_status()
+        assert "supermemory" in status["adapters"]
+        assert status["adapters"]["supermemory"]["enabled"] is True
+
 
 class TestCoordinatorMultiAdapterSync:
     """Test coordinator orchestrating sync across multiple adapters."""
