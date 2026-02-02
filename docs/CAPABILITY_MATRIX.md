@@ -62,7 +62,8 @@ Version baseline: v2.5.0 (see `pyproject.toml` and `aragora/__version__.py`).
 | WebSocket streaming | stable | `aragora/server/stream/`, `aragora/spectate/` | `tests/stream/`, `tests/server/` | Real-time events |
 | Live dashboard (Next.js) | stable | `aragora/live/` | `aragora/live/__tests__/`, `aragora/live/e2e/` | UI + realtime |
 | Python SDK (aragora-client) | stable | `aragora-py/aragora_client/`, `aragora/client/` | `aragora-py/tests/`, `tests/client/` | HTTP client |
-| TypeScript SDK | stable | `sdk/typescript/`, `aragora-js/src/` | `sdk/typescript/`, `aragora-js/tests/` | `@aragora/sdk` |
+| TypeScript SDK | stable | `sdk/typescript/` | `sdk/typescript/` | `@aragora/sdk` |
+| TypeScript SDK (legacy) | deprecated | `aragora-js/` | `aragora-js/tests/` | `@aragora/client` |
 | Bots and channel integrations | experimental | `aragora/bots/`, `aragora/channels/`, `aragora/integrations/` | `tests/bots/`, `tests/channels/`, `tests/integrations/` | Slack/Teams/etc. |
 | External connectors | experimental | `aragora/connectors/` | `tests/connectors/` | Data source adapters |
 | MCP server integration | experimental | `aragora/mcp/` | `tests/mcp/` | Claude Desktop / MCP |
@@ -77,4 +78,3 @@ Version baseline: v2.5.0 (see `pyproject.toml` and `aragora/__version__.py`).
 | Docker and Compose deployment | stable | `deploy/`, `docker-compose*.yml`, `Dockerfile` | Manual validation | Local + prod deploys |
 | Kubernetes operator and manifests | experimental | `aragora-operator/`, `k8s/` | Manual validation | Scale-out ops |
 | Nomic loop self-improvement | experimental | `scripts/nomic_loop.py`, `aragora/nomic/` | `tests/nomic/` | Guarded automation |
-

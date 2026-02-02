@@ -307,4 +307,4 @@ See the template files in:
 - [API Reference](./API_REFERENCE.md) - Full API documentation
 - [Security](./SECURITY.md) - Security policies and practices
 - [Gauntlet Playbooks](../aragora/gauntlet/playbooks/) - Playbook definitions
-- [SDK Examples](../aragora-js/examples/) - JavaScript/TypeScript examples
+- [SDK Examples](../sdk/typescript/examples/) - JavaScript/TypeScript examples

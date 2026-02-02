@@ -131,18 +131,14 @@ sdk/typescript/
 └── tests/
 ```
 
-### Python SDK (`sdk/python/`)
+### Python SDK (`aragora-py/`)
 
 ```
-sdk/python/
-├── aragora/
+aragora-py/
+├── aragora_client/
 │   ├── client.py           # Main client
-│   ├── auth/               # Auth endpoints
-│   ├── debates/            # Debate operations
-│   ├── agents/             # Agent management
-│   ├── knowledge/          # KM operations
-│   ├── workflows/          # Workflow engine
-│   └── models/             # Pydantic models
+│   ├── namespaces/         # Namespaced API surface
+│   ├── models/             # Pydantic models
 ├── examples/
 └── tests/
 ```
@@ -164,7 +160,7 @@ python scripts/generate_sdk.py --spec api/openapi.yaml --output sdk/
 
 # Outputs:
 # - sdk/typescript/src/types/generated.ts
-# - sdk/python/aragora/models/generated.py
+# - aragora-py/aragora_client/models/generated.py
 # - sdk/*/tests/test_*.py (stubs)
 ```
 
@@ -224,7 +220,7 @@ Update this document as endpoints are implemented:
 - **SDK Guide:** `docs/SDK_GUIDE.md`
 - **OpenAPI Spec:** `api/openapi.yaml`
 - **TypeScript SDK:** `sdk/typescript/`
-- **Python SDK:** `sdk/python/`
+- **Python SDK:** `aragora-py/`
 
 ## Issue Tracking
 

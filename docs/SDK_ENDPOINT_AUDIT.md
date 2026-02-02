@@ -217,7 +217,7 @@ knowledge-mound.ts    // Full KM API (50+ methods)
 
 ## Python SDK Structure
 
-**Current Structure (Monolithic):**
+**Current Structure (Monolithic, legacy sdk/python):**
 ```python
 # sdk/python/aragora/client.py
 class AragoraClient:
@@ -229,9 +229,9 @@ class AragoraClient:
     # etc.
 ```
 
-**Target Structure (Namespaced):**
+**Target Structure (Namespaced, canonical aragora-py):**
 ```python
-# sdk/python/aragora/
+# aragora-py/aragora_client/
 client.py          # Main client with namespace accessors
 namespaces/
     debates.py     # DebatesNamespace
@@ -264,7 +264,7 @@ npx openapi-typescript openapi.yaml -o sdk/typescript/src/generated/
 ### 3. Generate Python Methods
 ```bash
 # Auto-generate from OpenAPI
-openapi-generator generate -i openapi.yaml -g python -o sdk/python/aragora/generated/
+openapi-generator generate -i openapi.yaml -g python -o aragora-py/aragora_client/generated/
 ```
 
 ### 4. Manual Integration

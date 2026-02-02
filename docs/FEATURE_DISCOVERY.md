@@ -307,8 +307,10 @@ Production-ready enterprise capabilities.
 
 | SDK | Location | Status |
 |-----|----------|--------|
-| Python | `sdk/python/` | Stable |
+| Python | `aragora-py/` | Stable |
 | TypeScript | `sdk/typescript/` | Stable |
+
+Legacy SDKs (`sdk/python/`, `aragora-js/`) are deprecated; use the canonical packages above.
 
 ---
 

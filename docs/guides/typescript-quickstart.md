@@ -5,11 +5,11 @@ Get started with the Aragora TypeScript/JavaScript SDK in 5 minutes.
 ## Installation
 
 ```bash
-npm install aragora-js
+npm install @aragora/sdk
 # or
-yarn add aragora-js
+yarn add @aragora/sdk
 # or
-pnpm add aragora-js
+pnpm add @aragora/sdk
 ```
 
 ## Prerequisites
@@ -33,12 +33,12 @@ export OPENAI_API_KEY="sk-..."
 ### 1. Create a Client
 
 ```typescript
-import { AragoraClient } from 'aragora-js';
+import { createClient } from '@aragora/sdk';
 
 // Connect to local server
-const client = new AragoraClient({
+const client = createClient({
   baseUrl: 'http://localhost:8080',
-  // token: process.env.ARAGORA_API_TOKEN, // Optional auth
+  // apiKey: process.env.ARAGORA_API_TOKEN, // Optional auth
 });
 
 // Check server health
@@ -50,7 +50,7 @@ console.log(`Server status: ${health.status}`);
 
 ```typescript
 // Run a debate and wait for completion
-const result = await client.debates.run({
+const result = await client.runDebate({
   task: 'Should we use microservices or a monolith for our new project?',
   agents: ['anthropic-api', 'openai-api'],
   rounds: 3,
@@ -67,21 +67,21 @@ For more control, create a debate and poll for status:
 
 ```typescript
 // Create debate (returns immediately)
-const debate = await client.debates.create({
+const debate = await client.createDebate({
   topic: "What's the best database for a real-time analytics platform?",
   agents: ['anthropic-api', 'openai-api', 'gemini'],
   rounds: 2,
   consensus: 'majority',
 });
 
-console.log(`Debate ID: ${debate.id}`);
+console.log(`Debate ID: ${debate.debate_id}`);
 console.log(`Status: ${debate.status}`);
 
 // Poll for completion
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 while (true) {
-  const status = await client.debates.get(debate.id);
+  const status = await client.getDebate(debate.debate_id);
   if (status.status === 'completed') {
     console.log(`Completed! Consensus: ${status.consensus?.reached}`);
     break;
@@ -95,29 +95,31 @@ while (true) {
 Stream debate events in real-time using WebSockets:
 
 ```typescript
-import { streamDebate } from 'aragora-js';
+import { streamDebate } from '@aragora/sdk';
 
-// Stream events as they happen
-const stream = await streamDebate({
-  baseUrl: 'http://localhost:8080',
+// Create a debate, then stream events
+const created = await client.createDebate({
   task: 'Design a caching strategy',
   agents: ['anthropic-api', 'openai-api'],
 });
 
-stream.on('agent_message', (event) => {
-  console.log(`[${event.agent}]: ${event.content.slice(0, 100)}...`);
-});
+const stream = streamDebate(
+  { baseUrl: 'http://localhost:8080' },
+  { debateId: created.debate_id }
+);
 
-stream.on('consensus', (event) => {
-  console.log(`Consensus reached: ${JSON.stringify(event.data)}`);
-});
-
-stream.on('error', (error) => {
-  console.error('Stream error:', error);
-});
-
-// Wait for completion
-await stream.wait();
+for await (const event of stream) {
+  if (event.type === 'agent_message') {
+    const data = event.data as { agent: string; content: string };
+    console.log(`[${data.agent}]: ${data.content.slice(0, 100)}...`);
+  }
+  if (event.type === 'consensus') {
+    console.log(`Consensus reached: ${JSON.stringify(event.data)}`);
+  }
+  if (event.type === 'debate_end') {
+    break;
+  }
+}
 ```
 
 ## React Integration
