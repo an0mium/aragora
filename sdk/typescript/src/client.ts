@@ -273,6 +273,8 @@ import {
   CheckpointsAPI,
   UncertaintyAPI,
   AudioAPI,
+  // New namespaces (SDK Parity Sprint - Phase 6)
+  HybridDebatesAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -848,6 +850,9 @@ export class AragoraClient {
   /** Audio API - Audio file serving and podcast feeds. */
   readonly audio: AudioAPI;
 
+  /** Hybrid Debates API - External + internal agent coordination for consensus-driven decisions. */
+  readonly hybridDebates: HybridDebatesAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -992,6 +997,7 @@ export class AragoraClient {
     this.checkpoints = new CheckpointsAPI(this);
     this.uncertainty = new UncertaintyAPI(this);
     this.audio = new AudioAPI(this);
+    this.hybridDebates = new HybridDebatesAPI(this);
   }
 
   // ===========================================================================

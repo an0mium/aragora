@@ -1455,3 +1455,14 @@ export {
   type AudioFileInfo,
   type PodcastEpisode as AudioPodcastEpisode,
 } from './audio';
+
+// Hybrid Debates (External + Internal Agent Coordination)
+export {
+  HybridDebatesAPI,
+  type HybridDebateStatus,
+  type HybridDebateConfig,
+  type HybridDebateResult,
+  type HybridDebateListResponse,
+  type CreateHybridDebateRequest,
+  type ListHybridDebatesOptions,
+} from './hybrid-debates';
