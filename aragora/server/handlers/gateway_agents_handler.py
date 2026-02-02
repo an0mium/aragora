@@ -1,6 +1,9 @@
 """
 Gateway Agents Handler - HTTP endpoints for external agent registration.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Provides API endpoints for managing external framework agents that can
 participate in Aragora debates via the gateway.
 
@@ -17,8 +20,10 @@ import importlib.util
 import logging
 import os
 import re
+import threading
 from typing import Any
 
+from aragora.resilience import CircuitBreaker
 from aragora.rbac.decorators import require_permission
 
 from aragora.server.handlers.base import (
@@ -32,6 +37,41 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+# Circuit breaker for gateway agents operations
+# Opens after 5 consecutive failures, recovers after 30 seconds
+_gateway_agents_circuit_breaker = CircuitBreaker(
+    name="gateway_agents_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+    half_open_success_threshold=2,
+    half_open_max_calls=3,
+)
+_gateway_agents_circuit_breaker_lock = threading.Lock()
+
+
+def get_gateway_agents_circuit_breaker() -> CircuitBreaker:
+    """Get the global circuit breaker for gateway agents operations."""
+    return _gateway_agents_circuit_breaker
+
+
+def get_gateway_agents_circuit_breaker_status() -> dict:
+    """Get current status of the gateway agents circuit breaker."""
+    return _gateway_agents_circuit_breaker.to_dict()
+
+
+def reset_gateway_agents_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _gateway_agents_circuit_breaker_lock:
+        _gateway_agents_circuit_breaker._single_failures = 0
+        _gateway_agents_circuit_breaker._single_open_at = 0.0
+        _gateway_agents_circuit_breaker._single_successes = 0
+        _gateway_agents_circuit_breaker._single_half_open_calls = 0
 
 # Optional dependencies for graceful degradation
 GATEWAY_AVAILABLE = (

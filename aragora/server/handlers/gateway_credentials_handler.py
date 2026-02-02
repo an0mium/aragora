@@ -396,6 +396,7 @@ class GatewayCredentialsHandler(BaseHandler):
 
         return json_response(response_data)
 
+    @rate_limit(requests_per_minute=10, limiter_name="gateway_credentials_delete")
     @handle_errors("delete gateway credential")
     @log_request("delete gateway credential")
     def _handle_delete_credential(self, credential_id: str, handler: Any) -> HandlerResult:
@@ -505,4 +506,9 @@ class GatewayCredentialsHandler(BaseHandler):
         return json_response(response_data, status=201)
 
 
-__all__ = ["GatewayCredentialsHandler"]
+__all__ = [
+    "GatewayCredentialsHandler",
+    "get_gateway_credentials_circuit_breaker",
+    "get_gateway_credentials_circuit_breaker_status",
+    "reset_gateway_credentials_circuit_breaker",
+]

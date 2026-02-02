@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 _finding_workflow_circuit_breaker = CircuitBreaker.from_config(
     CircuitBreakerConfig(
         failure_threshold=5,
-        timeout_seconds=60.0,
+        cooldown_seconds=60.0,
         success_threshold=2,
     ),
     name="finding_workflow",
@@ -252,6 +252,7 @@ class FindingWorkflowHandler(BaseHandler):
             await store.save(workflow_dict)
         return workflow_dict
 
+    @rate_limit(requests_per_minute=60, limiter_name="finding_workflow_status")
     async def _update_status(self, request: Any, finding_id: str) -> dict[str, Any]:
         """
         Update finding workflow state.
@@ -261,7 +262,16 @@ class FindingWorkflowHandler(BaseHandler):
             "status": "triaging" | "investigating" | "remediating" | "resolved" | ...,
             "comment": "Optional comment explaining transition"
         }
+
+        Protected by:
+        - Rate limit: 60 requests per minute
+        - Circuit breaker: Opens after 5 consecutive failures
         """
+        # Check circuit breaker
+        if not _finding_workflow_circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker is open for finding workflow")
+            return self._error_response(503, "Service temporarily unavailable. Please try again later.")
+
         # Check RBAC permission
         if error := self._check_permission(request, "findings.update", finding_id):
             return error

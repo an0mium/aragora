@@ -1,6 +1,8 @@
 """
 Gateway Health Handler - HTTP endpoints for gateway health monitoring.
 
+Stability: STABLE
+
 Provides API endpoints for:
 - Overall gateway health status
 - Individual agent health checks
@@ -20,6 +22,7 @@ from collections.abc import Coroutine
 from typing import Any, cast
 
 from aragora.rbac.decorators import require_permission
+from aragora.resilience import CircuitBreaker
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -36,6 +39,27 @@ GATEWAY_AVAILABLE = (
 )
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Resilience Configuration
+# =============================================================================
+
+# Circuit breaker for gateway health checks
+_gateway_health_circuit_breaker = CircuitBreaker(
+    name="gateway_health_handler",
+    failure_threshold=5,
+    cooldown_seconds=30.0,
+)
+
+
+def get_gateway_health_circuit_breaker() -> CircuitBreaker:
+    """Get the circuit breaker for gateway health service."""
+    return _gateway_health_circuit_breaker
+
+
+def get_gateway_health_circuit_breaker_status() -> dict:
+    """Get current status of the gateway health circuit breaker."""
+    return _gateway_health_circuit_breaker.to_dict()
 
 
 def _get_vault_status() -> str:

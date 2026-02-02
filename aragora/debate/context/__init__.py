@@ -72,6 +72,31 @@ from .rankers import (
     KnowledgeItemCategorizer,
 )
 
+# Backward compatibility: re-export DebateContext from parent context module
+# This allows `from aragora.debate.context import DebateContext` to work
+# even though context is now a package
+try:
+    import sys
+    from aragora.debate import context as _context_module
+    # Get the actual context.py module (not this package)
+    _parent_context = sys.modules.get("aragora.debate.context_module")
+    if _parent_context is None:
+        # Load context.py as a separate module
+        import importlib.util
+        from pathlib import Path
+        _context_py = Path(__file__).parent.parent / "context.py"
+        if _context_py.exists():
+            _spec = importlib.util.spec_from_file_location("aragora.debate.context_module", _context_py)
+            if _spec and _spec.loader:
+                _parent_context = importlib.util.module_from_spec(_spec)
+                sys.modules["aragora.debate.context_module"] = _parent_context
+                _spec.loader.exec_module(_parent_context)
+    if _parent_context:
+        DebateContext = _parent_context.DebateContext
+except Exception:
+    # If import fails, provide a fallback or let it error at usage time
+    pass
+
 __all__ = [
     # Main class
     "ContextGatherer",

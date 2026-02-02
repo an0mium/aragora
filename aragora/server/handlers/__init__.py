@@ -530,7 +530,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "A2AHandler": Stability.EXPERIMENTAL,
     "ApprovalHandler": Stability.STABLE,
     "AlertHandler": Stability.EXPERIMENTAL,
-    "TriggerHandler": Stability.EXPERIMENTAL,
+    "TriggerHandler": Stability.STABLE,
     "MonitoringHandler": Stability.STABLE,
     "AutonomousLearningHandler": Stability.EXPERIMENTAL,
     "EmailHandler": Stability.STABLE,
@@ -560,7 +560,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GatewayAgentsHandler": Stability.EXPERIMENTAL,
     "GatewayCredentialsHandler": Stability.EXPERIMENTAL,
     "HybridDebateHandler": Stability.STABLE,
-    "ERC8004Handler": Stability.EXPERIMENTAL,
+    "ERC8004Handler": Stability.STABLE,
 }
 
 

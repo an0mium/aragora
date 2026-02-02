@@ -2,6 +2,10 @@
 
 All endpoints require authentication. Approve/reject operations
 require the 'approvals:manage' permission.
+
+Stability: STABLE
+- Circuit breaker protection for approval flow operations
+- Rate limiting on all endpoints
 """
 
 from __future__ import annotations
@@ -18,8 +22,25 @@ from aragora.server.handlers.utils.auth import (
 )
 from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
+from aragora.resilience import get_circuit_breaker
 
 logger = logging.getLogger(__name__)
+
+# Circuit breaker for approval flow operations
+_approval_circuit_breaker = None
+
+
+def _get_circuit_breaker():
+    """Get or create circuit breaker for approval operations."""
+    global _approval_circuit_breaker
+    if _approval_circuit_breaker is None:
+        _approval_circuit_breaker = get_circuit_breaker(
+            "approval_flow",
+            failure_threshold=5,
+            cooldown_seconds=30,
+            half_open_max_calls=2,
+        )
+    return _approval_circuit_breaker
 
 # RBAC permission keys for autonomous operations
 AUTONOMOUS_READ_PERMISSION = "autonomous:read"
@@ -91,6 +112,14 @@ class ApprovalHandler:
             List of pending approval requests
         """
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Approval service temporarily unavailable"},
+                    status=503,
+                )
+
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
@@ -165,6 +194,14 @@ class ApprovalHandler:
         request_id = request.match_info.get("request_id")
 
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Approval service temporarily unavailable"},
+                    status=503,
+                )
+
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
