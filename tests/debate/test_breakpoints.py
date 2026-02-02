@@ -891,8 +891,8 @@ class TestBreakpointManager:
 
         messages = [self._create_mock_message("claude", "Test", 1)]
 
-        with patch("aragora.debate.breakpoints.StreamEvent") as MockEvent:
-            with patch("aragora.debate.breakpoints.StreamEventType") as MockType:
+        with patch("aragora.events.types.StreamEvent") as MockEvent:
+            with patch("aragora.events.types.StreamEventType") as MockType:
                 MockType.BREAKPOINT = "BREAKPOINT"
                 manager.check_triggers(
                     debate_id="debate-123",
@@ -903,8 +903,8 @@ class TestBreakpointManager:
                     max_rounds=5,
                 )
 
-        # Emitter should have been called
-        # Note: This depends on the import working; may need adjustment
+        # Emitter should have been called if conditions met
+        # (depends on triggers being set up)
 
 
 # =============================================================================

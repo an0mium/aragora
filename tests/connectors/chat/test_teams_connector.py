@@ -215,7 +215,7 @@ class TestTeamsSendMessage:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.request = AsyncMock(
-                side_effect=Exception("Conversation not found")
+                side_effect=RuntimeError("Conversation not found")
             )
 
             result = await connector.send_message(

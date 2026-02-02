@@ -10,8 +10,17 @@ from __future__ import annotations
 from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 
-# Skip all tests in this module - ERC8004Handler class doesn't exist yet
-pytestmark = pytest.mark.skip(reason="ERC8004Handler class not yet implemented")
+_HAS_ERC8004_HANDLER = False
+try:
+    from aragora.blockchain.handler import ERC8004Handler  # noqa: F401
+
+    _HAS_ERC8004_HANDLER = True
+except (ImportError, AttributeError):
+    pass
+
+pytestmark = pytest.mark.skipif(
+    not _HAS_ERC8004_HANDLER, reason="ERC8004Handler class not yet implemented"
+)
 
 
 class TestERC8004Handler:

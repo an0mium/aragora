@@ -392,7 +392,7 @@ class TestMongoDBSearch:
 class TestMongoDBErrorHandling:
     """Tests for error handling."""
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
         reason="Connector needs error handling - raises exception instead of recording error"
     )
     @pytest.mark.asyncio

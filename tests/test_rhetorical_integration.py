@@ -260,16 +260,6 @@ class TestRhetoricalObserverIntegration:
 
             mock_observer.detect_patterns.assert_called()
 
-    @pytest.mark.skip(reason="aragora.live.src.types.events not available - frontend module")
-    def test_observer_patterns_in_ui_events(self):
-        """Observer patterns should be included in UI events."""
-        from aragora.live.src.types.events import RhetoricalObservationData
-
-        # Just verify the type exists
-        # This is a compile-time check essentially
-        assert True  # TypeScript types aren't directly testable from Python
-
-
 class TestPatternMarkers:
     """Tests for rhetorical pattern markers/keywords."""
 

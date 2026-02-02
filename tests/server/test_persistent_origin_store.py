@@ -386,3 +386,350 @@ class TestOriginStoreCaching:
         origin = await store.get_origin("db-load-1")
         assert origin is not None
         assert "db-load-1" in store._cache
+
+
+class TestSQLiteConnectionCleanup:
+    """Tests for SQLite connection resource cleanup."""
+
+    @pytest.fixture
+    async def store(self, tmp_path):
+        """Create a store with temp SQLite database."""
+        db_path = tmp_path / "cleanup_test.db"
+        store = PersistentOriginStore()
+        store._sqlite_path = str(db_path)
+        store._use_postgres = False
+        await store.initialize()
+        yield store
+        await store.close()
+
+    @pytest.mark.asyncio
+    async def test_save_sqlite_sync_uses_context_manager(self, store, tmp_path, monkeypatch):
+        """Verify _save_sqlite_sync uses context manager for connection cleanup."""
+        import sqlite3 as sqlite3_module
+
+        connections_opened = []
+        connections_closed = []
+        original_connect = sqlite3_module.connect
+
+        class MockConnection:
+            def __init__(self, real_conn):
+                self._real_conn = real_conn
+                connections_opened.append(self)
+
+            def execute(self, *args, **kwargs):
+                return self._real_conn.execute(*args, **kwargs)
+
+            def commit(self):
+                return self._real_conn.commit()
+
+            def close(self):
+                connections_closed.append(self)
+                return self._real_conn.close()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                connections_closed.append(self)
+                self._real_conn.close()
+                return False
+
+        def mock_connect(*args, **kwargs):
+            real_conn = original_connect(*args, **kwargs)
+            return MockConnection(real_conn)
+
+        monkeypatch.setattr(sqlite3_module, "connect", mock_connect)
+
+        origin = OriginRecord(
+            origin_id="test-cleanup-1",
+            origin_type="debate",
+            platform="slack",
+            channel_id="C123",
+            user_id="U456",
+        )
+
+        store._save_sqlite_sync(origin)
+
+        # Verify connection was opened and closed
+        assert len(connections_opened) == 1
+        assert len(connections_closed) == 1
+
+    @pytest.mark.asyncio
+    async def test_load_sqlite_sync_uses_context_manager(self, store, tmp_path, monkeypatch):
+        """Verify _load_sqlite_sync uses context manager for connection cleanup."""
+        import sqlite3 as sqlite3_module
+
+        # First save a record normally
+        origin = OriginRecord(
+            origin_id="test-load-cleanup",
+            origin_type="debate",
+            platform="slack",
+            channel_id="C123",
+            user_id="U456",
+        )
+        store._save_sqlite_sync(origin)
+
+        connections_opened = []
+        connections_closed = []
+        original_connect = sqlite3_module.connect
+
+        class MockConnection:
+            def __init__(self, real_conn):
+                self._real_conn = real_conn
+                connections_opened.append(self)
+
+            def execute(self, *args, **kwargs):
+                return self._real_conn.execute(*args, **kwargs)
+
+            def close(self):
+                connections_closed.append(self)
+                return self._real_conn.close()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                connections_closed.append(self)
+                self._real_conn.close()
+                return False
+
+        def mock_connect(*args, **kwargs):
+            real_conn = original_connect(*args, **kwargs)
+            return MockConnection(real_conn)
+
+        monkeypatch.setattr(sqlite3_module, "connect", mock_connect)
+
+        result = store._load_sqlite_sync("test-load-cleanup")
+
+        assert result is not None
+        assert len(connections_opened) == 1
+        assert len(connections_closed) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_pending_sqlite_sync_uses_context_manager(self, store, tmp_path, monkeypatch):
+        """Verify _list_pending_sqlite_sync uses context manager for connection cleanup."""
+        import sqlite3 as sqlite3_module
+
+        # First save a record normally
+        origin = OriginRecord(
+            origin_id="test-list-cleanup",
+            origin_type="debate",
+            platform="slack",
+            channel_id="C123",
+            user_id="U456",
+        )
+        store._save_sqlite_sync(origin)
+
+        connections_opened = []
+        connections_closed = []
+        original_connect = sqlite3_module.connect
+
+        class MockConnection:
+            def __init__(self, real_conn):
+                self._real_conn = real_conn
+                connections_opened.append(self)
+
+            def execute(self, *args, **kwargs):
+                return self._real_conn.execute(*args, **kwargs)
+
+            def close(self):
+                connections_closed.append(self)
+                return self._real_conn.close()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                connections_closed.append(self)
+                self._real_conn.close()
+                return False
+
+        def mock_connect(*args, **kwargs):
+            real_conn = original_connect(*args, **kwargs)
+            return MockConnection(real_conn)
+
+        monkeypatch.setattr(sqlite3_module, "connect", mock_connect)
+
+        results = store._list_pending_sqlite_sync(None, None, 10)
+
+        assert len(results) >= 0  # May have results or not
+        assert len(connections_opened) == 1
+        assert len(connections_closed) == 1
+
+    @pytest.mark.asyncio
+    async def test_cleanup_sqlite_sync_uses_context_manager(self, store, tmp_path, monkeypatch):
+        """Verify _cleanup_sqlite_sync uses context manager for connection cleanup."""
+        import sqlite3 as sqlite3_module
+
+        connections_opened = []
+        connections_closed = []
+        original_connect = sqlite3_module.connect
+
+        class MockConnection:
+            def __init__(self, real_conn):
+                self._real_conn = real_conn
+                connections_opened.append(self)
+
+            def execute(self, *args, **kwargs):
+                return self._real_conn.execute(*args, **kwargs)
+
+            def commit(self):
+                return self._real_conn.commit()
+
+            def close(self):
+                connections_closed.append(self)
+                return self._real_conn.close()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                connections_closed.append(self)
+                self._real_conn.close()
+                return False
+
+        def mock_connect(*args, **kwargs):
+            real_conn = original_connect(*args, **kwargs)
+            return MockConnection(real_conn)
+
+        monkeypatch.setattr(sqlite3_module, "connect", mock_connect)
+
+        count = store._cleanup_sqlite_sync()
+
+        assert count >= 0
+        assert len(connections_opened) == 1
+        assert len(connections_closed) == 1
+
+    @pytest.mark.asyncio
+    async def test_connection_closed_on_execute_exception(self, store, tmp_path, monkeypatch):
+        """Verify connection is closed even when execute raises an exception."""
+        import sqlite3 as sqlite3_module
+
+        connections_closed = []
+        original_connect = sqlite3_module.connect
+
+        class FailingConnection:
+            def __init__(self, real_conn):
+                self._real_conn = real_conn
+
+            def execute(self, *args, **kwargs):
+                raise sqlite3_module.OperationalError("Simulated failure")
+
+            def commit(self):
+                return self._real_conn.commit()
+
+            def close(self):
+                connections_closed.append(self)
+                return self._real_conn.close()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                connections_closed.append(self)
+                self._real_conn.close()
+                return False  # Re-raise the exception
+
+        def mock_connect(*args, **kwargs):
+            real_conn = original_connect(*args, **kwargs)
+            return FailingConnection(real_conn)
+
+        monkeypatch.setattr(sqlite3_module, "connect", mock_connect)
+
+        origin = OriginRecord(
+            origin_id="test-exception",
+            origin_type="debate",
+            platform="slack",
+            channel_id="C123",
+            user_id="U456",
+        )
+
+        # Should raise the exception but still close the connection
+        with pytest.raises(sqlite3_module.OperationalError):
+            store._save_sqlite_sync(origin)
+
+        # Connection should be closed despite the exception
+        assert len(connections_closed) == 1
+
+    @pytest.mark.asyncio
+    async def test_connection_closed_on_commit_exception(self, store, tmp_path, monkeypatch):
+        """Verify connection is closed even when commit raises an exception."""
+        import sqlite3 as sqlite3_module
+
+        connections_closed = []
+        original_connect = sqlite3_module.connect
+
+        class FailingConnection:
+            def __init__(self, real_conn):
+                self._real_conn = real_conn
+
+            def execute(self, *args, **kwargs):
+                return self._real_conn.execute(*args, **kwargs)
+
+            def commit(self):
+                raise sqlite3_module.OperationalError("Commit failed")
+
+            def close(self):
+                connections_closed.append(self)
+                return self._real_conn.close()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                connections_closed.append(self)
+                self._real_conn.close()
+                return False  # Re-raise the exception
+
+        def mock_connect(*args, **kwargs):
+            real_conn = original_connect(*args, **kwargs)
+            return FailingConnection(real_conn)
+
+        monkeypatch.setattr(sqlite3_module, "connect", mock_connect)
+
+        origin = OriginRecord(
+            origin_id="test-commit-exception",
+            origin_type="debate",
+            platform="slack",
+            channel_id="C123",
+            user_id="U456",
+        )
+
+        # Should raise the exception but still close the connection
+        with pytest.raises(sqlite3_module.OperationalError):
+            store._save_sqlite_sync(origin)
+
+        # Connection should be closed despite the exception
+        assert len(connections_closed) == 1
+
+    @pytest.mark.asyncio
+    async def test_normal_operation_still_works(self, store):
+        """Verify normal CRUD operations still work after context manager refactor."""
+        # Register
+        origin = await store.register_origin(
+            origin_id="normal-op-test",
+            origin_type="debate",
+            platform="telegram",
+            channel_id="123456",
+            user_id="654321",
+            metadata={"test": "value"},
+        )
+        assert origin.origin_id == "normal-op-test"
+
+        # Get
+        retrieved = await store.get_origin("normal-op-test")
+        assert retrieved is not None
+        assert retrieved.metadata["test"] == "value"
+
+        # Mark sent
+        success = await store.mark_result_sent("normal-op-test", {"status": "done"})
+        assert success is True
+
+        # List pending (should not include the one we just marked)
+        pending = await store.list_pending()
+        pending_ids = [p.origin_id for p in pending]
+        assert "normal-op-test" not in pending_ids
+
+        # Cleanup
+        count = await store.cleanup_expired()
+        assert count >= 0
