@@ -348,6 +348,7 @@ async def handle_check_licenses(
         return error_response(f"Failed to check licenses: {e}", status=500)
 
 
+@require_permission("admin:cache")
 async def handle_clear_cache(
     user_id: str = "default",
 ) -> HandlerResult:
