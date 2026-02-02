@@ -750,11 +750,11 @@ class PostgresControlPlanePolicyStore:
 
     def toggle_policy(self, policy_id: str, enabled: bool) -> bool:
         """Enable or disable a policy."""
-        result = self._backend.execute_write(
+        self._backend.execute_write(
             "UPDATE control_plane_policies SET enabled = $1 WHERE id = $2",
             (enabled, policy_id),
         )
-        return int(result) > 0 if result is not None else True
+        return True  # execute_write doesn't return a value
 
     def create_violation(self, violation: PolicyViolation) -> PolicyViolation:
         """Record a policy violation."""
@@ -871,7 +871,7 @@ class PostgresControlPlanePolicyStore:
     ) -> bool:
         """Update violation status."""
         resolved_at = datetime.now(timezone.utc).isoformat() if status == "resolved" else None
-        result = self._backend.execute_write(
+        self._backend.execute_write(
             """
             UPDATE control_plane_violations
             SET status = $1, resolved_at = $2, resolved_by = $3, resolution_notes = $4
@@ -879,7 +879,7 @@ class PostgresControlPlanePolicyStore:
             """,
             (status, resolved_at, resolved_by, resolution_notes, violation_id),
         )
-        return int(result) > 0 if result is not None else True
+        return True  # execute_write doesn't return a value
 
     def _row_to_policy(self, row: Any) -> ControlPlanePolicy:
         """Convert a database row to a ControlPlanePolicy."""

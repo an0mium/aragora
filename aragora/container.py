@@ -613,11 +613,11 @@ def _configure_defaults(container: Container) -> None:
     # These are stateless services that can be instantiated without arguments.
     # For services that require runtime configuration (PromptBuilder, JudgeSelector, etc.),
     # register them explicitly in your application or test setup.
-    container.register_factory(BudgetCoordinatorProtocol, _create_budget_coordinator)
-    container.register_factory(ConvergenceDetectorProtocol, _create_convergence_detector)
-    container.register_factory(EventEmitterProtocol, _create_event_emitter)
-    container.register_factory(LifecycleManagerProtocol, _create_lifecycle_manager)
-    container.register_factory(OutputSanitizerProtocol, _create_output_sanitizer)
+    container.register_factory(BudgetCoordinatorProtocol, _create_budget_coordinator)  # type: ignore[type-abstract]
+    container.register_factory(ConvergenceDetectorProtocol, _create_convergence_detector)  # type: ignore[type-abstract]
+    container.register_factory(EventEmitterProtocol, _create_event_emitter)  # type: ignore[type-abstract]
+    container.register_factory(LifecycleManagerProtocol, _create_lifecycle_manager)  # type: ignore[type-abstract]
+    container.register_factory(OutputSanitizerProtocol, _create_output_sanitizer)  # type: ignore[type-abstract]
 
 
 # =============================================================================

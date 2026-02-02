@@ -82,7 +82,7 @@ if TYPE_CHECKING:
     from aragora.types.protocols import EventEmitterProtocol
 
 
-class KnowledgeMound(
+class KnowledgeMound(  # type: ignore[misc]
     CRUDOperationsMixin,
     QueryOperationsMixin,
     RLMOperationsMixin,

@@ -390,7 +390,7 @@ async def iter_chunks_with_timeout(
     if chunk_timeout is None:
         chunk_timeout = _get_stream_chunk_timeout()
 
-    async_iter: AsyncGenerator[bytes, None] = response_content.iter_any().__aiter__()
+    async_iter: AsyncGenerator[bytes, None] = response_content.iter_any().__aiter__()  # type: ignore[assignment]
     while True:
         try:
             chunk: bytes = await asyncio.wait_for(async_iter.__anext__(), timeout=chunk_timeout)

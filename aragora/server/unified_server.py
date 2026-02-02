@@ -128,7 +128,7 @@ class _UnifiedHandlerBase(BaseHTTPRequestHandler):
     pass
 
 
-class UnifiedHandler(
+class UnifiedHandler(  # type: ignore[misc]
     ResponseHelpersMixin,
     HandlerRegistryMixin,
     AuthChecksMixin,

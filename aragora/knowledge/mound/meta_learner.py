@@ -277,9 +277,13 @@ class KnowledgeMoundMetaLearner:
             current_demo = hyperparams.get(f"{tier}_demotion_threshold", 0.3)
 
             # Calculate recommended thresholds based on retrieval patterns
-            # Convert to float to ensure proper types
-            current_promo_f = float(current_promo) if current_promo is not None else 0.7
-            current_demo_f = float(current_demo) if current_demo is not None else 0.3
+            # Convert to float with type guard for dict.get() return type
+            current_promo_f = (
+                float(current_promo) if isinstance(current_promo, (int, float, str)) else 0.7
+            )
+            current_demo_f = (
+                float(current_demo) if isinstance(current_demo, (int, float, str)) else 0.3
+            )
             rec_promo, rec_demo, reasoning = self._calculate_tier_recommendations(
                 tier,
                 metrics,

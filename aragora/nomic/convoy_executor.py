@@ -331,18 +331,22 @@ class GastownConvoyExecutor:
                 *[run_task(task) for task in batch],
                 return_exceptions=True,
             )
-            for result in batch_results:
-                if isinstance(result, Exception):
+            for batch_result in batch_results:
+                if isinstance(batch_result, BaseException):
                     results.append(
                         TaskResult(
                             task_id="unknown",
                             success=False,
-                            error=str(result),
+                            error=str(batch_result),
                         )
                     )
                 else:
-                    results.append(result)
-                if stop_on_failure and not isinstance(result, Exception) and not result.success:
+                    results.append(batch_result)
+                if (
+                    stop_on_failure
+                    and not isinstance(batch_result, BaseException)
+                    and not batch_result.success
+                ):
                     return results
 
         return results
@@ -426,7 +430,7 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
         async with self._test_lock:
             try:
                 result = await asyncio.to_thread(
-                    subprocess.run,
+                    subprocess.run,  # type: ignore[arg-type]
                     command,
                     cwd=self.repo_path,
                     capture_output=True,

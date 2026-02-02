@@ -83,9 +83,9 @@ try:
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
-    check_permission = None  # type: Callable[..., Any] | None
+    check_permission = None  # type: ignore[misc]
     extract_user_from_request = None
-    AuthorizationContext = None  # type: type | None
+    AuthorizationContext = None  # type: ignore[misc]
 from .telemetry import (
     record_api_call,
     record_api_latency,

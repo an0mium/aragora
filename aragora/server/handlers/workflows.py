@@ -408,9 +408,9 @@ async def execute_workflow(
                 "status": "completed" if result.success else "failed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
                 "outputs": result.final_output,
-                "steps": [_step_result_to_dict(s) for s in result.steps],
+                "steps": [_step_result_to_dict(s) for s in result.steps],  # type: ignore[misc]
                 "error": result.error,
-                "duration_ms": result.total_duration_ms,
+                "duration_ms": result.total_duration_ms,  # type: ignore[dict-item]
             }
         )
         store.save_execution(execution)
@@ -885,7 +885,7 @@ async def load_yaml_templates_async() -> None:
         templates = load_templates()
         loaded = 0
         for template_id, template in templates.items():
-            existing = await store.get_template(template_id)
+            existing = await store.get_template(template_id)  # type: ignore[misc]
             if not existing:
                 await store.save_template(template)
                 loaded += 1
@@ -914,7 +914,7 @@ async def register_builtin_templates_async() -> None:
         ]
         for template in templates:
             template.is_template = True
-            existing = await store.get_template(template.id)
+            existing = await store.get_template(template.id)  # type: ignore[misc]
             if not existing:
                 await store.save_template(template)
                 logger.debug(f"Registered built-in template: {template.id}")
@@ -1484,7 +1484,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             # Get user_id from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
             created_by = (
-                auth_context.user_id
+                auth_context.user_id  # type: ignore[union-attr]
                 if auth_context
                 else get_string_param(query_params, "user_id", "")
             )
@@ -1952,7 +1952,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             # Get responder from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
             responder_id = (
-                auth_context.user_id
+                auth_context.user_id  # type: ignore[union-attr]
                 if auth_context
                 else get_string_param(query_params, "user_id", "")
             )
