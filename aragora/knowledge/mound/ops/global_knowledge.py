@@ -12,15 +12,15 @@ that are accessible to all users regardless of their workspace.
 
 NOTE: This is a mixin class designed to be composed with KnowledgeMound.
 Attribute accesses like self._ensure_initialized, self.store, self.query, self.get, etc.
-are provided by the composed class. The ``# type: ignore[attr-defined]``
-comments suppress mypy warnings that are expected for this mixin pattern.
+are provided by the composed class. A Protocol class (GlobalKnowledgeProtocol) is used
+with cast() to provide type-safe access to these attributes.
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -118,8 +118,9 @@ class GlobalKnowledgeMixin:
             VisibilityLevel,
         )
 
-        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        # Cast self to Protocol to access methods provided by composed KnowledgeMound class
+        host = cast(GlobalKnowledgeProtocol, self)
+        host._ensure_initialized()
 
         request = IngestionRequest(
             content=content,
@@ -139,8 +140,7 @@ class GlobalKnowledgeMixin:
             },
         )
 
-        # Mixin pattern: store provided by CRUDOperationsMixin
-        result = await self.store(request)  # type: ignore[attr-defined]
+        result = await host.store(request)
         logger.info(f"Stored verified fact {result.node_id} in global knowledge")
         return result.node_id
 
@@ -167,8 +167,9 @@ class GlobalKnowledgeMixin:
         """
         from aragora.knowledge.mound.types import ConfidenceLevel, QueryFilters
 
-        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        # Cast self to Protocol to access methods provided by composed KnowledgeMound class
+        host = cast(GlobalKnowledgeProtocol, self)
+        host._ensure_initialized()
 
         filters = None
         if min_confidence > 0 or topics:
@@ -189,8 +190,7 @@ class GlobalKnowledgeMixin:
                 tags=topics,  # QueryFilters uses 'tags', not 'topics'
             )
 
-        # Mixin pattern: query provided by QueryOperationsMixin
-        result = await self.query(  # type: ignore[attr-defined]
+        result = await host.query(
             query=query,
             workspace_id=SYSTEM_WORKSPACE_ID,
             limit=limit,
@@ -226,12 +226,12 @@ class GlobalKnowledgeMixin:
         Raises:
             ValueError: If the original item is not found
         """
-        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        # Cast self to Protocol to access methods provided by composed KnowledgeMound class
+        host = cast(GlobalKnowledgeProtocol, self)
+        host._ensure_initialized()
 
         # Get the original item
-        # Mixin pattern: get provided by CRUDOperationsMixin
-        item = await self.get(item_id, workspace_id=workspace_id)  # type: ignore[attr-defined]
+        item = await host.get(item_id, workspace_id=workspace_id)
         if not item:
             raise ValueError(f"Item {item_id} not found in workspace {workspace_id}")
 
@@ -256,7 +256,7 @@ class GlobalKnowledgeMixin:
         all_evidence = existing_evidence + (additional_evidence or [])
 
         # Store as global fact
-        return await self.store_verified_fact(
+        return await host.store_verified_fact(
             content=item.content,
             source=f"promoted_from:{workspace_id}:{item_id}",
             confidence=confidence_value,
@@ -307,8 +307,9 @@ class GlobalKnowledgeMixin:
         Returns:
             Merged list with workspace results + relevant global facts
         """
-        # Mixin pattern: _ensure_initialized provided by KnowledgeMoundCore
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        # Cast self to Protocol to access methods provided by composed KnowledgeMound class
+        host = cast(GlobalKnowledgeProtocol, self)
+        host._ensure_initialized()
 
         # Get global results
         global_results = await self.query_global_knowledge(
