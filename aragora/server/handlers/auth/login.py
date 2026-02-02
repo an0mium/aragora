@@ -239,7 +239,14 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
         return error_response("Authentication service unavailable", 503)
 
     # Check lockout tracker (tracks by email AND IP)
-    lockout_tracker = handler_instance._get_lockout_tracker()
+    use_handler_tracker = False
+    if hasattr(handler_instance, "_get_lockout_tracker"):
+        module_name = getattr(handler_instance.__class__, "__module__", "")
+        if module_name.startswith("aragora.server.handlers.auth"):
+            use_handler_tracker = True
+    lockout_tracker = (
+        handler_instance._get_lockout_tracker() if use_handler_tracker else get_lockout_tracker()
+    )
     if lockout_tracker.is_locked(email=email, ip=client_ip):
         remaining_seconds = lockout_tracker.get_remaining_time(email=email, ip=client_ip)
         remaining_minutes = max(1, remaining_seconds // 60)
