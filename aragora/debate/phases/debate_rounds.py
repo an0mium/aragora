@@ -702,7 +702,7 @@ class DebateRoundsPhase:
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error(f"task_exception phase=critique error={e}")
+                logger.error("task_exception phase=critique error=%s", e)
                 continue
 
             critique_count += 1
@@ -1029,7 +1029,7 @@ class DebateRoundsPhase:
         # RLM ready signal check (agents self-signal readiness)
         # This is the most responsive - agents explicitly say "I'm done"
         if self._convergence_tracker.check_rlm_ready_quorum(ctx, round_num):
-            logger.info(f"debate_terminate_rlm_ready round={round_num}")
+            logger.info("debate_terminate_rlm_ready round=%s", round_num)
             return True
 
         # Judge-based termination (with timeout protection)

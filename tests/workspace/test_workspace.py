@@ -253,8 +253,22 @@ class TestConvoyTracker:
 
     @pytest.fixture
     def tracker(self, tmp_path):
+        from aragora.stores.canonical import CanonicalWorkspaceStores
+
         bead_store = NomicBeadStore(tmp_path / "beads", git_enabled=False, auto_commit=False)
-        return ConvoyTracker(bead_store=bead_store, use_nomic_store=True)
+        # Use isolated canonical stores for this test
+        canonical_stores = CanonicalWorkspaceStores(
+            bead_dir=str(tmp_path / "beads"),
+            convoy_dir=str(tmp_path / "convoys"),
+            git_enabled=False,
+            auto_commit=False,
+            _bead_store=bead_store,
+        )
+        return ConvoyTracker(
+            bead_store=bead_store,
+            use_nomic_store=True,
+            canonical_stores=canonical_stores,
+        )
 
     @pytest.mark.asyncio
     async def test_create_convoy(self, tracker):
@@ -336,7 +350,21 @@ class TestWorkspaceManager:
 
     @pytest.fixture
     def ws(self, tmp_path):
-        return WorkspaceManager(workspace_root=str(tmp_path), workspace_id="test-ws")
+        from aragora.stores.canonical import CanonicalWorkspaceStores
+
+        bead_store = NomicBeadStore(tmp_path / "beads", git_enabled=False, auto_commit=False)
+        canonical_stores = CanonicalWorkspaceStores(
+            bead_dir=str(tmp_path / "beads"),
+            convoy_dir=str(tmp_path / "convoys"),
+            git_enabled=False,
+            auto_commit=False,
+            _bead_store=bead_store,
+        )
+        return WorkspaceManager(
+            workspace_root=str(tmp_path),
+            workspace_id="test-ws",
+            canonical_stores=canonical_stores,
+        )
 
     @pytest.mark.asyncio
     async def test_create_rig(self, ws):

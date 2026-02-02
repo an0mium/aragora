@@ -10,7 +10,9 @@ import pytest
 from pathlib import Path
 
 from aragora.extensions.gastown.adapter import GastownConvoyAdapter
+from aragora.extensions.gastown.convoy import ConvoyTracker
 from aragora.extensions.gastown.models import Convoy, ConvoyStatus
+from aragora.stores.canonical import CanonicalWorkspaceStores
 
 
 class TestGastownConvoyAdapter:
@@ -18,8 +20,22 @@ class TestGastownConvoyAdapter:
 
     @pytest.fixture
     def adapter(self, tmp_path: Path) -> GastownConvoyAdapter:
-        """Create an adapter with temp storage."""
-        return GastownConvoyAdapter(storage_path=tmp_path / "adapter")
+        """Create an adapter with isolated temp storage."""
+        storage_path = tmp_path / "adapter"
+        storage_path.mkdir(parents=True, exist_ok=True)
+        # Create isolated canonical stores for this test
+        canonical_stores = CanonicalWorkspaceStores(
+            bead_dir=str(storage_path / "beads"),
+            convoy_dir=str(storage_path / "convoys"),
+            git_enabled=False,
+            auto_commit=False,
+        )
+        tracker = ConvoyTracker(
+            storage_path=storage_path,
+            use_nomic_store=True,
+            canonical_stores=canonical_stores,
+        )
+        return GastownConvoyAdapter(tracker=tracker)
 
     @pytest.mark.asyncio
     async def test_create_convoy(self, adapter: GastownConvoyAdapter):
