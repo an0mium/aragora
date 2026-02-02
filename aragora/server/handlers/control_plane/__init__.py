@@ -48,6 +48,7 @@ from typing import Any
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.handlers.base import BaseHandler, HandlerResult
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
+from aragora.server.handlers.utils.decorators import has_permission
 from aragora.observability.metrics import track_handler
 
 from .agents import AgentHandlerMixin
@@ -389,4 +390,4 @@ class ControlPlaneHandler(
         return None
 
 
-__all__ = ["ControlPlaneHandler"]
+__all__ = ["ControlPlaneHandler", "has_permission"]
