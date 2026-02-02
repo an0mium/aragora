@@ -95,13 +95,13 @@ class TestDebateProtocolDefaults:
         """Default has early stopping enabled."""
         protocol = DebateProtocol()
         assert protocol.early_stopping is True
-        assert protocol.early_stop_threshold == 0.95
+        assert protocol.early_stop_threshold == 0.85
 
     def test_default_convergence_detection(self):
         """Default has convergence detection enabled."""
         protocol = DebateProtocol()
         assert protocol.convergence_detection is True
-        assert protocol.convergence_threshold == 0.95
+        assert protocol.convergence_threshold == 0.85
 
     def test_default_vote_grouping(self):
         """Default has vote grouping enabled."""
