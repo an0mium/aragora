@@ -81,7 +81,7 @@ class OpenRouterAgent(APIAgent):
     Supported models (via model parameter):
     - deepseek/deepseek-reasoner (DeepSeek R1)
     - deepseek/deepseek-chat (DeepSeek V3)
-    - meta-llama/llama-4-maverick
+    - meta-llama/llama-3.3-70b-instruct
     - mistralai/mistral-large-2411
     - google/gemini-2.0-flash-exp:free
     - anthropic/claude-3.5-sonnet
@@ -632,19 +632,19 @@ class DeepSeekV3Agent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "llama",
-    default_model="meta-llama/llama-4-maverick",
+    default_model="meta-llama/llama-3.3-70b-instruct",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Llama 4 Maverick",
+    description="Llama 3.3 70B Instruct",
 )
 class LlamaAgent(OpenRouterAgent):
-    """Llama 4 Maverick via OpenRouter."""
+    """Llama 3.3 70B via OpenRouter."""
 
     def __init__(
         self,
         name: str = "llama",
         role: AgentRole = "analyst",
-        model: str = "meta-llama/llama-4-maverick",
+        model: str = "meta-llama/llama-3.3-70b-instruct",
         system_prompt: str | None = None,
     ):
         super().__init__(

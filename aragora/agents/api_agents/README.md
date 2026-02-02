@@ -106,7 +106,7 @@ Agent (core.py)
 |-------------|-------|-------------|
 | `DeepSeekAgent` | deepseek-reasoner | Chain-of-thought reasoning |
 | `DeepSeekReasonerAgent` | deepseek-r1 | Chain-of-thought reasoning |
-| `LlamaAgent` | llama-4-maverick | Meta's flagship model |
+| `LlamaAgent` | llama-3.3-70b | Meta's flagship open model |
 | `Llama4MaverickAgent` | llama-4-maverick | 400B MoE, 1M context |
 | `Llama4ScoutAgent` | llama-4-scout | 109B MoE, 10M context |
 | `QwenAgent` | qwen3-max | Alibaba's frontier model |

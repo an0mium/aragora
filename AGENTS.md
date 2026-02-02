@@ -44,7 +44,7 @@ These agents use OpenRouter for unified multi-model access:
 |------------|-------|-------------|
 | `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 - reasoning model |
 | `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek R1 - chain-of-thought reasoning |
-| `llama` | meta-llama/llama-4-maverick | Llama 4 Maverick |
+| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large via OpenRouter |
 | `qwen` | qwen/qwen3-max | Qwen3 Max - frontier model |
 | `qwen-max` | qwen/qwen3-max | Qwen3 Max - frontier model |

@@ -1412,7 +1412,7 @@ OpenRouter:
 | `openrouter` | deepseek/deepseek-chat-v3-0324 | Model via `model` parameter |
 | `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 (reasoning) |
 | `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek reasoning |
-| `llama` | meta-llama/llama-4-maverick | Llama 4 Maverick |
+| `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
 | `qwen` | qwen/qwen3-max | Qwen3 Max |
 | `qwen-max` | qwen/qwen3-max | Qwen3 Max |

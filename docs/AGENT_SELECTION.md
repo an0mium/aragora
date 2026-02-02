@@ -26,7 +26,7 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 | `mistral` | mistralai/mistral-large-2411 | Fast, high-quality reasoning | $$ |
 | `qwen` | qwen/qwen3-max | Multilingual, code | $ |
 | `qwen-max` | qwen/qwen3-max | Flagship reasoning | $$ |
-| `llama` | meta-llama/llama-4-maverick | General, open weights | $ |
+| `llama` | meta-llama/llama-3.3-70b-instruct | General, open weights | $ |
 | `yi` | 01-ai/yi-large | Chinese/English | $ |
 
 **Cost Legend:** $ = Low ($0.001-0.01/1K tokens), $$ = Medium ($0.01-0.05/1K), $$$ = High ($0.05+/1K)
