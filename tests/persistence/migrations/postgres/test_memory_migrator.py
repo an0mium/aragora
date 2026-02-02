@@ -12,10 +12,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
+pytest.importorskip("asyncpg")
 
 import asyncpg
-
-pytest.importorskip("asyncpg")
 
 
 class TestMigrationStats:
