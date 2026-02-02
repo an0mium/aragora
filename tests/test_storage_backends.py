@@ -224,9 +224,10 @@ class TestGetDatabaseBackend:
     def test_db_path_resolves_under_data_dir(self, tmp_path, monkeypatch):
         """Bare db_path should resolve under ARAGORA_DATA_DIR."""
         from aragora.storage.backends import get_database_backend, reset_database_backend
+        from aragora.config import legacy as legacy
 
         reset_database_backend()
-        monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
+        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
 
         backend = get_database_backend(force_sqlite=True, db_path="aragora.db")
         try:
