@@ -554,8 +554,8 @@ class AuditLogger:
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to close connection: %s", exc)
         self._connections.clear()
         self._conn_var.set(None)
 

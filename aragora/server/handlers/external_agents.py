@@ -71,7 +71,7 @@ def _call_run_coro(coro: Any) -> Any:
     if os.environ.get("PYTEST_CURRENT_TEST"):
         side_effect = getattr(runner, "side_effect", None)
         if isinstance(side_effect, list):
-            runner.side_effect = iter(side_effect)  # type: ignore[attr-defined]
+            runner.side_effect  # type: ignore[attr-defined] = iter(side_effect)  # type: ignore[attr-defined]
     return runner(coro)
 
 

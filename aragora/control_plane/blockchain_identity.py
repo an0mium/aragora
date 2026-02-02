@@ -298,8 +298,8 @@ class BlockchainIdentityBridge:
                             metadata_bytes = contract.get_metadata(token_id, "aragora_agent_id")
                             if metadata_bytes:
                                 aragora_id = metadata_bytes.decode("utf-8").strip()
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.debug("Failed to decode metadata: %s", exc)
 
                     if aragora_id:
                         await self.link_agent(

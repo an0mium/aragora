@@ -935,7 +935,7 @@ class MarketplaceHandler:
         self, template: TemplateMetadata, all_templates: dict[str, TemplateMetadata]
     ) -> list[dict[str, Any]]:
         """Find related templates based on category and tags."""
-        related = []
+        related: list[tuple[int, TemplateMetadata]] = []
 
         for other in all_templates.values():
             if other.id == template.id:
@@ -956,7 +956,21 @@ class MarketplaceHandler:
 
         # Sort by score and take top 5
         related.sort(key=lambda x: x[0], reverse=True)
-        return [t.to_dict() for _, t in related[:5]]
+        related_templates = [t.to_dict() for _, t in related]
+
+        if len(related_templates) < 5:
+            # Fill remaining slots with popular templates (by downloads/rating)
+            related_ids = {t["id"] for t in related_templates}
+            fallback = [
+                t for t in all_templates.values() if t.id != template.id and t.id not in related_ids
+            ]
+            fallback.sort(key=lambda t: (t.downloads, t.rating), reverse=True)
+            for extra in fallback:
+                related_templates.append(extra.to_dict())
+                if len(related_templates) >= 5:
+                    break
+
+        return related_templates[:5]
 
     # =========================================================================
     # List Categories

@@ -160,9 +160,9 @@ def init_gateway_metrics() -> bool:
             _init_noop_metrics()
             _initialized = True
             return False
-    except Exception:
+    except Exception as exc:
         # If observability config is unavailable fall through to Prometheus
-        pass
+        logger.debug("Observability config unavailable: %s", exc)
 
     try:
         from prometheus_client import Counter, Gauge, Histogram

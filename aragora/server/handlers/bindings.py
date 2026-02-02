@@ -72,7 +72,7 @@ def _web_response_to_handler_result(response: web.Response) -> HandlerResult:
     return HandlerResult(
         status_code=response.status,
         content_type=content_type,
-        body=body,
+        body=body,  # type: ignore[arg-type]
         headers=headers,
     )
 

@@ -156,8 +156,8 @@ class ConnectionPool:
         if self._closed:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to close connection: %s", exc)
             return
 
         try:

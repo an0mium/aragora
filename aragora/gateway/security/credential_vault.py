@@ -123,7 +123,7 @@ class CredentialVault:
             elif is_production:
                 raise RuntimeError(
                     "ARAGORA_CREDENTIAL_VAULT_SALT must be set in production. "
-                    "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                    'Generate with: python -c "import secrets; print(secrets.token_hex(32))"'
                 )
             else:
                 logger.warning(
@@ -197,7 +197,8 @@ class CredentialVault:
         """Try to decrypt data, falling back to legacy SHA-256 key if needed."""
         try:
             return self._decrypt_with_key(encrypted_data, key)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Primary decryption failed: %s", exc)
             # Try legacy SHA-256 key derivation
             env_key = os.environ.get("ARAGORA_CREDENTIAL_VAULT_KEY")
             if env_key:

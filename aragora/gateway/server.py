@@ -903,8 +903,8 @@ class LocalGateway:
                 if not ws.closed:
                     try:
                         await ws.close(code=1001, message=b"Server shutting down")
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Cleanup failed during shutdown: %s", exc)
             logger.info(f"Closed {ws_count} WebSocket connection(s)")
 
         # Phase 3: Flush stores
