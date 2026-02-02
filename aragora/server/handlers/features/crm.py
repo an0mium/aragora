@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-from aragora.server.handlers.base import HandlerResult, json_response
+from aragora.server.handlers.base import HandlerResult
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -537,7 +537,7 @@ class CRMHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/crm/")
 
-    def _check_circuit_breaker(self) -> HandlerResult | None:
+    def _check_circuit_breaker(self) -> dict[str, Any] | None:
         """Check if the circuit breaker allows the request to proceed.
 
         Returns:
@@ -546,9 +546,9 @@ class CRMHandler(SecureHandler):
         cb = get_crm_circuit_breaker()
         if not cb.can_proceed():
             logger.warning("CRM circuit breaker is open, rejecting request")
-            return error_response(
-                "CRM service temporarily unavailable (circuit breaker open)",
+            return self._error_response(
                 503,
+                "CRM service temporarily unavailable (circuit breaker open)",
             )
         return None
 
@@ -1343,10 +1343,21 @@ class CRMHandler(SecureHandler):
 
     async def _list_all_deals(self, request: Any) -> HandlerResult:
         """List deals from all connected platforms."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
         limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         stage = request.query.get("stage")
 
+        # Validate stage if provided
+        if stage:
+            valid, err = _validate_string_field(stage, "Stage", MAX_STAGE_LENGTH)
+            if not valid:
+                return self._error_response(400, err)
+
         all_deals: list[dict[str, Any]] = []
+        cb = get_crm_circuit_breaker()
 
         tasks = []
         for platform in _platform_credentials.keys():
@@ -1355,11 +1366,18 @@ class CRMHandler(SecureHandler):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        has_failure = False
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
                 logger.error(f"Error fetching deals from {platform}: {result}")
+                has_failure = True
                 continue
             all_deals.extend(result)
+
+        if has_failure:
+            cb.record_failure()
+        elif _platform_credentials:
+            cb.record_success()
 
         return self._json_response(
             200,
@@ -1380,9 +1398,12 @@ class CRMHandler(SecureHandler):
         if not connector:
             return []
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 deals = await connector.get_deals(limit=limit)
+                cb.record_success()
                 normalized = [self._normalize_hubspot_deal(d) for d in deals]
                 if stage:
                     normalized = [d for d in normalized if d.get("stage") == stage]
@@ -1390,16 +1411,33 @@ class CRMHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"Error fetching {platform} deals: {e}")
+            cb.record_failure()
 
         return []
 
     async def _list_platform_deals(self, request: Any, platform: str) -> HandlerResult:
         """List deals from a specific platform."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
         limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         stage = request.query.get("stage")
+
+        # Validate stage if provided
+        if stage:
+            valid, err = _validate_string_field(stage, "Stage", MAX_STAGE_LENGTH)
+            if not valid:
+                return self._error_response(400, err)
+
         deals = await self._fetch_platform_deals(platform, limit, stage)
 
         return self._json_response(
@@ -1413,6 +1451,19 @@ class CRMHandler(SecureHandler):
 
     async def _get_deal(self, request: Any, platform: str, deal_id: str) -> HandlerResult:
         """Get a specific deal."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform and deal ID
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
+        valid, err = _validate_resource_id(deal_id, "Deal ID")
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -1420,19 +1471,32 @@ class CRMHandler(SecureHandler):
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 deal = await connector.get_deal(deal_id)
+                cb.record_success()
                 return self._json_response(200, self._normalize_hubspot_deal(deal))
 
         except Exception as e:
             logger.warning("CRM get_deal failed for %s/%s: %s", platform, deal_id, e)
+            cb.record_failure()
             return self._error_response(404, f"Deal not found: {e}")
 
         return self._error_response(400, "Unsupported platform")
 
     async def _create_deal(self, request: Any, platform: str) -> HandlerResult:
         """Create a new deal."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -1442,26 +1506,52 @@ class CRMHandler(SecureHandler):
             logger.warning("CRM create_deal: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
+        # Validate deal fields
+        name = body.get("name")
+        valid, err = _validate_string_field(name, "Deal name", MAX_DEAL_NAME_LENGTH, required=True)
+        if not valid:
+            return self._error_response(400, err)
+
+        stage = body.get("stage")
+        valid, err = _validate_string_field(stage, "Stage", MAX_STAGE_LENGTH, required=True)
+        if not valid:
+            return self._error_response(400, err)
+
+        pipeline = body.get("pipeline")
+        valid, err = _validate_string_field(pipeline, "Pipeline", MAX_PIPELINE_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
+        # Validate amount if provided
+        amount = body.get("amount")
+        valid, err, _ = _validate_amount(amount)
+        if not valid:
+            return self._error_response(400, err)
+
         connector = await self._get_connector(platform)
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 properties = {
-                    "dealname": body.get("name"),
-                    "amount": body.get("amount"),
-                    "dealstage": body.get("stage"),
-                    "pipeline": body.get("pipeline", "default"),
+                    "dealname": name,
+                    "amount": amount,
+                    "dealstage": stage,
+                    "pipeline": pipeline or "default",
                     "closedate": body.get("close_date"),
                 }
                 properties = {k: v for k, v in properties.items() if v is not None}
 
                 deal = await connector.create_deal(properties)
+                cb.record_success()
                 return self._json_response(201, self._normalize_hubspot_deal(deal))
 
         except Exception as e:
             logger.error("CRM create_deal failed for %s: %s", platform, e, exc_info=True)
+            cb.record_failure()
             return self._error_response(500, f"Failed to create deal: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -1470,12 +1560,23 @@ class CRMHandler(SecureHandler):
 
     async def _get_pipeline(self, request: Any) -> HandlerResult:
         """Get sales pipeline summary."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
         platform = request.query.get("platform")
+
+        # Validate platform if provided
+        if platform:
+            valid, err = _validate_platform_id(platform)
+            if not valid:
+                return self._error_response(400, err)
 
         if platform and platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
         pipelines: list[dict[str, Any]] = []
+        cb = get_crm_circuit_breaker()
 
         platforms_to_query = [platform] if platform else list(_platform_credentials.keys())
 
@@ -1490,6 +1591,7 @@ class CRMHandler(SecureHandler):
             try:
                 if p == "hubspot":
                     pipeline_data = await connector.get_pipelines()
+                    cb.record_success()
                     for pipe in pipeline_data:
                         pipelines.append(
                             {
@@ -1514,6 +1616,7 @@ class CRMHandler(SecureHandler):
 
             except Exception as e:
                 logger.error(f"Error fetching {p} pipelines: {e}")
+                cb.record_failure()
 
         # Get deal summary by stage
         all_deals = await self._list_all_deals(request)
@@ -1541,6 +1644,10 @@ class CRMHandler(SecureHandler):
 
     async def _sync_lead(self, request: Any) -> HandlerResult:
         """Sync a lead from an external source (e.g., LinkedIn Ads, form submission)."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
         try:
             body = await self._get_json_body(request)
         except Exception as e:
@@ -1548,24 +1655,35 @@ class CRMHandler(SecureHandler):
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         target_platform = body.get("platform", "hubspot")
+
+        # Validate platform ID
+        valid, err = _validate_platform_id(target_platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if target_platform not in _platform_credentials:
             return self._error_response(404, f"Platform {target_platform} is not connected")
 
         source = body.get("source", "api")
         lead_data = body.get("lead", {})
 
-        if not lead_data.get("email"):
-            return self._error_response(400, "Lead email is required")
+        # Validate lead email
+        lead_email = lead_data.get("email")
+        valid, err = _validate_email(lead_email, required=True)
+        if not valid:
+            return self._error_response(400, err)
 
         connector = await self._get_connector(target_platform)
         if not connector:
             return self._error_response(500, f"Could not initialize {target_platform} connector")
 
+        cb = get_crm_circuit_breaker()
+
         try:
             # Check if contact exists
             existing = None
             try:
-                existing = await connector.get_contact_by_email(lead_data["email"])
+                existing = await connector.get_contact_by_email(lead_email)
             except (ConnectionError, TimeoutError, OSError) as e:
                 # Network errors - log and proceed with create (may cause duplicate)
                 logger.warning(f"Contact lookup failed, proceeding with create: {e}")
@@ -1581,6 +1699,7 @@ class CRMHandler(SecureHandler):
                 contact = await connector.create_contact(properties)
                 action = "created"
 
+            cb.record_success()
             return self._json_response(
                 200,
                 {
@@ -1592,6 +1711,7 @@ class CRMHandler(SecureHandler):
 
         except Exception as e:
             logger.error("CRM sync_lead failed: %s", e, exc_info=True)
+            cb.record_failure()
             return self._error_response(500, f"Failed to sync lead: {e}")
 
     # Enrichment
@@ -1605,8 +1725,9 @@ class CRMHandler(SecureHandler):
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         email = body.get("email")
-        if not email:
-            return self._error_response(400, "Email is required for enrichment")
+        valid, err = _validate_email(email, required=True)
+        if not valid:
+            return self._error_response(400, err)
 
         # Placeholder for enrichment logic
         # In production, this would integrate with services like Clearbit, ZoomInfo, etc.
@@ -1623,6 +1744,10 @@ class CRMHandler(SecureHandler):
 
     async def _search_crm(self, request: Any) -> HandlerResult:
         """Search across CRM data."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
         try:
             body = await self._get_json_body(request)
         except Exception as e:
@@ -1630,10 +1755,26 @@ class CRMHandler(SecureHandler):
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         query = body.get("query", "")
+
+        # Validate query length
+        valid, err = _validate_string_field(query, "Search query", MAX_SEARCH_QUERY_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
         object_types = body.get("types", ["contacts", "companies", "deals"])
+
+        # Validate object types
+        valid_types = {"contacts", "companies", "deals"}
+        for obj_type in object_types:
+            if obj_type not in valid_types:
+                return self._error_response(400, f"Invalid object type: {obj_type}")
+
         limit = body.get("limit", 20)
+        if not isinstance(limit, int) or limit < 1 or limit > 100:
+            return self._error_response(400, "Limit must be an integer between 1 and 100")
 
         results: dict[str, list[dict[str, Any]]] = {}
+        cb = get_crm_circuit_breaker()
 
         for platform in _platform_credentials.keys():
             if SUPPORTED_PLATFORMS.get(platform, {}).get("coming_soon"):
@@ -1663,8 +1804,11 @@ class CRMHandler(SecureHandler):
                             [self._normalize_hubspot_deal(d) for d in deals]
                         )
 
+                cb.record_success()
+
             except Exception as e:
                 logger.error(f"Error searching {platform}: {e}")
+                cb.record_failure()
 
         return self._json_response(
             200,
@@ -1823,13 +1967,17 @@ class CRMHandler(SecureHandler):
         body, _err = await parse_json_body(request, context="crm")
         return body if body is not None else {}
 
-    def _json_response(self, status: int, data: Any) -> HandlerResult:
+    def _json_response(self, status: int, data: Any) -> dict[str, Any]:
         """Create a JSON response."""
-        return json_response(data, status=status)
+        return {
+            "status_code": status,
+            "headers": {"Content-Type": "application/json"},
+            "body": data,
+        }
 
-    def _error_response(self, status: int, message: str) -> HandlerResult:
+    def _error_response(self, status: int, message: str) -> dict[str, Any]:
         """Create an error response."""
-        return error_response(message, status=status)
+        return self._json_response(status, {"error": message})
 
 
 __all__ = ["CRMHandler"]

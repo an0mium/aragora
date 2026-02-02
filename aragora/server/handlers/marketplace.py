@@ -112,11 +112,11 @@ def _validate_rating(value: Any) -> tuple[bool, int, str]:
         Tuple of (is_valid, sanitized_value, error_message).
     """
     if value is None:
-        return False, 0, "Rating score is required"
+        return False, 0, "Score required"
     if not isinstance(value, int):
         return False, 0, "Rating score must be an integer"
     if value < MIN_RATING or value > MAX_RATING:
-        return False, 0, f"Rating score must be between {MIN_RATING} and {MAX_RATING}"
+        return False, 0, f"Rating score must be between {MIN_RATING}-{MAX_RATING}"
     return True, value, ""
 
 

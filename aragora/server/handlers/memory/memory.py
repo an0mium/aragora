@@ -47,14 +47,15 @@ logger = logging.getLogger(__name__)
 MEMORY_READ_PERMISSION = "memory:read"
 MEMORY_WRITE_PERMISSION = "memory:write"
 
+# Pre-declare optional import names for type safety
+MemoryTier: Any = None
+
 # Optional import for memory functionality
 try:
-    from aragora.memory.continuum import ContinuumMemory, MemoryTier
+    from aragora.memory.continuum import MemoryTier
 
     CONTINUUM_AVAILABLE = True
 except ImportError:
-    ContinuumMemory = None  # type: ignore[misc,assignment]
-    MemoryTier = None  # type: ignore[misc,assignment]
     CONTINUUM_AVAILABLE = False
 
 # Optional import for critique store - use canonical helper

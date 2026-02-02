@@ -17,6 +17,11 @@ from urllib.parse import parse_qs
 
 from aragora.config import DEFAULT_ROUNDS
 
+try:
+    from aragora.server.storage import get_debates_db
+except ImportError:  # pragma: no cover - optional dependency for tests
+    get_debates_db = None
+
 from .config import (
     ARAGORA_API_BASE_URL,
     SLACK_BOT_TOKEN,
@@ -524,8 +529,8 @@ class CommandsMixin(BlocksMixin):
             )
 
         try:
-            from aragora.server.storage import get_debates_db
-
+            if get_debates_db is None:
+                raise RuntimeError("Debates DB not available")
             db = get_debates_db()
             results: list[Any] = []
 
@@ -703,8 +708,8 @@ class CommandsMixin(BlocksMixin):
     def _command_recent(self) -> HandlerResult:
         """Show recent debates."""
         try:
-            from aragora.server.storage import get_debates_db
-
+            if get_debates_db is None:
+                raise RuntimeError("Debates DB not available")
             db = get_debates_db()
             if not db or not hasattr(db, "list"):
                 return self._slack_response(

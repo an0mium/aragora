@@ -54,7 +54,7 @@ from aragora.audit.unified import audit_admin, audit_security
 logger = logging.getLogger(__name__)
 
 
-class NomicHandler(  # type: ignore[misc]
+class NomicHandler(
     SecureEndpointMixin, SecureHandler
 ):  # Mixin composition for secure Nomic endpoints
     """Handler for nomic loop state, monitoring, and control endpoints.
@@ -154,7 +154,7 @@ class NomicHandler(  # type: ignore[misc]
                             f"retrying in {delay:.2f}s: {e}"
                         )
                         await asyncio.sleep(delay)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - Stream emission can fail in many ways
                     logger.warning(f"Nomic stream emission unexpected error: {e}")
                     last_error = e
                     break  # Don't retry unexpected errors
@@ -172,7 +172,7 @@ class NomicHandler(  # type: ignore[misc]
             # No running event loop - use _run_async as fallback (single attempt)
             try:
                 _run_async(method(*args, **kwargs))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Stream emission can fail in many ways
                 logger.warning(f"Nomic stream emission failed (no event loop): {e}")
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

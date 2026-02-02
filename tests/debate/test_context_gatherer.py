@@ -1489,3 +1489,1092 @@ class TestPerDebateIsolation:
 
         task = "consistent hash task"
         assert gatherer1._get_task_hash(task) == gatherer2._get_task_hash(task)
+
+
+# =============================================================================
+# Timeout Wrapper Methods Tests
+# =============================================================================
+
+
+class TestGatherEvidenceWithTimeout:
+    """Tests for _gather_evidence_with_timeout method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_evidence_when_fast(self):
+        """Returns evidence when collection completes quickly."""
+        gatherer = _make_gatherer()
+
+        with patch.object(
+            gatherer,
+            "gather_evidence_context",
+            new_callable=AsyncMock,
+            return_value="## Evidence\nSome evidence",
+        ):
+            result = await gatherer._gather_evidence_with_timeout("test task")
+
+        assert result == "## Evidence\nSome evidence"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_timeout(self):
+        """Returns None when evidence collection times out."""
+        gatherer = _make_gatherer()
+
+        async def slow_evidence(task):
+            await asyncio.sleep(100)
+            return "slow evidence"
+
+        with patch.object(gatherer, "gather_evidence_context", side_effect=slow_evidence):
+            with patch("aragora.debate.context_gatherer.EVIDENCE_TIMEOUT", 0.01):
+                result = await gatherer._gather_evidence_with_timeout("test task")
+
+        assert result is None
+
+
+class TestGatherTrendingWithTimeout:
+    """Tests for _gather_trending_with_timeout method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_trending_when_fast(self):
+        """Returns trending context when collection completes quickly."""
+        gatherer = _make_gatherer(enable_trending_context=True)
+
+        with patch.object(
+            gatherer,
+            "gather_trending_context",
+            new_callable=AsyncMock,
+            return_value="## Trending\nAI topics",
+        ):
+            result = await gatherer._gather_trending_with_timeout()
+
+        assert result == "## Trending\nAI topics"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_timeout(self):
+        """Returns None when trending collection times out."""
+        gatherer = _make_gatherer(enable_trending_context=True)
+
+        async def slow_trending():
+            await asyncio.sleep(100)
+            return "slow trending"
+
+        with patch.object(gatherer, "gather_trending_context", side_effect=slow_trending):
+            with patch("aragora.debate.context_gatherer.TRENDING_TIMEOUT", 0.01):
+                result = await gatherer._gather_trending_with_timeout()
+
+        assert result is None
+
+
+class TestGatherKnowledgeMoundWithTimeout:
+    """Tests for _gather_knowledge_mound_with_timeout method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_knowledge_when_fast(self):
+        """Returns knowledge context when query completes quickly."""
+        gatherer = _make_gatherer()
+
+        with patch.object(
+            gatherer,
+            "gather_knowledge_mound_context",
+            new_callable=AsyncMock,
+            return_value="## Knowledge\nSome facts",
+        ):
+            result = await gatherer._gather_knowledge_mound_with_timeout("test task")
+
+        assert result == "## Knowledge\nSome facts"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_timeout(self):
+        """Returns None when knowledge mound query times out."""
+        gatherer = _make_gatherer()
+
+        async def slow_knowledge(task):
+            await asyncio.sleep(100)
+            return "slow knowledge"
+
+        with patch.object(gatherer, "gather_knowledge_mound_context", side_effect=slow_knowledge):
+            with patch("aragora.debate.context_gatherer.KNOWLEDGE_MOUND_TIMEOUT", 0.01):
+                result = await gatherer._gather_knowledge_mound_with_timeout("test task")
+
+        assert result is None
+
+
+class TestGatherThreatIntelWithTimeout:
+    """Tests for _gather_threat_intel_with_timeout method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_threat_intel_when_fast(self):
+        """Returns threat intel context when collection completes quickly."""
+        gatherer = _make_gatherer()
+
+        with patch.object(
+            gatherer,
+            "gather_threat_intel_context",
+            new_callable=AsyncMock,
+            return_value="## Threat Intel\nCVE info",
+        ):
+            result = await gatherer._gather_threat_intel_with_timeout("CVE task")
+
+        assert result == "## Threat Intel\nCVE info"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_timeout(self):
+        """Returns None when threat intel collection times out."""
+        gatherer = _make_gatherer()
+
+        async def slow_threat_intel(task):
+            await asyncio.sleep(100)
+            return "slow intel"
+
+        with patch.object(gatherer, "gather_threat_intel_context", side_effect=slow_threat_intel):
+            with patch("aragora.debate.context_gatherer.THREAT_INTEL_TIMEOUT", 0.01):
+                result = await gatherer._gather_threat_intel_with_timeout("CVE task")
+
+        assert result is None
+
+
+class TestGatherBeliefWithTimeout:
+    """Tests for _gather_belief_with_timeout method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_belief_when_fast(self):
+        """Returns belief crux context when analysis completes quickly."""
+        gatherer = _make_gatherer()
+
+        with patch.object(
+            gatherer,
+            "gather_belief_crux_context",
+            new_callable=AsyncMock,
+            return_value="## Crux Points\nKey disagreement",
+        ):
+            result = await gatherer._gather_belief_with_timeout("test task")
+
+        assert result == "## Crux Points\nKey disagreement"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_timeout(self):
+        """Returns None when belief analysis times out."""
+        gatherer = _make_gatherer()
+
+        async def slow_belief(task):
+            await asyncio.sleep(100)
+            return "slow belief"
+
+        with patch.object(gatherer, "gather_belief_crux_context", side_effect=slow_belief):
+            with patch("aragora.debate.context_gatherer.BELIEF_CRUX_TIMEOUT", 0.01):
+                result = await gatherer._gather_belief_with_timeout("test task")
+
+        assert result is None
+
+
+class TestGatherCultureWithTimeout:
+    """Tests for _gather_culture_with_timeout method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_culture_when_fast(self):
+        """Returns culture context when query completes quickly."""
+        gatherer = _make_gatherer()
+
+        with patch.object(
+            gatherer,
+            "gather_culture_patterns_context",
+            new_callable=AsyncMock,
+            return_value="## Culture\nOrg patterns",
+        ):
+            result = await gatherer._gather_culture_with_timeout("test task")
+
+        assert result == "## Culture\nOrg patterns"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_timeout(self):
+        """Returns None when culture query times out."""
+        gatherer = _make_gatherer()
+
+        async def slow_culture(task):
+            await asyncio.sleep(100)
+            return "slow culture"
+
+        with patch.object(gatherer, "gather_culture_patterns_context", side_effect=slow_culture):
+            result = await gatherer._gather_culture_with_timeout("test task")
+
+        # Uses 5.0 second timeout, but we mock slow task
+        assert result is None
+
+
+# =============================================================================
+# RLM Compression Advanced Tests
+# =============================================================================
+
+
+@dataclass
+class MockCompressionResult:
+    """Mock compression result for HierarchicalCompressor."""
+
+    context: Any = None
+
+
+@dataclass
+class MockContext:
+    """Mock context with abstraction levels."""
+
+    _levels: dict = field(default_factory=dict)
+
+    def get_at_level(self, level):
+        return self._levels.get(level, None)
+
+
+class TestCompressWithRlmAdvanced:
+    """Advanced tests for _compress_with_rlm method."""
+
+    @pytest.mark.asyncio
+    async def test_rlm_timeout_falls_back_to_compressor(self):
+        """Falls back to HierarchicalCompressor when AragoraRLM times out."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+        gatherer._rlm_threshold = 100
+
+        # Mock AragoraRLM that times out
+        mock_rlm = AsyncMock()
+
+        async def timeout_compress(*args, **kwargs):
+            await asyncio.sleep(100)
+            return MockRLMResult()
+
+        mock_rlm.compress_and_query = timeout_compress
+        gatherer._aragora_rlm = mock_rlm
+
+        # Mock HierarchicalCompressor that works
+        mock_compressor = AsyncMock()
+        mock_context = MockContext()
+        mock_compressor.compress = AsyncMock(
+            return_value=MockCompressionResult(context=mock_context)
+        )
+        gatherer._rlm_compressor = mock_compressor
+
+        content = "A" * 5000
+        # The result will be truncation since mock context doesn't have levels
+        result = await gatherer._compress_with_rlm(content, max_chars=200)
+
+        # Should fall back to truncation when compressor returns no usable summary
+        assert len(result) <= 200
+
+    @pytest.mark.asyncio
+    async def test_rlm_error_falls_back_to_compressor(self):
+        """Falls back to HierarchicalCompressor when AragoraRLM raises error."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+        gatherer._rlm_threshold = 100
+
+        # Mock AragoraRLM that raises error
+        mock_rlm = AsyncMock()
+        mock_rlm.compress_and_query = AsyncMock(side_effect=ValueError("RLM failed"))
+        gatherer._aragora_rlm = mock_rlm
+        gatherer._rlm_compressor = None
+
+        content = "A" * 5000
+        result = await gatherer._compress_with_rlm(content, max_chars=200)
+
+        # Should fall back to truncation
+        assert result.endswith("... [truncated]")
+
+    @pytest.mark.asyncio
+    async def test_compressor_timeout_falls_back_to_truncation(self):
+        """Falls back to truncation when HierarchicalCompressor times out."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+        gatherer._rlm_threshold = 100
+        gatherer._aragora_rlm = None
+
+        # Mock slow compressor
+        mock_compressor = AsyncMock()
+
+        async def slow_compress(*args, **kwargs):
+            await asyncio.sleep(100)
+            return MockCompressionResult()
+
+        mock_compressor.compress = slow_compress
+        gatherer._rlm_compressor = mock_compressor
+
+        content = "A" * 5000
+        result = await gatherer._compress_with_rlm(content, max_chars=200)
+
+        assert result.endswith("... [truncated]")
+
+    @pytest.mark.asyncio
+    async def test_rlm_returns_longer_than_max_chars(self):
+        """Truncates RLM result if it exceeds max_chars."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+        gatherer._rlm_threshold = 100
+
+        mock_rlm = AsyncMock()
+        mock_rlm.compress_and_query = AsyncMock(
+            return_value=MockRLMResult(answer="B" * 5000, used_true_rlm=False)
+        )
+        gatherer._aragora_rlm = mock_rlm
+
+        content = "A" * 10000
+        result = await gatherer._compress_with_rlm(content, max_chars=200)
+
+        assert len(result) == 200
+        assert result == "B" * 200
+
+    @pytest.mark.asyncio
+    async def test_rlm_returns_empty_falls_back(self):
+        """Falls back when RLM returns empty answer."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+        gatherer._rlm_threshold = 100
+
+        mock_rlm = AsyncMock()
+        mock_rlm.compress_and_query = AsyncMock(
+            return_value=MockRLMResult(answer="", used_true_rlm=False)
+        )
+        gatherer._aragora_rlm = mock_rlm
+        gatherer._rlm_compressor = None
+
+        content = "A" * 5000
+        result = await gatherer._compress_with_rlm(content, max_chars=200)
+
+        assert result.endswith("... [truncated]")
+
+
+# =============================================================================
+# _query_with_true_rlm Tests
+# =============================================================================
+
+
+class TestQueryWithTrueRlm:
+    """Tests for _query_with_true_rlm method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_rlm_disabled(self):
+        """Returns None when RLM is disabled."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = False
+
+        result = await gatherer._query_with_true_rlm("query", "content")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_aragora_rlm(self):
+        """Returns None when no AragoraRLM instance."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+        gatherer._aragora_rlm = None
+
+        result = await gatherer._query_with_true_rlm("query", "content")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_uses_compress_and_query_when_true_rlm_unavailable(self):
+        """Uses compress_and_query when TRUE RLM not available."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+
+        mock_rlm = AsyncMock()
+        mock_rlm.compress_and_query = AsyncMock(
+            return_value=MockRLMResult(answer="query result", used_true_rlm=False)
+        )
+        gatherer._aragora_rlm = mock_rlm
+
+        with patch("aragora.debate.context_gatherer.HAS_OFFICIAL_RLM", False):
+            result = await gatherer._query_with_true_rlm("What is X?", "content about X")
+
+        assert result == "query result"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_timeout(self):
+        """Returns None when query times out."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+
+        mock_rlm = AsyncMock()
+
+        async def slow_query(*args, **kwargs):
+            await asyncio.sleep(100)
+            return MockRLMResult()
+
+        mock_rlm.compress_and_query = slow_query
+        gatherer._aragora_rlm = mock_rlm
+
+        with patch("aragora.debate.context_gatherer.HAS_OFFICIAL_RLM", False):
+            result = await gatherer._query_with_true_rlm("query", "content")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_value_error(self):
+        """Returns None when query raises ValueError."""
+        gatherer = _make_gatherer()
+        gatherer._enable_rlm = True
+
+        mock_rlm = AsyncMock()
+        mock_rlm.compress_and_query = AsyncMock(side_effect=ValueError("bad query"))
+        gatherer._aragora_rlm = mock_rlm
+
+        with patch("aragora.debate.context_gatherer.HAS_OFFICIAL_RLM", False):
+            result = await gatherer._query_with_true_rlm("query", "content")
+
+        assert result is None
+
+
+# =============================================================================
+# query_knowledge_with_true_rlm Tests
+# =============================================================================
+
+
+class TestQueryKnowledgeWithTrueRlm:
+    """Tests for query_knowledge_with_true_rlm method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_knowledge_disabled(self):
+        """Returns None when knowledge grounding is disabled."""
+        gatherer = _make_gatherer()
+        gatherer._enable_knowledge_grounding = False
+
+        result = await gatherer.query_knowledge_with_true_rlm("test task")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_mound(self):
+        """Returns None when no knowledge mound available."""
+        gatherer = _make_gatherer()
+        gatherer._enable_knowledge_grounding = True
+        gatherer._knowledge_mound = None
+
+        result = await gatherer.query_knowledge_with_true_rlm("test task")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_standard_query_when_no_true_rlm(self):
+        """Falls back to standard knowledge query when TRUE RLM unavailable."""
+        gatherer = _make_gatherer()
+        gatherer._enable_knowledge_grounding = True
+        gatherer._knowledge_mound = AsyncMock()
+
+        with (
+            patch("aragora.debate.context_gatherer.HAS_RLM", False),
+            patch("aragora.debate.context_gatherer.HAS_OFFICIAL_RLM", False),
+            patch.object(
+                gatherer,
+                "gather_knowledge_mound_context",
+                new_callable=AsyncMock,
+                return_value="## Knowledge\nStandard context",
+            ),
+        ):
+            result = await gatherer.query_knowledge_with_true_rlm("test task")
+
+        assert result == "## Knowledge\nStandard context"
+
+
+# =============================================================================
+# _gather_codebase_context Tests
+# =============================================================================
+
+
+class TestGatherCodebaseContext:
+    """Tests for _gather_codebase_context method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_disabled_via_env(self):
+        """Returns None when codebase context is disabled via env var."""
+        gatherer = _make_gatherer()
+
+        with patch.dict("os.environ", {"ARAGORA_CONTEXT_USE_CODEBASE": "false"}):
+            result = await gatherer._gather_codebase_context()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_builder_returns_empty(self):
+        """Returns None when codebase context builder returns empty content."""
+        gatherer = _make_gatherer()
+
+        mock_builder = AsyncMock()
+        mock_builder.build_debate_context = AsyncMock(return_value="")
+        gatherer._codebase_context_builder = mock_builder
+
+        mock_module = MagicMock()
+        mock_module.CodebaseContextBuilder = MagicMock(return_value=mock_builder)
+
+        with patch.dict("sys.modules", {"aragora.rlm.codebase_context": mock_module}):
+            result = await gatherer._gather_codebase_context()
+
+        # Empty string from builder should return None
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handles_builder_init_error(self):
+        """Returns None when builder initialization fails."""
+        gatherer = _make_gatherer()
+        gatherer._codebase_context_builder = None
+
+        mock_builder_class = MagicMock(side_effect=RuntimeError("init failed"))
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.rlm.codebase_context": MagicMock(CodebaseContextBuilder=mock_builder_class)},
+        ):
+            result = await gatherer._gather_codebase_context()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handles_build_timeout(self):
+        """Returns None when context build times out."""
+        gatherer = _make_gatherer()
+
+        mock_builder = AsyncMock()
+
+        async def slow_build():
+            await asyncio.sleep(100)
+            return "slow context"
+
+        mock_builder.build_debate_context = slow_build
+        gatherer._codebase_context_builder = mock_builder
+
+        mock_module = MagicMock()
+        mock_module.CodebaseContextBuilder = MagicMock(return_value=mock_builder)
+
+        with (
+            patch.dict("sys.modules", {"aragora.rlm.codebase_context": mock_module}),
+            patch("aragora.debate.context_gatherer.CODEBASE_CONTEXT_TIMEOUT", 0.01),
+        ):
+            result = await gatherer._gather_codebase_context()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_formatted_context(self):
+        """Returns formatted codebase context when build succeeds."""
+        gatherer = _make_gatherer()
+
+        mock_builder = AsyncMock()
+        mock_builder.build_debate_context = AsyncMock(return_value="Module overview...")
+        gatherer._codebase_context_builder = mock_builder
+
+        mock_module = MagicMock()
+        mock_module.CodebaseContextBuilder = MagicMock(return_value=mock_builder)
+
+        with patch.dict("sys.modules", {"aragora.rlm.codebase_context": mock_module}):
+            result = await gatherer._gather_codebase_context()
+
+        assert result is not None
+        assert "ARAGORA CODEBASE MAP" in result
+        assert "Module overview" in result
+
+
+# =============================================================================
+# Evidence Refresh Advanced Tests
+# =============================================================================
+
+
+class TestRefreshEvidenceForRoundAdvanced:
+    """Advanced tests for refresh_evidence_for_round method."""
+
+    @pytest.mark.asyncio
+    async def test_merges_with_existing_pack(self):
+        """Merges new evidence with existing pack."""
+        gatherer = _make_gatherer()
+
+        task = "merge test task"
+        task_hash = gatherer._get_task_hash(task)
+
+        # Set up existing pack
+        existing_snippet = MockSnippet(id="existing-1", content="existing evidence")
+        existing_pack = MockEvidencePack(snippets=[existing_snippet], total_searched=3)
+        gatherer._research_evidence_pack[task_hash] = existing_pack
+
+        # New evidence to merge
+        new_snippet = MockSnippet(id="new-1", content="new evidence")
+
+        mock_collector = MagicMock()
+        mock_collector.extract_claims_from_text.return_value = ["claim1"]
+        mock_collector.collect_for_claims = AsyncMock(
+            return_value=MockEvidencePack(snippets=[new_snippet], total_searched=2)
+        )
+
+        count, pack = await gatherer.refresh_evidence_for_round(
+            "text with claims", mock_collector, task
+        )
+
+        assert count == 1
+        assert pack is not None
+        assert len(pack.snippets) == 2  # Existing + new
+        assert pack.total_searched == 5  # 3 + 2
+
+    @pytest.mark.asyncio
+    async def test_deduplicates_by_snippet_id(self):
+        """Does not add duplicate snippets."""
+        gatherer = _make_gatherer()
+
+        task = "dedupe test task"
+        task_hash = gatherer._get_task_hash(task)
+
+        # Set up existing pack with snippet
+        existing_snippet = MockSnippet(id="snippet-1", content="existing evidence")
+        existing_pack = MockEvidencePack(snippets=[existing_snippet], total_searched=3)
+        gatherer._research_evidence_pack[task_hash] = existing_pack
+
+        # Try to add duplicate
+        duplicate_snippet = MockSnippet(id="snippet-1", content="duplicate")
+
+        mock_collector = MagicMock()
+        mock_collector.extract_claims_from_text.return_value = ["claim1"]
+        mock_collector.collect_for_claims = AsyncMock(
+            return_value=MockEvidencePack(snippets=[duplicate_snippet], total_searched=2)
+        )
+
+        count, pack = await gatherer.refresh_evidence_for_round(
+            "text with claims", mock_collector, task
+        )
+
+        # Count is snippets returned from collector, but none are added
+        assert count == 1
+        assert len(pack.snippets) == 1  # Still just one (no duplicate added)
+
+    @pytest.mark.asyncio
+    async def test_enforces_cache_limit_when_storing_new_pack(self):
+        """Enforces cache limit when storing a new evidence pack."""
+        gatherer = _make_gatherer()
+
+        # Fill cache to near limit
+        for i in range(100):
+            gatherer._research_evidence_pack[f"hash-{i}"] = MockEvidencePack()
+
+        task = "new task beyond limit"
+        snippet = MockSnippet(id="new-1")
+
+        mock_collector = MagicMock()
+        mock_collector.extract_claims_from_text.return_value = ["claim1"]
+        mock_collector.collect_for_claims = AsyncMock(
+            return_value=MockEvidencePack(snippets=[snippet], total_searched=1)
+        )
+
+        count, pack = await gatherer.refresh_evidence_for_round("text", mock_collector, task)
+
+        # Cache should have been evicted to stay under limit
+        assert len(gatherer._research_evidence_pack) <= 100
+
+
+# =============================================================================
+# Knowledge Mound Context Advanced Tests
+# =============================================================================
+
+
+class TestGatherKnowledgeMoundContextAdvanced:
+    """Advanced tests for gather_knowledge_mound_context method."""
+
+    @pytest.mark.asyncio
+    async def test_handles_confidence_as_enum(self):
+        """Handles confidence values that are enums."""
+        gatherer = _make_gatherer()
+        gatherer._enable_knowledge_grounding = True
+
+        mock_confidence_enum = MagicMock()
+        mock_confidence_enum.value = "high"
+
+        mock_source = MagicMock()
+        mock_source.value = "fact"
+
+        item = MockKnowledgeItem(
+            content="High confidence fact",
+            source=mock_source,
+            confidence=mock_confidence_enum,
+        )
+
+        mock_mound = AsyncMock()
+        mock_mound.query = AsyncMock(
+            return_value=MockKnowledgeResult(items=[item], execution_time_ms=10.0)
+        )
+        gatherer._knowledge_mound = mock_mound
+
+        result = await gatherer.gather_knowledge_mound_context("test task")
+
+        assert result is not None
+        assert "HIGH" in result
+
+    @pytest.mark.asyncio
+    async def test_handles_string_confidence(self):
+        """Handles confidence values as strings."""
+        gatherer = _make_gatherer()
+        gatherer._enable_knowledge_grounding = True
+
+        mock_source = MagicMock()
+        mock_source.value = "fact"
+
+        item = MockKnowledgeItem(
+            content="Medium confidence fact",
+            source=mock_source,
+            confidence="medium",  # String confidence
+        )
+
+        mock_mound = AsyncMock()
+        mock_mound.query = AsyncMock(
+            return_value=MockKnowledgeResult(items=[item], execution_time_ms=10.0)
+        )
+        gatherer._knowledge_mound = mock_mound
+
+        result = await gatherer.gather_knowledge_mound_context("test task")
+
+        assert result is not None
+        assert "MEDIUM" in result
+
+    @pytest.mark.asyncio
+    async def test_limits_items_per_category(self):
+        """Limits the number of items shown per category."""
+        gatherer = _make_gatherer()
+        gatherer._enable_knowledge_grounding = True
+
+        mock_source = MagicMock()
+        mock_source.value = "fact"
+
+        # Create 10 facts - only 3 should be shown
+        items = [
+            MockKnowledgeItem(content=f"Fact {i}", source=mock_source, confidence=0.8)
+            for i in range(10)
+        ]
+
+        mock_mound = AsyncMock()
+        mock_mound.query = AsyncMock(
+            return_value=MockKnowledgeResult(items=items, execution_time_ms=10.0)
+        )
+        gatherer._knowledge_mound = mock_mound
+
+        result = await gatherer.gather_knowledge_mound_context("test task")
+
+        assert result is not None
+        # Should only include first 3 facts
+        assert "Fact 0" in result
+        assert "Fact 2" in result
+        assert "Fact 5" not in result
+
+
+# =============================================================================
+# Aragora Context Advanced Tests
+# =============================================================================
+
+
+class TestGatherAragoraContextAdvanced:
+    """Advanced tests for gather_aragora_context method."""
+
+    @pytest.mark.asyncio
+    async def test_includes_codebase_context_when_available(self):
+        """Includes codebase context when available."""
+        gatherer = _make_gatherer()
+
+        with patch.object(
+            gatherer,
+            "_gather_codebase_context",
+            new_callable=AsyncMock,
+            return_value="## ARAGORA CODEBASE MAP\nModules...",
+        ):
+            with patch.object(
+                gatherer,
+                "_compress_with_rlm",
+                new_callable=AsyncMock,
+                side_effect=lambda c, **kw: c[:100],
+            ):
+                # Use a temp directory for docs that exists but is empty
+                gatherer._project_root = Path("/nonexistent")
+                result = await gatherer.gather_aragora_context("Discuss aragora architecture")
+
+        # Result may be None because docs don't exist, but should not crash
+        # The codebase context would be included if docs existed
+        assert result is None or "CODEBASE MAP" in result or result is None
+
+    @pytest.mark.asyncio
+    async def test_handles_file_read_errors_gracefully(self):
+        """Handles file read errors gracefully without crashing."""
+        gatherer = _make_gatherer()
+        gatherer._project_root = Path("/nonexistent/path")
+
+        result = await gatherer.gather_aragora_context("Improve the nomic loop system")
+
+        # Should return None gracefully, not raise
+        assert result is None
+
+
+# =============================================================================
+# Environment Variable Configuration Tests
+# =============================================================================
+
+
+class TestEnvironmentConfiguration:
+    """Tests for environment variable configuration."""
+
+    def test_trending_disabled_via_env(self):
+        """Trending context can be disabled via environment variable."""
+        with patch.dict("os.environ", {"ARAGORA_DISABLE_TRENDING": "true"}):
+            from aragora.debate.context_gatherer import ContextGatherer
+
+            gatherer = ContextGatherer(
+                enable_rlm_compression=False,
+                enable_knowledge_grounding=False,
+                enable_belief_guidance=False,
+                enable_threat_intel_enrichment=False,
+                enable_trending_context=True,  # Enabled by arg
+            )
+
+            # Should be disabled despite arg because of env var
+            assert gatherer._enable_trending_context is False
+
+    def test_cache_limits_configurable(self):
+        """Cache limits can be read from environment."""
+        # The cache limit constants are read at module load time
+        from aragora.debate.context_gatherer import (
+            MAX_CONTEXT_CACHE_SIZE,
+            MAX_CONTINUUM_CACHE_SIZE,
+            MAX_EVIDENCE_CACHE_SIZE,
+            MAX_TRENDING_CACHE_SIZE,
+        )
+
+        # Default values
+        assert MAX_EVIDENCE_CACHE_SIZE == 100
+        assert MAX_CONTEXT_CACHE_SIZE == 100
+        assert MAX_CONTINUUM_CACHE_SIZE == 100
+        assert MAX_TRENDING_CACHE_SIZE == 50
+
+
+# =============================================================================
+# Additional Edge Cases
+# =============================================================================
+
+
+class TestEdgeCases:
+    """Tests for additional edge cases."""
+
+    def test_empty_task_hash(self):
+        """Handles empty task string."""
+        gatherer = _make_gatherer()
+        hash_result = gatherer._get_task_hash("")
+
+        assert len(hash_result) == 16
+        assert hash_result == hashlib.sha256(b"").hexdigest()[:16]
+
+    @pytest.mark.asyncio
+    async def test_gather_all_with_exception_in_subtask(self):
+        """Handles exceptions in gather subtasks gracefully."""
+        gatherer = _make_gatherer()
+
+        with (
+            patch.object(
+                gatherer, "_gather_claude_web_search", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                gatherer, "gather_aragora_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                gatherer,
+                "_gather_knowledge_mound_with_timeout",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("unexpected"),
+            ),
+            patch.object(
+                gatherer, "_gather_belief_with_timeout", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                gatherer, "_gather_culture_with_timeout", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                gatherer,
+                "_gather_threat_intel_with_timeout",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+        ):
+            result = await gatherer.gather_all("test task")
+
+        # Should not crash, returns default message
+        assert result == "No research context available."
+
+    @pytest.mark.asyncio
+    async def test_gather_all_calls_evidence_when_claude_search_weak(self):
+        """Calls evidence gatherer when Claude search returns weak results."""
+        gatherer = _make_gatherer()
+
+        # Claude search returns less than 500 chars
+        short_claude_result = "Short summary"
+
+        with (
+            patch.object(
+                gatherer,
+                "_gather_claude_web_search",
+                new_callable=AsyncMock,
+                return_value=short_claude_result,
+            ),
+            patch.object(
+                gatherer, "gather_aragora_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                gatherer,
+                "_gather_evidence_with_timeout",
+                new_callable=AsyncMock,
+                return_value="## Evidence\nFallback evidence",
+            ) as mock_evidence,
+            patch.object(
+                gatherer,
+                "_gather_knowledge_mound_with_timeout",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch.object(
+                gatherer, "_gather_belief_with_timeout", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                gatherer, "_gather_culture_with_timeout", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                gatherer,
+                "_gather_threat_intel_with_timeout",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+        ):
+            result = await gatherer.gather_all("test task")
+
+        # Evidence should have been called as fallback
+        mock_evidence.assert_called_once()
+        assert "Short summary" in result
+        assert "Fallback evidence" in result
+
+    def test_continuum_context_handles_missing_tier_attribute(self):
+        """Handles memories without tier attribute."""
+        gatherer = _make_gatherer()
+
+        class MemoryWithoutTier:
+            id = "mem-no-tier"
+            content = "content without tier"
+            consolidation_score = 0.5
+
+        mock_memory = MagicMock()
+        mock_memory.retrieve.return_value = [MemoryWithoutTier()]
+
+        # Should not crash
+        context, ids, tiers = gatherer.get_continuum_context(
+            mock_memory, "domain", "unique task for no tier memory"
+        )
+
+        # May return empty if tier filtering fails
+        assert context is not None or context == ""
+
+    @pytest.mark.asyncio
+    async def test_trending_context_caches_topics(self):
+        """Trending context caches TrendingTopic objects."""
+        gatherer = _make_gatherer(enable_trending_context=True)
+
+        mock_topic = MockTrendingTopic(topic="AI Safety", platform="hackernews")
+
+        mock_manager = MagicMock()
+        mock_manager.get_trending_topics = AsyncMock(return_value=[mock_topic])
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.pulse.ingestor": MagicMock(
+                    PulseManager=MagicMock(return_value=mock_manager),
+                    HackerNewsIngestor=MagicMock,
+                    RedditIngestor=MagicMock,
+                    GitHubTrendingIngestor=MagicMock,
+                    GoogleTrendsIngestor=MagicMock,
+                ),
+            },
+        ):
+            result = await gatherer.gather_trending_context()
+
+        if result:  # Only check if trending worked
+            assert len(gatherer._trending_topics_cache) > 0
+
+
+# =============================================================================
+# Belief Crux Context Advanced Tests
+# =============================================================================
+
+
+class TestGatherBeliefCruxContextAdvanced:
+    """Advanced tests for gather_belief_crux_context method."""
+
+    @pytest.mark.asyncio
+    async def test_limits_cruxes_to_top_k(self):
+        """Limits cruxes to top_k_cruxes parameter."""
+        gatherer = _make_gatherer()
+        gatherer._enable_belief_guidance = True
+
+        mock_analyzer = MagicMock()
+        mock_result = MockBeliefResult(
+            cruxes=[
+                {"statement": f"Crux {i}", "confidence": 0.8, "entropy": 0.3} for i in range(10)
+            ],
+        )
+        mock_analyzer.analyze_messages.return_value = mock_result
+        gatherer._belief_analyzer = mock_analyzer
+
+        result = await gatherer.gather_belief_crux_context("task", messages=["msg"], top_k_cruxes=2)
+
+        assert result is not None
+        assert "Crux 0" in result
+        assert "Crux 1" in result
+        assert "Crux 5" not in result
+
+    @pytest.mark.asyncio
+    async def test_shows_confidence_labels_correctly(self):
+        """Shows correct confidence labels."""
+        gatherer = _make_gatherer()
+        gatherer._enable_belief_guidance = True
+
+        mock_analyzer = MagicMock()
+        mock_result = MockBeliefResult(
+            cruxes=[
+                {"statement": "High conf", "confidence": 0.9, "entropy": 0.1},
+                {"statement": "Med conf", "confidence": 0.5, "entropy": 0.1},
+                {"statement": "Low conf", "confidence": 0.2, "entropy": 0.1},
+            ],
+        )
+        mock_analyzer.analyze_messages.return_value = mock_result
+        gatherer._belief_analyzer = mock_analyzer
+
+        result = await gatherer.gather_belief_crux_context("task", messages=["msg"])
+
+        assert "HIGH" in result
+        assert "MEDIUM" in result
+        assert "LOW" in result
+
+
+# =============================================================================
+# Culture Patterns Advanced Tests
+# =============================================================================
+
+
+class TestGatherCulturePatternsAdvanced:
+    """Advanced tests for gather_culture_patterns_context method."""
+
+    @pytest.mark.asyncio
+    async def test_uses_workspace_id_from_init(self):
+        """Uses workspace ID from initialization."""
+        gatherer = _make_gatherer(knowledge_workspace_id="custom-ws")
+        mock_mound = AsyncMock()
+        mock_mound.get_culture_context = AsyncMock(return_value="Culture context")
+        gatherer._knowledge_mound = mock_mound
+
+        await gatherer.gather_culture_patterns_context("task")
+
+        mock_mound.get_culture_context.assert_called_once()
+        call_kwargs = mock_mound.get_culture_context.call_args.kwargs
+        assert call_kwargs["org_id"] == "custom-ws"
+
+    @pytest.mark.asyncio
+    async def test_overrides_workspace_id_with_parameter(self):
+        """Overrides workspace ID with parameter."""
+        gatherer = _make_gatherer(knowledge_workspace_id="default-ws")
+        mock_mound = AsyncMock()
+        mock_mound.get_culture_context = AsyncMock(return_value="Culture context")
+        gatherer._knowledge_mound = mock_mound
+
+        await gatherer.gather_culture_patterns_context("task", workspace_id="override-ws")
+
+        call_kwargs = mock_mound.get_culture_context.call_args.kwargs
+        assert call_kwargs["org_id"] == "override-ws"

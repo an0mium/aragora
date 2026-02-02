@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Callable
+from typing import Any, Callable, cast
 
 from aragora.core import Agent, Message
 from aragora.ranking.elo import EloSystem
@@ -119,8 +119,8 @@ class CapabilityProber:
             if not strategy_class:
                 continue
 
-            # STRATEGIES maps to concrete subclasses only; mypy sees abstract base type
-            strategy: ProbeStrategy = strategy_class()  # type: ignore[abstract]
+            # STRATEGIES maps to concrete subclasses only; cast to Any for instantiation
+            strategy: ProbeStrategy = cast(Any, strategy_class)()
             type_results: list[ProbeResult] = []
 
             for _ in range(probes_per_type):
@@ -174,7 +174,7 @@ class CapabilityProber:
         start_time = datetime.now()
         try:
             response = await run_agent_fn(target_agent, probe_prompt)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Probe can fail in many ways
             response = f"Error: {str(e)}"
         end_time = datetime.now()
 

@@ -12,7 +12,7 @@ Handles bidirectional data flow between subsystems and Knowledge Mound:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent
@@ -100,7 +100,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass  # KnowledgeMound not available
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"Memory→KM sync failed: {e}")
 
     def _handle_mound_to_memory_retrieval(self, event: "StreamEvent") -> None:
@@ -133,7 +133,7 @@ class KnowledgeMoundHandlersMixin:
                 memory.prewarm_for_query(query, workspace_id=workspace_id)
         except (ImportError, AttributeError):
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"KM→Memory pre-warm failed: {e}")
 
     def _handle_belief_to_mound(self, event: "StreamEvent") -> None:
@@ -180,7 +180,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass  # BeliefAdapter not available
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"Belief→KM storage failed: {e}")
 
     def _handle_mound_to_belief(self, event: "StreamEvent") -> None:
@@ -225,7 +225,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"KM→Belief initialization failed: {e}")
 
     def _handle_rlm_to_mound(self, event: "StreamEvent") -> None:
@@ -266,7 +266,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass  # RlmAdapter not available yet
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"RLM→KM storage failed: {e}")
 
     def _handle_mound_to_rlm(self, event: "StreamEvent") -> None:
@@ -306,7 +306,7 @@ class KnowledgeMoundHandlersMixin:
                 )
         except ImportError:
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"KM→RLM priority update failed: {e}")
 
     def _handle_elo_to_mound(self, event: "StreamEvent") -> None:
@@ -342,7 +342,7 @@ class KnowledgeMoundHandlersMixin:
 
             # RankingAdapter is an alias for PerformanceAdapter which implements
             # all abstract methods via mixins; the type checker cannot verify this.
-            adapter = RankingAdapter()  # type: ignore[abstract]
+            adapter = cast(Any, RankingAdapter)()
             adapter.store_agent_expertise(
                 agent_name=agent_name,
                 domain=domain,
@@ -353,7 +353,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass  # RankingAdapter not available yet
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"ELO→KM storage failed: {e}")
 
     def _handle_mound_to_team_selection(self, event: "StreamEvent") -> None:
@@ -382,7 +382,7 @@ class KnowledgeMoundHandlersMixin:
 
             # RankingAdapter is an alias for PerformanceAdapter which implements
             # all abstract methods via mixins; the type checker cannot verify this.
-            adapter = RankingAdapter()  # type: ignore[abstract]
+            adapter = cast(Any, RankingAdapter)()
             # Detect domain from question
             domain = adapter.detect_domain(question)
             experts = adapter.get_domain_experts(domain=domain, limit=10)
@@ -392,7 +392,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"KM→Team selection query failed: {e}")
 
     def _handle_insight_to_mound(self, event: "StreamEvent") -> None:
@@ -443,7 +443,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"Insight→KM storage failed: {e}")
 
     def _handle_flip_to_mound(self, event: "StreamEvent") -> None:
@@ -506,7 +506,7 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"Flip→KM storage failed: {e}")
 
     def _handle_mound_to_trickster(self, event: "StreamEvent") -> None:
@@ -545,5 +545,5 @@ class KnowledgeMoundHandlersMixin:
 
         except ImportError:
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all after specific exceptions
             logger.debug(f"KM→Trickster query failed: {e}")

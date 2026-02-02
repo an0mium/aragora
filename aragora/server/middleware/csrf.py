@@ -299,11 +299,13 @@ def _validate_token_value(
 
 
 # Handle potential import error for binascii.Error
-binascii_Error: type[Exception]
+binascii_Error: type[Exception] = ValueError
 try:
-    from binascii import Error as binascii_Error  # type: ignore[no-redef]
+    from binascii import Error as _binascii_Error_impl
+
+    binascii_Error = _binascii_Error_impl
 except ImportError:
-    binascii_Error = ValueError
+    pass
 
 
 # =============================================================================

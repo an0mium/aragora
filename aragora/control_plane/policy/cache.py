@@ -21,6 +21,9 @@ from .types import (
 
 logger = get_logger(__name__)
 
+# Pre-declare optional import with module type annotation
+aioredis: ModuleType | None = None
+
 # Redis availability check (optional - for distributed cache)
 try:
     import redis.asyncio as aioredis
@@ -28,7 +31,6 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    aioredis: ModuleType | None = None  # type: ignore[no-redef]
 
 
 class RedisPolicyCache:

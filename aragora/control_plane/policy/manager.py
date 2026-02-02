@@ -19,6 +19,7 @@ from .types import (
     PolicyDecision,
     PolicyEvaluationResult,
     PolicyViolation,
+    SLARequirements,
 )
 
 logger = get_logger(__name__)
@@ -45,6 +46,10 @@ class _RecordPolicyDecisionProto(Protocol):
     def __call__(self, *, decision: str, policy_type: str) -> None: ...
 
 
+# Pre-declare optional imports to avoid no-redef errors
+log_policy_decision: _LogPolicyDecisionProto | None = None
+prometheus_record_policy: _RecordPolicyDecisionProto | None = None
+
 # Audit logging (optional)
 try:
     from aragora.control_plane.audit import log_policy_decision
@@ -52,7 +57,6 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_policy_decision: _LogPolicyDecisionProto | None = None  # type: ignore[no-redef]
 
 # Prometheus metrics (optional)
 try:
@@ -63,7 +67,6 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    prometheus_record_policy: _RecordPolicyDecisionProto | None = None  # type: ignore[no-redef]
 
 
 class ControlPlanePolicyManager:
@@ -287,6 +290,9 @@ class ControlPlanePolicyManager:
         # Get applicable policies (sorted by priority)
         policies = self.list_policies(enabled_only=True, workspace=workspace)
 
+        # Collect SLA requirements from applicable policies
+        applicable_sla: SLARequirements | None = None
+
         for policy in policies:
             # Check if policy matches this context
             matches_task = policy.matches(
@@ -294,15 +300,19 @@ class ControlPlanePolicyManager:
                 workspace=workspace,
             )
 
-            # Also check capability-level matches
+            # Also check capability-level matches (only if capabilities provided)
             matches_capability = (
                 any(policy.matches(capability=cap, workspace=workspace) for cap in capabilities)
                 if capabilities
-                else policy.matches(workspace=workspace)
+                else False  # No capabilities = no capability match
             )
 
             if not (matches_task or matches_capability):
                 continue
+
+            # Track SLA requirements from matching policies
+            if policy.sla and applicable_sla is None:
+                applicable_sla = policy.sla
 
             # Check agent restriction
             if not policy.is_agent_allowed(agent_id):
@@ -384,6 +394,7 @@ class ControlPlanePolicyManager:
             task_type=task_type,
             agent_id=agent_id,
             region=region,
+            sla_requirements=applicable_sla,
         )
 
         # Log to audit trail (fire and forget)
@@ -562,7 +573,7 @@ class ControlPlanePolicyManager:
         if self._violation_callback:
             try:
                 self._violation_callback(violation)
-            except Exception as e:  # User callback - any exception possible
+            except Exception as e:  # noqa: BLE001 - User callback can throw any exception
                 logger.warning(
                     "violation_callback_failed",
                     error=str(e),

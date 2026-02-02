@@ -330,6 +330,14 @@ class PolicyEvaluationResult:
     region: str | None = None
     sla_violation: str | None = None
 
+    # Additional attributes
+    sla_requirements: SLARequirements | None = None
+
+    @property
+    def can_override(self) -> bool:
+        """Whether this result can be overridden (True for SOFT/WARN enforcement)."""
+        return self.enforcement_level in (EnforcementLevel.SOFT, EnforcementLevel.WARN)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         return {
@@ -344,6 +352,8 @@ class PolicyEvaluationResult:
             "agent_id": self.agent_id,
             "region": self.region,
             "sla_violation": self.sla_violation,
+            "sla_requirements": self.sla_requirements.to_dict() if self.sla_requirements else None,
+            "can_override": self.can_override,
         }
 
 

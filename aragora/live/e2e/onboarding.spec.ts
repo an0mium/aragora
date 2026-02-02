@@ -141,7 +141,7 @@ test.describe('Onboarding Flow', () => {
     }
 
     // Should eventually redirect or show completion
-    const completionIndicator = page.locator('text=/complete|success|ready|welcome/i');
+    const _completionIndicator = page.locator('text=/complete|success|ready|welcome/i');
     // Allow either completion state or redirect
     await page.waitForTimeout(1000);
   });

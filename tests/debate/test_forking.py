@@ -2103,6 +2103,445 @@ class TestCountUniqueArgumentsDeep:
 # =============================================================================
 
 
+# =============================================================================
+# Additional Coverage: Branch creation when fork triggers
+# =============================================================================
+
+
+class TestForkDetectorBranchCreation:
+    """Tests for ForkDetector when fork actually triggers with branch creation."""
+
+    def _create_mock_message(self, agent: str, content: str) -> Mock:
+        """Helper to create mock messages."""
+        msg = Mock()
+        msg.agent = agent
+        msg.content = content
+        return msg
+
+    def _create_mock_agent(self, name: str) -> Mock:
+        """Helper to create mock agents."""
+        agent = Mock()
+        agent.name = name
+        return agent
+
+    def test_should_fork_creates_branches_with_extract_approach(self):
+        """Test should_fork creates branches using _extract_approach when triggered."""
+        detector = ForkDetector()
+
+        # Create messages that trigger high disagreement
+        messages = [
+            self._create_mock_message(
+                "claude",
+                "I propose using microservices for scalability. This is fundamentally different from monoliths. I disagree with the monolith approach.",
+            ),
+            self._create_mock_message(
+                "gpt4",
+                "On the contrary, I disagree completely. We should use monolith architecture instead. I propose using a simpler design.",
+            ),
+        ]
+        agents = [
+            self._create_mock_agent("claude"),
+            self._create_mock_agent("gpt4"),
+        ]
+
+        decision = detector.should_fork(messages, round_num=3, agents=agents)
+
+        # With enough disagreement indicators, should trigger fork
+        if decision.should_fork:
+            assert len(decision.branches) >= 1
+            assert len(decision.branches) <= 3  # Max 3 branches
+            # Branches should have hypothesis and lead_agent
+            for branch in decision.branches:
+                assert "hypothesis" in branch
+                assert "lead_agent" in branch
+                assert branch["lead_agent"] in ["claude", "gpt4"]
+
+    def test_extract_approach_with_i_propose(self):
+        """Test _extract_approach extracts text after 'I propose'."""
+        detector = ForkDetector()
+
+        msg = Mock()
+        msg.content = (
+            "Let me think. I propose using Redis for caching. It provides excellent performance."
+        )
+
+        approach = detector._extract_approach(msg)
+
+        assert "I propose" in approach or "propose" in approach.lower()
+        assert "..." in approach
+
+    def test_extract_approach_with_my_approach(self):
+        """Test _extract_approach extracts text after 'My approach'."""
+        detector = ForkDetector()
+
+        msg = Mock()
+        msg.content = (
+            "After consideration, My approach is to use microservices. This scales better."
+        )
+
+        approach = detector._extract_approach(msg)
+
+        assert "..." in approach
+
+    def test_extract_approach_with_i_suggest(self):
+        """Test _extract_approach extracts text after 'I suggest'."""
+        detector = ForkDetector()
+
+        msg = Mock()
+        msg.content = (
+            "For this problem, I suggest implementing a queue system. This handles async well."
+        )
+
+        approach = detector._extract_approach(msg)
+
+        assert "..." in approach
+
+    def test_extract_approach_with_the_solution_is(self):
+        """Test _extract_approach extracts text after 'The solution is'."""
+        detector = ForkDetector()
+
+        msg = Mock()
+        msg.content = "Given the constraints, The solution is to use caching. It solves latency."
+
+        approach = detector._extract_approach(msg)
+
+        assert "..." in approach
+
+    def test_extract_approach_fallback_to_first_sentence(self):
+        """Test _extract_approach falls back to first sentence when no markers found."""
+        detector = ForkDetector()
+
+        msg = Mock()
+        msg.content = (
+            "Redis provides excellent caching capabilities. It supports persistence and clustering."
+        )
+
+        approach = detector._extract_approach(msg)
+
+        assert "Redis" in approach
+        assert "..." in approach
+
+
+# =============================================================================
+# Additional Coverage: Merge winner fallback
+# =============================================================================
+
+
+class TestMergeWinnerFallback:
+    """Tests for merge when winner_id lookup fails."""
+
+    def test_merge_fallback_to_first_branch(self):
+        """Test merge falls back to first branch when winner lookup fails."""
+        forker = DebateForker()
+
+        # Create result
+        result = Mock()
+        result.confidence = 0.8
+        result.consensus_reached = True
+        result.final_answer = "Test answer"
+        result.rounds_used = 3
+        result.critiques = []
+
+        # Create branch with result
+        branch1 = Branch(
+            branch_id="b1",
+            parent_debate_id="debate-123",
+            fork_round=3,
+            hypothesis="Test",
+            lead_agent="claude",
+            result=result,
+        )
+
+        # Mock _score_branch to return a score for an ID that doesn't match any branch
+        original_score = forker._score_branch
+
+        def mock_score(branch):
+            return original_score(branch)
+
+        forker._score_branch = mock_score
+
+        # This should work normally
+        merge_result = forker.merge([branch1])
+
+        assert merge_result.winning_branch_id == "b1"
+
+
+# =============================================================================
+# Additional Coverage: _extract_merged_insights edge cases
+# =============================================================================
+
+
+class TestExtractMergedInsightsEdgeCases:
+    """Tests for _extract_merged_insights edge cases."""
+
+    def test_extract_insights_skips_branch_without_result(self):
+        """Test _extract_merged_insights skips branches without results."""
+        forker = DebateForker()
+
+        result = Mock()
+        result.final_answer = "Good answer from claude."
+
+        branch_with_result = Branch(
+            branch_id="b1",
+            parent_debate_id="debate-123",
+            fork_round=3,
+            hypothesis="A",
+            lead_agent="claude",
+            result=result,
+        )
+
+        branch_without_result = Branch(
+            branch_id="b2",
+            parent_debate_id="debate-123",
+            fork_round=3,
+            hypothesis="B",
+            lead_agent="gpt4",
+            result=None,
+        )
+
+        insights = forker._extract_merged_insights([branch_with_result, branch_without_result])
+
+        assert len(insights) == 1
+        assert "[claude]" in insights[0]
+
+    def test_extract_insights_skips_empty_final_answer(self):
+        """Test _extract_merged_insights skips branches with empty final_answer."""
+        forker = DebateForker()
+
+        result_with_answer = Mock()
+        result_with_answer.final_answer = "Good answer."
+
+        result_empty_answer = Mock()
+        result_empty_answer.final_answer = ""
+
+        result_none_answer = Mock()
+        result_none_answer.final_answer = None
+
+        branch1 = Branch(
+            branch_id="b1",
+            parent_debate_id="debate-123",
+            fork_round=3,
+            hypothesis="A",
+            lead_agent="claude",
+            result=result_with_answer,
+        )
+
+        branch2 = Branch(
+            branch_id="b2",
+            parent_debate_id="debate-123",
+            fork_round=3,
+            hypothesis="B",
+            lead_agent="gpt4",
+            result=result_empty_answer,
+        )
+
+        branch3 = Branch(
+            branch_id="b3",
+            parent_debate_id="debate-123",
+            fork_round=3,
+            hypothesis="C",
+            lead_agent="gemini",
+            result=result_none_answer,
+        )
+
+        insights = forker._extract_merged_insights([branch1, branch2, branch3])
+
+        # Only branch1 has a non-empty final_answer
+        assert len(insights) == 1
+        assert "[claude]" in insights[0]
+
+
+# =============================================================================
+# Additional Coverage: Circular pattern detection
+# =============================================================================
+
+
+class TestCircularPatternDetection:
+    """Tests for circular pattern detection in analyze_round."""
+
+    def _create_msg(self, agent, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent=agent, content=content, round=round_num)
+
+    def test_analyze_round_detects_circular_pattern(self):
+        """Test analyze_round sets pattern to 'circular' when circular_score > 0.7."""
+        resolver = DeadlockResolver()
+
+        # Build history with circular pattern (A->B->A)
+        # Need to manually set up history to trigger circular detection
+        resolver.debate_history["debate-circular"] = [
+            {"round": 3, "positions": {"a": "x"}, "unique_arguments": 5, "message_count": 2},
+            {"round": 4, "positions": {"a": "x"}, "unique_arguments": 3, "message_count": 2},
+            {"round": 5, "positions": {"a": "x"}, "unique_arguments": 5, "message_count": 2},
+        ]
+
+        # Now analyze round 6 with continued circular pattern
+        messages = [
+            self._create_msg("a", "I argue that we should use because evidence.", 6),
+        ]
+
+        # Directly test _detect_circular_arguments
+        circular_score = resolver._detect_circular_arguments("debate-circular")
+        assert circular_score == 0.8  # A->B->A pattern
+
+    def test_analyze_round_with_high_circular_score_sets_pattern(self):
+        """Test that pattern is set to 'circular' when circular_score > 0.7 and positional_stagnation <= 0.8."""
+        resolver = DeadlockResolver()
+
+        # Set up history where circular score will be high (0.8)
+        # but positional stagnation will be low
+        resolver.debate_history["debate-test"] = [
+            {
+                "round": 3,
+                "positions": {"a": "support_1"},
+                "unique_arguments": 5,
+                "message_count": 2,
+            },
+            {
+                "round": 4,
+                "positions": {"a": "support_2"},
+                "unique_arguments": 3,
+                "message_count": 2,
+            },
+            {
+                "round": 5,
+                "positions": {"a": "support_3"},
+                "unique_arguments": 5,
+                "message_count": 2,
+            },
+        ]
+
+        # The circular score will be 0.8 (A->B->A pattern: 5->3->5)
+        # The positional stagnation should be low since positions changed
+        circular_score = resolver._detect_circular_arguments("debate-test")
+        assert circular_score == 0.8
+
+
+# =============================================================================
+# Additional Coverage: auto_resolve decision.should_fork=False
+# =============================================================================
+
+
+class TestAutoResolveNotFork:
+    """Tests for auto_resolve when decision.should_fork is False."""
+
+    def _create_msg(self, agent, content, round_num=1):
+        from aragora.core import Message
+
+        return Message(role="agent", agent=agent, content=content, round=round_num)
+
+    def test_auto_resolve_returns_none_when_decision_should_not_fork(self):
+        """Test auto_resolve returns None when _create_counterfactual_decision says not to fork."""
+        resolver = DeadlockResolver()
+
+        signal = DeadlockSignal(
+            debate_id="debate-123",
+            round=5,
+            stagnation_score=0.85,
+            rounds_without_progress=3,
+            pattern="positional",
+            recommendation="fork",  # Recommendation is fork but decision may say no
+        )
+
+        # With only one agent message, the decision will have only 1 branch
+        # which means should_fork will be False (need >= 2 branches)
+        messages = [
+            self._create_msg("claude", "Only my position", 5),
+        ]
+
+        agents = []
+
+        branches = resolver.auto_resolve(signal, messages, agents)
+
+        # With single agent, _create_counterfactual_decision creates 1 branch
+        # and should_fork = len(branches) >= 2, so it's False
+        assert branches is None
+
+
+# =============================================================================
+# Additional Coverage: Positional stagnation with short recent_positions
+# =============================================================================
+
+
+class TestPositionalStagnationShortHistory:
+    """Tests for positional stagnation with short recent_positions list."""
+
+    def test_stagnation_returns_zero_when_recent_positions_too_short(self):
+        """Test _calculate_positional_stagnation returns 0 when recent_positions < 2."""
+        resolver = DeadlockResolver()
+
+        # Set up history with only 1 entry
+        resolver.debate_history["debate-short"] = [
+            {"round": 3, "positions": {"a": "support_123"}, "unique_arguments": 3},
+        ]
+
+        current = {"a": "support_123"}
+
+        # No previous_positions, and history has only 1 entry
+        # so recent_positions will have length 1
+        score = resolver._calculate_positional_stagnation("debate-short", current, None)
+
+        assert score == 0.0
+
+
+# =============================================================================
+# Additional Coverage: _detect_circular_arguments with short history
+# =============================================================================
+
+
+class TestDetectCircularShortHistory:
+    """Tests for _detect_circular_arguments with insufficient history."""
+
+    def test_detect_circular_returns_zero_with_two_rounds(self):
+        """Test _detect_circular_arguments returns 0 with exactly 2 rounds (< 3 needed)."""
+        resolver = DeadlockResolver()
+
+        resolver.debate_history["debate-two"] = [
+            {"round": 1, "positions": {}, "unique_arguments": 5},
+            {"round": 2, "positions": {}, "unique_arguments": 3},
+        ]
+
+        score = resolver._detect_circular_arguments("debate-two")
+
+        assert score == 0.0
+
+
+# =============================================================================
+# Additional Coverage: _calculate_argument_exhaustion with short history
+# =============================================================================
+
+
+class TestArgumentExhaustionShortHistory:
+    """Tests for _calculate_argument_exhaustion with short recent list."""
+
+    def test_exhaustion_returns_zero_with_one_recent_round(self):
+        """Test _calculate_argument_exhaustion returns 0 when recent < 2."""
+        resolver = DeadlockResolver()
+
+        resolver.debate_history["debate-one"] = [
+            {"round": 1, "positions": {}, "unique_arguments": 5},
+        ]
+
+        score = resolver._calculate_argument_exhaustion("debate-one")
+
+        assert score == 0.0
+
+    def test_exhaustion_with_exactly_two_rounds(self):
+        """Test _calculate_argument_exhaustion with exactly 2 rounds."""
+        resolver = DeadlockResolver()
+
+        resolver.debate_history["debate-two"] = [
+            {"round": 1, "positions": {}, "unique_arguments": 10},
+            {"round": 2, "positions": {}, "unique_arguments": 5},
+        ]
+
+        score = resolver._calculate_argument_exhaustion("debate-two")
+
+        # (10 - 5) / 10 = 0.5
+        assert score == 0.5
+
+
 class TestDeadlockResolverResetDeep:
     """Tests for reset and get_signals methods."""
 

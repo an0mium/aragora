@@ -26,10 +26,13 @@ from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
+# Pre-declare optional import names for type safety
+httpx: Any = None
+
 try:
-    import httpx
+    import httpx  # noqa: F401 - Optionally imported for availability check
 except ImportError:
-    httpx = None  # type: ignore[assignment]
+    pass
 
 from aragora.server.http_utils import run_async
 

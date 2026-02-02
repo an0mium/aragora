@@ -62,7 +62,7 @@ except ImportError:
     CRYPTO_AVAILABLE = False
 
     # Fallback class when security module is unavailable; pre-declared above
-    class EncryptionError(Exception):  # type: ignore[no-redef]
+    class _EncryptionErrorFallback(Exception):
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):
@@ -70,6 +70,8 @@ except ImportError:
             self.reason = reason
             self.store = store
             super().__init__(f"Encryption {operation} failed: {reason}")
+
+    EncryptionError = _EncryptionErrorFallback
 
     def get_encryption_service() -> Any:
         raise RuntimeError("Encryption not available")

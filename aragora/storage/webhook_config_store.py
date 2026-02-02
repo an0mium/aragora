@@ -80,7 +80,7 @@ except ImportError:
         return False
 
     # Fallback class when security module is unavailable; pre-declared above
-    class EncryptionError(Exception):  # type: ignore[no-redef]
+    class _EncryptionErrorFallback(Exception):
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):
@@ -91,6 +91,8 @@ except ImportError:
                 f"Encryption {operation} failed in {store}: {reason}. "
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
+
+    EncryptionError = _EncryptionErrorFallback
 
 
 def _encrypt_secret(secret: str) -> str:

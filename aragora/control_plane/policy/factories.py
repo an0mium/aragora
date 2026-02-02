@@ -18,19 +18,31 @@ from .types import (
 
 # Pre-built policies for common scenarios
 def create_production_policy(
-    agent_allowlist: Optional[list[str]] = None,
+    name: str = "production-environment",
+    allowed_agents: Optional[list[str]] = None,
+    blocked_agents: Optional[list[str]] = None,
     allowed_regions: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
-    """Create a policy for production task restrictions."""
+    """Create a policy for production task restrictions.
+
+    Args:
+        name: Policy name (default: "production-environment")
+        allowed_agents: List of agent IDs that are allowed
+        blocked_agents: List of agent IDs that are blocked
+        allowed_regions: List of allowed regions for deployment
+    """
     return ControlPlanePolicy(
-        name="production-restrictions",
+        name=name,
         description="Restricts production tasks to approved agents and regions",
-        task_types=["production-deployment", "production-migration"],
-        agent_allowlist=agent_allowlist or [],
+        task_types=["production", "production-deployment", "production-migration"],
+        agent_allowlist=allowed_agents or [],
+        agent_blocklist=blocked_agents or [],
         region_constraint=RegionConstraint(
             allowed_regions=allowed_regions or [],
             require_data_residency=True,
-        ),
+        )
+        if allowed_regions
+        else None,
         sla=SLARequirements(
             max_execution_seconds=600.0,
             max_queue_seconds=30.0,
@@ -38,60 +50,93 @@ def create_production_policy(
         ),
         enforcement_level=EnforcementLevel.HARD,
         priority=100,
+        enabled=True,
     )
 
 
 def create_sensitive_data_policy(
-    data_regions: list[str],
+    allowed_agents: Optional[list[str]] = None,
+    allowed_regions: Optional[list[str]] = None,
     blocked_regions: Optional[list[str]] = None,
+    require_data_residency: bool = True,
 ) -> ControlPlanePolicy:
-    """Create a policy for sensitive data handling with residency requirements."""
+    """Create a policy for sensitive data handling with residency requirements.
+
+    Args:
+        allowed_agents: List of agent IDs allowed to process sensitive data
+        allowed_regions: List of regions where data can be processed
+        blocked_regions: List of regions where data cannot be processed
+        require_data_residency: Whether to enforce data residency requirements
+    """
     return ControlPlanePolicy(
         name="sensitive-data-residency",
         description="Enforces data residency for sensitive task types",
         task_types=["pii-processing", "financial-analysis", "healthcare-analysis"],
+        agent_allowlist=allowed_agents or [],
         region_constraint=RegionConstraint(
-            allowed_regions=data_regions,
+            allowed_regions=allowed_regions or [],
             blocked_regions=blocked_regions or [],
-            require_data_residency=True,
+            require_data_residency=require_data_residency,
             allow_cross_region=False,
         ),
         enforcement_level=EnforcementLevel.HARD,
         priority=90,
+        enabled=True,
     )
 
 
 def create_agent_tier_policy(
     tier: str,
-    agents: list[str],
+    allowed_agents: Optional[list[str]] = None,
     task_types: Optional[list[str]] = None,
 ) -> ControlPlanePolicy:
-    """Create a policy restricting certain task types to specific agent tiers."""
+    """Create a policy restricting certain task types to specific agent tiers.
+
+    Args:
+        tier: The tier name (e.g., "premium", "standard")
+        allowed_agents: List of agent IDs in this tier
+        task_types: Task types that require this tier (optional)
+    """
     return ControlPlanePolicy(
         name=f"{tier}-agent-tier",
         description=f"Restricts tasks to {tier} tier agents",
         task_types=task_types or [],
-        agent_allowlist=agents,
+        agent_allowlist=allowed_agents or [],
         enforcement_level=EnforcementLevel.HARD,
         priority=50,
+        enabled=True,
     )
 
 
 def create_sla_policy(
-    name: str,
-    task_types: list[str],
+    name: str = "default-sla",
+    task_types: Optional[list[str]] = None,
     max_execution_seconds: float = 300.0,
     max_queue_seconds: float = 60.0,
+    max_concurrent_tasks: int = 5,
+    enforcement_level: EnforcementLevel = EnforcementLevel.WARN,
 ) -> ControlPlanePolicy:
-    """Create a policy with SLA enforcement."""
+    """Create a policy with SLA enforcement.
+
+    Args:
+        name: Policy name
+        task_types: Task types this SLA applies to
+        max_execution_seconds: Maximum execution time
+        max_queue_seconds: Maximum queue wait time
+        max_concurrent_tasks: Maximum concurrent tasks per agent
+        enforcement_level: How strictly to enforce (default: WARN)
+    """
+    effective_task_types = task_types or ["default"]
     return ControlPlanePolicy(
         name=name,
-        description=f"SLA requirements for {', '.join(task_types)}",
-        task_types=task_types,
+        description=f"SLA requirements for {', '.join(effective_task_types)}",
+        task_types=effective_task_types,
         sla=SLARequirements(
             max_execution_seconds=max_execution_seconds,
             max_queue_seconds=max_queue_seconds,
+            max_concurrent_tasks=max_concurrent_tasks,
         ),
-        enforcement_level=EnforcementLevel.WARN,  # Warn on SLA violation
+        enforcement_level=enforcement_level,
         priority=30,
+        enabled=True,
     )

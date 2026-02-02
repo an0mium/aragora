@@ -43,12 +43,14 @@ if TYPE_CHECKING:
 
 # Optional KM integration
 HAS_KM_ADAPTER = False
+# Pre-declare optional import with Any to avoid no-redef errors
+TaskOutcome: Any = None
 try:
     from aragora.knowledge.mound.adapters.control_plane_adapter import TaskOutcome
 
     HAS_KM_ADAPTER = True
 except ImportError:
-    TaskOutcome = None  # type: ignore[misc]
+    pass
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 ThreeTierWatchdog: Any = None

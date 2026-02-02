@@ -278,7 +278,7 @@ class SQLiteBlacklist(BlacklistBackend):
 try:
     import redis
 
-    class RedisBlacklist(BlacklistBackend):  # type: ignore[no-redef]
+    class _RedisBlacklistImpl(BlacklistBackend):
         """
         Redis-backed token blacklist.
 
@@ -319,11 +319,11 @@ try:
             keys = self._client.keys(f"{self._prefix}*")
             return len(keys)
 
+    RedisBlacklist = _RedisBlacklistImpl
     HAS_REDIS = True
 
 except ImportError:
     # Fallback when redis package is not installed; pre-declared above
-    RedisBlacklist = None
     HAS_REDIS = False
 
 

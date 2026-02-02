@@ -1275,3 +1275,827 @@ class TestManagerInitialization:
         audit_log = workspace_handler._get_audit_log()
 
         assert audit_log is not None
+
+
+# ===========================================================================
+# RBAC Permission Tests (with RBAC enabled)
+# ===========================================================================
+
+
+@dataclass
+class MockPermissionDecision:
+    """Mock RBAC permission decision."""
+
+    allowed: bool = True
+    reason: str = "Allowed by test"
+
+
+def mock_check_permission_allowed(*args, **kwargs):
+    """Mock check_permission that always allows."""
+    return MockPermissionDecision(allowed=True)
+
+
+def mock_check_permission_denied(*args, **kwargs):
+    """Mock check_permission that always denies."""
+    return MockPermissionDecision(allowed=False, reason="Permission denied by policy")
+
+
+class TestRBACPermissions:
+    """Tests for RBAC permission checks when RBAC is enabled."""
+
+    @pytest.fixture
+    def rbac_handler(self, user_store, isolation_manager, retention_manager, classifier, audit_log):
+        """Create a workspace handler with mocked dependencies for RBAC tests."""
+        ctx = {"user_store": user_store}
+        handler = WorkspaceHandler(ctx)
+        handler._isolation_manager = isolation_manager
+        handler._retention_manager = retention_manager
+        handler._classifier = classifier
+        handler._audit_log = audit_log
+        return handler
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_create_workspace_rbac_denied(
+        self, mock_extract, rbac_handler, auth_context, user_store
+    ):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "New Workspace"})
+
+        result = rbac_handler._handle_create_workspace(mock_http)
+
+        assert get_status(result) == 403
+        body = get_body(result)
+        assert "permission" in body.get("error", "").lower()
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_delete_workspace_rbac_denied(
+        self, mock_extract, rbac_handler, auth_context, user_store
+    ):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("DELETE")
+
+        result = rbac_handler._handle_delete_workspace(mock_http, "workspace-001")
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_add_member_rbac_denied(self, mock_extract, rbac_handler, auth_context, user_store):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"user_id": "user-456"})
+
+        result = rbac_handler._handle_add_member(mock_http, "workspace-001")
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_remove_member_rbac_denied(self, mock_extract, rbac_handler, auth_context, user_store):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("DELETE")
+
+        result = rbac_handler._handle_remove_member(mock_http, "workspace-001", "user-456")
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_create_policy_rbac_denied(self, mock_extract, rbac_handler, auth_context, user_store):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "Policy"})
+
+        result = rbac_handler._handle_create_policy(mock_http)
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_audit_query_rbac_denied(self, mock_extract, rbac_handler, auth_context, user_store):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = rbac_handler._handle_query_audit(mock_http, {})
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_operations_allowed_when_rbac_permits(
+        self, mock_extract, rbac_handler, auth_context, user_store
+    ):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = rbac_handler._handle_list_workspaces(mock_http, {})
+
+        assert get_status(result) == 200
+
+
+# ===========================================================================
+# Member Role Update Tests
+# ===========================================================================
+
+
+class TestHandleUpdateMemberRole:
+    """Tests for _handle_update_member_role method."""
+
+    @pytest.fixture
+    def profile_handler(
+        self, user_store, isolation_manager, retention_manager, classifier, audit_log
+    ):
+        """Create a handler with RBAC profiles available."""
+        ctx = {"user_store": user_store}
+        handler = WorkspaceHandler(ctx)
+        handler._isolation_manager = isolation_manager
+        handler._retention_manager = retention_manager
+        handler._classifier = classifier
+        handler._audit_log = audit_log
+        return handler
+
+    @patch("aragora.server.handlers.workspace.PROFILES_AVAILABLE", False)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_profiles_not_available(self, mock_extract, profile_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("PUT", {"role": "admin"})
+
+        result = profile_handler._handle_update_member_role(mock_http, "workspace-001", "user-456")
+
+        assert get_status(result) == 503
+
+    @patch("aragora.server.handlers.workspace.PROFILES_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_requires_authentication(self, mock_extract, profile_handler):
+        mock_extract.return_value = MockAuthContext(is_authenticated=False)
+        mock_http = create_mock_handler("PUT", {"role": "admin"})
+
+        result = profile_handler._handle_update_member_role(mock_http, "workspace-001", "user-456")
+
+        assert get_status(result) == 401
+
+    @patch("aragora.server.handlers.workspace.PROFILES_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_requires_role_in_body(self, mock_extract, profile_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("PUT", {})
+
+        result = profile_handler._handle_update_member_role(mock_http, "workspace-001", "user-456")
+
+        assert get_status(result) == 400
+        body = get_body(result)
+        assert "role" in body.get("error", "").lower()
+
+
+# ===========================================================================
+# RBAC Profiles Endpoint Tests
+# ===========================================================================
+
+
+class TestHandleListProfiles:
+    """Tests for _handle_list_profiles method."""
+
+    @pytest.fixture
+    def profile_handler(
+        self, user_store, isolation_manager, retention_manager, classifier, audit_log
+    ):
+        """Create a handler for profile tests."""
+        ctx = {"user_store": user_store}
+        handler = WorkspaceHandler(ctx)
+        handler._isolation_manager = isolation_manager
+        handler._retention_manager = retention_manager
+        handler._classifier = classifier
+        handler._audit_log = audit_log
+        return handler
+
+    @patch("aragora.server.handlers.workspace.PROFILES_AVAILABLE", False)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_profiles_not_available(self, mock_extract, profile_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = profile_handler._handle_list_profiles(mock_http)
+
+        assert get_status(result) == 503
+
+    @patch("aragora.server.handlers.workspace.PROFILES_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_requires_authentication(self, mock_extract, profile_handler):
+        mock_extract.return_value = MockAuthContext(is_authenticated=False)
+        mock_http = create_mock_handler("GET")
+
+        result = profile_handler._handle_list_profiles(mock_http)
+
+        assert get_status(result) == 401
+
+
+class TestHandleGetWorkspaceRoles:
+    """Tests for _handle_get_workspace_roles method."""
+
+    @pytest.fixture
+    def role_handler(self, user_store, isolation_manager, retention_manager, classifier, audit_log):
+        """Create a handler for role tests."""
+        ctx = {"user_store": user_store}
+        handler = WorkspaceHandler(ctx)
+        handler._isolation_manager = isolation_manager
+        handler._retention_manager = retention_manager
+        handler._classifier = classifier
+        handler._audit_log = audit_log
+        return handler
+
+    @patch("aragora.server.handlers.workspace.PROFILES_AVAILABLE", False)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_profiles_not_available(self, mock_extract, role_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = role_handler._handle_get_workspace_roles(mock_http, "workspace-001")
+
+        assert get_status(result) == 503
+
+    @patch("aragora.server.handlers.workspace.PROFILES_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_requires_authentication(self, mock_extract, role_handler):
+        mock_extract.return_value = MockAuthContext(is_authenticated=False)
+        mock_http = create_mock_handler("GET")
+
+        result = role_handler._handle_get_workspace_roles(mock_http, "workspace-001")
+
+        assert get_status(result) == 401
+
+
+# ===========================================================================
+# Input Validation Tests
+# ===========================================================================
+
+
+class TestInputValidation:
+    """Tests for input validation."""
+
+    def test_validate_workspace_id_empty(self, workspace_handler):
+        """Test workspace ID validation rejects empty values."""
+        from aragora.server.handlers.workspace.workspace_utils import _validate_workspace_id
+
+        valid, err = _validate_workspace_id("")
+        assert not valid
+        assert "required" in err.lower()
+
+    def test_validate_workspace_id_valid(self, workspace_handler):
+        """Test workspace ID validation accepts valid values."""
+        from aragora.server.handlers.workspace.workspace_utils import _validate_workspace_id
+
+        valid, err = _validate_workspace_id("workspace-001")
+        assert valid
+        assert err is None
+
+    def test_validate_policy_id_empty(self, workspace_handler):
+        """Test policy ID validation rejects empty values."""
+        from aragora.server.handlers.workspace.workspace_utils import _validate_policy_id
+
+        valid, err = _validate_policy_id("")
+        assert not valid
+        assert "required" in err.lower()
+
+    def test_validate_user_id_empty(self, workspace_handler):
+        """Test user ID validation rejects empty values."""
+        from aragora.server.handlers.workspace.workspace_utils import _validate_user_id
+
+        valid, err = _validate_user_id("")
+        assert not valid
+        assert "required" in err.lower()
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_workspace_route_validates_id(self, mock_extract, workspace_handler, auth_context):
+        """Test that workspace route validates workspace_id format."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        # Route with invalid characters should return 404 (route not found)
+        # because validation happens at routing layer
+        result = workspace_handler._route_workspace(
+            "/api/v1/workspaces/../traversal", {}, mock_http, "GET"
+        )
+
+        # Either 400 (invalid) or 404 (not found) is acceptable
+        assert get_status(result) in [400, 404]
+
+
+# ===========================================================================
+# Cross-Tenant Security Tests
+# ===========================================================================
+
+
+class TestCrossTenantSecurity:
+    """Tests for cross-tenant access prevention."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_create_workspace_cross_tenant_blocked(
+        self, mock_extract, workspace_handler, auth_context
+    ):
+        """Test that creating workspace in another org is blocked."""
+        mock_extract.return_value = auth_context  # org_id = "org-123"
+        mock_http = create_mock_handler(
+            "POST",
+            {"name": "Workspace", "organization_id": "org-other"},
+        )
+
+        result = workspace_handler._handle_create_workspace(mock_http)
+
+        assert get_status(result) == 403
+        body = get_body(result)
+        assert "another organization" in body.get("error", "").lower()
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_list_workspaces_cross_tenant_blocked(
+        self, mock_extract, workspace_handler, auth_context
+    ):
+        """Test that listing workspaces from another org is blocked."""
+        mock_extract.return_value = auth_context  # org_id = "org-123"
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_list_workspaces(
+            mock_http, {"organization_id": "org-other"}
+        )
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_same_org_access_allowed(self, mock_extract, workspace_handler, auth_context):
+        """Test that accessing same org workspaces is allowed."""
+        mock_extract.return_value = auth_context  # org_id = "org-123"
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_list_workspaces(
+            mock_http, {"organization_id": "org-123"}
+        )
+
+        assert get_status(result) == 200
+
+
+# ===========================================================================
+# Circuit Breaker Tests
+# ===========================================================================
+
+
+class TestCircuitBreaker:
+    """Tests for circuit breaker functionality."""
+
+    def test_circuit_breaker_starts_closed(self):
+        """Test that circuit breaker starts in closed state."""
+        from aragora.server.handlers.workspace.workspace_utils import WorkspaceCircuitBreaker
+
+        cb = WorkspaceCircuitBreaker()
+        assert cb.state == WorkspaceCircuitBreaker.CLOSED
+
+    def test_circuit_breaker_opens_after_failures(self):
+        """Test that circuit breaker opens after threshold failures."""
+        from aragora.server.handlers.workspace.workspace_utils import WorkspaceCircuitBreaker
+
+        cb = WorkspaceCircuitBreaker(failure_threshold=3)
+
+        for _ in range(3):
+            cb.record_failure()
+
+        assert cb.state == WorkspaceCircuitBreaker.OPEN
+
+    def test_circuit_breaker_resets_on_success(self):
+        """Test that circuit breaker resets failure count on success."""
+        from aragora.server.handlers.workspace.workspace_utils import WorkspaceCircuitBreaker
+
+        cb = WorkspaceCircuitBreaker(failure_threshold=3)
+        cb.record_failure()
+        cb.record_failure()
+        cb.record_success()
+
+        # Should still be closed after success
+        assert cb.state == WorkspaceCircuitBreaker.CLOSED
+
+    def test_circuit_breaker_blocks_when_open(self):
+        """Test that circuit breaker blocks calls when open."""
+        from aragora.server.handlers.workspace.workspace_utils import WorkspaceCircuitBreaker
+
+        cb = WorkspaceCircuitBreaker(failure_threshold=2)
+        cb.record_failure()
+        cb.record_failure()
+
+        assert not cb.can_proceed()
+
+    def test_circuit_breaker_allows_when_closed(self):
+        """Test that circuit breaker allows calls when closed."""
+        from aragora.server.handlers.workspace.workspace_utils import WorkspaceCircuitBreaker
+
+        cb = WorkspaceCircuitBreaker()
+        assert cb.can_proceed()
+
+    def test_circuit_breaker_status(self):
+        """Test circuit breaker status reporting."""
+        from aragora.server.handlers.workspace.workspace_utils import WorkspaceCircuitBreaker
+
+        cb = WorkspaceCircuitBreaker()
+        status = cb.get_status()
+
+        assert "state" in status
+        assert "failure_count" in status
+        assert "failure_threshold" in status
+
+    def test_circuit_breaker_reset(self):
+        """Test circuit breaker reset functionality."""
+        from aragora.server.handlers.workspace.workspace_utils import WorkspaceCircuitBreaker
+
+        cb = WorkspaceCircuitBreaker(failure_threshold=2)
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.state == WorkspaceCircuitBreaker.OPEN
+
+        cb.reset()
+        assert cb.state == WorkspaceCircuitBreaker.CLOSED
+        assert cb.can_proceed()
+
+    def test_get_workspace_circuit_breaker_status(self):
+        """Test getting status of all workspace circuit breakers."""
+        from aragora.server.handlers.workspace.workspace_utils import (
+            get_workspace_circuit_breaker_status,
+        )
+
+        status = get_workspace_circuit_breaker_status()
+        assert isinstance(status, dict)
+
+
+# ===========================================================================
+# SOC 2 Compliance Tests
+# ===========================================================================
+
+
+class TestSOC2Compliance:
+    """Tests for SOC 2 compliance requirements (CC6.1, CC6.3)."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_workspace_creation_logged(self, mock_extract, workspace_handler, auth_context):
+        """Test that workspace creation is logged for audit (CC6.1)."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "Audit Test Workspace"})
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_create_workspace(mock_http)
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        # Should have logged the creation
+        assert final_entries > initial_entries
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_workspace_deletion_logged(self, mock_extract, workspace_handler, auth_context):
+        """Test that workspace deletion is logged for audit (CC6.1)."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("DELETE")
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_delete_workspace(mock_http, "workspace-001")
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        assert final_entries > initial_entries
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_member_addition_logged(self, mock_extract, workspace_handler, auth_context):
+        """Test that member addition is logged for audit (CC6.3)."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"user_id": "user-456"})
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_add_member(mock_http, "workspace-001")
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        assert final_entries > initial_entries
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_member_removal_logged(self, mock_extract, workspace_handler, auth_context):
+        """Test that member removal is logged for audit (CC6.3)."""
+        workspace_handler._isolation_manager.workspaces["workspace-001"].members.append("user-456")
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("DELETE")
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_remove_member(mock_http, "workspace-001", "user-456")
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        assert final_entries > initial_entries
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_policy_creation_logged(self, mock_extract, workspace_handler, auth_context):
+        """Test that policy creation is logged for audit."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "Test Policy", "action": "delete"})
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_create_policy(mock_http)
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        assert final_entries > initial_entries
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_policy_execution_logged(self, mock_extract, workspace_handler, auth_context):
+        """Test that policy execution is logged for audit."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST")
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_execute_policy(mock_http, "policy-001", {})
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        assert final_entries > initial_entries
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_classification_with_document_logged(
+        self, mock_extract, workspace_handler, auth_context
+    ):
+        """Test that document classification is logged."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler(
+            "POST",
+            {"content": "Test content", "document_id": "doc-001"},
+        )
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_classify_content(mock_http)
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        assert final_entries > initial_entries
+
+
+# ===========================================================================
+# Error Response Format Tests
+# ===========================================================================
+
+
+class TestErrorResponseFormat:
+    """Tests for consistent error response formatting."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_error_response_is_json(self, mock_extract, workspace_handler):
+        mock_extract.return_value = MockAuthContext(is_authenticated=False)
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_list_workspaces(mock_http, {})
+
+        assert result.content_type == "application/json"
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_error_response_has_error_field(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {})
+
+        result = workspace_handler._handle_create_workspace(mock_http)
+
+        assert get_status(result) == 400
+        body = get_body(result)
+        assert "error" in body
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_success_response_is_json(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_list_workspaces(mock_http, {})
+
+        assert result.content_type == "application/json"
+
+
+# ===========================================================================
+# Retention Action Validation Tests
+# ===========================================================================
+
+
+class TestRetentionActions:
+    """Tests for retention policy action validation."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_valid_delete_action(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "Delete Policy", "action": "delete"})
+
+        result = workspace_handler._handle_create_policy(mock_http)
+
+        assert get_status(result) == 201
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_valid_archive_action(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "Archive Policy", "action": "archive"})
+
+        result = workspace_handler._handle_create_policy(mock_http)
+
+        assert get_status(result) == 201
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_valid_anonymize_action(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "Anonymize Policy", "action": "anonymize"})
+
+        result = workspace_handler._handle_create_policy(mock_http)
+
+        assert get_status(result) == 201
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_invalid_action_rejected(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("POST", {"name": "Invalid Policy", "action": "destroy_all"})
+
+        result = workspace_handler._handle_create_policy(mock_http)
+
+        assert get_status(result) == 400
+
+
+# ===========================================================================
+# Audit Query Parameter Tests
+# ===========================================================================
+
+
+class TestAuditQueryParameters:
+    """Tests for audit query parameters."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_query_with_date_filters(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_query_audit(
+            mock_http,
+            {
+                "start_date": "2026-01-01T00:00:00",
+                "end_date": "2026-12-31T23:59:59",
+            },
+        )
+
+        assert get_status(result) == 200
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_query_with_limit(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_query_audit(mock_http, {"limit": "50"})
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert body["limit"] == 50
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_actor_history_with_days(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_actor_history(mock_http, "user-123", {"days": "60"})
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert body["days"] == 60
+
+
+# ===========================================================================
+# Workspace with Members Tests
+# ===========================================================================
+
+
+class TestWorkspaceWithMembers:
+    """Tests for workspace operations with members."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_create_workspace_with_initial_members(
+        self, mock_extract, workspace_handler, auth_context
+    ):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler(
+            "POST",
+            {"name": "Team Workspace", "members": ["user-456", "user-789"]},
+        )
+
+        result = workspace_handler._handle_create_workspace(mock_http)
+
+        assert get_status(result) == 201
+        body = get_body(result)
+        assert "workspace" in body
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_add_member_with_permissions(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler(
+            "POST",
+            {"user_id": "user-456", "permissions": ["read", "write", "admin"]},
+        )
+
+        result = workspace_handler._handle_add_member(mock_http, "workspace-001")
+
+        assert get_status(result) == 201
+
+
+# ===========================================================================
+# Sensitivity Level Tests
+# ===========================================================================
+
+
+class TestSensitivityLevels:
+    """Tests for sensitivity level operations."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    @patch("aragora.server.handlers.workspace.SensitivityLevel")
+    def test_invalid_sensitivity_level(
+        self, mock_level, mock_extract, workspace_handler, auth_context
+    ):
+        mock_extract.return_value = auth_context
+        mock_level.side_effect = ValueError("Invalid level")
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_get_level_policy(mock_http, "invalid_level")
+
+        assert get_status(result) == 400
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_classify_content_with_metadata(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler(
+            "POST",
+            {
+                "content": "Sensitive information",
+                "document_id": "doc-001",
+                "metadata": {"source": "email", "department": "finance"},
+            },
+        )
+
+        result = workspace_handler._handle_classify_content(mock_http)
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert "classification" in body
+
+
+# ===========================================================================
+# Compliance Report Tests
+# ===========================================================================
+
+
+class TestComplianceReport:
+    """Tests for compliance report generation."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_report_generation_logs_itself(self, mock_extract, workspace_handler, auth_context):
+        """Test that report generation is itself logged (meta-audit)."""
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        initial_entries = len(workspace_handler._audit_log.entries)
+        workspace_handler._handle_audit_report(mock_http, {})
+        final_entries = len(workspace_handler._audit_log.entries)
+
+        # Report generation should be logged
+        assert final_entries > initial_entries
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_report_with_workspace_filter(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_audit_report(
+            mock_http, {"workspace_id": "workspace-001"}
+        )
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert "report" in body
+
+
+# ===========================================================================
+# Integrity Verification Tests
+# ===========================================================================
+
+
+class TestIntegrityVerification:
+    """Tests for audit log integrity verification."""
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_verify_returns_valid_status(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_verify_integrity(mock_http, {})
+
+        assert get_status(result) == 200
+        body = get_body(result)
+        assert "valid" in body
+        assert "verified_at" in body
+
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_verify_returns_error_list(self, mock_extract, workspace_handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_http = create_mock_handler("GET")
+
+        result = workspace_handler._handle_verify_integrity(mock_http, {})
+
+        body = get_body(result)
+        assert "errors" in body
+        assert "error_count" in body
