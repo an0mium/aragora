@@ -509,9 +509,6 @@ class TestSync:
         assert item.metadata["table"] == "users"
         assert "id" in item.metadata["columns"]
 
-    @pytest.mark.xfail(
-        reason="Connector needs error handling - raises exception instead of recording error"
-    )
     @pytest.mark.asyncio
     async def test_sync_items_error_handling(self, postgres_connector, sample_columns):
         """Test sync handles table errors gracefully."""

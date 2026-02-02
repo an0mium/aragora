@@ -357,7 +357,9 @@ class PostgreSQLConnector(EnterpriseConnector):
                         # Update cursor
                         state.cursor = f"{table}:{pk_value}"
 
-            except (ValueError, RuntimeError, OSError, KeyError) as e:
+            except Exception as e:
+                # Catch all exceptions to ensure sync continues with remaining tables
+                # This handles connection errors, query failures, data conversion issues, etc.
                 logger.warning(f"Failed to sync table {table}: {e}")
                 state.errors.append(f"{table}: {str(e)}")
                 continue
