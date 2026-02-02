@@ -12,6 +12,8 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from aragora.auth.lockout import get_lockout_tracker  # noqa: F401
+
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit, get_client_ip

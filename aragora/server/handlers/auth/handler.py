@@ -326,6 +326,13 @@ class AuthHandler(SecureHandler):
 
     def _get_lockout_tracker(self) -> Any:
         """Get lockout tracker for login throttling."""
+        from aragora.server.handlers.auth import login as login_module
+
+        login_tracker = getattr(login_module, "get_lockout_tracker", None)
+        if get_lockout_tracker is not login_tracker and callable(get_lockout_tracker):
+            return get_lockout_tracker()
+        if callable(login_tracker):
+            return login_tracker()
         return get_lockout_tracker()
 
     def _check_permission(
