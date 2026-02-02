@@ -68,10 +68,40 @@ try:
         check_permission,
         PermissionDeniedError,
     )
+    from aragora.rbac.decorators import require_permission
 
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
+
+    # Provide a no-op decorator fallback when RBAC is unavailable
+    def require_permission(
+        permission_key: str,
+        resource_id_param: str | None = None,
+        context_param: str = "context",
+    ):  # type: ignore[no-redef]
+        """No-op decorator when RBAC module is not available."""
+
+        def decorator(func):  # type: ignore[no-untyped-def]
+            return func
+
+        return decorator
+
+# =============================================================================
+# RBAC Permission Constants for Admin Operations
+# =============================================================================
+# These constants define the granular permissions required for sensitive admin
+# operations. Using constants ensures consistency and makes auditing easier.
+
+# User management permissions
+PERM_ADMIN_USERS_WRITE = "admin:users:write"  # Deactivate/activate users
+PERM_ADMIN_IMPERSONATE = "admin:impersonate"  # Create impersonation tokens
+
+# Nomic loop control permissions
+PERM_ADMIN_NOMIC_WRITE = "admin:nomic:write"  # Reset/pause/resume nomic loop
+
+# System administration permissions
+PERM_ADMIN_SYSTEM_WRITE = "admin:system:write"  # Reset circuit breakers
 
 # Metrics imports (optional)
 try:

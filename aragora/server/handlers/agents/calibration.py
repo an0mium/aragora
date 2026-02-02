@@ -31,8 +31,12 @@ from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
-# RBAC permission for calibration endpoints
-CALIBRATION_PERMISSION = "agents:read"
+# RBAC permissions for calibration endpoints
+CALIBRATION_READ_PERMISSION = "agents:calibration:read"
+CALIBRATION_WRITE_PERMISSION = "agents:calibration:write"
+
+# Legacy alias for compatibility
+CALIBRATION_PERMISSION = CALIBRATION_READ_PERMISSION
 
 # Rate limiter for calibration endpoints (30 requests per minute)
 _calibration_limiter = RateLimiter(requests_per_minute=30)

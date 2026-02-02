@@ -66,10 +66,8 @@ class TaskHandlerMixin:
         """Require authentication and return user or error."""
         raise NotImplementedError
 
-    @property
-    def ctx(self) -> dict[str, Any]:
-        """Server context."""
-        raise NotImplementedError
+    # Attribute declaration - provided by BaseHandler
+    ctx: dict[str, Any]
 
     # =========================================================================
     # Task Handlers

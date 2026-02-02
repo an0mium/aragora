@@ -20,6 +20,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+
 from ..base import (
     SAFE_AGENT_PATTERN,
     HandlerResult,
@@ -78,8 +79,9 @@ class AgentConfigHandler(SecureHandler):
     ]
 
     # Permission keys
-    READ_PERMISSION = "agents.read"
-    CREATE_PERMISSION = "agents.create"
+    READ_PERMISSION = "agents:config:read"
+    WRITE_PERMISSION = "agents:config:write"
+    CREATE_PERMISSION = "agents:config:write"  # Alias for backward compatibility
     RESOURCE_TYPE = "agent_config"
 
     def can_handle(self, path: str) -> bool:

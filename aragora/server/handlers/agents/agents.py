@@ -68,8 +68,12 @@ from ..openapi_decorator import api_endpoint
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
-# RBAC permission for agent endpoints
-AGENT_PERMISSION = "agents:read"
+# RBAC permissions for agent endpoints
+AGENTS_READ_PERMISSION = "agents:read"
+AGENTS_WRITE_PERMISSION = "agents:write"
+
+# Legacy alias for compatibility
+AGENT_PERMISSION = AGENTS_READ_PERMISSION
 
 # Rate limiter for agent handlers (60 requests per minute)
 _agent_limiter = RateLimiter(requests_per_minute=60)

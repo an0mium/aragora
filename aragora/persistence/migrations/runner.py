@@ -1109,7 +1109,11 @@ def downgrade(conn: sqlite3.Connection) -> None:
     #     CREATE INDEX IF NOT EXISTS ... ON tablename(...);
     # """)
 
-    # TODO: Replace this pass if you need rollback support
+    # Implement rollback logic here if you need rollback support.
+    # For simple migrations (adding columns/tables), reverse the operation.
+    # For complex migrations, you may need to use the table recreation pattern above.
+    # If rollback is not supported, raise NotImplementedError:
+    # raise NotImplementedError("Rollback not supported for this migration")
     pass
 '''
 

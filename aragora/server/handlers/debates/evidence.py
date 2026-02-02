@@ -21,6 +21,8 @@ from aragora.exceptions import (
     StorageError,
 )
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -93,12 +95,11 @@ class EvidenceOperationsMixin:
             "404": {"description": "Debate not found"},
         },
     )
+    @require_permission("debates.read")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_IMPASSE, key_prefix="debates_impasse", skip_first=True)
     @handle_errors("impasse detection")
-    def _get_impasse(
-        self: _DebatesHandlerProtocol, handler: Any, debate_id: str
-    ) -> HandlerResult:
+    def _get_impasse(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Detect impasse in a debate."""
         storage = self.get_storage()
         debate = storage.get_debate(debate_id)
@@ -153,6 +154,7 @@ class EvidenceOperationsMixin:
             "404": {"description": "Debate not found"},
         },
     )
+    @require_permission("debates.read")
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_convergence", skip_first=True)
     @handle_errors("convergence check")
@@ -278,9 +280,7 @@ class EvidenceOperationsMixin:
     @require_storage
     @ttl_cache(ttl_seconds=CACHE_TTL_CONVERGENCE, key_prefix="debates_summary", skip_first=True)
     @handle_errors("get summary")
-    def _get_summary(
-        self: _DebatesHandlerProtocol, handler: Any, debate_id: str
-    ) -> HandlerResult:
+    def _get_summary(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Get human-readable summary for a debate.
 
         Returns a structured summary with:
@@ -446,9 +446,7 @@ class EvidenceOperationsMixin:
         },
     )
     @require_storage
-    def _get_evidence(
-        self: _DebatesHandlerProtocol, handler: Any, debate_id: str
-    ) -> HandlerResult:
+    def _get_evidence(self: _DebatesHandlerProtocol, handler: Any, debate_id: str) -> HandlerResult:
         """Get comprehensive evidence trail for a debate.
 
         Combines grounded verdict with related evidence from ContinuumMemory.
