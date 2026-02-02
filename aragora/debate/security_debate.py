@@ -80,12 +80,14 @@ async def run_security_debate(
         ),
     )
 
-    # Create security-focused protocol
+    # Create security-focused protocol using centralized defaults
+    from aragora.debate.config.defaults import DEBATE_DEFAULTS
+
     protocol = DebateProtocol(
-        rounds=3,
-        consensus="majority",
+        rounds=DEBATE_DEFAULTS.security_debate_rounds,
+        consensus=DEBATE_DEFAULTS.security_debate_consensus,
         convergence_detection=True,
-        convergence_threshold=0.85,
+        convergence_threshold=DEBATE_DEFAULTS.convergence_threshold,
         timeout_seconds=timeout_seconds,
     )
 

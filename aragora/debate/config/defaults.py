@@ -529,6 +529,60 @@ class DebateDefaults:
     """Similarity threshold for merging vote options."""
 
     # =========================================================================
+    # Agent Limits
+    # =========================================================================
+    # Agent count constraints for debate configurations.
+
+    min_agents_per_debate: int = 2
+    """Minimum agents required for a standard debate."""
+
+    max_agents_per_debate: int = 10
+    """Maximum agents allowed in a single debate."""
+
+    byzantine_min_agents: int = 4
+    """Minimum agents for Byzantine fault-tolerant consensus (n >= 3f+1)."""
+
+    # =========================================================================
+    # Distributed Debate Defaults
+    # =========================================================================
+    # Defaults for distributed (cross-instance) debates.
+
+    distributed_default_rounds: int = 5
+    """Default rounds for distributed debates (fewer than local due to latency)."""
+
+    distributed_consensus_threshold: float = 0.67
+    """Consensus threshold for distributed debates (higher than local for reliability)."""
+
+    distributed_proposal_timeout_seconds: float = 60.0
+    """Per-proposal timeout in distributed debates."""
+
+    distributed_critique_timeout_seconds: float = 45.0
+    """Per-critique timeout in distributed debates."""
+
+    distributed_vote_timeout_seconds: float = 30.0
+    """Per-vote timeout in distributed debates."""
+
+    distributed_sync_interval_seconds: float = 5.0
+    """State sync interval for distributed coordination."""
+
+    distributed_failover_timeout_seconds: float = 30.0
+    """Failover timeout for distributed leader election."""
+
+    # =========================================================================
+    # Security Debate Defaults
+    # =========================================================================
+    # Defaults for security-focused debates.
+
+    security_debate_rounds: int = 3
+    """Rounds for security-focused debates (fast, targeted)."""
+
+    security_debate_consensus: str = "majority"
+    """Consensus mode for security debates."""
+
+    security_debate_timeout_seconds: int = 300
+    """Timeout for security debates (5 minutes)."""
+
+    # =========================================================================
     # Protocol Defaults
     # =========================================================================
     # Default values for DebateProtocol fields.

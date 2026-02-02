@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.debate.config.defaults import DEBATE_DEFAULTS
 
 from aragora.fabric.models import (
     Policy,
@@ -62,8 +63,8 @@ class FabricDebateConfig:
     budget_per_debate_usd: float | None = None  # Per-debate budget cap
     priority: Priority = Priority.NORMAL  # Task priority for scheduling
     timeout_seconds: float = 600.0  # Maximum debate duration
-    min_agents: int = 2  # Minimum agents required
-    max_agents: int = 10  # Maximum agents to use
+    min_agents: int = DEBATE_DEFAULTS.min_agents_per_debate
+    max_agents: int = DEBATE_DEFAULTS.max_agents_per_debate
 
     # Policy settings
     require_policy_check: bool = True  # Check policy before starting

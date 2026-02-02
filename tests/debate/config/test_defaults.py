@@ -209,3 +209,103 @@ class TestIntegration:
         )
 
         assert proof.has_strong_consensus is False
+
+
+class TestDefaultsConsistency:
+    """Verify that all debate entrypoints derive their defaults from DEBATE_DEFAULTS.
+
+    This ensures no local hard-coded values diverge from the centralized
+    source of truth (Issue #178).
+    """
+
+    def test_distributed_config_uses_centralized_defaults(self):
+        """DistributedDebateConfig should match DEBATE_DEFAULTS."""
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+        from aragora.debate.distributed import DistributedDebateConfig
+
+        config = DistributedDebateConfig()
+        assert config.max_rounds == DEBATE_DEFAULTS.distributed_default_rounds
+        assert config.consensus_threshold == DEBATE_DEFAULTS.distributed_consensus_threshold
+        assert config.min_agents == DEBATE_DEFAULTS.min_agents_per_debate
+        assert config.max_agents == DEBATE_DEFAULTS.max_agents_per_debate
+        assert (
+            config.proposal_timeout_seconds == DEBATE_DEFAULTS.distributed_proposal_timeout_seconds
+        )
+        assert (
+            config.critique_timeout_seconds == DEBATE_DEFAULTS.distributed_critique_timeout_seconds
+        )
+        assert config.vote_timeout_seconds == DEBATE_DEFAULTS.distributed_vote_timeout_seconds
+        assert config.sync_interval_seconds == DEBATE_DEFAULTS.distributed_sync_interval_seconds
+        assert (
+            config.failover_timeout_seconds == DEBATE_DEFAULTS.distributed_failover_timeout_seconds
+        )
+
+    def test_fabric_config_uses_centralized_defaults(self):
+        """FabricDebateConfig should match DEBATE_DEFAULTS for agent limits."""
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+        from aragora.debate.fabric_integration import FabricDebateConfig
+
+        config = FabricDebateConfig(pool_id="test-pool")
+        assert config.min_agents == DEBATE_DEFAULTS.min_agents_per_debate
+        assert config.max_agents == DEBATE_DEFAULTS.max_agents_per_debate
+
+    def test_byzantine_config_uses_centralized_defaults(self):
+        """ByzantineConsensusConfig should match DEBATE_DEFAULTS."""
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+        from aragora.debate.byzantine import ByzantineConsensusConfig
+
+        config = ByzantineConsensusConfig()
+        assert config.min_agents == DEBATE_DEFAULTS.byzantine_min_agents
+        # Byzantine min_agents must satisfy n >= 3f+1
+        assert config.min_agents >= 4
+
+    def test_settings_and_defaults_agent_limits_agree(self):
+        """DebateSettings.max_agents_per_debate should match DEBATE_DEFAULTS."""
+        from aragora.config.settings import get_settings
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+
+        settings = get_settings()
+        assert settings.debate.max_agents_per_debate == DEBATE_DEFAULTS.max_agents_per_debate
+
+    def test_security_debate_uses_centralized_defaults(self):
+        """Security debate protocol values should match DEBATE_DEFAULTS."""
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+
+        # Verify the centralized defaults exist and have expected values
+        assert DEBATE_DEFAULTS.security_debate_rounds == 3
+        assert DEBATE_DEFAULTS.security_debate_consensus == "majority"
+        assert DEBATE_DEFAULTS.security_debate_timeout_seconds == 300
+
+    def test_agent_limit_invariants(self):
+        """Agent limit invariants: min < max, byzantine > standard min."""
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+
+        assert DEBATE_DEFAULTS.min_agents_per_debate < DEBATE_DEFAULTS.max_agents_per_debate
+        assert DEBATE_DEFAULTS.byzantine_min_agents >= DEBATE_DEFAULTS.min_agents_per_debate
+        assert DEBATE_DEFAULTS.byzantine_min_agents >= 4  # BFT requirement: n >= 3f+1
+
+    def test_distributed_rounds_less_than_standard(self):
+        """Distributed rounds should be <= standard defaults (higher latency)."""
+        from aragora.config.settings import get_settings
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS
+
+        settings = get_settings()
+        assert DEBATE_DEFAULTS.distributed_default_rounds <= settings.debate.default_rounds
+
+    def test_no_hardcoded_magic_numbers_in_defaults(self):
+        """All numeric defaults should be positive and within reasonable bounds."""
+        from dataclasses import fields
+
+        from aragora.debate.config.defaults import DEBATE_DEFAULTS, DebateDefaults
+
+        for f in fields(DebateDefaults):
+            value = getattr(DEBATE_DEFAULTS, f.name)
+            if isinstance(value, (int, float)):
+                assert value >= 0, f"{f.name} = {value} should be non-negative"
+            if isinstance(value, float) and "threshold" in f.name:
+                # Some "threshold" fields are multipliers, not ratios
+                multiplier_thresholds = {
+                    "verbosity_penalty_threshold",  # multiplier of target length
+                }
+                if f.name not in multiplier_thresholds:
+                    assert 0.0 <= value <= 1.0, f"{f.name} = {value} should be in [0, 1]"

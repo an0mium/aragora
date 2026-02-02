@@ -48,6 +48,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Optional, Sequence
 
+from aragora.debate.config.defaults import DEBATE_DEFAULTS
+
 if TYPE_CHECKING:
     from aragora.core import Agent
 
@@ -102,8 +104,8 @@ class ByzantineConsensusConfig:
     phase_timeout_seconds: float = 30.0
     view_change_timeout_seconds: float = 60.0
 
-    # Minimum agents required (3f + 1)
-    min_agents: int = 4
+    # Minimum agents required (3f + 1, so min 4 for f=1)
+    min_agents: int = DEBATE_DEFAULTS.byzantine_min_agents
 
     # Retry settings
     max_view_changes: int = 3

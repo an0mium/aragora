@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Optional
 
+from aragora.debate.config.defaults import DEBATE_DEFAULTS
 from aragora.debate.distributed_events import (
     AgentCritique,
     AgentProposal,
@@ -62,18 +63,21 @@ class CoordinatorRole(str, Enum):
 
 @dataclass
 class DistributedDebateConfig:
-    """Configuration for distributed debates."""
+    """Configuration for distributed debates.
 
-    max_rounds: int = 5
-    proposal_timeout_seconds: float = 60.0
-    critique_timeout_seconds: float = 45.0
-    vote_timeout_seconds: float = 30.0
-    consensus_threshold: float = 0.67
-    min_agents: int = 2
-    max_agents: int = 10
+    Defaults are sourced from DEBATE_DEFAULTS for consistency.
+    """
+
+    max_rounds: int = DEBATE_DEFAULTS.distributed_default_rounds
+    proposal_timeout_seconds: float = DEBATE_DEFAULTS.distributed_proposal_timeout_seconds
+    critique_timeout_seconds: float = DEBATE_DEFAULTS.distributed_critique_timeout_seconds
+    vote_timeout_seconds: float = DEBATE_DEFAULTS.distributed_vote_timeout_seconds
+    consensus_threshold: float = DEBATE_DEFAULTS.distributed_consensus_threshold
+    min_agents: int = DEBATE_DEFAULTS.min_agents_per_debate
+    max_agents: int = DEBATE_DEFAULTS.max_agents_per_debate
     allow_remote_agents: bool = True
-    sync_interval_seconds: float = 5.0
-    failover_timeout_seconds: float = 30.0
+    sync_interval_seconds: float = DEBATE_DEFAULTS.distributed_sync_interval_seconds
+    failover_timeout_seconds: float = DEBATE_DEFAULTS.distributed_failover_timeout_seconds
 
 
 @dataclass
