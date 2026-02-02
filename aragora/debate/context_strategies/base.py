@@ -75,7 +75,7 @@ class ContextStrategy(ABC):
                 effective_timeout,
             )
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(
                 "[context:%s] Error gathering context: %s",
                 self.name,

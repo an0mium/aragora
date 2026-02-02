@@ -84,7 +84,7 @@ class ClaudeSearchStrategy(ContextStrategy):
             # Expected: API or response processing issues
             logger.warning("[research] Claude web search failed: %s", e)
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # Unexpected error
             logger.warning("[research] Unexpected error in Claude web search: %s", e)
             return None

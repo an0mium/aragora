@@ -67,7 +67,7 @@ def disable_rate_limits():
 @pytest.fixture(autouse=True)
 def bypass_rbac():
     """Bypass RBAC permission checks for all tests in this module."""
-    with patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", False):
+    with patch("aragora.server.handlers.workspace_module.RBAC_AVAILABLE", False):
         yield
 
 
@@ -1266,7 +1266,7 @@ class TestManagerInitialization:
 
         assert classifier is not None
 
-    @patch("aragora.server.handlers.workspace.PrivacyAuditLog")
+    @patch("aragora.server.handlers.workspace_module.PrivacyAuditLog")
     def test_audit_log_lazy_init(self, mock_audit_log_class, workspace_handler):
         """Test that audit log is lazily initialized."""
         workspace_handler._audit_log = None

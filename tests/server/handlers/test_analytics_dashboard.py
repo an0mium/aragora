@@ -1400,12 +1400,12 @@ class TestRateLimiting:
 class TestErrorHandling:
     """Tests for comprehensive error handling."""
 
-    @patch("aragora.server.handlers.analytics_dashboard._run_async")
     def test_type_error_returns_400(
-        self, mock_run_async, handler, authed_handler, patch_auth, mock_analytics_module
+        self, handler, authed_handler, patch_auth, mock_analytics_module
     ):
         """TypeError returns 400 DATA_ERROR."""
-        mock_run_async.side_effect = TypeError("Missing required field")
+        mock_mod, mock_dashboard = mock_analytics_module
+        mock_dashboard.get_summary.side_effect = TypeError("Missing required field")
 
         result = handler._get_summary(
             {"workspace_id": "ws-001"},
@@ -1416,12 +1416,12 @@ class TestErrorHandling:
         body = json.loads(result.body)
         assert body.get("code") == "DATA_ERROR"
 
-    @patch("aragora.server.handlers.analytics_dashboard._run_async")
     def test_attribute_error_returns_400(
-        self, mock_run_async, handler, authed_handler, patch_auth, mock_analytics_module
+        self, handler, authed_handler, patch_auth, mock_analytics_module
     ):
         """AttributeError returns 400 DATA_ERROR."""
-        mock_run_async.side_effect = AttributeError("Object has no attribute")
+        mock_mod, mock_dashboard = mock_analytics_module
+        mock_dashboard.get_summary.side_effect = AttributeError("Object has no attribute")
 
         result = handler._get_summary(
             {"workspace_id": "ws-001"},
@@ -1432,12 +1432,10 @@ class TestErrorHandling:
         body = json.loads(result.body)
         assert body.get("code") == "DATA_ERROR"
 
-    @patch("aragora.server.handlers.analytics_dashboard._run_async")
-    def test_os_error_returns_500(
-        self, mock_run_async, handler, authed_handler, patch_auth, mock_analytics_module
-    ):
+    def test_os_error_returns_500(self, handler, authed_handler, patch_auth, mock_analytics_module):
         """OSError returns 500 INTERNAL_ERROR."""
-        mock_run_async.side_effect = OSError("Database file not found")
+        mock_mod, mock_dashboard = mock_analytics_module
+        mock_dashboard.get_summary.side_effect = OSError("Database file not found")
 
         result = handler._get_summary(
             {"workspace_id": "ws-001"},

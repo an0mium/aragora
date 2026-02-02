@@ -687,7 +687,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     # Connector platform handlers (unified APIs)
     "AdvertisingHandler": Stability.EXPERIMENTAL,  # Unified advertising platforms API - new
     "AnalyticsPlatformsHandler": Stability.EXPERIMENTAL,  # Unified analytics platforms API - new
-    "CRMHandler": Stability.EXPERIMENTAL,  # Unified CRM platforms API - new
+    "CRMHandler": Stability.STABLE,  # Unified CRM platforms API - circuit breaker, RBAC, rate limiting, 128 tests
     "SupportHandler": Stability.EXPERIMENTAL,  # Unified support platforms API - new
     "EcommerceHandler": Stability.STABLE,  # Unified ecommerce platforms API - circuit breaker, RBAC, rate limiting, 67 tests
     # External agent gateway

@@ -120,7 +120,7 @@ class TrendingStrategy(ContextStrategy):
             logger.debug("Pulse context network error: %s", e)
         except (ValueError, RuntimeError) as e:
             logger.debug("Pulse context unavailable: %s", e)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning("Unexpected error getting pulse context: %s", e)
 
         return None

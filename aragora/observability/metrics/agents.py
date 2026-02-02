@@ -40,6 +40,7 @@ from typing import (
     Generator,
     ParamSpec,
     TypeVar,
+    cast,
 )
 
 from aragora.observability.metrics.base import NoOpMetric, get_metrics_enabled

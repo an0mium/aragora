@@ -150,7 +150,7 @@ class EvidenceStrategy(CachingStrategy):
             logger.warning("Evidence collection network/IO error: %s", e)
         except (ValueError, RuntimeError) as e:
             logger.warning("Evidence collection failed: %s", e)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning("Unexpected error in evidence collection: %s", e)
 
         return None

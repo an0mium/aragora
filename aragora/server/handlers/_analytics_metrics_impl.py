@@ -1111,7 +1111,7 @@ class AnalyticsMetricsHandler(SecureHandler):
                         "draws": h2h.get("draws", 0),
                         "total_matches": h2h.get("total", 0),
                     }
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     logger.debug(f"Error computing head-to-head for {agent_a} vs {agent_b}: {e}")
 
         return json_response(
