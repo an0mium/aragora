@@ -1265,6 +1265,14 @@ class BackupManager:
                 LAST_BACKUP_TIMESTAMP,
             )
 
+            if (
+                BACKUP_DURATION is None
+                or BACKUP_SIZE is None
+                or BACKUP_SUCCESS is None
+                or LAST_BACKUP_TIMESTAMP is None
+            ):
+                return
+
             labels = {"source": Path(backup.source_path).stem, "type": backup.backup_type.value}
             BACKUP_DURATION.labels(**labels).observe(backup.duration_seconds)
             BACKUP_SIZE.labels(**labels).set(backup.compressed_size_bytes)
@@ -1285,6 +1293,9 @@ class BackupManager:
                 BACKUP_VERIFICATION_SUCCESS,
             )
 
+            if BACKUP_VERIFICATION_DURATION is None or BACKUP_VERIFICATION_SUCCESS is None:
+                return
+
             BACKUP_VERIFICATION_DURATION.observe(result.duration_seconds)
             BACKUP_VERIFICATION_SUCCESS.labels(verified=str(result.verified).lower()).inc()
 
@@ -1298,6 +1309,9 @@ class BackupManager:
 
         try:
             from aragora.observability.metrics import BACKUP_RESTORE_SUCCESS
+
+            if BACKUP_RESTORE_SUCCESS is None:
+                return
 
             BACKUP_RESTORE_SUCCESS.labels(success=str(success).lower()).inc()
 
