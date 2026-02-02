@@ -49,6 +49,7 @@ from ..base import (
 )
 from ..utils.rate_limit import rate_limit
 from ..secure import SecureHandler
+from aragora.auth.lockout import get_lockout_tracker  # noqa: F401
 from aragora.server.versioning.compat import strip_version_prefix
 
 # Import handlers from split modules
