@@ -634,7 +634,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "SecurityHandler": Stability.STABLE,  # Security administration API
     "PolicyHandler": Stability.STABLE,  # Policy and compliance management - 44 tests
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
-    "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
+    "WorkspaceHandler": Stability.STABLE,  # Enterprise workspace/privacy management - 162 tests, circuit breaker, RBAC
     "WorkflowHandler": Stability.STABLE,  # Enterprise workflow engine API - 48 tests
     "WorkflowTemplatesHandler": Stability.STABLE,  # Workflow template marketplace API - new
     "WorkflowCategoriesHandler": Stability.STABLE,  # Workflow template categories - new
