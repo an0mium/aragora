@@ -32,7 +32,7 @@ def mock_rbac_allowed(permission_key: str = "") -> Generator[MagicMock, None, No
 
     This is needed because tests mock authentication but not RBAC permissions.
     """
-    with patch("aragora.server.handlers.admin.admin.check_permission") as mock_rbac:
+    with patch("aragora.server.handlers.admin.handler.check_permission") as mock_rbac:
         mock_rbac.return_value = AuthorizationDecision(
             allowed=True,
             reason="Mocked permission check",
@@ -264,7 +264,9 @@ class TestAdminAuthentication:
         """Test that unauthenticated requests are rejected."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_ctx = MockAuthContext("", is_authenticated=False)
             mock_extract.return_value = mock_ctx
 
@@ -277,7 +279,9 @@ class TestAdminAuthentication:
         """Test that non-admin users are rejected."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_ctx = MockAuthContext("user_0", is_authenticated=True)
             mock_extract.return_value = mock_ctx
 
@@ -299,11 +303,15 @@ class TestAdminAuthentication:
 
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_ctx = MockAuthContext("admin_no_mfa", is_authenticated=True)
             mock_extract.return_value = mock_ctx
 
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 mock_mfa.return_value = {"reason": "MFA not enabled", "action": "enable_mfa"}
 
                 result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
@@ -317,11 +325,15 @@ class TestAdminAuthentication:
         """Test that admin with MFA is allowed."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
             mock_extract.return_value = mock_ctx
 
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 mock_mfa.return_value = None  # MFA check passed
 
                 result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
@@ -342,8 +354,12 @@ class TestListOrganizations:
         """Test successful organization listing."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle("/api/v1/admin/organizations", {}, mock_handler)
@@ -358,8 +374,12 @@ class TestListOrganizations:
         """Test organization listing with pagination."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle(
@@ -377,8 +397,12 @@ class TestListOrganizations:
         """Test organization listing with tier filter."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle(
@@ -407,8 +431,12 @@ class TestListUsers:
         """Test successful user listing."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle("/api/v1/admin/users", {}, mock_handler)
@@ -422,8 +450,12 @@ class TestListUsers:
         """Test that user listing excludes sensitive fields."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle("/api/v1/admin/users", {}, mock_handler)
@@ -438,8 +470,12 @@ class TestListUsers:
         """Test user listing with role filter."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle(
@@ -461,8 +497,12 @@ class TestGetStats:
         """Test successful stats retrieval."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
                 mock_extract.return_value = mock_ctx
                 mock_mfa.return_value = None
@@ -489,8 +529,12 @@ class TestUserManagement:
         """Test successful user deactivation."""
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 with mock_rbac_allowed("admin.users.deactivate"):
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
@@ -514,8 +558,12 @@ class TestUserManagement:
         """Test that admin cannot deactivate themselves."""
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 with mock_rbac_allowed("admin.users.deactivate"):
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
@@ -533,8 +581,12 @@ class TestUserManagement:
         """Test deactivating non-existent user."""
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 with mock_rbac_allowed("admin.users.deactivate"):
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
@@ -555,8 +607,12 @@ class TestUserManagement:
 
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 with mock_rbac_allowed("admin.users.activate"):
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
@@ -579,8 +635,12 @@ class TestUserManagement:
         """Test that invalid user ID format is rejected."""
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 # Use path traversal characters that should fail validation
@@ -603,9 +663,15 @@ class TestImpersonation:
         """Test successful user impersonation."""
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
-                with patch("aragora.server.handlers.admin.admin.create_access_token") as mock_token:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
+                with patch(
+                    "aragora.server.handlers.admin.handler.create_access_token"
+                ) as mock_token:
                     with mock_rbac_allowed("admin.users.impersonate"):
                         mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
                         mock_extract.return_value = mock_ctx
@@ -630,9 +696,15 @@ class TestImpersonation:
         """Test that impersonation is recorded in audit log."""
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
-                with patch("aragora.server.handlers.admin.admin.create_access_token") as mock_token:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
+                with patch(
+                    "aragora.server.handlers.admin.handler.create_access_token"
+                ) as mock_token:
                     with mock_rbac_allowed("admin.users.impersonate"):
                         mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
                         mock_extract.return_value = mock_ctx
@@ -657,8 +729,12 @@ class TestImpersonation:
         """Test impersonating non-existent user."""
         mock_handler = MockHandler(command="POST")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 with mock_rbac_allowed("admin.users.impersonate"):
                     mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
                     mock_extract.return_value = mock_ctx
@@ -681,8 +757,12 @@ class TestMethodNotAllowed:
         """Test that unsupported methods return 405."""
         mock_handler = MockHandler(command="DELETE")
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
                 mock_extract.return_value = mock_ctx
                 mock_mfa.return_value = None
@@ -704,8 +784,12 @@ class TestSystemMetrics:
         """Test system metrics retrieval."""
         mock_handler = MockHandler()
 
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
                 mock_extract.return_value = mock_ctx
                 mock_mfa.return_value = None

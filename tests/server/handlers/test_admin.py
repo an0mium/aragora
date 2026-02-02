@@ -278,7 +278,7 @@ class TestAdminHandlerRouting:
 class TestAdminAuthorization:
     """Tests for admin authorization."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_admin_role_allowed(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -289,7 +289,7 @@ class TestAdminAuthorization:
         assert result is not None
         assert get_status(result) == 200
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_owner_role_allowed(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="owner-123", role="owner")
 
@@ -300,7 +300,7 @@ class TestAdminAuthorization:
         assert result is not None
         assert get_status(result) == 200
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_regular_user_denied(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="user-456", role="user")
 
@@ -312,7 +312,7 @@ class TestAdminAuthorization:
         assert get_status(result) == 403
 
     @pytest.mark.no_auto_auth
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_unauthenticated_denied(self, mock_auth, admin_handler):
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
 
@@ -332,7 +332,7 @@ class TestAdminAuthorization:
 class TestAdminListOrganizations:
     """Tests for list organizations endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_list_organizations_success(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -346,7 +346,7 @@ class TestAdminListOrganizations:
         assert "organizations" in data
         assert "total" in data
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_list_organizations_with_pagination(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -370,7 +370,7 @@ class TestAdminListOrganizations:
 class TestAdminListUsers:
     """Tests for list users endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_list_users_success(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -384,7 +384,7 @@ class TestAdminListUsers:
         assert "users" in data
         assert "total" in data
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_list_users_sanitizes_sensitive_fields(self, mock_auth, admin_handler, user_store):
         # Add a user with sensitive fields
         user = MockUser(id="test-user")
@@ -417,7 +417,7 @@ class TestAdminListUsers:
 class TestAdminGetStats:
     """Tests for get stats endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_get_stats_success(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -439,7 +439,7 @@ class TestAdminGetStats:
 class TestAdminSystemMetrics:
     """Tests for system metrics endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_get_system_metrics_success(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -462,7 +462,7 @@ class TestAdminSystemMetrics:
 class TestAdminRevenueStats:
     """Tests for revenue stats endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_get_revenue_stats_success(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -493,9 +493,9 @@ class TestAdminRevenueStats:
 class TestAdminImpersonate:
     """Tests for impersonate user endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.check_permission", mock_check_permission_allowed)
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
-    @patch("aragora.server.handlers.admin.admin.create_access_token")
+    @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.create_access_token")
     def test_impersonate_success(self, mock_token, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
         mock_token.return_value = "impersonation_token_123"
@@ -511,8 +511,8 @@ class TestAdminImpersonate:
         assert "target_user" in data
         assert "warning" in data
 
-    @patch("aragora.server.handlers.admin.admin.check_permission", mock_check_permission_allowed)
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_impersonate_user_not_found(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -523,8 +523,8 @@ class TestAdminImpersonate:
         assert result is not None
         assert get_status(result) == 404
 
-    @patch("aragora.server.handlers.admin.admin.check_permission", mock_check_permission_allowed)
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_impersonate_invalid_user_id(self, mock_auth, admin_handler):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -548,8 +548,8 @@ class TestAdminImpersonate:
 class TestAdminDeactivateUser:
     """Tests for deactivate user endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.check_permission", mock_check_permission_allowed)
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_deactivate_user_success(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -565,8 +565,8 @@ class TestAdminDeactivateUser:
         assert data["success"] is True
         assert data["is_active"] is False
 
-    @patch("aragora.server.handlers.admin.admin.check_permission", mock_check_permission_allowed)
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_deactivate_self_prevented(self, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -590,8 +590,8 @@ class TestAdminDeactivateUser:
 class TestAdminActivateUser:
     """Tests for activate user endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.check_permission", mock_check_permission_allowed)
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_activate_user_success(self, mock_auth, admin_handler, user_store):
         # Set user as inactive first
         user_store.users["user-456"].is_active = False
@@ -617,9 +617,9 @@ class TestAdminActivateUser:
 class TestAdminUnlockUser:
     """Tests for unlock user endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.check_permission", mock_check_permission_allowed)
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
-    @patch("aragora.server.handlers.admin.admin.get_lockout_tracker")
+    @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.get_lockout_tracker")
     def test_unlock_user_success(self, mock_lockout, mock_auth, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -647,7 +647,7 @@ class TestAdminUnlockUser:
 class TestAdminNomicStatus:
     """Tests for nomic status endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_get_nomic_status_no_state_file(self, mock_auth, admin_handler):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -670,7 +670,7 @@ class TestAdminNomicStatus:
 class TestAdminNomicCircuitBreakers:
     """Tests for nomic circuit breakers endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_get_circuit_breakers_module_not_available(self, mock_auth, admin_handler):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -693,7 +693,7 @@ class TestAdminNomicCircuitBreakers:
 class TestAdminNomicReset:
     """Tests for nomic reset endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_reset_nomic_phase_success(self, mock_auth, admin_handler, tmp_path):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -713,7 +713,7 @@ class TestAdminNomicReset:
         assert data["success"] is True
         assert data["new_phase"] == "context"
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_reset_nomic_invalid_phase(self, mock_auth, admin_handler, tmp_path):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -738,7 +738,7 @@ class TestAdminNomicReset:
 class TestAdminNomicPauseResume:
     """Tests for nomic pause/resume endpoints."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_pause_nomic_success(self, mock_auth, admin_handler, tmp_path):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -761,7 +761,7 @@ class TestAdminNomicPauseResume:
         assert data["success"] is True
         assert data["status"] == "paused"
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_resume_nomic_success(self, mock_auth, admin_handler, tmp_path):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -784,7 +784,7 @@ class TestAdminNomicPauseResume:
         assert data["status"] == "resumed"
         assert data["phase"] == "debate"
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_resume_not_paused(self, mock_auth, admin_handler, tmp_path):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -810,7 +810,7 @@ class TestAdminNomicPauseResume:
 class TestAdminResetCircuitBreakers:
     """Tests for reset circuit breakers endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_reset_circuit_breakers_module_not_available(self, mock_auth, admin_handler):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 
@@ -833,7 +833,7 @@ class TestAdminResetCircuitBreakers:
 class TestAdminMethodNotAllowed:
     """Tests for method not allowed responses."""
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_stats_post_not_allowed(self, mock_auth, admin_handler):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
 

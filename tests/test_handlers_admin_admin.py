@@ -185,7 +185,7 @@ class TestAdminAuth:
         data = json.loads(result.body)
         assert "unavailable" in data["error"].lower()
 
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_returns_401_when_not_authenticated(self, mock_extract, admin_handler, mock_handler):
         """Returns 401 when user is not authenticated."""
         mock_auth = MagicMock()
@@ -199,8 +199,8 @@ class TestAdminAuth:
         data = json.loads(result.body)
         assert "authenticated" in data["error"].lower()
 
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_returns_403_when_not_admin(
         self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_user_store
     ):
@@ -222,8 +222,8 @@ class TestAdminAuth:
         data = json.loads(result.body)
         assert "admin" in data["error"].lower()
 
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_returns_403_when_mfa_not_enabled(
         self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context
     ):
@@ -257,8 +257,8 @@ class TestAdminAuth:
 class TestGetAdminStats:
     """Tests for GET /api/admin/stats endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_get_stats_success(
         self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context
     ):
@@ -283,8 +283,8 @@ class TestGetAdminStats:
 class TestListUsers:
     """Tests for GET /api/admin/users endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_list_users_success(
         self,
         mock_extract,
@@ -318,8 +318,8 @@ class TestListUsers:
         assert "password_hash" not in data["users"][0]
         assert "api_key" not in data["users"][0]
 
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_list_users_with_pagination(
         self,
         mock_extract,
@@ -362,9 +362,9 @@ def _mock_allowed_decision():
 class TestDeactivateUser:
     """Tests for POST /api/admin/users/:user_id/deactivate endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.check_permission")
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_deactivate_user_success(
         self,
         mock_extract,
@@ -393,9 +393,9 @@ class TestDeactivateUser:
         assert data["is_active"] is False
         mock_user_store.update_user.assert_called_with("target-user-456", is_active=False)
 
-    @patch("aragora.server.handlers.admin.admin.check_permission")
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_cannot_deactivate_self(
         self,
         mock_extract,
@@ -420,9 +420,9 @@ class TestDeactivateUser:
         data = json.loads(result.body)
         assert "yourself" in data["error"].lower()
 
-    @patch("aragora.server.handlers.admin.admin.check_permission")
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_deactivate_user_not_found(
         self,
         mock_extract,
@@ -456,9 +456,9 @@ class TestDeactivateUser:
 class TestActivateUser:
     """Tests for POST /api/admin/users/:user_id/activate endpoint."""
 
-    @patch("aragora.server.handlers.admin.admin.check_permission")
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.check_permission")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_activate_user_success(
         self,
         mock_extract,
@@ -509,8 +509,8 @@ class TestInputValidation:
         data = json.loads(result.body)
         assert "invalid" in data["error"].lower()
 
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_invalid_user_id_format_deactivate(
         self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context
     ):
@@ -539,8 +539,8 @@ class TestInputValidation:
 class TestMethodNotAllowed:
     """Tests for method not allowed responses."""
 
-    @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
-    @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
+    @patch("aragora.server.handlers.admin.handler.enforce_admin_mfa_policy")
+    @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     def test_post_to_get_endpoint_returns_405(
         self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context
     ):

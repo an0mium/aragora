@@ -317,11 +317,15 @@ class TestRequireAdmin:
         self, admin_handler, mock_http_handler, mock_admin_user
     ):
         """Test _require_admin passes for admin user with MFA."""
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MockAuthContext(
                 user_id=mock_admin_user.id, is_authenticated=True
             )
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 mock_mfa.return_value = None  # MFA compliant
 
                 auth_ctx, err = admin_handler._require_admin(mock_http_handler)
@@ -332,7 +336,9 @@ class TestRequireAdmin:
 
     def test_require_admin_with_unauthenticated_user(self, admin_handler, mock_http_handler):
         """Test _require_admin rejects unauthenticated user."""
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MockAuthContext(is_authenticated=False)
 
             auth_ctx, err = admin_handler._require_admin(mock_http_handler)
@@ -345,7 +351,9 @@ class TestRequireAdmin:
         self, admin_handler, mock_http_handler, mock_regular_user
     ):
         """Test _require_admin rejects non-admin user."""
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MockAuthContext(
                 user_id=mock_regular_user.id, is_authenticated=True
             )
@@ -358,11 +366,15 @@ class TestRequireAdmin:
 
     def test_require_admin_without_mfa(self, admin_handler, mock_http_handler, mock_admin_user):
         """Test _require_admin rejects admin without MFA."""
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MockAuthContext(
                 user_id=mock_admin_user.id, is_authenticated=True
             )
-            with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
+            with patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
+            ) as mock_mfa:
                 mock_mfa.return_value = {"reason": "MFA not enabled", "action": "enable_mfa"}
 
                 auth_ctx, err = admin_handler._require_admin(mock_http_handler)
@@ -506,7 +518,7 @@ class TestDeactivateUser:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
-                with patch("aragora.server.handlers.admin.admin.audit_admin"):
+                with patch("aragora.server.handlers.admin.handler.audit_admin"):
                     result = admin_handler._deactivate_user(mock_http_handler, "user-002")
 
                     assert result.status_code == 200
@@ -557,7 +569,7 @@ class TestActivateUser:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
-                with patch("aragora.server.handlers.admin.admin.audit_admin"):
+                with patch("aragora.server.handlers.admin.handler.audit_admin"):
                     result = admin_handler._activate_user(mock_http_handler, "user-002")
 
                     assert result.status_code == 200
@@ -579,7 +591,7 @@ class TestUnlockUser:
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
                 with patch(
-                    "aragora.server.handlers.admin.admin.get_lockout_tracker"
+                    "aragora.server.handlers.admin.handler.get_lockout_tracker"
                 ) as mock_tracker:
                     tracker = MagicMock()
                     tracker.get_info.return_value = {"locked": True, "attempts": 5}
@@ -660,7 +672,9 @@ class TestImpersonateUser:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
-                with patch("aragora.server.handlers.admin.admin.create_access_token") as mock_token:
+                with patch(
+                    "aragora.server.handlers.admin.handler.create_access_token"
+                ) as mock_token:
                     mock_token.return_value = "impersonation-token-123"
 
                     result = admin_handler._impersonate_user(mock_http_handler, "user-002")
@@ -722,7 +736,7 @@ class TestNomicAdminEndpoints:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
-                with patch("aragora.server.handlers.admin.admin.audit_admin"):
+                with patch("aragora.server.handlers.admin.handler.audit_admin"):
                     with patch("builtins.open", MagicMock()):
                         with patch("pathlib.Path.exists") as mock_exists:
                             mock_exists.return_value = False
@@ -760,7 +774,7 @@ class TestNomicAdminEndpoints:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
-                with patch("aragora.server.handlers.admin.admin.audit_admin"):
+                with patch("aragora.server.handlers.admin.handler.audit_admin"):
                     with patch("aragora.nomic.recovery.CircuitBreakerRegistry") as mock_registry:
                         registry = MagicMock()
                         registry.all_open.return_value = ["phase-1"]
