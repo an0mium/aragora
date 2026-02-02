@@ -15,6 +15,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any, Dict
 
+pytest.importorskip("mcp")
+
 from aragora.mcp.tools import (
     run_debate_tool,
     run_gauntlet_tool,
@@ -22,8 +24,6 @@ from aragora.mcp.tools import (
     get_debate_tool,
     TOOLS_METADATA,
 )
-
-pytest.importorskip("mcp")
 
 
 class TestToolsMetadata:
