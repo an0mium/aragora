@@ -148,14 +148,16 @@ class NomicLoopStep(BaseStep):
             if claude_agent is None:
                 try:
                     claude_agent = create_agent("claude")
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Failed to create claude agent: %s", exc)
                     claude_agent = None
 
             codex_agent = _find_agent(agent_instances, {"codex", "openai-api"})
             if codex_agent is None:
                 try:
                     codex_agent = create_agent("codex")
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Failed to create codex agent: %s", exc)
                     codex_agent = None
 
             if not enable_code_execution:
@@ -171,7 +173,8 @@ class NomicLoopStep(BaseStep):
 
                 profile = NomicDebateProfile.from_env()
                 debate_config = profile.to_debate_config()
-            except Exception:
+            except Exception as exc:
+                logger.debug("Failed to load debate profile, using defaults: %s", exc)
                 debate_config = DebateConfig(rounds=DebateSettings().default_rounds)
 
             if config.get("debate_rounds"):

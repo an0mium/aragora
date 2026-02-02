@@ -500,8 +500,8 @@ def _load_marketplace_templates() -> list[StarterTemplate]:
         _seed_marketplace_templates()
 
         return [_marketplace_to_starter(t) for t in _marketplace_templates.values()]
-    except Exception:
-        logger.debug("Marketplace templates unavailable, using starters only")
+    except Exception as exc:
+        logger.debug("Marketplace templates unavailable, using starters only: %s", exc)
         return []
 
 

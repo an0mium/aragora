@@ -247,7 +247,8 @@ class OpenClawActionStep(BaseStep):
                 return m.group(0)
 
             return re.sub(r"\{([^}]+)\}", _replace_match, value)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Template resolution failed for %r: %s", value, exc)
             return value
 
 
