@@ -22,8 +22,9 @@ keywords = [
     "sdk",
     "api-client",
 ]
+deprecated = "This package is deprecated. Please migrate to aragora-client."
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 7 - Inactive",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",

@@ -1,25 +1,25 @@
-name: Release NPM
+name: Release NPM (DEPRECATED)
 
-# Publishes @aragora/sdk to npm registry
-#
-# Requires NPM_TOKEN secret configured in GitHub repository settings.
-# The npm account should have "Require 2FA for write actions" DISABLED
-# for token-based CI/CD publishing to work.
+# DEPRECATED: This workflow publishes the legacy @aragora/client package.
+# The canonical TypeScript SDK is @aragora/sdk published via publish-sdk.yml.
+# This workflow is disabled by default. Use workflow_dispatch for final releases only.
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.5.1)'
+        description: 'Version to release (e.g., 2.5.0)'
+        required: true
+        type: string
+      confirm_deprecated:
+        description: 'Type DEPRECATED to confirm publishing legacy package'
         required: true
         type: string
 
 jobs:
   publish-npm:
     runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_deprecated == 'DEPRECATED'
     timeout-minutes: 15
     defaults:
       run:
