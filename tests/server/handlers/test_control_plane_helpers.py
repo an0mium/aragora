@@ -9,6 +9,7 @@ Tests cover the helper methods introduced to reduce code duplication:
 import pytest
 from unittest.mock import MagicMock, patch
 
+from aragora.server.handlers import control_plane as control_plane_module
 from aragora.server.handlers.control_plane import ControlPlaneHandler
 
 
@@ -135,7 +136,7 @@ class TestHandleCoordinatorError:
         """Test that data errors (400) are logged as warnings."""
         error = ValueError("Invalid data")
 
-        with patch("aragora.server.handlers.features.control_plane.logger") as mock_logger:
+        with patch.object(control_plane_module, "logger") as mock_logger:
             handler._handle_coordinator_error(error, "test_op")
             mock_logger.warning.assert_called_once()
             assert "Data error" in str(mock_logger.warning.call_args)
@@ -145,7 +146,7 @@ class TestHandleCoordinatorError:
         """Test that other errors (500) are logged as errors."""
         error = RuntimeError("System failure")
 
-        with patch("aragora.server.handlers.features.control_plane.logger") as mock_logger:
+        with patch.object(control_plane_module, "logger") as mock_logger:
             handler._handle_coordinator_error(error, "test_op")
             mock_logger.error.assert_called_once()
             assert "test_op" in str(mock_logger.error.call_args)
@@ -154,7 +155,7 @@ class TestHandleCoordinatorError:
         """Test that the operation name is included in log messages."""
         error = ValueError("Test error")
 
-        with patch("aragora.server.handlers.features.control_plane.logger") as mock_logger:
+        with patch.object(control_plane_module, "logger") as mock_logger:
             handler._handle_coordinator_error(error, "my_custom_operation")
             call_args = str(mock_logger.warning.call_args)
             assert "my_custom_operation" in call_args
