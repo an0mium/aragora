@@ -106,7 +106,7 @@ class BillingHandler(SecureHandler):
         return path in self.ROUTES
 
     def handle(
-        self, path: str, query_params: dict, handler, method: str = "GET"
+        self, path: str, query_params: dict[str, Any], handler: Any, method: str = "GET"
     ) -> HandlerResult | None:
         """Route billing requests to appropriate methods."""
         # Rate limit check (skip for webhooks - they have their own idempotency)
@@ -158,11 +158,11 @@ class BillingHandler(SecureHandler):
 
         return error_response("Method not allowed", 405)
 
-    def _get_user_store(self):
+    def _get_user_store(self) -> Any | None:
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_usage_tracker(self):
+    def _get_usage_tracker(self) -> Any | None:
         """Get usage tracker from context."""
         return self.ctx.get("usage_tracker")
 
@@ -195,7 +195,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("get usage")
     @require_permission("org:billing")
-    def _get_usage(self, handler, user=None) -> HandlerResult:
+    def _get_usage(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Get usage for authenticated user.
 
         Requires org:billing permission (owner only).
@@ -267,7 +267,7 @@ class BillingHandler(SecureHandler):
 
     @handle_errors("get subscription")
     @require_permission("org:billing")
-    def _get_subscription(self, handler, user=None) -> HandlerResult:
+    def _get_subscription(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Get current subscription for authenticated user.
 
         Requires org:billing permission (owner only).
@@ -333,7 +333,7 @@ class BillingHandler(SecureHandler):
     @handle_errors("create checkout")
     @log_request("create checkout session")
     @require_permission("org:billing")
-    def _create_checkout(self, handler, user=None) -> HandlerResult:
+    def _create_checkout(self, handler: Any, user: Any | None = None) -> HandlerResult:
         """Create Stripe checkout session.
 
         Requires org:billing permission (owner only).

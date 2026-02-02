@@ -259,9 +259,9 @@ class SyncEventEmitter:
     MAX_QUEUE_SIZE = MAX_EVENT_QUEUE_SIZE
 
     def __init__(self, loop_id: str = ""):
-        # Use unbounded queue - we handle size limits manually to avoid blocking
-        # A bounded queue's put() can block even after overflow handling due to races
-        self._queue: queue.Queue[StreamEvent] = queue.Queue()
+        # Use bounded queue - maxsize=10000 prevents unbounded memory growth
+        # A bounded queue's put() can block, but we use put_nowait() which never blocks
+        self._queue: queue.Queue[StreamEvent] = queue.Queue(maxsize=10000)
         self._subscribers: list[Callable[[StreamEvent], None]] = []
         self._loop_id = loop_id  # Default loop_id for all events
         self._overflow_count = 0  # Track dropped events for monitoring

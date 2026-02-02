@@ -426,11 +426,11 @@ class OAuthHandler(
     }
 
     def _redirect_with_tokens(self, redirect_url: str, tokens) -> HandlerResult:
-        """Redirect to frontend with tokens in URL query parameters.
+        """Redirect to frontend with tokens in URL fragment.
 
-        Note: We use query params instead of URL fragments because fragments
-        are stripped during HTTP redirects (by proxies like Cloudflare).
-        The frontend callback page handles extracting tokens from query params.
+        Tokens in query params can leak via logs, referrers, and proxies.
+        We return an HTML page that sets window.location to a fragment URL
+        so tokens never reach the server in the request path.
         """
         params = urlencode(
             {
@@ -440,13 +440,32 @@ class OAuthHandler(
                 "expires_in": tokens.expires_in,
             }
         )
-        url = f"{redirect_url}?{params}"
+        fragment_url = f"{redirect_url}#{params}"
+
+        body = f"""
+        <html>
+          <head>
+            <meta http-equiv="cache-control" content="no-store" />
+            <meta http-equiv="pragma" content="no-cache" />
+            <meta http-equiv="expires" content="0" />
+            <script>
+              window.location.replace({fragment_url!r});
+            </script>
+            <noscript>
+              <meta http-equiv="refresh" content="0;url={fragment_url}" />
+            </noscript>
+          </head>
+          <body>
+            Redirecting... If you are not redirected, <a href="{fragment_url}">continue</a>.
+          </body>
+        </html>
+        """
 
         return HandlerResult(
-            status_code=302,
+            status_code=200,
             content_type="text/html",
-            body=f'<html><head><meta http-equiv="refresh" content="0;url={url}"></head></html>'.encode(),
-            headers={"Location": url, **self.OAUTH_NO_CACHE_HEADERS},
+            body=body.encode(),
+            headers={**self.OAUTH_NO_CACHE_HEADERS},
         )
 
     def _redirect_with_error(self, error: str) -> HandlerResult:

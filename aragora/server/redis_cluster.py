@@ -90,6 +90,40 @@ class ClusterConfig:
     # Encoding
     decode_responses: bool = True
 
+    def __post_init__(self) -> None:
+        """Validate and clamp configuration values to valid bounds."""
+        # Bounds for max_connections_per_node: [1, 500]
+        if self.max_connections_per_node < 1 or self.max_connections_per_node > 500:
+            logger.warning(
+                "max_connections_per_node=%d out of bounds [1, 500], clamping",
+                self.max_connections_per_node,
+            )
+            self.max_connections_per_node = max(1, min(self.max_connections_per_node, 500))
+
+        # Bounds for socket_timeout: [1.0, 300.0]
+        if self.socket_timeout < 1.0 or self.socket_timeout > 300.0:
+            logger.warning(
+                "socket_timeout=%.1f out of bounds [1.0, 300.0], clamping",
+                self.socket_timeout,
+            )
+            self.socket_timeout = max(1.0, min(self.socket_timeout, 300.0))
+
+        # Bounds for socket_connect_timeout: [1.0, 60.0]
+        if self.socket_connect_timeout < 1.0 or self.socket_connect_timeout > 60.0:
+            logger.warning(
+                "socket_connect_timeout=%.1f out of bounds [1.0, 60.0], clamping",
+                self.socket_connect_timeout,
+            )
+            self.socket_connect_timeout = max(1.0, min(self.socket_connect_timeout, 60.0))
+
+        # Bounds for health_check_interval: [5.0, 300.0]
+        if self.health_check_interval < 5.0 or self.health_check_interval > 300.0:
+            logger.warning(
+                "health_check_interval=%.1f out of bounds [5.0, 300.0], clamping",
+                self.health_check_interval,
+            )
+            self.health_check_interval = max(5.0, min(self.health_check_interval, 300.0))
+
 
 def get_cluster_config() -> ClusterConfig:
     """Get cluster configuration from environment variables."""

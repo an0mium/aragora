@@ -380,6 +380,7 @@ class GasTownDashboardHandler(SecureHandler):
                 total = len(convoys)
             else:
                 from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
+
                 stores = self._get_canonical_workspace_stores()
                 if not stores:
                     return json_response({"convoys": [], "total": 0, "showing": 0})
@@ -634,7 +635,7 @@ class GasTownDashboardHandler(SecureHandler):
                 get_gupp_recovery_count,
             )
 
-            beads_completed = get_beads_completed_count(hours=hours)
+            beads_completed = await get_beads_completed_count(hours=hours)
             metrics["beads_per_hour"] = round(beads_completed / max(hours, 1), 2)
             metrics["convoy_completion_rate"] = get_convoy_completion_rate()
             metrics["gupp_recovery_events"] = get_gupp_recovery_count(hours=hours)
@@ -653,6 +654,7 @@ class GasTownDashboardHandler(SecureHandler):
                         metrics["convoy_completion_rate"] = round((completed / total) * 100, 1)
                 else:
                     from aragora.nomic.stores import ConvoyStatus as ConvoyStatus
+
                     stores = self._get_canonical_workspace_stores()
                     if stores:
                         mgr = await stores.convoy_manager()

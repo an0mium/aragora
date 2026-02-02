@@ -15,6 +15,7 @@ import logging
 import time
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
@@ -27,6 +28,10 @@ from .base import (
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# Permission constants for RBAC
+AGENTS_READ_PERMISSION = "agents:read"
+AGENTS_WRITE_PERMISSION = "agents:write"
 
 # Rate limiters
 _submit_limiter = RateLimiter(requests_per_minute=10)
@@ -153,6 +158,7 @@ class ExternalAgentsHandler(BaseHandler):
     # Internal handlers
     # =========================================================================
 
+    @require_permission(AGENTS_READ_PERMISSION)
     def _list_adapters(self) -> HandlerResult:
         """List registered external agent adapters."""
         try:
@@ -178,6 +184,7 @@ class ExternalAgentsHandler(BaseHandler):
             logger.error(f"Failed to list adapters: {e}")
             return error_response("Failed to list adapters", 500)
 
+    @require_permission(AGENTS_READ_PERMISSION)
     def _health_check(self, adapter_name: str | None = None) -> HandlerResult:
         """Health check adapters."""
         try:
@@ -219,6 +226,7 @@ class ExternalAgentsHandler(BaseHandler):
             logger.error(f"Health check failed: {e}")
             return error_response("Health check failed", 500)
 
+    @require_permission(AGENTS_WRITE_PERMISSION)
     def _submit_task(self, body: dict[str, Any], user: Any) -> HandlerResult:
         """Submit a task to an external agent."""
         try:
@@ -319,6 +327,7 @@ class ExternalAgentsHandler(BaseHandler):
             logger.error(f"Task submission failed: {e}")
             return error_response(f"Task submission failed: {str(e)}", 500)
 
+    @require_permission(AGENTS_READ_PERMISSION)
     def _get_task(self, task_id: str, user: Any) -> HandlerResult:
         """Get task status and result."""
         try:
@@ -376,6 +385,7 @@ class ExternalAgentsHandler(BaseHandler):
             logger.error(f"Failed to get task {task_id}: {e}")
             return error_response(f"Failed to get task: {str(e)}", 500)
 
+    @require_permission(AGENTS_WRITE_PERMISSION)
     def _cancel_task(self, task_id: str, user: Any) -> HandlerResult:
         """Cancel a running task."""
         try:

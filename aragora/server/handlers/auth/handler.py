@@ -181,18 +181,18 @@ class AuthHandler(SecureHandler):
             return self._handle_logout_all(handler)
 
         if path == "/api/auth/refresh" and method == "POST":
-            return self._handle_refresh(handler)
+            return await self._handle_refresh(handler)
 
         if path == "/api/auth/me":
             if method == "GET":
-                return self._handle_get_me(handler)
+                return await self._handle_get_me(handler)
             elif method == "PUT":
-                return self._handle_update_me(handler)
+                return await self._handle_update_me(handler)
             elif method == "POST":
-                return self._handle_update_me(handler)
+                return await self._handle_update_me(handler)
 
         if path == "/api/auth/profile" and method == "POST":
-            return self._handle_update_me(handler)
+            return await self._handle_update_me(handler)
 
         if path == "/api/auth/password" and method == "POST":
             return self._handle_change_password(handler)

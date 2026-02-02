@@ -71,6 +71,32 @@ class HTTPPoolConfig:
     # Health checking
     health_check_interval: float = 60.0
 
+    def __post_init__(self) -> None:
+        """Validate configuration bounds."""
+        # pool_size: [1, 1000]
+        if not 1 <= self.pool_size <= 1000:
+            raise ValueError(f"pool_size must be between 1 and 1000, got {self.pool_size}")
+
+        # connect_timeout: [1.0, 60.0]
+        if not 1.0 <= self.connect_timeout <= 60.0:
+            raise ValueError(
+                f"connect_timeout must be between 1.0 and 60.0, got {self.connect_timeout}"
+            )
+
+        # read_timeout: [1.0, 300.0]
+        if not 1.0 <= self.read_timeout <= 300.0:
+            raise ValueError(f"read_timeout must be between 1.0 and 300.0, got {self.read_timeout}")
+
+        # keepalive_timeout: [1.0, 120.0]
+        if not 1.0 <= self.keepalive_timeout <= 120.0:
+            raise ValueError(
+                f"keepalive_timeout must be between 1.0 and 120.0, got {self.keepalive_timeout}"
+            )
+
+        # max_retries: [0, 10]
+        if not 0 <= self.max_retries <= 10:
+            raise ValueError(f"max_retries must be between 0 and 10, got {self.max_retries}")
+
 
 @dataclass
 class ProviderMetrics:

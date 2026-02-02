@@ -62,6 +62,24 @@ class RedisConfig:
     max_connections: int = 50
     retry_on_timeout: bool = True
 
+    def __post_init__(self) -> None:
+        """Validate configuration bounds."""
+        # default_limit: [1, 100000]
+        if not 1 <= self.default_limit <= 100000:
+            raise ValueError(
+                f"default_limit must be between 1 and 100000, got {self.default_limit}"
+            )
+
+        # ip_limit: [1, 100000]
+        if not 1 <= self.ip_limit <= 100000:
+            raise ValueError(f"ip_limit must be between 1 and 100000, got {self.ip_limit}")
+
+        # burst_multiplier: [1.0, 10.0]
+        if not 1.0 <= self.burst_multiplier <= 10.0:
+            raise ValueError(
+                f"burst_multiplier must be between 1.0 and 10.0, got {self.burst_multiplier}"
+            )
+
 
 def get_redis_config() -> RedisConfig:
     """Get Redis configuration from environment variables."""

@@ -25,7 +25,6 @@ from .core import (
     _run_async,
     WorkflowDefinition,
     RBAC_AVAILABLE,
-    METRICS_AVAILABLE,
     record_rbac_check,
     track_handler,
     _UnauthenticatedSentinel,
@@ -260,7 +259,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         If RBAC is not available, allows the request (development mode).
         """
         if not RBAC_AVAILABLE:
-            logger.debug(f"RBAC not available, allowing {permission_key}")
+            logger.debug("RBAC not available, allowing %s", permission_key)
             return None
 
         context = self._get_auth_context(handler)
@@ -275,13 +274,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
                 logger.warning(
-                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                    "Permission denied: %s for user %s: %s",
+                    permission_key,
+                    context.user_id,
+                    decision.reason,
                 )
                 record_rbac_check(permission_key, allowed=False, handler="WorkflowHandler")
                 return error_response(f"Permission denied: {decision.reason}", 403)
             record_rbac_check(permission_key, allowed=True)
         except PermissionDeniedError as e:
-            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            logger.warning(
+                "Permission denied: %s for user %s: %s", permission_key, context.user_id, e
+            )
             record_rbac_check(permission_key, allowed=False, handler="WorkflowHandler")
             return error_response(f"Permission denied: {str(e)}", 403)
         return None
@@ -322,7 +326,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 "workflow.read" not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
             ):
-                logger.warning(f"User {auth_ctx.user_id} denied workflow.read permission")
+                logger.warning("User %s denied workflow.read permission", auth_ctx.user_id)
                 return error_response("Permission denied: requires workflow.read", 403)
 
         # GET /api/workflow-executions
@@ -399,7 +403,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 required_perm not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
             ):
-                logger.warning(f"User {auth_ctx.user_id} denied {required_perm} permission")
+                logger.warning("User %s denied %s permission", auth_ctx.user_id, required_perm)
                 return error_response(f"Permission denied: requires {required_perm}", 403)
 
         body, err = self.read_json_body_validated(handler)
@@ -457,7 +461,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 "workflows:update" not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
             ):
-                logger.warning(f"User {auth_ctx.user_id} denied workflow.update permission")
+                logger.warning("User %s denied workflow.update permission", auth_ctx.user_id)
                 return error_response("Permission denied: requires workflow.update", 403)
 
         body, err = self.read_json_body_validated(handler)
@@ -503,7 +507,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 required_perm not in auth_ctx.permissions
                 and "workflow.*" not in auth_ctx.permissions
             ):
-                logger.warning(f"User {auth_ctx.user_id} denied {required_perm} permission")
+                logger.warning("User %s denied %s permission", auth_ctx.user_id, required_perm)
                 return error_response(f"Permission denied: requires {required_perm}", 403)
 
         workflow_id = self._extract_id(path)
@@ -565,7 +569,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             return json_response(result)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error listing workflows: {e}")
+            logger.error("Data error listing workflows: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -594,7 +598,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return json_response(result)
             return error_response(f"Workflow not found: {workflow_id}", 404)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error getting workflow: {e}")
+            logger.error("Data error getting workflow: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -632,10 +636,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         except ValueError as e:
             return error_response(str(e), 400)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error creating workflow: {e}")
+            logger.error("Storage error creating workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error creating workflow: {e}")
+            logger.error("Data error creating workflow: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -667,10 +671,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         except ValueError as e:
             return error_response(str(e), 400)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error updating workflow: {e}")
+            logger.error("Storage error updating workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error updating workflow: {e}")
+            logger.error("Data error updating workflow: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -699,10 +703,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return json_response({"deleted": True, "id": workflow_id})
             return error_response(f"Workflow not found: {workflow_id}", 404)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error deleting workflow: {e}")
+            logger.error("Storage error deleting workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error deleting workflow: {e}")
+            logger.error("Data error deleting workflow: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -732,13 +736,13 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         except ValueError as e:
             return error_response(str(e), 404)
         except (ConnectionError, TimeoutError) as e:
-            logger.error(f"Connection error executing workflow: {e}")
+            logger.error("Connection error executing workflow: %s", e)
             return error_response("Execution service unavailable", 503)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error executing workflow: {e}")
+            logger.error("Storage error executing workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error executing workflow: {e}")
+            logger.error("Data error executing workflow: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -802,10 +806,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
 
         except (OSError, IOError) as e:
-            logger.error(f"Storage error simulating workflow: {e}")
+            logger.error("Storage error simulating workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error simulating workflow: {e}")
+            logger.error("Data error simulating workflow: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -834,10 +838,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 }
             )
         except (OSError, IOError) as e:
-            logger.error(f"Storage error getting workflow status: {e}")
+            logger.error("Storage error getting workflow status: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error getting workflow status: {e}")
+            logger.error("Data error getting workflow status: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -865,10 +869,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             return json_response({"versions": versions, "workflow_id": workflow_id})
         except (OSError, IOError) as e:
-            logger.error(f"Storage error getting workflow versions: {e}")
+            logger.error("Storage error getting workflow versions: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error getting workflow versions: {e}")
+            logger.error("Data error getting workflow versions: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -893,14 +897,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             tenant_id = self._get_tenant_id(handler, query_params)
             result = _run_async(restore_workflow_version(workflow_id, version, tenant_id=tenant_id))
             if result:
-                logger.info(f"Restored workflow {workflow_id} to version {version}")
+                logger.info("Restored workflow %s to version %s", workflow_id, version)
                 return json_response({"restored": True, "workflow": result})
             return error_response(f"Version not found: {version}", 404)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error restoring workflow version: {e}")
+            logger.error("Storage error restoring workflow version: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error restoring workflow version: {e}")
+            logger.error("Data error restoring workflow version: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -924,14 +928,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             success = _run_async(terminate_execution(execution_id))
             if success:
-                logger.info(f"Terminated execution {execution_id}")
+                logger.info("Terminated execution %s", execution_id)
                 return json_response({"terminated": True, "execution_id": execution_id})
             return error_response(f"Cannot terminate execution: {execution_id}", 400)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error terminating execution: {e}")
+            logger.error("Storage error terminating execution: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error terminating execution: {e}")
+            logger.error("Data error terminating execution: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -954,10 +958,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             return json_response({"templates": templates, "count": len(templates)})
         except (OSError, IOError) as e:
-            logger.error(f"Storage error listing templates: {e}")
+            logger.error("Storage error listing templates: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error listing templates: {e}")
+            logger.error("Data error listing templates: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -982,10 +986,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             return json_response({"approvals": approvals, "count": len(approvals)})
         except (OSError, IOError) as e:
-            logger.error(f"Storage error listing approvals: {e}")
+            logger.error("Storage error listing approvals: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error listing approvals: {e}")
+            logger.error("Data error listing approvals: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -1029,10 +1033,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 }
             )
         except (OSError, IOError) as e:
-            logger.error(f"Storage error listing executions: {e}")
+            logger.error("Storage error listing executions: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error listing executions: {e}")
+            logger.error("Data error listing executions: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -1060,10 +1064,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
             return json_response(execution)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error getting execution: {e}")
+            logger.error("Storage error getting execution: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error getting execution: {e}")
+            logger.error("Data error getting execution: %s", e)
             return error_response("Internal data error", 500)
 
     @api_endpoint(
@@ -1104,10 +1108,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         except ValueError as e:
             return error_response(str(e), 400)
         except (OSError, IOError) as e:
-            logger.error(f"Storage error resolving approval: {e}")
+            logger.error("Storage error resolving approval: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
-            logger.error(f"Data error resolving approval: {e}")
+            logger.error("Data error resolving approval: %s", e)
             return error_response("Internal data error", 500)
 
 

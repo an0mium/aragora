@@ -613,7 +613,7 @@ class ExplainabilityHandler(BaseHandler):
                     }
                 )
             elif format_type == "html":
-                import markdown as md_lib
+                import markdown as md_lib  # type: ignore[import-untyped]
 
                 html_body: str = md_lib.markdown(summary)
                 html_content = f"""

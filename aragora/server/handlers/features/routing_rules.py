@@ -647,15 +647,11 @@ class RoutingRulesHandler(SecureHandler):
                 user_id = "unknown"
 
             audit_data(
-                event_type=f"routing_rule_{action}",
+                user_id=user_id,
                 resource_type="routing_rule",
                 resource_id=rule_id,
-                actor_id=user_id,
-                details={
-                    "action": action,
-                    "rule_id": rule_id,
-                    "rule_name": rule_name,
-                },
+                action=action,
+                rule_name=rule_name,
             )
         except Exception as e:
             # Don't fail the operation if audit logging fails

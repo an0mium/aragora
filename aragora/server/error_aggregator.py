@@ -238,7 +238,9 @@ class ErrorAggregator:
         self._max_samples = max_samples_per_error
 
         self._errors: dict[ErrorSignature, AggregatedError] = {}
-        self._timeline: deque = deque()  # (timestamp, signature) for time-based queries
+        self._timeline: deque = deque(
+            maxlen=100000
+        )  # (timestamp, signature) for time-based queries
         self._lock = threading.RLock()
 
         # Stats tracking
@@ -325,11 +327,14 @@ class ErrorAggregator:
                 agg.count += 1
                 agg.occurrences.append(occurrence)
 
-                # Track context values for analysis
+                # Track context values for analysis (cap at 1000 unique keys)
                 if context:
                     for key, value in context.items():
                         if isinstance(value, (str, int, bool)):
-                            agg.contexts[f"{key}:{value}"] += 1
+                            ctx_key = f"{key}:{value}"
+                            # Allow incrementing existing keys even at cap
+                            if ctx_key in agg.contexts or len(agg.contexts) < 1000:
+                                agg.contexts[ctx_key] += 1
 
             # Update timeline
             self._timeline.append((now, signature))

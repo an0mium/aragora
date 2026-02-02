@@ -53,21 +53,53 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Voice stream configuration
-VOICE_CHUNK_SIZE_BYTES = int(
-    os.getenv("ARAGORA_VOICE_CHUNK_SIZE", str(16000 * 2 * 3))
-)  # 3 seconds at 16kHz 16-bit
-VOICE_MAX_SESSION_SECONDS = int(os.getenv("ARAGORA_VOICE_MAX_SESSION", "300"))  # 5 minutes max
-VOICE_MAX_BUFFER_BYTES = int(
-    os.getenv("ARAGORA_VOICE_MAX_BUFFER", str(25 * 1024 * 1024))
-)  # 25MB (Whisper limit)
-VOICE_TRANSCRIBE_INTERVAL_MS = int(os.getenv("ARAGORA_VOICE_INTERVAL", "3000"))  # 3 seconds
+# Voice stream configuration with bounds validation
+
+
+def _clamp_with_warning(name: str, raw_value: int, min_val: int, max_val: int) -> int:
+    """Clamp value to bounds and log warning if out of range."""
+    if raw_value < min_val or raw_value > max_val:
+        logger.warning("%s=%d out of bounds [%d, %d], clamping", name, raw_value, min_val, max_val)
+    return max(min_val, min(raw_value, max_val))
+
+
+# Chunk size: 1KB to 1MB
+_raw_chunk_size = int(os.getenv("ARAGORA_VOICE_CHUNK_SIZE", str(16000 * 2 * 3)))
+VOICE_CHUNK_SIZE_BYTES = _clamp_with_warning(
+    "ARAGORA_VOICE_CHUNK_SIZE", _raw_chunk_size, 1024, 1048576
+)  # 3 seconds at 16kHz 16-bit (default)
+
+# Max session duration: 10 seconds to 1 hour
+_raw_max_session = int(os.getenv("ARAGORA_VOICE_MAX_SESSION", "300"))
+VOICE_MAX_SESSION_SECONDS = _clamp_with_warning(
+    "ARAGORA_VOICE_MAX_SESSION", _raw_max_session, 10, 3600
+)  # 5 minutes max (default)
+
+# Max buffer size: 1MB to 512MB
+_raw_max_buffer = int(os.getenv("ARAGORA_VOICE_MAX_BUFFER", str(25 * 1024 * 1024)))
+VOICE_MAX_BUFFER_BYTES = _clamp_with_warning(
+    "ARAGORA_VOICE_MAX_BUFFER", _raw_max_buffer, 1048576, 536870912
+)  # 25MB (Whisper limit, default)
+
+# Transcribe interval: 100ms to 30 seconds
+_raw_interval = int(os.getenv("ARAGORA_VOICE_INTERVAL", "3000"))
+VOICE_TRANSCRIBE_INTERVAL_MS = _clamp_with_warning(
+    "ARAGORA_VOICE_INTERVAL", _raw_interval, 100, 30000
+)  # 3 seconds (default)
 
 # Rate limiting
-VOICE_MAX_SESSIONS_PER_IP = int(os.getenv("ARAGORA_VOICE_MAX_SESSIONS_IP", "3"))
-VOICE_MAX_BYTES_PER_MINUTE = int(
-    os.getenv("ARAGORA_VOICE_RATE_BYTES", str(5 * 1024 * 1024))
-)  # 5MB/min
+
+# Max sessions per IP: 1 to 50
+_raw_max_sessions_ip = int(os.getenv("ARAGORA_VOICE_MAX_SESSIONS_IP", "3"))
+VOICE_MAX_SESSIONS_PER_IP = _clamp_with_warning(
+    "ARAGORA_VOICE_MAX_SESSIONS_IP", _raw_max_sessions_ip, 1, 50
+)
+
+# Max bytes per minute: 100KB to 50MB
+_raw_rate_bytes = int(os.getenv("ARAGORA_VOICE_RATE_BYTES", str(5 * 1024 * 1024)))
+VOICE_MAX_BYTES_PER_MINUTE = _clamp_with_warning(
+    "ARAGORA_VOICE_RATE_BYTES", _raw_rate_bytes, 102400, 52428800
+)  # 5MB/min (default)
 
 # TTS configuration
 VOICE_TTS_ENABLED = os.getenv("ARAGORA_VOICE_TTS_ENABLED", "true").lower() == "true"

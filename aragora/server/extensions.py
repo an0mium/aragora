@@ -360,7 +360,7 @@ def init_computer_use() -> tuple[Any | None, Any | None, Any | None, Any | None]
     """
     if not ENABLE_COMPUTER_USE or not COMPUTER_USE_AVAILABLE:
         logger.debug("[extensions] Computer Use disabled or unavailable")
-        return None, None
+        return None, None, None, None
 
     try:
         # Create default policy

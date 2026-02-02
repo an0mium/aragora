@@ -161,7 +161,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_permission("analytics:read")
     @rate_limit(requests_per_minute=60)
-    def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         if normalized in ANALYTICS_STUB_RESPONSES:
@@ -213,7 +213,9 @@ class AnalyticsDashboardHandler(BaseHandler):
     @require_user_auth
     @handle_errors("get analytics summary")
     @cached_analytics("summary", workspace_key="workspace_id", time_range_key="time_range")
-    def _get_summary(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_summary(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get dashboard summary with key metrics.
 
@@ -277,7 +279,9 @@ class AnalyticsDashboardHandler(BaseHandler):
         time_range_key="time_range",
         extra_keys=["granularity"],
     )
-    def _get_finding_trends(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_finding_trends(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get finding trends over time.
 
@@ -348,7 +352,7 @@ class AnalyticsDashboardHandler(BaseHandler):
     @handle_errors("get remediation metrics")
     @cached_analytics("remediation", workspace_key="workspace_id", time_range_key="time_range")
     def _get_remediation_metrics(
-        self, query_params: dict, handler=None, user=None
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
     ) -> HandlerResult:
         """
         Get remediation performance metrics.
@@ -408,7 +412,9 @@ class AnalyticsDashboardHandler(BaseHandler):
     @require_user_auth
     @handle_errors("get agent metrics")
     @cached_analytics("agents", workspace_key="workspace_id", time_range_key="time_range")
-    def _get_agent_metrics(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_agent_metrics(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get agent performance metrics.
 
@@ -470,7 +476,9 @@ class AnalyticsDashboardHandler(BaseHandler):
     @require_user_auth
     @handle_errors("get cost metrics")
     @cached_analytics("cost", workspace_key="workspace_id", time_range_key="time_range")
-    def _get_cost_metrics(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_cost_metrics(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get cost analysis for audits.
 
@@ -524,7 +532,7 @@ class AnalyticsDashboardHandler(BaseHandler):
     @require_user_auth
     @handle_errors("get compliance scorecard")
     def _get_compliance_scorecard(
-        self, query_params: dict, handler=None, user=None
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
     ) -> HandlerResult:
         """
         Get compliance scorecard for specified frameworks.
@@ -584,7 +592,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get risk heatmap")
-    def _get_risk_heatmap(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_risk_heatmap(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get risk heatmap data (category x severity).
 
@@ -640,7 +650,9 @@ class AnalyticsDashboardHandler(BaseHandler):
     @require_user_auth
     @handle_errors("get token usage")
     @cached_analytics_org("tokens", org_key="org_id", days_key="days")
-    def _get_token_usage(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_token_usage(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get token usage summary.
 
@@ -703,7 +715,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get token trends")
-    def _get_token_trends(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_token_trends(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get token usage trends over time.
 
@@ -798,7 +812,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get provider breakdown")
-    def _get_provider_breakdown(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_provider_breakdown(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get detailed breakdown by provider and model.
 
@@ -1192,7 +1208,7 @@ class AnalyticsDashboardHandler(BaseHandler):
     @handle_errors("get deliberation summary")
     @cached_analytics_org("deliberations", org_key="org_id", days_key="days")
     def _get_deliberation_summary(
-        self, query_params: dict, handler=None, user=None
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
     ) -> HandlerResult:
         """
         Get deliberation analytics summary.
@@ -1278,7 +1294,7 @@ class AnalyticsDashboardHandler(BaseHandler):
     @require_user_auth
     @handle_errors("get deliberation by channel")
     def _get_deliberation_by_channel(
-        self, query_params: dict, handler=None, user=None
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
     ) -> HandlerResult:
         """
         Get deliberation breakdown by channel/platform.
@@ -1380,7 +1396,9 @@ class AnalyticsDashboardHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get consensus rates")
-    def _get_consensus_rates(self, query_params: dict, handler=None, user=None) -> HandlerResult:
+    def _get_consensus_rates(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
         """
         Get consensus rates by agent team composition.
 
@@ -1466,7 +1484,7 @@ class AnalyticsDashboardHandler(BaseHandler):
     @require_user_auth
     @handle_errors("get deliberation performance")
     def _get_deliberation_performance(
-        self, query_params: dict, handler=None, user=None
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
     ) -> HandlerResult:
         """
         Get deliberation performance metrics (latency, cost, efficiency).

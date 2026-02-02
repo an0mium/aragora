@@ -203,7 +203,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
             result = endpoint_handler()
             if asyncio.iscoroutine(result):
                 result = await result
-            return result
+            return result  # type: ignore[return-value]
 
         # Endpoints with parameters
         if path == "/api/nomic/log":
@@ -489,7 +489,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
 
         return json_response({"modes": modes, "total": len(modes)})
 
-    def _get_witness_status(self) -> HandlerResult:
+    async def _get_witness_status(self) -> HandlerResult:
         """Get witness patrol status and health report.
 
         Returns the current state of the Gas Town witness patrol, including:
@@ -548,7 +548,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
 
             # Try to get health report if available
             try:
-                report = _run_async(witness.generate_health_report())
+                report = await witness.generate_health_report()
                 if report:
                     response["health_report"] = {
                         "report_id": report.report_id,

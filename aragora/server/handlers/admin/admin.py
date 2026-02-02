@@ -75,14 +75,16 @@ except ImportError:
     RBAC_AVAILABLE = False
 
     # Provide a no-op decorator fallback when RBAC is unavailable
-    def require_permission(
+    def require_permission(  # type: ignore[no-redef, misc]
         permission_key: str,
         resource_id_param: str | None = None,
         context_param: str = "context",
-    ):  # type: ignore[no-redef]
+        checker: Any = None,
+        on_denied: Any = None,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """No-op decorator when RBAC module is not available."""
 
-        def decorator(func):  # type: ignore[no-untyped-def]
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
 
         return decorator

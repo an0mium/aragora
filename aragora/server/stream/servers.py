@@ -151,14 +151,20 @@ TRUSTED_PROXIES = frozenset(
 # WebSocket Security Configuration
 # =============================================================================
 
-# Connection rate limiting per IP
-WS_CONNECTIONS_PER_IP_PER_MINUTE = int(os.getenv("ARAGORA_WS_CONN_RATE", "30"))
+# Connection rate limiting per IP (bounds: 1-1000)
+_raw_conn_rate = int(os.getenv("ARAGORA_WS_CONN_RATE", "30"))
+if _raw_conn_rate < 1 or _raw_conn_rate > 1000:
+    logger.warning("ARAGORA_WS_CONN_RATE=%d out of bounds [1, 1000], clamping", _raw_conn_rate)
+WS_CONNECTIONS_PER_IP_PER_MINUTE = max(1, min(_raw_conn_rate, 1000))
 
 # Token revalidation interval for long-lived connections (5 minutes)
 WS_TOKEN_REVALIDATION_INTERVAL = 300.0
 
-# Maximum connections per IP (concurrent)
-WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
+# Maximum connections per IP (concurrent, bounds: 1-100)
+_raw_max_per_ip = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
+if _raw_max_per_ip < 1 or _raw_max_per_ip > 100:
+    logger.warning("ARAGORA_WS_MAX_PER_IP=%d out of bounds [1, 100], clamping", _raw_max_per_ip)
+WS_MAX_CONNECTIONS_PER_IP = max(1, min(_raw_max_per_ip, 100))
 
 # =============================================================================
 # NOTE: Core streaming classes are now in submodules for better organization:
