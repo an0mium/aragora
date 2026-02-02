@@ -163,9 +163,11 @@ def handle_revoke_session(
 
     # Check if trying to revoke current session
     # JTI is computed from token hash, matching the session tracking approach
-    current_jti: str | None = None
+    current_jtis: set[str] = set()
     token = extract_token(handler)
     if token:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()[:32]
+        current_jtis.add(token_hash)
         payload = decode_jwt(token)
         if payload:
             payload_jti = None
@@ -173,9 +175,10 @@ def handle_revoke_session(
                 payload_jti = payload.get("jti")
             else:
                 payload_jti = getattr(payload, "jti", None)
-            current_jti = payload_jti or hashlib.sha256(token.encode()).hexdigest()[:32]
+            if payload_jti:
+                current_jtis.add(str(payload_jti))
 
-    if session_id == current_jti:
+    if session_id in current_jtis:
         return error_response(
             "Cannot revoke current session. Use /api/auth/logout instead.",
             400,
