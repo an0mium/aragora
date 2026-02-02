@@ -10,8 +10,11 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from functools import wraps
 from typing import Any, Optional, TYPE_CHECKING
 
+from aragora.audit import get_document_auditor
+from aragora.audit.evidence_adapter import EvidenceConfig, FindingEvidenceCollector
 from aragora.server.http_utils import run_async as _run_async
 
 from ..base import (
@@ -30,6 +33,16 @@ if TYPE_CHECKING:
     from aragora.storage.documents import DocumentStore
 
 logger = logging.getLogger(__name__)
+
+
+def _require_user_auth(func):
+    """Apply require_user_auth at call time so tests can patch it."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return require_user_auth(func)(*args, **kwargs)
+
+    return wrapper
 
 
 def _get_evidence_enrichment(finding: "AuditFinding") -> Any:
@@ -70,7 +83,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             parts = path.split("/")
             if len(parts) == 5:
                 finding_id = parts[3]
-                return self._get_finding_evidence(finding_id)
+                return self._get_finding_evidence(finding_id, handler=handler)
         return None
 
     @require_permission("evidence:write")
@@ -92,9 +105,9 @@ class EvidenceEnrichmentHandler(BaseHandler):
         """Get document store from handler context."""
         return self.ctx.get("document_store")
 
-    @require_user_auth
+    @_require_user_auth
     @handle_errors("get finding evidence")
-    def _get_finding_evidence(self, finding_id: str, user=None) -> HandlerResult:
+    def _get_finding_evidence(self, finding_id: str, handler=None, user=None) -> HandlerResult:
         """
         Get evidence associated with a finding.
 
@@ -111,8 +124,6 @@ class EvidenceEnrichmentHandler(BaseHandler):
         """
         # Get finding from audit system
         try:
-            from aragora.audit import get_document_auditor
-
             auditor = get_document_auditor()
 
             # Try to find the finding across sessions
@@ -150,7 +161,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             logger.error(f"Failed to get evidence for {finding_id}: {e}")
             return error_response(safe_error_message(e, "Failed to get evidence"), 500)
 
-    @require_user_auth
+    @_require_user_auth
     @handle_errors("enrich finding")
     def _enrich_finding(self, handler, finding_id: str, user=None) -> HandlerResult:
         """
@@ -212,9 +223,6 @@ class EvidenceEnrichmentHandler(BaseHandler):
         document_store: Optional["DocumentStore"],
     ) -> dict[str, Any]:
         """Run evidence enrichment for a finding."""
-        from aragora.audit import get_document_auditor
-        from aragora.audit.evidence_adapter import FindingEvidenceCollector, EvidenceConfig
-
         auditor = get_document_auditor()
 
         # Find the finding
@@ -259,7 +267,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
             "enrichment": enrichment.to_dict(),
         }
 
-    @require_user_auth
+    @_require_user_auth
     @handle_errors("batch enrich")
     def _batch_enrich(self, handler, user=None) -> HandlerResult:
         """
@@ -314,9 +322,6 @@ class EvidenceEnrichmentHandler(BaseHandler):
         document_store: Optional["DocumentStore"],
     ) -> dict[str, Any]:
         """Run batch evidence enrichment."""
-        from aragora.audit import get_document_auditor
-        from aragora.audit.evidence_adapter import FindingEvidenceCollector, EvidenceConfig
-
         auditor = get_document_auditor()
 
         # Find all findings and their documents

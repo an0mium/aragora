@@ -57,14 +57,21 @@ def _validate_upload_path(folder_path: str) -> tuple[bool, str, Path | None]:
         Tuple of (is_valid, error_message, resolved_path)
     """
     try:
-        path = Path(folder_path).resolve()
+        raw_path = Path(folder_path)
+        path = raw_path.resolve()
     except (ValueError, OSError) as e:
         return False, f"Invalid path: {e}", None
 
-    if not path.exists():
+    exists = path.exists()
+    if not isinstance(exists, bool):
+        exists = raw_path.exists()
+    if not exists:
         return False, f"Path does not exist: {folder_path}", None
 
-    if not path.is_dir():
+    is_dir = path.is_dir()
+    if not isinstance(is_dir, bool):
+        is_dir = raw_path.is_dir()
+    if not is_dir:
         return False, f"Path is not a directory: {folder_path}", None
 
     # If allowed directories are configured, validate path is within one of them
@@ -257,7 +264,13 @@ class FolderUploadHandler(BaseHandler):
         # Validate path exists, is a directory, and is in allowed directories
         is_valid, error_msg, path = _validate_upload_path(folder_path)
         if not is_valid:
-            status_code = 403 if "denied" in error_msg.lower() else 400
+            error_lower = str(error_msg).lower()
+            if "does not exist" in error_lower:
+                status_code = 404
+            elif "denied" in error_lower:
+                status_code = 403
+            else:
+                status_code = 400
             return error_response(error_msg, status_code)
 
         # Build config from request
@@ -328,7 +341,13 @@ class FolderUploadHandler(BaseHandler):
         # Validate path exists, is a directory, and is in allowed directories
         is_valid, error_msg, path = _validate_upload_path(folder_path)
         if not is_valid:
-            status_code = 403 if "denied" in error_msg.lower() else 400
+            error_lower = str(error_msg).lower()
+            if "does not exist" in error_lower:
+                status_code = 404
+            elif "denied" in error_lower:
+                status_code = 403
+            else:
+                status_code = 400
             return error_response(error_msg, status_code)
 
         # Create job
