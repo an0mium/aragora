@@ -85,6 +85,7 @@ class ExternalAgentsHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        self._set_auth_context(user)
 
         # Route
         if path == "/api/external-agents/adapters":
@@ -120,6 +121,7 @@ class ExternalAgentsHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        self._set_auth_context(user)
 
         # Parse body
         self.set_request_context(handler, query_params)
@@ -147,6 +149,7 @@ class ExternalAgentsHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        self._set_auth_context(user)
 
         task_id = path.split("/api/external-agents/tasks/", 1)[1]
         if not task_id or "/" in task_id:
@@ -157,6 +160,25 @@ class ExternalAgentsHandler(BaseHandler):
     # =========================================================================
     # Internal handlers
     # =========================================================================
+
+    def _set_auth_context(self, user: Any) -> None:
+        """Populate AuthorizationContext for permission checks."""
+        try:
+            from aragora.rbac.models import AuthorizationContext
+
+            user_id = str(user.id) if hasattr(user, "id") else str(user.get("id", "unknown"))
+            org_id = user.org_id if hasattr(user, "org_id") else user.get("org_id")
+            roles = (
+                set(user.roles) if hasattr(user, "roles") else set(user.get("roles", ["member"]))
+            )
+            self._auth_context = AuthorizationContext(
+                user_id=user_id,
+                org_id=org_id,
+                roles=roles,
+                permissions=set(),
+            )
+        except Exception:
+            self._auth_context = None
 
     @require_permission(AGENTS_READ_PERMISSION)
     def _list_adapters(self) -> HandlerResult:

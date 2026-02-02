@@ -18,7 +18,16 @@ def server_context() -> dict:
 @pytest.fixture
 def handler(server_context: dict) -> ExternalAgentsHandler:
     """Create handler instance."""
-    return ExternalAgentsHandler(server_context)
+    from aragora.rbac.models import AuthorizationContext
+
+    handler = ExternalAgentsHandler(server_context)
+    handler._auth_context = AuthorizationContext(
+        user_id="test-user",
+        org_id="test-org",
+        roles={"admin"},
+        permissions=set(),
+    )
+    return handler
 
 
 class TestCanHandle:
