@@ -361,7 +361,7 @@ class TestDocumentExplorerIntegration:
 
     @pytest.fixture
     def project_root(self) -> Path:
-        return Path(__file__).parent.parent.parent.parent
+        return Path(__file__).resolve().parents[2]
 
     def test_explorer_creation(self):
         """Test creating a document explorer."""
