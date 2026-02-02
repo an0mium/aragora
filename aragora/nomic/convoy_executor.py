@@ -15,7 +15,7 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from aragora.implement.executor import HybridExecutor
 from aragora.implement.types import ImplementTask, TaskResult
@@ -429,8 +429,11 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
 
         async with self._test_lock:
             try:
+                # cast subprocess.run to Any to avoid overload resolution issues
+                # with the shell parameter being a runtime value
+                run_func = cast(Any, subprocess.run)
                 result = await asyncio.to_thread(
-                    lambda: subprocess.run(  # type: ignore[call-overload]
+                    lambda: run_func(
                         command,
                         cwd=self.repo_path,
                         capture_output=True,

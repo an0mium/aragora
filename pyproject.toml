@@ -399,6 +399,10 @@ ignore = ["E402", "E501"]
 "aragora/server/handlers/explainability.py" = ["BLE001", "G004"]
 "aragora/server/handlers/autonomous/*.py" = ["BLE001", "G004"]
 "aragora/server/prometheus.py" = ["BLE001", "G004"]
+"aragora/nomic/*.py" = ["BLE001", "G004"]
+"aragora/queue/*.py" = ["BLE001", "G004"]
+"aragora/mcp/*.py" = ["BLE001", "G004"]
+"aragora/mcp/**/*.py" = ["BLE001", "G004"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -627,7 +627,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "SchedulerHandler": Stability.EXPERIMENTAL,  # Audit scheduling - new
     "AuditSessionsHandler": Stability.EXPERIMENTAL,  # Audit session tracking - new
     "BreakpointsHandler": Stability.STABLE,  # 34 tests, debate breakpoints
-    "SlackHandler": Stability.EXPERIMENTAL,  # Slack integration - new
+    "SlackHandler": Stability.STABLE,  # Slack integration - circuit breaker, rate limiting, signature verification, comprehensive tests
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
     "WebhookHandler": Stability.STABLE,  # Webhook registration and delivery
     "AdminHandler": Stability.STABLE,  # Admin panel backend API

@@ -32,7 +32,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable, TypedDict, cast
 
 logger = logging.getLogger(__name__)
 
@@ -262,28 +262,31 @@ MIGRATION_MAP: dict[str, MigrationConfig] = {
     "continuum.db": {
         "target": "memory.db",
         "tables": {
-            "memories": {
-                "target_table": "continuum_memory",
-                "columns": [
-                    "id",
-                    "tier",
-                    "content",
-                    "importance",
-                    "surprise_score",
-                    "consolidation_score",
-                    "update_count",
-                    "success_count",
-                    "failure_count",
-                    "semantic_centroid",
-                    "last_promotion_at",
-                    "expires_at",
-                    "metadata",
-                    "created_at",
-                    "updated_at",
-                ],
-                # typeddict-item: string method name resolved via getattr at runtime
-                "transform": "_transform_continuum_memory",  # type: ignore[typeddict-item]
-            },
+            "memories": cast(
+                TableConfig,
+                {
+                    "target_table": "continuum_memory",
+                    "columns": [
+                        "id",
+                        "tier",
+                        "content",
+                        "importance",
+                        "surprise_score",
+                        "consolidation_score",
+                        "update_count",
+                        "success_count",
+                        "failure_count",
+                        "semantic_centroid",
+                        "last_promotion_at",
+                        "expires_at",
+                        "metadata",
+                        "created_at",
+                        "updated_at",
+                    ],
+                    # string method name resolved via getattr at runtime
+                    "transform": "_transform_continuum_memory",
+                },
+            ),
             "tier_transitions": {
                 "target_table": "tier_transitions",
                 "columns": [

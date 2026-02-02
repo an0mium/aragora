@@ -719,7 +719,8 @@ class TestMonitoringHandlerRecordMetric:
 
             assert response.status == 503
             body = json.loads(response.body)
-            assert "circuit_breaker" in body["error"].lower()
+            assert "temporarily unavailable" in body["error"].lower()
+            assert "circuit_breaker_state" in body
 
 
 # =============================================================================

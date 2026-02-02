@@ -1154,9 +1154,14 @@ class CRMHandler(SecureHandler):
 
     async def _list_all_companies(self, request: Any) -> HandlerResult:
         """List companies from all connected platforms."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
         limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
 
         all_companies: list[dict[str, Any]] = []
+        cb = get_crm_circuit_breaker()
 
         tasks = []
         for platform in _platform_credentials.keys():
@@ -1165,11 +1170,18 @@ class CRMHandler(SecureHandler):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        has_failure = False
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
                 logger.error(f"Error fetching companies from {platform}: {result}")
+                has_failure = True
                 continue
             all_companies.extend(result)
+
+        if has_failure:
+            cb.record_failure()
+        elif _platform_credentials:
+            cb.record_success()
 
         return self._json_response(
             200,
@@ -1189,18 +1201,31 @@ class CRMHandler(SecureHandler):
         if not connector:
             return []
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 companies = await connector.get_companies(limit=limit)
+                cb.record_success()
                 return [self._normalize_hubspot_company(c) for c in companies]
 
         except Exception as e:
             logger.error(f"Error fetching {platform} companies: {e}")
+            cb.record_failure()
 
         return []
 
     async def _list_platform_companies(self, request: Any, platform: str) -> HandlerResult:
         """List companies from a specific platform."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -1218,6 +1243,19 @@ class CRMHandler(SecureHandler):
 
     async def _get_company(self, request: Any, platform: str, company_id: str) -> HandlerResult:
         """Get a specific company."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform and company ID
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
+        valid, err = _validate_resource_id(company_id, "Company ID")
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -1225,19 +1263,32 @@ class CRMHandler(SecureHandler):
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 company = await connector.get_company(company_id)
+                cb.record_success()
                 return self._json_response(200, self._normalize_hubspot_company(company))
 
         except Exception as e:
             logger.warning("CRM get_company failed for %s/%s: %s", platform, company_id, e)
+            cb.record_failure()
             return self._error_response(404, f"Company not found: {e}")
 
         return self._error_response(400, "Unsupported platform")
 
     async def _create_company(self, request: Any, platform: str) -> HandlerResult:
         """Create a new company."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -1247,15 +1298,30 @@ class CRMHandler(SecureHandler):
             logger.warning("CRM create_company: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
+        # Validate company fields
+        name = body.get("name")
+        valid, err = _validate_string_field(
+            name, "Company name", MAX_COMPANY_NAME_LENGTH, required=True
+        )
+        if not valid:
+            return self._error_response(400, err)
+
+        domain = body.get("domain")
+        valid, err = _validate_string_field(domain, "Domain", MAX_DOMAIN_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
         connector = await self._get_connector(platform)
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 properties = {
-                    "name": body.get("name"),
-                    "domain": body.get("domain"),
+                    "name": name,
+                    "domain": domain,
                     "industry": body.get("industry"),
                     "numberofemployees": body.get("employee_count"),
                     "annualrevenue": body.get("annual_revenue"),
@@ -1263,10 +1329,12 @@ class CRMHandler(SecureHandler):
                 properties = {k: v for k, v in properties.items() if v is not None}
 
                 company = await connector.create_company(properties)
+                cb.record_success()
                 return self._json_response(201, self._normalize_hubspot_company(company))
 
         except Exception as e:
             logger.error("CRM create_company failed for %s: %s", platform, e, exc_info=True)
+            cb.record_failure()
             return self._error_response(500, f"Failed to create company: {e}")
 
         return self._error_response(400, "Unsupported platform")

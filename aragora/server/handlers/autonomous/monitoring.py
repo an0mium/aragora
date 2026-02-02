@@ -363,7 +363,7 @@ class MonitoringHandler:
             return web.json_response(
                 {
                     "success": False,
-                    "error": "Monitoring service temporarily unavailable",
+                    "error": "Monitoring service temporarily unavailable (circuit_breaker open)",
                     "circuit_breaker_state": circuit_breaker.state,
                     "retry_after_seconds": circuit_breaker.cooldown_seconds,
                 },

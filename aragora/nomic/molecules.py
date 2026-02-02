@@ -463,7 +463,8 @@ class DebateStepExecutor(StepExecutor):
 
             # Create and run debate
             env = Environment(task=question)
-            protocol = DebateProtocol(rounds=rounds, consensus=consensus_value)  # type: ignore[misc]
+            # DebateProtocol's consensus parameter accepts ConsensusType at runtime
+            protocol = cast(Any, DebateProtocol)(rounds=rounds, consensus=consensus_value)
             arena = Arena(env, agents, protocol)
             result = await arena.run()
 

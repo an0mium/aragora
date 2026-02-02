@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ def nomic_bead_to_workspace(
     metadata = bead.metadata or {}
     status = resolve_workspace_bead_status(bead.status, metadata, status_cls)
     # TypeVar bound cls: mypy cannot verify constructor args for generic type parameter
-    return bead_cls(  # type: ignore[call-arg]
+    return cast(Any, bead_cls)(
         bead_id=bead.id,
         convoy_id=metadata.get("convoy_id", ""),
         workspace_id=metadata.get("workspace_id", ""),
@@ -204,7 +204,7 @@ def nomic_convoy_to_workspace(
     metadata = convoy.metadata or {}
     status = resolve_workspace_convoy_status(convoy.status, metadata, status_cls)
     # TypeVar bound cls: mypy cannot verify constructor args for generic type parameter
-    return convoy_cls(  # type: ignore[call-arg]
+    return cast(Any, convoy_cls)(
         convoy_id=convoy.id,
         workspace_id=metadata.get("workspace_id", ""),
         rig_id=metadata.get("rig_id", ""),

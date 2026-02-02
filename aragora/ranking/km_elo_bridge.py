@@ -32,7 +32,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 # Prometheus metrics - optional dependency
 try:
@@ -503,10 +503,11 @@ class KMEloBridge:
             elif hasattr(self._knowledge_mound, "query"):
                 # KnowledgeMound.query return type varies by mixin; at runtime
                 # it returns list[dict] for this call pattern.
-                return await self._knowledge_mound.query(  # type: ignore[return-value]
+                result = await self._knowledge_mound.query(
                     query=f"agent:{agent_name}",
                     limit=100,
                 )
+                return cast(list[dict[str, Any]], result)
             elif hasattr(self._knowledge_mound, "search"):
                 return await self._knowledge_mound.search(
                     agent_name,

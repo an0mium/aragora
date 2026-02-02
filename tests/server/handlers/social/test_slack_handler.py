@@ -1401,3 +1401,774 @@ class TestHandlerFactory:
             integration = get_slack_integration()
 
         assert integration is None
+
+
+# ===========================================================================
+# Circuit Breaker Tests
+# ===========================================================================
+
+
+class TestCircuitBreaker:
+    """Tests for the Slack circuit breaker pattern."""
+
+    def test_circuit_breaker_initial_state_closed(self):
+        """Circuit breaker should start in CLOSED state."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker()
+        assert cb.state == SlackCircuitBreaker.CLOSED
+        assert cb.can_proceed() is True
+
+    def test_circuit_breaker_opens_after_failures(self):
+        """Circuit should open after threshold failures."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(failure_threshold=3)
+
+        # Record failures
+        for _ in range(3):
+            cb.record_failure()
+
+        assert cb.state == SlackCircuitBreaker.OPEN
+        assert cb.can_proceed() is False
+
+    def test_circuit_breaker_success_resets_failures(self):
+        """Success should reset failure count."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(failure_threshold=5)
+
+        # Record some failures
+        cb.record_failure()
+        cb.record_failure()
+
+        # Record success
+        cb.record_success()
+
+        # Should still be closed and failure count reset
+        assert cb.state == SlackCircuitBreaker.CLOSED
+        assert cb.can_proceed() is True
+
+        # Now need full threshold to trip
+        for _ in range(5):
+            cb.record_failure()
+
+        assert cb.state == SlackCircuitBreaker.OPEN
+
+    def test_circuit_breaker_transitions_to_half_open(self):
+        """Circuit should transition to HALF_OPEN after cooldown."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        # Very short cooldown for testing
+        cb = SlackCircuitBreaker(failure_threshold=1, cooldown_seconds=0.01)
+
+        # Trip the circuit
+        cb.record_failure()
+        assert cb.state == SlackCircuitBreaker.OPEN
+
+        # Wait for cooldown
+        import time
+
+        time.sleep(0.02)
+
+        # Should now be half-open
+        assert cb.state == SlackCircuitBreaker.HALF_OPEN
+        assert cb.can_proceed() is True
+
+    def test_circuit_breaker_closes_after_successful_recovery(self):
+        """Circuit should close after successful calls in HALF_OPEN."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(
+            failure_threshold=1,
+            cooldown_seconds=0.01,
+            half_open_max_calls=2,
+        )
+
+        # Trip the circuit
+        cb.record_failure()
+
+        # Wait for cooldown
+        import time
+
+        time.sleep(0.02)
+
+        # Make successful calls in half-open state
+        assert cb.state == SlackCircuitBreaker.HALF_OPEN
+        cb.can_proceed()
+        cb.record_success()
+        cb.can_proceed()
+        cb.record_success()
+
+        # Should be closed now
+        assert cb.state == SlackCircuitBreaker.CLOSED
+
+    def test_circuit_breaker_reopens_on_failure_in_half_open(self):
+        """Failure in HALF_OPEN should reopen circuit."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(failure_threshold=1, cooldown_seconds=0.01)
+
+        # Trip the circuit
+        cb.record_failure()
+
+        # Wait for cooldown
+        import time
+
+        time.sleep(0.02)
+
+        # Should be half-open
+        assert cb.state == SlackCircuitBreaker.HALF_OPEN
+
+        # Fail again
+        cb.record_failure()
+
+        # Should be open again
+        assert cb.state == SlackCircuitBreaker.OPEN
+
+    def test_circuit_breaker_get_status(self):
+        """get_status should return circuit state info."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(failure_threshold=5, cooldown_seconds=30)
+
+        status = cb.get_status()
+
+        assert "state" in status
+        assert status["state"] == "closed"
+        assert status["failure_threshold"] == 5
+        assert status["cooldown_seconds"] == 30
+        assert "failure_count" in status
+
+    def test_circuit_breaker_reset(self):
+        """reset should restore initial state."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(failure_threshold=1)
+
+        # Trip the circuit
+        cb.record_failure()
+        assert cb.state == SlackCircuitBreaker.OPEN
+
+        # Reset
+        cb.reset()
+
+        # Should be closed again
+        assert cb.state == SlackCircuitBreaker.CLOSED
+        assert cb.can_proceed() is True
+
+    def test_circuit_breaker_limits_half_open_calls(self):
+        """HALF_OPEN should limit number of test calls."""
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(
+            failure_threshold=1,
+            cooldown_seconds=0.01,
+            half_open_max_calls=2,
+        )
+
+        # Trip the circuit
+        cb.record_failure()
+
+        # Wait for cooldown
+        import time
+
+        time.sleep(0.02)
+
+        # Should allow limited calls
+        assert cb.can_proceed() is True  # First call
+        assert cb.can_proceed() is True  # Second call
+        assert cb.can_proceed() is False  # Third call blocked
+
+    def test_global_circuit_breaker_singleton(self):
+        """get_slack_circuit_breaker should return singleton."""
+        from aragora.server.handlers.social._slack_impl.messaging import (
+            get_slack_circuit_breaker,
+            reset_slack_circuit_breaker,
+        )
+
+        reset_slack_circuit_breaker()
+
+        cb1 = get_slack_circuit_breaker()
+        cb2 = get_slack_circuit_breaker()
+
+        assert cb1 is cb2
+
+    def test_reset_slack_circuit_breaker(self):
+        """reset_slack_circuit_breaker should reset the global instance."""
+        from aragora.server.handlers.social._slack_impl.messaging import (
+            get_slack_circuit_breaker,
+            reset_slack_circuit_breaker,
+        )
+
+        cb = get_slack_circuit_breaker()
+
+        # Trip it
+        for _ in range(10):
+            cb.record_failure()
+
+        assert cb.state != "closed"
+
+        # Reset
+        reset_slack_circuit_breaker()
+
+        # Should be reset
+        cb = get_slack_circuit_breaker()
+        assert cb.state == "closed"
+
+    @pytest.mark.asyncio
+    async def test_status_endpoint_includes_circuit_breaker(self, handler, signing_secret):
+        """Status endpoint should include circuit breaker status."""
+        mock_http = MockHandler(
+            headers={"Content-Type": "application/json"},
+            path="/api/v1/integrations/slack/status",
+            method="GET",
+        )
+
+        result = await handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
+
+        assert result is not None
+        status_code, body = parse_result(result)
+        assert status_code == 200
+        assert "circuit_breaker" in body
+        assert "state" in body["circuit_breaker"]
+        assert body["circuit_breaker"]["state"] == "closed"
+
+
+# ===========================================================================
+# Debate Command Tests
+# ===========================================================================
+
+
+class TestSlashCommandDebate:
+    """Tests for /aragora debate command."""
+
+    @pytest.mark.asyncio
+    async def test_debate_command_without_topic(self, handler, signing_secret):
+        """Debate without topic should show error."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "debate",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "provide" in text.lower() or "topic" in text.lower()
+        assert body_data.get("response_type") == "ephemeral"
+
+    @pytest.mark.asyncio
+    async def test_debate_command_topic_too_short(self, handler, signing_secret):
+        """Debate with very short topic should show error."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "debate hi",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "short" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_debate_command_topic_too_long(self, handler, signing_secret):
+        """Debate with very long topic should show error."""
+        long_topic = "x" * 600
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": f"debate {long_topic}",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "long" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_debate_command_valid_topic(self, handler, signing_secret):
+        """Debate with valid topic should acknowledge."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": 'debate "Should AI be regulated?"',
+                "user_id": "U123",
+                "channel_id": "C123",
+                "response_url": "https://hooks.slack.com/commands/T123/456/token",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch("aragora.server.handlers.social._slack_impl.commands.create_tracked_task"),
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        # Should acknowledge with starting message
+        assert "blocks" in body_data or "Starting" in body_data.get("text", "")
+        assert body_data.get("response_type") == "in_channel"
+
+
+# ===========================================================================
+# Gauntlet Command Tests
+# ===========================================================================
+
+
+class TestSlashCommandGauntlet:
+    """Tests for /aragora gauntlet command."""
+
+    @pytest.mark.asyncio
+    async def test_gauntlet_command_without_statement(self, handler, signing_secret):
+        """Gauntlet without statement should show error."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "gauntlet",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "provide" in text.lower() or "statement" in text.lower()
+        assert body_data.get("response_type") == "ephemeral"
+
+    @pytest.mark.asyncio
+    async def test_gauntlet_command_statement_too_short(self, handler, signing_secret):
+        """Gauntlet with very short statement should show error."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "gauntlet test",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "short" in text.lower()
+
+
+# ===========================================================================
+# Leaderboard and Recent Commands Tests
+# ===========================================================================
+
+
+class TestSlashCommandLeaderboard:
+    """Tests for /aragora leaderboard command."""
+
+    @pytest.mark.asyncio
+    async def test_leaderboard_with_agents(self, handler, signing_secret):
+        """Leaderboard should display ranked agents."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "leaderboard",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        mock_agents = [
+            MagicMock(name="claude", elo=1700, wins=10, losses=2),
+            MagicMock(name="gpt4", elo=1650, wins=8, losses=4),
+        ]
+        mock_agents[0].name = "claude"
+        mock_agents[1].name = "gpt4"
+
+        mock_elo = MagicMock()
+        mock_elo.get_all_ratings.return_value = mock_agents
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        # Should have blocks with leaderboard
+        assert "blocks" in body_data or "text" in body_data
+        assert body_data.get("response_type") == "in_channel"
+
+    @pytest.mark.asyncio
+    async def test_leaderboard_empty(self, handler, signing_secret):
+        """Leaderboard with no agents should show message."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "leaderboard",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        mock_elo = MagicMock()
+        mock_elo.get_all_ratings.return_value = []
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "no agent" in text.lower() or "start" in text.lower()
+
+
+class TestSlashCommandRecent:
+    """Tests for /aragora recent command."""
+
+    @pytest.mark.asyncio
+    async def test_recent_with_debates(self, handler, signing_secret):
+        """Recent should display recent debates."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "recent",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        mock_db = MagicMock()
+        mock_db.list.return_value = [
+            {
+                "id": "debate-1",
+                "task": "Should we use microservices?",
+                "consensus_reached": True,
+                "confidence": 0.85,
+                "created_at": "2025-01-15",
+            },
+            {
+                "id": "debate-2",
+                "task": "Is Python better than JavaScript?",
+                "consensus_reached": False,
+                "confidence": 0.6,
+                "created_at": "2025-01-14",
+            },
+        ]
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands.get_debates_db",
+                return_value=mock_db,
+            ),
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        # Should have blocks with recent debates
+        assert "blocks" in body_data or "text" in body_data
+        assert body_data.get("response_type") == "ephemeral"
+
+    @pytest.mark.asyncio
+    async def test_recent_empty(self, handler, signing_secret):
+        """Recent with no debates should show message."""
+        body = urlencode(
+            {
+                "command": "/aragora",
+                "text": "recent",
+                "user_id": "U123",
+                "channel_id": "C123",
+            }
+        )
+        timestamp = str(int(time.time()))
+        signature = generate_slack_signature(body, timestamp, signing_secret)
+
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+                "X-Slack-Request-Timestamp": timestamp,
+                "X-Slack-Signature": signature,
+            },
+            body=body.encode("utf-8"),
+            path="/api/v1/integrations/slack/commands",
+            method="POST",
+        )
+
+        mock_db = MagicMock()
+        mock_db.list.return_value = []
+
+        with (
+            patch(
+                "aragora.server.handlers.social._slack_impl.config.SLACK_SIGNING_SECRET",
+                signing_secret,
+            ),
+            patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands.get_debates_db",
+                return_value=mock_db,
+            ),
+        ):
+            mock_verify.return_value = MagicMock(verified=True, error=None)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+
+        body_data = get_json(result)
+        text = body_data.get("text", "")
+        assert "no recent" in text.lower() or "start" in text.lower()
+
+
+# ===========================================================================
+# Thread-Safety Tests
+# ===========================================================================
+
+
+class TestThreadSafety:
+    """Tests for thread-safety of circuit breaker."""
+
+    def test_circuit_breaker_concurrent_access(self):
+        """Circuit breaker should handle concurrent access safely."""
+        import threading
+
+        from aragora.server.handlers.social._slack_impl.messaging import SlackCircuitBreaker
+
+        cb = SlackCircuitBreaker(failure_threshold=100)
+        errors = []
+
+        def record_failures():
+            try:
+                for _ in range(50):
+                    cb.record_failure()
+            except Exception as e:
+                errors.append(e)
+
+        def record_successes():
+            try:
+                for _ in range(50):
+                    cb.record_success()
+            except Exception as e:
+                errors.append(e)
+
+        def check_state():
+            try:
+                for _ in range(50):
+                    _ = cb.state
+                    _ = cb.can_proceed()
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=record_failures),
+            threading.Thread(target=record_successes),
+            threading.Thread(target=check_state),
+            threading.Thread(target=record_failures),
+        ]
+
+        for t in threads:
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        # No exceptions should have occurred
+        assert len(errors) == 0
