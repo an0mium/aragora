@@ -430,3 +430,365 @@ class TestVaultStatus:
             ):
                 result = _get_vault_status()
                 assert result == "unavailable"
+
+
+# ===========================================================================
+# Test: Circuit Breaker Integration
+# ===========================================================================
+
+
+class TestCircuitBreaker:
+    """Tests for circuit breaker integration."""
+
+    def test_get_gateway_health_circuit_breaker(self):
+        """Test getting circuit breaker instance."""
+        from aragora.server.handlers.gateway_health_handler import (
+            get_gateway_health_circuit_breaker,
+        )
+
+        cb = get_gateway_health_circuit_breaker()
+        assert cb is not None
+        assert cb.name == "gateway_health_handler"
+
+    def test_get_gateway_health_circuit_breaker_status(self):
+        """Test getting circuit breaker status dict."""
+        from aragora.server.handlers.gateway_health_handler import (
+            get_gateway_health_circuit_breaker_status,
+        )
+
+        status = get_gateway_health_circuit_breaker_status()
+        assert isinstance(status, dict)
+        assert "name" in status
+        assert status["name"] == "gateway_health_handler"
+
+    def test_circuit_breaker_is_singleton(self):
+        """Test circuit breaker returns same instance."""
+        from aragora.server.handlers.gateway_health_handler import (
+            get_gateway_health_circuit_breaker,
+        )
+
+        cb1 = get_gateway_health_circuit_breaker()
+        cb2 = get_gateway_health_circuit_breaker()
+        assert cb1 is cb2
+
+    def test_circuit_breaker_has_correct_config(self):
+        """Test circuit breaker has expected configuration."""
+        from aragora.server.handlers.gateway_health_handler import (
+            get_gateway_health_circuit_breaker,
+        )
+
+        cb = get_gateway_health_circuit_breaker()
+        assert cb.failure_threshold == 5
+        assert cb.cooldown_seconds == 30.0
+
+
+# ===========================================================================
+# Test: Rate Limiting
+# ===========================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting on handler methods."""
+
+    def test_handle_has_rate_limit_decorator(self, handler):
+        """Test that handle method has rate limit decorator."""
+        # Check if the method has the _rate_limited attribute set by the decorator
+        assert hasattr(handler.handle, "_rate_limited") or hasattr(
+            GatewayHealthHandler.handle, "__wrapped__"
+        )
+
+
+# ===========================================================================
+# Test: Handler Initialization
+# ===========================================================================
+
+
+class TestHandlerInit:
+    """Tests for handler initialization."""
+
+    def test_init_with_none_context(self):
+        """Test handler initialization with None context."""
+        handler = GatewayHealthHandler(None)
+        assert handler.ctx == {}
+
+    def test_init_with_context(self):
+        """Test handler initialization with context dict."""
+        ctx = {"external_agents": {"agent-1": MagicMock()}}
+        handler = GatewayHealthHandler(ctx)
+        assert handler.ctx == ctx
+
+    def test_routes_defined(self):
+        """Test that ROUTES class attribute is defined."""
+        assert hasattr(GatewayHealthHandler, "ROUTES")
+        assert "/api/v1/gateway/health" in GatewayHealthHandler.ROUTES
+
+
+# ===========================================================================
+# Test: Agent Check with Sync is_available
+# ===========================================================================
+
+
+class TestSyncAgentCheck:
+    """Tests for agents with synchronous is_available method."""
+
+    class SyncAgent:
+        """Agent with sync is_available method."""
+
+        def __init__(self, available: bool = True):
+            self._available = available
+            self.agent_type = "sync_agent"
+            self.base_url = "https://sync.example.com"
+
+        def is_available(self) -> bool:
+            return self._available
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_sync_agent_healthy(self, server_context, mock_handler):
+        """Sync agent returning True shows as healthy."""
+        agent = self.SyncAgent(available=True)
+        server_context["external_agents"] = {"sync-agent": agent}
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_agent_health("sync-agent", mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "healthy"
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_sync_agent_unhealthy(self, server_context, mock_handler):
+        """Sync agent returning False shows as unhealthy."""
+        agent = self.SyncAgent(available=False)
+        server_context["external_agents"] = {"sync-agent": agent}
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_agent_health("sync-agent", mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "unhealthy"
+
+
+# ===========================================================================
+# Test: Agent Without is_available
+# ===========================================================================
+
+
+class TestAgentWithoutIsAvailable:
+    """Tests for agents without is_available method."""
+
+    class AgentNoMethod:
+        """Agent without is_available method."""
+
+        def __init__(self):
+            self.agent_type = "no_method_agent"
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_agent_without_is_available(self, server_context, mock_handler):
+        """Agent without is_available method is treated as unavailable."""
+        agent = self.AgentNoMethod()
+        server_context["external_agents"] = {"no-method-agent": agent}
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_agent_health("no-method-agent", mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "unhealthy"
+
+
+# ===========================================================================
+# Test: Error Types in Agent Health Check
+# ===========================================================================
+
+
+class TestAgentHealthCheckErrors:
+    """Tests for different error types in agent health checks."""
+
+    class AgentTypeError:
+        """Agent that raises TypeError."""
+
+        def __init__(self):
+            self.agent_type = "type_error_agent"
+
+        def is_available(self):
+            raise TypeError("Invalid type")
+
+    class AgentValueError:
+        """Agent that raises ValueError."""
+
+        def __init__(self):
+            self.agent_type = "value_error_agent"
+
+        def is_available(self):
+            raise ValueError("Invalid value")
+
+    class AgentAttributeError:
+        """Agent that raises AttributeError."""
+
+        def __init__(self):
+            self.agent_type = "attr_error_agent"
+
+        def is_available(self):
+            raise AttributeError("Missing attribute")
+
+    class AgentOSError:
+        """Agent that raises OSError."""
+
+        def __init__(self):
+            self.agent_type = "os_error_agent"
+
+        def is_available(self):
+            raise OSError("Network error")
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_type_error_returns_unknown(self, server_context, mock_handler):
+        """TypeError in is_available returns 'unknown' status."""
+        agent = self.AgentTypeError()
+        server_context["external_agents"] = {"type-error-agent": agent}
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_agent_health("type-error-agent", mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "unknown"
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_value_error_returns_unknown(self, server_context, mock_handler):
+        """ValueError in is_available returns 'unknown' status."""
+        agent = self.AgentValueError()
+        server_context["external_agents"] = {"value-error-agent": agent}
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_agent_health("value-error-agent", mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "unknown"
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_attribute_error_returns_unknown(self, server_context, mock_handler):
+        """AttributeError in is_available returns 'unknown' status."""
+        agent = self.AgentAttributeError()
+        server_context["external_agents"] = {"attr-error-agent": agent}
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_agent_health("attr-error-agent", mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "unknown"
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_os_error_returns_unavailable(self, server_context, mock_handler):
+        """OSError in is_available returns 'unavailable' status."""
+        agent = self.AgentOSError()
+        server_context["external_agents"] = {"os-error-agent": agent}
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_agent_health("os-error-agent", mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "unavailable"
+
+
+# ===========================================================================
+# Test: Overall Health with Mixed Agent Errors
+# ===========================================================================
+
+
+class TestOverallHealthMixedErrors:
+    """Tests for overall health with various agent error conditions."""
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_overall_health_with_unknown_agent(self, server_context, mock_handler):
+        """Overall health includes agents with 'unknown' status."""
+
+        class ErrorAgent:
+            agent_type = "error_agent"
+
+            def is_available(self):
+                raise ValueError("Config error")
+
+        agent_good = MockExternalAgent(name="good", available=True)
+        agent_error = ErrorAgent()
+        server_context["external_agents"] = {
+            "good-agent": agent_good,
+            "error-agent": agent_error,
+        }
+        h = GatewayHealthHandler(server_context)
+
+        result = h._handle_overall_health(mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "degraded"  # One unknown = degraded
+        assert data["agents"]["good-agent"]["status"] == "healthy"
+        assert data["agents"]["error-agent"]["status"] == "unknown"
+
+
+# ===========================================================================
+# Test: External Agents Context Handling
+# ===========================================================================
+
+
+class TestExternalAgentsContext:
+    """Tests for external_agents context handling."""
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_none_external_agents(self, mock_handler):
+        """Handler with None external_agents works correctly."""
+        ctx = {"external_agents": None}
+        h = GatewayHealthHandler(ctx)
+
+        result = h._handle_overall_health(mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "healthy"
+        assert data["agents"] == {}
+
+    @patch(
+        "aragora.server.handlers.gateway_health_handler.GATEWAY_AVAILABLE",
+        True,
+    )
+    def test_missing_external_agents_key(self, mock_handler):
+        """Handler with missing external_agents key works correctly."""
+        ctx = {}
+        h = GatewayHealthHandler(ctx)
+
+        result = h._handle_overall_health(mock_handler)
+        data, status = _parse_result(result)
+
+        assert status == 200
+        assert data["status"] == "healthy"
+        assert data["agents"] == {}

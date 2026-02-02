@@ -314,7 +314,7 @@ class AdvertisingHandler(SecureHandler):
 
         credentials = body.get("credentials", {})
         if not credentials:
-            return self._error_response(400, "Credentials are required")
+            return self._error_response(400, "Missing required credentials")
 
         # Validate required credentials per platform
         required_fields = self._get_required_credentials(platform)

@@ -72,34 +72,28 @@ from .rankers import (
     KnowledgeItemCategorizer,
 )
 
-# Backward compatibility: re-export DebateContext from parent context module
-# This allows `from aragora.debate.context import DebateContext` to work
-# even though context is now a package
-try:
-    import sys
-    from aragora.debate import context as _context_module
-    # Get the actual context.py module (not this package)
-    _parent_context = sys.modules.get("aragora.debate.context_module")
-    if _parent_context is None:
-        # Load context.py as a separate module
-        import importlib.util
-        from pathlib import Path
-        _context_py = Path(__file__).parent.parent / "context.py"
-        if _context_py.exists():
-            _spec = importlib.util.spec_from_file_location("aragora.debate.context_module", _context_py)
-            if _spec and _spec.loader:
-                _parent_context = importlib.util.module_from_spec(_spec)
-                sys.modules["aragora.debate.context_module"] = _parent_context
-                _spec.loader.exec_module(_parent_context)
-    if _parent_context:
-        DebateContext = _parent_context.DebateContext
-except Exception:
-    # If import fails, provide a fallback or let it error at usage time
-    pass
+# Backward compatibility: re-export DebateContext from the context.py module
+# This package (context/) shadows context.py, so we load it explicitly
+import importlib.util
+import sys
+from pathlib import Path as _Path
+
+_context_py_path = _Path(__file__).parent.parent / "context.py"
+_spec = importlib.util.spec_from_file_location(
+    "aragora.debate._context_impl", str(_context_py_path)
+)
+if _spec and _spec.loader:
+    _context_impl = importlib.util.module_from_spec(_spec)
+    sys.modules["aragora.debate._context_impl"] = _context_impl
+    _spec.loader.exec_module(_context_impl)
+    # Re-export DebateContext and other classes
+    DebateContext = _context_impl.DebateContext
 
 __all__ = [
     # Main class
     "ContextGatherer",
+    # Backward compatibility
+    "DebateContext",
     # Cache
     "ContextCache",
     "MAX_EVIDENCE_CACHE_SIZE",

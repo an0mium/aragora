@@ -73,6 +73,7 @@ def reset_gateway_agents_circuit_breaker() -> None:
         _gateway_agents_circuit_breaker._single_successes = 0
         _gateway_agents_circuit_breaker._single_half_open_calls = 0
 
+
 # Optional dependencies for graceful degradation
 GATEWAY_AVAILABLE = (
     importlib.util.find_spec("aragora.agents.api_agents.external_framework") is not None
@@ -252,6 +253,7 @@ class GatewayAgentsHandler(BaseHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="gateway_agents_get")
     @handle_errors("get gateway agent")
     def _handle_get_agent(self, agent_name: str, handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/agents/{name}."""
@@ -351,6 +353,7 @@ class GatewayAgentsHandler(BaseHandler):
             status=201,
         )
 
+    @rate_limit(requests_per_minute=10, limiter_name="gateway_agents_delete")
     @handle_errors("delete gateway agent")
     @log_request("delete gateway agent")
     def _handle_delete_agent(self, agent_name: str, handler: Any) -> HandlerResult:
@@ -372,4 +375,9 @@ class GatewayAgentsHandler(BaseHandler):
         )
 
 
-__all__ = ["GatewayAgentsHandler"]
+__all__ = [
+    "GatewayAgentsHandler",
+    "get_gateway_agents_circuit_breaker",
+    "get_gateway_agents_circuit_breaker_status",
+    "reset_gateway_agents_circuit_breaker",
+]

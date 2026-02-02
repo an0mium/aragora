@@ -270,7 +270,9 @@ class FindingWorkflowHandler(BaseHandler):
         # Check circuit breaker
         if not _finding_workflow_circuit_breaker.can_proceed():
             logger.warning("Circuit breaker is open for finding workflow")
-            return self._error_response(503, "Service temporarily unavailable. Please try again later.")
+            return self._error_response(
+                503, "Service temporarily unavailable. Please try again later."
+            )
 
         # Check RBAC permission
         if error := self._check_permission(request, "findings.update", finding_id):
@@ -890,6 +892,7 @@ class FindingWorkflowHandler(BaseHandler):
             },
         )
 
+    @rate_limit(requests_per_minute=10, limiter_name="finding_workflow_bulk")
     async def _bulk_action(self, request: Any) -> dict[str, Any]:
         """
         Perform bulk actions on multiple findings.
@@ -905,7 +908,18 @@ class FindingWorkflowHandler(BaseHandler):
             },
             "comment": "Bulk update reason"
         }
+
+        Protected by:
+        - Rate limit: 10 requests per minute (bulk operations are expensive)
+        - Circuit breaker: Opens after 5 consecutive failures
         """
+        # Check circuit breaker
+        if not _finding_workflow_circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker is open for finding workflow bulk actions")
+            return self._error_response(
+                503, "Service temporarily unavailable. Please try again later."
+            )
+
         # Check RBAC permission for bulk operations
         if error := self._check_permission(request, "findings.bulk"):
             return error

@@ -444,7 +444,7 @@ class CloudStorageHandler(BaseHandler):
         try:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
-            if not cb.can_execute():
+            if not cb.can_proceed():
                 logger.warning("Cloud storage circuit breaker is open")
                 return error_response(
                     "Cloud storage service temporarily unavailable",
@@ -515,7 +515,7 @@ class CloudStorageHandler(BaseHandler):
         try:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
-            if not cb.can_execute():
+            if not cb.can_proceed():
                 logger.warning("Cloud storage circuit breaker is open")
                 return error_response(
                     "Cloud storage service temporarily unavailable",
@@ -567,7 +567,7 @@ class CloudStorageHandler(BaseHandler):
         try:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
-            if not cb.can_execute():
+            if not cb.can_proceed():
                 logger.warning("Cloud storage circuit breaker is open")
                 return error_response(
                     "Cloud storage service temporarily unavailable",

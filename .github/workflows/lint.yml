@@ -96,7 +96,7 @@ jobs:
       - name: Typecheck core modules (REQUIRED)
         run: |
           # These modules must pass strict type checking
-          # Phase 26: Expanded to 37 modules - chat connectors (Jan 2026)
+          # Phase 27: Expanded to 50 modules - gauntlet, workflow, explainability (Feb 2026)
           python -m mypy \
             aragora/ranking/elo.py \
             aragora/server/stream/servers.py \
@@ -105,7 +105,7 @@ jobs:
             aragora/config/secrets.py \
             aragora/storage/repository.py \
             aragora/debate/orchestrator.py \
-            aragora/memory/continuum.py \
+            aragora/memory/continuum/__init__.py \
             aragora/debate/consensus.py \
             aragora/resilience/__init__.py \
             aragora/reasoning/belief.py \
@@ -135,6 +135,19 @@ jobs:
             aragora/connectors/chat/whatsapp.py \
             aragora/connectors/chat/slack/__init__.py \
             aragora/connectors/chat/discord.py \
+            aragora/gauntlet/runner.py \
+            aragora/gauntlet/receipt.py \
+            aragora/gauntlet/result.py \
+            aragora/gauntlet/types.py \
+            aragora/gauntlet/heatmap.py \
+            aragora/workflow/engine.py \
+            aragora/workflow/engine_v2.py \
+            aragora/explainability/builder.py \
+            aragora/explainability/decision.py \
+            aragora/backup/manager.py \
+            aragora/resilience/circuit_breaker.py \
+            aragora/resilience_patterns/retry.py \
+            aragora/resilience_patterns/timeout.py \
             --config-file pyproject.toml \
             --no-error-summary
           echo "Core modules type check passed!"

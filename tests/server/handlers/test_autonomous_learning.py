@@ -424,12 +424,20 @@ class TestLearningHandlerListSessions:
         """Should filter sessions by status."""
         now = datetime.now(timezone.utc)
         handler._sessions["s1"] = TrainingSession(
-            id="s1", name="S1", mode=LearningMode.SUPERVISED,
-            status=SessionStatus.RUNNING, created_at=now, owner_id="user"
+            id="s1",
+            name="S1",
+            mode=LearningMode.SUPERVISED,
+            status=SessionStatus.RUNNING,
+            created_at=now,
+            owner_id="user",
         )
         handler._sessions["s2"] = TrainingSession(
-            id="s2", name="S2", mode=LearningMode.SUPERVISED,
-            status=SessionStatus.COMPLETED, created_at=now, owner_id="user"
+            id="s2",
+            name="S2",
+            mode=LearningMode.SUPERVISED,
+            status=SessionStatus.COMPLETED,
+            created_at=now,
+            owner_id="user",
         )
 
         mock_request = MockHTTPHandler(method="GET")
@@ -452,12 +460,20 @@ class TestLearningHandlerListSessions:
         """Should filter sessions by mode."""
         now = datetime.now(timezone.utc)
         handler._sessions["s1"] = TrainingSession(
-            id="s1", name="S1", mode=LearningMode.SUPERVISED,
-            status=SessionStatus.RUNNING, created_at=now, owner_id="user"
+            id="s1",
+            name="S1",
+            mode=LearningMode.SUPERVISED,
+            status=SessionStatus.RUNNING,
+            created_at=now,
+            owner_id="user",
         )
         handler._sessions["s2"] = TrainingSession(
-            id="s2", name="S2", mode=LearningMode.REINFORCEMENT,
-            status=SessionStatus.RUNNING, created_at=now, owner_id="user"
+            id="s2",
+            name="S2",
+            mode=LearningMode.REINFORCEMENT,
+            status=SessionStatus.RUNNING,
+            created_at=now,
+            owner_id="user",
         )
 
         mock_request = MockHTTPHandler(method="GET")
@@ -546,8 +562,12 @@ class TestLearningHandlerCreateSession:
         now = datetime.now(timezone.utc)
         for i in range(MAX_ACTIVE_SESSIONS):
             handler._sessions[f"s{i}"] = TrainingSession(
-                id=f"s{i}", name=f"Session {i}", mode=LearningMode.SUPERVISED,
-                status=SessionStatus.RUNNING, created_at=now, owner_id="user"
+                id=f"s{i}",
+                name=f"Session {i}",
+                mode=LearningMode.SUPERVISED,
+                status=SessionStatus.RUNNING,
+                created_at=now,
+                owner_id="user",
             )
 
         mock_request = MockHTTPHandler(
@@ -643,8 +663,12 @@ class TestLearningHandlerStopSession:
         """Should reject stopping completed session."""
         now = datetime.now(timezone.utc)
         session = TrainingSession(
-            id="s1", name="Test", mode=LearningMode.SUPERVISED,
-            status=SessionStatus.COMPLETED, created_at=now, owner_id="user"
+            id="s1",
+            name="Test",
+            mode=LearningMode.SUPERVISED,
+            status=SessionStatus.COMPLETED,
+            created_at=now,
+            owner_id="user",
         )
         handler._sessions[session.id] = session
 
@@ -686,11 +710,13 @@ class TestLearningHandlerMetrics:
     async def test_get_metrics_with_results(self, handler):
         """Should return metrics."""
         now = datetime.now(timezone.utc)
-        handler._metrics.append(LearningMetric(
-            metric_type=MetricType.ACCURACY,
-            value=0.92,
-            timestamp=now,
-        ))
+        handler._metrics.append(
+            LearningMetric(
+                metric_type=MetricType.ACCURACY,
+                value=0.92,
+                timestamp=now,
+            )
+        )
 
         mock_request = MockHTTPHandler(method="GET")
 
@@ -706,16 +732,20 @@ class TestLearningHandlerMetrics:
     async def test_get_metric_by_type(self, handler):
         """Should return metrics of specific type."""
         now = datetime.now(timezone.utc)
-        handler._metrics.append(LearningMetric(
-            metric_type=MetricType.ACCURACY,
-            value=0.92,
-            timestamp=now,
-        ))
-        handler._metrics.append(LearningMetric(
-            metric_type=MetricType.LOSS,
-            value=0.1,
-            timestamp=now,
-        ))
+        handler._metrics.append(
+            LearningMetric(
+                metric_type=MetricType.ACCURACY,
+                value=0.92,
+                timestamp=now,
+            )
+        )
+        handler._metrics.append(
+            LearningMetric(
+                metric_type=MetricType.LOSS,
+                value=0.1,
+                timestamp=now,
+            )
+        )
 
         mock_request = MockHTTPHandler(method="GET")
 
@@ -804,12 +834,20 @@ class TestLearningHandlerPatterns:
         """Should filter to validated patterns only."""
         now = datetime.now(timezone.utc)
         handler._patterns["p1"] = DetectedPattern(
-            id="p1", pattern_type=PatternType.CONSENSUS, confidence=0.9,
-            description="Pattern 1", detected_at=now, is_validated=True
+            id="p1",
+            pattern_type=PatternType.CONSENSUS,
+            confidence=0.9,
+            description="Pattern 1",
+            detected_at=now,
+            is_validated=True,
         )
         handler._patterns["p2"] = DetectedPattern(
-            id="p2", pattern_type=PatternType.CONSENSUS, confidence=0.8,
-            description="Pattern 2", detected_at=now, is_validated=False
+            id="p2",
+            pattern_type=PatternType.CONSENSUS,
+            confidence=0.8,
+            description="Pattern 2",
+            detected_at=now,
+            is_validated=False,
         )
 
         mock_request = MockHTTPHandler(method="GET")
@@ -1030,8 +1068,12 @@ class TestLearningHandlerRecommendations:
         """Should recommend validating patterns."""
         now = datetime.now(timezone.utc)
         handler._patterns["p1"] = DetectedPattern(
-            id="p1", pattern_type=PatternType.CONSENSUS, confidence=0.85,
-            description="High confidence pattern", detected_at=now, is_validated=False
+            id="p1",
+            pattern_type=PatternType.CONSENSUS,
+            confidence=0.85,
+            description="High confidence pattern",
+            detected_at=now,
+            is_validated=False,
         )
 
         mock_request = MockHTTPHandler(method="GET")
@@ -1145,7 +1187,7 @@ class TestLearningHandlerCircuitBreaker:
         assert result.status == 200
 
         cb = handler._get_circuit_breaker()
-        assert cb.can_execute() is True
+        assert cb.can_proceed() is True
 
 
 # ===========================================================================

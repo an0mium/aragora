@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from aragora.resilience import (
@@ -444,7 +444,7 @@ class AutonomousLearningHandler(BaseHandler):
         try:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
-            if not cb.can_execute():
+            if not cb.can_proceed():
                 logger.warning("Learning circuit breaker is open")
                 return error_response(
                     "Learning service temporarily unavailable",
@@ -535,7 +535,7 @@ class AutonomousLearningHandler(BaseHandler):
         try:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
-            if not cb.can_execute():
+            if not cb.can_proceed():
                 logger.warning("Learning circuit breaker is open")
                 return error_response(
                     "Learning service temporarily unavailable",

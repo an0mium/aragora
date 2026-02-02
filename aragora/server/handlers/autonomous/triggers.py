@@ -1,4 +1,9 @@
-"""Scheduled trigger HTTP handlers."""
+"""Scheduled trigger HTTP handlers.
+
+Stability: STABLE
+- Circuit breaker protection for trigger operations
+- All endpoints require authentication
+"""
 
 from __future__ import annotations
 
@@ -14,8 +19,26 @@ from aragora.server.handlers.utils.auth import (
 )
 from aragora.server.handlers.utils import parse_json_body
 from aragora.rbac.checker import get_permission_checker
+from aragora.resilience import get_circuit_breaker
 
 logger = logging.getLogger(__name__)
+
+# Circuit breaker for trigger operations
+_trigger_circuit_breaker = None
+
+
+def _get_circuit_breaker():
+    """Get or create circuit breaker for trigger operations."""
+    global _trigger_circuit_breaker
+    if _trigger_circuit_breaker is None:
+        _trigger_circuit_breaker = get_circuit_breaker(
+            "scheduled_triggers",
+            failure_threshold=5,
+            cooldown_seconds=30,
+            half_open_max_calls=2,
+        )
+    return _trigger_circuit_breaker
+
 
 # RBAC permission keys for autonomous operations
 AUTONOMOUS_READ_PERMISSION = "autonomous:read"
@@ -59,6 +82,14 @@ class TriggerHandler:
             List of scheduled triggers
         """
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Trigger service temporarily unavailable"},
+                    status=503,
+                )
+
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
@@ -124,6 +155,14 @@ class TriggerHandler:
             Created trigger
         """
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Trigger service temporarily unavailable"},
+                    status=503,
+                )
+
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
@@ -193,6 +232,14 @@ class TriggerHandler:
         trigger_id = request.match_info.get("trigger_id")
 
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Trigger service temporarily unavailable"},
+                    status=503,
+                )
+
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
@@ -243,6 +290,14 @@ class TriggerHandler:
         trigger_id = request.match_info.get("trigger_id")
 
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Trigger service temporarily unavailable"},
+                    status=503,
+                )
+
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()
@@ -293,6 +348,14 @@ class TriggerHandler:
         trigger_id = request.match_info.get("trigger_id")
 
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Trigger service temporarily unavailable"},
+                    status=503,
+                )
+
             # RBAC check
             auth_ctx = await get_auth_context(request, require_auth=True)
             checker = get_permission_checker()

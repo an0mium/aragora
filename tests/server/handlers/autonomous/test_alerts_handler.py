@@ -562,3 +562,651 @@ class TestAlertAnalyzerSingleton:
 
         # Clean up
         alerts._alert_analyzer = None
+
+
+# =============================================================================
+# Test Circuit Breaker Integration
+# =============================================================================
+
+
+class TestAlertCircuitBreaker:
+    """Tests for circuit breaker integration."""
+
+    def test_get_alert_circuit_breaker(self):
+        """Test getting circuit breaker instance."""
+        cb = alerts.get_alert_circuit_breaker()
+        assert cb is not None
+        assert cb.name == "alert_handler"
+
+    def test_get_alert_circuit_breaker_status(self):
+        """Test getting circuit breaker status dict."""
+        status = alerts.get_alert_circuit_breaker_status()
+        assert isinstance(status, dict)
+        assert "name" in status
+        assert status["name"] == "alert_handler"
+
+    def test_circuit_breaker_is_singleton(self):
+        """Test circuit breaker returns same instance."""
+        cb1 = alerts.get_alert_circuit_breaker()
+        cb2 = alerts.get_alert_circuit_breaker()
+        assert cb1 is cb2
+
+    def test_circuit_breaker_has_correct_config(self):
+        """Test circuit breaker has expected configuration."""
+        cb = alerts.get_alert_circuit_breaker()
+        assert cb.failure_threshold == 5
+        assert cb.cooldown_seconds == 30.0
+
+
+# =============================================================================
+# Test AlertHandler Initialization
+# =============================================================================
+
+
+class TestAlertHandlerInit:
+    """Tests for AlertHandler initialization."""
+
+    def test_init_with_none_context(self):
+        """Test handler initialization with None context."""
+        handler = alerts.AlertHandler(None)
+        assert handler.ctx == {}
+
+    def test_init_with_context(self):
+        """Test handler initialization with context."""
+        ctx = {"key": "value"}
+        handler = alerts.AlertHandler(ctx)
+        assert handler.ctx == ctx
+
+
+# =============================================================================
+# Test Alert Check Metric with Alert Generation
+# =============================================================================
+
+
+class TestAlertHandlerCheckMetricWithAlert:
+    """Tests for check_metric endpoint with alert generation."""
+
+    @pytest.mark.asyncio
+    async def test_check_metric_generates_alert(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should return alert when threshold exceeded."""
+        generated_alert = MockAlert(
+            id="generated-alert-1",
+            severity_value="critical",
+            title="CPU Critical",
+            description="CPU usage critical",
+        )
+        mock_analyzer.check_metric = AsyncMock(return_value=generated_alert)
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(
+                return_value={
+                    "metric_name": "cpu_usage",
+                    "value": 95.0,
+                    "source": "monitoring",
+                }
+            )
+
+            response = await alerts.AlertHandler.check_metric(request)
+
+            assert response.status == 200
+            body = json.loads(response.body)
+            assert body["success"] is True
+            assert body["alert_generated"] is True
+            assert body["alert"]["id"] == "generated-alert-1"
+            assert body["alert"]["severity"] == "critical"
+
+
+# =============================================================================
+# Test Error Handling
+# =============================================================================
+
+
+class TestAlertHandlerErrorHandling:
+    """Tests for error handling in AlertHandler."""
+
+    @pytest.mark.asyncio
+    async def test_list_active_handles_exception(self, mock_auth_context, mock_permission_checker):
+        """Should return 500 when analyzer raises exception."""
+        mock_analyzer = MagicMock()
+        mock_analyzer.get_active_alerts.side_effect = RuntimeError("Database error")
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            response = await alerts.AlertHandler.list_active(request)
+
+            assert response.status == 500
+            body = json.loads(response.body)
+            assert body["success"] is False
+            assert "Database error" in body["error"]
+
+    @pytest.mark.asyncio
+    async def test_acknowledge_handles_exception(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should return 500 when acknowledge raises exception."""
+        mock_analyzer.acknowledge_alert = MagicMock(side_effect=RuntimeError("DB error"))
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.match_info.get.return_value = "alert-1"
+            request.json = AsyncMock(return_value={})
+
+            response = await alerts.AlertHandler.acknowledge(request)
+
+            assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_resolve_handles_exception(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should return 500 when resolve raises exception."""
+        mock_analyzer.resolve_alert = MagicMock(side_effect=RuntimeError("DB error"))
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.match_info.get.return_value = "alert-1"
+
+            response = await alerts.AlertHandler.resolve(request)
+
+            assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_set_threshold_handles_exception(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should return 500 when set_threshold raises exception."""
+        mock_analyzer.set_threshold = MagicMock(side_effect=RuntimeError("Config error"))
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(return_value={"metric_name": "cpu"})
+
+            response = await alerts.AlertHandler.set_threshold(request)
+
+            assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_check_metric_handles_exception(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should return 500 when check_metric raises exception."""
+        mock_analyzer.check_metric = AsyncMock(side_effect=RuntimeError("Check error"))
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(return_value={"metric_name": "cpu", "value": 50})
+
+            response = await alerts.AlertHandler.check_metric(request)
+
+            assert response.status == 500
+
+
+# =============================================================================
+# Test RBAC Permissions
+# =============================================================================
+
+
+class TestAlertHandlerPermissions:
+    """Tests for RBAC permission checks."""
+
+    @pytest.mark.asyncio
+    async def test_acknowledge_forbidden(self, mock_analyzer, mock_auth_context):
+        """Should return 403 when alerts:write permission denied."""
+        mock_checker = MockPermissionChecker()
+        mock_checker.check_permission = MagicMock(
+            return_value=MockPermissionDecision(allowed=False, reason="No write permission")
+        )
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.match_info.get.return_value = "alert-1"
+            request.json = AsyncMock(return_value={})
+
+            response = await alerts.AlertHandler.acknowledge(request)
+
+            assert response.status == 403
+
+    @pytest.mark.asyncio
+    async def test_resolve_forbidden(self, mock_analyzer, mock_auth_context):
+        """Should return 403 when alerts:write permission denied for resolve."""
+        mock_checker = MockPermissionChecker()
+        mock_checker.check_permission = MagicMock(
+            return_value=MockPermissionDecision(allowed=False, reason="No write permission")
+        )
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.match_info.get.return_value = "alert-1"
+
+            response = await alerts.AlertHandler.resolve(request)
+
+            assert response.status == 403
+
+    @pytest.mark.asyncio
+    async def test_set_threshold_forbidden(self, mock_analyzer, mock_auth_context):
+        """Should return 403 when alerts:admin permission denied."""
+        mock_checker = MockPermissionChecker()
+        mock_checker.check_permission = MagicMock(
+            return_value=MockPermissionDecision(allowed=False, reason="No admin permission")
+        )
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(return_value={"metric_name": "cpu"})
+
+            response = await alerts.AlertHandler.set_threshold(request)
+
+            assert response.status == 403
+
+    @pytest.mark.asyncio
+    async def test_check_metric_forbidden(self, mock_analyzer, mock_auth_context):
+        """Should return 403 when alerts:write permission denied for check."""
+        mock_checker = MockPermissionChecker()
+        mock_checker.check_permission = MagicMock(
+            return_value=MockPermissionDecision(allowed=False, reason="No write permission")
+        )
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(return_value={"metric_name": "cpu", "value": 50})
+
+            response = await alerts.AlertHandler.check_metric(request)
+
+            assert response.status == 403
+
+
+# =============================================================================
+# Test Authentication
+# =============================================================================
+
+
+class TestAlertHandlerAuthentication:
+    """Tests for authentication handling."""
+
+    @pytest.mark.asyncio
+    async def test_acknowledge_unauthorized(self, mock_analyzer):
+        """Should return 401 when not authenticated for acknowledge."""
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(side_effect=alerts.UnauthorizedError("Not authenticated")),
+            ),
+        ):
+            request = MagicMock()
+            request.match_info.get.return_value = "alert-1"
+            request.json = AsyncMock(return_value={})
+
+            response = await alerts.AlertHandler.acknowledge(request)
+
+            assert response.status == 401
+
+    @pytest.mark.asyncio
+    async def test_resolve_unauthorized(self, mock_analyzer):
+        """Should return 401 when not authenticated for resolve."""
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(side_effect=alerts.UnauthorizedError("Not authenticated")),
+            ),
+        ):
+            request = MagicMock()
+            request.match_info.get.return_value = "alert-1"
+
+            response = await alerts.AlertHandler.resolve(request)
+
+            assert response.status == 401
+
+    @pytest.mark.asyncio
+    async def test_set_threshold_unauthorized(self, mock_analyzer):
+        """Should return 401 when not authenticated for set_threshold."""
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(side_effect=alerts.UnauthorizedError("Not authenticated")),
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(return_value={"metric_name": "cpu"})
+
+            response = await alerts.AlertHandler.set_threshold(request)
+
+            assert response.status == 401
+
+    @pytest.mark.asyncio
+    async def test_check_metric_unauthorized(self, mock_analyzer):
+        """Should return 401 when not authenticated for check_metric."""
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(side_effect=alerts.UnauthorizedError("Not authenticated")),
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(return_value={"metric_name": "cpu", "value": 50})
+
+            response = await alerts.AlertHandler.check_metric(request)
+
+            assert response.status == 401
+
+
+# =============================================================================
+# Test Threshold Configuration
+# =============================================================================
+
+
+class TestThresholdConfiguration:
+    """Tests for threshold configuration options."""
+
+    @pytest.mark.asyncio
+    async def test_set_threshold_with_all_options(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should set threshold with all configuration options."""
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(
+                return_value={
+                    "metric_name": "memory_usage",
+                    "warning_threshold": 75.0,
+                    "critical_threshold": 90.0,
+                    "comparison": "gte",
+                    "enabled": True,
+                }
+            )
+
+            response = await alerts.AlertHandler.set_threshold(request)
+
+            assert response.status == 200
+            body = json.loads(response.body)
+            assert body["success"] is True
+            assert body["metric_name"] == "memory_usage"
+
+            # Verify analyzer was called with correct args
+            mock_analyzer.set_threshold.assert_called_once_with(
+                metric_name="memory_usage",
+                warning_threshold=75.0,
+                critical_threshold=90.0,
+                comparison="gte",
+                enabled=True,
+            )
+
+    @pytest.mark.asyncio
+    async def test_set_threshold_with_disabled(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should set threshold as disabled."""
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(
+                return_value={
+                    "metric_name": "disk_usage",
+                    "enabled": False,
+                }
+            )
+
+            response = await alerts.AlertHandler.set_threshold(request)
+
+            assert response.status == 200
+
+
+# =============================================================================
+# Test Check Metric with Metadata
+# =============================================================================
+
+
+class TestCheckMetricMetadata:
+    """Tests for check_metric with metadata."""
+
+    @pytest.mark.asyncio
+    async def test_check_metric_with_metadata(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should pass metadata to check_metric."""
+        mock_analyzer.check_metric = AsyncMock(return_value=None)
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.json = AsyncMock(
+                return_value={
+                    "metric_name": "request_latency",
+                    "value": 250.0,
+                    "source": "api_gateway",
+                    "metadata": {"endpoint": "/api/v1/debates", "method": "POST"},
+                }
+            )
+
+            response = await alerts.AlertHandler.check_metric(request)
+
+            assert response.status == 200
+
+            # Verify metadata was passed
+            mock_analyzer.check_metric.assert_called_once()
+            call_kwargs = mock_analyzer.check_metric.call_args[1]
+            assert call_kwargs["metadata"] == {"endpoint": "/api/v1/debates", "method": "POST"}
+
+
+# =============================================================================
+# Test Route Registration with Custom Prefix
+# =============================================================================
+
+
+class TestRouteRegistrationPrefix:
+    """Tests for route registration with custom prefix."""
+
+    def test_register_routes_custom_prefix(self):
+        """Should register routes with custom prefix."""
+        app = web.Application()
+        alerts.AlertHandler.register_routes(app, prefix="/custom/api")
+
+        routes = [r.resource.canonical for r in app.router.routes()]
+        assert "/custom/api/alerts/active" in routes
+        assert "/custom/api/alerts/{alert_id}/acknowledge" in routes
+        assert "/custom/api/alerts/{alert_id}/resolve" in routes
+        assert "/custom/api/alerts/thresholds" in routes
+        assert "/custom/api/alerts/check" in routes
+
+
+# =============================================================================
+# Test Acknowledge with User ID from Auth Context
+# =============================================================================
+
+
+class TestAcknowledgeUserId:
+    """Tests for acknowledged_by user ID handling."""
+
+    @pytest.mark.asyncio
+    async def test_acknowledge_uses_auth_user_when_not_provided(
+        self, mock_analyzer, mock_auth_context, mock_permission_checker
+    ):
+        """Should use auth context user_id when acknowledged_by not in body."""
+        mock_analyzer._alerts = [MockAlert(id="alert-1")]
+
+        with (
+            patch.object(alerts, "get_alert_analyzer", return_value=mock_analyzer),
+            patch.object(
+                alerts,
+                "get_auth_context",
+                AsyncMock(return_value=mock_auth_context),
+            ),
+            patch.object(
+                alerts,
+                "get_permission_checker",
+                return_value=mock_permission_checker,
+            ),
+        ):
+            request = MagicMock()
+            request.match_info.get.return_value = "alert-1"
+            request.json = AsyncMock(return_value={})  # No acknowledged_by
+
+            response = await alerts.AlertHandler.acknowledge(request)
+
+            assert response.status == 200
+            body = json.loads(response.body)
+            assert body["acknowledged_by"] == "test-user"  # From mock_auth_context

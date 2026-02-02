@@ -1010,7 +1010,7 @@ class TestCloudStorageHandlerCircuitBreaker:
 
         # Circuit should still be closed
         cb = handler._get_circuit_breaker()
-        assert cb.can_execute() is True
+        assert cb.can_proceed() is True
 
 
 # ===========================================================================

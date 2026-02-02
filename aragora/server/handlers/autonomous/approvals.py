@@ -42,6 +42,7 @@ def _get_circuit_breaker():
         )
     return _approval_circuit_breaker
 
+
 # RBAC permission keys for autonomous operations
 AUTONOMOUS_READ_PERMISSION = "autonomous:read"
 AUTONOMOUS_APPROVE_PERMISSION = "autonomous:approve"
@@ -285,6 +286,14 @@ class ApprovalHandler:
         request_id = request.match_info.get("request_id")
 
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Approval service temporarily unavailable"},
+                    status=503,
+                )
+
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
@@ -365,6 +374,14 @@ class ApprovalHandler:
         request_id = request.match_info.get("request_id")
 
         try:
+            # Check circuit breaker
+            cb = _get_circuit_breaker()
+            if not cb.can_execute():
+                return web.json_response(
+                    {"success": False, "error": "Approval service temporarily unavailable"},
+                    status=503,
+                )
+
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)

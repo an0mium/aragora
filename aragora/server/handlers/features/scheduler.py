@@ -1,6 +1,9 @@
 """
 Audit Scheduler endpoint handlers.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-02.
+
 Endpoints:
 - GET  /api/scheduler/jobs - List scheduled jobs
 - POST /api/scheduler/jobs - Create a scheduled job
@@ -32,8 +35,23 @@ from ..base import (
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
+from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.resilience import CircuitBreaker, CircuitBreakerConfig
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Circuit Breaker Configuration
+# =============================================================================
+
+_scheduler_circuit_breaker = CircuitBreaker.from_config(
+    CircuitBreakerConfig(
+        failure_threshold=5,
+        timeout_seconds=60.0,
+        success_threshold=2,
+    ),
+    name="scheduler",
+)
 
 
 class SchedulerHandler(BaseHandler):
@@ -181,6 +199,7 @@ class SchedulerHandler(BaseHandler):
 
         return json_response(job.to_dict())
 
+    @rate_limit(requests_per_minute=30, limiter_name="scheduler_create")
     @require_user_auth
     @require_permission("scheduler:create")
     @handle_errors("create job")
@@ -203,7 +222,16 @@ class SchedulerHandler(BaseHandler):
             "notify_on_findings": true,
             "finding_severity_threshold": "medium"
         }
+
+        Protected by:
+        - Rate limit: 30 requests per minute
+        - Circuit breaker: Opens after 5 consecutive failures
         """
+        # Check circuit breaker
+        if not _scheduler_circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker is open for scheduler create")
+            return error_response("Service temporarily unavailable. Please try again later.", 503)
+
         from aragora.scheduler import ScheduleConfig, TriggerType
 
         body = self.read_json_body(handler)
@@ -284,11 +312,22 @@ class SchedulerHandler(BaseHandler):
         else:
             return error_response(f"Failed to delete job: {job_id}", 500)
 
+    @rate_limit(requests_per_minute=10, limiter_name="scheduler_trigger")
     @require_user_auth
     @require_permission("scheduler:execute")
     @handle_errors("trigger job")
     def _trigger_job(self, job_id: str, user=None) -> HandlerResult:
-        """Manually trigger a job execution."""
+        """Manually trigger a job execution.
+
+        Protected by:
+        - Rate limit: 10 requests per minute (job triggers are expensive)
+        - Circuit breaker: Opens after 5 consecutive failures
+        """
+        # Check circuit breaker
+        if not _scheduler_circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker is open for scheduler trigger")
+            return error_response("Service temporarily unavailable. Please try again later.", 503)
+
         scheduler = self._get_scheduler()
 
         job = scheduler.get_job(job_id)
@@ -299,6 +338,7 @@ class SchedulerHandler(BaseHandler):
         try:
             run = _run_async(scheduler.trigger_job(job_id))
             if run:
+                _scheduler_circuit_breaker.record_success()
                 return json_response(
                     {
                         "success": True,
@@ -306,8 +346,10 @@ class SchedulerHandler(BaseHandler):
                     }
                 )
             else:
+                _scheduler_circuit_breaker.record_failure()
                 return error_response("Failed to trigger job", 500)
         except Exception as e:
+            _scheduler_circuit_breaker.record_failure()
             logger.error(f"Failed to trigger job {job_id}: {e}")
             return error_response(safe_error_message(e, "Failed to trigger job"), 500)
 

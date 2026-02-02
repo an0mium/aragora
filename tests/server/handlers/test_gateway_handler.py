@@ -523,3 +523,508 @@ class TestRBACProtection:
 
         assert result is not None
         assert result.status_code == 403
+
+
+# ===========================================================================
+# Circuit Breaker Tests
+# ===========================================================================
+
+
+class TestCircuitBreaker:
+    """Test circuit breaker functionality."""
+
+    def test_circuit_breaker_exists(self):
+        """Test that circuit breaker can be retrieved."""
+        from aragora.server.handlers.gateway_handler import get_gateway_circuit_breaker
+
+        cb = get_gateway_circuit_breaker()
+        assert cb is not None
+        assert cb.name == "gateway_handler"
+
+    def test_circuit_breaker_status(self):
+        """Test that circuit breaker status can be retrieved."""
+        from aragora.server.handlers.gateway_handler import (
+            get_gateway_circuit_breaker_status,
+        )
+
+        status = get_gateway_circuit_breaker_status()
+        assert isinstance(status, dict)
+        assert "name" in status
+
+    def test_circuit_breaker_reset(self):
+        """Test that circuit breaker can be reset."""
+        from aragora.server.handlers.gateway_handler import (
+            get_gateway_circuit_breaker,
+            reset_gateway_circuit_breaker,
+        )
+
+        cb = get_gateway_circuit_breaker()
+        reset_gateway_circuit_breaker()
+        # After reset, internal state should be cleared
+        assert cb._single_failures == 0
+
+    def test_circuit_breaker_threshold(self):
+        """Test circuit breaker has correct failure threshold."""
+        from aragora.server.handlers.gateway_handler import get_gateway_circuit_breaker
+
+        cb = get_gateway_circuit_breaker()
+        assert cb.failure_threshold == 5
+
+    def test_circuit_breaker_cooldown(self):
+        """Test circuit breaker has correct cooldown."""
+        from aragora.server.handlers.gateway_handler import get_gateway_circuit_breaker
+
+        cb = get_gateway_circuit_breaker()
+        assert cb.cooldown_seconds == 30.0
+
+
+# ===========================================================================
+# Device Validation Tests
+# ===========================================================================
+
+
+class TestDeviceValidation:
+    """Test device input validation."""
+
+    def test_register_device_empty_name(self, handler):
+        """Test registering device with empty name fails."""
+        mock_handler = MockRequestHandler(body={"name": ""})
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(handler, "read_json_body", return_value={"name": ""}):
+                result = handler.handle_post(
+                    "/api/v1/gateway/devices",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_register_device_with_capabilities(self, handler, mock_device_registry):
+        """Test registering device with capabilities."""
+        mock_handler = MockRequestHandler(
+            body={
+                "name": "Capable Device",
+                "device_type": "laptop",
+                "capabilities": ["browser", "terminal", "voice"],
+            }
+        )
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(
+                handler,
+                "read_json_body",
+                return_value={
+                    "name": "Capable Device",
+                    "device_type": "laptop",
+                    "capabilities": ["browser", "terminal", "voice"],
+                },
+            ):
+                result = handler.handle_post(
+                    "/api/v1/gateway/devices",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_register_device_with_metadata(self, handler, mock_device_registry):
+        """Test registering device with metadata."""
+        mock_handler = MockRequestHandler(
+            body={
+                "name": "Metadata Device",
+                "device_type": "tablet",
+                "metadata": {"os": "android", "version": "14"},
+            }
+        )
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(
+                handler,
+                "read_json_body",
+                return_value={
+                    "name": "Metadata Device",
+                    "device_type": "tablet",
+                    "metadata": {"os": "android", "version": "14"},
+                },
+            ):
+                result = handler.handle_post(
+                    "/api/v1/gateway/devices",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_register_device_with_allowed_channels(self, handler, mock_device_registry):
+        """Test registering device with allowed channels."""
+        mock_handler = MockRequestHandler(
+            body={
+                "name": "Channel Device",
+                "allowed_channels": ["slack", "email", "telegram"],
+            }
+        )
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(
+                handler,
+                "read_json_body",
+                return_value={
+                    "name": "Channel Device",
+                    "allowed_channels": ["slack", "email", "telegram"],
+                },
+            ):
+                result = handler.handle_post(
+                    "/api/v1/gateway/devices",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 201
+
+    def test_register_device_invalid_json_body(self, handler):
+        """Test registering device with invalid JSON returns 400."""
+        mock_handler = MockRequestHandler(body={})
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(handler, "read_json_body", return_value=None):
+                result = handler.handle_post(
+                    "/api/v1/gateway/devices",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# Device Status Filter Tests
+# ===========================================================================
+
+
+class TestDeviceStatusFilter:
+    """Test device listing with status filters."""
+
+    def test_list_devices_with_status_filter(self, handler, mock_device_registry):
+        """Test listing devices with status filter."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle(
+                "/api/v1/gateway/devices",
+                {"status": "online"},
+                mock_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_list_devices_invalid_status(self, handler, mock_device_registry):
+        """Test listing devices with invalid status still works."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle(
+                "/api/v1/gateway/devices",
+                {"status": "invalid_status"},
+                mock_handler,
+            )
+
+        # Invalid status is ignored, returns all devices
+        assert result is not None
+        assert result.status_code == 200
+
+
+# ===========================================================================
+# Routing Rules Tests
+# ===========================================================================
+
+
+class TestRoutingRulesExtended:
+    """Extended tests for routing rules endpoint."""
+
+    def test_list_rules_with_rules(self, handler, mock_agent_router):
+        """Test listing routing rules when rules exist."""
+        # Add some mock rules
+        mock_rule = MagicMock()
+        mock_rule.id = "rule-1"
+        mock_rule.channel = "slack"
+        mock_rule.pattern = ".*"
+        mock_rule.agent_id = "agent-1"
+        mock_agent_router._rules = [mock_rule]
+
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle(
+                "/api/v1/gateway/routing/rules",
+                {},
+                mock_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+
+        body = json.loads(result.body)
+        assert "rules" in body
+        assert body["total"] >= 0
+
+    def test_routing_stats_format(self, handler):
+        """Test routing stats returns expected format."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle(
+                "/api/v1/gateway/routing/stats",
+                {},
+                mock_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+
+        body = json.loads(result.body)
+        assert "stats" in body
+        assert "total_rules" in body["stats"]
+        assert "messages_routed" in body["stats"]
+        assert "routing_errors" in body["stats"]
+
+
+# ===========================================================================
+# Message Routing Validation Tests
+# ===========================================================================
+
+
+class TestMessageRoutingValidation:
+    """Test message routing input validation."""
+
+    def test_route_message_empty_channel(self, handler):
+        """Test routing message with empty channel fails."""
+        mock_handler = MockRequestHandler(body={"channel": "", "content": "Test"})
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(
+                handler,
+                "read_json_body",
+                return_value={"channel": "", "content": "Test"},
+            ):
+                result = handler.handle_post(
+                    "/api/v1/gateway/messages/route",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_route_message_empty_content(self, handler):
+        """Test routing message with empty content fails."""
+        mock_handler = MockRequestHandler(body={"channel": "slack", "content": ""})
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(
+                handler,
+                "read_json_body",
+                return_value={"channel": "slack", "content": ""},
+            ):
+                result = handler.handle_post(
+                    "/api/v1/gateway/messages/route",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_route_message_invalid_json(self, handler):
+        """Test routing message with invalid JSON fails."""
+        mock_handler = MockRequestHandler(body={})
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(handler, "read_json_body", return_value=None):
+                result = handler.handle_post(
+                    "/api/v1/gateway/messages/route",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# Channel Listing Tests
+# ===========================================================================
+
+
+class TestChannelListingExtended:
+    """Extended tests for channel listing."""
+
+    def test_list_channels_returns_expected_channels(self, handler):
+        """Test that channel list contains expected channels."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle(
+                "/api/v1/gateway/channels",
+                {},
+                mock_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+
+        body = json.loads(result.body)
+        channel_names = [c["name"] for c in body["channels"]]
+        assert "slack" in channel_names
+        assert "email" in channel_names
+
+    def test_list_channels_has_status(self, handler):
+        """Test that each channel has a status field."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle(
+                "/api/v1/gateway/channels",
+                {},
+                mock_handler,
+            )
+
+        assert result is not None
+        body = json.loads(result.body)
+
+        for channel in body["channels"]:
+            assert "status" in channel
+
+
+# ===========================================================================
+# Registry Unavailable Tests
+# ===========================================================================
+
+
+class TestRegistryUnavailable:
+    """Test behavior when device registry is unavailable."""
+
+    def test_list_devices_registry_unavailable(self, mock_server_context):
+        """Test listing devices when registry unavailable."""
+        h = GatewayHandler(mock_server_context)
+        h._device_registry = None  # Simulate unavailable registry
+
+        mock_handler = MockRequestHandler()
+
+        with patch.object(h, "_check_rbac_permission", return_value=None):
+            with patch.object(h, "_get_device_registry", return_value=None):
+                result = h.handle("/api/v1/gateway/devices", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_get_device_registry_unavailable(self, mock_server_context):
+        """Test getting device when registry unavailable."""
+        h = GatewayHandler(mock_server_context)
+
+        mock_handler = MockRequestHandler()
+
+        with patch.object(h, "_check_rbac_permission", return_value=None):
+            with patch.object(h, "_get_device_registry", return_value=None):
+                result = h.handle("/api/v1/gateway/devices/device-001", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 503
+
+
+# ===========================================================================
+# Router Unavailable Tests
+# ===========================================================================
+
+
+class TestRouterUnavailable:
+    """Test behavior when agent router is unavailable."""
+
+    def test_routing_stats_router_unavailable(self, mock_server_context):
+        """Test routing stats when router unavailable."""
+        h = GatewayHandler(mock_server_context)
+
+        mock_handler = MockRequestHandler()
+
+        with patch.object(h, "_check_rbac_permission", return_value=None):
+            with patch.object(h, "_get_agent_router", return_value=None):
+                result = h.handle("/api/v1/gateway/routing/stats", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_list_rules_router_unavailable(self, mock_server_context):
+        """Test listing rules when router unavailable."""
+        h = GatewayHandler(mock_server_context)
+
+        mock_handler = MockRequestHandler()
+
+        with patch.object(h, "_check_rbac_permission", return_value=None):
+            with patch.object(h, "_get_agent_router", return_value=None):
+                result = h.handle("/api/v1/gateway/routing/rules", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 503
+
+    def test_route_message_router_unavailable(self, mock_server_context):
+        """Test routing message when router unavailable."""
+        h = GatewayHandler(mock_server_context)
+
+        mock_handler = MockRequestHandler(body={"channel": "slack", "content": "Test"})
+
+        with patch.object(h, "_check_rbac_permission", return_value=None):
+            with patch.object(
+                h,
+                "read_json_body",
+                return_value={"channel": "slack", "content": "Test"},
+            ):
+                with patch.object(h, "_get_agent_router", return_value=None):
+                    result = h.handle_post("/api/v1/gateway/messages/route", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 503
+
+
+# ===========================================================================
+# Handler Method Routing Tests
+# ===========================================================================
+
+
+class TestHandlerMethodRouting:
+    """Test that handlers correctly route to sub-methods."""
+
+    def test_handle_post_returns_none_for_invalid_path(self, handler):
+        """Test handle_post returns None for non-gateway paths."""
+        mock_handler = MockRequestHandler()
+        result = handler.handle_post("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_delete_returns_none_for_invalid_path(self, handler):
+        """Test handle_delete returns None for non-gateway paths."""
+        mock_handler = MockRequestHandler()
+        result = handler.handle_delete("/api/v1/debates", {}, mock_handler)
+        assert result is None
+
+    def test_handle_returns_none_for_unknown_gateway_path(self, handler):
+        """Test handle returns None for unknown gateway sub-path."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle("/api/v1/gateway/unknown", {}, mock_handler)
+
+        assert result is None
+
+    def test_handle_post_unknown_gateway_path(self, handler):
+        """Test handle_post returns None for unknown gateway sub-path."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle_post("/api/v1/gateway/unknown", {}, mock_handler)
+
+        assert result is None
