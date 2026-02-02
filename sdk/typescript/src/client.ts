@@ -2021,7 +2021,7 @@ export class AragoraClient {
       await this.sleep(pollInterval);
     }
 
-    throw new AragoraError(
+    throw new TimeoutError(
       `Gauntlet ${gauntletId} did not complete within ${timeout}ms`,
       'AGENT_TIMEOUT'
     );
@@ -2813,7 +2813,7 @@ export class AragoraClient {
         { params: { key, tier: options?.tier } }
       );
     } catch (error) {
-      if (error instanceof AragoraError && error.status === 404) {
+      if (error instanceof AragoraError && error.statusCode === 404) {
         return null;
       }
       throw error;

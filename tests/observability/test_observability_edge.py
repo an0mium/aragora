@@ -495,6 +495,7 @@ class TestMemoryProfilerEdgeCases:
         assert len(report_verbose) > len(report_normal)
 
     @pytest.mark.slow
+    @pytest.mark.slow
     def test_all_memory_categories(self):
         """All memory categories should be valid."""
         for category in MemoryCategory:

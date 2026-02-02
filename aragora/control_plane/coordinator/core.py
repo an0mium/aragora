@@ -342,7 +342,7 @@ class ControlPlaneCoordinator:
             await self._scheduler_bridge.connect()
 
             # Sync policies from compliance store
-            self._policy_enforcer.sync_policies_from_store()
+            self._sync_policies_from_store()
 
             self._connected = True
             latency_ms = (time.monotonic() - start) * 1000
