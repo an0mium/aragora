@@ -226,9 +226,9 @@ class TestJWTVerifierInit:
         assert verifier._cache_ttl == 600
 
     def test_verifier_default_cache_ttl(self):
-        """Verifier defaults to 1 hour cache TTL."""
+        """Verifier defaults to 15 minutes (900 seconds) cache TTL."""
         verifier = JWTVerifier()
-        assert verifier._cache_ttl == 3600
+        assert verifier._cache_ttl == 900
 
     def test_get_jwt_verifier_singleton(self):
         """get_jwt_verifier returns singleton."""

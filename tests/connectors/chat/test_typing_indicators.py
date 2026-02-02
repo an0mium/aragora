@@ -59,7 +59,7 @@ class TestTeamsTypingIndicator:
     @pytest.fixture
     def connector(self):
         """Create Teams connector."""
-        with patch("aragora.connectors.chat.teams.HTTPX_AVAILABLE", True):
+        with patch("aragora.connectors.chat.teams._constants.HTTPX_AVAILABLE", True):
             from aragora.connectors.chat.teams import TeamsConnector
 
             return TeamsConnector(

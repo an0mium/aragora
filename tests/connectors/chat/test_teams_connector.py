@@ -446,7 +446,7 @@ class TestTeamsWithoutHttpx:
 
         connector = TeamsConnector(app_id="app-123", app_password="secret")
 
-        with patch("aragora.connectors.chat.teams.HTTPX_AVAILABLE", False):
+        with patch("aragora.connectors.chat.teams._constants.HTTPX_AVAILABLE", False):
             # Need to reimport to get patched value
             connector_module = __import__(
                 "aragora.connectors.chat.teams", fromlist=["TeamsConnector"]

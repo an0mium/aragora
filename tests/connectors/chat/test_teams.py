@@ -321,7 +321,7 @@ class TestSendMessage:
     async def test_send_message_httpx_not_available(self, connector):
         """Test send_message fails gracefully without httpx."""
         with patch(
-            "aragora.connectors.chat.teams.HTTPX_AVAILABLE",
+            "aragora.connectors.chat.teams._constants.HTTPX_AVAILABLE",
             False,
         ):
             response = await connector.send_message(
@@ -337,7 +337,7 @@ class TestSendMessage:
         """Test send_message blocked by open circuit breaker."""
         with (
             patch(
-                "aragora.connectors.chat.teams.HTTPX_AVAILABLE",
+                "aragora.connectors.chat.teams._constants.HTTPX_AVAILABLE",
                 True,
             ),
             patch.object(
@@ -380,7 +380,7 @@ class TestGraphAPI:
         with patch.object(
             connector,
             "_get_graph_token",
-            side_effect=Exception("Token error"),
+            side_effect=RuntimeError("Token error"),
         ):
             success, data, error = await connector._graph_api_request(
                 endpoint="/me",

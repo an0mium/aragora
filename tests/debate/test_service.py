@@ -43,28 +43,41 @@ def _reset_global_service():
     reset_debate_service()
 
 
+def _create_test_agent(name: str, model: str, role: str = "proposer"):
+    """Create a real Agent subclass for testing."""
+    from aragora.core_types import Agent
+
+    class TestAgent(Agent):
+        async def generate(self, prompt, context=None):
+            return "response"
+
+        async def critique(self, proposal, task, context=None):
+            return "critique"
+
+        async def synthesize(self, proposals, task, context=None):
+            return "synthesis"
+
+        async def vote(self, proposals, task, context=None):
+            return proposals[0] if proposals else ""
+
+    agent = TestAgent(name=name, model=model)
+    agent.role = role
+    return agent
+
+
 @pytest.fixture
 def mock_agent():
-    """Create a mock Agent object."""
-    agent = MagicMock()
-    agent.name = "mock-agent"
-    agent.model = "mock-model"
-    agent.role = "proposer"
-    return agent
+    """Create a mock Agent object that passes isinstance check."""
+    return _create_test_agent("mock-agent", "mock-model", "proposer")
 
 
 @pytest.fixture
 def mock_agent_pair():
     """Create a pair of mock Agent objects."""
-    a1 = MagicMock()
-    a1.name = "agent-1"
-    a1.model = "model-1"
-    a1.role = "proposer"
-    a2 = MagicMock()
-    a2.name = "agent-2"
-    a2.model = "model-2"
-    a2.role = "critic"
-    return [a1, a2]
+    return [
+        _create_test_agent("agent-1", "model-1", "proposer"),
+        _create_test_agent("agent-2", "model-2", "critic"),
+    ]
 
 
 @pytest.fixture
@@ -83,7 +96,7 @@ def mock_debate_result():
 @pytest.fixture
 def mock_arena_class(mock_debate_result):
     """Mock the Arena class to avoid real debate execution."""
-    with patch("aragora.debate.service.Arena") as arena_cls:
+    with patch("aragora.debate.orchestrator.Arena") as arena_cls:
         arena_instance = MagicMock()
         arena_instance.run = AsyncMock(return_value=mock_debate_result)
         arena_cls.return_value = arena_instance
@@ -329,22 +342,44 @@ class TestResolveAgents:
         result = service._resolve_agents(None)
         assert result == []
 
-    def test_resolve_none_with_defaults(self, mock_agent_pair):
-        """Test resolving None uses default agents."""
-        service = DebateService(default_agents=mock_agent_pair)
+    def test_resolve_none_with_defaults(self):
+        """Test resolving None uses default agents with resolver."""
+        # Use string agents with resolver to test default agent resolution
+        resolved_agent1 = MagicMock()
+        resolved_agent2 = MagicMock()
+
+        def resolver(name: str):
+            return resolved_agent1 if name == "agent-1" else resolved_agent2
+
+        service = DebateService(
+            default_agents=["agent-1", "agent-2"],
+            agent_resolver=resolver,
+        )
         result = service._resolve_agents(None)
         assert len(result) == 2
+        assert result[0] is resolved_agent1
+        assert result[1] is resolved_agent2
 
-    def test_resolve_agent_objects_passed_through(self, mock_agent):
+    def test_resolve_agent_objects_passed_through(self):
         """Test Agent objects are passed through directly."""
-        from aragora.core import Agent
+        from aragora.core_types import Agent
 
-        # Need a real-ish Agent for isinstance check
-        # Since Agent is ABC, we use the mock_agent which won't pass isinstance
-        # Instead test with mock that returns True for isinstance
+        # Create a concrete subclass for testing
+        class TestAgent(Agent):
+            async def generate(self, prompt, context=None):
+                return "response"
+
+            async def critique(self, proposal, task, context=None):
+                return "critique"
+
+            async def synthesize(self, proposals, task, context=None):
+                return "synthesis"
+
+            async def vote(self, proposals, task, context=None):
+                return proposals[0] if proposals else ""
+
+        agent = TestAgent(name="test-agent", model="test-model")
         service = DebateService()
-        # Mock agents list with real Agent-like objects
-        agent = MagicMock(spec=Agent)
         result = service._resolve_agents([agent])
         assert len(result) == 1
         assert result[0] is agent
@@ -389,27 +424,23 @@ class TestResolveAgents:
         mock_agent = MagicMock()
         service = DebateService()
 
-        with patch("aragora.debate.service.create_agent", return_value=mock_agent) as mock_create:
-            # Patch the import inside the method
-            with patch.dict("sys.modules", {"aragora.agents": MagicMock(create_agent=mock_create)}):
-                result = service._resolve_agents(["demo"])
-                # Should attempt creation
-                assert len(result) == 1
+        with patch("aragora.agents.create_agent", return_value=mock_agent) as mock_create:
+            result = service._resolve_agents(["demo"])
+            # Should attempt creation
+            assert len(result) == 1
+            mock_create.assert_called_once()
 
-    def test_resolve_string_without_resolver_import_error(self):
-        """Test graceful handling when create_agent import fails."""
+    def test_resolve_string_create_agent_fails_gracefully(self):
+        """Test graceful handling when create_agent fails."""
         service = DebateService()
 
-        with patch("aragora.debate.service.create_agent", side_effect=ImportError("No module")):
-            # Force the import to fail inside _resolve_agents
-            import aragora.debate.service as svc
-            orig_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
-
+        # When create_agent raises an ImportError, the agent should be skipped
+        with patch("aragora.agents.create_agent", side_effect=ImportError("No module")):
             # This tests the except ImportError path - the string agent is skipped
             result = service._resolve_agents(["nonexistent"])
-            # May or may not resolve depending on whether create_agent exists
-            # The key assertion: it doesn't raise
+            # The agent should be skipped but no exception raised
             assert isinstance(result, list)
+            assert len(result) == 0
 
     def test_resolve_mixed_agents(self):
         """Test resolving a mix of Agent objects and strings."""
@@ -604,7 +635,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_basic(self, mock_agent_pair, mock_debate_result):
         """Test basic run with agents."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -631,7 +662,7 @@ class TestDebateServiceRun:
 
         custom_protocol = DebateProtocol(rounds=3, consensus="majority")
 
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -649,7 +680,7 @@ class TestDebateServiceRun:
         """Test run with memory system."""
         mock_memory = MagicMock()
 
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -666,7 +697,7 @@ class TestDebateServiceRun:
         """Test run uses service-level memory when none provided."""
         mock_memory = MagicMock()
 
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -684,7 +715,7 @@ class TestDebateServiceRun:
         service_memory = MagicMock()
         run_memory = MagicMock()
 
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -700,7 +731,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_timeout(self, mock_agent_pair):
         """Test that run raises TimeoutError on timeout."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
 
             async def slow_run():
@@ -718,7 +749,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_passes_telemetry(self, mock_agent_pair, mock_debate_result):
         """Test that telemetry fields are passed to Arena."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -734,7 +765,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_no_telemetry_when_empty(self, mock_agent_pair, mock_debate_result):
         """Test that empty telemetry fields are not passed to Arena."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -751,7 +782,7 @@ class TestDebateServiceRun:
         """Test that event hooks are passed to Arena."""
         hook = MagicMock()
 
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -767,7 +798,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_no_hooks_when_none(self, mock_agent_pair, mock_debate_result):
         """Test that event_hooks key is absent when no hooks set."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -781,7 +812,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_passes_kwargs(self, mock_agent_pair, mock_debate_result):
         """Test that extra kwargs are forwarded to Arena."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -795,7 +826,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_creates_environment(self, mock_agent_pair, mock_debate_result):
         """Test that Arena is called with correct Environment."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -810,7 +841,7 @@ class TestDebateServiceRun:
     @pytest.mark.asyncio
     async def test_run_passes_arena_config_flags(self, mock_agent_pair, mock_debate_result):
         """Test that Arena receives configuration flags from options."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -844,7 +875,7 @@ class TestDebateServiceRunQuick:
     @pytest.mark.asyncio
     async def test_run_quick_basic(self, mock_agent_pair, mock_debate_result):
         """Test run_quick with default rounds."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -857,7 +888,7 @@ class TestDebateServiceRunQuick:
     @pytest.mark.asyncio
     async def test_run_quick_custom_rounds(self, mock_agent_pair, mock_debate_result):
         """Test run_quick with custom rounds."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -870,7 +901,7 @@ class TestDebateServiceRunQuick:
     @pytest.mark.asyncio
     async def test_run_quick_with_agents(self, mock_agent_pair, mock_debate_result):
         """Test run_quick with explicit agents."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -902,7 +933,7 @@ class TestDebateServiceRunDeep:
     @pytest.mark.asyncio
     async def test_run_deep_basic(self, mock_agent_pair, mock_debate_result):
         """Test run_deep with defaults."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -915,7 +946,7 @@ class TestDebateServiceRunDeep:
     @pytest.mark.asyncio
     async def test_run_deep_uses_supermajority(self, mock_agent_pair, mock_debate_result):
         """Test run_deep uses supermajority consensus."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -940,7 +971,7 @@ class TestDebateServiceRunDeep:
     @pytest.mark.asyncio
     async def test_run_deep_custom_rounds(self, mock_agent_pair, mock_debate_result):
         """Test run_deep with custom rounds."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -1036,18 +1067,12 @@ class TestEdgeCases:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_run_with_empty_task(self, mock_agent_pair, mock_debate_result):
-        """Test run with empty task string."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
-            arena_inst = MagicMock()
-            arena_inst.run = AsyncMock(return_value=mock_debate_result)
-            mock_arena_cls.return_value = arena_inst
-
-            service = DebateService(default_agents=mock_agent_pair)
-            # Empty task is technically allowed at service level
-            # (Arena/Environment may validate)
-            result = await service.run("")
-            assert result is mock_debate_result
+    async def test_run_with_empty_task_raises(self, mock_agent_pair):
+        """Test run with empty task string raises ValueError."""
+        service = DebateService(default_agents=mock_agent_pair)
+        # Environment validates that task cannot be empty
+        with pytest.raises(ValueError, match="Task cannot be empty"):
+            await service.run("")
 
     def test_options_zero_timeout(self):
         """Test options with zero timeout falls back to default."""
@@ -1084,7 +1109,7 @@ class TestEdgeCases:
         mock_agent = MagicMock()
         resolver = MagicMock(return_value=mock_agent)
 
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
@@ -1125,7 +1150,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_run_options_uses_to_protocol(self, mock_agent_pair, mock_debate_result):
         """Test that options.to_protocol() is used when no protocol given."""
-        with patch("aragora.debate.service.Arena") as mock_arena_cls:
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
             arena_inst = MagicMock()
             arena_inst.run = AsyncMock(return_value=mock_debate_result)
             mock_arena_cls.return_value = arena_inst
