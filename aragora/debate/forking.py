@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import uuid
 
 # Note: We use list.copy() instead of deepcopy for messages since Message
@@ -178,7 +179,7 @@ class ForkDetector:
                 # Look for disagreement indicators
                 score, reason = self._calculate_disagreement(msg_a, msg_b)
 
-                if score > 0.3:
+                if score >= 0.3:
                     disagreements.append(
                         {
                             "agents": [agent_a, agent_b],
@@ -239,8 +240,10 @@ class ForkDetector:
             "queue",
             "polling",
         ]
-        tech_a = set(t for t in tech_terms if t in content_a)
-        tech_b = set(t for t in tech_terms if t in content_b)
+        tokens_a = set(re.findall(r"[a-z0-9_]+", content_a))
+        tokens_b = set(re.findall(r"[a-z0-9_]+", content_b))
+        tech_a = set(t for t in tech_terms if t in tokens_a)
+        tech_b = set(t for t in tech_terms if t in tokens_b)
 
         if tech_a and tech_b and not (tech_a & tech_b):
             score += 0.3
@@ -689,14 +692,14 @@ class DeadlockResolver:
 
             # Look for position markers
             stance = "neutral"
-            if any(w in content for w in ["strongly agree", "definitely", "absolutely"]):
-                stance = "strong_support"
-            elif any(w in content for w in ["agree", "support", "yes"]):
-                stance = "support"
-            elif any(w in content for w in ["strongly disagree", "absolutely not", "never"]):
+            if any(w in content for w in ["strongly disagree", "absolutely not", "never"]):
                 stance = "strong_oppose"
             elif any(w in content for w in ["disagree", "oppose", "no"]):
                 stance = "oppose"
+            elif any(w in content for w in ["strongly agree", "definitely", "absolutely"]):
+                stance = "strong_support"
+            elif any(w in content for w in ["agree", "support", "yes"]):
+                stance = "support"
 
             # Hash first 200 chars as position fingerprint
             position_hash = hash(content[:200]) % 10000
@@ -711,10 +714,6 @@ class DeadlockResolver:
         previous_positions: dict[str, str] | None,
     ) -> float:
         """Calculate how much positions have stagnated."""
-        history = self.debate_history.get(debate_id, [])
-        if len(history) < 2:
-            return 0.0
-
         # Compare with previous round
         if previous_positions:
             matching = sum(
@@ -724,6 +723,10 @@ class DeadlockResolver:
             )
             if current_positions:
                 return matching / len(current_positions)
+
+        history = self.debate_history.get(debate_id, [])
+        if len(history) < 2:
+            return 0.0
 
         # Compare position patterns over recent rounds
         recent_positions = [r["positions"] for r in history[-3:]]

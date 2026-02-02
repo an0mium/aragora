@@ -1168,8 +1168,8 @@ class TestErrorHandling:
         """Timeout returns partial result instead of failing."""
         protocol = DebateProtocol(rounds=3, timeout_seconds=0.1)  # Very short timeout
         agents = [
-            TimeoutAgent(name="slow1", delay_seconds=10.0),
-            TimeoutAgent(name="slow2", delay_seconds=10.0),
+            TimeoutAgent(name="slow1", delay_seconds=1.0),
+            TimeoutAgent(name="slow2", delay_seconds=1.0),
         ]
         arena = Arena(environment, agents, protocol)
 

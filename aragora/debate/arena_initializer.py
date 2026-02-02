@@ -396,6 +396,7 @@ class ArenaInitializer:
         moment_detector,
         tier_analytics_tracker=None,
         knowledge_mound=None,
+        auto_create_knowledge_mound: bool = True,
         enable_knowledge_retrieval: bool = True,
         enable_knowledge_ingestion: bool = True,
         enable_knowledge_extraction: bool = False,
@@ -417,8 +418,12 @@ class ArenaInitializer:
                 elo_system, position_ledger, relationship_tracker
             )
 
-        # Auto-initialize KnowledgeMound when retrieval or ingestion is enabled
-        if (enable_knowledge_retrieval or enable_knowledge_ingestion) and knowledge_mound is None:
+        # Auto-initialize KnowledgeMound when enabled and retrieval/ingestion is enabled
+        if (
+            auto_create_knowledge_mound
+            and (enable_knowledge_retrieval or enable_knowledge_ingestion)
+            and knowledge_mound is None
+        ):
             knowledge_mound = self._auto_init_knowledge_mound()
 
         # Auto-upgrade to ELO-ranked judge selection when elo_system is available

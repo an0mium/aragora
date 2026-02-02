@@ -304,7 +304,7 @@ class ConsensusPhase:
             try:
                 await ctx.hook_manager.trigger("pre_consensus", ctx=ctx, proposals=ctx.proposals)
             except Exception as e:
-                logger.debug(f"PRE_CONSENSUS hook failed: {e}")
+                logger.debug("PRE_CONSENSUS hook failed: %s", e)
 
         consensus_mode = self.protocol.consensus if self.protocol else "none"
         logger.info(f"consensus_phase_start mode={consensus_mode}")

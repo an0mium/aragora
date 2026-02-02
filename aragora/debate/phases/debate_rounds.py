@@ -1109,7 +1109,7 @@ class DebateRoundsPhase:
             total_refreshed = (refreshed or 0) + skill_snippets
 
             if total_refreshed:
-                logger.info(f"evidence_refreshed round={round_num} new_snippets={total_refreshed}")
+                logger.info("evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed)
 
                 # Notify spectator
                 if self._notify_spectator:
@@ -1128,7 +1128,7 @@ class DebateRoundsPhase:
                     )
 
         except Exception as e:
-            logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
+            logger.warning("Evidence refresh failed for round %s: %s", round_num, e)
 
     async def _refresh_with_skills(
         self,
@@ -1201,20 +1201,20 @@ class DebateRoundsPhase:
                             snippets_added += 1
 
                 except asyncio.TimeoutError:
-                    logger.debug(f"[skills] Refresh timeout for {skill_manifest.name}")
+                    logger.debug("[skills] Refresh timeout for %s", skill_manifest.name)
                 except Exception as e:
-                    logger.debug(f"[skills] Refresh error for {skill_manifest.name}: {e}")
+                    logger.debug("[skills] Refresh error for %s: %s", skill_manifest.name, e)
 
             if snippets_added:
-                logger.info(f"[skills] Refreshed {snippets_added} evidence snippets from skills")
+                logger.info("[skills] Refreshed %s evidence snippets from skills", snippets_added)
 
             return snippets_added
 
         except ImportError as e:
-            logger.debug(f"[skills] Refresh skipped (missing imports): {e}")
+            logger.debug("[skills] Refresh skipped (missing imports): %s", e)
             return 0
         except Exception as e:
-            logger.warning(f"[skills] Refresh error: {e}")
+            logger.warning("[skills] Refresh error: %s", e)
             return 0
 
     def get_partial_messages(self) -> list["Message"]:
@@ -1266,7 +1266,9 @@ class DebateRoundsPhase:
                 original_count = len(ctx.context_messages)
                 ctx.context_messages = list(compressed_msgs)
                 logger.info(
-                    f"[rlm] Compressed context: {original_count} → {len(ctx.context_messages)} messages"
+                    "[rlm] Compressed context: %s -> %s messages",
+                    original_count,
+                    len(ctx.context_messages),
                 )
 
                 # Notify spectator about compression
@@ -1286,7 +1288,7 @@ class DebateRoundsPhase:
                     )
 
         except Exception as e:
-            logger.warning(f"[rlm] Context compression failed: {e}")
+            logger.warning("[rlm] Context compression failed: %s", e)
             # Continue without compression - don't break the debate
 
     async def _execute_final_synthesis_round(
@@ -1318,10 +1320,10 @@ class DebateRoundsPhase:
                 available = self.circuit_breaker.filter_available_agents(list(proposers))
                 if len(available) < len(proposers):
                     skipped = [p.name for p in proposers if p not in available]
-                    logger.info(f"circuit_breaker_skip_synthesis skipped={skipped}")
+                    logger.info("circuit_breaker_skip_synthesis skipped=%s", skipped)
                 proposers = available
             except Exception as e:
-                logger.error(f"Circuit breaker filter error for synthesis: {e}")
+                logger.error("Circuit breaker filter error for synthesis: %s", e)
 
         # Each proposer writes their final synthesis
         for agent in proposers:
@@ -1344,7 +1346,7 @@ class DebateRoundsPhase:
                 # Generate final synthesis with timeout
                 if not self._generate_with_agent:
                     logger.warning(
-                        f"No generate_with_agent callback for final synthesis of {agent.name}"
+                        "No generate_with_agent callback for final synthesis of %s", agent.name
                     )
                     continue
 
@@ -1378,12 +1380,12 @@ class DebateRoundsPhase:
                             full_content=final_proposal,
                         )
 
-                    logger.info(f"final_synthesis_complete agent={agent.name}")
+                    logger.info("final_synthesis_complete agent=%s", agent.name)
 
             except asyncio.TimeoutError:
-                logger.warning(f"Final synthesis timeout for agent {agent.name}")
+                logger.warning("Final synthesis timeout for agent %s", agent.name)
             except Exception as e:
-                logger.error(f"Final synthesis error for agent {agent.name}: {e}")
+                logger.error("Final synthesis error for agent %s: %s", agent.name, e)
 
         # Notify spectator
         if self._notify_spectator:
@@ -1502,10 +1504,13 @@ Write in a clear, confident voice while acknowledging genuine complexity."""
             if results:
                 success_count = sum(1 for r in results if r.success)
                 logger.info(
-                    f"[propulsion] {event_type} fired round={round_num} "
-                    f"handlers={len(results)} success={success_count}"
+                    "[propulsion] %s fired round=%s handlers=%s success=%s",
+                    event_type,
+                    round_num,
+                    len(results),
+                    success_count,
                 )
         except ImportError:
             logger.debug("[propulsion] PropulsionEngine imports unavailable")
         except Exception as e:
-            logger.warning(f"[propulsion] Failed to fire {event_type}: {e}")
+            logger.warning("[propulsion] Failed to fire %s: %s", event_type, e)

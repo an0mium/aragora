@@ -103,6 +103,9 @@ from aragora.debate.orchestrator_runner import (
 # Structured logger for all debate events (JSON-formatted in production)
 logger = get_structured_logger(__name__)
 
+# Sentinel for distinguishing "not provided" from explicit None
+_KNOWLEDGE_MOUND_UNSET = object()
+
 # TYPE_CHECKING imports for type hints without runtime import overhead
 if TYPE_CHECKING:
     from aragora.debate.checkpoint_manager import CheckpointManager
@@ -258,7 +261,7 @@ class Arena(ArenaDelegatesMixin):
         relationship_tracker: Any = None,
         moment_detector: Any = None,
         tier_analytics_tracker: Any = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        knowledge_mound: Any = _KNOWLEDGE_MOUND_UNSET,
         auto_create_knowledge_mound: bool = True,
         enable_knowledge_retrieval: bool = True,
         enable_knowledge_ingestion: bool = True,
@@ -335,6 +338,8 @@ class Arena(ArenaDelegatesMixin):
         See inline parameter comments for subsystem descriptions.
         Initialization delegates to ArenaInitializer for core/tracker setup.
         """
+        knowledge_mound_param_provided = knowledge_mound is not _KNOWLEDGE_MOUND_UNSET
+        knowledge_mound_param_none = knowledge_mound is None
         # =====================================================================
         # Config Object Merging (config objects take precedence over individual params)
         # =====================================================================
@@ -510,6 +515,10 @@ class Arena(ArenaDelegatesMixin):
         tier_analytics_tracker = cfg.tier_analytics_tracker
         knowledge_mound = cfg.knowledge_mound
         auto_create_knowledge_mound = cfg.auto_create_knowledge_mound
+        if knowledge_mound is _KNOWLEDGE_MOUND_UNSET:
+            knowledge_mound = None
+        if knowledge_mound_param_provided and knowledge_mound_param_none and knowledge_mound is None:
+            auto_create_knowledge_mound = False
         enable_knowledge_retrieval = cfg.enable_knowledge_retrieval
         enable_knowledge_ingestion = cfg.enable_knowledge_ingestion
         enable_knowledge_extraction = cfg.enable_knowledge_extraction
@@ -655,6 +664,7 @@ class Arena(ArenaDelegatesMixin):
             moment_detector=moment_detector,
             tier_analytics_tracker=tier_analytics_tracker,
             knowledge_mound=knowledge_mound,
+            auto_create_knowledge_mound=auto_create_knowledge_mound,
             enable_knowledge_retrieval=enable_knowledge_retrieval,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
             enable_knowledge_extraction=enable_knowledge_extraction,
