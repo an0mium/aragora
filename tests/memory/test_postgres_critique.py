@@ -9,10 +9,9 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from contextlib import asynccontextmanager
 
+pytest.importorskip("asyncpg")
 
 import asyncpg
-
-pytest.importorskip("asyncpg")
 
 
 class TestPostgresCritiqueSchema:
