@@ -913,12 +913,16 @@ def get_default_fallback_enabled() -> bool:
     Returns:
         True if fallback is enabled in settings, False otherwise
     """
+    explicit_env = os.environ.get("ARAGORA_OPENROUTER_FALLBACK_ENABLED")
+    if isinstance(explicit_env, str):
+        normalized = explicit_env.strip().lower()
+        if normalized:
+            return normalized in {"1", "true", "yes", "on"}
+
     try:
         from aragora.config.settings import get_settings
 
         settings = get_settings()
-        if "ARAGORA_OPENROUTER_FALLBACK_ENABLED" in os.environ:
-            return settings.agent.openrouter_fallback_enabled
         if settings.agent.openrouter_fallback_enabled:
             return True
     except (ImportError, AttributeError, KeyError) as e:
