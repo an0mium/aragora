@@ -23,6 +23,14 @@ Environment Variables:
 
 from __future__ import annotations
 
+import logging
+import sys
+
+logger = logging.getLogger(__name__)
+
+_initialized = False
+_metrics_server: int | None = None
+
 # =============================================================================
 # Base utilities
 # =============================================================================
@@ -43,13 +51,6 @@ from aragora.observability.metrics.core import (  # noqa: F401
     is_initialized,
     reset_initialization,
     _normalize_endpoint,
-)
-
-from aragora.observability.metrics.server import (  # noqa: F401
-    start_metrics_server,
-    stop_metrics_server,
-    is_metrics_server_running,
-    get_metrics_server_port,
 )
 
 # =============================================================================
@@ -563,6 +564,175 @@ def set_webhook_circuit_breaker_state(endpoint: str, state: str) -> None:
 
 
 # =============================================================================
+# Compatibility initialization helpers
+# =============================================================================
+
+
+def _metrics_modules():
+    from . import agent as agent_module
+    from . import agents as agents_module
+    from . import bridge as bridge_module
+    from . import cache as cache_module
+    from . import checkpoint as checkpoint_module
+    from . import consensus as consensus_module
+    from . import convergence as convergence_module
+    from . import custom as custom_module
+    from . import debate as debate_module
+    from . import evidence as evidence_module
+    from . import explainability as explainability_module
+    from . import fabric as fabric_module
+    from . import governance as governance_module
+    from . import km as km_module
+    from . import marketplace as marketplace_module
+    from . import memory as memory_module
+    from . import notification as notification_module
+    from . import ranking as ranking_module
+    from . import request as request_module
+    from . import security as security_module
+    from . import slo as slo_module
+    from . import system as system_module
+    from . import task_queue as task_queue_module
+    from . import tts as tts_module
+    from . import user_mapping as user_mapping_module
+    from . import webhook as webhook_module
+    from . import workflow as workflow_module
+
+    return [
+        request_module,
+        agent_module,
+        agents_module,
+        debate_module,
+        system_module,
+        custom_module,
+        cache_module,
+        memory_module,
+        convergence_module,
+        tts_module,
+        workflow_module,
+        evidence_module,
+        ranking_module,
+        bridge_module,
+        km_module,
+        consensus_module,
+        task_queue_module,
+        governance_module,
+        user_mapping_module,
+        checkpoint_module,
+        notification_module,
+        marketplace_module,
+        explainability_module,
+        security_module,
+        webhook_module,
+        slo_module,
+        fabric_module,
+    ]
+
+
+def _refresh_exports() -> None:
+    """Refresh exported symbols to point at the latest module state."""
+    export_names = set(__all__)
+    modules = _metrics_modules()
+    for module in modules:
+        for name in export_names:
+            if hasattr(module, name):
+                globals()[name] = getattr(module, name)
+
+
+def _init_noop_metrics() -> None:
+    """Initialize NoOp metrics across all submodules."""
+    global _initialized
+    modules = _metrics_modules()
+    for module in modules:
+        init_noop = getattr(module, "_init_noop_metrics", None)
+        if callable(init_noop):
+            init_noop()
+        if hasattr(module, "_initialized"):
+            module._initialized = True
+    _initialized = True
+    _refresh_exports()
+
+
+def _init_metrics() -> bool:
+    """Initialize metrics with Prometheus if available."""
+    global _initialized
+    if _initialized:
+        return get_metrics_enabled()
+    enabled = ensure_metrics_initialized()
+    _initialized = True
+    _refresh_exports()
+    return enabled
+
+
+def start_metrics_server(port: int = 9090) -> bool:
+    """Start the Prometheus metrics HTTP server."""
+    global _metrics_server
+    if not get_metrics_enabled():
+        logger.warning("Metrics not enabled, server not started")
+        return False
+    if _metrics_server is not None:
+        logger.warning("Metrics server already running")
+        return True
+    try:
+        from prometheus_client import start_http_server
+
+        start_http_server(port)
+        _metrics_server = port
+        try:
+            from aragora.observability.metrics import server as _server
+
+            _server._metrics_server = port
+        except Exception:
+            pass
+        logger.info("Metrics server started on port %s", port)
+        return True
+    except ImportError as e:
+        logger.error(
+            "Failed to start metrics server: prometheus-client not installed",
+            extra={"error": str(e)},
+        )
+        return False
+    except OSError as e:
+        logger.error(
+            "Failed to start metrics server due to OS error",
+            extra={"port": port, "error_type": type(e).__name__, "error": str(e)},
+        )
+        return False
+    except (ValueError, TypeError, RuntimeError) as e:
+        logger.error(
+            "Failed to start metrics server due to configuration error",
+            extra={"port": port, "error_type": type(e).__name__, "error": str(e)},
+        )
+        return False
+
+
+def stop_metrics_server() -> bool:
+    """Stop the Prometheus metrics server (marks as stopped)."""
+    global _metrics_server
+    if _metrics_server is None:
+        return False
+    port = _metrics_server
+    _metrics_server = None
+    try:
+        from aragora.observability.metrics import server as _server
+
+        _server._metrics_server = None
+    except Exception:
+        pass
+    logger.info("Metrics server on port %s marked for shutdown", port)
+    return True
+
+
+def is_metrics_server_running() -> bool:
+    """Check if the metrics server is running."""
+    return _metrics_server is not None
+
+
+def get_metrics_server_port() -> int | None:
+    """Get the metrics server port if running."""
+    return _metrics_server
+
+
+# =============================================================================
 # Explicit exports
 # =============================================================================
 
@@ -572,6 +742,8 @@ __all__ = [
     "get_metrics_enabled",
     "ensure_metrics_initialized",
     "normalize_endpoint",
+    "_init_metrics",
+    "_init_noop_metrics",
     # Core
     "init_core_metrics",
     "is_initialized",
@@ -896,3 +1068,7 @@ __all__ = [
     "record_fabric_stats",
     "track_fabric_task",
 ]
+
+
+# Register module alias for compatibility with metrics.base
+sys.modules.setdefault("_aragora_metrics_impl", sys.modules[__name__])
