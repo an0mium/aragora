@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from sdk.python.aragora.namespaces.hybrid_debates import (
+from sdk.python.aragora_sdk.namespaces.hybrid_debates import (
     AsyncHybridDebatesAPI,
     HybridDebatesAPI,
 )
@@ -159,9 +159,7 @@ class TestHybridDebatesAPICreate:
 class TestHybridDebatesAPIGet:
     """Tests for the synchronous get method."""
 
-    def test_get_debate(
-        self, sync_api: HybridDebatesAPI, sync_client: MagicMock
-    ) -> None:
+    def test_get_debate(self, sync_api: HybridDebatesAPI, sync_client: MagicMock) -> None:
         """get() sends GET to the correct path."""
         sync_client.request.return_value = {
             "debate_id": "hybrid_abc123",
@@ -173,9 +171,7 @@ class TestHybridDebatesAPIGet:
 
         result = sync_api.get("hybrid_abc123")
 
-        sync_client.request.assert_called_once_with(
-            "GET", "/api/v1/debates/hybrid/hybrid_abc123"
-        )
+        sync_client.request.assert_called_once_with("GET", "/api/v1/debates/hybrid/hybrid_abc123")
         assert result["debate_id"] == "hybrid_abc123"
         assert result["consensus_reached"] is True
 
@@ -187,9 +183,7 @@ class TestHybridDebatesAPIGet:
 
         sync_api.get("hybrid_foobar")
 
-        sync_client.request.assert_called_once_with(
-            "GET", "/api/v1/debates/hybrid/hybrid_foobar"
-        )
+        sync_client.request.assert_called_once_with("GET", "/api/v1/debates/hybrid/hybrid_foobar")
 
 
 # ===========================================================================
@@ -200,17 +194,13 @@ class TestHybridDebatesAPIGet:
 class TestHybridDebatesAPIList:
     """Tests for the synchronous list method."""
 
-    def test_list_no_params(
-        self, sync_api: HybridDebatesAPI, sync_client: MagicMock
-    ) -> None:
+    def test_list_no_params(self, sync_api: HybridDebatesAPI, sync_client: MagicMock) -> None:
         """list() sends GET with no params when using defaults."""
         sync_client.request.return_value = {"debates": [], "total": 0}
 
         result = sync_api.list()
 
-        sync_client.request.assert_called_once_with(
-            "GET", "/api/v1/debates/hybrid", params={}
-        )
+        sync_client.request.assert_called_once_with("GET", "/api/v1/debates/hybrid", params={})
         assert result["total"] == 0
 
     def test_list_with_status_filter(
@@ -237,9 +227,7 @@ class TestHybridDebatesAPIList:
             "GET", "/api/v1/debates/hybrid", params={"limit": 50}
         )
 
-    def test_list_with_all_params(
-        self, sync_api: HybridDebatesAPI, sync_client: MagicMock
-    ) -> None:
+    def test_list_with_all_params(self, sync_api: HybridDebatesAPI, sync_client: MagicMock) -> None:
         """list() includes all params when provided."""
         sync_client.request.return_value = {
             "debates": [{"debate_id": "hybrid_1"}],
@@ -372,9 +360,7 @@ class TestAsyncHybridDebatesAPIGet:
 
         result = await async_api.get("hybrid_abc123")
 
-        async_client.request.assert_called_once_with(
-            "GET", "/api/v1/debates/hybrid/hybrid_abc123"
-        )
+        async_client.request.assert_called_once_with("GET", "/api/v1/debates/hybrid/hybrid_abc123")
         assert result["debate_id"] == "hybrid_abc123"
 
 
@@ -395,9 +381,7 @@ class TestAsyncHybridDebatesAPIList:
 
         result = await async_api.list()
 
-        async_client.request.assert_called_once_with(
-            "GET", "/api/v1/debates/hybrid", params={}
-        )
+        async_client.request.assert_called_once_with("GET", "/api/v1/debates/hybrid", params={})
         assert result["total"] == 0
 
     @pytest.mark.asyncio
@@ -466,30 +450,22 @@ class TestHybridDebatesAPIStructure:
 
     def test_sync_api_has_expected_methods(self) -> None:
         """HybridDebatesAPI exposes create, get, list methods."""
-        public_methods = [
-            m for m in dir(HybridDebatesAPI) if not m.startswith("_")
-        ]
+        public_methods = [m for m in dir(HybridDebatesAPI) if not m.startswith("_")]
         assert "create" in public_methods
         assert "get" in public_methods
         assert "list" in public_methods
 
     def test_async_api_has_expected_methods(self) -> None:
         """AsyncHybridDebatesAPI exposes create, get, list methods."""
-        public_methods = [
-            m for m in dir(AsyncHybridDebatesAPI) if not m.startswith("_")
-        ]
+        public_methods = [m for m in dir(AsyncHybridDebatesAPI) if not m.startswith("_")]
         assert "create" in public_methods
         assert "get" in public_methods
         assert "list" in public_methods
 
     def test_sync_and_async_method_parity(self) -> None:
         """Sync and async APIs have the same public methods."""
-        sync_methods = {
-            m for m in dir(HybridDebatesAPI) if not m.startswith("_")
-        }
-        async_methods = {
-            m for m in dir(AsyncHybridDebatesAPI) if not m.startswith("_")
-        }
+        sync_methods = {m for m in dir(HybridDebatesAPI) if not m.startswith("_")}
+        async_methods = {m for m in dir(AsyncHybridDebatesAPI) if not m.startswith("_")}
         assert sync_methods == async_methods
 
 
@@ -503,7 +479,7 @@ class TestHybridDebatesImports:
 
     def test_import_from_namespaces_package(self) -> None:
         """HybridDebatesAPI and AsyncHybridDebatesAPI are importable from the package."""
-        from sdk.python.aragora.namespaces import (
+        from sdk.python.aragora_sdk.namespaces import (
             AsyncHybridDebatesAPI,
             HybridDebatesAPI,
         )
