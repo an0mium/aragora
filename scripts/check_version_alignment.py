@@ -163,6 +163,12 @@ def main() -> int:
         ("aragora-js/package.json", Path("aragora-js/package.json"), "package"),
         ("aragora/live/package.json", Path("aragora/live/package.json"), "package"),
         ("sdk/typescript/package.json", Path("sdk/typescript/package.json"), "package"),
+        ("ide/vscode-aragora/package.json", Path("ide/vscode-aragora/package.json"), "package"),
+        (
+            "ide/vscode-aragora/webview-ui/package.json",
+            Path("ide/vscode-aragora/webview-ui/package.json"),
+            "package",
+        ),
     ]
     python_version_sources: list[tuple[str, Path]] = [
         ("aragora-py/aragora_client/__init__.py", Path("aragora-py/aragora_client/__init__.py")),

@@ -203,6 +203,27 @@ class SharingNotificationsHandler(BaseHandler):
 
         user_id = user.user_id or "anonymous"
 
+        # RBAC permission check for write operations (PUT)
+        if RBAC_AVAILABLE and user:
+            try:
+                auth_ctx = RBACContext(
+                    user_id=str(user_id),
+                    user_email=user.email,
+                    org_id=user.org_id,
+                    workspace_id=query_params.get("workspace_id") if query_params else None,
+                    roles={user.role} if user and user.role else {"member"},
+                )
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, NOTIFICATIONS_WRITE_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"Notifications write access denied for {user_id}: {decision.reason}"
+                    )
+                    return error_response(f"Permission denied: {decision.reason}", 403)
+            except Exception as e:
+                logger.warning(f"RBAC check failed for notifications write: {e}")
+                # Continue without RBAC if it fails (graceful degradation)
+
         if path == "/api/v1/knowledge/notifications/preferences":
             return self._update_preferences(user_id, handler)
 
