@@ -1,6 +1,9 @@
 """
 SLO (Service Level Objective) endpoint handlers.
 
+Stability: STABLE
+Graduated from EXPERIMENTAL on 2026-02-01.
+
 Exposes SLO status, error budgets, and violation data via HTTP API.
 
 Endpoints:
@@ -8,7 +11,14 @@ Endpoints:
 - GET /api/slos/{slo_name} - Individual SLO details
 - GET /api/slos/error-budget - Error budget timeline
 - GET /api/slos/violations - Recent SLO violations
+- GET /api/slos/targets - Configured SLO targets
 - GET /api/v1/slos/status - Versioned endpoint
+
+RBAC Permissions:
+- slo:read - View SLO status, details, error budgets, violations, and targets
+
+Rate Limiting:
+- 30 requests per minute per client IP
 
 Usage:
     # Check overall SLO health
@@ -46,15 +56,40 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Default timeout for SLO service calls (in seconds)
+SLO_SERVICE_TIMEOUT = 5.0
+
 # Rate limiter for SLO endpoints (30 requests per minute)
 _slo_limiter = RateLimiter(requests_per_minute=30)
 
 
 class SLOHandler(BaseHandler):
-    """Handler for SLO monitoring endpoints."""
+    """Handler for SLO monitoring endpoints.
+
+    Stability: STABLE
+
+    Provides production-ready endpoints for monitoring Service Level Objectives,
+    including overall status, individual SLO details, error budgets, and violations.
+
+    Features:
+    - RBAC protection with slo:read permission
+    - Rate limiting (30 RPM per client)
+    - Comprehensive error handling with proper HTTP status codes
+    - API versioning support (/api/v1/slos/...)
+
+    Example:
+        handler = SLOHandler(ctx)
+        if handler.can_handle("/api/slos/status"):
+            result = handler.handle("/api/slos/status", {}, http_handler)
+    """
 
     def __init__(self, ctx: dict | None = None):
-        """Initialize handler with optional context."""
+        """Initialize handler with optional context.
+
+        Args:
+            ctx: Server context dictionary containing shared resources.
+                 Optional for SLO handler as it uses the SLO observability module.
+        """
         self.ctx = ctx or {}
 
     ROUTES = [
