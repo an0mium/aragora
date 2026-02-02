@@ -535,20 +535,23 @@ def get_database_backend(
                 logger.info("Using PostgreSQL backend")
             except ImportError as e:
                 logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+                resolved_path = (
+                    resolve_db_path(db_path)
+                    if db_path
+                    else str(Path(db_settings.nomic_dir).expanduser().resolve() / "aragora.db")
+                )
                 _backend = SQLiteBackend(
-                    db_path=db_path or str(Path(db_settings.nomic_dir) / "aragora.db"),
+                    db_path=resolved_path,
                     timeout=db_settings.timeout_seconds,
                 )
         else:
             # SQLite backend
             if db_path:
-                sqlite_path = db_path
+                sqlite_path = resolve_db_path(db_path)
             elif db_settings:
-                sqlite_path = str(Path(db_settings.nomic_dir) / "aragora.db")
+                sqlite_path = str(Path(db_settings.nomic_dir).expanduser().resolve() / "aragora.db")
             else:
-                from aragora.persistence.db_config import get_nomic_dir
-
-                sqlite_path = str(get_nomic_dir() / "aragora.db")
+                sqlite_path = resolve_db_path("aragora.db")
 
             _backend = SQLiteBackend(db_path=sqlite_path)
             logger.info(f"Using SQLite backend: {sqlite_path}")

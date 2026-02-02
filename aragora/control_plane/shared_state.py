@@ -34,7 +34,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import sqlite3
 import time
 from dataclasses import dataclass, field
@@ -46,6 +45,7 @@ from aragora.control_plane.leader import (
     is_distributed_state_required,
     DistributedStateError,
 )
+from aragora.persistence.db_config import get_default_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ class SharedControlPlaneState:
 
         # SQLite fallback path
         if sqlite_path is None:
-            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
+            data_dir = get_default_data_dir()
             sqlite_path = str(Path(data_dir) / "control_plane_state.db")
         self._sqlite_path = sqlite_path
         self._sqlite_initialized = False

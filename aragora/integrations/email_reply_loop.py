@@ -49,6 +49,7 @@ from aragora.control_plane.leader import (
     is_distributed_state_required,
     DistributedStateError,
 )
+from aragora.persistence.db_config import get_default_data_dir
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -215,7 +216,7 @@ class SQLiteEmailReplyStore:
 
     def __init__(self, db_path: str | None = None):
         if db_path is None:
-            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
+            data_dir = get_default_data_dir()
             db_path = str(Path(data_dir) / "email_reply_origins.db")
         self.db_path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)

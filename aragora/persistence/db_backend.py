@@ -46,7 +46,7 @@ Environment Variables:
     DATABASE_URL: PostgreSQL connection string (triggers PG backend)
     ARAGORA_POSTGRES_DSN: Alternative PG connection string
     ARAGORA_DB_BACKEND: Force backend ("sqlite", "postgres", "auto")
-    ARAGORA_DATA_DIR: Base directory for SQLite files (default: ".nomic")
+    ARAGORA_DATA_DIR: Base directory for SQLite files (default: ".nomic" or "data" if present)
 """
 
 from __future__ import annotations
@@ -55,7 +55,6 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -462,12 +461,12 @@ def get_unified_backend(
 def _create_sqlite_backend(db_path: str | None = None) -> UnifiedBackend:
     """Create a SQLite-based unified backend."""
     from aragora.storage.backends import SQLiteBackend
+    from aragora.config import resolve_db_path
 
     if db_path is None:
-        data_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get(
-            "ARAGORA_NOMIC_DIR", ".nomic"
-        )
-        db_path = str(Path(data_dir) / "aragora.db")
+        db_path = resolve_db_path("aragora.db")
+    else:
+        db_path = resolve_db_path(db_path)
 
     sync_backend = SQLiteBackend(db_path)
     capabilities = BackendCapabilities.for_sqlite()

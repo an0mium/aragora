@@ -35,6 +35,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, Sequence
 from urllib.parse import urlparse
 
+from aragora.persistence.db_config import get_default_data_dir
+
 if TYPE_CHECKING:
     from asyncpg import Pool
 
@@ -578,8 +580,7 @@ def create_persistent_store(
     if data_dir:
         base_dir = Path(data_dir)
     else:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        base_dir = Path(env_dir or ".nomic")
+        base_dir = get_default_data_dir()
 
     db_path = base_dir / db_filename
     base_dir.mkdir(parents=True, exist_ok=True)

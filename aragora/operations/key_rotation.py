@@ -45,6 +45,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 
+from aragora.persistence.db_config import get_default_data_dir
+
 logger = logging.getLogger(__name__)
 
 
@@ -501,14 +503,13 @@ class KeyRotationScheduler:
         """Re-encrypt integration store."""
         import json
         import sqlite3
-        from pathlib import Path
 
         from aragora.storage.encrypted_fields import (
             decrypt_sensitive,
             encrypt_sensitive,
         )
 
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+        data_dir = get_default_data_dir()
         db_path = data_dir / "integrations.db"
 
         if not db_path.exists():
@@ -550,11 +551,10 @@ class KeyRotationScheduler:
     async def _re_encrypt_webhooks(self) -> int:
         """Re-encrypt webhook store."""
         import sqlite3
-        from pathlib import Path
 
         from aragora.security.encryption import get_encryption_service
 
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+        data_dir = get_default_data_dir()
         db_path = data_dir / "webhooks.db"
 
         if not db_path.exists():
@@ -596,11 +596,10 @@ class KeyRotationScheduler:
     async def _re_encrypt_gmail_tokens(self) -> int:
         """Re-encrypt Gmail token store."""
         import sqlite3
-        from pathlib import Path
 
         from aragora.security.encryption import get_encryption_service
 
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+        data_dir = get_default_data_dir()
         db_path = data_dir / "gmail_tokens.db"
 
         if not db_path.exists():
@@ -652,14 +651,13 @@ class KeyRotationScheduler:
         """Re-encrypt sync config store."""
         import json
         import sqlite3
-        from pathlib import Path
 
         from aragora.storage.encrypted_fields import (
             decrypt_sensitive,
             encrypt_sensitive,
         )
 
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+        data_dir = get_default_data_dir()
         db_path = data_dir / "enterprise_sync.db"
 
         if not db_path.exists():

@@ -221,6 +221,19 @@ class TestGetDatabaseBackend:
             assert backend1 is not backend2
             reset_database_backend()
 
+    def test_db_path_resolves_under_data_dir(self, tmp_path, monkeypatch):
+        """Bare db_path should resolve under ARAGORA_DATA_DIR."""
+        from aragora.storage.backends import get_database_backend, reset_database_backend
+
+        reset_database_backend()
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
+
+        backend = get_database_backend(force_sqlite=True, db_path="aragora.db")
+        try:
+            assert str(tmp_path) in str(backend.db_path)
+        finally:
+            reset_database_backend()
+
 
 class TestDatabaseSettings:
     """Test database settings for PostgreSQL."""

@@ -28,10 +28,10 @@ import os
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 from typing import Any
 
 from aragora.billing.models import SubscriptionTier
+from aragora.persistence.db_config import get_default_data_dir
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
@@ -126,10 +126,7 @@ class PaymentRecoveryStore(SQLiteStore):
 
     def __init__(self, db_path: str | None = None):
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR")
-            if not data_dir:
-                data_dir = os.getenv("ARAGORA_NOMIC_DIR", ".nomic")
-            data_path = Path(data_dir)
+            data_path = get_default_data_dir()
             data_path.mkdir(parents=True, exist_ok=True)
             db_path = str(data_path / "payment_recovery.db")
 

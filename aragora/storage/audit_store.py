@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
 from aragora.config import resolve_db_path
+from aragora.persistence.db_config import get_default_data_dir
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
     DatabaseBackend,
@@ -534,7 +535,7 @@ def get_audit_store(
 
     # Resolve db_path using ARAGORA_DATA_DIR if not provided
     if db_path is None:
-        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+        data_dir = get_default_data_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
         db_path = str(data_dir / "audit.db")
 

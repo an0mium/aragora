@@ -995,6 +995,7 @@ class MigrationOrchestrator:
 async def _cli_main() -> None:
     """CLI entry point for the migration orchestrator."""
     import os
+    from aragora.persistence.db_config import get_default_data_dir
 
     parser = argparse.ArgumentParser(
         description="Migrate all Aragora SQLite databases to PostgreSQL",
@@ -1016,8 +1017,8 @@ async def _cli_main() -> None:
     )
     parser.add_argument(
         "--data-dir",
-        default=os.environ.get("ARAGORA_DATA_DIR", ".nomic"),
-        help="Directory containing SQLite databases (default: .nomic)",
+        default=str(get_default_data_dir()),
+        help="Directory containing SQLite databases (default: .nomic or data)",
     )
     parser.add_argument(
         "--postgres-dsn",

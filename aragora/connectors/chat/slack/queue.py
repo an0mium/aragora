@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from aragora.config import resolve_db_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,8 +97,8 @@ class QueuedMessage:
 class SlackMessageQueueStore:
     """SQLite-backed storage for the message queue."""
 
-    def __init__(self, db_path: str = "data/slack_message_queue.db"):
-        self._db_path = db_path
+    def __init__(self, db_path: str = "slack_message_queue.db"):
+        self._db_path = resolve_db_path(db_path)
         self._conn = None
         self._ensure_table()
 

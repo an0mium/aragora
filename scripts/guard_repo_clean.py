@@ -41,6 +41,9 @@ def _get_data_dir(repo_root: Path) -> Path:
     env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
     if env_dir:
         return Path(env_dir).expanduser().resolve()
+    for candidate in (repo_root / ".nomic", repo_root / "data"):
+        if candidate.exists():
+            return candidate.resolve()
     return (repo_root / ".nomic").resolve()
 
 

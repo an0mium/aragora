@@ -13,8 +13,8 @@ Usage:
 
 Environment Variables:
     ARAGORA_DB_MODE: "legacy" or "consolidated" (default: "consolidated")
-    ARAGORA_DATA_DIR: Base directory for databases (default: ".nomic")
-    ARAGORA_NOMIC_DIR: Legacy alias for data directory (default: ".nomic")
+    ARAGORA_DATA_DIR: Base directory for databases (default: ".nomic" or "data" if present)
+    ARAGORA_NOMIC_DIR: Legacy alias for data directory (default: ".nomic" or "data")
 """
 
 from __future__ import annotations
@@ -209,7 +209,7 @@ def get_db_path(
 
     Args:
         db_type: The type of database to get the path for
-        nomic_dir: Base directory (defaults to ARAGORA_DATA_DIR or ".nomic")
+        nomic_dir: Base directory (defaults to ARAGORA_DATA_DIR or default data dir)
         mode: Database mode (defaults to ARAGORA_DB_MODE or "consolidated")
 
     Returns:

@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -29,13 +28,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from aragora.persistence.db_config import get_default_data_dir
+
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
 
 # Default database path for billing events
-DEFAULT_BILLING_DB_PATH = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic")) / "billing_events.db"
+DEFAULT_BILLING_DB_PATH = get_default_data_dir() / "billing_events.db"
 
 
 class BillingEventType(Enum):
