@@ -317,19 +317,19 @@ class MetricsRegistry:
             init_ranking_metrics()
 
             # Initialize control plane metrics
-            from aragora.observability.metrics.control_plane import init_control_plane_metrics
+            from aragora.observability.metrics.control_plane import _init_control_plane_metrics
 
-            init_control_plane_metrics()
+            _init_control_plane_metrics()
 
             # Initialize platform metrics
-            from aragora.observability.metrics.platform import init_platform_metrics
+            from aragora.observability.metrics.platform import _initialize_platform_metrics
 
-            init_platform_metrics()
+            _initialize_platform_metrics()
 
             # Initialize webhook metrics
-            from aragora.observability.metrics.webhook import init_webhook_metrics
+            from aragora.observability.metrics.webhook import _init_metrics as _init_webhook_metrics
 
-            init_webhook_metrics()
+            _init_webhook_metrics()
 
             cls._initialization_time = time.perf_counter() - start
             cls._initialized = True

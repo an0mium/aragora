@@ -648,7 +648,7 @@ class SMESuccessDashboardHandler(SecureHandler):
             raw_metric = metrics.get(metric_key, 0)
             metric_value: int = int(raw_metric) if raw_metric else 0
             raw_threshold = milestone["threshold"]
-            threshold: int = int(raw_threshold) if raw_threshold else 0
+            threshold: int = int(raw_threshold) if raw_threshold else 0  # type: ignore[call-overload]
 
             milestone_data = {
                 "id": milestone["id"],
@@ -674,8 +674,8 @@ class SMESuccessDashboardHandler(SecureHandler):
                 # Track next closest milestone
                 current_progress = milestone_data.get("progress_percent", 0)
                 next_progress = next_milestone.get("progress_percent", 0) if next_milestone else 0
-                if next_milestone is None or float(current_progress or 0) > float(
-                    next_progress or 0
+                if next_milestone is None or float(current_progress or 0) > float(  # type: ignore[arg-type]
+                    next_progress or 0  # type: ignore[arg-type]
                 ):
                     next_milestone = milestone_data
 

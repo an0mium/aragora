@@ -174,7 +174,7 @@ async def handle_scan_repository(
         repo_scans[scan_id] = scan_result
 
         # Start async scan
-        async def run_scan():
+        async def run_scan() -> None:
             try:
                 scanner = _get_scanner()
                 result = await scanner.scan_repository(
@@ -697,7 +697,7 @@ async def handle_scan_secrets(
         repo_scans[scan_id] = scan_result
 
         # Start async scan
-        async def run_secrets_scan():
+        async def run_secrets_scan() -> None:
             try:
                 scanner = SecretsScanner()
 
@@ -943,7 +943,7 @@ class SecurityHandler(BaseHandler):
         "/api/v1/cve/",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]) -> None:
         """Initialize with server context."""
         super().__init__(ctx)
 
@@ -1172,7 +1172,7 @@ class SecurityHandler(BaseHandler):
 async def handle_scan_sast(
     repo_path: str,
     repo_id: str | None = None,
-    rule_sets: list | None = None,
+    rule_sets: list[str] | None = None,
     workspace_id: str | None = None,
 ) -> HandlerResult:
     """
@@ -1200,7 +1200,7 @@ async def handle_scan_sast(
                 _sast_scan_results[repo_id] = {}
 
         # Start async scan
-        async def run_sast_scan():
+        async def run_sast_scan() -> None:
             try:
                 scanner = _get_sast_scanner()
                 await scanner.initialize()

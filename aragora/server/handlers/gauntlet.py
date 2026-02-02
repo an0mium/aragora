@@ -286,6 +286,104 @@ class GauntletHandler(BaseHandler):
         if emitter and hasattr(emitter, "emit"):
             set_gauntlet_broadcast_fn(emitter.emit)
 
+        # Direct route mapping for exact path matches (normalized paths -> method -> handler)
+        # These are routes without path parameters
+        self._direct_routes: dict[tuple[str, str], str] = {
+            ("/api/gauntlet/run", "POST"): "_start_gauntlet",
+            ("/api/gauntlet/personas", "GET"): "_list_personas",
+            ("/api/gauntlet/results", "GET"): "_list_results",
+        }
+
+    def _extract_and_validate_id(
+        self, path: str, segment_index: int = -1
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Extract ID from path and validate it.
+
+        Args:
+            path: The request path
+            segment_index: Index of the segment containing the ID (default -1 for last segment)
+
+        Returns:
+            Tuple of (id, None) on success or (None, error_response) on failure.
+        """
+        parts = path.rstrip("/").split("/")
+        if len(parts) <= abs(segment_index):
+            return None, error_response("Invalid path", 400)
+
+        gauntlet_id = parts[segment_index]
+        if not gauntlet_id or gauntlet_id in ("run", "personas", "results"):
+            return None, error_response("Invalid gauntlet ID", 400)
+
+        is_valid, err = validate_gauntlet_id(gauntlet_id)
+        if not is_valid:
+            return None, error_response(err, 400)
+
+        return gauntlet_id, None
+
+    async def _handle_parameterized_route(
+        self, path: str, method: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Handle routes with path parameters.
+
+        This method handles routes that include dynamic segments like {gauntlet_id}.
+        """
+        # POST /api/gauntlet/{id}/receipt/verify
+        if path.endswith("/receipt/verify") and method == "POST":
+            gauntlet_id, err = self._extract_and_validate_id(path, -3)
+            if err:
+                return err
+            return await self._verify_receipt(gauntlet_id, handler)
+
+        # GET /api/gauntlet/{id}/receipt
+        if path.endswith("/receipt") and method == "GET":
+            gauntlet_id, err = self._extract_and_validate_id(path, -2)
+            if err:
+                return err
+            return await self._get_receipt(gauntlet_id, query_params)
+
+        # GET /api/gauntlet/{id}/heatmap
+        if path.endswith("/heatmap") and method == "GET":
+            gauntlet_id, err = self._extract_and_validate_id(path, -2)
+            if err:
+                return err
+            return await self._get_heatmap(gauntlet_id, query_params)
+
+        # GET /api/gauntlet/{id}/export
+        if path.endswith("/export") and method == "GET":
+            gauntlet_id, err = self._extract_and_validate_id(path, -2)
+            if err:
+                return err
+            return await self._export_report(gauntlet_id, query_params, handler)
+
+        # GET /api/gauntlet/{id}/compare/{id2}
+        if "/compare/" in path and method == "GET":
+            parts = path.rstrip("/").split("/")
+            if len(parts) >= 5:
+                gauntlet_id, err = self._extract_and_validate_id(path, -3)
+                if err:
+                    return err
+                compare_id = parts[-1]
+                is_valid, err_msg = validate_gauntlet_id(compare_id)
+                if not is_valid:
+                    return error_response(f"Invalid compare ID: {err_msg}", 400)
+                return self._compare_results(gauntlet_id, compare_id, query_params)
+
+        # DELETE /api/gauntlet/{id}
+        if method == "DELETE" and path.startswith("/api/gauntlet/"):
+            gauntlet_id, err = self._extract_and_validate_id(path)
+            if err:
+                return err
+            return self._delete_result(gauntlet_id, query_params)
+
+        # GET /api/gauntlet/{id} - catch-all for status
+        if method == "GET" and path.startswith("/api/gauntlet/"):
+            gauntlet_id, err = self._extract_and_validate_id(path)
+            if err:
+                return err
+            return await self._get_status(gauntlet_id)
+
+        return None
+
     def _is_legacy_route(self, path: str) -> bool:
         """Check if this is a legacy (non-versioned) route."""
         return path.startswith("/api/gauntlet/") and not path.startswith("/api/v1/")
@@ -353,6 +451,7 @@ class GauntletHandler(BaseHandler):
         """Route request to appropriate handler.
 
         Supports both versioned (/api/v1/gauntlet/*) and legacy (/api/gauntlet/*) routes.
+        Uses routing dictionary for direct routes and pattern matching for parameterized routes.
         """
         original_path = path
         # Determine HTTP method from handler
@@ -363,82 +462,20 @@ class GauntletHandler(BaseHandler):
 
         result: HandlerResult | None = None
 
-        # POST /api/gauntlet/run
-        if path == "/api/gauntlet/run" and method == "POST":
-            result = await self._start_gauntlet(handler)
-
-        # GET /api/gauntlet/personas
-        elif path == "/api/gauntlet/personas":
-            result = self._list_personas()
-
-        # GET /api/gauntlet/results - List with pagination
-        elif path == "/api/gauntlet/results":
-            result = self._list_results(query_params)
-
-        # POST /api/gauntlet/{id}/receipt/verify
-        elif path.endswith("/receipt/verify") and method == "POST":
-            gauntlet_id = path.split("/")[-3]
-            is_valid, err = validate_gauntlet_id(gauntlet_id)
-            if not is_valid:
-                return error_response(err, 400)
-            result = await self._verify_receipt(gauntlet_id, handler)
-
-        # GET /api/gauntlet/{id}/receipt
-        elif path.endswith("/receipt"):
-            gauntlet_id = path.split("/")[-2]
-            is_valid, err = validate_gauntlet_id(gauntlet_id)
-            if not is_valid:
-                return error_response(err, 400)
-            result = await self._get_receipt(gauntlet_id, query_params)
-
-        # GET /api/gauntlet/{id}/heatmap
-        elif path.endswith("/heatmap"):
-            gauntlet_id = path.split("/")[-2]
-            is_valid, err = validate_gauntlet_id(gauntlet_id)
-            if not is_valid:
-                return error_response(err, 400)
-            result = await self._get_heatmap(gauntlet_id, query_params)
-
-        # GET /api/gauntlet/{id}/export
-        elif path.endswith("/export"):
-            gauntlet_id = path.split("/")[-2]
-            is_valid, err = validate_gauntlet_id(gauntlet_id)
-            if not is_valid:
-                return error_response(err, 400)
-            result = await self._export_report(gauntlet_id, query_params, handler)
-
-        # GET /api/gauntlet/{id}/compare/{id2}
-        elif "/compare/" in path:
-            parts = path.split("/")
-            if len(parts) >= 5:
-                gauntlet_id = parts[-3]
-                compare_id = parts[-1]
-                # Validate both IDs
-                is_valid, err = validate_gauntlet_id(gauntlet_id)
-                if not is_valid:
-                    return error_response(err, 400)
-                is_valid, err = validate_gauntlet_id(compare_id)
-                if not is_valid:
-                    return error_response(f"Invalid compare ID: {err}", 400)
-                result = self._compare_results(gauntlet_id, compare_id, query_params)
-
-        # DELETE /api/gauntlet/{id}
-        elif method == "DELETE" and path.startswith("/api/gauntlet/"):
-            gauntlet_id = path.split("/")[-1]
-            if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
-                is_valid, err = validate_gauntlet_id(gauntlet_id)
-                if not is_valid:
-                    return error_response(err, 400)
-                result = self._delete_result(gauntlet_id, query_params)
-
-        # GET /api/gauntlet/{id}
-        elif path.startswith("/api/gauntlet/"):
-            gauntlet_id = path.split("/")[-1]
-            if gauntlet_id and gauntlet_id not in ("run", "personas", "results"):
-                is_valid, err = validate_gauntlet_id(gauntlet_id)
-                if not is_valid:
-                    return error_response(err, 400)
-                result = await self._get_status(gauntlet_id)
+        # Try direct route match first (exact path matches)
+        route_key = (path, method)
+        if route_key in self._direct_routes:
+            handler_name = self._direct_routes[route_key]
+            handler_method = getattr(self, handler_name)
+            if handler_name == "_start_gauntlet":
+                result = await handler_method(handler)
+            elif handler_name == "_list_results":
+                result = handler_method(query_params)
+            else:
+                result = handler_method()
+        else:
+            # Try parameterized route matching
+            result = await self._handle_parameterized_route(path, method, query_params, handler)
 
         # Add version headers to result
         if result is not None:

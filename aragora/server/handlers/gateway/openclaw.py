@@ -58,8 +58,24 @@ def _get_gateway_adapter() -> OpenClawGatewayAdapter:
     if _gateway_adapter is None:
         # Configure from environment
         endpoint = os.environ.get("OPENCLAW_ENDPOINT", "http://localhost:8081")
-        max_memory = int(os.environ.get("OPENCLAW_MAX_MEMORY_MB", "512"))
-        max_execution = int(os.environ.get("OPENCLAW_MAX_EXECUTION_SECONDS", "300"))
+
+        # Memory bounds: 64MB to 16GB
+        _raw_memory = int(os.environ.get("OPENCLAW_MAX_MEMORY_MB", "512"))
+        if _raw_memory < 64 or _raw_memory > 16384:
+            logger.warning(
+                "OPENCLAW_MAX_MEMORY_MB=%d out of bounds [64, 16384], clamping",
+                _raw_memory,
+            )
+        max_memory = max(64, min(_raw_memory, 16384))
+
+        # Execution time bounds: 1 second to 1 hour
+        _raw_execution = int(os.environ.get("OPENCLAW_MAX_EXECUTION_SECONDS", "300"))
+        if _raw_execution < 1 or _raw_execution > 3600:
+            logger.warning(
+                "OPENCLAW_MAX_EXECUTION_SECONDS=%d out of bounds [1, 3600], clamping",
+                _raw_execution,
+            )
+        max_execution = max(1, min(_raw_execution, 3600))
         plugin_allowlist = os.environ.get("OPENCLAW_PLUGIN_ALLOWLIST", "").split(",")
         plugin_allowlist = [p.strip() for p in plugin_allowlist if p.strip()]
 
@@ -80,13 +96,24 @@ def _get_gateway_adapter() -> OpenClawGatewayAdapter:
     return _gateway_adapter
 
 
+VALID_ACTOR_TYPES = {"user", "service", "agent"}
+
+
 def _build_auth_context(user_id: str, data: dict[str, Any]) -> AuthorizationContext:
-    """Build auth context from request data."""
+    """Build auth context from request data.
+
+    Note: permissions and roles are NOT taken from request data for security.
+    Authorization is handled by the @require_permission decorator at the endpoint level.
+    """
+    actor_type = data.get("actor_type", "user")
+    if actor_type not in VALID_ACTOR_TYPES:
+        actor_type = "user"  # Default to user for invalid types
+
     return AuthorizationContext(
         actor_id=user_id,
-        actor_type=data.get("actor_type", "user"),
-        permissions=set(data.get("permissions", [])),
-        roles=data.get("roles", []),
+        actor_type=actor_type,
+        permissions=set(),  # Auth handled by @require_permission decorator
+        roles=[],  # Roles not passed from client
         session_id=data.get("session_id"),
     )
 
@@ -141,6 +168,14 @@ async def handle_openclaw_execute(
         if not content:
             return error_response("content is required", status=400)
 
+        # Validate and clamp timeout_seconds
+        adapter = _get_gateway_adapter()
+        max_execution = adapter.sandbox_config.max_execution_seconds
+        timeout = data.get("timeout_seconds", 300)
+        if not isinstance(timeout, int) or timeout < 1:
+            timeout = 300
+        timeout = min(timeout, max_execution)  # Cap at configured max
+
         # Build request
         request = AragoraRequest(
             content=content,
@@ -148,7 +183,7 @@ async def handle_openclaw_execute(
             capabilities=data.get("capabilities", []),
             plugins=data.get("plugins", []),
             priority=data.get("priority", "normal"),
-            timeout_seconds=data.get("timeout_seconds", 300),
+            timeout_seconds=timeout,
             context=data.get("context", {}),
             metadata=data.get("metadata", {}),
         )
@@ -157,8 +192,7 @@ async def handle_openclaw_execute(
         auth_context = _build_auth_context(user_id, data)
         tenant_context = _build_tenant_context(data)
 
-        # Execute via gateway
-        adapter = _get_gateway_adapter()
+        # Execute via gateway (adapter already retrieved above for timeout validation)
         result = await adapter.execute_task(
             request=request,
             auth_context=auth_context,

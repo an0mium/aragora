@@ -35,12 +35,21 @@ from __future__ import annotations
 
 import warnings
 
+from aragora.rbac.decorators import require_permission
+
 # Re-export from the new modular location for backward compatibility
 from .knowledge_base import KnowledgeHandler, KnowledgeMoundHandler
+
+# =============================================================================
+# RBAC Permissions
+# =============================================================================
+
+KNOWLEDGE_READ_PERMISSION = "knowledge:read"
 
 __all__ = [
     "KnowledgeHandler",
     "KnowledgeMoundHandler",
+    "KNOWLEDGE_READ_PERMISSION",
 ]
 
 # Issue deprecation warning (only once per session)

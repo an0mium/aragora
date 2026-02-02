@@ -44,6 +44,12 @@ Endpoints consolidated:
 
 from __future__ import annotations
 
+from aragora.rbac.decorators import require_permission
+
+# RBAC permissions for governance endpoints
+GOVERNANCE_READ_PERMISSION = "governance:read"
+GOVERNANCE_WRITE_PERMISSION = "governance:write"
+
 # Re-export from policy.py
 from aragora.server.handlers.policy import (
     PolicyHandler,
@@ -56,6 +62,10 @@ from aragora.server.handlers.compliance_handler import (
 )
 
 __all__ = [
+    # RBAC
+    "require_permission",
+    "GOVERNANCE_READ_PERMISSION",
+    "GOVERNANCE_WRITE_PERMISSION",
     # policy.py exports
     "PolicyHandler",
     # compliance_handler.py exports

@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.memory.tier_analytics import TierAnalyticsTracker
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -27,8 +29,9 @@ from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
 
-# RBAC permission for memory analytics endpoints
+# RBAC permissions for memory analytics endpoints
 MEMORY_ANALYTICS_PERMISSION = "memory:analytics"
+MEMORY_READ_PERMISSION = "memory:read"
 
 # Rate limiter for memory analytics endpoints (30 requests per minute - query-heavy)
 _memory_analytics_limiter = RateLimiter(requests_per_minute=30)
@@ -124,6 +127,7 @@ class MemoryAnalyticsHandler(SecureHandler):
         return None
 
     @rate_limit(requests_per_minute=60, limiter_name="memory_analytics_read")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("memory analytics")
     def _get_analytics(self, days: int) -> HandlerResult:
         """Get comprehensive memory analytics.

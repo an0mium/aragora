@@ -378,7 +378,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         total_confidence = 0.0
         confidence_count = 0
 
-        for debate in period_debates:
+        for debate in period_debates:  # type: ignore[assignment]
             if debate.get("consensus_reached"):  # type: ignore[attr-defined]
                 consensus_count += 1
 

@@ -13,14 +13,20 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.middleware.rate_limit import rate_limit
 from aragora.observability.metrics import track_handler
 
-from .storage import _check_email_permission, get_prioritizer
+from .storage import get_prioritizer
 
 logger = logging.getLogger(__name__)
 
+# RBAC permission constants
+PERM_EMAIL_READ = "email:read"
+PERM_EMAIL_UPDATE = "email:update"
 
+
+@require_permission(PERM_EMAIL_READ, context_param="auth_context")
 @rate_limit(requests_per_minute=60)
 @track_handler("email/prioritize")
 async def handle_prioritize_email(
@@ -52,11 +58,6 @@ async def handle_prioritize_email(
     Returns:
         Priority result with score, confidence, and rationale
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:read")
-    if perm_error:
-        return perm_error
-
     from aragora.connectors.enterprise.communication.models import EmailMessage
     from aragora.services.email_prioritization import ScoringTier
 
@@ -110,6 +111,7 @@ async def handle_prioritize_email(
         }
 
 
+@require_permission(PERM_EMAIL_READ, context_param="auth_context")
 @rate_limit(requests_per_minute=60)
 @track_handler("email/rank_inbox")
 async def handle_rank_inbox(
@@ -131,11 +133,6 @@ async def handle_rank_inbox(
     Returns:
         Ranked list of email priority results
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:read")
-    if perm_error:
-        return perm_error
-
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:
@@ -185,6 +182,7 @@ async def handle_rank_inbox(
         }
 
 
+@require_permission(PERM_EMAIL_UPDATE, context_param="auth_context")
 @rate_limit(requests_per_minute=60)
 @track_handler("email/feedback")
 async def handle_email_feedback(
@@ -205,11 +203,6 @@ async def handle_email_feedback(
         "email": {...}  // Optional: full email data for context
     }
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:write")
-    if perm_error:
-        return perm_error
-
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:

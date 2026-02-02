@@ -11,17 +11,22 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 from .storage import (
-    _check_email_permission,
     get_gmail_connector,
     get_prioritizer,
 )
 
 logger = logging.getLogger(__name__)
 
+# RBAC permission constants
+PERM_EMAIL_READ = "email:read"
+PERM_EMAIL_UPDATE = "email:update"
 
+
+@require_permission(PERM_EMAIL_READ, context_param="auth_context")
 @rate_limit(requests_per_minute=10)  # SYNC operation
 async def handle_fetch_and_rank_inbox(
     user_id: str = "default",
@@ -44,11 +49,6 @@ async def handle_fetch_and_rank_inbox(
     This is the main endpoint for the inbox view - fetches emails
     and returns them pre-ranked by priority.
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:read")
-    if perm_error:
-        return perm_error
-
     try:
         connector = get_gmail_connector(user_id)
 

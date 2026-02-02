@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aragora.rbac.decorators import require_permission
+
 from ..base import (
     HandlerResult,
     MaybeAsyncHandlerResult,
@@ -26,8 +28,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# RBAC permission for coordinator endpoints
+# RBAC permissions for coordinator endpoints
 COORDINATOR_PERMISSION = "memory:admin"
+MEMORY_WRITE_PERMISSION = "memory:write"
+MEMORY_READ_PERMISSION = "memory:read"
 
 # Rate limiter for coordinator endpoints (30 requests per minute)
 _coordinator_limiter = RateLimiter(requests_per_minute=30)
@@ -109,6 +113,7 @@ class CoordinatorHandler(SecureHandler):
         return result
 
     @rate_limit(requests_per_minute=60, limiter_name="coordinator_read")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("coordinator metrics")
     def _get_metrics(self) -> HandlerResult:
         """Get coordinator metrics including success rate and rollback stats."""
@@ -158,6 +163,7 @@ class CoordinatorHandler(SecureHandler):
         )
 
     @rate_limit(requests_per_minute=60, limiter_name="coordinator_read")
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("coordinator config")
     def _get_config(self) -> HandlerResult:
         """Get current coordinator configuration."""

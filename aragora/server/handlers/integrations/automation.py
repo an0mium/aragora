@@ -265,27 +265,27 @@ class AutomationHandler(SecureHandler):
 
     def _list_events(self) -> HandlerResult:
         """List available automation event types."""
-        events = []
-        for event in AutomationEventType:
+        events: list[dict[str, Any]] = []
+        for event_type in AutomationEventType:
             category, action = (
-                event.value.split(".") if "." in event.value else (event.value, event.value)
+                event_type.value.split(".") if "." in event_type.value else (event_type.value, event_type.value)
             )
             events.append(
                 {
-                    "type": event.value,
+                    "type": event_type.value,
                     "category": category,
                     "action": action,
-                    "name": event.name,
+                    "name": event_type.name,
                 }
             )
 
         # Group by category
         categories: dict[str, list[dict[str, Any]]] = {}
-        for event in events:
-            cat = event["category"]
+        for event_entry in events:
+            cat = event_entry["category"]
             if cat not in categories:
                 categories[cat] = []
-            categories[cat].append(event)
+            categories[cat].append(event_entry)
 
         return success_response(
             {

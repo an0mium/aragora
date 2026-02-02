@@ -19,6 +19,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
+from aragora.rbac.decorators import require_permission
 
 
 # =============================================================================
@@ -86,7 +87,7 @@ logger = logging.getLogger(__name__)
 # RBAC Permissions
 # =============================================================================
 
-KNOWLEDGE_ANALYTICS_READ_PERMISSION = "knowledge:analytics:read"
+KNOWLEDGE_READ_PERMISSION = "knowledge:read"
 
 # RBAC imports with fallback
 try:
@@ -160,7 +161,7 @@ class AnalyticsHandler(BaseHandler):
                     roles={user.role} if user else {"member"},
                 )
                 checker = get_permission_checker()
-                decision = checker.check_permission(auth_ctx, KNOWLEDGE_ANALYTICS_READ_PERMISSION)
+                decision = checker.check_permission(auth_ctx, KNOWLEDGE_READ_PERMISSION)
                 if not decision.allowed:
                     logger.warning(
                         f"Knowledge analytics access denied for {user_id}: {decision.reason}"

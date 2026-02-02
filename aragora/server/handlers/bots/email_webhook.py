@@ -497,11 +497,11 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
                         if msg.is_multipart():
                             for part in msg.walk():
-                                name = part.get_param("name", header="Content-Disposition")
-                                if name:
+                                param = part.get_param("name", header="Content-Disposition")
+                                if param and isinstance(param, str):
                                     payload = part.get_payload(decode=True)
-                                    if payload:
-                                        form_data[name] = payload.decode("utf-8", errors="replace")
+                                    if isinstance(payload, bytes):
+                                        form_data[param] = payload.decode("utf-8", errors="replace")
                     else:
                         parsed = cgi.parse_multipart(fp, {"boundary": boundary.encode()})
                         for key, values in parsed.items():
@@ -517,7 +517,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             for key, values in parsed.items():
                 form_data[key] = values[0] if len(values) == 1 else values
 
-        return form_data
+        return form_data  # type: ignore[return-value]
 
 
 __all__ = ["EmailWebhookHandler"]

@@ -12,11 +12,17 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from .storage import _check_email_permission, get_context_service
+from aragora.rbac.decorators import require_permission
+
+from .storage import get_context_service
 
 logger = logging.getLogger(__name__)
 
+# RBAC permission constants
+PERM_EMAIL_READ = "email:read"
 
+
+@require_permission(PERM_EMAIL_READ, context_param="auth_context")
 async def handle_get_context(
     email_address: str,
     user_id: str = "default",
@@ -30,11 +36,6 @@ async def handle_get_context(
 
     Returns context from Slack, Drive, Calendar if available.
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:read")
-    if perm_error:
-        return perm_error
-
     try:
         service = get_context_service()
         context = await service.get_user_context(email_address)
@@ -52,6 +53,7 @@ async def handle_get_context(
         }
 
 
+@require_permission(PERM_EMAIL_READ, context_param="auth_context")
 async def handle_get_email_context_boost(
     email_data: dict[str, Any],
     user_id: str = "default",
@@ -68,11 +70,6 @@ async def handle_get_email_context_boost(
 
     Returns boost scores from cross-channel signals.
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:read")
-    if perm_error:
-        return perm_error
-
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:

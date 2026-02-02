@@ -15,15 +15,19 @@ import threading
 from datetime import datetime
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 from .storage import (
-    _check_email_permission,
     get_gmail_connector,
     get_prioritizer,
 )
 
 logger = logging.getLogger(__name__)
+
+# RBAC permission constants
+PERM_EMAIL_READ = "email:read"
+PERM_EMAIL_UPDATE = "email:update"
 
 # Global categorizer instance
 _categorizer: Any | None = None
@@ -44,6 +48,7 @@ def get_categorizer():
         return _categorizer
 
 
+@require_permission(PERM_EMAIL_READ, context_param="auth_context")
 @rate_limit(requests_per_minute=60)  # READ operation
 async def handle_categorize_email(
     email_data: dict[str, Any],
@@ -67,10 +72,6 @@ async def handle_categorize_email(
     Returns:
         Category result with confidence and suggested label
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:read")
-    if perm_error:
-        return perm_error
 
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
@@ -116,6 +117,7 @@ async def handle_categorize_email(
         }
 
 
+@require_permission(PERM_EMAIL_READ, context_param="auth_context")
 @rate_limit(requests_per_minute=60)  # READ operation
 async def handle_categorize_batch(
     emails: list[dict[str, Any]],
@@ -139,11 +141,6 @@ async def handle_categorize_batch(
     Returns:
         List of categorization results
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:read")
-    if perm_error:
-        return perm_error
-
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:
@@ -195,6 +192,7 @@ async def handle_categorize_batch(
         }
 
 
+@require_permission(PERM_EMAIL_UPDATE, context_param="auth_context")
 @rate_limit(requests_per_minute=20)  # WRITE operation
 async def handle_feedback_batch(
     feedback_items: list[dict[str, Any]],
@@ -215,11 +213,6 @@ async def handle_feedback_batch(
 
     Actions: opened, replied, starred, archived, deleted, snoozed
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:write")
-    if perm_error:
-        return perm_error
-
     try:
         prioritizer = get_prioritizer(user_id)
         results = []
@@ -260,6 +253,7 @@ async def handle_feedback_batch(
         }
 
 
+@require_permission(PERM_EMAIL_UPDATE, context_param="auth_context")
 @rate_limit(requests_per_minute=20)  # WRITE operation
 async def handle_apply_category_label(
     email_id: str,
@@ -277,11 +271,6 @@ async def handle_apply_category_label(
         "category": "invoices"
     }
     """
-    # Check RBAC permission
-    perm_error = _check_email_permission(auth_context, "email:write")
-    if perm_error:
-        return perm_error
-
     try:
         from aragora.services.email_categorizer import EmailCategory
 

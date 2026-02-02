@@ -342,7 +342,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             from aragora.memory.consensus import ConsensusMemory as ConsensusStore
 
             # Record the vote
-            store: VoteRecordingStore = ConsensusStore()
+            store: VoteRecordingStore = ConsensusStore()  # type: ignore[assignment]
             store.record_vote(
                 debate_id=debate_id,
                 user_id=f"telegram:{user_id}",

@@ -34,6 +34,12 @@ Endpoints consolidated:
 
 from __future__ import annotations
 
+from aragora.rbac.decorators import require_permission
+
+# RBAC permissions for audit endpoints
+AUDIT_READ_PERMISSION = "audit:read"
+AUDIT_EXPORT_PERMISSION = "audit:export"
+
 # Re-export from audit_export.py
 from aragora.server.handlers.audit_export import (
     handle_audit_events,
@@ -58,6 +64,10 @@ from aragora.server.handlers.auditing import (
 )
 
 __all__ = [
+    # RBAC
+    "require_permission",
+    "AUDIT_READ_PERMISSION",
+    "AUDIT_EXPORT_PERMISSION",
     # audit_export.py exports
     "handle_audit_events",
     "handle_audit_export",

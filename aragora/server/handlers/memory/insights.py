@@ -12,6 +12,7 @@ import logging
 import re
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
 from aragora.protocols import HTTPRequestHandler
 
@@ -30,8 +31,9 @@ from aragora.server.validation.security import (
 )
 from aragora.server.versioning.compat import strip_version_prefix
 
-# RBAC permission for insights endpoints
+# RBAC permissions for insights endpoints
 INSIGHTS_PERMISSION = "insights:read"
+MEMORY_READ_PERMISSION = "memory:read"
 
 # Rate limiter for insights endpoints (60 requests per minute)
 _insights_limiter = RateLimiter(requests_per_minute=60)
@@ -140,6 +142,7 @@ class InsightsHandler(SecureHandler):
 
         return None
 
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("recent insights retrieval")
     def _get_recent_insights(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent insights from InsightStore.
@@ -176,6 +179,7 @@ class InsightsHandler(SecureHandler):
             }
         )
 
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("recent flips retrieval")
     def _get_recent_flips(self, query: dict, ctx: dict) -> HandlerResult:
         """Get recent position flips/reversals.
@@ -227,6 +231,7 @@ class InsightsHandler(SecureHandler):
             }
         )
 
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("flips summary retrieval")
     def _get_flips_summary(self, query: dict, ctx: dict) -> HandlerResult:
         """Get summary statistics for position flips.
@@ -263,6 +268,7 @@ class InsightsHandler(SecureHandler):
             response["period"] = period
         return json_response(response)
 
+    @require_permission(MEMORY_READ_PERMISSION)
     @handle_errors("insight extraction")
     def _extract_detailed_insights(self, data: dict, ctx: dict) -> HandlerResult:
         """Extract detailed insights from debate content.

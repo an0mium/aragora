@@ -33,13 +33,16 @@ SOC 2 Controls: CC6.1, CC6.3 - Logical access controls
 from __future__ import annotations
 
 import logging
+from collections.abc import Coroutine
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from aragora.server.http_utils import run_async
 from aragora.server.validation.query_params import safe_query_int
 
+from aragora.billing.auth.context import UserAuthContext
 from aragora.billing.jwt_auth import extract_user_from_request
+from aragora.protocols import HTTPRequestHandler
 
 # RBAC imports - graceful fallback if not available
 try:
@@ -86,6 +89,7 @@ from aragora.server.handlers.openapi_decorator import api_endpoint
 
 from .base import (
     HandlerResult,
+    ServerContext,
     error_response,
     handle_errors,
     json_response,
@@ -99,6 +103,9 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+# TypeVar for generic coroutine return type
+T = TypeVar("T")
 
 
 class WorkspaceHandler(SecureHandler):
@@ -124,7 +131,7 @@ class WorkspaceHandler(SecureHandler):
         "/api/v1/audit/denied",
     ]
 
-    def __init__(self, server_context):
+    def __init__(self, server_context: ServerContext) -> None:
         super().__init__(server_context)
         self._isolation_manager: DataIsolationManager | None = None
         self._retention_manager: RetentionPolicyManager | None = None
@@ -155,7 +162,7 @@ class WorkspaceHandler(SecureHandler):
             self._audit_log = PrivacyAuditLog()
         return self._audit_log
 
-    def _run_async(self, coro):
+    def _run_async(self, coro: Coroutine[Any, Any, T]) -> T:
         """Run an async coroutine from sync context.
 
         Delegates to the centralized run_async utility which handles
@@ -167,7 +174,9 @@ class WorkspaceHandler(SecureHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_auth_context(self, handler, auth_ctx=None) -> AuthorizationContext | None:
+    def _get_auth_context(
+        self, handler: HTTPRequestHandler, auth_ctx: UserAuthContext | None = None
+    ) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -191,7 +200,10 @@ class WorkspaceHandler(SecureHandler):
         )
 
     def _check_rbac_permission(
-        self, handler, permission_key: str, auth_ctx=None
+        self,
+        handler: HTTPRequestHandler,
+        permission_key: str,
+        auth_ctx: UserAuthContext | None = None,
     ) -> HandlerResult | None:
         """
         Check RBAC permission.
@@ -226,7 +238,11 @@ class WorkspaceHandler(SecureHandler):
 
     @require_permission("workspace:read")
     def handle(
-        self, path: str, query_params: dict, handler: Any, method: str = "GET"
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: HTTPRequestHandler,
+        method: str = "GET",
     ) -> HandlerResult | None:
         """Route GET requests."""
         if hasattr(handler, "command"):
@@ -251,17 +267,23 @@ class WorkspaceHandler(SecureHandler):
         return None
 
     @require_permission("workspace:write")
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
+    ) -> HandlerResult | None:
         """Route POST requests."""
         return self.handle(path, query_params, handler, method="POST")
 
     @require_permission("workspace:delete")
-    def handle_delete(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
+    ) -> HandlerResult | None:
         """Route DELETE requests."""
         return self.handle(path, query_params, handler, method="DELETE")
 
     @require_permission("workspace:write")
-    def handle_put(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+    def handle_put(
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
+    ) -> HandlerResult | None:
         """Route PUT requests."""
         return self.handle(path, query_params, handler, method="PUT")
 
@@ -270,7 +292,11 @@ class WorkspaceHandler(SecureHandler):
     # =========================================================================
 
     def _route_workspace(
-        self, path: str, query_params: dict, handler: Any, method: str
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: HTTPRequestHandler,
+        method: str,
     ) -> HandlerResult | None:
         """Route workspace requests."""
         parts = path.strip("/").split("/")
@@ -326,7 +352,11 @@ class WorkspaceHandler(SecureHandler):
     # =========================================================================
 
     def _route_retention(
-        self, path: str, query_params: dict, handler: Any, method: str
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: HTTPRequestHandler,
+        method: str,
     ) -> HandlerResult | None:
         """Route retention requests."""
         parts = path.strip("/").split("/")
@@ -370,7 +400,11 @@ class WorkspaceHandler(SecureHandler):
     # =========================================================================
 
     def _route_classify(
-        self, path: str, query_params: dict, handler: Any, method: str
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: HTTPRequestHandler,
+        method: str,
     ) -> HandlerResult | None:
         """Route classification requests."""
         path = strip_version_prefix(path)
@@ -392,7 +426,11 @@ class WorkspaceHandler(SecureHandler):
     # =========================================================================
 
     def _route_audit(
-        self, path: str, query_params: dict, handler: Any, method: str
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: HTTPRequestHandler,
+        method: str,
     ) -> HandlerResult | None:
         """Route audit requests."""
         parts = path.strip("/").split("/")
@@ -438,7 +476,7 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=30, limiter_name="workspace_create")
     @handle_errors("create workspace")
     @log_request("create workspace")
-    def _handle_create_workspace(self, handler) -> HandlerResult:
+    def _handle_create_workspace(self, handler: HTTPRequestHandler) -> HandlerResult:
         """Create a new workspace."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -513,7 +551,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Workspaces"],
     )
     @handle_errors("list workspaces")
-    def _handle_list_workspaces(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_list_workspaces(
+        self, handler: HTTPRequestHandler, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """List workspaces accessible to user."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -554,7 +594,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Workspaces"],
     )
     @handle_errors("get workspace")
-    def _handle_get_workspace(self, handler, workspace_id: str) -> HandlerResult:
+    def _handle_get_workspace(
+        self, handler: HTTPRequestHandler, workspace_id: str
+    ) -> HandlerResult:
         """Get workspace details."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -583,7 +625,9 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=10, limiter_name="workspace_delete")
     @handle_errors("delete workspace")
     @log_request("delete workspace")
-    def _handle_delete_workspace(self, handler, workspace_id: str) -> HandlerResult:
+    def _handle_delete_workspace(
+        self, handler: HTTPRequestHandler, workspace_id: str
+    ) -> HandlerResult:
         """Delete a workspace."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -632,7 +676,9 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("add workspace member")
     @log_request("add workspace member")
-    def _handle_add_member(self, handler, workspace_id: str) -> HandlerResult:
+    def _handle_add_member(
+        self, handler: HTTPRequestHandler, workspace_id: str
+    ) -> HandlerResult:
         """Add a member to a workspace."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -691,7 +737,9 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("remove workspace member")
     @log_request("remove workspace member")
-    def _handle_remove_member(self, handler, workspace_id: str, user_id: str) -> HandlerResult:
+    def _handle_remove_member(
+        self, handler: HTTPRequestHandler, workspace_id: str, user_id: str
+    ) -> HandlerResult:
         """Remove a member from a workspace."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -740,7 +788,7 @@ class WorkspaceHandler(SecureHandler):
         tags=["Workspaces"],
     )
     @handle_errors("list profiles")
-    def _handle_list_profiles(self, handler) -> HandlerResult:
+    def _handle_list_profiles(self, handler: HTTPRequestHandler) -> HandlerResult:
         """List available RBAC profiles for workspace configuration.
 
         Returns the three profile tiers: lite, standard, enterprise.
@@ -787,7 +835,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Workspaces"],
     )
     @handle_errors("get workspace roles")
-    def _handle_get_workspace_roles(self, handler, workspace_id: str) -> HandlerResult:
+    def _handle_get_workspace_roles(
+        self, handler: HTTPRequestHandler, workspace_id: str
+    ) -> HandlerResult:
         """Get available roles for a workspace based on its profile.
 
         Returns roles that can be assigned to members, with descriptions
@@ -861,7 +911,9 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=30, limiter_name="workspace_member")
     @handle_errors("update member role")
     @log_request("update member role")
-    def _handle_update_member_role(self, handler, workspace_id: str, user_id: str) -> HandlerResult:
+    def _handle_update_member_role(
+        self, handler: HTTPRequestHandler, workspace_id: str, user_id: str
+    ) -> HandlerResult:
         """Update a member's role in the workspace.
 
         Request body: {"role": "admin"}
@@ -987,7 +1039,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Retention"],
     )
     @handle_errors("list retention policies")
-    def _handle_list_policies(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_list_policies(
+        self, handler: HTTPRequestHandler, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """List retention policies."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1027,7 +1081,7 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
     @handle_errors("create retention policy")
     @log_request("create retention policy")
-    def _handle_create_policy(self, handler) -> HandlerResult:
+    def _handle_create_policy(self, handler: HTTPRequestHandler) -> HandlerResult:
         """Create a retention policy."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1104,7 +1158,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Retention"],
     )
     @handle_errors("get retention policy")
-    def _handle_get_policy(self, handler, policy_id: str) -> HandlerResult:
+    def _handle_get_policy(
+        self, handler: HTTPRequestHandler, policy_id: str
+    ) -> HandlerResult:
         """Get a retention policy."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1147,7 +1203,9 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=20, limiter_name="retention_policy")
     @handle_errors("update retention policy")
     @log_request("update retention policy")
-    def _handle_update_policy(self, handler, policy_id: str) -> HandlerResult:
+    def _handle_update_policy(
+        self, handler: HTTPRequestHandler, policy_id: str
+    ) -> HandlerResult:
         """Update a retention policy."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1209,7 +1267,9 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=10, limiter_name="retention_policy")
     @handle_errors("delete retention policy")
     @log_request("delete retention policy")
-    def _handle_delete_policy(self, handler, policy_id: str) -> HandlerResult:
+    def _handle_delete_policy(
+        self, handler: HTTPRequestHandler, policy_id: str
+    ) -> HandlerResult:
         """Delete a retention policy."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1247,7 +1307,9 @@ class WorkspaceHandler(SecureHandler):
     @rate_limit(requests_per_minute=5, limiter_name="retention_execute")
     @handle_errors("execute retention policy")
     @log_request("execute retention policy")
-    def _handle_execute_policy(self, handler, policy_id: str, query_params: dict) -> HandlerResult:
+    def _handle_execute_policy(
+        self, handler: HTTPRequestHandler, policy_id: str, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Execute a retention policy."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1292,7 +1354,9 @@ class WorkspaceHandler(SecureHandler):
         tags=["Retention"],
     )
     @handle_errors("get expiring items")
-    def _handle_expiring_items(self, handler, query_params: dict) -> HandlerResult:
+    def _handle_expiring_items(
+        self, handler: HTTPRequestHandler, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """Get items expiring soon."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
@@ -1321,7 +1385,7 @@ class WorkspaceHandler(SecureHandler):
     )
     @rate_limit(requests_per_minute=60, limiter_name="classify")
     @handle_errors("classify content")
-    def _handle_classify_content(self, handler) -> HandlerResult:
+    def _handle_classify_content(self, handler: HTTPRequestHandler) -> HandlerResult:
         """Classify content sensitivity."""
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)

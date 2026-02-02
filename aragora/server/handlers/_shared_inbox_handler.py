@@ -82,17 +82,17 @@ _activity_store = LazyStoreFactory(
 )
 
 
-def _get_email_store():
+def _get_email_store() -> Any | None:
     """Get the email store (lazy init, thread-safe)."""
     return _email_store.get()
 
 
-def _get_rules_store():
+def _get_rules_store() -> Any | None:
     """Get the rules store (lazy init, thread-safe)."""
     return _rules_store.get()
 
 
-def _get_activity_store():
+def _get_activity_store() -> Any | None:
     """Get the activity store (lazy init, thread-safe)."""
     return _activity_store.get()
 
@@ -137,7 +137,7 @@ _routing_rules: dict[str, RoutingRule] = {}
 _storage_lock = threading.Lock()
 
 
-def _get_store():
+def _get_store() -> Any | None:
     """Get the persistent storage instance if enabled."""
     if not USE_PERSISTENT_STORAGE:
         return None
@@ -1389,7 +1389,7 @@ class SharedInboxHandler(BaseHandler):
         "/api/v1/inbox/routing/rules/",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: dict[str, Any]) -> None:
         """Initialize with server context."""
         super().__init__(ctx)
 

@@ -75,9 +75,17 @@ class RestoreResultProtocol(Protocol):
     errors: list[str]
 
 
+# =============================================================================
+# RBAC Permissions
+# =============================================================================
+
+KNOWLEDGE_READ_PERMISSION = "knowledge:read"
+KNOWLEDGE_WRITE_PERMISSION = "knowledge:write"
+
 # RBAC imports with fallback for backwards compatibility
 try:
     from aragora.rbac import check_permission, AuthorizationContext
+    from aragora.rbac.decorators import require_permission
     from aragora.observability.metrics import record_rbac_check
 
     RBAC_AVAILABLE = True
@@ -217,7 +225,7 @@ class KMCheckpointHandler(BaseHandler):
             return err
 
         # Check RBAC permission
-        perm_err = self._check_rbac_permission(user, "km.checkpoints.read")
+        perm_err = self._check_rbac_permission(user, KNOWLEDGE_READ_PERMISSION)
         if perm_err:
             return perm_err
 
@@ -271,7 +279,7 @@ class KMCheckpointHandler(BaseHandler):
             return err
 
         # Check RBAC permission for write operations
-        perm_err = self._check_rbac_permission(user, "km.checkpoints.write")
+        perm_err = self._check_rbac_permission(user, KNOWLEDGE_WRITE_PERMISSION)
         if perm_err:
             return perm_err
 
@@ -350,7 +358,7 @@ class KMCheckpointHandler(BaseHandler):
             return err
 
         # Check RBAC permission
-        perm_err = self._check_rbac_permission(user, "km.checkpoints.read", name)
+        perm_err = self._check_rbac_permission(user, KNOWLEDGE_READ_PERMISSION, name)
         if perm_err:
             return perm_err
 
@@ -394,7 +402,7 @@ class KMCheckpointHandler(BaseHandler):
             return err
 
         # Check RBAC permission for delete operations
-        perm_err = self._check_rbac_permission(user, "km.checkpoints.delete", name)
+        perm_err = self._check_rbac_permission(user, KNOWLEDGE_WRITE_PERMISSION, name)
         if perm_err:
             return perm_err
 
@@ -433,7 +441,7 @@ class KMCheckpointHandler(BaseHandler):
             return err
 
         # Check RBAC permission for restore operations (requires elevated access)
-        perm_err = self._check_rbac_permission(user, "km.checkpoints.restore", name)
+        perm_err = self._check_rbac_permission(user, KNOWLEDGE_WRITE_PERMISSION, name)
         if perm_err:
             return perm_err
 
@@ -513,6 +521,11 @@ class KMCheckpointHandler(BaseHandler):
         if err:
             return err
 
+        # Check RBAC permission for read operations
+        perm_err = self._check_rbac_permission(user, KNOWLEDGE_READ_PERMISSION, name)
+        if perm_err:
+            return perm_err
+
         start_time = time.perf_counter()
         success = False
 
@@ -578,6 +591,11 @@ class KMCheckpointHandler(BaseHandler):
         user, err = self._check_auth(handler)
         if err:
             return err
+
+        # Check RBAC permission for read operations
+        perm_err = self._check_rbac_permission(user, KNOWLEDGE_READ_PERMISSION)
+        if perm_err:
+            return perm_err
 
         try:
             body = self.read_json_body(handler)
