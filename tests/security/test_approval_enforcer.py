@@ -390,6 +390,39 @@ class TestApprovalWorkflowIntegration:
         assert decision.result == EnforcementResult.PENDING_APPROVAL
         assert decision.approval_request_id is None
 
+    @pytest.mark.asyncio
+    async def test_force_approval_routes_and_waits(self, make_request):
+        from aragora.computer_use.approval import ApprovalConfig, ApprovalWorkflow
+
+        workflow = ApprovalWorkflow(
+            config=ApprovalConfig(
+                default_timeout_seconds=1.0,
+                min_timeout_seconds=0.1,
+            )
+        )
+
+        enforcer = UnifiedApprovalEnforcer(
+            approval_workflow=workflow,
+            audit_enabled=False,
+        )
+
+        req = make_request(
+            action_type="browser",
+            details={
+                "force_approval": True,
+                "force_reason": "Sensitive navigation",
+            },
+        )
+        decision = await enforcer.enforce(req)
+
+        assert decision.result == EnforcementResult.PENDING_APPROVAL
+        assert decision.approval_request_id is not None
+        assert "Sensitive navigation" in decision.reason
+
+        await workflow.approve(decision.approval_request_id, "admin")
+        approved = await enforcer.wait_for_approval(decision.approval_request_id, timeout=1.0)
+        assert approved is True
+
 
 # ---------------------------------------------------------------------------
 # Pre-existing approval token verification

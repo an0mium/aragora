@@ -206,6 +206,35 @@ config = ComputerUseConfig(
 )
 ```
 
+### Policy-Driven Approvals
+
+For sensitive actions, you can require explicit approval via the
+approval workflow (including timeouts and audit trails). This is
+enforced before execution and integrates with the unified approval
+enforcer when running inside the server.
+
+```python
+from aragora.computer_use import ComputerUseConfig, ComputerUseOrchestrator
+from aragora.computer_use.approval import ApprovalConfig, ApprovalWorkflow
+
+workflow = ApprovalWorkflow(config=ApprovalConfig(default_timeout_seconds=300))
+
+config = ComputerUseConfig(
+    enforce_sensitive_approvals=True,
+    approval_timeout_seconds=300.0,
+)
+
+orchestrator = ComputerUseOrchestrator(
+    executor=executor,
+    policy=policy,
+    config=config,
+    approval_workflow=workflow,
+)
+```
+
+When running the API server, approvals are available through the
+computer-use approval endpoints (list, view, approve, deny).
+
 For richer workflows (audit trail, expiry, and notifications), use the
 approval workflow primitives:
 

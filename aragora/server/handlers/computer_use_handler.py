@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     json_response,
     log_request,
 )
+from aragora.server.extensions import get_extension_state
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.http_utils import run_async
 from aragora.server.validation.query_params import safe_query_int
@@ -55,6 +56,7 @@ try:
         create_default_computer_policy,
     )
     from aragora.computer_use.orchestrator import TaskResult, TaskStatus
+    from aragora.computer_use.approval import ApprovalStatus
 
     COMPUTER_USE_AVAILABLE = True
 except ImportError:
@@ -81,6 +83,8 @@ class ComputerUseHandler(BaseHandler):
         "/api/v1/computer-use/actions/*",
         "/api/v1/computer-use/policies",
         "/api/v1/computer-use/policies/*",
+        "/api/v1/computer-use/approvals",
+        "/api/v1/computer-use/approvals/*",
     ]
 
     def __init__(self, server_context):
@@ -89,16 +93,27 @@ class ComputerUseHandler(BaseHandler):
         self._tasks: dict[str, dict[str, Any]] = {}  # In-memory task store
         self._action_stats: dict[str, dict[str, int]] = {}
         self._policies: dict[str, ComputerPolicy] = {}
+        self._approval_workflow: Any | None = None
 
     def _get_orchestrator(self) -> ComputerUseOrchestrator | None:
         """Get or create computer use orchestrator."""
         if not COMPUTER_USE_AVAILABLE:
             return None
+        state = get_extension_state()
+        if state and state.computer_orchestrator:
+            return state.computer_orchestrator
         if self._orchestrator is None:
             policy = create_default_computer_policy()
             config = ComputerUseConfig(max_steps=20, total_timeout_seconds=300)
             self._orchestrator = ComputerUseOrchestrator(policy=policy, config=config)
         return self._orchestrator
+
+    def _get_approval_workflow(self) -> Any | None:
+        """Get approval workflow for computer-use approvals."""
+        state = get_extension_state()
+        if state and state.computer_approval_workflow:
+            return state.computer_approval_workflow
+        return self._approval_workflow
 
     def _get_user_store(self) -> Any:
         """Get user store from context."""
@@ -172,6 +187,18 @@ class ComputerUseHandler(BaseHandler):
         if path == "/api/v1/computer-use/policies":
             return self._handle_list_policies(handler)
 
+        # GET /api/v1/computer-use/approvals
+        if path == "/api/v1/computer-use/approvals":
+            return self._handle_list_approvals(query_params, handler)
+
+        # GET /api/v1/computer-use/approvals/{id}
+        if path.startswith("/api/v1/computer-use/approvals/"):
+            parts = path.strip("/").split("/")
+            # parts = ["api", "v1", "computer-use", "approvals", request_id]
+            if len(parts) >= 5:
+                request_id = parts[4]
+                return self._handle_get_approval(request_id, handler)
+
         return None
 
     def handle_post(
@@ -199,6 +226,18 @@ class ComputerUseHandler(BaseHandler):
         # POST /api/v1/computer-use/policies
         if path == "/api/v1/computer-use/policies":
             return self._handle_create_policy(handler)
+
+        # POST /api/v1/computer-use/approvals/{id}/approve|deny
+        if path.startswith("/api/v1/computer-use/approvals/"):
+            parts = path.strip("/").split("/")
+            # parts = ["api", "v1", "computer-use", "approvals", request_id, action]
+            if len(parts) >= 6:
+                request_id = parts[4]
+                action = parts[5]
+                if action == "approve":
+                    return self._handle_approve_approval(request_id, handler)
+                if action == "deny":
+                    return self._handle_deny_approval(request_id, handler)
 
         return None
 
@@ -294,8 +333,16 @@ class ComputerUseHandler(BaseHandler):
         else:
             # Run the task asynchronously
             try:
+                auth_ctx = self._get_auth_context(handler)
+                metadata: dict[str, Any] = {}
+                if auth_ctx:
+                    metadata = {
+                        "user_id": auth_ctx.user_id,
+                        "tenant_id": auth_ctx.org_id,
+                        "roles": list(auth_ctx.roles),
+                    }
                 result: TaskResult = run_async(
-                    orchestrator.run_task(goal=goal, max_steps=max_steps)
+                    orchestrator.run_task(goal=goal, max_steps=max_steps, metadata=metadata)
                 )
                 is_success = result.status == TaskStatus.COMPLETED
                 task["status"] = "completed" if is_success else "failed"
@@ -456,6 +503,102 @@ class ComputerUseHandler(BaseHandler):
             },
             status=201,
         )
+
+    # =========================================================================
+    # Approval Handlers
+    # =========================================================================
+
+    @handle_errors("list approvals")
+    def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
+        """Handle GET /api/v1/computer-use/approvals."""
+        if error := self._check_rbac_permission(handler, "computer_use:admin"):
+            return error
+
+        workflow = self._get_approval_workflow()
+        if not workflow:
+            return error_response("Approval workflow not available", 503)
+
+        status_filter = query_params.get("status")
+        limit = safe_query_int(query_params, "limit", default=50, min_val=1, max_val=200)
+
+        status = None
+        if status_filter:
+            try:
+                status = ApprovalStatus(status_filter)
+            except ValueError:
+                return error_response(f"Invalid status: {status_filter}", 400)
+
+        approvals = run_async(
+            workflow.list_all(limit=limit, status=status)
+            if status
+            else workflow.list_all(limit=limit)
+        )
+        return json_response(
+            {
+                "approvals": [a.to_dict() for a in approvals],
+                "count": len(approvals),
+            }
+        )
+
+    @handle_errors("get approval")
+    def _handle_get_approval(self, request_id: str, handler: Any) -> HandlerResult:
+        """Handle GET /api/v1/computer-use/approvals/{id}."""
+        if error := self._check_rbac_permission(handler, "computer_use:admin"):
+            return error
+
+        workflow = self._get_approval_workflow()
+        if not workflow:
+            return error_response("Approval workflow not available", 503)
+
+        approval = run_async(workflow.get_request(request_id))
+        if not approval:
+            return error_response(f"Approval request not found: {request_id}", 404)
+
+        return json_response({"approval": approval.to_dict()})
+
+    @handle_errors("approve approval")
+    @log_request("approve computer use approval")
+    def _handle_approve_approval(self, request_id: str, handler: Any) -> HandlerResult:
+        """Handle POST /api/v1/computer-use/approvals/{id}/approve."""
+        if error := self._check_rbac_permission(handler, "computer_use:admin"):
+            return error
+
+        workflow = self._get_approval_workflow()
+        if not workflow:
+            return error_response("Approval workflow not available", 503)
+
+        auth_ctx = self._get_auth_context(handler)
+        approver_id = auth_ctx.user_id if auth_ctx else "system"
+        body = self.read_json_body(handler) or {}
+        reason = body.get("reason")
+
+        approved = run_async(workflow.approve(request_id, approver_id, reason))
+        if not approved:
+            return error_response("Approval request not found or not pending", 404)
+
+        return json_response({"approved": True, "request_id": request_id})
+
+    @handle_errors("deny approval")
+    @log_request("deny computer use approval")
+    def _handle_deny_approval(self, request_id: str, handler: Any) -> HandlerResult:
+        """Handle POST /api/v1/computer-use/approvals/{id}/deny."""
+        if error := self._check_rbac_permission(handler, "computer_use:admin"):
+            return error
+
+        workflow = self._get_approval_workflow()
+        if not workflow:
+            return error_response("Approval workflow not available", 503)
+
+        auth_ctx = self._get_auth_context(handler)
+        approver_id = auth_ctx.user_id if auth_ctx else "system"
+        body = self.read_json_body(handler) or {}
+        reason = body.get("reason")
+
+        denied = run_async(workflow.deny(request_id, approver_id, reason))
+        if not denied:
+            return error_response("Approval request not found or not pending", 404)
+
+        return json_response({"denied": True, "request_id": request_id})
 
 
 __all__ = ["ComputerUseHandler"]

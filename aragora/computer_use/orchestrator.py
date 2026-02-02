@@ -243,6 +243,7 @@ class ComputerUseOrchestrator:
         api_key: str | None = None,
         bridge: Any | None = None,
         approval_workflow: Any | None = None,
+        approval_enforcer: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -264,6 +265,7 @@ class ComputerUseOrchestrator:
         self._current_task: TaskResult | None = None
         self._bridge = bridge
         self._approval_workflow = approval_workflow
+        self._approval_enforcer = approval_enforcer
 
         # Auto-create bridge if api_key provided but no bridge
         if self._bridge is None and self._api_key:
@@ -516,6 +518,45 @@ class ComputerUseOrchestrator:
         metadata: dict[str, Any],
     ) -> tuple[bool, str, str | None]:
         """Request approval for a sensitive action."""
+        if self._approval_enforcer:
+            try:
+                from aragora.security.approval_enforcer import EnforcementRequest, EnforcementResult
+            except ImportError:
+                return False, "Approval enforcer unavailable", None
+
+            action_type = _map_action_type_for_enforcer(action.action_type.value)
+            actor_id = metadata.get("user_id", "system")
+            request = EnforcementRequest(
+                action_type=action_type,
+                actor_id=actor_id,
+                source="computer_use",
+                resource=current_url or action_type,
+                details={
+                    "force_approval": True,
+                    "force_reason": reason,
+                    "url": current_url,
+                    "action": action.to_tool_input(),
+                },
+                session_id=self._current_task.task_id if self._current_task else "",
+                tenant_id=metadata.get("tenant_id"),
+                roles=metadata.get("roles", []),
+            )
+
+            decision = await self._approval_enforcer.enforce(request)
+            approval_id = decision.approval_request_id
+            if decision.result == EnforcementResult.ALLOWED:
+                return True, decision.reason, approval_id
+            if decision.result == EnforcementResult.DENIED:
+                return False, decision.reason, approval_id
+            if approval_id:
+                approved = await self._approval_enforcer.wait_for_approval(
+                    approval_id,
+                    timeout=self._config.approval_timeout_seconds,
+                )
+                return approved, "approved" if approved else "denied_or_expired", approval_id
+
+            return False, "Approval pending but no request id", None
+
         if not self._approval_workflow:
             return False, "Approval workflow not configured", None
 
@@ -620,6 +661,17 @@ class ComputerUseOrchestrator:
     def get_audit_log(self) -> list[dict[str, Any]]:
         """Get the policy audit log."""
         return self._policy_checker.get_audit_log()
+
+
+def _map_action_type_for_enforcer(action_type: str) -> str:
+    """Map computer-use action types to approval enforcer action types."""
+    if action_type in ("type", "key"):
+        return "keyboard"
+    if action_type in ("click", "double_click", "right_click", "drag", "move", "scroll"):
+        return "mouse"
+    if action_type in ("screenshot",):
+        return "screenshot"
+    return "browser"
 
 
 class MockActionExecutor:

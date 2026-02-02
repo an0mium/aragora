@@ -739,4 +739,176 @@ COMPUTER_USE_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    "/api/v1/computer-use/approvals": {
+        "get": {
+            "tags": ["Computer Use"],
+            "summary": "List computer-use approvals",
+            "description": "List approval requests for sensitive computer-use actions.",
+            "operationId": "listComputerUseApprovals",
+            "parameters": [
+                {
+                    "name": "status",
+                    "in": "query",
+                    "description": "Filter by approval status",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["pending", "approved", "denied", "expired", "cancelled"],
+                    },
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of approvals to return (default: 50)",
+                    "schema": {"type": "integer", "default": 50},
+                },
+            ],
+            "responses": {
+                "200": _response(
+                    "List of approval requests",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "approvals": {
+                                "type": "array",
+                                "items": {"type": "object"},
+                            },
+                            "count": {"type": "integer"},
+                        },
+                    },
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/computer-use/approvals/{request_id}": {
+        "get": {
+            "tags": ["Computer Use"],
+            "summary": "Get approval request",
+            "description": "Get details for a specific computer-use approval request.",
+            "operationId": "getComputerUseApproval",
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Approval request ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _response(
+                    "Approval request",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "approval": {"type": "object"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/computer-use/approvals/{request_id}/approve": {
+        "post": {
+            "tags": ["Computer Use"],
+            "summary": "Approve a computer-use request",
+            "description": "Approve a pending computer-use approval request.",
+            "operationId": "approveComputerUseRequest",
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Approval request ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "reason": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _response(
+                    "Approval granted",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "approved": {"type": "boolean"},
+                            "request_id": {"type": "string"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/computer-use/approvals/{request_id}/deny": {
+        "post": {
+            "tags": ["Computer Use"],
+            "summary": "Deny a computer-use request",
+            "description": "Deny a pending computer-use approval request.",
+            "operationId": "denyComputerUseRequest",
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Approval request ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": False,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "reason": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _response(
+                    "Approval denied",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "denied": {"type": "boolean"},
+                            "request_id": {"type": "string"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
 }

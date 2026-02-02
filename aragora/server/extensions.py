@@ -94,12 +94,14 @@ _imp, COMPUTER_USE_AVAILABLE = try_import(
     "aragora.computer_use",
     "ComputerUseOrchestrator",
     "ComputerPolicyChecker",
+    "ComputerUseConfig",
     "create_default_computer_policy",
     "PlaywrightActionExecutor",
     "ExecutorConfig",
 )
 ComputerUseOrchestrator = _imp.get("ComputerUseOrchestrator")
 ComputerPolicyChecker = _imp.get("ComputerPolicyChecker")
+ComputerUseConfig = _imp.get("ComputerUseConfig")
 create_default_computer_policy = _imp.get("create_default_computer_policy")
 PlaywrightActionExecutor = _imp.get("PlaywrightActionExecutor")
 ExecutorConfig = _imp.get("ExecutorConfig")
@@ -135,6 +137,8 @@ class ExtensionState:
     # Computer Use
     computer_orchestrator: Any | None = None
     computer_policy: Any | None = None
+    computer_approval_workflow: Any | None = None
+    computer_approval_enforcer: Any | None = None
 
     # Status tracking
     fabric_enabled: bool = False
@@ -347,12 +351,12 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
         return None, None, None, None, None
 
 
-def init_computer_use() -> tuple[Any | None, Any | None]:
+def init_computer_use() -> tuple[Any | None, Any | None, Any | None, Any | None]:
     """
     Initialize the Computer Use orchestration (disabled by default).
 
     Returns:
-        Tuple of (ComputerUseOrchestrator, ComputerPolicyChecker)
+        Tuple of (ComputerUseOrchestrator, ComputerPolicyChecker, ApprovalWorkflow, UnifiedApprovalEnforcer)
     """
     if not ENABLE_COMPUTER_USE or not COMPUTER_USE_AVAILABLE:
         logger.debug("[extensions] Computer Use disabled or unavailable")
@@ -367,6 +371,35 @@ def init_computer_use() -> tuple[Any | None, Any | None]:
         if ComputerPolicyChecker and default_policy:
             policy_checker = ComputerPolicyChecker(default_policy)
 
+        # Create approval workflow and enforcer (optional)
+        approval_workflow = None
+        approval_enforcer = None
+        approval_timeout = float(os.getenv("ARAGORA_COMPUTER_USE_APPROVAL_TIMEOUT", "300"))
+        try:
+            from aragora.computer_use.approval import create_approval_workflow
+
+            approval_workflow = create_approval_workflow(
+                webhook_url=os.getenv("ARAGORA_COMPUTER_USE_APPROVAL_WEBHOOK"),
+                require_reason=_env_bool("ARAGORA_COMPUTER_USE_APPROVAL_REQUIRE_REASON", False),
+                timeout_seconds=approval_timeout,
+            )
+        except (ImportError, TypeError, ValueError):
+            approval_workflow = None
+
+        try:
+            from aragora.security.approval_enforcer import (
+                UnifiedApprovalEnforcer,
+                set_approval_enforcer,
+            )
+
+            approval_enforcer = UnifiedApprovalEnforcer(
+                policy=None,
+                approval_workflow=approval_workflow,
+            )
+            set_approval_enforcer(approval_enforcer)
+        except (ImportError, TypeError, ValueError):
+            approval_enforcer = None
+
         # Create executor for browser automation
         executor = None
         if PlaywrightActionExecutor:
@@ -377,6 +410,14 @@ def init_computer_use() -> tuple[Any | None, Any | None]:
             ComputerUseOrchestrator(
                 executor=executor,
                 policy=default_policy,
+                config=ComputerUseConfig(
+                    max_steps=20,
+                    total_timeout_seconds=300,
+                    enforce_sensitive_approvals=approval_workflow is not None,
+                    approval_timeout_seconds=approval_timeout,
+                ),
+                approval_workflow=approval_workflow,
+                approval_enforcer=approval_enforcer,
             )
             if ComputerUseOrchestrator
             else None
@@ -385,11 +426,11 @@ def init_computer_use() -> tuple[Any | None, Any | None]:
         if orchestrator:
             logger.info("[extensions] Computer Use initialized (with policy enforcement)")
 
-        return orchestrator, policy_checker
+        return orchestrator, policy_checker, approval_workflow, approval_enforcer
 
     except (ImportError, TypeError, ValueError, OSError) as e:
         logger.warning(f"[extensions] Failed to initialize Computer Use: {e}")
-        return None, None
+        return None, None, None, None
 
 
 # =============================================================================
@@ -445,9 +486,11 @@ def init_extensions(storage_path: Path | None = None) -> ExtensionState:
     state.moltbot_enabled = inbox is not None or gateway is not None
 
     # Initialize Computer Use
-    computer_orch, computer_policy = init_computer_use()
+    computer_orch, computer_policy, approval_workflow, approval_enforcer = init_computer_use()
     state.computer_orchestrator = computer_orch
     state.computer_policy = computer_policy
+    state.computer_approval_workflow = approval_workflow
+    state.computer_approval_enforcer = approval_enforcer
     state.computer_use_enabled = computer_orch is not None
 
     # Store metadata

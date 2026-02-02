@@ -163,6 +163,26 @@ class UnifiedApprovalEnforcer:
 
         return decision
 
+    async def wait_for_approval(
+        self,
+        approval_request_id: str,
+        timeout: float | None = None,
+    ) -> bool:
+        """Wait for an approval decision and return True if approved."""
+        if not self._approval_workflow:
+            return False
+
+        try:
+            from aragora.computer_use.approval import ApprovalStatus
+        except ImportError:
+            return False
+
+        status = await self._approval_workflow.wait_for_decision(
+            approval_request_id,
+            timeout=timeout,
+        )
+        return status == ApprovalStatus.APPROVED
+
     async def verify_not_bypassed(
         self,
         request: EnforcementRequest,
@@ -282,6 +302,14 @@ class UnifiedApprovalEnforcer:
         start: float,
     ) -> EnforcementDecision:
         """Evaluate request against the OpenClaw policy engine."""
+        if request.details.get("force_approval"):
+            return EnforcementDecision(
+                id=decision_id,
+                result=EnforcementResult.PENDING_APPROVAL,
+                reason=request.details.get("force_reason", "Approval required by upstream policy"),
+                request=request,
+                evaluation_time_ms=(time.time() - start) * 1000,
+            )
         if not self._policy:
             # No policy configured - allow by default with audit
             return EnforcementDecision(
