@@ -10,10 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, Callable, Pattern, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Any, Callable, Pattern
 
 logger = logging.getLogger(__name__)
 

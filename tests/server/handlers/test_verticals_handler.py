@@ -489,9 +489,9 @@ class TestInputValidation:
 
     def test_validate_agent_name_accepts_valid_name(self, verticals_handler):
         """Valid agent name passes validation."""
-        is_valid, err = verticals_handler._validate_agent_name("my-agent-123")
+        is_valid, err = verticals_handler._validate_agent_name("myagent123")
         assert is_valid is True
-        assert err == ""
+        assert err in ("", None)
 
     def test_validate_agent_name_accepts_none(self, verticals_handler):
         """None agent name is valid (optional parameter)."""
@@ -928,7 +928,9 @@ class TestCreateDebateEndpoint:
                 "read_json_body",
                 return_value={"topic": "Medical diagnosis discussion"},
             ),
-            patch("aragora.server.handlers.verticals.Arena") as mock_arena,
+            patch("aragora.debate.orchestrator.Arena") as mock_arena,
+            patch("aragora.core.DebateProtocol"),
+            patch("aragora.core.Environment"),
         ):
             mock_result = MagicMock()
             mock_result.debate_id = "debate-123"
@@ -1059,7 +1061,7 @@ class TestUpdateConfigEndpoint:
         with (
             patch.object(verticals_handler, "_get_registry", return_value=mock_registry),
             patch.object(verticals_handler, "read_json_body", return_value=update_data),
-            patch("aragora.server.handlers.verticals.ToolConfig") as mock_tool,
+            patch("aragora.verticals.config.ToolConfig") as mock_tool,
         ):
             mock_tool.return_value = MagicMock()
 

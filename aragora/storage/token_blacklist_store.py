@@ -319,6 +319,7 @@ try:
     HAS_REDIS = True
 
 except ImportError:
+    # Fallback when redis package is not installed; redefines the class name as None
     RedisBlacklist = None  # type: ignore[misc, no-redef]
     HAS_REDIS = False
 

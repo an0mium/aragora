@@ -108,13 +108,15 @@ class BoundedTTLDict:
             return value
 
     def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str):
+            return False
         with self._lock:
-            entry = self._data.get(key)  # type: ignore[arg-type, call-overload]
+            entry = self._data.get(key)
             if entry is None:
                 return False
             _, ts = entry
             if (time.monotonic() - ts) >= self._ttl_seconds:
-                del self._data[key]  # type: ignore[arg-type]
+                del self._data[key]
                 logger.debug("[%s] expired key evicted on contains check", self._name)
                 return False
             return True

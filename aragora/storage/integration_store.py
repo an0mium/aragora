@@ -75,6 +75,7 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
+    # Assign fallbacks to module-level names; type: ignore needed due to signature mismatch with stubs
     get_encryption_service = _fallback_get_encryption_service  # type: ignore[misc, assignment]
     is_encryption_required = _fallback_is_encryption_required  # type: ignore[misc, assignment]
     EncryptionError = _FallbackEncryptionError  # type: ignore[misc, assignment]

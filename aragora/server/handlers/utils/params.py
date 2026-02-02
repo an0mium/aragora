@@ -24,10 +24,25 @@ def parse_query_params(query_string: str) -> dict[str, Any]:
     return {k: v[0] if len(v) == 1 else v for k, v in params.items()}
 
 
+def _resolve_params(params: Any) -> dict[str, Any]:
+    """Resolve params from dict-like or handler objects."""
+    if params is None:
+        return {}
+    get_attr = getattr(params, "get", None)
+    if callable(get_attr):
+        return params
+    for attr in ("query_params", "query", "_query_params"):
+        value = getattr(params, attr, None)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
 def get_int_param(params: dict[str, Any], key: str, default: int = 0) -> int:
     """Safely get an integer parameter, handling list values from query strings."""
     try:
-        value = params.get(key, default)
+        resolved = _resolve_params(params)
+        value = resolved.get(key, default)
         if isinstance(value, list):
             value = value[0] if value else default
         return int(value)
@@ -38,7 +53,8 @@ def get_int_param(params: dict[str, Any], key: str, default: int = 0) -> int:
 def get_float_param(params: dict[str, Any], key: str, default: float = 0.0) -> float:
     """Safely get a float parameter, handling list values from query strings."""
     try:
-        value = params.get(key, default)
+        resolved = _resolve_params(params)
+        value = resolved.get(key, default)
         if isinstance(value, list):
             value = value[0] if value else default
         return float(value)
@@ -48,7 +64,8 @@ def get_float_param(params: dict[str, Any], key: str, default: float = 0.0) -> f
 
 def get_bool_param(params: dict[str, Any], key: str, default: bool = False) -> bool:
     """Safely get a boolean parameter, handling various input types."""
-    value = params.get(key)
+    resolved = _resolve_params(params)
+    value = resolved.get(key)
     if value is None:
         return default
     # Already a boolean
@@ -68,7 +85,8 @@ def get_bool_param(params: dict[str, Any], key: str, default: bool = False) -> b
 
 def get_string_param(params: dict[str, Any], key: str, default: str | None = None) -> str | None:
     """Safely get a string parameter, handling list values from query strings."""
-    value = params.get(key, default)
+    resolved = _resolve_params(params)
+    value = resolved.get(key, default)
     if value is None:
         return default
     if isinstance(value, list):

@@ -56,6 +56,7 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
+    # Fallback class when security module is unavailable; redefines the name from failed import
     class EncryptionError(Exception):  # type: ignore[no-redef]
         """Fallback exception when security module unavailable."""
 

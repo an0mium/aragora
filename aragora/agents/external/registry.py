@@ -229,17 +229,19 @@ def register_all_adapters() -> None:
     except ImportError as e:
         logger.debug(f"OpenHands adapter not available: {e}")
 
-    # AutoGPT adapter (future)
+    # AutoGPT adapter (future - module does not exist yet)
     try:
-        from aragora.agents.external.adapters import autogpt  # type: ignore[attr-defined]  # noqa: F401
+        # This import will fail until autogpt.py is created
+        from aragora.agents.external.adapters import autogpt  # noqa: F401
 
         logger.debug("Loaded AutoGPT adapter")
     except ImportError as e:
         logger.debug(f"AutoGPT adapter not available: {e}")
 
-    # CrewAI adapter (future)
+    # CrewAI adapter (future - module does not exist yet)
     try:
-        from aragora.agents.external.adapters import crewai  # type: ignore[attr-defined]  # noqa: F401
+        # This import will fail until crewai.py is created
+        from aragora.agents.external.adapters import crewai  # noqa: F401
 
         logger.debug("Loaded CrewAI adapter")
     except ImportError as e:

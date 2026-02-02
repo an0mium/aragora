@@ -32,10 +32,7 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Callable, Coroutine, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Any, Callable, Coroutine, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 

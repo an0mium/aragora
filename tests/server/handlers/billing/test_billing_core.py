@@ -687,7 +687,7 @@ class TestStripeWebhooks:
         with (
             patch.object(billing_handler, "validate_content_length", return_value=10),
             patch(
-                "aragora.server.handlers.billing.core.parse_webhook_event",
+                "aragora.billing.stripe_client.parse_webhook_event",
                 return_value=None,
             ),
         ):
@@ -739,7 +739,7 @@ class TestStripeWebhooks:
         }
         event.metadata = {}
 
-        with patch("aragora.server.handlers.billing.core.get_recovery_store") as mock_recovery:
+        with patch("aragora.billing.payment_recovery.get_recovery_store") as mock_recovery:
             mock_recovery.return_value.mark_recovered.return_value = True
             result = billing_handler._handle_invoice_paid(event, mock_user_store)
 

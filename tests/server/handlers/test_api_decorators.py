@@ -1048,3 +1048,612 @@ class TestModuleExports:
             "validate_body",
             "require_quota",
         }
+
+
+# ===========================================================================
+# extract_user_from_request Tests
+# ===========================================================================
+
+
+class TestExtractUserFromRequest:
+    """Tests for the extract_user_from_request proxy function."""
+
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_delegates_to_jwt_auth(self, mock_jwt_extract):
+        """Test that extract_user_from_request delegates to jwt_auth."""
+        from aragora.server.handlers.api_decorators import extract_user_from_request
+
+        mock_handler = MagicMock()
+        mock_user_store = MagicMock()
+        expected_user = MockUserAuthContext(user_id="test-user")
+        mock_jwt_extract.return_value = expected_user
+
+        result = extract_user_from_request(mock_handler, mock_user_store)
+
+        mock_jwt_extract.assert_called_once_with(mock_handler, mock_user_store)
+        assert result == expected_user
+
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_passes_none_user_store(self, mock_jwt_extract):
+        """Test that None user_store is passed through."""
+        from aragora.server.handlers.api_decorators import extract_user_from_request
+
+        mock_handler = MagicMock()
+        mock_jwt_extract.return_value = MockUserAuthContext()
+
+        extract_user_from_request(mock_handler, None)
+
+        mock_jwt_extract.assert_called_once_with(mock_handler, None)
+
+
+# ===========================================================================
+# Additional require_quota Tests
+# ===========================================================================
+
+
+class TestRequireQuotaHandlerExtraction:
+    """Tests for handler extraction in require_quota."""
+
+    def test_handler_from_kwargs(self):
+        """Test handler extracted from kwargs."""
+        org = MockOrganization(
+            id="org-123",
+            debates_used_this_month=10,
+            is_at_limit=False,
+        )
+        org.limits.debates_per_month = 100
+
+        user_store = MockUserStore(organizations={"org-123": org})
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return {"ok": True}
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = user_store
+
+        result = instance.method(handler=mock_handler, user=user_ctx)
+        assert result == {"ok": True}
+
+    def test_handler_from_positional_args_with_headers_attribute(self):
+        """Test handler extracted from positional args by checking headers attr."""
+        org = MockOrganization(
+            id="org-123",
+            debates_used_this_month=10,
+            is_at_limit=False,
+        )
+        org.limits.debates_per_month = 100
+
+        user_store = MockUserStore(organizations={"org-123": org})
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, some_arg, handler_arg, user):
+                return {"ok": True}
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = user_store
+
+        # handler_arg has headers, so it should be found
+        result = instance.method("string_arg", mock_handler, user=user_ctx)
+        assert result == {"ok": True}
+
+    def test_user_store_from_handler_class(self):
+        """Test user_store extracted from handler.__class__.user_store."""
+        org = MockOrganization(
+            id="org-123",
+            debates_used_this_month=10,
+            is_at_limit=False,
+        )
+        org.limits.debates_per_month = 100
+
+        user_store = MockUserStore(organizations={"org-123": org})
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return {"success": True}
+
+        instance = MyClass()
+
+        # Handler without instance user_store but with class-level one
+        class HandlerClass:
+            user_store = user_store
+            headers = {}
+
+        mock_handler = HandlerClass()
+
+        result = instance.method(mock_handler, user=user_ctx)
+        assert result == {"success": True}
+
+    def test_increment_usage_exception_logged_but_not_raised(self):
+        """Test that increment_usage exception is logged but doesn't fail request."""
+        org = MockOrganization(
+            id="org-123",
+            debates_used_this_month=10,
+            is_at_limit=False,
+        )
+        org.limits.debates_per_month = 100
+
+        user_store = MagicMock()
+        user_store.get_organization_by_id.return_value = org
+        user_store.increment_usage.side_effect = Exception("DB connection failed")
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return MagicMock(status_code=200)
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = user_store
+
+        # Should not raise, should return the result
+        result = instance.method(mock_handler, user=user_ctx)
+        assert result.status_code == 200
+
+    def test_org_not_found_skips_quota_check(self):
+        """Test that when org is not found, quota check is skipped."""
+        user_store = MockUserStore(organizations={})  # Empty, org not found
+        user_ctx = MockUserAuthContext(org_id="nonexistent-org")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return {"created": True}
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = user_store
+
+        result = instance.method(mock_handler, user=user_ctx)
+        assert result == {"created": True}
+
+    def test_no_user_store_with_get_organization_by_id(self):
+        """Test when user_store exists but doesn't have get_organization_by_id."""
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return {"created": True}
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = MagicMock(spec=[])  # No get_organization_by_id
+
+        result = instance.method(mock_handler, user=user_ctx)
+        assert result == {"created": True}
+
+
+class TestRequireQuotaResponseHandling:
+    """Tests for require_quota response handling."""
+
+    def test_result_without_status_code_assumes_200(self):
+        """Test that results without status_code are treated as successful."""
+        org = MockOrganization(
+            id="org-123",
+            debates_used_this_month=10,
+            is_at_limit=False,
+        )
+        org.limits.debates_per_month = 100
+
+        user_store = MockUserStore(organizations={"org-123": org})
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return {"no_status_code": True}  # Dict, no status_code attr
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = user_store
+
+        result = instance.method(mock_handler, user=user_ctx)
+        assert result == {"no_status_code": True}
+        # Usage should be incremented (defaults to 200 = success)
+        assert ("org-123", 1) in user_store.usage_increments
+
+    def test_result_none_assumes_200(self):
+        """Test that None result is treated as successful."""
+        org = MockOrganization(
+            id="org-123",
+            debates_used_this_month=10,
+            is_at_limit=False,
+        )
+        org.limits.debates_per_month = 100
+
+        user_store = MockUserStore(organizations={"org-123": org})
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return None
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = user_store
+
+        result = instance.method(mock_handler, user=user_ctx)
+        assert result is None
+        # Usage should be incremented
+        assert ("org-123", 1) in user_store.usage_increments
+
+    def test_quota_response_includes_all_fields(self):
+        """Test that quota exceeded response includes all required fields."""
+        org = MockOrganization(
+            id="org-123",
+            debates_used_this_month=100,
+            is_at_limit=True,
+        )
+        org.limits.debates_per_month = 100
+        org.tier = MagicMock(value="starter")
+
+        user_store = MockUserStore(organizations={"org-123": org})
+        user_ctx = MockUserAuthContext(org_id="org-123")
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler, user):
+                return {"created": True}
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = user_store
+
+        result = instance.method(mock_handler, user=user_ctx)
+        assert isinstance(result, HandlerResult)
+        body = json.loads(result.body)
+
+        assert body["error"] == "Monthly debate quota exceeded"
+        assert body["code"] == "quota_exceeded"
+        assert body["limit"] == 100
+        assert body["used"] == 100
+        assert body["remaining"] == 0
+        assert body["tier"] == "starter"
+        assert body["upgrade_url"] == "/pricing"
+        assert "message" in body
+
+
+class TestRequireQuotaAuthentication:
+    """Tests for require_quota authentication handling."""
+
+    @patch("aragora.server.handlers.api_decorators.extract_user_from_request")
+    def test_authenticates_when_user_not_in_kwargs(self, mock_extract):
+        """Test that authentication happens when user not provided."""
+        mock_user = MockUserAuthContext(
+            is_authenticated=True,
+            user_id="authenticated-user",
+            org_id=None,
+        )
+        mock_extract.return_value = mock_user
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler):
+                return {"ok": True}
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = None
+
+        result = instance.method(handler=mock_handler)
+        assert result == {"ok": True}
+        mock_extract.assert_called_once()
+
+    @patch("aragora.server.handlers.api_decorators.extract_user_from_request")
+    def test_returns_401_with_error_reason(self, mock_extract):
+        """Test that 401 includes error_reason from auth context."""
+        mock_user = MockUserAuthContext(
+            is_authenticated=False,
+            error_reason="Token has expired",
+        )
+        mock_extract.return_value = mock_user
+
+        class MyClass:
+            @require_quota()
+            def method(self, handler):
+                return {"ok": True}
+
+        instance = MyClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = None
+
+        result = instance.method(handler=mock_handler)
+        assert isinstance(result, HandlerResult)
+        assert result.status_code == 401
+        body = json.loads(result.body)
+        assert "Token has expired" in body["error"]
+
+
+# ===========================================================================
+# Additional validate_body Tests
+# ===========================================================================
+
+
+class TestValidateBodySyncAdditional:
+    """Additional tests for sync validate_body behavior."""
+
+    def test_sync_json_not_callable(self):
+        """Test sync handler when request.json is not callable."""
+
+        class Handler:
+            @validate_body(["field"])
+            def process(self, request):
+                return {"success": True}
+
+        handler = Handler()
+
+        class RequestWithNonCallableJson:
+            json = "not a method"
+            headers = {}
+
+        request = RequestWithNonCallableJson()
+
+        result = handler.process(request)
+        assert isinstance(result, HandlerResult)
+        assert result.status_code == 400
+
+    def test_sync_missing_json_attribute(self):
+        """Test sync handler when request doesn't have json attribute."""
+
+        class Handler:
+            @validate_body(["field"])
+            def process(self, request):
+                return {"success": True}
+
+        handler = Handler()
+
+        class RequestWithoutJson:
+            headers = {}
+
+        request = RequestWithoutJson()
+
+        result = handler.process(request)
+        assert isinstance(result, HandlerResult)
+        assert result.status_code == 400
+
+
+class TestValidateBodyAsyncAdditional:
+    """Additional tests for async validate_body behavior."""
+
+    def test_async_with_extra_positional_args(self):
+        """Test async handler preserves extra positional args."""
+
+        class Handler:
+            @validate_body(["field"])
+            async def process(self, request, arg1, arg2):
+                body = await request.json()
+                return {"field": body["field"], "arg1": arg1, "arg2": arg2}
+
+        handler = Handler()
+        request = MockAsyncRequest(_json_data={"field": "value"})
+
+        result = asyncio.run(handler.process(request, "first", "second"))
+        assert result["field"] == "value"
+        assert result["arg1"] == "first"
+        assert result["arg2"] == "second"
+
+    def test_async_json_decode_error_message(self):
+        """Test async JSON decode error includes appropriate message."""
+
+        class Handler:
+            @validate_body(["field"])
+            async def process(self, request):
+                return {"success": True}
+
+        handler = Handler()
+        request = MockAsyncRequest(_json_error=json.JSONDecodeError("msg", "doc", 0))
+
+        result = asyncio.run(handler.process(request))
+        body = json.loads(result.body)
+        assert "Invalid JSON body" in body["error"]
+
+
+# ===========================================================================
+# Additional rate_limit Tests
+# ===========================================================================
+
+
+class TestRateLimitAsyncHandling:
+    """Tests for rate_limit async wrapper behavior."""
+
+    @patch("aragora.server.handlers.api_decorators._rate_limit")
+    def test_async_wrapper_awaits_awaitable_result(self, mock_rate_limit):
+        """Test that async wrapper properly awaits awaitable results."""
+
+        # Create a decorated function that returns an awaitable
+        call_count = {"value": 0}
+
+        def make_decorator(func):
+            def decorated(*args, **kwargs):
+                call_count["value"] += 1
+                coro = func(*args, **kwargs)
+                return coro  # Return the coroutine directly
+
+            return decorated
+
+        mock_rate_limit.return_value = make_decorator
+
+        @rate_limit(requests_per_minute=30)
+        async def async_handler():
+            return {"async": True}
+
+        result = asyncio.run(async_handler())
+        assert result == {"async": True}
+        assert call_count["value"] == 1
+
+    @patch("aragora.server.handlers.api_decorators._rate_limit")
+    def test_async_wrapper_handles_non_awaitable_from_decorated(self, mock_rate_limit):
+        """Test async wrapper handles non-awaitable results from decorated func."""
+
+        def make_decorator(func):
+            def decorated(*args, **kwargs):
+                # Return non-awaitable directly
+                return {"direct_result": True}
+
+            return decorated
+
+        mock_rate_limit.return_value = make_decorator
+
+        @rate_limit(requests_per_minute=30)
+        async def async_handler():
+            return {"async": True}
+
+        result = asyncio.run(async_handler())
+        assert result == {"direct_result": True}
+
+
+# ===========================================================================
+# Decorator Stacking Additional Tests
+# ===========================================================================
+
+
+class TestDecoratorStackingAdditional:
+    """Additional tests for decorator stacking scenarios."""
+
+    @patch("aragora.server.handlers.api_decorators._rate_limit")
+    def test_rate_limit_with_validate_body(self, mock_rate_limit):
+        """Test rate_limit stacked with validate_body."""
+        mock_decorator = MagicMock(side_effect=lambda f: f)
+        mock_rate_limit.return_value = mock_decorator
+
+        class Handler:
+            @rate_limit(requests_per_minute=60)
+            @validate_body(["name"])
+            async def create(self, request):
+                body = await request.json()
+                return {"name": body["name"]}
+
+        handler = Handler()
+
+        # Valid request
+        valid_request = MockAsyncRequest(_json_data={"name": "test"})
+        result = asyncio.run(handler.create(valid_request))
+        assert result["name"] == "test"
+
+        # Invalid request
+        invalid_request = MockAsyncRequest(_json_data={})
+        result = asyncio.run(handler.create(invalid_request))
+        assert isinstance(result, HandlerResult)
+        assert result.status_code == 400
+
+    def test_multiple_validate_body_decorators(self):
+        """Test behavior with multiple validate_body decorators (not recommended)."""
+
+        class Handler:
+            @validate_body(["outer"])
+            @validate_body(["inner"])
+            async def process(self, request):
+                body = await request.json()
+                return {"both": True}
+
+        handler = Handler()
+
+        # Request missing outer field fails first
+        request = MockAsyncRequest(_json_data={"inner": "value"})
+        result = asyncio.run(handler.process(request))
+        assert isinstance(result, HandlerResult)
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "outer" in body["error"]
+
+    def test_api_endpoint_preserves_docstring(self):
+        """Test that api_endpoint preserves function docstring."""
+
+        @api_endpoint(method="GET", path="/test")
+        def documented_handler():
+            """This is the docstring."""
+            pass
+
+        # The function is returned directly, so docstring should be preserved
+        assert documented_handler.__doc__ == """This is the docstring."""
+
+
+# ===========================================================================
+# Fixtures-based Tests (using pytest fixtures)
+# ===========================================================================
+
+
+@pytest.fixture
+def mock_authenticated_user():
+    """Fixture providing an authenticated user context."""
+    return MockUserAuthContext(
+        is_authenticated=True,
+        user_id="fixture-user-123",
+        email="fixture@example.com",
+        org_id="fixture-org-123",
+    )
+
+
+@pytest.fixture
+def mock_org_with_quota():
+    """Fixture providing an organization with available quota."""
+    org = MockOrganization(
+        id="fixture-org-123",
+        debates_used_this_month=50,
+        is_at_limit=False,
+    )
+    org.limits.debates_per_month = 100
+    return org
+
+
+@pytest.fixture
+def mock_user_store(mock_org_with_quota):
+    """Fixture providing a user store with the mock organization."""
+    return MockUserStore(organizations={"fixture-org-123": mock_org_with_quota})
+
+
+class TestWithFixtures:
+    """Tests using pytest fixtures for cleaner setup."""
+
+    def test_quota_with_fixtures(self, mock_authenticated_user, mock_user_store):
+        """Test require_quota using fixtures."""
+
+        class Handler:
+            @require_quota()
+            def create(self, handler, user):
+                return {"created": True}
+
+        instance = Handler()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = mock_user_store
+
+        result = instance.create(mock_handler, user=mock_authenticated_user)
+        assert result == {"created": True}
+
+    def test_quota_increments_with_fixtures(self, mock_authenticated_user, mock_user_store):
+        """Test quota increment using fixtures."""
+
+        class Handler:
+            @require_quota(debate_count=3)
+            def batch_create(self, handler, user):
+                return MagicMock(status_code=200)
+
+        instance = Handler()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        mock_handler.user_store = mock_user_store
+
+        instance.batch_create(mock_handler, user=mock_authenticated_user)
+        assert ("fixture-org-123", 3) in mock_user_store.usage_increments

@@ -337,8 +337,8 @@ def handle_agent_errors(
                 ctx.attempt = attempt
 
                 try:
-                    # Note: type: ignore needed because Callable[..., T] doesn't carry
-                    # async/Awaitable information. The decorator ensures func is async.
+                    # The decorator is applied to async methods, but Callable[..., T]
+                    # cannot express async return types. The await is valid at runtime.
                     result = await func(self, *args, **kwargs)  # type: ignore[misc]
                     if circuit_breaker is not None:
                         circuit_breaker.record_success()
@@ -470,8 +470,8 @@ def with_error_handling(
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs) -> T:
             try:
-                # Note: type: ignore needed because Callable[..., T] doesn't express
-                # that func is async. The iscoroutinefunction check ensures it is.
+                # The iscoroutinefunction check below ensures func is async,
+                # but Callable[..., T] cannot express async return types.
                 return await func(*args, **kwargs)  # type: ignore[misc]
             except error_types as e:
                 _log_error(func, e, log_level, message_template)
@@ -531,8 +531,8 @@ def handle_stream_errors(
             partial_content = []
 
             try:
-                # Note: type: ignore needed because Callable[..., T] cannot express
-                # that func is an async generator. This decorator is for streaming methods.
+                # This decorator is specifically for async generator methods.
+                # Callable[..., T] cannot express async generator types.
                 async for chunk in func(self, *args, **kwargs):  # type: ignore[attr-defined]
                     if isinstance(chunk, str):
                         partial_content.append(chunk)

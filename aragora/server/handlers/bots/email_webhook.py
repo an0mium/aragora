@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any
 from aragora.audit.unified import audit_data, audit_security
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import MaybeAsyncHandlerResult
+    pass
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -112,9 +112,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         }
 
     @rate_limit(requests_per_minute=30)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "MaybeAsyncHandlerResult":
+    ) -> HandlerResult | None:
         """Route email GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/email/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -467,7 +467,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         import cgi
         from io import BytesIO
 
-        form_data = {}
+        form_data: dict[str, Any] = {}
 
         if "multipart/form-data" in content_type:
             # Parse boundary from content type
@@ -515,9 +515,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
             parsed = parse_qs(body.decode("utf-8"))
             for key, values in parsed.items():
-                form_data[key] = values[0] if len(values) == 1 else values  # type: ignore[assignment]
+                form_data[key] = values[0] if len(values) == 1 else values
 
-        return form_data  # type: ignore[return-value]
+        return form_data
 
 
 __all__ = ["EmailWebhookHandler"]

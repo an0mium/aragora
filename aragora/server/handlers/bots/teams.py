@@ -35,10 +35,7 @@ import logging
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    pass
+from typing import Any
 
 from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_ROUNDS

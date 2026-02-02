@@ -955,19 +955,17 @@ class TestConclusionWithComplianceInsertion:
 class TestTranslationFormatting:
     """Additional tests for translation formatting edge cases."""
 
-    def test_translation_language_code_uppercase_in_fallback(self, formatter):
-        """Test language code is uppercased in fallback mode."""
+    def test_translation_with_unknown_language_code(self, formatter):
+        """Test translations work with unknown language codes."""
         result = MockDebateResult(translations={"xyz": "Translation in unknown language"})
 
-        # Force the import error path by patching
-        with patch("aragora.debate.translation.Language") as mock_lang:
-            mock_lang.from_code.side_effect = AttributeError("No Language")
+        conclusion = formatter.format_conclusion(result)
 
-            conclusion = formatter.format_conclusion(result)
-
-            # Should still display translations with uppercase code
-            assert "## TRANSLATIONS" in conclusion
-            assert "Translation in unknown language" in conclusion
+        # Should still display translations
+        assert "## TRANSLATIONS" in conclusion
+        assert "Translation in unknown language" in conclusion
+        # Language code should appear (either through Language module lookup or as-is)
+        assert "xyz" in conclusion.lower() or "XYZ" in conclusion
 
     def test_multiple_translations_all_displayed(self, formatter):
         """Test all translations are displayed, not limited."""

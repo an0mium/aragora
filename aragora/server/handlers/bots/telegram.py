@@ -21,12 +21,9 @@ import json
 import logging
 import os
 import threading
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import Any, Protocol, cast
 
 from aragora.audit.unified import audit_data
-
-if TYPE_CHECKING:
-    pass
 
 
 class VoteRecordingStore(Protocol):
