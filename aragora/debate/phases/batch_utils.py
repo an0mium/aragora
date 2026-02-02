@@ -52,6 +52,7 @@ from aragora.rlm.batch import (
     llm_batch,
     llm_batch_detailed,
 )
+from aragora.observability.metrics.debate_slo import record_agent_response_time
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Vote
@@ -177,15 +178,25 @@ async def batch_with_agents(
     # Build wrapper that tracks agent info
 
     async def process_with_tracking(agent: "Agent") -> tuple[str, R]:
-        """Wrap process_fn to track agent info and apply stagger."""
+        """Wrap process_fn to track agent info, apply stagger, and record SLO metrics."""
+        import time as time_mod
+
         # Apply stagger delay if configured
         if cfg.stagger_delay > 0:
             idx = available_agents.index(agent)
             await asyncio.sleep(idx * cfg.stagger_delay)
 
         logger.debug(f"batch_{operation_name}_start agent={agent.name}")
+
+        # Track per-agent response time for SLO metrics
+        start_time = time_mod.perf_counter()
         result = await process_fn(agent)
-        logger.debug(f"batch_{operation_name}_complete agent={agent.name}")
+        latency = time_mod.perf_counter() - start_time
+
+        # Record agent response time with model name and phase
+        record_agent_response_time(agent.name, latency, operation_name)
+
+        logger.debug(f"batch_{operation_name}_complete agent={agent.name} latency={latency:.2f}s")
         return (agent.name, result)
 
     # Early stop condition
@@ -314,6 +325,8 @@ async def batch_generate_critiques(
             return len(results) >= cfg.min_required
 
     async def generate_with_tracking(task_tuple: tuple) -> "Critique":
+        import time as time_mod
+
         critic, proposer_name, proposal = task_tuple
         logger.debug(f"batch_critique_start critic={critic.name} target={proposer_name}")
 
@@ -321,8 +334,17 @@ async def batch_generate_critiques(
             idx = critique_tasks.index(task_tuple)
             await asyncio.sleep(idx * cfg.stagger_delay)
 
+        # Track per-agent response time for SLO metrics
+        start_time = time_mod.perf_counter()
         critique = await generate_fn(critic, proposer_name, proposal)
-        logger.debug(f"batch_critique_complete critic={critic.name} target={proposer_name}")
+        latency = time_mod.perf_counter() - start_time
+
+        # Record agent response time with model name and phase
+        record_agent_response_time(critic.name, latency, "critique")
+
+        logger.debug(
+            f"batch_critique_complete critic={critic.name} target={proposer_name} latency={latency:.2f}s"
+        )
         return critique
 
     batch_config = BatchConfig(

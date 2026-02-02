@@ -24,6 +24,10 @@ from aragora.server.metrics import (
     ACTIVE_DEBATES,
     track_debate_outcome,
 )
+from aragora.observability.metrics.debate_slo import (
+    record_debate_completion_slo,
+    update_debate_success_rate,
+)
 
 if TYPE_CHECKING:
     from aragora.debate.orchestrator import Arena
@@ -295,6 +299,16 @@ def record_debate_metrics(
         consensus_reached=consensus_reached,
         confidence=confidence,
     )
+
+    # Record SLO-specific metrics for percentile tracking (p50/p95/p99)
+    if state.debate_status == "completed":
+        outcome = "consensus" if consensus_reached else "no_consensus"
+    elif state.debate_status == "timeout":
+        outcome = "timeout"
+    else:
+        outcome = "error"
+    record_debate_completion_slo(duration, outcome)
+    update_debate_success_rate(consensus_reached)
 
     # Structured logging for debate completion
     logger.info(

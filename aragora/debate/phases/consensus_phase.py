@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
+from aragora.observability.metrics.debate_slo import record_consensus_detection_latency
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
 from aragora.debate.phases.synthesis_generator import SynthesisGenerator
 from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator
@@ -311,6 +312,9 @@ class ConsensusPhase:
         # Get timeout from protocol or use default
         timeout = getattr(self.protocol, "consensus_timeout", self.DEFAULT_CONSENSUS_TIMEOUT)
 
+        # Track consensus detection latency for SLO metrics
+        consensus_start = time.perf_counter()
+
         try:
             await asyncio.wait_for(self._execute_consensus(ctx, consensus_mode), timeout=timeout)
 
@@ -330,6 +334,10 @@ class ConsensusPhase:
                 exc_info=True,
             )
             await self._handle_fallback_consensus(ctx, reason=f"error: {type(e).__name__}")
+        finally:
+            # Record consensus detection latency for SLO tracking (p50/p95/p99)
+            consensus_latency = time.perf_counter() - consensus_start
+            record_consensus_detection_latency(consensus_latency, consensus_mode)
 
         # Always generate final synthesis regardless of consensus mode
         try:
