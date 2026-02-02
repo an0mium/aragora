@@ -31,6 +31,7 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from ..utils.file_validation import validate_file_upload, MAX_FILE_SIZE
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
 
@@ -425,8 +426,25 @@ class FolderUploadHandler(BaseHandler):
             for file_info in scan_result.included_files:
                 try:
                     file_path = Path(file_info.absolute_path)
+
+                    # Validate file before reading (check filename security and size)
+                    # Note: size is from scan, actual read will verify
+                    file_validation = validate_file_upload(
+                        filename=file_path.name,
+                        size=file_info.size_bytes,
+                        content_type=None,  # Inferred from extension
+                    )
+                    if not file_validation.valid:
+                        raise ValueError(file_validation.error_message or "File validation failed")
+
                     with open(file_path, "rb") as f:
                         content = f.read()
+
+                    # Verify actual size matches expected
+                    if len(content) > MAX_FILE_SIZE:
+                        raise ValueError(
+                            f"File too large: {len(content)} bytes exceeds {MAX_FILE_SIZE} byte limit"
+                        )
 
                     doc = parse_document(content, file_path.name)
                     doc_id = store.add(doc)
