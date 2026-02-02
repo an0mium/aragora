@@ -90,6 +90,8 @@ try:
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
+    # Fallback assignments when optional dependency is missing; names were
+    # conditionally imported above, so mypy sees a redefinition.
     KnowledgeMound: type[KnowledgeMoundType] | None = None  # type: ignore[no-redef]
     MoundConfig: type[MoundConfigType] | None = None  # type: ignore[no-redef]
     MoundBackend: type[MoundBackendType] | None = None  # type: ignore[no-redef]
@@ -104,6 +106,7 @@ try:
     )
 except ImportError:
     UNSTRUCTURED_AVAILABLE = False
+    # Fallback when unstructured is not installed
     UnstructuredParser: type[UnstructuredParserType] | None = None  # type: ignore[no-redef]
 
 
@@ -274,7 +277,8 @@ class KnowledgePipeline:
             try:
                 mound_config = self.config.mound_config or (MoundConfig() if MoundConfig else None)
                 if KnowledgeMound is not None and mound_config is not None:
-                    self._knowledge_mound = KnowledgeMound( # type: ignore[abstract]
+                    # KnowledgeMound facade is instantiable despite abstract base
+                    self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
                         config=mound_config,
                         workspace_id=self.config.workspace_id,
                     )

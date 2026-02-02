@@ -55,7 +55,7 @@ try:
     from aragora.knowledge.mound.culture import OrganizationCultureManager
 except ImportError:
     # Fallback stub when culture module is not available.
-    # type: ignore needed because the name is conditionally defined above.
+    # Note: type ignore needed because the name is conditionally defined above.
     OrganizationCultureManager = None  # type: ignore[misc, assignment]
 
 logger = logging.getLogger(__name__)

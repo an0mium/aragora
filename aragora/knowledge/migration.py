@@ -271,6 +271,7 @@ class KnowledgeMoundMigrator:
                             continue
 
                     # Add to mound using add_node
+                    # add_node returns a str id; misc arises from overloaded signatures
                     node_id = await self._mound.add_node(node)  # type: ignore[misc]
                     result.node_ids.append(node_id)
                     result.migrated_count += 1
@@ -392,6 +393,7 @@ class KnowledgeMoundMigrator:
                 try:
                     # Create main consensus node
                     consensus_node = self._consensus_record_to_node(record, workspace_id)
+                    # misc: overloaded add_node signatures
                     consensus_id = await self._mound.add_node(consensus_node)  # type: ignore[misc]
                     result.node_ids.append(consensus_id)
                     result.migrated_count += 1
@@ -416,10 +418,12 @@ class KnowledgeMoundMigrator:
                                 "consensus_id": record.id,
                             },
                         )
+                        # misc: overloaded add_node signatures
                         claim_id = await self._mound.add_node(claim_node)  # type: ignore[misc]
                         result.node_ids.append(claim_id)
 
                         # Add "supports" relationship using correct API
+                        # misc: overloaded add_relationship signatures
                         rel_result = await self._mound.add_relationship(  # type: ignore[misc]
                             from_id=claim_id,
                             to_id=consensus_id,
@@ -436,10 +440,12 @@ class KnowledgeMoundMigrator:
                             dissent = get_dissent(dissent_id) if get_dissent else None
                             if dissent:
                                 dissent_node = self._dissent_record_to_node(dissent, workspace_id)
+                                # misc: overloaded add_node signatures
                                 d_node_id = await self._mound.add_node(dissent_node)  # type: ignore[misc]
                                 result.node_ids.append(d_node_id)
 
                                 # Add "contradicts" relationship using correct API
+                                # misc: overloaded add_relationship signatures
                                 rel_result = await self._mound.add_relationship(  # type: ignore[misc]
                                     from_id=d_node_id,
                                     to_id=consensus_id,
@@ -662,6 +668,7 @@ async def run_migration_cli(
     consensus = ConsensusMemory(db_path=get_db_path(DatabaseType.CONSENSUS_MEMORY))
 
     # Initialize target
+    # KnowledgeMound facade is instantiable despite abstract base methods
     mound = KnowledgeMound(workspace_id=workspace_id)  # type: ignore[abstract]
     await mound.initialize()
 

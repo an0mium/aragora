@@ -68,6 +68,7 @@ class ContinuumGlacialMixin:
         # Check if we have a host class providing connection (via MRO)
         # If not, use standalone glacial connection
         if hasattr(super(), "connection"):
+            # Mixin pattern: super() delegates to host class via MRO; mypy cannot resolve this
             return super().connection()  # type: ignore[misc]
         return self._glacial_connection()
 
@@ -128,6 +129,7 @@ class ContinuumGlacialMixin:
         """
         # Check if we have a host class providing retrieve (via MRO)
         if hasattr(super(), "retrieve"):
+            # Mixin pattern: super() delegates to host class via MRO; mypy cannot resolve this
             return super().retrieve(  # type: ignore[misc]
                 query=query,
                 tiers=tiers,

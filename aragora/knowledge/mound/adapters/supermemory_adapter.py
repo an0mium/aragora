@@ -443,7 +443,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
             for r in results
         ]
 
-    async def health_check(self) -> dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:  # type: ignore[override]
         """Check adapter and Supermemory health.
 
         Returns:

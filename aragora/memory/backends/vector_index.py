@@ -33,7 +33,7 @@ try:
 
     HAS_NUMPY = True
 except ImportError:
-    np = None  # type: ignore[assignment]
+    np = None  # type: ignore[assignment]  # optional import fallback: module -> None when numpy unavailable
     HAS_NUMPY = False
 
 try:
@@ -41,7 +41,7 @@ try:
 
     HAS_FAISS = True
 except ImportError:
-    faiss = None  # type: ignore[assignment]
+    faiss = None  # type: ignore[assignment]  # optional import fallback: module -> None when faiss unavailable
     HAS_FAISS = False
 
 

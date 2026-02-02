@@ -43,7 +43,7 @@ except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
     # Fallback stubs when RLM package is not installed.
-    # type: ignore needed because these names are conditionally defined above.
+    # Note: type ignore needed because these names are conditionally defined above.
     get_rlm = None  # type: ignore[misc, assignment]
     RLMConfig = None  # type: ignore[misc, assignment]
     RLMMode = None  # type: ignore[misc, assignment]
@@ -119,7 +119,7 @@ class RLMOperationsMixin:
         items = await self.query_semantic(  # type: ignore[attr-defined]
             text=query,
             limit=limit,
-            workspace_id=ws_id,
+            workspace_id=ws_id,  # type: ignore[name-defined]
         )
 
         if not items:
@@ -251,7 +251,7 @@ class RLMOperationsMixin:
         items = await self.query_semantic(  # type: ignore[attr-defined]
             text=query,
             limit=limit,
-            workspace_id=ws_id,
+            workspace_id=ws_id,  # type: ignore[name-defined]
         )
 
         if not items:
@@ -387,14 +387,14 @@ class RLMOperationsMixin:
             # Create REPL environment with knowledge context
             env = adapter.create_repl_for_knowledge(
                 mound=self,
-                workspace_id=ws_id,
+                workspace_id=ws_id,  # type: ignore[name-defined]
                 content_id=content_id,
             )
 
             if env:
                 logger.info(
                     "[rlm] Created TRUE RLM REPL environment for knowledge (workspace=%s)",
-                    ws_id,
+                    ws_id,  # type: ignore[name-defined]
                 )
 
             return env

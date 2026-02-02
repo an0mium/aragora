@@ -766,6 +766,7 @@ class AdapterFactory:
         self,
         coordinator: "BidirectionalCoordinator",
         adapters: dict[str, CreatedAdapter],
+        enable_overrides: set[str] | None = None,
     ) -> int:
         """
         Register created adapters with a BidirectionalCoordinator.
@@ -773,11 +774,13 @@ class AdapterFactory:
         Args:
             coordinator: The coordinator to register with
             adapters: Dict of adapters from create_from_* methods
+            enable_overrides: Optional set of adapter names to force-enable
 
         Returns:
             Number of successfully registered adapters
         """
         registered = 0
+        enable_overrides = enable_overrides or set()
 
         for name, created in adapters.items():
             spec = created.spec
@@ -793,7 +796,9 @@ class AdapterFactory:
 
             if success:
                 # Enable/disable based on spec
-                if not spec.enabled_by_default:
+                if name in enable_overrides:
+                    coordinator.enable_adapter(name)
+                elif not spec.enabled_by_default:
                     coordinator.disable_adapter(name)
                 registered += 1
 

@@ -225,7 +225,8 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
                 "workspace_id": stats.workspace_id,
             }
         else:
-            # Fallback if stats is a dict (legacy compatibility)
+            # Fallback if stats is a dict (legacy compatibility);
+            # stats may be MoundStats or plain dict depending on backend version
             stats_dict: dict[str, Any] = stats  # type: ignore[assignment]
             return {
                 "total_nodes": stats_dict.get("total_nodes", 0),

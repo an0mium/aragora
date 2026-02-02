@@ -44,7 +44,7 @@ except ImportError:
             pass
 
     @contextmanager
-    def trace_context(
+    def trace_context(  # type: ignore[misc]
         operation: str,
         trace_id: str | None = None,
         parent_span_id: str | None = None,
