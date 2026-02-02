@@ -168,7 +168,12 @@ def handle_revoke_session(
     if token:
         payload = decode_jwt(token)
         if payload:
-            current_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
+            payload_jti = None
+            if isinstance(payload, dict):
+                payload_jti = payload.get("jti")
+            else:
+                payload_jti = getattr(payload, "jti", None)
+            current_jti = payload_jti or hashlib.sha256(token.encode()).hexdigest()[:32]
 
     if session_id == current_jti:
         return error_response(
