@@ -25,6 +25,17 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # ============================================================
+  # Test Tier Architecture (#180)
+  # ============================================================
+  # PR tier (test-fast):       <5 min target, parallel by category
+  #   Markers excluded: slow, load, e2e, integration, benchmark, performance
+  # Compat matrix (test):      Full OS/Python matrix, coverage gates
+  # Nightly tier (nightly-slow): slow + load + e2e tests, 600s timeout
+  # Benchmarks:                Dedicated workflow in benchmark.yml
+  #   (pytest-benchmark with regression detection + baseline comparison)
+  # ============================================================
+
   # Version alignment check (fast, runs first)
   version-check:
     name: Version Alignment
@@ -160,7 +171,9 @@ jobs:
             -n auto \
             --dist loadscope \
             -v \
-            --tb=short
+            --tb=short \
+            --durations=20 \
+            --durations-min=1.0
         env:
           PYTHONPATH: .
 
@@ -417,15 +430,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,research,test]"
-          pip install pytest-benchmark pytest-timeout
+          pip install pytest-timeout
 
-      - name: Run slow/load/e2e/benchmark tier
+      - name: Run slow/load/e2e tier
         run: |
           pytest tests/ \
-            -m "slow or load or e2e or benchmark" \
+            -m "slow or load or e2e" \
             --timeout=600 \
             -v \
-            --tb=short
+            --tb=short \
+            --durations=20 \
+            --durations-min=2.0
         env:
           PYTHONPATH: .
 
@@ -535,66 +550,9 @@ jobs:
         run: |
           mypy aragora/ --ignore-missing-imports --no-error-summary --show-error-codes 2>&1 | head -100 || true
 
-  benchmark:
-    name: Performance Benchmarks
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,research]"
-          pip install pytest-benchmark
-
-      - name: Download previous benchmark data
-        uses: actions/cache@v4
-        with:
-          path: .benchmarks
-          key: benchmark-${{ runner.os }}-${{ hashFiles('tests/benchmarks/**') }}
-          restore-keys: |
-            benchmark-${{ runner.os }}-
-
-      - name: Run benchmarks
-        run: |
-          pytest tests/benchmarks/ -v \
-            --benchmark-only \
-            --benchmark-json=benchmark-results.json \
-            --benchmark-autosave \
-            || true  # Don't fail on benchmark tests
-        env:
-          PYTHONPATH: .
-
-      - name: Store benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: |
-            benchmark-results.json
-            .benchmarks/
-          retention-days: 30
-
-      - name: Comment benchmark results on PR
-        if: github.event_name == 'pull_request'
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: 'pytest'
-          output-file-path: benchmark-results.json
-          comment-on-alert: true
-          alert-threshold: '150%'
-          fail-on-alert: false
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
+  # NOTE: Performance benchmarks are handled by .github/workflows/benchmark.yml
+  # which runs with full pytest-benchmark tooling, regression detection, and
+  # baseline comparison. Do not duplicate benchmark runs here.
 
   # Database migration testing
   migration-test:
