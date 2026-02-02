@@ -272,7 +272,7 @@ class TestCodebaseAuditor:
     @pytest.fixture
     def project_root(self) -> Path:
         """Get project root."""
-        return Path(__file__).parent.parent.parent.parent
+        return Path(__file__).resolve().parents[2]
 
     @pytest.fixture
     def auditor(self, project_root):
