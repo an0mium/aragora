@@ -203,6 +203,12 @@ class HybridDebateHandler(BaseHandler):
     @log_request("create hybrid debate")
     def _handle_create_debate(self, handler: Any) -> HandlerResult:
         """Handle POST /api/v1/debates/hybrid."""
+        # Check circuit breaker
+        cb = get_hybrid_debate_circuit_breaker()
+        if not cb.can_proceed():
+            logger.warning("Hybrid debate circuit breaker is open")
+            return error_response("Service temporarily unavailable due to high error rate", 503)
+
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
@@ -290,8 +296,17 @@ class HybridDebateHandler(BaseHandler):
         }
 
         # Run the debate (mockable in tests)
-        result = self._run_debate(debate_record)
-        debate_record.update(result)
+        try:
+            result = self._run_debate(debate_record)
+            debate_record.update(result)
+
+            # Record success for circuit breaker
+            cb.record_success()
+        except Exception as e:
+            # Record failure for circuit breaker
+            cb.record_failure()
+            logger.error(f"Hybrid debate execution failed: {e}")
+            raise
 
         # Store the debate
         self._debates[debate_id] = debate_record

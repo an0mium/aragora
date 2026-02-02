@@ -559,7 +559,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GatewayHealthHandler": Stability.EXPERIMENTAL,
     "GatewayAgentsHandler": Stability.EXPERIMENTAL,
     "GatewayCredentialsHandler": Stability.EXPERIMENTAL,
-    "HybridDebateHandler": Stability.EXPERIMENTAL,
+    "HybridDebateHandler": Stability.STABLE,
     "ERC8004Handler": Stability.EXPERIMENTAL,
 }
 

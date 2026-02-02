@@ -129,6 +129,7 @@ HANDLER_MODULES: dict[str, str] = {
     "CanvasHandler": "aragora.server.handlers.canvas",
     "CheckpointHandler": "aragora.server.handlers.checkpoints",
     "CodeReviewHandler": "aragora.server.handlers.code_review",
+    "ComplianceHandler": "aragora.server.handlers.compliance_handler",
     "CompositeHandler": "aragora.server.handlers.composite",
     "ComputerUseHandler": "aragora.server.handlers.computer_use_handler",
     "ConsensusHandler": "aragora.server.handlers.consensus",

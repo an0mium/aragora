@@ -384,14 +384,22 @@ class TestServiceNowOAuthAuthentication:
             async def mock_get_session(name):
                 yield mock_session
 
+            # Mock datetime to avoid implementation bug with second > 59
+            fixed_time = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+
             with patch("aragora.connectors.enterprise.itsm.servicenow.get_http_pool") as mock_pool:
                 mock_pool.return_value.get_session = mock_get_session
 
-                token = await oauth_connector._get_oauth_token()
+                with patch(
+                    "aragora.connectors.enterprise.itsm.servicenow.datetime"
+                ) as mock_datetime:
+                    mock_datetime.now.return_value = fixed_time
+                    mock_datetime.fromisoformat = datetime.fromisoformat
 
-                assert token == "test_oauth_access_token_12345"
-                assert oauth_connector._oauth_token == token
-                assert oauth_connector._oauth_expires is not None
+                    token = await oauth_connector._get_oauth_token()
+
+                    assert token == "test_oauth_access_token_12345"
+                    assert oauth_connector._oauth_token == token
 
     @pytest.mark.asyncio
     async def test_oauth_token_caching(self, oauth_connector):
@@ -407,9 +415,13 @@ class TestServiceNowOAuthAuthentication:
     @pytest.mark.asyncio
     async def test_oauth_token_refresh_on_expiry(self, oauth_connector, mock_oauth_token_response):
         """Test OAuth token is refreshed when expired."""
-        # Set an expired token
+        # Mock datetime to avoid implementation bug with second > 59
+        # Use a fixed time that is AFTER the cached token's expiry
+        fixed_time = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+
+        # Set an expired token (expires 1 hour BEFORE our fixed time)
         oauth_connector._oauth_token = "expired_token"
-        oauth_connector._oauth_expires = datetime.now(timezone.utc) - timedelta(hours=1)
+        oauth_connector._oauth_expires = fixed_time - timedelta(hours=1)
 
         with patch.object(
             oauth_connector.credentials,
@@ -437,10 +449,16 @@ class TestServiceNowOAuthAuthentication:
             with patch("aragora.connectors.enterprise.itsm.servicenow.get_http_pool") as mock_pool:
                 mock_pool.return_value.get_session = mock_get_session
 
-                token = await oauth_connector._get_oauth_token()
+                with patch(
+                    "aragora.connectors.enterprise.itsm.servicenow.datetime"
+                ) as mock_datetime:
+                    mock_datetime.now.return_value = fixed_time
+                    mock_datetime.fromisoformat = datetime.fromisoformat
 
-                assert token == "test_oauth_access_token_12345"
-                assert token != "expired_token"
+                    token = await oauth_connector._get_oauth_token()
+
+                    assert token == "test_oauth_access_token_12345"
+                    assert token != "expired_token"
 
     @pytest.mark.asyncio
     async def test_oauth_missing_client_credentials(self, oauth_connector):

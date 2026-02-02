@@ -1014,3 +1014,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         except (AttributeError, KeyError, TypeError) as e:
             logger.error(f"Data structure error listing stale jobs: {e}")
             return error_response("Internal data error", 500)
+
+
+__all__ = [
+    "QueueHandler",
+    "get_queue_circuit_breaker",
+    "get_queue_circuit_breaker_status",
+]
