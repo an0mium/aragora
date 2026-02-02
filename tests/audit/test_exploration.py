@@ -279,8 +279,9 @@ class TestCodebaseAuditor:
         """Create a codebase auditor."""
         from aragora.audit.codebase_auditor import CodebaseAuditor, CodebaseAuditConfig
 
+        target_file = Path("aragora/observability/metrics/core.py")
         config = CodebaseAuditConfig(
-            include_paths=["aragora/core.py"],  # Just one file for speed
+            include_paths=[str(target_file)],  # Just one file for speed
             max_findings_per_cycle=5,
         )
         return CodebaseAuditor(root_path=project_root, config=config)
@@ -289,7 +290,7 @@ class TestCodebaseAuditor:
         """Test collecting files to audit."""
         files = auditor._collect_files()
         assert len(files) >= 1
-        assert any("core.py" in str(f) for f in files)
+        assert any(str(f).endswith("aragora/observability/metrics/core.py") for f in files)
 
     def test_security_pattern_detection(self, auditor):
         """Test detecting security patterns in code."""
