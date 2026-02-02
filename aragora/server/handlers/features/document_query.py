@@ -339,8 +339,6 @@ class DocumentQueryHandler(BaseHandler):
         config_dict: dict,
     ) -> dict[str, Any]:
         """Run structured extraction asynchronously."""
-        from aragora.analysis.nl_query import DocumentQueryEngine, QueryConfig
-
         config = QueryConfig(
             **{k: v for k, v in config_dict.items() if k in QueryConfig.__annotations__}
         )
