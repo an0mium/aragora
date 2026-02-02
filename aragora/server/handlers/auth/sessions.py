@@ -77,7 +77,9 @@ def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerRes
     if token:
         payload = decode_jwt(token)
         if payload:
-            current_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
+            current_jti = (
+                getattr(payload, "jti", None) or hashlib.sha256(token.encode()).hexdigest()[:32]
+            )
 
     # Get sessions from manager
     manager = get_session_manager()
