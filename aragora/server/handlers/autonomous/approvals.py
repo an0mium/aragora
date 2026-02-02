@@ -51,6 +51,8 @@ def _ensure_auth_context(auth_ctx: object) -> None:
         setattr(auth_ctx, "org_id", None)
     if not hasattr(auth_ctx, "api_key_scope"):
         setattr(auth_ctx, "api_key_scope", None)
+    if not hasattr(auth_ctx, "workspace_id"):
+        setattr(auth_ctx, "workspace_id", None)
 
 
 class ApprovalHandler:
