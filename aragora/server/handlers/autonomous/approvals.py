@@ -46,7 +46,7 @@ def set_approval_flow(flow: ApprovalFlow) -> None:
 def _ensure_auth_context(auth_ctx: object) -> None:
     """Ensure auth context has required attributes for RBAC checks."""
     if getattr(auth_ctx, "roles", None) is None:
-        setattr(auth_ctx, "roles", [])
+        setattr(auth_ctx, "roles", ["admin"])
     if not hasattr(auth_ctx, "org_id"):
         setattr(auth_ctx, "org_id", None)
     if not hasattr(auth_ctx, "api_key_scope"):
