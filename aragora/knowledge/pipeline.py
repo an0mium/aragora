@@ -55,12 +55,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import (
-        KnowledgeMound as KnowledgeMoundType,
-        MoundConfig as MoundConfigType,
-        MoundBackend as MoundBackendType,
-    )
-    from aragora.documents.ingestion import UnstructuredParser as UnstructuredParserType
+    pass
 
 from aragora.documents.chunking import (
     auto_select_strategy,
@@ -82,7 +77,6 @@ try:
     from aragora.knowledge.mound import (
         KnowledgeMound,
         MoundConfig,
-        MoundBackend,
         IngestionRequest,
         KnowledgeSource,
     )
@@ -90,24 +84,24 @@ try:
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
-    # Fallback assignments when optional dependency is missing; names were
-    # conditionally imported above, so mypy sees a redefinition.
-    KnowledgeMound: type[KnowledgeMoundType] | None = None  # type: ignore[no-redef]
-    MoundConfig: type[MoundConfigType] | None = None  # type: ignore[no-redef]
-    MoundBackend: type[MoundBackendType] | None = None  # type: ignore[no-redef]
+    KnowledgeMound: Any = None
+    MoundConfig: Any = None
+    IngestionRequest: Any = None
+    KnowledgeSource: Any = None
 
 logger = logging.getLogger(__name__)
 
 # Optional imports
+# Pre-declare with Any to avoid type: ignore on redefinition
+UnstructuredParser: Any = None
+UNSTRUCTURED_AVAILABLE: bool = False
 try:
     from aragora.documents.ingestion import (
         UnstructuredParser,
         UNSTRUCTURED_AVAILABLE,
     )
 except ImportError:
-    UNSTRUCTURED_AVAILABLE = False
-    # Fallback when unstructured is not installed
-    UnstructuredParser: type[UnstructuredParserType] | None = None  # type: ignore[no-redef]
+    pass
 
 
 @dataclass
@@ -277,8 +271,8 @@ class KnowledgePipeline:
             try:
                 mound_config = self.config.mound_config or (MoundConfig() if MoundConfig else None)
                 if KnowledgeMound is not None and mound_config is not None:
-                    # KnowledgeMound facade is instantiable despite abstract base
-                    self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
+                    # KnowledgeMound facade is instantiable (pre-declared as Any)
+                    self._knowledge_mound = KnowledgeMound(
                         config=mound_config,
                         workspace_id=self.config.workspace_id,
                     )

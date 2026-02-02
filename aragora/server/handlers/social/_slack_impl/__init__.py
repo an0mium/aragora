@@ -44,6 +44,11 @@ from .config import (
     resolve_workspace,
 )
 from .handler import SlackHandler, get_slack_handler
+from .messaging import (
+    SlackCircuitBreaker,
+    get_slack_circuit_breaker,
+    reset_slack_circuit_breaker,
+)
 
 __all__ = [
     "SlackHandler",
@@ -65,4 +70,8 @@ __all__ = [
     "BOTS_READ_PERMISSION",
     "COMMAND_PATTERN",
     "TOPIC_PATTERN",
+    # Circuit breaker
+    "SlackCircuitBreaker",
+    "get_slack_circuit_breaker",
+    "reset_slack_circuit_breaker",
 ]

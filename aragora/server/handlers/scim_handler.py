@@ -34,8 +34,8 @@ from aragora.server.handlers.base import (
 from aragora.server.http_utils import run_async
 from aragora.server.validation.query_params import safe_query_int
 
-# SCIM response type: either a standard HandlerResult or a SCIM-specific tuple (body, status, content_type)
-SCIMResponse = HandlerResult | tuple[str, int, str] | None
+# SCIM handlers return HandlerResult for compatibility with BaseHandler
+# Internal methods use tuple format which gets converted to HandlerResult
 
 # SCIM imports
 SCIMConfig: Any
@@ -87,7 +87,7 @@ class SCIMHandler(BaseHandler):
             self._scim_server = SCIMServer(config)
         return self._scim_server
 
-    def _verify_bearer_token(self, handler: Any) -> SCIMResponse:
+    def _verify_bearer_token(self, handler: Any) -> HandlerResult | None:
         """Verify the SCIM bearer token from the Authorization header.
 
         Returns None if auth succeeds, or an error HandlerResult if it fails.
@@ -112,20 +112,32 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def _scim_error(self, detail: str, status: int) -> tuple[str, int, str]:
+    def _scim_error(self, detail: str, status: int) -> HandlerResult:
         """Create a SCIM-formatted error response."""
         error_body = {
             "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
             "detail": detail,
             "status": str(status),
         }
-        return json.dumps(error_body), status, SCIM_CONTENT_TYPE
+        return HandlerResult(
+            status_code=status,
+            content_type=SCIM_CONTENT_TYPE,
+            body=json.dumps(error_body).encode("utf-8"),
+        )
 
-    def _scim_response(self, body: dict | None, status: int) -> tuple[str, int, str]:
+    def _scim_response(self, body: dict | None, status: int) -> HandlerResult:
         """Create a SCIM-formatted response."""
         if body is None and status == 204:
-            return "", 204, SCIM_CONTENT_TYPE
-        return json.dumps(body or {}), status, SCIM_CONTENT_TYPE
+            return HandlerResult(
+                status_code=204,
+                content_type=SCIM_CONTENT_TYPE,
+                body=b"",
+            )
+        return HandlerResult(
+            status_code=status,
+            content_type=SCIM_CONTENT_TYPE,
+            body=json.dumps(body or {}).encode("utf-8"),
+        )
 
     def _extract_resource_id(self, path: str, resource_type: str) -> str | None:
         """Extract resource ID from path like /scim/v2/Users/{id}."""
@@ -162,7 +174,7 @@ class SCIMHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/scim/v2/")
 
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]  # SCIMResponse widens return type for SCIM-specific tuple responses
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
@@ -213,7 +225,9 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]  # SCIMResponse widens return type for SCIM-specific tuple responses
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
         if not self.can_handle(path):
             return None
@@ -245,7 +259,9 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]  # SCIMResponse widens return type for SCIM-specific tuple responses
+    def handle_put(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle PUT requests."""
         if not self.can_handle(path):
             return None
@@ -279,7 +295,9 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_patch(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]  # SCIMResponse widens return type for SCIM-specific tuple responses
+    def handle_patch(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle PATCH requests."""
         if not self.can_handle(path):
             return None
@@ -313,7 +331,9 @@ class SCIMHandler(BaseHandler):
 
         return None
 
-    def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> SCIMResponse:  # type: ignore[override]  # SCIMResponse widens return type for SCIM-specific tuple responses
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle DELETE requests."""
         if not self.can_handle(path):
             return None

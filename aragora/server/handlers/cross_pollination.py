@@ -190,13 +190,13 @@ class CrossPollinationMetricsHandler(BaseHandler):
             metrics_text = get_cross_pollination_metrics_text()
 
             # Return raw response dict for Prometheus format
-            return {  # type: ignore[return-value]
-                "status": 200,
-                "body": metrics_text,
-                "headers": {
-                    "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
-                },
-            }
+            return HandlerResult(
+                status_code=200,
+                content_type="text/plain; version=0.0.4; charset=utf-8",
+                body=metrics_text.encode("utf-8")
+                if isinstance(metrics_text, str)
+                else metrics_text,
+            )
 
         except ImportError:
             return error_response(
@@ -364,11 +364,14 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
             # Sync RankingAdapter
             try:
+                from typing import cast
                 from aragora.knowledge.mound.adapters.ranking_adapter import RankingAdapter
 
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is None:
-                    ranking_adapter = RankingAdapter()  # type: ignore[abstract]
+                    ranking_adapter = cast(
+                        Any, RankingAdapter()
+                    )  # Concrete subclass fulfills abstract methods at runtime
                     setattr(manager, "_ranking_adapter", ranking_adapter)
 
                 stats = ranking_adapter.get_stats()

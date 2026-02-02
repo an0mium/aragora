@@ -21,27 +21,41 @@ logger = logging.getLogger(__name__)
 # Type variables for generic decorator
 F = TypeVar("F", bound=Callable[..., Any])
 
+# Pre-declare optional import names for graceful degradation
+trace: Any = None
+Context: Any = None
+SpanKind: Any = None
+Status: Any = None
+StatusCode: Any = None
+Tracer: Any = None
+
 # Try to import OpenTelemetry - graceful degradation if not installed
 _OTEL_AVAILABLE = False
 _tracer = None
+_propagator: Any = None
 
 try:
-    from opentelemetry import trace
-    from opentelemetry.context import Context
-    from opentelemetry.trace import SpanKind, Status, StatusCode, Tracer
+    from opentelemetry import trace as _trace_module
+    from opentelemetry.context import Context as _Context
+    from opentelemetry.trace import (
+        SpanKind as _SpanKind,
+        Status as _Status,
+        StatusCode as _StatusCode,
+        Tracer as _Tracer,
+    )
     from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
+    trace = _trace_module
+    Context = _Context
+    SpanKind = _SpanKind
+    Status = _Status
+    StatusCode = _StatusCode
+    Tracer = _Tracer
     _OTEL_AVAILABLE = True
     _propagator = TraceContextTextMapPropagator()
 except ImportError:
-    # opentelemetry is an optional dependency; provide None fallbacks for graceful degradation
-    trace = None  # type: ignore[assignment]
-    Context = None  # type: ignore[assignment, misc]
-    SpanKind = None  # type: ignore[assignment, misc]
-    Status = None  # type: ignore[assignment, misc]
-    StatusCode = None  # type: ignore[assignment, misc]
-    Tracer = None  # type: ignore[assignment, misc]
-    _propagator = None
+    # opentelemetry is an optional dependency; None fallbacks already set above
+    pass
 
 
 @dataclass
@@ -528,9 +542,9 @@ class CorrelationLogFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         """Add correlation context to log record."""
         # LogRecord supports arbitrary attributes for use in log formatters
-        record.correlation_id = get_correlation_id()  # type: ignore[attr-defined]
-        record.trace_id = get_current_trace_id() or ""  # type: ignore[attr-defined]
-        record.span_id = get_current_span_id() or ""  # type: ignore[attr-defined]
+        setattr(record, "correlation_id", get_correlation_id())
+        setattr(record, "trace_id", get_current_trace_id() or "")
+        setattr(record, "span_id", get_current_span_id() or "")
         return True
 
 

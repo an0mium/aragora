@@ -153,7 +153,7 @@ def init_agent_provider_metrics() -> None:
                 if hasattr(collector, "_name") and collector._name == name:
                     # prometheus_client registry stores Collector base type;
                     # the isinstance check is implicit via _name matching.
-                    return collector  # type: ignore[return-value]
+                    return cast(Counter, collector)
             return Counter(name, doc, labels)
 
         def get_or_create_histogram(
@@ -164,7 +164,7 @@ def init_agent_provider_metrics() -> None:
                 if hasattr(collector, "_name") and collector._name == name:
                     # prometheus_client registry stores Collector base type;
                     # the isinstance check is implicit via _name matching.
-                    return collector  # type: ignore[return-value]
+                    return cast(Histogram, collector)
             return Histogram(name, doc, labels, buckets=buckets)
 
         def get_or_create_gauge(name: str, doc: str, labels: list[str]) -> Gauge:
@@ -173,7 +173,7 @@ def init_agent_provider_metrics() -> None:
                 if hasattr(collector, "_name") and collector._name == name:
                     # prometheus_client registry stores Collector base type;
                     # the isinstance check is implicit via _name matching.
-                    return collector  # type: ignore[return-value]
+                    return cast(Gauge, collector)
             return Gauge(name, doc, labels)
 
         # --- Call Metrics ---

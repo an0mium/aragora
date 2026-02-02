@@ -278,7 +278,7 @@ class SQLiteBlacklist(BlacklistBackend):
 try:
     import redis
 
-    class RedisBlacklist(BlacklistBackend):  # type: ignore[misc]
+    class RedisBlacklist(BlacklistBackend):  # type: ignore[no-redef]
         """
         Redis-backed token blacklist.
 

@@ -35,11 +35,13 @@ from aragora.connectors.enterprise.database.cdc import (
 )
 from aragora.reasoning.provenance import SourceType
 
-# Optional dependency for async MySQL
+# Optional dependency for async MySQL - pre-declare for type checker
+aiomysql: Any = None
+
 try:
-    import aiomysql
+    import aiomysql  # type: ignore[no-redef]
 except ImportError:
-    aiomysql = None  # type: ignore[misc, no-redef]  # optional dependency fallback pattern
+    pass  # aiomysql stays as None fallback
 
 logger = logging.getLogger(__name__)
 

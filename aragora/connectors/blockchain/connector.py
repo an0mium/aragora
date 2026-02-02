@@ -162,7 +162,7 @@ class ERC8004Connector(BaseConnector):
             logger.debug(f"Health check failed: {e}")
             return False
 
-    async def search(  # type: ignore[override]  # returns BlockchainSearchResult instead of base Evidence type
+    async def search(  # type: ignore[override]  # blockchain connector returns BlockchainSearchResult instead of Evidence
         self,
         query: str,
         max_results: int = 10,
@@ -395,12 +395,13 @@ class ERC8004Connector(BaseConnector):
     def _to_evidence(self, blockchain_evidence: BlockchainEvidence) -> Evidence:
         """Convert BlockchainEvidence to standard Evidence."""
         # Import here to avoid circular dependency issues
+        source_type: Any = "blockchain"  # default fallback as string
         try:
             from aragora.reasoning.provenance import SourceType
 
             source_type = SourceType.EXTERNAL_API  # Use EXTERNAL_API until BLOCKCHAIN is added
         except ImportError:
-            source_type = "blockchain"  # type: ignore[assignment]  # fallback string when SourceType enum unavailable
+            pass  # source_type stays as fallback string
 
         return Evidence(
             id=blockchain_evidence.id,

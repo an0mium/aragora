@@ -136,8 +136,10 @@ class CultureOperationsMixin(_CultureMixinBase):
 
             # Mixin pattern: self is the composed KnowledgeMound which satisfies
             # the manager's mound interface at runtime.
+            # Cast to Any to avoid type mismatch (OrganizationCultureManager expects KnowledgeMound)
+            mound_ref: Any = self
             manager = OrganizationCultureManager(
-                mound=self,  # type: ignore[arg-type]
+                mound=mound_ref,
                 culture_accumulator=self._culture_accumulator,
             )
             self._org_culture_manager = manager

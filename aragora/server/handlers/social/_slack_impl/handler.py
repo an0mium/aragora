@@ -198,14 +198,22 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             return False
 
     def _get_status(self) -> HandlerResult:
-        """Get Slack integration status."""
+        """Get Slack integration status.
+
+        Includes circuit breaker status for monitoring resilience.
+        """
+        from .messaging import get_slack_circuit_breaker
+
         integration = get_slack_integration()
+        circuit_breaker = get_slack_circuit_breaker()
+
         return json_response(
             {
                 "enabled": integration is not None,
                 "signing_secret_configured": bool(_cfg.SLACK_SIGNING_SECRET),
                 "bot_token_configured": bool(_cfg.SLACK_BOT_TOKEN),
                 "webhook_configured": bool(_cfg.SLACK_WEBHOOK_URL),
+                "circuit_breaker": circuit_breaker.get_status(),
             }
         )
 

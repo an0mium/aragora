@@ -24,33 +24,38 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional, Protocol, Sequence
 
+
 # Distributed tracing support
+# Mock span for when tracing is not available
+class _MockSpan:
+    def set_tag(self, key: str, value: Any) -> None:
+        pass
+
+    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
+        pass
+
+    def set_error(self, error: Exception) -> None:
+        pass
+
+
+@contextmanager
+def _mock_trace_context(
+    operation: str,
+    trace_id: str | None = None,
+    parent_span_id: str | None = None,
+) -> Iterator[_MockSpan]:
+    """Mock trace_context for when tracing is not available."""
+    yield _MockSpan()
+
+
+# Pre-declare trace_context for optional import
+trace_context: Any = _mock_trace_context
 try:
     from aragora.server.middleware.tracing import trace_context
 
     TRACING_AVAILABLE = True
 except ImportError:
     TRACING_AVAILABLE = False
-
-    # Mock span for when tracing is not available
-    class _MockSpan:
-        def set_tag(self, key: str, value: Any) -> None:
-            pass
-
-        def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
-            pass
-
-        def set_error(self, error: Exception) -> None:
-            pass
-
-    @contextmanager
-    def trace_context(  # type: ignore[misc]
-        operation: str,
-        trace_id: str | None = None,
-        parent_span_id: str | None = None,
-    ) -> Iterator[_MockSpan]:
-        """Mock trace_context for when tracing is not available."""
-        yield _MockSpan()
 
 
 from aragora.knowledge.mound.validation import (

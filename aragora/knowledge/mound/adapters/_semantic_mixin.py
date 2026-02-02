@@ -35,12 +35,22 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.semantic_store import SemanticSearchResult
 
 logger = logging.getLogger(__name__)
+
+
+class _AdapterProtocol(Protocol):
+    """Protocol for adapter methods expected by SemanticSearchMixin."""
+
+    adapter_name: str
+    source_type: str
+
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None: ...
+    def _record_metric(self, operation: str, success: bool, duration: float) -> None: ...
 
 
 class SemanticSearchMixin:
@@ -297,7 +307,8 @@ class SemanticSearchMixin:
                 )
 
                 # Emit event - _emit_event provided by KnowledgeMoundAdapter via inheritance
-                self._emit_event(  # type: ignore[attr-defined]
+                adapter = cast(_AdapterProtocol, self)
+                adapter._emit_event(
                     "km_adapter_semantic_search",
                     {
                         "source": self.source_type,
@@ -338,7 +349,8 @@ class SemanticSearchMixin:
 
         finally:
             # _record_metric provided by KnowledgeMoundAdapter via inheritance
-            self._record_metric("semantic_search", success, time.time() - start)  # type: ignore[attr-defined]
+            adapter = cast(_AdapterProtocol, self)
+            adapter._record_metric("semantic_search", success, time.time() - start)
 
     def _enrich_semantic_results(self, results: list[Any]) -> list[dict[str, Any]]:
         """Enrich semantic search results with full record data.

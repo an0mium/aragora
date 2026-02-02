@@ -905,6 +905,15 @@ class UnifiedServer:
         # and ensure route index is built before accepting requests
         UnifiedHandler._init_handlers()
 
+        # Register V1 API deprecations for sunset enforcement
+        try:
+            from aragora.server.middleware.deprecation_enforcer import register_default_deprecations
+
+            register_default_deprecations()
+            logger.info("V1 API deprecations registered for sunset enforcement")
+        except ImportError:
+            logger.debug("Deprecation enforcer not available, skipping v1 deprecation registration")
+
         # Log startup timing
         startup_elapsed_ms = (time_mod.perf_counter() - startup_start) * 1000
         init_mode = "parallel" if use_parallel_init else "sequential"

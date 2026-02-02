@@ -1,5 +1,6 @@
 """Tests for Features Handler."""
 
+import os
 import sys
 import types as _types_mod
 
@@ -41,6 +42,7 @@ from aragora.server.handlers.features.features import (
     FeatureInfo,
     _features_limiter,
     _check_feature_available,
+    _check_supermemory,
     get_all_features,
     get_available_features,
     get_unavailable_features,
@@ -159,6 +161,38 @@ class TestCheckFeatureAvailable:
             available, reason = _check_feature_available("test_feature")
             assert available is False
             assert "deprecated" in reason.lower()
+
+
+class TestSupermemoryAvailability:
+    """Tests for Supermemory feature availability checks."""
+
+    @staticmethod
+    def _fake_import(name: str, *args, **kwargs):  # noqa: ARG004 - matches importlib signature
+        if name in ("aragora.connectors.supermemory", "supermemory"):
+            return object()
+        raise ImportError(f"No module named {name}")
+
+    def test_supermemory_unavailable_without_api_key(self):
+        with patch(
+            "aragora.server.handlers.features.features.importlib.import_module",
+            side_effect=self._fake_import,
+        ):
+            with patch.dict(os.environ, {}, clear=True):
+                available, reason = _check_supermemory()
+
+        assert available is False
+        assert "SUPERMEMORY_API_KEY" in (reason or "")
+
+    def test_supermemory_available_with_api_key(self):
+        with patch(
+            "aragora.server.handlers.features.features.importlib.import_module",
+            side_effect=self._fake_import,
+        ):
+            with patch.dict(os.environ, {"SUPERMEMORY_API_KEY": "sm_test"}, clear=True):
+                available, reason = _check_supermemory()
+
+        assert available is True
+        assert reason is None
 
 
 class TestGetAllFeatures:

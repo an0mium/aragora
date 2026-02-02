@@ -201,6 +201,14 @@ class V1UsageTracker:
         self.requests_by_method[method.upper()] += 1
         self.last_request_time = time.time()
 
+        # Record Prometheus metrics
+        try:
+            from aragora.server.prometheus import record_v1_api_request
+
+            record_v1_api_request(path, method.upper())
+        except ImportError:
+            pass
+
         # Log individual deprecated access
         logger.warning(
             "v1_api_access: %s %s (client=%s, total_v1_requests=%d, "

@@ -31,6 +31,12 @@ logger = logging.getLogger(__name__)
 # Environment check for security-sensitive operations
 _IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "development").lower() in ("production", "prod")
 
+# Pre-declare types for optional jwt import
+jwt: Any = None
+PyJWKClient: Any = None
+PyJWTError: type[Exception] = Exception
+HAS_JWT = False
+
 # PyJWT for token validation - handle gracefully if not installed
 try:
     import jwt
@@ -39,11 +45,7 @@ try:
 
     HAS_JWT = True
 except ImportError:
-    # PyJWT is optional; set fallbacks for when library is not installed
-    jwt = None  # type: ignore[assignment]  # None sentinel when pyjwt unavailable
-    PyJWKClient = None  # type: ignore[assignment,misc]  # None sentinel when pyjwt unavailable
-    PyJWTError = Exception  # type: ignore[assignment,misc]  # use base Exception as fallback
-    HAS_JWT = False
+    # PyJWT is optional; fallbacks already set above
     logger.warning(
         "PyJWT library not installed - JWT verification unavailable. "
         "Install with: pip install pyjwt[crypto]"

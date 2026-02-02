@@ -1,6 +1,8 @@
 """
 CRM Platform API Handlers.
 
+Stability: STABLE
+
 Unified API for Customer Relationship Management platforms:
 - HubSpot (contacts, companies, deals, marketing)
 - Salesforce - planned
@@ -22,12 +24,22 @@ Usage:
 
     POST   /api/v1/crm/sync-lead                  - Sync lead from external source
     POST   /api/v1/crm/enrich                     - Enrich contact data
+
+Features:
+- Circuit breaker pattern for CRM platform API resilience
+- Rate limiting (60 requests/minute)
+- RBAC permission checks (crm:read, crm:write, crm:configure)
+- Comprehensive input validation with safe ID patterns
+- Error isolation (platform failures handled gracefully)
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import re
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -36,10 +48,312 @@ from typing import Any
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.utils.responses import error_response
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Input Validation Constants
+# =============================================================================
+
+# Platform ID validation: alphanumeric and underscores only
+SAFE_PLATFORM_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,49}$")
+
+# Contact/Company/Deal ID validation: alphanumeric, hyphens, underscores
+SAFE_RESOURCE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,127}$")
+
+# Email validation pattern (basic but covers most cases)
+EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+# Max lengths for input validation
+MAX_EMAIL_LENGTH = 254
+MAX_NAME_LENGTH = 128
+MAX_PHONE_LENGTH = 32
+MAX_COMPANY_NAME_LENGTH = 256
+MAX_JOB_TITLE_LENGTH = 128
+MAX_DOMAIN_LENGTH = 253
+MAX_DEAL_NAME_LENGTH = 256
+MAX_STAGE_LENGTH = 64
+MAX_PIPELINE_LENGTH = 64
+MAX_CREDENTIAL_VALUE_LENGTH = 1024
+MAX_SEARCH_QUERY_LENGTH = 256
+
+
+def _validate_platform_id(platform: str) -> tuple[bool, str | None]:
+    """Validate a platform ID.
+
+    Args:
+        platform: Platform identifier to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not platform:
+        return False, "Platform is required"
+    if len(platform) > 50:
+        return False, "Platform name too long (max 50 characters)"
+    if not SAFE_PLATFORM_PATTERN.match(platform):
+        return False, "Invalid platform format (alphanumeric and underscores only)"
+    return True, None
+
+
+def _validate_resource_id(resource_id: str, resource_type: str = "ID") -> tuple[bool, str | None]:
+    """Validate a resource ID (contact, company, deal, etc.).
+
+    Args:
+        resource_id: Resource identifier to validate
+        resource_type: Type name for error messages
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not resource_id:
+        return False, f"{resource_type} is required"
+    if len(resource_id) > 128:
+        return False, f"{resource_type} too long (max 128 characters)"
+    if not SAFE_RESOURCE_ID_PATTERN.match(resource_id):
+        return False, f"Invalid {resource_type.lower()} format"
+    return True, None
+
+
+def _validate_email(email: str | None, required: bool = False) -> tuple[bool, str | None]:
+    """Validate an email address.
+
+    Args:
+        email: Email to validate
+        required: Whether email is required
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not email:
+        if required:
+            return False, "Email is required"
+        return True, None
+    if len(email) > MAX_EMAIL_LENGTH:
+        return False, f"Email too long (max {MAX_EMAIL_LENGTH} characters)"
+    if not EMAIL_PATTERN.match(email):
+        return False, "Invalid email format"
+    return True, None
+
+
+def _validate_string_field(
+    value: str | None,
+    field_name: str,
+    max_length: int,
+    required: bool = False,
+) -> tuple[bool, str | None]:
+    """Validate a string field with length constraints.
+
+    Args:
+        value: Value to validate
+        field_name: Field name for error messages
+        max_length: Maximum allowed length
+        required: Whether field is required
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not value:
+        if required:
+            return False, f"{field_name} is required"
+        return True, None
+    if len(value) > max_length:
+        return False, f"{field_name} too long (max {max_length} characters)"
+    return True, None
+
+
+def _validate_amount(amount: Any) -> tuple[bool, str | None, float | None]:
+    """Validate a monetary amount.
+
+    Args:
+        amount: Amount value to validate
+
+    Returns:
+        Tuple of (is_valid, error_message, parsed_value)
+    """
+    if amount is None:
+        return True, None, None
+    try:
+        amt = float(amount)
+        if amt < 0:
+            return False, "Amount cannot be negative", None
+        if amt > 1_000_000_000_000:  # 1 trillion max
+            return False, "Amount too large", None
+        return True, None, amt
+    except (ValueError, TypeError):
+        return False, "Invalid amount format", None
+
+
+def _validate_probability(probability: Any) -> tuple[bool, str | None, float | None]:
+    """Validate a probability value (0-100).
+
+    Args:
+        probability: Probability value to validate
+
+    Returns:
+        Tuple of (is_valid, error_message, parsed_value)
+    """
+    if probability is None:
+        return True, None, None
+    try:
+        prob = float(probability)
+        if prob < 0 or prob > 100:
+            return False, "Probability must be between 0 and 100", None
+        return True, None, prob
+    except (ValueError, TypeError):
+        return False, "Invalid probability format", None
+
+
+# =============================================================================
+# Circuit Breaker for CRM Platform Access
+# =============================================================================
+
+
+class CRMCircuitBreaker:
+    """Circuit breaker for CRM platform API access.
+
+    Prevents cascading failures when external platform APIs are unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 2,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("CRM circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed.
+
+        Returns:
+            True if call is allowed, False if circuit is open
+        """
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("CRM circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("CRM circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"CRM circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker instance for CRM platform access
+_circuit_breaker = CRMCircuitBreaker()
+_circuit_breaker_lock = threading.Lock()
+
+
+def get_crm_circuit_breaker() -> CRMCircuitBreaker:
+    """Get the global circuit breaker for CRM platform access."""
+    return _circuit_breaker
+
+
+def reset_crm_circuit_breaker() -> None:
+    """Reset the global circuit breaker (for testing)."""
+    with _circuit_breaker_lock:
+        _circuit_breaker.reset()
 
 
 # Platform credentials storage
@@ -173,7 +487,14 @@ class UnifiedDeal:
 
 
 class CRMHandler(SecureHandler):
-    """Handler for CRM platform API endpoints."""
+    """Handler for CRM platform API endpoints.
+
+    Features:
+    - Circuit breaker pattern for CRM platform API resilience
+    - Rate limiting (60 requests/minute)
+    - RBAC permission checks (crm:read, crm:write, crm:configure)
+    - Comprehensive input validation
+    """
 
     def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
@@ -184,6 +505,7 @@ class CRMHandler(SecureHandler):
     ROUTES = [
         "/api/v1/crm/platforms",
         "/api/v1/crm/connect",
+        "/api/v1/crm/status",  # Circuit breaker status endpoint
         "/api/v1/crm/{platform}",
         "/api/v1/crm/contacts",
         "/api/v1/crm/{platform}/contacts",
@@ -215,8 +537,27 @@ class CRMHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/crm/")
 
+    def _check_circuit_breaker(self) -> HandlerResult | None:
+        """Check if the circuit breaker allows the request to proceed.
+
+        Returns:
+            Error response if circuit is open, None if request can proceed
+        """
+        cb = get_crm_circuit_breaker()
+        if not cb.can_proceed():
+            logger.warning("CRM circuit breaker is open, rejecting request")
+            return error_response(
+                "CRM service temporarily unavailable (circuit breaker open)",
+                503,
+            )
+        return None
+
+    @rate_limit(requests_per_minute=60)
     async def handle_request(self, request: Any) -> HandlerResult:
-        """Route request to appropriate handler."""
+        """Route request to appropriate handler.
+
+        Rate limited to 60 requests per minute.
+        """
         method = request.method
         path = str(request.path)
 
@@ -231,6 +572,10 @@ class CRMHandler(SecureHandler):
                 resource_id = parts[2]
 
         # Route to handlers
+        # Status endpoint (no circuit breaker check for status itself)
+        if path.endswith("/status") and method == "GET":
+            return await self._get_status(request)
+
         if path.endswith("/platforms") and method == "GET":
             return await self._list_platforms(request)
 
@@ -334,6 +679,25 @@ class CRMHandler(SecureHandler):
 
         return self._error_response(404, "Endpoint not found")
 
+    async def _get_status(self, request: Any) -> HandlerResult:
+        """Get CRM handler status including circuit breaker state."""
+        cb = get_crm_circuit_breaker()
+        cb_status = cb.get_status()
+
+        # Get connected platforms count
+        connected_platforms = list(_platform_credentials.keys())
+
+        return self._json_response(
+            200,
+            {
+                "status": "healthy" if cb_status["state"] == "closed" else "degraded",
+                "circuit_breaker": cb_status,
+                "connected_platforms": connected_platforms,
+                "connected_count": len(connected_platforms),
+                "supported_platforms": list(SUPPORTED_PLATFORMS.keys()),
+            },
+        )
+
     async def _list_platforms(self, request: Any) -> HandlerResult:
         """List all supported CRM platforms and connection status."""
         platforms = []
@@ -368,8 +732,12 @@ class CRMHandler(SecureHandler):
             return self._error_response(400, f"Invalid JSON body: {e}")
 
         platform = body.get("platform")
-        if not platform:
-            return self._error_response(400, "Platform is required")
+        # Validate platform ID format
+        valid, err = (
+            _validate_platform_id(platform) if platform else (False, "Platform is required")
+        )
+        if not valid:
+            return self._error_response(400, err)
 
         if platform not in SUPPORTED_PLATFORMS:
             return self._error_response(400, f"Unsupported platform: {platform}")
@@ -380,6 +748,14 @@ class CRMHandler(SecureHandler):
         credentials = body.get("credentials", {})
         if not credentials:
             return self._error_response(400, "Credentials are required")
+
+        # Validate credential values don't exceed max length
+        for key, value in credentials.items():
+            if isinstance(value, str) and len(value) > MAX_CREDENTIAL_VALUE_LENGTH:
+                return self._error_response(
+                    400,
+                    f"Credential '{key}' too long (max {MAX_CREDENTIAL_VALUE_LENGTH} characters)",
+                )
 
         # Validate required credentials
         required_fields = self._get_required_credentials(platform)
@@ -414,6 +790,11 @@ class CRMHandler(SecureHandler):
 
     async def _disconnect_platform(self, request: Any, platform: str) -> HandlerResult:
         """Disconnect a CRM platform."""
+        # Validate platform ID format
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -439,10 +820,21 @@ class CRMHandler(SecureHandler):
 
     async def _list_all_contacts(self, request: Any) -> HandlerResult:
         """List contacts from all connected platforms."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
         limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         email = request.query.get("email")
 
+        # Validate email format if provided
+        if email:
+            valid, err = _validate_email(email)
+            if not valid:
+                return self._error_response(400, err)
+
         all_contacts: list[dict[str, Any]] = []
+        cb = get_crm_circuit_breaker()
 
         tasks = []
         for platform in _platform_credentials.keys():
@@ -451,11 +843,19 @@ class CRMHandler(SecureHandler):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        has_failure = False
         for platform, result in zip(_platform_credentials.keys(), results):
             if isinstance(result, BaseException):
                 logger.error(f"Error fetching contacts from {platform}: {result}")
+                has_failure = True
                 continue
             all_contacts.extend(result)
+
+        # Record circuit breaker status
+        if has_failure:
+            cb.record_failure()
+        else:
+            cb.record_success()
 
         return self._json_response(
             200,
@@ -477,29 +877,49 @@ class CRMHandler(SecureHandler):
         if not connector:
             return []
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 if email:
                     contact = await connector.get_contact_by_email(email)
+                    cb.record_success()
                     if contact:
                         return [self._normalize_hubspot_contact(contact)]
                     return []
                 else:
                     contacts = await connector.get_contacts(limit=limit)
+                    cb.record_success()
                     return [self._normalize_hubspot_contact(c) for c in contacts]
 
         except Exception as e:
             logger.error(f"Error fetching {platform} contacts: {e}")
+            cb.record_failure()
 
         return []
 
     async def _list_platform_contacts(self, request: Any, platform: str) -> HandlerResult:
         """List contacts from a specific platform."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID format
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
         limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         email = request.query.get("email")
+
+        # Validate email format if provided
+        if email:
+            valid, err = _validate_email(email)
+            if not valid:
+                return self._error_response(400, err)
 
         contacts = await self._fetch_platform_contacts(platform, limit, email)
 
@@ -514,6 +934,20 @@ class CRMHandler(SecureHandler):
 
     async def _get_contact(self, request: Any, platform: str, contact_id: str) -> HandlerResult:
         """Get a specific contact."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID format
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
+        # Validate contact ID format
+        valid, err = _validate_resource_id(contact_id, "Contact ID")
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -521,19 +955,32 @@ class CRMHandler(SecureHandler):
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 contact = await connector.get_contact(contact_id)
+                cb.record_success()
                 return self._json_response(200, self._normalize_hubspot_contact(contact))
 
         except Exception as e:
             logger.warning("CRM get_contact failed for %s/%s: %s", platform, contact_id, e)
+            cb.record_failure()
             return self._error_response(404, f"Contact not found: {e}")
 
         return self._error_response(400, "Unsupported platform")
 
     async def _create_contact(self, request: Any, platform: str) -> HandlerResult:
         """Create a new contact."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID format
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -543,28 +990,63 @@ class CRMHandler(SecureHandler):
             logger.warning("CRM create_contact: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
+        # Validate contact fields
+        email = body.get("email")
+        valid, err = _validate_email(email)
+        if not valid:
+            return self._error_response(400, err)
+
+        first_name = body.get("first_name")
+        valid, err = _validate_string_field(first_name, "First name", MAX_NAME_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
+        last_name = body.get("last_name")
+        valid, err = _validate_string_field(last_name, "Last name", MAX_NAME_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
+        phone = body.get("phone")
+        valid, err = _validate_string_field(phone, "Phone", MAX_PHONE_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
+        company = body.get("company")
+        valid, err = _validate_string_field(company, "Company", MAX_COMPANY_NAME_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
+        job_title = body.get("job_title")
+        valid, err = _validate_string_field(job_title, "Job title", MAX_JOB_TITLE_LENGTH)
+        if not valid:
+            return self._error_response(400, err)
+
         connector = await self._get_connector(platform)
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
 
+        cb = get_crm_circuit_breaker()
+
         try:
             if platform == "hubspot":
                 properties = {
-                    "email": body.get("email"),
-                    "firstname": body.get("first_name"),
-                    "lastname": body.get("last_name"),
-                    "phone": body.get("phone"),
-                    "company": body.get("company"),
-                    "jobtitle": body.get("job_title"),
+                    "email": email,
+                    "firstname": first_name,
+                    "lastname": last_name,
+                    "phone": phone,
+                    "company": company,
+                    "jobtitle": job_title,
                 }
                 # Remove None values
                 properties = {k: v for k, v in properties.items() if v is not None}
 
                 contact = await connector.create_contact(properties)
+                cb.record_success()
                 return self._json_response(201, self._normalize_hubspot_contact(contact))
 
         except Exception as e:
             logger.error("CRM create_contact failed for %s: %s", platform, e, exc_info=True)
+            cb.record_failure()
             return self._error_response(500, f"Failed to create contact: {e}")
 
         return self._error_response(400, "Unsupported platform")
@@ -576,6 +1058,20 @@ class CRMHandler(SecureHandler):
         contact_id: str,
     ) -> HandlerResult:
         """Update an existing contact."""
+        # Check circuit breaker
+        if err := self._check_circuit_breaker():
+            return err
+
+        # Validate platform ID format
+        valid, err = _validate_platform_id(platform)
+        if not valid:
+            return self._error_response(400, err)
+
+        # Validate contact ID format
+        valid, err = _validate_resource_id(contact_id, "Contact ID")
+        if not valid:
+            return self._error_response(400, err)
+
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
@@ -585,9 +1081,44 @@ class CRMHandler(SecureHandler):
             logger.warning("CRM update_contact: invalid JSON body: %s", e)
             return self._error_response(400, f"Invalid JSON body: {e}")
 
+        # Validate contact fields if provided
+        if "email" in body:
+            valid, err = _validate_email(body["email"])
+            if not valid:
+                return self._error_response(400, err)
+
+        if "first_name" in body:
+            valid, err = _validate_string_field(body["first_name"], "First name", MAX_NAME_LENGTH)
+            if not valid:
+                return self._error_response(400, err)
+
+        if "last_name" in body:
+            valid, err = _validate_string_field(body["last_name"], "Last name", MAX_NAME_LENGTH)
+            if not valid:
+                return self._error_response(400, err)
+
+        if "phone" in body:
+            valid, err = _validate_string_field(body["phone"], "Phone", MAX_PHONE_LENGTH)
+            if not valid:
+                return self._error_response(400, err)
+
+        if "company" in body:
+            valid, err = _validate_string_field(body["company"], "Company", MAX_COMPANY_NAME_LENGTH)
+            if not valid:
+                return self._error_response(400, err)
+
+        if "job_title" in body:
+            valid, err = _validate_string_field(
+                body["job_title"], "Job title", MAX_JOB_TITLE_LENGTH
+            )
+            if not valid:
+                return self._error_response(400, err)
+
         connector = await self._get_connector(platform)
         if not connector:
             return self._error_response(500, f"Could not initialize {platform} connector")
+
+        cb = get_crm_circuit_breaker()
 
         try:
             if platform == "hubspot":
@@ -607,12 +1138,14 @@ class CRMHandler(SecureHandler):
                         properties[hubspot_field] = body[api_field]
 
                 contact = await connector.update_contact(contact_id, properties)
+                cb.record_success()
                 return self._json_response(200, self._normalize_hubspot_contact(contact))
 
         except Exception as e:
             logger.error(
                 "CRM update_contact failed for %s/%s: %s", platform, contact_id, e, exc_info=True
             )
+            cb.record_failure()
             return self._error_response(500, f"Failed to update contact: {e}")
 
         return self._error_response(400, "Unsupported platform")

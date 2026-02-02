@@ -54,10 +54,14 @@ from types import SimpleNamespace
 
 from aragora.server.handlers.features.devops import (
     DevOpsHandler,
+    DevOpsCircuitBreaker,
     create_devops_handler,
     _connector_instances,
     _active_contexts,
     get_pagerduty_connector,
+    get_devops_circuit_breaker,
+    get_devops_circuit_breaker_status,
+    _clear_devops_components,
 )
 
 
@@ -104,15 +108,15 @@ def _make_request(
 
 
 def _make_incident(
-    id="INC001",
+    id="PDINC001234",  # Valid PagerDuty ID format (7-15 uppercase alphanumeric)
     title="Test Incident",
     status_val="triggered",
     urgency_val="high",
-    service_id="SVC001",
+    service_id="PDSVC001234",  # Valid PagerDuty ID format
     service_name="Test Service",
     incident_number=1,
     created_at=None,
-    html_url="https://pd.example.com/incidents/INC001",
+    html_url="https://pd.example.com/incidents/PDINC001234",
     description="A test incident",
     assignees=None,
     priority=None,
@@ -143,12 +147,12 @@ def _make_note(id="NOTE001", content="investigation note", created_at=None, user
 
 
 def _make_service(
-    id="SVC001",
+    id="PDSVC001234",  # Valid PagerDuty ID format
     name="Test Service",
     description="A test service",
     status_val="active",
-    html_url="https://pd.example.com/services/SVC001",
-    escalation_policy_id="ESCPOL001",
+    html_url="https://pd.example.com/services/PDSVC001234",
+    escalation_policy_id="PDESCPOL001",  # Valid PagerDuty ID format
     created_at=None,
 ):
     svc = SimpleNamespace()
@@ -163,9 +167,9 @@ def _make_service(
 
 
 def _make_oncall(
-    schedule_id="SCHED001",
+    schedule_id="PDSCHED01234",  # Valid PagerDuty ID format
     schedule_name="Primary",
-    user_id="USR001",
+    user_id="PDUSR001234",  # Valid PagerDuty ID format
     user_name="Alice",
     user_email="alice@example.com",
     start=None,
@@ -189,12 +193,10 @@ def _make_oncall(
 
 @pytest.fixture(autouse=True)
 def _clear_module_state():
-    """Clear module-level connector caches between tests."""
-    _connector_instances.clear()
-    _active_contexts.clear()
+    """Clear module-level connector caches and circuit breaker between tests."""
+    _clear_devops_components()
     yield
-    _connector_instances.clear()
-    _active_contexts.clear()
+    _clear_devops_components()
 
 
 @pytest.fixture()
@@ -501,7 +503,7 @@ class TestListIncidents:
         body, status = _parse_result(result)
         assert status == 200
         assert body["data"]["count"] == 1
-        assert body["data"]["incidents"][0]["id"] == "INC001"
+        assert body["data"]["incidents"][0]["id"] == "PDINC001234"
         assert body["data"]["has_more"] is False
 
     @pytest.mark.asyncio
@@ -511,7 +513,7 @@ class TestListIncidents:
         req = _make_request(
             query={
                 "status": "triggered,acknowledged",
-                "service_ids": "SVC1,SVC2",
+                "service_ids": "PDSVC000001,PDSVC000002",
                 "urgency": "high",
                 "limit": "10",
                 "offset": "5",
@@ -522,7 +524,7 @@ class TestListIncidents:
 
         mock_connector.list_incidents.assert_called_once_with(
             statuses=["triggered", "acknowledged"],
-            service_ids=["SVC1", "SVC2"],
+            service_ids=["PDSVC000001", "PDSVC000002"],
             urgencies=["high"],
             limit=10,
             offset=5,
@@ -542,13 +544,13 @@ class TestListIncidents:
 class TestCreateIncident:
     @pytest.mark.asyncio
     async def test_create_incident_success(self, handler, mock_connector):
-        created = _make_incident(id="INC_NEW", title="DB down")
+        created = _make_incident(id="PDINC00NEW1", title="DB down")
         mock_connector.create_incident = AsyncMock(return_value=created)
 
         req = _make_request(
             json_body={
                 "title": "DB down",
-                "service_id": "SVC001",
+                "service_id": "PDSVC001234",  # Valid PagerDuty ID format
                 "urgency": "high",
                 "body": "Database is unreachable",
             }
@@ -565,11 +567,11 @@ class TestCreateIncident:
 
         body, status = _parse_result(result)
         assert status == 201
-        assert body["incident"]["id"] == "INC_NEW"
+        assert body["incident"]["id"] == "PDINC00NEW1"
 
     @pytest.mark.asyncio
     async def test_create_incident_missing_title(self, handler, mock_connector):
-        req = _make_request(json_body={"service_id": "SVC001"})
+        req = _make_request(json_body={"service_id": "PDSVC001234"})
         with _patch_connector(mock_connector):
             result = await handler.handle(req, "/api/v1/incidents", "POST")
         _, status = _parse_result(result)
@@ -587,7 +589,7 @@ class TestCreateIncident:
     async def test_create_incident_error(self, handler, mock_connector):
         mock_connector.create_incident = AsyncMock(side_effect=RuntimeError("fail"))
 
-        req = _make_request(json_body={"title": "X", "service_id": "S"})
+        req = _make_request(json_body={"title": "X", "service_id": "PDSVC001234"})  # Valid ID
         with (
             _patch_connector(mock_connector),
             patch("aragora.connectors.devops.pagerduty.IncidentCreateRequest"),
@@ -609,23 +611,23 @@ class TestCreateIncident:
 class TestGetIncident:
     @pytest.mark.asyncio
     async def test_get_incident_success(self, handler, mock_connector):
-        inc = _make_incident(id="INC42")
+        inc = _make_incident(id="PDINC000042")
         mock_connector.get_incident = AsyncMock(return_value=inc)
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_get_incident(req, "test-tenant", "INC42")
+            result = await handler._handle_get_incident(req, "test-tenant", "PDINC000042")
 
         body, status = _parse_result(result)
         assert status == 200
-        assert body["data"]["incident"]["id"] == "INC42"
+        assert body["data"]["incident"]["id"] == "PDINC000042"
         assert body["data"]["incident"]["description"] == "A test incident"
 
     @pytest.mark.asyncio
     async def test_get_incident_503(self, handler):
         req = _make_request()
         with _patch_connector(None):
-            result = await handler._handle_get_incident(req, "test-tenant", "INC42")
+            result = await handler._handle_get_incident(req, "test-tenant", "PDINC000042")
         _, status = _parse_result(result)
         assert status == 503
 
@@ -635,7 +637,7 @@ class TestGetIncident:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_get_incident(req, "test-tenant", "INC99")
+            result = await handler._handle_get_incident(req, "test-tenant", "PDINC000099")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -643,12 +645,12 @@ class TestGetIncident:
 class TestAcknowledgeIncident:
     @pytest.mark.asyncio
     async def test_acknowledge_success(self, handler, mock_connector):
-        inc = _make_incident(id="INC10", status_val="acknowledged")
+        inc = _make_incident(id="PDINC000010", status_val="acknowledged")
         mock_connector.acknowledge_incident = AsyncMock(return_value=inc)
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_acknowledge_incident(req, "test-tenant", "INC10")
+            result = await handler._handle_acknowledge_incident(req, "test-tenant", "PDINC000010")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -659,7 +661,7 @@ class TestAcknowledgeIncident:
     async def test_acknowledge_503(self, handler):
         req = _make_request()
         with _patch_connector(None):
-            result = await handler._handle_acknowledge_incident(req, "test-tenant", "INC10")
+            result = await handler._handle_acknowledge_incident(req, "test-tenant", "PDINC000010")
         _, status = _parse_result(result)
         assert status == 503
 
@@ -669,7 +671,7 @@ class TestAcknowledgeIncident:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_acknowledge_incident(req, "test-tenant", "INC10")
+            result = await handler._handle_acknowledge_incident(req, "test-tenant", "PDINC000010")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -677,37 +679,39 @@ class TestAcknowledgeIncident:
 class TestResolveIncident:
     @pytest.mark.asyncio
     async def test_resolve_success(self, handler, mock_connector):
-        inc = _make_incident(id="INC20", status_val="resolved")
+        inc = _make_incident(id="PDINC000020", status_val="resolved")
         mock_connector.resolve_incident = AsyncMock(return_value=inc)
 
         req = _make_request(json_body={"resolution": "Restarted the service"})
         with _patch_connector(mock_connector):
-            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
+            result = await handler._handle_resolve_incident(req, "test-tenant", "PDINC000020")
 
         body, status = _parse_result(result)
         assert status == 200
         assert body["data"]["incident"]["status"] == "resolved"
         assert body["data"]["message"] == "Incident resolved"
-        mock_connector.resolve_incident.assert_called_once_with("INC20", "Restarted the service")
+        mock_connector.resolve_incident.assert_called_once_with(
+            "PDINC000020", "Restarted the service"
+        )
 
     @pytest.mark.asyncio
     async def test_resolve_without_resolution(self, handler, mock_connector):
-        inc = _make_incident(id="INC20", status_val="resolved")
+        inc = _make_incident(id="PDINC000020", status_val="resolved")
         mock_connector.resolve_incident = AsyncMock(return_value=inc)
 
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
+            result = await handler._handle_resolve_incident(req, "test-tenant", "PDINC000020")
 
         body, _ = _parse_result(result)
         assert body["data"]["incident"]["status"] == "resolved"
-        mock_connector.resolve_incident.assert_called_once_with("INC20", None)
+        mock_connector.resolve_incident.assert_called_once_with("PDINC000020", None)
 
     @pytest.mark.asyncio
     async def test_resolve_503(self, handler):
         req = _make_request(json_body={})
         with _patch_connector(None):
-            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
+            result = await handler._handle_resolve_incident(req, "test-tenant", "PDINC000020")
         _, status = _parse_result(result)
         assert status == 503
 
@@ -717,7 +721,7 @@ class TestResolveIncident:
 
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
+            result = await handler._handle_resolve_incident(req, "test-tenant", "PDINC000020")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -725,13 +729,13 @@ class TestResolveIncident:
 class TestReassignIncident:
     @pytest.mark.asyncio
     async def test_reassign_success_user_ids(self, handler, mock_connector):
-        inc = _make_incident(id="INC30")
-        inc.assignees = ["USR001"]
+        inc = _make_incident(id="PDINC000030")
+        inc.assignees = ["PDUSR000001"]
         mock_connector.reassign_incident = AsyncMock(return_value=inc)
 
-        req = _make_request(json_body={"user_ids": ["USR001"]})
+        req = _make_request(json_body={"user_ids": ["PDUSR000001"]})
         with _patch_connector(mock_connector):
-            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
+            result = await handler._handle_reassign_incident(req, "test-tenant", "PDINC000030")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -739,12 +743,12 @@ class TestReassignIncident:
 
     @pytest.mark.asyncio
     async def test_reassign_success_escalation_policy(self, handler, mock_connector):
-        inc = _make_incident(id="INC30")
+        inc = _make_incident(id="PDINC000030")
         mock_connector.reassign_incident = AsyncMock(return_value=inc)
 
-        req = _make_request(json_body={"escalation_policy_id": "ESCPOL1"})
+        req = _make_request(json_body={"escalation_policy_id": "PDESCPOL001"})
         with _patch_connector(mock_connector):
-            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
+            result = await handler._handle_reassign_incident(req, "test-tenant", "PDINC000030")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -754,7 +758,7 @@ class TestReassignIncident:
     async def test_reassign_missing_params(self, handler, mock_connector):
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
+            result = await handler._handle_reassign_incident(req, "test-tenant", "PDINC000030")
         _, status = _parse_result(result)
         assert status == 400
 
@@ -762,9 +766,9 @@ class TestReassignIncident:
     async def test_reassign_error(self, handler, mock_connector):
         mock_connector.reassign_incident = AsyncMock(side_effect=RuntimeError("err"))
 
-        req = _make_request(json_body={"user_ids": ["USR001"]})
+        req = _make_request(json_body={"user_ids": ["PDUSR000001"]})
         with _patch_connector(mock_connector):
-            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
+            result = await handler._handle_reassign_incident(req, "test-tenant", "PDINC000030")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -772,12 +776,12 @@ class TestReassignIncident:
 class TestMergeIncidents:
     @pytest.mark.asyncio
     async def test_merge_success(self, handler, mock_connector):
-        inc = _make_incident(id="INC50", title="Merged")
+        inc = _make_incident(id="PDINC000050", title="Merged")
         mock_connector.merge_incidents = AsyncMock(return_value=inc)
 
-        req = _make_request(json_body={"source_incident_ids": ["INC51", "INC52"]})
+        req = _make_request(json_body={"source_incident_ids": ["PDINC000051", "PDINC000052"]})
         with _patch_connector(mock_connector):
-            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
+            result = await handler._handle_merge_incidents(req, "test-tenant", "PDINC000050")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -787,7 +791,7 @@ class TestMergeIncidents:
     async def test_merge_missing_source_ids(self, handler, mock_connector):
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
+            result = await handler._handle_merge_incidents(req, "test-tenant", "PDINC000050")
         _, status = _parse_result(result)
         assert status == 400
 
@@ -795,7 +799,7 @@ class TestMergeIncidents:
     async def test_merge_empty_source_ids(self, handler, mock_connector):
         req = _make_request(json_body={"source_incident_ids": []})
         with _patch_connector(mock_connector):
-            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
+            result = await handler._handle_merge_incidents(req, "test-tenant", "PDINC000050")
         _, status = _parse_result(result)
         assert status == 400
 
@@ -803,9 +807,9 @@ class TestMergeIncidents:
     async def test_merge_error(self, handler, mock_connector):
         mock_connector.merge_incidents = AsyncMock(side_effect=RuntimeError("err"))
 
-        req = _make_request(json_body={"source_incident_ids": ["INC51"]})
+        req = _make_request(json_body={"source_incident_ids": ["PDINC000051"]})
         with _patch_connector(mock_connector):
-            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
+            result = await handler._handle_merge_incidents(req, "test-tenant", "PDINC000050")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -823,7 +827,7 @@ class TestListNotes:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
+            result = await handler._handle_list_notes(req, "test-tenant", "PDINC000001")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -838,7 +842,7 @@ class TestListNotes:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
+            result = await handler._handle_list_notes(req, "test-tenant", "PDINC000001")
 
         body, _ = _parse_result(result)
         assert body["data"]["notes"][0]["user"] is None
@@ -847,7 +851,7 @@ class TestListNotes:
     async def test_list_notes_503(self, handler):
         req = _make_request()
         with _patch_connector(None):
-            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
+            result = await handler._handle_list_notes(req, "test-tenant", "PDINC000001")
         _, status = _parse_result(result)
         assert status == 503
 
@@ -857,7 +861,7 @@ class TestListNotes:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
+            result = await handler._handle_list_notes(req, "test-tenant", "PDINC000001")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -870,7 +874,7 @@ class TestAddNote:
 
         req = _make_request(json_body={"content": "root cause found"})
         with _patch_connector(mock_connector):
-            result = await handler._handle_add_note(req, "test-tenant", "INC1")
+            result = await handler._handle_add_note(req, "test-tenant", "PDINC000001")
 
         body, status = _parse_result(result)
         assert status == 201
@@ -880,7 +884,7 @@ class TestAddNote:
     async def test_add_note_missing_content(self, handler, mock_connector):
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler._handle_add_note(req, "test-tenant", "INC1")
+            result = await handler._handle_add_note(req, "test-tenant", "PDINC000001")
         _, status = _parse_result(result)
         assert status == 400
 
@@ -890,7 +894,7 @@ class TestAddNote:
 
         req = _make_request(json_body={"content": "text"})
         with _patch_connector(mock_connector):
-            result = await handler._handle_add_note(req, "test-tenant", "INC1")
+            result = await handler._handle_add_note(req, "test-tenant", "PDINC000001")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -898,7 +902,7 @@ class TestAddNote:
     async def test_add_note_503(self, handler):
         req = _make_request(json_body={"content": "text"})
         with _patch_connector(None):
-            result = await handler._handle_add_note(req, "test-tenant", "INC1")
+            result = await handler._handle_add_note(req, "test-tenant", "PDINC000001")
         _, status = _parse_result(result)
         assert status == 503
 
@@ -927,11 +931,13 @@ class TestGetOncall:
     async def test_get_oncall_with_schedule_filter(self, handler, mock_connector):
         mock_connector.get_on_call = AsyncMock(return_value=[])
 
-        req = _make_request(query={"schedule_ids": "S1,S2"})
+        req = _make_request(query={"schedule_ids": "PDSCHED0001,PDSCHED0002"})
         with _patch_connector(mock_connector):
             await handler.handle(req, "/api/v1/oncall", "GET")
 
-        mock_connector.get_on_call.assert_called_once_with(schedule_ids=["S1", "S2"])
+        mock_connector.get_on_call.assert_called_once_with(
+            schedule_ids=["PDSCHED0001", "PDSCHED0002"]
+        )
 
     @pytest.mark.asyncio
     async def test_get_oncall_error(self, handler, mock_connector):
@@ -952,18 +958,18 @@ class TestGetOncallForService:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "SVC1")
+            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "PDSVC000001")
 
         body, status = _parse_result(result)
         assert status == 200
-        assert body["data"]["service_id"] == "SVC1"
+        assert body["data"]["service_id"] == "PDSVC000001"
         assert len(body["data"]["oncall"]) == 1
 
     @pytest.mark.asyncio
     async def test_get_oncall_for_service_503(self, handler):
         req = _make_request()
         with _patch_connector(None):
-            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "SVC1")
+            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "PDSVC000001")
         _, status = _parse_result(result)
         assert status == 503
 
@@ -973,7 +979,7 @@ class TestGetOncallForService:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "SVC1")
+            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "PDSVC000001")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -996,7 +1002,7 @@ class TestListServices:
         body, status = _parse_result(result)
         assert status == 200
         assert body["data"]["count"] == 1
-        assert body["data"]["services"][0]["id"] == "SVC001"
+        assert body["data"]["services"][0]["id"] == "PDSVC001234"
 
     @pytest.mark.asyncio
     async def test_list_services_with_pagination(self, handler, mock_connector):
@@ -1022,23 +1028,23 @@ class TestListServices:
 class TestGetService:
     @pytest.mark.asyncio
     async def test_get_service_success(self, handler, mock_connector):
-        svc = _make_service(id="SVC42")
+        svc = _make_service(id="PDSVC000042")
         mock_connector.get_service = AsyncMock(return_value=svc)
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_get_service(req, "test-tenant", "SVC42")
+            result = await handler._handle_get_service(req, "test-tenant", "PDSVC000042")
 
         body, status = _parse_result(result)
         assert status == 200
-        assert body["data"]["service"]["id"] == "SVC42"
-        assert body["data"]["service"]["escalation_policy_id"] == "ESCPOL001"
+        assert body["data"]["service"]["id"] == "PDSVC000042"
+        assert body["data"]["service"]["escalation_policy_id"] == "PDESCPOL001"
 
     @pytest.mark.asyncio
     async def test_get_service_503(self, handler):
         req = _make_request()
         with _patch_connector(None):
-            result = await handler._handle_get_service(req, "test-tenant", "SVC99")
+            result = await handler._handle_get_service(req, "test-tenant", "PDSVC000099")
         _, status = _parse_result(result)
         assert status == 503
 
@@ -1048,7 +1054,7 @@ class TestGetService:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler._handle_get_service(req, "test-tenant", "SVC99")
+            result = await handler._handle_get_service(req, "test-tenant", "PDSVC000099")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -1358,3 +1364,400 @@ class TestEmitConnectorEvent:
             tenant_id="t1",
             data={},
         )
+
+
+# ---------------------------------------------------------------------------
+# Tests: Circuit Breaker
+# ---------------------------------------------------------------------------
+
+
+class TestDevOpsCircuitBreaker:
+    """Tests for the DevOpsCircuitBreaker class."""
+
+    def test_initial_state_closed(self):
+        cb = DevOpsCircuitBreaker()
+        assert cb.state == "closed"
+        assert cb.is_allowed() is True
+
+    def test_opens_after_threshold_failures(self):
+        cb = DevOpsCircuitBreaker(failure_threshold=3)
+        assert cb.state == "closed"
+
+        # Record failures until threshold
+        for _ in range(3):
+            cb.record_failure()
+
+        assert cb.state == "open"
+        assert cb.is_allowed() is False
+
+    def test_success_resets_failure_count(self):
+        cb = DevOpsCircuitBreaker(failure_threshold=5)
+
+        cb.record_failure()
+        cb.record_failure()
+        assert cb._failure_count == 2
+
+        cb.record_success()
+        assert cb._failure_count == 0
+
+    def test_half_open_state_after_cooldown(self):
+        import time
+
+        cb = DevOpsCircuitBreaker(failure_threshold=2, cooldown_seconds=0.1)
+
+        # Open the circuit
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.state == "open"
+
+        # Wait for cooldown
+        time.sleep(0.15)
+
+        # Should transition to half_open
+        assert cb.state == "half_open"
+        assert cb.is_allowed() is True
+
+    def test_half_open_closes_on_success(self):
+        import time
+
+        cb = DevOpsCircuitBreaker(failure_threshold=2, cooldown_seconds=0.05, half_open_max_calls=2)
+
+        # Open the circuit
+        cb.record_failure()
+        cb.record_failure()
+        time.sleep(0.1)
+
+        # Transition to half_open
+        assert cb.state == "half_open"
+
+        # Record successes
+        cb.record_success()
+        cb.record_success()
+
+        assert cb.state == "closed"
+
+    def test_half_open_reopens_on_failure(self):
+        import time
+
+        cb = DevOpsCircuitBreaker(failure_threshold=2, cooldown_seconds=0.05)
+
+        # Open the circuit
+        cb.record_failure()
+        cb.record_failure()
+        time.sleep(0.1)
+
+        # Transition to half_open
+        assert cb.state == "half_open"
+
+        # Fail during half_open
+        cb.record_failure()
+
+        assert cb.state == "open"
+
+    def test_reset(self):
+        cb = DevOpsCircuitBreaker(failure_threshold=2)
+
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.state == "open"
+
+        cb.reset()
+        assert cb.state == "closed"
+        assert cb._failure_count == 0
+
+    def test_get_status(self):
+        cb = DevOpsCircuitBreaker(failure_threshold=5, cooldown_seconds=30.0)
+        status = cb.get_status()
+
+        assert status["state"] == "closed"
+        assert status["failure_threshold"] == 5
+        assert status["cooldown_seconds"] == 30.0
+        assert "failure_count" in status
+
+
+class TestCircuitBreakerIntegration:
+    """Tests for circuit breaker integration with handler methods."""
+
+    @pytest.fixture(autouse=True)
+    def clear_circuit_breaker(self):
+        """Reset the circuit breaker before each test."""
+        from aragora.server.handlers.features.devops import _clear_devops_components
+
+        _clear_devops_components()
+        yield
+        _clear_devops_components()
+
+    @pytest.mark.asyncio
+    async def test_list_incidents_returns_503_when_circuit_open(self, handler):
+        cb = get_devops_circuit_breaker()
+        # Open the circuit
+        for _ in range(5):
+            cb.record_failure()
+        assert cb.state == "open"
+
+        req = _make_request()
+        result = await handler._handle_list_incidents(req, "test-tenant")
+        _, status = _parse_result(result)
+        assert status == 503
+
+    @pytest.mark.asyncio
+    async def test_status_endpoint_includes_circuit_breaker_status(self, handler):
+        req = _make_request()
+        with patch.dict(
+            "os.environ",
+            {"PAGERDUTY_API_KEY": "key", "PAGERDUTY_EMAIL": "e@co.com"},
+        ):
+            result = await handler.handle(req, "/api/v1/devops/status", "GET")
+        body, status = _parse_result(result)
+        assert status == 200
+        assert "circuit_breaker" in body["data"]
+        assert body["data"]["circuit_breaker"]["state"] == "closed"
+
+
+# ---------------------------------------------------------------------------
+# Tests: Input Validation
+# ---------------------------------------------------------------------------
+
+
+class TestInputValidation:
+    """Tests for input validation functions."""
+
+    def test_validate_pagerduty_id_valid(self):
+        from aragora.server.handlers.features.devops import _validate_pagerduty_id
+
+        is_valid, err = _validate_pagerduty_id("ABCD123", "test_id")
+        assert is_valid is True
+        assert err is None
+
+    def test_validate_pagerduty_id_empty(self):
+        from aragora.server.handlers.features.devops import _validate_pagerduty_id
+
+        is_valid, err = _validate_pagerduty_id("", "test_id")
+        assert is_valid is False
+        assert "required" in err
+
+    def test_validate_pagerduty_id_too_long(self):
+        from aragora.server.handlers.features.devops import _validate_pagerduty_id
+
+        is_valid, err = _validate_pagerduty_id("A" * 25, "test_id")
+        assert is_valid is False
+        assert "too long" in err
+
+    def test_validate_pagerduty_id_invalid_format(self):
+        from aragora.server.handlers.features.devops import _validate_pagerduty_id
+
+        is_valid, err = _validate_pagerduty_id("abc-123!", "test_id")
+        assert is_valid is False
+        assert "invalid format" in err
+
+    def test_validate_urgency_valid(self):
+        from aragora.server.handlers.features.devops import _validate_urgency
+
+        assert _validate_urgency("high") == "high"
+        assert _validate_urgency("low") == "low"
+        assert _validate_urgency("HIGH") == "high"
+
+    def test_validate_urgency_invalid_defaults_high(self):
+        from aragora.server.handlers.features.devops import _validate_urgency
+
+        assert _validate_urgency("invalid") == "high"
+        assert _validate_urgency(None) == "high"
+
+    def test_validate_string_field_valid(self):
+        from aragora.server.handlers.features.devops import _validate_string_field
+
+        val, err = _validate_string_field("test value", "field", required=True)
+        assert val == "test value"
+        assert err is None
+
+    def test_validate_string_field_required_missing(self):
+        from aragora.server.handlers.features.devops import _validate_string_field
+
+        val, err = _validate_string_field(None, "field", required=True)
+        assert val is None
+        assert "required" in err
+
+    def test_validate_string_field_exceeds_max_length(self):
+        from aragora.server.handlers.features.devops import _validate_string_field
+
+        val, err = _validate_string_field("x" * 100, "field", max_length=50)
+        assert val is None
+        assert "exceeds maximum" in err
+
+    def test_validate_string_field_strips_whitespace(self):
+        from aragora.server.handlers.features.devops import _validate_string_field
+
+        val, err = _validate_string_field("  test  ", "field")
+        assert val == "test"
+        assert err is None
+
+    def test_validate_id_list_valid(self):
+        from aragora.server.handlers.features.devops import _validate_id_list
+
+        val, err = _validate_id_list(["ABCD123", "EFGH456"], "ids")
+        assert val == ["ABCD123", "EFGH456"]
+        assert err is None
+
+    def test_validate_id_list_exceeds_max(self):
+        from aragora.server.handlers.features.devops import _validate_id_list
+
+        ids = ["ABC1234"] * 30
+        val, err = _validate_id_list(ids, "ids", max_items=20)
+        assert val is None
+        assert "exceeds maximum" in err
+
+    def test_validate_id_list_invalid_item(self):
+        from aragora.server.handlers.features.devops import _validate_id_list
+
+        val, err = _validate_id_list(["ABCD123", "invalid!"], "ids")
+        assert val is None
+        assert "invalid format" in err
+
+    def test_validate_id_list_not_list(self):
+        from aragora.server.handlers.features.devops import _validate_id_list
+
+        val, err = _validate_id_list("not-a-list", "ids")
+        assert val is None
+        assert "must be a list" in err
+
+
+class TestInputValidationIntegration:
+    """Tests for input validation integration with handler methods."""
+
+    @pytest.fixture(autouse=True)
+    def clear_state(self):
+        """Reset components before each test."""
+        from aragora.server.handlers.features.devops import _clear_devops_components
+
+        _clear_devops_components()
+        yield
+        _clear_devops_components()
+
+    @pytest.mark.asyncio
+    async def test_create_incident_invalid_service_id(self, handler, mock_connector):
+        req = _make_request(
+            json_body={
+                "title": "Valid Title",
+                "service_id": "invalid!@#",  # Invalid format
+            }
+        )
+        with _patch_connector(mock_connector):
+            result = await handler.handle(req, "/api/v1/incidents", "POST")
+        body, status = _parse_result(result)
+        assert status == 400
+        assert "service_id" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_create_incident_title_too_long(self, handler, mock_connector):
+        req = _make_request(
+            json_body={
+                "title": "X" * 600,  # Exceeds MAX_TITLE_LENGTH
+                "service_id": "ABCD1234567",
+            }
+        )
+        with _patch_connector(mock_connector):
+            result = await handler.handle(req, "/api/v1/incidents", "POST")
+        body, status = _parse_result(result)
+        assert status == 400
+        assert "title" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_list_incidents_invalid_status_filter(self, handler, mock_connector):
+        req = _make_request(query={"status": "invalid_status"})
+        with _patch_connector(mock_connector):
+            result = await handler.handle(req, "/api/v1/incidents", "GET")
+        body, status = _parse_result(result)
+        assert status == 400
+        assert "Invalid status" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_list_incidents_invalid_urgency_filter(self, handler, mock_connector):
+        req = _make_request(query={"urgency": "critical"})  # Not valid
+        with _patch_connector(mock_connector):
+            result = await handler.handle(req, "/api/v1/incidents", "GET")
+        body, status = _parse_result(result)
+        assert status == 400
+        assert "Invalid urgency" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_get_incident_invalid_id_format(self, handler, mock_connector):
+        req = _make_request()
+        with _patch_connector(mock_connector):
+            result = await handler._handle_get_incident(req, "test-tenant", "invalid!id")
+        _, status = _parse_result(result)
+        assert status == 400
+
+    @pytest.mark.asyncio
+    async def test_add_note_content_too_long(self, handler, mock_connector):
+        req = _make_request(json_body={"content": "X" * 6000})  # Exceeds limit
+        with _patch_connector(mock_connector):
+            result = await handler._handle_add_note(req, "test-tenant", "ABCD1234567")
+        body, status = _parse_result(result)
+        assert status == 400
+        assert "content" in body.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_reassign_invalid_user_ids(self, handler, mock_connector):
+        req = _make_request(json_body={"user_ids": ["invalid!"]})
+        with _patch_connector(mock_connector):
+            result = await handler._handle_reassign_incident(req, "test-tenant", "ABCD1234567")
+        body, status = _parse_result(result)
+        assert status == 400
+
+    @pytest.mark.asyncio
+    async def test_merge_too_many_source_ids(self, handler, mock_connector):
+        # Create 60 valid IDs (exceeds MAX_SOURCE_INCIDENT_IDS of 50)
+        source_ids = [f"INC{i:010d}" for i in range(60)]
+        req = _make_request(json_body={"source_incident_ids": source_ids})
+        with _patch_connector(mock_connector):
+            result = await handler._handle_merge_incidents(req, "test-tenant", "INC0000000001")
+        body, status = _parse_result(result)
+        assert status == 400
+        assert "exceeds maximum" in body.get("error", "")
+
+
+# ---------------------------------------------------------------------------
+# Tests: Clear Components
+# ---------------------------------------------------------------------------
+
+
+class TestClearComponents:
+    """Test the _clear_devops_components function."""
+
+    def test_clears_all_state(self):
+        from aragora.server.handlers.features.devops import (
+            _clear_devops_components,
+            _connector_instances,
+        )
+
+        # Set up some state
+        _connector_instances["test"] = MagicMock()
+        _active_contexts["test"] = MagicMock()
+        cb = get_devops_circuit_breaker()
+        cb.record_failure()
+
+        # Clear
+        _clear_devops_components()
+
+        # Verify cleared
+        assert len(_connector_instances) == 0
+        assert len(_active_contexts) == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: Module Exports
+# ---------------------------------------------------------------------------
+
+
+class TestModuleExports:
+    """Test that required exports are available."""
+
+    def test_circuit_breaker_exports(self):
+        from aragora.server.handlers.features.devops import (
+            _clear_devops_components,
+        )
+
+        assert DevOpsCircuitBreaker is not None
+        assert callable(get_devops_circuit_breaker)
+        assert callable(get_devops_circuit_breaker_status)
+        assert callable(_clear_devops_components)

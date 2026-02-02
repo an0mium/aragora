@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 OneLogin_Saml2_Auth: Any
 
 try:
-    from onelogin.saml2.auth import OneLogin_Saml2_Auth  # type: ignore[misc]
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth  # type: ignore[no-redef]
 
     HAS_SAML_LIB = True
 except ImportError:

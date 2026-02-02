@@ -50,14 +50,6 @@ if TYPE_CHECKING:
     from aragora.memory.store import CritiqueStore
     from aragora.types.protocols import EventEmitterProtocol
 
-# Import conditionally for optional culture manager
-try:
-    from aragora.knowledge.mound.culture import OrganizationCultureManager
-except ImportError:
-    # Fallback stub when culture module is not available.
-    # Note: type ignore needed because the name is conditionally defined above.
-    OrganizationCultureManager = None  # type: ignore[misc, assignment]
-
 logger = logging.getLogger(__name__)
 
 
@@ -578,7 +570,9 @@ class KnowledgeMoundCore:
         if hasattr(self._meta_store, "save_relationship_async"):
             await self._meta_store.save_relationship_async(from_id, to_id, rel_type)
         else:
+            from typing import cast
             from aragora.knowledge.mound import KnowledgeRelationship
+            from aragora.knowledge.mound_core import RelationshipType as LegacyRelationshipType
 
             # rel_type may be str or RelationshipType enum; KnowledgeRelationship
             # expects a Literal string type (LegacyRelationshipType)
@@ -586,11 +580,11 @@ class KnowledgeMoundCore:
             rel_type_str = rel_type.value if hasattr(rel_type, "value") else rel_type
 
             # KnowledgeRelationship expects LegacyRelationshipType (Literal string)
-            # but rel_type_str is a general string at this point. Safe at runtime.
+            # Cast to the expected literal type for type safety
             rel = KnowledgeRelationship(
                 from_node_id=from_id,
                 to_node_id=to_id,
-                relationship_type=rel_type_str,  # type: ignore[arg-type]
+                relationship_type=cast(LegacyRelationshipType, rel_type_str),
             )
             self._meta_store.save_relationship(rel)
 

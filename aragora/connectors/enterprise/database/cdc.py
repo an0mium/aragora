@@ -438,7 +438,8 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
 
-            self._mound = KnowledgeMound(workspace_id=self.workspace_id)  # type: ignore[abstract]  # KnowledgeMound uses factory pattern for instantiation
+            # KnowledgeMound uses factory pattern - cast to satisfy type checker
+            self._mound = cast("KnowledgeMound", KnowledgeMound(workspace_id=self.workspace_id))  # type: ignore[abstract, redundant-cast]
         return self._mound
 
     async def handle(self, event: ChangeEvent) -> bool:

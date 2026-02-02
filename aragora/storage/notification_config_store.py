@@ -62,7 +62,7 @@ except ImportError:
     CRYPTO_AVAILABLE = False
 
     # Fallback class when security module is unavailable; pre-declared above
-    class EncryptionError(Exception):  # type: ignore[misc]
+    class EncryptionError(Exception):  # type: ignore[no-redef]
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):

@@ -339,7 +339,7 @@ def handle_agent_errors(
                 try:
                     # The decorator is applied to async methods, but Callable[..., T]
                     # cannot express async return types. The await is valid at runtime.
-                    result = await func(self, *args, **kwargs)  # type: ignore[misc]
+                    result = await cast(Any, func)(self, *args, **kwargs)
                     if circuit_breaker is not None:
                         circuit_breaker.record_success()
                     return result
@@ -472,7 +472,7 @@ def with_error_handling(
             try:
                 # The iscoroutinefunction check below ensures func is async,
                 # but Callable[..., T] cannot express async return types.
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                return await cast(Any, func)(*args, **kwargs)
             except error_types as e:
                 _log_error(func, e, log_level, message_template)
                 if reraise:
@@ -533,7 +533,7 @@ def handle_stream_errors(
             try:
                 # This decorator is specifically for async generator methods.
                 # Callable[..., T] cannot express async generator types.
-                async for chunk in func(self, *args, **kwargs):  # type: ignore[attr-defined]
+                async for chunk in cast(Any, func)(self, *args, **kwargs):
                     if isinstance(chunk, str):
                         partial_content.append(chunk)
                     yield chunk

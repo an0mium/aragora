@@ -45,6 +45,7 @@ export interface FeatureConfig {
   audience: boolean;
   citations: boolean;
   memory: boolean;
+  supermemory: boolean;
   evidenceCollection: boolean;
   [key: string]: boolean;
 }
@@ -161,6 +162,7 @@ const defaultFeatureConfig: FeatureConfig = {
   audience: true,
   citations: false,
   memory: true,
+  supermemory: false,
   evidenceCollection: false,
 };
 

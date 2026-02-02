@@ -609,6 +609,7 @@ class FeaturesHandler(BaseHandler):
         "evolution": True,  # Prompt evolution
         "continuum_memory": True,  # Multi-tier memory
         "consensus_memory": True,  # Consensus history
+        "supermemory": False,  # External memory sync (opt-in)
         "laboratory": True,  # Persona laboratory
         # Display preferences
         "show_advanced_metrics": False,

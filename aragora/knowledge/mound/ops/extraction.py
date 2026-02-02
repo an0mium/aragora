@@ -18,10 +18,17 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.facade import KnowledgeMound
+    from aragora.knowledge.mound.types import IngestionResult
+
+
+class _MoundProtocol(Protocol):
+    """Protocol for KnowledgeMound interface needed by extraction."""
+
+    async def store(self, request: Any) -> "IngestionResult": ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -503,7 +510,7 @@ class DebateKnowledgeExtractor:
 
     async def promote_to_mound(
         self,
-        mound: "KnowledgeMound",
+        mound: "_MoundProtocol",
         workspace_id: str,
         claims: Optional[list[ExtractedClaim]] = None,
         min_confidence: float | None = None,
@@ -511,7 +518,7 @@ class DebateKnowledgeExtractor:
         """Promote extracted claims to Knowledge Mound.
 
         Args:
-            mound: KnowledgeMound instance
+            mound: KnowledgeMound instance (or compatible protocol)
             workspace_id: Workspace to add to
             claims: Specific claims to promote (uses stored if None)
             min_confidence: Minimum confidence to promote
@@ -607,8 +614,9 @@ class ExtractionMixin:
         """Promote extracted claims to Knowledge Mound."""
         # Mixin pattern: self is the composed KnowledgeMound which satisfies
         # the promote_to_mound's mound interface at runtime.
+        mound = cast(_MoundProtocol, self)
         return await self._get_extractor().promote_to_mound(
-            mound=self,  # type: ignore[arg-type]
+            mound=mound,
             workspace_id=workspace_id,
             claims=claims,
             min_confidence=min_confidence,

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, AsyncGenerator, Protocol
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Protocol, cast
 
 from aragora.core import Critique, Message
 
@@ -112,7 +112,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         designed to be mixed with APIAgent-derived classes only.
         """
         # super() returns the next class in MRO which should be APIAgent or a subclass
-        super()._record_token_usage(tokens_in, tokens_out)  # type: ignore[misc]
+        cast(Any, super())._record_token_usage(tokens_in, tokens_out)
 
     # Methods inherited from CritiqueMixin (via APIAgent) - delegate to parent
     def _build_context_prompt(
@@ -128,7 +128,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         designed to be mixed with APIAgent-derived classes only.
         """
         # super() returns the next class in MRO which should include CritiqueMixin
-        return super()._build_context_prompt(context, truncate, sanitize_fn)  # type: ignore[misc]
+        return cast(Any, super())._build_context_prompt(context, truncate, sanitize_fn)
 
     def _parse_critique(
         self,
@@ -143,7 +143,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         designed to be mixed with APIAgent-derived classes only.
         """
         # super() returns the next class in MRO which should include CritiqueMixin
-        return super()._parse_critique(response, target_agent, target_content)  # type: ignore[misc]
+        return cast(Any, super())._parse_critique(response, target_agent, target_content)
 
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""

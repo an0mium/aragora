@@ -539,8 +539,12 @@ class DecisionReceipt:
         Raises:
             ImportError: If weasyprint is not installed
         """
-        # weasyprint does not ship type stubs
-        from weasyprint import HTML, CSS  # type: ignore[import-untyped]
+        # weasyprint does not ship type stubs; import dynamically
+        import importlib
+
+        _weasyprint: Any = importlib.import_module("weasyprint")
+        HTML = _weasyprint.HTML
+        CSS = _weasyprint.CSS
 
         # PDF-specific styles for professional printed output
         pdf_styles = """

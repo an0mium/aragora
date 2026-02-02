@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Valid PagerDuty ID pattern (alphanumeric with specific prefixes)
-PAGERDUTY_ID_PATTERN = re.compile(r"^[A-Z0-9]{7,15}$")
+PAGERDUTY_ID_PATTERN = re.compile(r"^[A-Za-z0-9]+$")
 
 # Valid urgency values
 VALID_URGENCIES = frozenset({"high", "low"})
@@ -573,12 +573,15 @@ class DevOpsHandler(SecureHandler):
     # Status
     # =========================================================================
 
+    @rate_limit(requests_per_minute=60)
     async def _handle_status(self, request: Any, tenant_id: str) -> HandlerResult:
-        """Get PagerDuty connection status."""
+        """Get PagerDuty connection status and circuit breaker status."""
         import os
 
         api_key = os.getenv("PAGERDUTY_API_KEY")
         email = os.getenv("PAGERDUTY_EMAIL")
+
+        circuit_status = get_devops_circuit_breaker_status()
 
         return success_response(
             {
@@ -586,6 +589,7 @@ class DevOpsHandler(SecureHandler):
                 "api_key_set": bool(api_key),
                 "email_set": bool(email),
                 "webhook_secret_set": bool(os.getenv("PAGERDUTY_WEBHOOK_SECRET")),
+                "circuit_breaker": circuit_status,
             }
         )
 

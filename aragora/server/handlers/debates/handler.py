@@ -264,7 +264,7 @@ class DebatesHandler(
                 status_code=200,
                 content_type="text/event-stream",
                 body=run_async(
-                    stream()
+                    stream()  # type: ignore[arg-type]
                 ),  # Async generator used as SSE stream body  # type: ignore[misc]
                 headers={
                     "Cache-Control": "no-cache",

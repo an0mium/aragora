@@ -66,7 +66,8 @@ def get_beads_completed_count(hours: int = 24) -> int:
         # Filter by time window
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         count = 0
-        for bead in beads:  # type: ignore[attr-defined]
+        # BeadStore.list_beads returns an iterable of Bead objects
+        for bead in beads:
             # Check if bead has completed_at timestamp
             completed_at = getattr(bead, "completed_at", None)
             if completed_at is None:

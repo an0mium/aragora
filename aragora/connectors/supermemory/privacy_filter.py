@@ -159,7 +159,7 @@ class PrivacyFilter:
         if not metadata:
             return metadata
 
-        result = {}
+        result: dict[str, Any] = {}
         for key, value in metadata.items():
             # Check if key itself suggests sensitive data
             key_lower = key.lower()
@@ -170,9 +170,11 @@ class PrivacyFilter:
             elif isinstance(value, str):
                 result[key] = self.filter(value)
             elif isinstance(value, dict):
-                result[key] = self.filter_metadata(value)  # type: ignore[assignment]
+                # Recursive filtering for nested dicts
+                result[key] = self.filter_metadata(value)
             elif isinstance(value, list):
-                result[key] = [self.filter(v) if isinstance(v, str) else v for v in value]  # type: ignore[assignment]
+                # Filter string items in lists
+                result[key] = [self.filter(v) if isinstance(v, str) else v for v in value]
             else:
                 result[key] = value
 

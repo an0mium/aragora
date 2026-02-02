@@ -110,7 +110,7 @@ record_encryption_error = _noop_record_encryption_error
 METRICS_AVAILABLE = False
 
 try:
-    from aragora.observability.metrics import (  # type: ignore[attr-defined]  # metrics exports vary by configuration
+    from aragora.observability.metrics import (  # type: ignore[attr-defined]
         record_encryption_operation as _real_record_encryption_operation,
         record_encryption_error as _real_record_encryption_error,
     )
@@ -119,6 +119,7 @@ try:
     record_encryption_error = _real_record_encryption_error
     METRICS_AVAILABLE = True
 except (ImportError, AttributeError):
+    # Metrics functions are optional and may not be exported in all configurations
     pass
 
 

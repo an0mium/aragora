@@ -27,7 +27,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -300,7 +300,7 @@ class ProfiledConnection:
         start = time.perf_counter()
         try:
             # sqlite3 stubs accept only specific parameter types; Iterable[Any] is safe here
-            result = self._conn.execute(sql, parameters)  # type: ignore[arg-type]
+            result = self._conn.execute(sql, cast(Any, parameters))
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
                 profiler.record(sql, params_tuple, duration_ms, result.rowcount or 0)
@@ -320,7 +320,7 @@ class ProfiledConnection:
         start = time.perf_counter()
         try:
             # sqlite3 stubs accept only specific parameter types; list[Iterable[Any]] is safe here
-            result = self._conn.executemany(sql, params_list)  # type: ignore[arg-type]
+            result = self._conn.executemany(sql, cast(Any, params_list))
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
                 profiler.record(

@@ -64,8 +64,11 @@ async def _get_orchestrator() -> Any | None:
 
             # Initialize with default mound
             # KnowledgeMound is composed from mixins; all abstract methods are
-            # implemented by the mixin chain but mypy cannot verify this.
-            mound = KnowledgeMound()  # type: ignore[abstract]  # Mixin-composed class satisfies all abstract methods at runtime
+            # implemented by the mixin chain but mypy cannot verify this at instantiation.
+            from typing import cast
+
+            _mound_instance = KnowledgeMound()  # type: ignore[abstract]  # Runtime: mixin chain provides implementations
+            mound = cast(Any, _mound_instance)  # Type: treat as Any to allow any method calls
             await mound.initialize()
 
             _orchestrator_instance = RepositoryOrchestrator(

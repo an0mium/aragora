@@ -1070,13 +1070,13 @@ class DocumentParser:
 
             elif format in (DocumentFormat.TAR, DocumentFormat.GZIP):
                 # Handle .tar.gz and .tar
-                mode = (
+                mode: str = (
                     "r:gz" if format == DocumentFormat.GZIP or content[:2] == b"\x1f\x8b" else "r"
                 )
                 try:
-                    with tarfile.open(
+                    with tarfile.open(  # type: ignore[call-overload]
                         fileobj=cast(IO[bytes], io.BytesIO(content)),
-                        mode=mode,  # type: ignore[call-overload]  # tarfile.open accepts str mode at runtime
+                        mode=mode,  # type: ignore[arg-type]  # tarfile Literal mode types are stricter than str
                     ) as tf:
                         for member in tf.getmembers():
                             if member.isfile():

@@ -255,6 +255,13 @@ class DeprecationEnforcer:
         # Block sunset endpoints
         if self._block_sunset and endpoint.is_sunset:
             self._stats.record_blocked()
+            # Record Prometheus metric for blocked requests
+            try:
+                from aragora.server.prometheus import record_v1_api_sunset_blocked
+
+                record_v1_api_sunset_blocked(path, method)
+            except ImportError:
+                pass
             return headers, self._build_sunset_response(endpoint)
 
         return headers, None
@@ -508,6 +515,14 @@ def register_default_deprecations() -> None:
             migration_guide_url=MIGRATION_DOCS_URL,
             version="v1",
         )
+
+    # Update Prometheus gauge for days until sunset
+    try:
+        from aragora.server.prometheus import update_v1_days_until_sunset
+
+        update_v1_days_until_sunset()
+    except ImportError:
+        pass
 
     logger.info(
         "Registered v1 API deprecations: sunset=%s, days_remaining=%d",

@@ -719,6 +719,27 @@ if PROMETHEUS_AVAILABLE:
         ["channel"],
     )
 
+    # ========================================================================
+    # V1 API Deprecation Metrics (sunset June 2026)
+    # ========================================================================
+
+    V1_API_REQUESTS = Counter(
+        "aragora_v1_api_requests_total",
+        "Total requests to deprecated V1 API endpoints",
+        ["endpoint", "method"],
+    )
+
+    V1_API_DAYS_UNTIL_SUNSET = Gauge(
+        "aragora_v1_api_days_until_sunset",
+        "Days remaining until V1 API sunset (0 if past)",
+    )
+
+    V1_API_SUNSET_BLOCKED = Counter(
+        "aragora_v1_api_sunset_blocked_total",
+        "Requests blocked due to V1 API sunset",
+        ["endpoint", "method"],
+    )
+
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)
 # ============================================================================
@@ -1415,6 +1436,60 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
 
 
 # ============================================================================
+# V1 API Deprecation Metrics Recording
+# ============================================================================
+
+
+def record_v1_api_request(endpoint: str, method: str) -> None:
+    """Record a request to a deprecated V1 API endpoint.
+
+    Args:
+        endpoint: The V1 API endpoint path (e.g., "/api/v1/debates")
+        method: HTTP method (GET, POST, etc.)
+    """
+    if PROMETHEUS_AVAILABLE:
+        V1_API_REQUESTS.labels(endpoint=endpoint, method=method).inc()
+    else:
+        _simple_metrics.inc_counter(
+            "aragora_v1_api_requests_total",
+            {"endpoint": endpoint, "method": method},
+        )
+
+
+def update_v1_days_until_sunset() -> None:
+    """Update the gauge showing days until V1 API sunset.
+
+    Should be called periodically (e.g., at startup and once per hour).
+    """
+    try:
+        from aragora.server.versioning.constants import days_until_v1_sunset
+
+        days = days_until_v1_sunset()
+        if PROMETHEUS_AVAILABLE:
+            V1_API_DAYS_UNTIL_SUNSET.set(days)
+        else:
+            _simple_metrics.set_gauge("aragora_v1_api_days_until_sunset", days)
+    except ImportError:
+        pass
+
+
+def record_v1_api_sunset_blocked(endpoint: str, method: str) -> None:
+    """Record a request blocked due to V1 API sunset.
+
+    Args:
+        endpoint: The V1 API endpoint path
+        method: HTTP method
+    """
+    if PROMETHEUS_AVAILABLE:
+        V1_API_SUNSET_BLOCKED.labels(endpoint=endpoint, method=method).inc()
+    else:
+        _simple_metrics.inc_counter(
+            "aragora_v1_api_sunset_blocked_total",
+            {"endpoint": endpoint, "method": method},
+        )
+
+
+# ============================================================================
 # Extracted modules (import directly to avoid circular imports)
 # ============================================================================
 # Nomic metrics: from aragora.server.prometheus_nomic import record_nomic_phase, ...
@@ -1456,6 +1531,10 @@ __all__ = [
     "timed_agent_generation",
     "timed_db_query",
     "timed_db_query_async",
+    # V1 API Deprecation
+    "record_v1_api_request",
+    "update_v1_days_until_sunset",
+    "record_v1_api_sunset_blocked",
     # Note: Nomic, Control Plane, RLM, and Knowledge metrics are in extracted modules.
     # Import directly from: prometheus_nomic, prometheus_control_plane,
     # prometheus_rlm, prometheus_knowledge

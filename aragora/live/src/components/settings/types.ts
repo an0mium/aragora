@@ -13,6 +13,7 @@ export interface FeatureConfig {
   evolution: boolean;
   continuum_memory: boolean;
   consensus_memory: boolean;
+  supermemory: boolean;
   laboratory: boolean;
   // Display
   show_advanced_metrics: boolean;
@@ -38,6 +39,7 @@ export const DEFAULT_FEATURE_CONFIG: FeatureConfig = {
   evolution: true,
   continuum_memory: true,
   consensus_memory: true,
+  supermemory: false,
   laboratory: true,
   show_advanced_metrics: false,
   compact_mode: false,

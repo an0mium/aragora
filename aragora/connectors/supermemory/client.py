@@ -84,16 +84,18 @@ class SupermemoryRateLimitError(SupermemoryError):
         self.retry_after = retry_after
 
 
-def with_retry(max_retries: int = 3, delay: float = 1.0):
+def with_retry(
+    max_retries: int = 3, delay: float = 1.0
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for retry logic with exponential backoff."""
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def wrapper(*args, **kwargs) -> T:
-            last_error = None
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_error: SupermemoryError | None = None
             for attempt in range(max_retries):
                 try:
-                    return await func(*args, **kwargs)  # type: ignore[misc]
+                    return await func(*args, **kwargs)
                 except SupermemoryRateLimitError as e:
                     wait_time = e.retry_after or (delay * (2**attempt))
                     logger.warning(
@@ -107,13 +109,13 @@ def with_retry(max_retries: int = 3, delay: float = 1.0):
                         f"Connection error, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries}): {e}"
                     )
                     await asyncio.sleep(wait_time)
-                    last_error = e  # type: ignore[assignment]
+                    last_error = e
                 except Exception:
                     # Non-recoverable errors don't retry
                     raise
             raise last_error or SupermemoryError("Max retries exceeded")
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 

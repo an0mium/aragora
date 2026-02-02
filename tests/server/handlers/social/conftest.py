@@ -441,6 +441,15 @@ def reset_slack_globals():
         slack._slack_audit = None
     except ImportError:
         pass  # Module may not be available in all test contexts
+
+    # Reset circuit breaker
+    try:
+        from aragora.server.handlers.social._slack_impl import reset_slack_circuit_breaker
+
+        reset_slack_circuit_breaker()
+    except ImportError:
+        pass  # Module may not be available in all test contexts
+
     yield
 
 

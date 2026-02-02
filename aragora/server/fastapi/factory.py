@@ -138,6 +138,14 @@ async def lifespan(app: FastAPI):
     ctx = _build_server_context(nomic_dir)
     app.state.context = ctx
 
+    # Register V1 API deprecations for sunset enforcement
+    try:
+        from aragora.server.middleware.deprecation_enforcer import register_default_deprecations
+
+        register_default_deprecations()
+    except ImportError:
+        logger.debug("Deprecation enforcer not available, skipping v1 deprecation registration")
+
     logger.info("FastAPI server ready")
 
     yield

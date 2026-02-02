@@ -776,7 +776,7 @@ def generate_openapi_schema() -> dict[str, Any]:
 
     for sdk_path, sdk_methods in SDK_MISSING_ENDPOINTS.items():
         if sdk_path in paths:
-            merged = {**paths[sdk_path], **sdk_methods}  # type: ignore[misc]
+            merged = {**paths[sdk_path], **sdk_methods}  # type: ignore[dict-item]
             paths[sdk_path] = cast(dict[str, Any], merged)
         else:
             paths[sdk_path] = sdk_methods

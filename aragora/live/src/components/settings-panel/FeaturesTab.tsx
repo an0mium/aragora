@@ -1,5 +1,6 @@
 'use client';
 
+import { useFeatureInfo, useFeatureStatus } from '@/context/FeaturesContext';
 import type { FeatureConfig } from './types';
 import { ToggleSwitch } from './ToggleSwitch';
 
@@ -14,6 +15,18 @@ export function FeaturesTab({
   featureLoading,
   updateFeatureConfig,
 }: FeaturesTabProps) {
+  const supermemoryAvailable = useFeatureStatus('supermemory');
+  const supermemoryInfo = useFeatureInfo('supermemory');
+
+  const supermemoryBase =
+    supermemoryInfo?.description ||
+    'External cross-session memory sync and context injection';
+  const supermemoryHint =
+    supermemoryAvailable ? '' : (supermemoryInfo?.reason || supermemoryInfo?.install_hint || '');
+  const supermemoryDescription = supermemoryHint
+    ? `${supermemoryBase} — ${supermemoryHint}`
+    : supermemoryBase;
+
   if (featureLoading) {
     return (
       <div className="card p-6 animate-pulse">
@@ -68,6 +81,16 @@ export function FeaturesTab({
             description="Store historical debate outcomes"
             checked={featureConfig.consensus_memory}
             onChange={() => updateFeatureConfig('consensus_memory', !featureConfig.consensus_memory)}
+          />
+          <ToggleSwitch
+            label="Supermemory (External)"
+            description={supermemoryDescription}
+            checked={featureConfig.supermemory}
+            disabled={!supermemoryAvailable}
+            onChange={() => {
+              if (!supermemoryAvailable) return;
+              updateFeatureConfig('supermemory', !featureConfig.supermemory);
+            }}
           />
           <ToggleSwitch
             label="Prompt Evolution"

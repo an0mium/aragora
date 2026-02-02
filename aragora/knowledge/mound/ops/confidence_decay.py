@@ -18,7 +18,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem, QueryResult
@@ -524,7 +524,8 @@ class ConfidenceDecayMixin:
         manager = self._get_decay_manager()
         # Mixin pattern: self is the composed KnowledgeMound which satisfies
         # the manager's mound interface at runtime.
-        return await manager.apply_decay(self, workspace_id, force)  # type: ignore[arg-type]
+        mound = cast(KnowledgeMoundProtocol, self)
+        return await manager.apply_decay(mound, workspace_id, force)
 
     async def record_confidence_event(
         self,
@@ -545,7 +546,8 @@ class ConfidenceDecayMixin:
         manager = self._get_decay_manager()
         # Mixin pattern: self is the composed KnowledgeMound which satisfies
         # the manager's mound interface at runtime.
-        return await manager.record_event(self, item_id, event, reason)  # type: ignore[arg-type]
+        mound = cast(KnowledgeMoundProtocol, self)
+        return await manager.record_event(mound, item_id, event, reason)
 
     async def get_confidence_history(
         self,
