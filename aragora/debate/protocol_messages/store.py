@@ -583,7 +583,9 @@ class ProtocolMessageStore:
 
     async def cleanup_old(self, days: int = 30) -> int:
         """
-        Delete messages older than specified days.
+        Delete messages older than specified days (async, non-blocking).
+
+        Uses run_in_executor to avoid blocking the event loop.
 
         Args:
             days: Number of days to retain.
@@ -591,6 +593,12 @@ class ProtocolMessageStore:
         Returns:
             Number of messages deleted.
         """
+        count = await self._run_in_executor(functools.partial(self._cleanup_old_sync, days))
+        logger.info(f"Cleaned up {count} messages older than {days} days")
+        return count
+
+    def _cleanup_old_sync(self, days: int = 30) -> int:
+        """Synchronous version of cleanup_old for non-async contexts."""
         cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         cutoff = cutoff.replace(day=cutoff.day - days)
 
@@ -599,10 +607,7 @@ class ProtocolMessageStore:
                 "DELETE FROM protocol_messages WHERE timestamp < ?",
                 (cutoff.isoformat(),),
             )
-            count = cursor.rowcount
-
-        logger.info(f"Cleaned up {count} messages older than {days} days")
-        return count
+            return cursor.rowcount
 
     def _row_to_message(self, row: sqlite3.Row) -> ProtocolMessage:
         """Convert database row to ProtocolMessage."""
