@@ -26,23 +26,26 @@ from aragora.server.handlers.base import BaseHandler
 from aragora.server.handlers.utils.responses import error_dict
 
 # RBAC imports - graceful fallback if not available
+AuthorizationContext: Any
+check_permission: Any
 try:
     from aragora.rbac import AuthorizationContext, check_permission
 
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: ignore[misc, no-redef]
+    AuthorizationContext = None
     check_permission = None
 
 # JWT auth import for extracting user context
+extract_user_from_request: Any
 try:
     from aragora.billing.jwt_auth import extract_user_from_request
 
     JWT_AUTH_AVAILABLE = True
 except ImportError:
     JWT_AUTH_AVAILABLE = False
-    extract_user_from_request = None  # type: ignore[misc, no-redef]
+    extract_user_from_request = None
 
 logger = logging.getLogger(__name__)
 

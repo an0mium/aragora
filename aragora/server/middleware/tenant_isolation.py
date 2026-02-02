@@ -32,7 +32,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Protocol, TypeVar, cast
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult
@@ -603,7 +603,7 @@ def require_tenant_isolation(func: F) -> F:
             logger.error(f"Tenant isolation check failed: {e}")
             return _error_response("Access denied", 403)
 
-    return wrapper  # type: ignore[return-value]
+    return cast(F, wrapper)
 
 
 def require_tenant_isolation_with_config(
@@ -651,7 +651,7 @@ def require_tenant_isolation_with_config(
             except TenantMembershipCheckError:
                 return _error_response("Access denied", 403)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 
@@ -711,9 +711,7 @@ async def get_user_accessible_tenants(
     try:
         return await store.get_user_tenants(user_id)
     except Exception as e:
-        security_logger.warning(
-            f"Failed to get user tenants: user={user_id} error={e}"
-        )
+        security_logger.warning(f"Failed to get user tenants: user={user_id} error={e}")
         return []
 
 

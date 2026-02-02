@@ -24,15 +24,50 @@ from ...base import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeMound
+    from collections.abc import Coroutine
+
 
 logger = logging.getLogger(__name__)
+
+
+class _MoundSyncOps(Protocol):
+    """Subset of KnowledgeMound methods used by SyncOperationsMixin.
+
+    Provides explicit method signatures so mypy can resolve calls
+    without traversing the full 17-mixin KnowledgeMound MRO.
+    """
+
+    def sync_continuum_incremental(
+        self,
+        workspace_id: str | None = ...,
+        since: str | None = ...,
+        limit: int = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def sync_consensus_incremental(
+        self,
+        workspace_id: str | None = ...,
+        since: str | None = ...,
+        limit: int = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def sync_facts_incremental(
+        self,
+        workspace_id: str | None = ...,
+        since: str | None = ...,
+        limit: int = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def connect_memory_stores(
+        self,
+        continuum: Any = ...,
+        consensus: Any = ...,
+        facts: Any = ...,
+        evidence: Any = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
 
 
 class SyncHandlerProtocol(Protocol):
     """Protocol for handlers that use SyncOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> _MoundSyncOps | None: ...
 
 
 class SyncOperationsMixin:
@@ -64,7 +99,7 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_continuum_incremental(  # type: ignore[misc]
+                mound.sync_continuum_incremental(
                     workspace_id=workspace_id, since=since, limit=limit
                 )
             )
@@ -74,9 +109,9 @@ class SyncOperationsMixin:
                 from aragora.memory import get_continuum_memory
 
                 continuum = get_continuum_memory()
-                _run_async(mound.connect_memory_stores(continuum=continuum))  # type: ignore[misc]
+                _run_async(mound.connect_memory_stores(continuum=continuum))
                 result = _run_async(
-                    mound.sync_continuum_incremental(  # type: ignore[misc]
+                    mound.sync_continuum_incremental(
                         workspace_id=workspace_id, since=since, limit=limit
                     )
                 )
@@ -127,7 +162,7 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_consensus_incremental(  # type: ignore[misc]
+                mound.sync_consensus_incremental(
                     workspace_id=workspace_id, since=since, limit=limit
                 )
             )
@@ -137,9 +172,9 @@ class SyncOperationsMixin:
                 from aragora.memory import ConsensusMemory
 
                 consensus = ConsensusMemory()
-                _run_async(mound.connect_memory_stores(consensus=consensus))  # type: ignore[misc]
+                _run_async(mound.connect_memory_stores(consensus=consensus))
                 result = _run_async(
-                    mound.sync_consensus_incremental(  # type: ignore[misc]
+                    mound.sync_consensus_incremental(
                         workspace_id=workspace_id, since=since, limit=limit
                     )
                 )
@@ -190,9 +225,7 @@ class SyncOperationsMixin:
         try:
             # Use the handler-compatible incremental sync method
             result = _run_async(
-                mound.sync_facts_incremental(  # type: ignore[misc]
-                    workspace_id=workspace_id, since=since, limit=limit
-                )
+                mound.sync_facts_incremental(workspace_id=workspace_id, since=since, limit=limit)
             )
         except AttributeError:
             # Fallback: Connect facts store and try direct sync
@@ -200,9 +233,9 @@ class SyncOperationsMixin:
                 from aragora.knowledge.fact_store import FactStore
 
                 facts = FactStore()
-                _run_async(mound.connect_memory_stores(facts=facts))  # type: ignore[misc]
+                _run_async(mound.connect_memory_stores(facts=facts))
                 result = _run_async(
-                    mound.sync_facts_incremental(  # type: ignore[misc]
+                    mound.sync_facts_incremental(
                         workspace_id=workspace_id, since=since, limit=limit
                     )
                 )

@@ -10,7 +10,7 @@ import asyncio
 import inspect
 import json
 import logging
-from typing import Any
+from typing import Any, Coroutine
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -127,7 +127,7 @@ class MicrosoftOAuthMixin:
 
         return await _maybe_await(self._complete_oauth_flow(user_info, state_data))
 
-    def _exchange_microsoft_code(self, code: str) -> dict:
+    def _exchange_microsoft_code(self, code: str) -> dict | Coroutine[Any, Any, dict]:
         """Exchange Microsoft authorization code for access token."""
         impl = _impl()
         tenant = impl._get_microsoft_tenant()
@@ -164,7 +164,9 @@ class MicrosoftOAuthMixin:
 
         return _exchange_async()
 
-    def _get_microsoft_user_info(self, access_token: str) -> OAuthUserInfo:
+    def _get_microsoft_user_info(
+        self, access_token: str
+    ) -> OAuthUserInfo | Coroutine[Any, Any, OAuthUserInfo]:
         """Get user info from Microsoft Graph API."""
         impl = _impl()
         try:

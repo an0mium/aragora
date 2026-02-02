@@ -57,10 +57,10 @@ class QueryResponse:
 
 async def _get_user_state(user_id: str) -> Any:
     """Resolve user state whether get_user_state is sync or async."""
-    state = get_user_state(user_id)
-    if inspect.isawaitable(state):
-        state = await state
-    return state
+    raw_state: Any = get_user_state(user_id)
+    if inspect.isawaitable(raw_state):
+        raw_state = await raw_state
+    return raw_state
 
 
 class GmailQueryHandler(SecureHandler):

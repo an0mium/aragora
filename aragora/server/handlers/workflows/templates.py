@@ -355,7 +355,7 @@ async def load_yaml_templates_async() -> None:
         templates = load_templates()
         loaded = 0
         for template_id, template in templates.items():
-            existing = await store.get_template(template_id)  # type: ignore[misc]
+            existing = await store.get_template(template_id)  # type: ignore[misc]  # WorkflowStoreType union: async/sync method variance
             if not existing:
                 await store.save_template(template)
                 loaded += 1
@@ -384,7 +384,7 @@ async def register_builtin_templates_async() -> None:
         ]
         for template in templates:
             template.is_template = True
-            existing = await store.get_template(template.id)  # type: ignore[misc]
+            existing = await store.get_template(template.id)  # type: ignore[misc]  # WorkflowStoreType union: async/sync method variance
             if not existing:
                 await store.save_template(template)
                 logger.debug(f"Registered built-in template: {template.id}")

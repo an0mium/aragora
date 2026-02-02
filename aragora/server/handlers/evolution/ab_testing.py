@@ -36,13 +36,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Try to import A/B testing module
+ABTestManager: Any
 try:
     from aragora.evolution.ab_testing import ABTestManager
 
     AB_TESTING_AVAILABLE = True
 except ImportError as e:
     AB_TESTING_AVAILABLE = False
-    ABTestManager = None  # type: ignore[misc, no-redef]
+    ABTestManager = None
     logger.debug(f"A/B testing module not available: {e}")
 
 

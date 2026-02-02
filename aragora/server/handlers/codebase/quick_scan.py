@@ -32,8 +32,8 @@ SCAN_EXECUTE_PERMISSION = "codebase:scan:execute"
 try:
     from aragora.audit.security_scanner import SecurityScanner, SecuritySeverity
 except ImportError:  # pragma: no cover - optional dependency
-    SecurityScanner = None  # type: ignore[assignment]
-    SecuritySeverity = None  # type: ignore[assignment]
+    SecurityScanner = None  # type: ignore[assignment, misc]
+    SecuritySeverity = None  # type: ignore[assignment, misc]
 
 
 async def _check_permission(request: web.Request, permission: str) -> web.Response | None:

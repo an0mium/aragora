@@ -288,7 +288,7 @@ def check_integration_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     Returns:
         Dict with healthy status and store type
     """
-    from aragora.storage.integration_store import IntegrationStore  # type: ignore[attr-defined]  # noqa: F401
+    from aragora.storage.integration_store import IntegrationStoreBackend  # noqa: F401
 
     integration_store = handler.ctx.get("integration_store")
     if integration_store is not None:
@@ -314,7 +314,7 @@ def check_gmail_token_store(handler: _HealthHandlerProtocol) -> dict[str, Any]:
     Returns:
         Dict with healthy status and store type
     """
-    from aragora.storage.gmail_token_store import GmailTokenStore  # type: ignore[attr-defined]  # noqa: F401
+    from aragora.storage.gmail_token_store import GmailTokenStoreBackend  # noqa: F401
 
     gmail_token_store = handler.ctx.get("gmail_token_store")
     if gmail_token_store is not None:

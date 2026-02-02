@@ -199,17 +199,43 @@ ALLOWED_OAUTH_REDIRECT_HOSTS = _get_allowed_redirect_hosts()
 # =============================================================================
 
 
-def validate_oauth_config() -> list[str]:
+def validate_oauth_config(log_warnings: bool = True) -> list[str]:
     """
     Validate OAuth configuration and return list of missing required vars.
 
     Call this at startup to catch configuration errors early.
     Returns empty list if configuration is valid, or list of missing var names.
+
+    Args:
+        log_warnings: If True, log warnings for missing configuration
     """
-    if not _IS_PRODUCTION:
-        return []  # No validation in dev mode
+    import sys
 
     missing = []
+    running_under_pytest = "pytest" in sys.modules
+
+    # Check JWT secret (required for all OAuth flows)
+    # Skip in pytest since the JWT module generates ephemeral secrets for tests
+    if not running_under_pytest:
+        jwt_secret = os.environ.get("ARAGORA_JWT_SECRET", "")
+        if not jwt_secret:
+            missing.append("ARAGORA_JWT_SECRET")
+            if log_warnings:
+                logger.warning(
+                    "OAuth config: ARAGORA_JWT_SECRET is not set! "
+                    "OAuth login will fail. Generate with: "
+                    'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+                )
+        elif len(jwt_secret) < 32:
+            missing.append("ARAGORA_JWT_SECRET (too short, need 32+ chars)")
+            if log_warnings:
+                logger.warning(
+                    "OAuth config: ARAGORA_JWT_SECRET is too short "
+                    f"({len(jwt_secret)} chars). Need at least 32 characters."
+                )
+
+    if not _IS_PRODUCTION:
+        return missing  # Only check JWT in dev mode, skip provider checks
 
     # If Google OAuth is enabled (client ID set), check required vars
     if GOOGLE_CLIENT_ID:
@@ -218,9 +244,9 @@ def validate_oauth_config() -> list[str]:
         if not _get_google_redirect_uri():
             missing.append("GOOGLE_OAUTH_REDIRECT_URI")
         if not _get_oauth_success_url():
-            missing.append("_get_oauth_success_url()")
+            missing.append("OAUTH_SUCCESS_URL")
         if not _get_oauth_error_url():
-            missing.append("_get_oauth_error_url()")
+            missing.append("OAUTH_ERROR_URL")
         if not ALLOWED_OAUTH_REDIRECT_HOSTS:
             missing.append("OAUTH_ALLOWED_REDIRECT_HOSTS")
 
@@ -231,14 +257,68 @@ def validate_oauth_config() -> list[str]:
         if not _get_github_redirect_uri():
             missing.append("GITHUB_OAUTH_REDIRECT_URI")
         # Shared URLs only need to be set once
-        if not _get_oauth_success_url() and "_get_oauth_success_url()" not in missing:
-            missing.append("_get_oauth_success_url()")
-        if not _get_oauth_error_url() and "_get_oauth_error_url()" not in missing:
-            missing.append("_get_oauth_error_url()")
+        if not _get_oauth_success_url() and "OAUTH_SUCCESS_URL" not in missing:
+            missing.append("OAUTH_SUCCESS_URL")
+        if not _get_oauth_error_url() and "OAUTH_ERROR_URL" not in missing:
+            missing.append("OAUTH_ERROR_URL")
         if not ALLOWED_OAUTH_REDIRECT_HOSTS and "OAUTH_ALLOWED_REDIRECT_HOSTS" not in missing:
             missing.append("OAUTH_ALLOWED_REDIRECT_HOSTS")
 
+    if missing and log_warnings:
+        logger.warning(f"OAuth config: Missing required variables: {missing}")
+
     return missing
+
+
+def get_oauth_config_status() -> dict:
+    """
+    Get detailed OAuth configuration status for diagnostics.
+
+    Returns a dict with configuration status for each provider and required
+    settings. Sensitive values are masked.
+    """
+
+    def _mask(val: str) -> str:
+        if not val:
+            return "(not set)"
+        if len(val) <= 8:
+            return "****"
+        return f"{val[:4]}...{val[-4:]}"
+
+    jwt_secret = os.environ.get("ARAGORA_JWT_SECRET", "")
+
+    return {
+        "environment": {
+            "is_production": _IS_PRODUCTION,
+            "aragora_env": os.environ.get("ARAGORA_ENV", "(not set)"),
+        },
+        "jwt": {
+            "secret_configured": bool(jwt_secret),
+            "secret_length": len(jwt_secret) if jwt_secret else 0,
+            "secret_valid": len(jwt_secret) >= 32,
+        },
+        "google": {
+            "client_id": _mask(GOOGLE_CLIENT_ID),
+            "client_secret_set": bool(_get_google_client_secret()),
+            "redirect_uri": _get_google_redirect_uri() or "(not set)",
+            "enabled": bool(GOOGLE_CLIENT_ID),
+        },
+        "github": {
+            "client_id": _mask(GITHUB_CLIENT_ID),
+            "client_secret_set": bool(_get_github_client_secret()),
+            "redirect_uri": _get_github_redirect_uri() or "(not set)",
+            "enabled": bool(GITHUB_CLIENT_ID),
+        },
+        "urls": {
+            "success_url": _get_oauth_success_url() or "(not set)",
+            "error_url": _get_oauth_error_url() or "(not set)",
+            "allowed_redirect_hosts": list(ALLOWED_OAUTH_REDIRECT_HOSTS) or ["(none)"],
+        },
+        "validation": {
+            "missing_vars": validate_oauth_config(log_warnings=False),
+            "is_valid": len(validate_oauth_config(log_warnings=False)) == 0,
+        },
+    }
 
 
 # =============================================================================

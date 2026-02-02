@@ -238,9 +238,7 @@ class CompositeHandler(BaseHandler):
         return False
 
     @require_permission("composite:read")
-    def handle(
-        self, path: str, query_params: dict[str, str], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, str], handler: Any) -> HandlerResult | None:
         """Route to appropriate handler method with rate limiting and validation."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -278,9 +276,7 @@ class CompositeHandler(BaseHandler):
         """Extract ID from path pattern."""
         return path[len(prefix) : -len(suffix)]
 
-    def _handle_full_context(
-        self, debate_id: str, query_params: dict[str, str]
-    ) -> HandlerResult:
+    def _handle_full_context(self, debate_id: str, query_params: dict[str, str]) -> HandlerResult:
         """
         Get full context for a debate including memory, knowledge, and belief data.
 
@@ -332,9 +328,7 @@ class CompositeHandler(BaseHandler):
             logger.exception(f"Unexpected error in full-context handler: {e}")
             return self._error_response("Internal server error", 500)
 
-    def _handle_reliability(
-        self, agent_id: str, query_params: dict[str, str]
-    ) -> HandlerResult:
+    def _handle_reliability(self, agent_id: str, query_params: dict[str, str]) -> HandlerResult:
         """
         Get reliability metrics for an agent.
 
@@ -484,7 +478,9 @@ class CompositeHandler(BaseHandler):
             logger.warning(f"Data error fetching {subsystem}: {e}")
             circuit_breaker.record_failure()
             if fallback_value is not None:
-                fallback = fallback_value.copy() if isinstance(fallback_value, dict) else fallback_value
+                fallback = (
+                    fallback_value.copy() if isinstance(fallback_value, dict) else fallback_value
+                )
                 if isinstance(fallback, dict):
                     fallback["error"] = str(e)
                 return fallback
@@ -493,7 +489,9 @@ class CompositeHandler(BaseHandler):
             logger.exception(f"Unexpected error fetching {subsystem}: {e}")
             circuit_breaker.record_failure()
             if fallback_value is not None:
-                fallback = fallback_value.copy() if isinstance(fallback_value, dict) else fallback_value
+                fallback = (
+                    fallback_value.copy() if isinstance(fallback_value, dict) else fallback_value
+                )
                 if isinstance(fallback, dict):
                     fallback["error"] = "Internal error"
                 return fallback
@@ -519,7 +517,7 @@ class CompositeHandler(BaseHandler):
             # Check if continuum memory is available in context
             continuum = self.ctx.get("continuum_memory")
             if continuum and isinstance(continuum, ContinuumMemory):
-                # Get related memories
+                # Get related memories; recall() added dynamically via plugin
                 memories = continuum.recall(debate_id, limit=5)  # type: ignore[attr-defined]
                 memory_data["outcomes"] = [m.to_dict() for m in memories]
                 memory_data["available"] = True
@@ -541,7 +539,7 @@ class CompositeHandler(BaseHandler):
             # Check for knowledge mound in context
             knowledge_mound = self.ctx.get("knowledge_mound")
             if knowledge_mound:
-                # Get related knowledge items
+                # Get related knowledge items; query() on untyped ctx object
                 items = knowledge_mound.query(debate_id, limit=10)  # type: ignore[attr-defined]
                 knowledge_data["facts"] = items
                 knowledge_data["available"] = True
@@ -565,6 +563,7 @@ class CompositeHandler(BaseHandler):
             # Check for belief-related stores
             dissent_retriever = self.ctx.get("dissent_retriever")
             if dissent_retriever:
+                # get_cruxes() on untyped ctx object
                 cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)  # type: ignore[attr-defined]
                 belief_data["cruxes"] = cruxes
                 belief_data["available"] = True
@@ -605,7 +604,7 @@ class CompositeHandler(BaseHandler):
         This method checks for a registered proxy in the handler context.
         """
         # Check if we have an airlock proxy registry in the context
-        airlock_registry: dict[str, Any] | None = self.ctx.get("airlock_registry")  # type: ignore[assignment]
+        airlock_registry: dict[str, Any] | None = self.ctx.get("airlock_registry")  # type: ignore[assignment]  # ctx.get() returns Any; narrowing to dict | None
         if airlock_registry is not None:
             proxy = airlock_registry.get(agent_id)
             if proxy is not None and hasattr(proxy, "metrics"):

@@ -26,7 +26,6 @@ from typing import Any
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
-    error_response,
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit, RateLimiter, get_client_ip
@@ -35,6 +34,14 @@ from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
+
+
+def _legacy_error_response(message: str, status: int, code: str | None = None) -> HandlerResult:
+    payload: dict[str, Any] = {"error": message}
+    if code:
+        payload["code"] = code
+    return json_response(payload, status=status)
+
 
 # Supported integration types
 SUPPORTED_INTEGRATIONS = {"slack", "teams", "discord", "email"}
@@ -85,21 +92,56 @@ class IntegrationsHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
-        """Route request to appropriate handler method."""
+    async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult | None:
+        """Route request to appropriate handler method.
+
+        Supports both (path, query_params, handler) and (method, path, ...) call signatures.
+        """
+        method = kwargs.pop("method", None)
+        path = kwargs.pop("path", None)
+        query_params = kwargs.pop("query_params", None)
+        handler = kwargs.pop("handler", None)
+        headers = kwargs.pop("headers", None)
+        body = kwargs.pop("body", None)
+
+        if args:
+            first = args[0]
+            http_methods = {"GET", "POST", "DELETE", "PATCH", "PUT"}
+            if isinstance(first, str) and first.upper() in http_methods:
+                method = first.upper()
+                path = args[1] if len(args) > 1 else path
+                if query_params is None and len(args) > 2 and isinstance(args[2], dict):
+                    query_params = args[2]
+                elif handler is None and len(args) > 2:
+                    handler = args[2]
+                if handler is None and len(args) > 3:
+                    handler = args[3]
+            else:
+                path = first
+                if query_params is None and len(args) > 1 and isinstance(args[1], dict):
+                    query_params = args[1]
+                if handler is None and len(args) > 2:
+                    handler = args[2]
+
+        if method is None:
+            method = getattr(handler, "command", "GET") if handler else "GET"
+        if path is None:
+            return _legacy_error_response(
+                "Invalid integration request path", 400, code="INVALID_PATH"
+            )
+        if query_params is None:
+            query_params = {}
+
         # Require authentication for all integration management endpoints
         user, auth_err = self.require_auth_or_error(handler)
         if auth_err:
             return auth_err
 
         # Extract method, body, and headers from the request handler
-        method: str = getattr(handler, "command", "GET") if handler else "GET"
-        body: dict[str, Any] = (self.read_json_body(handler) or {}) if handler else {}
-        headers: dict[str, str] = (
-            dict(handler.headers) if handler and hasattr(handler, "headers") else {}
-        )
+        if body is None:
+            body = (self.read_json_body(handler) or {}) if handler else {}
+        if headers is None:
+            headers = dict(handler.headers) if handler and hasattr(handler, "headers") else {}
 
         # Extract tenant ID from auth context (header or query param)
         tenant_id = (headers.get("X-Tenant-ID") if headers else None) or query_params.get(
@@ -130,12 +172,14 @@ class IntegrationsHandler(BaseHandler):
             if path.startswith("/api/v2/integrations/"):
                 parts = path.split("/")
                 if len(parts) < 5:
-                    return error_response("Invalid integration path", 400, code="INVALID_PATH")
+                    return _legacy_error_response(
+                        "Invalid integration path", 400, code="INVALID_PATH"
+                    )
 
                 integration_type = parts[4]
 
                 if integration_type not in SUPPORTED_INTEGRATIONS:
-                    return error_response(
+                    return _legacy_error_response(
                         f"Unknown integration: {integration_type}. "
                         f"Supported: {', '.join(sorted(SUPPORTED_INTEGRATIONS))}",
                         400,
@@ -156,7 +200,9 @@ class IntegrationsHandler(BaseHandler):
                             integration_type, workspace_id, tenant_id
                         )
 
-                    return error_response("Invalid integration path", 400, code="INVALID_PATH")
+                    return _legacy_error_response(
+                        "Invalid integration path", 400, code="INVALID_PATH"
+                    )
 
                 # Get specific integration
                 if method == "GET":
@@ -170,11 +216,11 @@ class IntegrationsHandler(BaseHandler):
                         integration_type, workspace_id, tenant_id
                     )
 
-            return error_response("Not found", 404, code="NOT_FOUND")
+            return _legacy_error_response("Not found", 404, code="NOT_FOUND")
 
         except Exception as e:
             logger.exception(f"Error handling integration request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500, code="INTERNAL_ERROR")
+            return _legacy_error_response(f"Internal error: {str(e)}", 500, code="INTERNAL_ERROR")
 
     @require_permission("integrations.read")
     async def _list_integrations(
@@ -284,7 +330,7 @@ class IntegrationsHandler(BaseHandler):
             if workspace_id:
                 workspace = store.get(workspace_id)
                 if not workspace:
-                    return error_response(
+                    return _legacy_error_response(
                         "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
                     )
 
@@ -317,7 +363,7 @@ class IntegrationsHandler(BaseHandler):
             if workspace_id:
                 workspace = store.get(workspace_id)
                 if not workspace:
-                    return error_response(
+                    return _legacy_error_response(
                         "Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND"
                     )
 
@@ -370,7 +416,7 @@ class IntegrationsHandler(BaseHandler):
                 }
             )
 
-        return error_response(
+        return _legacy_error_response(
             f"Unknown integration type: {integration_type}", 400, code="UNKNOWN_INTEGRATION_TYPE"
         )
 
@@ -383,14 +429,16 @@ class IntegrationsHandler(BaseHandler):
     ) -> HandlerResult:
         """Disconnect an integration."""
         if not workspace_id:
-            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
+            return _legacy_error_response(
+                "workspace_id is required", 400, code="MISSING_WORKSPACE_ID"
+            )
 
         if integration_type == "slack":
             store = self._get_slack_store()
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response(
+                return _legacy_error_response(
                     "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
                 )
 
@@ -408,7 +456,7 @@ class IntegrationsHandler(BaseHandler):
                     }
                 )
 
-            return error_response(
+            return _legacy_error_response(
                 "Failed to disconnect Slack workspace", 500, code="DISCONNECT_FAILED"
             )
 
@@ -417,7 +465,9 @@ class IntegrationsHandler(BaseHandler):
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response("Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND")
+                return _legacy_error_response(
+                    "Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND"
+                )
 
             success = store.deactivate(workspace_id)
 
@@ -432,11 +482,11 @@ class IntegrationsHandler(BaseHandler):
                     }
                 )
 
-            return error_response(
+            return _legacy_error_response(
                 "Failed to disconnect Teams tenant", 500, code="DISCONNECT_FAILED"
             )
 
-        return error_response(
+        return _legacy_error_response(
             f"Cannot disconnect {integration_type}: not supported",
             400,
             code="UNSUPPORTED_DISCONNECT",
@@ -452,7 +502,7 @@ class IntegrationsHandler(BaseHandler):
         """Test integration connectivity."""
         if integration_type == "slack":
             if not workspace_id:
-                return error_response(
+                return _legacy_error_response(
                     "workspace_id is required for Slack test", 400, code="MISSING_WORKSPACE_ID"
                 )
 
@@ -460,7 +510,7 @@ class IntegrationsHandler(BaseHandler):
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response(
+                return _legacy_error_response(
                     "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
                 )
 
@@ -476,7 +526,7 @@ class IntegrationsHandler(BaseHandler):
 
         elif integration_type == "teams":
             if not workspace_id:
-                return error_response(
+                return _legacy_error_response(
                     "workspace_id is required for Teams test", 400, code="MISSING_WORKSPACE_ID"
                 )
 
@@ -484,7 +534,9 @@ class IntegrationsHandler(BaseHandler):
             workspace = store.get(workspace_id)
 
             if not workspace:
-                return error_response("Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND")
+                return _legacy_error_response(
+                    "Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND"
+                )
 
             health = await self._check_teams_health(workspace)
             return json_response(
@@ -516,7 +568,9 @@ class IntegrationsHandler(BaseHandler):
                 }
             )
 
-        return error_response(f"Cannot test {integration_type}", 400, code="UNSUPPORTED_TEST")
+        return _legacy_error_response(
+            f"Cannot test {integration_type}", 400, code="UNSUPPORTED_TEST"
+        )
 
     @require_permission("integrations.read")
     async def _get_health(
@@ -579,7 +633,7 @@ class IntegrationsHandler(BaseHandler):
             store = self._get_slack_store()
             workspace = store.get(workspace_id)
             if not workspace:
-                return error_response(
+                return _legacy_error_response(
                     "Slack workspace not found", 404, code="SLACK_WORKSPACE_NOT_FOUND"
                 )
 
@@ -635,7 +689,9 @@ class IntegrationsHandler(BaseHandler):
             store = self._get_teams_store()
             workspace = store.get(workspace_id)
             if not workspace:
-                return error_response("Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND")
+                return _legacy_error_response(
+                    "Teams tenant not found", 404, code="TEAMS_TENANT_NOT_FOUND"
+                )
 
             health = await self._check_teams_health(workspace)
             return json_response(
@@ -660,7 +716,7 @@ class IntegrationsHandler(BaseHandler):
                 {"type": "email", "healthy": health.get("status") == "healthy", **health}
             )
 
-        return error_response(
+        return _legacy_error_response(
             f"Unknown integration type: {integration_type}", 400, code="UNKNOWN_INTEGRATION_TYPE"
         )
 
@@ -681,7 +737,7 @@ class IntegrationsHandler(BaseHandler):
                 "X-RateLimit-Remaining": str(remaining),
                 "Retry-After": "60",
             }
-            return error_response(
+            return _legacy_error_response(
                 "Rate limit exceeded. Please try again later.",
                 429,
                 code="RATE_LIMIT_EXCEEDED",

@@ -63,8 +63,9 @@ async def _get_orchestrator() -> Any | None:
             from aragora.knowledge.mound import KnowledgeMound
 
             # Initialize with default mound
-            # Use cast since KnowledgeMound is a concrete class composed from mixins
-            mound = KnowledgeMound() # type: ignore[abstract]
+            # KnowledgeMound is composed from mixins; all abstract methods are
+            # implemented by the mixin chain but mypy cannot verify this.
+            mound = KnowledgeMound()  # type: ignore[abstract]  # Mixin-composed class satisfies all abstract methods at runtime
             await mound.initialize()
 
             _orchestrator_instance = RepositoryOrchestrator(

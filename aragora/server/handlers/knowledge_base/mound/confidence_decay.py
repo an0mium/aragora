@@ -137,7 +137,10 @@ class ConfidenceDecayOperationsMixin:
             return error_response(f"Invalid event. Valid events: {valid_events}", status=400)
 
         try:
-            adjustment = await mound.record_confidence_event(  # type: ignore[misc]
+            # record_confidence_event is provided by ConfidenceDecayMixin on KnowledgeMound;
+            # mypy cannot resolve it through the 17-mixin MRO so we use cast.
+            _record_fn: Any = mound.record_confidence_event
+            adjustment = await _record_fn(
                 item_id=item_id,
                 event=event_enum,
                 reason=reason,
@@ -202,7 +205,10 @@ class ConfidenceDecayOperationsMixin:
                 )
 
         try:
-            history = await mound.get_confidence_history(  # type: ignore[misc]
+            # get_confidence_history is provided by ConfidenceDecayMixin on KnowledgeMound;
+            # mypy cannot resolve it through the 17-mixin MRO so we use cast.
+            _history_fn: Any = mound.get_confidence_history
+            history = await _history_fn(
                 item_id=item_id,
                 event_type=event_enum,
                 limit=limit,
@@ -238,7 +244,10 @@ class ConfidenceDecayOperationsMixin:
             return error_response("Knowledge mound not available", status=503)
 
         try:
-            stats = mound.get_decay_stats()  # type: ignore[misc]
+            # get_decay_stats is provided by ConfidenceDecayMixin on KnowledgeMound;
+            # mypy cannot resolve it through the 17-mixin MRO so we use cast.
+            _stats_fn: Any = mound.get_decay_stats
+            stats = _stats_fn()
             return json_response(stats)
         except Exception as e:
             logger.error(f"Error getting decay stats: {e}")

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ...base import (
     HandlerResult,
@@ -38,6 +38,9 @@ from ...utils.auth import ForbiddenError, UnauthorizedError
 
 if TYPE_CHECKING:
     from aragora.ops.deployment_validator import ValidationResult
+
+    from .cross_pollination import _HandlerWithContext
+    from .database import _HealthHandlerProtocol as _DatabaseHandlerProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -234,10 +237,10 @@ class HealthHandler(SecureHandler):
         return deep_health_check(self)
 
     def _database_schema_health(self) -> HandlerResult:
-        return database_schema_health(self)  # type: ignore[arg-type]
+        return database_schema_health(cast("_DatabaseHandlerProtocol", self))
 
     def _database_stores_health(self) -> HandlerResult:
-        return database_stores_health(self)  # type: ignore[arg-type]
+        return database_stores_health(cast("_DatabaseHandlerProtocol", self))
 
     def _knowledge_mound_health(self) -> HandlerResult:
         return knowledge_mound_health(self)
@@ -246,7 +249,7 @@ class HealthHandler(SecureHandler):
         return decay_health(self)
 
     def _cross_pollination_health(self) -> HandlerResult:
-        return cross_pollination_health(self)  # type: ignore[arg-type]
+        return cross_pollination_health(cast("_HandlerWithContext", self))
 
     def _startup_health(self) -> HandlerResult:
         return startup_health(self)

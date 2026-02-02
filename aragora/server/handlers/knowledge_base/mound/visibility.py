@@ -26,15 +26,52 @@ from ...base import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeMound
+    from collections.abc import Coroutine
+
 
 logger = logging.getLogger(__name__)
+
+
+class _MoundVisibilityOps(Protocol):
+    """Subset of KnowledgeMound methods used by VisibilityOperationsMixin.
+
+    Provides explicit method signatures so mypy can resolve calls
+    without traversing the full 17-mixin KnowledgeMound MRO.
+    """
+
+    def set_visibility(
+        self,
+        item_id: str,
+        visibility: str,
+        set_by: str | None = ...,
+        is_discoverable: bool = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def get_node(self, node_id: str) -> Coroutine[Any, Any, Any | None]: ...
+    def grant_access(
+        self,
+        item_id: str,
+        grantee_type: str,
+        grantee_id: str,
+        permissions: list[str] | None = ...,
+        granted_by: str | None = ...,
+        expires_at: datetime | None = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def revoke_access(
+        self,
+        item_id: str,
+        grantee_id: str,
+        revoked_by: str,
+    ) -> Coroutine[Any, Any, bool]: ...
+    def get_access_grants(
+        self,
+        node_id: str,
+    ) -> Coroutine[Any, Any, list[Any]]: ...
 
 
 class VisibilityHandlerProtocol(Protocol):
     """Protocol for handlers that use VisibilityOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> _MoundVisibilityOps | None: ...
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]: ...
 
 
@@ -86,7 +123,7 @@ class VisibilityOperationsMixin:
 
         try:
             _run_async(
-                mound.set_visibility(  # type: ignore[misc]
+                mound.set_visibility(
                     item_id=node_id,
                     visibility=visibility.value,
                     set_by=user_id,
@@ -127,7 +164,7 @@ class VisibilityOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))  # type: ignore[misc]
+            node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -203,7 +240,7 @@ class VisibilityOperationsMixin:
 
         try:
             grant = _run_async(
-                mound.grant_access(  # type: ignore[misc]
+                mound.grant_access(
                     item_id=node_id,
                     grantee_type=grantee_type.value,
                     grantee_id=grantee_id,
@@ -276,7 +313,7 @@ class VisibilityOperationsMixin:
 
         try:
             _run_async(
-                mound.revoke_access(  # type: ignore[misc]
+                mound.revoke_access(
                     item_id=node_id,
                     grantee_id=grantee_id,
                     revoked_by=user_id,
@@ -316,7 +353,7 @@ class VisibilityOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            grants = _run_async(mound.get_access_grants(node_id=node_id))  # type: ignore[misc]
+            grants = _run_async(mound.get_access_grants(node_id=node_id))
         except ValueError as e:
             return error_response(str(e), 404)
         except Exception as e:

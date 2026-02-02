@@ -11,7 +11,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, cast
 
 STABILITY_VALUES = {"stable", "beta", "experimental", "internal", "deprecated"}
 DEFAULT_STABILITY = "experimental"
@@ -55,15 +55,19 @@ def _load_manifest() -> StabilityIndex:
             data = json.loads(_MANIFEST_PATH.read_text())
         except (json.JSONDecodeError, OSError):
             data = {}
-    # Cast to list[str] since manifest entries are expected to be string lists
+    # Manifest entries are expected to be lists of strings (e.g. "GET /api/v1/foo")
     stable_entries = data.get("stable", []) if isinstance(data, dict) else []
     beta_entries = data.get("beta", []) if isinstance(data, dict) else []
     internal_entries = data.get("internal", []) if isinstance(data, dict) else []
 
-    stable = _parse_manifest_entries(stable_entries if isinstance(stable_entries, list) else [])  # type: ignore[arg-type]
-    beta = _parse_manifest_entries(beta_entries if isinstance(beta_entries, list) else [])  # type: ignore[arg-type]
+    stable = _parse_manifest_entries(
+        cast(list[str], stable_entries) if isinstance(stable_entries, list) else []
+    )
+    beta = _parse_manifest_entries(
+        cast(list[str], beta_entries) if isinstance(beta_entries, list) else []
+    )
     internal = _parse_manifest_entries(
-        internal_entries if isinstance(internal_entries, list) else []  # type: ignore[arg-type]
+        cast(list[str], internal_entries) if isinstance(internal_entries, list) else []
     )
     return StabilityIndex(stable=stable, beta=beta, internal=internal)
 

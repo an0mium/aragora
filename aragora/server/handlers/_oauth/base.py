@@ -41,7 +41,7 @@ def _maybe_await(value: Any) -> Any:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(value)
+            return asyncio.run(value)  # type: ignore[arg-type]
     return value
 
 
@@ -113,6 +113,9 @@ class OAuthHandler(
         "/api/auth/oauth/unlink",
         "/api/auth/oauth/providers",
         "/api/user/oauth-providers",
+        # Diagnostic endpoint
+        "/api/v1/auth/oauth/diagnostics",
+        "/api/auth/oauth/diagnostics",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -241,6 +244,9 @@ class OAuthHandler(
             if normalized == "/api/user/oauth-providers" and method == "GET":
                 return self._handle_get_user_providers(handler)
 
+            if normalized == "/api/auth/oauth/diagnostics" and method == "GET":
+                return self._handle_oauth_diagnostics(handler)
+
             _asa(span, {"oauth.error": "method_not_allowed"})
             return error_response("Method not allowed", 405)
 
@@ -284,6 +290,25 @@ class OAuthHandler(
             return error_response(f"Permission denied: {decision.reason}", 403)
 
         return None  # Allowed
+
+    # =========================================================================
+    # Diagnostics
+    # =========================================================================
+
+    def _handle_oauth_diagnostics(self, handler: Any) -> HandlerResult:
+        """Return OAuth configuration diagnostics (admin-only).
+
+        Requires admin:system permission to prevent information disclosure.
+        """
+        from aragora.server.handlers.base import json_response
+        from aragora.server.handlers.oauth.config import get_oauth_config_status
+
+        # Require admin permission
+        perm_error = self._check_permission(handler, "admin:system")
+        if perm_error is not None:
+            return perm_error
+
+        return json_response(get_oauth_config_status())
 
     # =========================================================================
     # Common OAuth Flow Completion

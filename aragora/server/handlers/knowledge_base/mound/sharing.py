@@ -30,15 +30,68 @@ from ...base import (
 from ...utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeMound
+    from collections.abc import Coroutine
+
 
 logger = logging.getLogger(__name__)
+
+
+class _MoundSharingOps(Protocol):
+    """Subset of KnowledgeMound methods used by SharingOperationsMixin.
+
+    Provides explicit method signatures so mypy can resolve calls
+    without traversing the full 17-mixin KnowledgeMound MRO.
+    """
+
+    def share_with_workspace(
+        self,
+        item_id: str,
+        from_workspace_id: str,
+        to_workspace_id: str,
+        shared_by: str,
+        permissions: list[str] | None = ...,
+        expires_at: datetime | None = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def share_with_user(
+        self,
+        item_id: str,
+        from_workspace_id: str,
+        user_id: str,
+        shared_by: str,
+        permissions: list[str] | None = ...,
+        expires_at: datetime | None = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def get_shared_with_me(
+        self,
+        workspace_id: str,
+        user_id: str | None = ...,
+        limit: int = ...,
+    ) -> Coroutine[Any, Any, list[Any]]: ...
+    def revoke_share(
+        self,
+        item_id: str,
+        grantee_id: str,
+        revoked_by: str,
+    ) -> Coroutine[Any, Any, bool]: ...
+    def get_share_grants(
+        self,
+        shared_by: str | None = ...,
+        workspace_id: str | None = ...,
+    ) -> Coroutine[Any, Any, list[Any]]: ...
+    def update_share_permissions(
+        self,
+        item_id: str,
+        grantee_id: str,
+        updated_by: str,
+        permissions: list[str] | None = ...,
+        expires_at: datetime | None = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
 
 
 class SharingHandlerProtocol(Protocol):
     """Protocol for handlers that use SharingOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> _MoundSharingOps | None: ...
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]: ...
 
 
@@ -96,7 +149,7 @@ class SharingOperationsMixin:
         try:
             if target_type == "workspace":
                 _run_async(
-                    mound.share_with_workspace(  # type: ignore[misc]
+                    mound.share_with_workspace(
                         item_id=item_id,
                         from_workspace_id=workspace_id,
                         to_workspace_id=target_id,
@@ -107,7 +160,7 @@ class SharingOperationsMixin:
                 )
             else:
                 _run_async(
-                    mound.share_with_user(  # type: ignore[misc]
+                    mound.share_with_user(
                         item_id=item_id,
                         from_workspace_id=workspace_id,
                         user_id=target_id,
@@ -168,7 +221,7 @@ class SharingOperationsMixin:
         _ = include_expired  # Kept for future use
         try:
             items = _run_async(
-                mound.get_shared_with_me(  # type: ignore[misc]
+                mound.get_shared_with_me(
                     workspace_id=workspace_id,
                     user_id=user_id,
                     limit=limit,
@@ -230,7 +283,7 @@ class SharingOperationsMixin:
 
         try:
             _run_async(
-                mound.revoke_share(  # type: ignore[misc]
+                mound.revoke_share(
                     item_id=item_id,
                     grantee_id=grantee_id,
                     revoked_by=user_id,
@@ -275,7 +328,7 @@ class SharingOperationsMixin:
 
         try:
             grants = _run_async(
-                mound.get_share_grants(  # type: ignore[misc]
+                mound.get_share_grants(
                     shared_by=user_id,
                     workspace_id=workspace_id,
                 )
@@ -339,7 +392,7 @@ class SharingOperationsMixin:
 
         try:
             updated_grant = _run_async(
-                mound.update_share_permissions(  # type: ignore[misc]
+                mound.update_share_permissions(
                     item_id=item_id,
                     grantee_id=grantee_id,
                     permissions=permissions,

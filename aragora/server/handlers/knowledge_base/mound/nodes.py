@@ -28,15 +28,42 @@ from ...base import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeMound
+    from collections.abc import Coroutine
+
 
 logger = logging.getLogger(__name__)
+
+
+class _MoundNodeOps(Protocol):
+    """Subset of KnowledgeMound methods used by NodeOperationsMixin.
+
+    Provides explicit method signatures so mypy can resolve calls
+    without traversing the full 17-mixin KnowledgeMound MRO.
+    """
+
+    def query_semantic(
+        self,
+        text: str,
+        limit: int = ...,
+        min_confidence: float = ...,
+        workspace_id: str | None = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def add_node(self, node: Any) -> Coroutine[Any, Any, str]: ...
+    def get_node(self, node_id: str) -> Coroutine[Any, Any, Any | None]: ...
+    def query_nodes(
+        self,
+        node_type: str | None = ...,
+        workspace_id: str | None = ...,
+        limit: int = ...,
+        offset: int = ...,
+    ) -> Coroutine[Any, Any, list[Any]]: ...
+    def get_stats(self) -> Coroutine[Any, Any, Any]: ...
 
 
 class NodeHandlerProtocol(Protocol):
     """Protocol for handlers that use NodeOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> _MoundNodeOps | None: ...
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]: ...
 
 
@@ -73,7 +100,7 @@ class NodeOperationsMixin:
 
         try:
             result = _run_async(
-                mound.query_semantic(
+                mound.query_semantic(  # type: ignore[call-arg]  # node_types not in signature; caught by except below
                     text=query,
                     limit=limit,
                     min_confidence=min_confidence,
@@ -156,8 +183,8 @@ class NodeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node_id = _run_async(mound.add_node(node))  # type: ignore[misc]
-            saved_node = _run_async(mound.get_node(node_id))  # type: ignore[misc]
+            node_id = _run_async(mound.add_node(node))
+            saved_node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to create node: {e}")
             return error_response(f"Failed to create node: {e}", 500)
@@ -174,7 +201,7 @@ class NodeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))  # type: ignore[misc]
+            node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -213,7 +240,7 @@ class NodeOperationsMixin:
             # min_confidence and tier filtering would need to be done post-query
             node_type = node_types[0] if node_types else None
             nodes = _run_async(
-                mound.query_nodes(  # type: ignore[misc]
+                mound.query_nodes(
                     node_type=node_type,
                     workspace_id=workspace_id,
                     limit=limit,

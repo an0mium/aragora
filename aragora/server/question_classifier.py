@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.agents.personas import DEFAULT_PERSONAS, EXPERTISE_DOMAINS
 
@@ -18,10 +18,11 @@ if TYPE_CHECKING:
     import anthropic
 
 # Use AsyncAnthropic for non-blocking API calls
+AsyncAnthropic: Any
 try:
     from anthropic import AsyncAnthropic
 except ImportError:
-    AsyncAnthropic = None  # type: ignore[misc, no-redef]
+    AsyncAnthropic = None
 
 logger = logging.getLogger(__name__)
 

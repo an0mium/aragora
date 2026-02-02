@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 _skills_limiter = RateLimiter(requests_per_minute=30)
 
 # Lazy imports for skills system
+get_skill_registry: Any
+SkillRegistry: Any
+SkillContext: Any
+SkillStatus: Any
 try:
     from aragora.skills import (
         SkillContext,
@@ -48,10 +52,10 @@ try:
     SKILLS_AVAILABLE = True
 except ImportError:
     SKILLS_AVAILABLE = False
-    get_skill_registry = None  # type: ignore[misc, no-redef]
-    SkillRegistry = None  # type: ignore[misc, no-redef]
-    SkillContext = None  # type: ignore[misc, no-redef]
-    SkillStatus = None  # type: ignore[misc, no-redef]
+    get_skill_registry = None
+    SkillRegistry = None
+    SkillContext = None
+    SkillStatus = None
 
 
 class SkillsHandler(BaseHandler):

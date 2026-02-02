@@ -572,7 +572,7 @@ class BaseHandler:
             return
 
         @functools.wraps(original_init)
-        def _wrapped_init(self, *args: Any, server_context: Any = None, **kwargs: Any) -> None:
+        def _wrapped_init(self: Any, *args: Any, server_context: Any = None, **kwargs: Any) -> None:
             if server_context is not None and "ctx" in signature.parameters and "ctx" not in kwargs:
                 kwargs["ctx"] = server_context
             original_init(self, *args, **kwargs)
@@ -1178,7 +1178,7 @@ class BaseHandler:
         return None
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazily expose typed handler classes to avoid circular imports."""
     if name in {
         "TypedHandler",  # noqa: F822

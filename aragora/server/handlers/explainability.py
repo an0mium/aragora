@@ -613,6 +613,7 @@ class ExplainabilityHandler(BaseHandler):
                     }
                 )
             elif format_type == "html":
+                # markdown package has no type stubs
                 import markdown as md_lib  # type: ignore[import-untyped]
 
                 html_body: str = md_lib.markdown(summary)

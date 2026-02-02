@@ -200,6 +200,18 @@ async def run_startup_sequence(
 
         raise RuntimeError(error_msg)
 
+    # Validate OAuth configuration early (warns about missing JWT secret etc.)
+    try:
+        from aragora.server.handlers.oauth.config import validate_oauth_config
+
+        oauth_missing = validate_oauth_config()
+        if oauth_missing:
+            logger.warning(
+                f"[STARTUP] OAuth configuration incomplete: {oauth_missing}. OAuth login may fail."
+            )
+    except ImportError:
+        logger.debug("OAuth config module not available - skipping OAuth validation")
+
     # Validate actual backend connectivity (not just config presence)
     env = os.environ.get("ARAGORA_ENV", "development")
     is_production = env == "production"

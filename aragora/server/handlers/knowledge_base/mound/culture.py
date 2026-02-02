@@ -25,16 +25,36 @@ from ...base import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeMound
+    from collections.abc import Coroutine
+
     from aragora.knowledge.mound_core import NodeType
 
 logger = logging.getLogger(__name__)
 
 
+class _MoundCultureOps(Protocol):
+    """Subset of KnowledgeMound methods used by CultureOperationsMixin.
+
+    Provides explicit method signatures so mypy can resolve calls
+    without traversing the full 17-mixin KnowledgeMound MRO.
+    """
+
+    def get_culture_profile(
+        self,
+        workspace_id: str | None = ...,
+    ) -> Coroutine[Any, Any, Any]: ...
+    def add_node(self, node: Any) -> Coroutine[Any, Any, str]: ...
+    def update(
+        self,
+        node_id: str,
+        updates: dict[str, Any],
+    ) -> Coroutine[Any, Any, Any | None]: ...
+
+
 class CultureHandlerProtocol(Protocol):
     """Protocol for handlers that use CultureOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> _MoundCultureOps | None: ...
 
 
 class CultureOperationsMixin:
@@ -118,7 +138,7 @@ class CultureOperationsMixin:
                 metadata={"document_type": document_type, **metadata},
             )
 
-            node_id = _run_async(mound.add_node(node))  # type: ignore[misc]
+            node_id = _run_async(mound.add_node(node))
         except Exception as e:
             logger.error(f"Failed to add culture document: {e}")
             return error_response(f"Failed to add culture document: {e}", 500)
@@ -160,7 +180,7 @@ class CultureOperationsMixin:
             from aragora.memory.tier_manager import MemoryTier
 
             updated = _run_async(
-                mound.update(  # type: ignore[misc]
+                mound.update(
                     node_id,
                     {
                         "node_type": "culture",

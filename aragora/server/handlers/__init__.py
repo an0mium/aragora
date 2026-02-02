@@ -641,7 +641,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WorkflowPatternsHandler": Stability.STABLE,  # Workflow patterns listing - new
     "WorkflowPatternTemplatesHandler": Stability.STABLE,  # Pattern-based workflow templates - new
     "TemplateRecommendationsHandler": Stability.STABLE,  # Template recommendations for onboarding - new
-    "TemplateMarketplaceHandler": Stability.EXPERIMENTAL,  # Community template marketplace - new
+    "TemplateMarketplaceHandler": Stability.STABLE,  # Community template marketplace - graduated, circuit breaker + validation
     "MarketplaceHandler": Stability.EXPERIMENTAL,  # Marketplace API - new
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
     "RepositoryHandler": Stability.STABLE,  # Repository indexing API - Graduated from Phase A3
@@ -682,7 +682,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ReconciliationHandler": Stability.EXPERIMENTAL,  # Accounting reconciliation - new
     # Code review handler (Phase 5 - SME Vertical)
     "CodeReviewHandler": Stability.EXPERIMENTAL,  # Multi-agent code review - new
-    "LegalHandler": Stability.EXPERIMENTAL,  # Legal integrations API - new
+    "LegalHandler": Stability.STABLE,  # Legal integrations API - RBAC, 104 tests
     "DevOpsHandler": Stability.EXPERIMENTAL,  # DevOps integrations API - new
     # Connector platform handlers (unified APIs)
     "AdvertisingHandler": Stability.EXPERIMENTAL,  # Unified advertising platforms API - new

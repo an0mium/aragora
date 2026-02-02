@@ -69,7 +69,7 @@ class DRHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=30)
-    async def handle(  # type: ignore[override]
+    async def handle(  # type: ignore[override]  # Intentionally wider signature to support 3 calling conventions
         self,
         path_or_method: Optional[str] = None,
         query_params_or_path: Optional[dict[str, Any] | str] = None,

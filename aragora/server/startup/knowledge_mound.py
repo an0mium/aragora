@@ -216,7 +216,8 @@ async def init_km_adapters() -> bool:
         manager = get_cross_subscriber_manager()
 
         # Initialize RankingAdapter
-        ranking_adapter = RankingAdapter() # type: ignore[abstract]
+        # RankingAdapter is instantiable despite inheriting abstract base
+        ranking_adapter = RankingAdapter()  # type: ignore[abstract]
         setattr(manager, "_ranking_adapter", ranking_adapter)
         logger.debug("RankingAdapter initialized for KM integration")
 

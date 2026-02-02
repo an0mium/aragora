@@ -28,15 +28,55 @@ from ...base import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeMound
+    from collections.abc import Coroutine
+
 
 logger = logging.getLogger(__name__)
+
+
+class _MoundGlobalOps(Protocol):
+    """Subset of KnowledgeMound methods used by GlobalKnowledgeOperationsMixin.
+
+    Provides explicit method signatures so mypy can resolve calls
+    without traversing the full 17-mixin KnowledgeMound MRO.
+    """
+
+    def store_verified_fact(
+        self,
+        content: str,
+        source: str,
+        confidence: float = ...,
+        evidence_ids: list[str] | None = ...,
+        verified_by: str | None = ...,
+        topics: list[str] | None = ...,
+    ) -> Coroutine[Any, Any, str]: ...
+    def query_global_knowledge(
+        self,
+        query: str,
+        limit: int = ...,
+        min_confidence: float = ...,
+        topics: list[str] | None = ...,
+    ) -> Coroutine[Any, Any, list[Any]]: ...
+    def promote_to_global(
+        self,
+        item_id: str,
+        workspace_id: str,
+        promoted_by: str,
+        reason: str,
+        additional_evidence: list[str] | None = ...,
+    ) -> Coroutine[Any, Any, str]: ...
+    def get_system_facts(
+        self,
+        limit: int = ...,
+        topics: list[str] | None = ...,
+    ) -> Coroutine[Any, Any, list[Any]]: ...
+    def get_system_workspace_id(self) -> str: ...
 
 
 class GlobalKnowledgeHandlerProtocol(Protocol):
     """Protocol for handlers that use GlobalKnowledgeOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> _MoundGlobalOps | None: ...
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]: ...
     def require_admin_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]: ...
 
@@ -92,7 +132,7 @@ class GlobalKnowledgeOperationsMixin:
 
         try:
             node_id = _run_async(
-                mound.store_verified_fact(  # type: ignore[misc]
+                mound.store_verified_fact(
                     content=content,
                     source=source,
                     confidence=confidence,
@@ -135,7 +175,7 @@ class GlobalKnowledgeOperationsMixin:
         try:
             if query:
                 items = _run_async(
-                    mound.query_global_knowledge(  # type: ignore[misc]
+                    mound.query_global_knowledge(
                         query=query,
                         limit=limit,
                         topics=topics,
@@ -143,7 +183,7 @@ class GlobalKnowledgeOperationsMixin:
                 )
             else:
                 # If no query, get all system facts
-                items = _run_async(mound.get_system_facts(limit=limit, topics=topics))  # type: ignore[misc]
+                items = _run_async(mound.get_system_facts(limit=limit, topics=topics))
             track_global_query(has_results=len(items) > 0)
         except Exception as e:
             logger.error(f"Failed to query global knowledge: {e}")
@@ -207,7 +247,7 @@ class GlobalKnowledgeOperationsMixin:
 
         try:
             global_id = _run_async(
-                mound.promote_to_global(  # type: ignore[misc]
+                mound.promote_to_global(
                     item_id=item_id,
                     workspace_id=workspace_id,
                     promoted_by=user_id,
@@ -248,7 +288,7 @@ class GlobalKnowledgeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            facts = _run_async(mound.get_system_facts(limit=limit + offset, topics=topics))  # type: ignore[misc]
+            facts = _run_async(mound.get_system_facts(limit=limit + offset, topics=topics))
         except Exception as e:
             logger.error(f"Failed to get system facts: {e}")
             return error_response(f"Failed to get system facts: {e}", 500)
@@ -286,7 +326,7 @@ class GlobalKnowledgeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            workspace_id: str = mound.get_system_workspace_id()  # type: ignore[misc]
+            workspace_id: str = mound.get_system_workspace_id()
         except Exception as e:
             logger.error(f"Failed to get system workspace ID: {e}")
             return error_response(f"Failed to get system workspace ID: {e}", 500)

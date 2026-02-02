@@ -62,8 +62,10 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound |
         from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
         from aragora.knowledge.mound.types import MoundConfig
 
-        # KnowledgeMound is a concrete class composed of mixins but mypy sees it as abstract
-        # due to how the mixin pattern is implemented. It is instantiable at runtime.
+        # KnowledgeMound is a concrete class composed of 17 mixins. mypy reports it
+        # as abstract because Protocol bases in the mixin chain declare abstract
+        # methods that are satisfied at runtime via cooperative MRO.  The class
+        # definition itself carries ``# type: ignore[misc]`` for the same reason.
         mound: KnowledgeMound = KnowledgeMoundClass(workspace_id="health_check")  # type: ignore[abstract]
 
         result: dict[str, Any] = {

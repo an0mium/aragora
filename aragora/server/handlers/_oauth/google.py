@@ -11,7 +11,7 @@ import inspect
 import json
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Coroutine
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -181,7 +181,9 @@ class GoogleOAuthMixin:
             logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
         except Exception as e:
             logger.error(f"OAuth callback: _find_user_by_oauth failed: {e}", exc_info=True)
-            raise
+            return self._redirect_with_error(
+                f"Database error while looking up user: {type(e).__name__}"
+            )
 
         if not user:
             # Check if email already registered (without OAuth)
@@ -193,7 +195,9 @@ class GoogleOAuthMixin:
                 )
             except Exception as e:
                 logger.error(f"OAuth callback: get_user_by_email failed: {e}", exc_info=True)
-                raise
+                return self._redirect_with_error(
+                    f"Database error while looking up email: {type(e).__name__}"
+                )
 
             if user:
                 # Link OAuth to existing account
@@ -207,7 +211,9 @@ class GoogleOAuthMixin:
                     logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
                 except Exception as e:
                     logger.error(f"OAuth callback: _create_oauth_user failed: {e}", exc_info=True)
-                    raise
+                    return self._redirect_with_error(
+                        f"Failed to create user account: {type(e).__name__}"
+                    )
 
         if not user:
             return self._redirect_with_error("Failed to create user account")
@@ -224,6 +230,7 @@ class GoogleOAuthMixin:
         try:
             logger.info(f"OAuth callback: creating token pair for user {user.id}...")
             from aragora.billing.jwt_auth import create_token_pair
+            from aragora.exceptions import ConfigurationError
 
             tokens = create_token_pair(
                 user_id=user.id,
@@ -240,9 +247,17 @@ class GoogleOAuthMixin:
                 f"(access_token fingerprint={token_fingerprint}, "
                 f"user_id={user.id}, org_id={user.org_id})"
             )
+        except ConfigurationError as e:
+            logger.error(f"OAuth callback: JWT configuration error: {e}", exc_info=True)
+            return self._redirect_with_error(
+                "Server configuration error: JWT secret not configured. "
+                "Please contact the administrator."
+            )
         except Exception as e:
             logger.error(f"OAuth callback: create_token_pair failed: {e}", exc_info=True)
-            raise
+            return self._redirect_with_error(
+                f"Failed to create authentication tokens: {type(e).__name__}"
+            )
 
         logger.info(f"OAuth login successful: {user.email} via Google")
 
@@ -262,7 +277,7 @@ class GoogleOAuthMixin:
         logger.info(f"OAuth callback: redirecting to {redirect_url}")
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    def _exchange_code_for_tokens(self, code: str) -> dict:
+    def _exchange_code_for_tokens(self, code: str) -> dict | Coroutine[Any, Any, dict]:
         """Exchange authorization code for access tokens."""
         impl = _impl()
         data = {
@@ -305,7 +320,9 @@ class GoogleOAuthMixin:
 
         return _exchange_async()
 
-    def _get_google_user_info(self, access_token: str) -> OAuthUserInfo:
+    def _get_google_user_info(
+        self, access_token: str
+    ) -> OAuthUserInfo | Coroutine[Any, Any, OAuthUserInfo]:
         """Get user info from Google API."""
         impl = _impl()
         try:

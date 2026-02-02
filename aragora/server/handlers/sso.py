@@ -30,10 +30,11 @@ from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
+_get_sso_provider: Any
 try:
     from aragora.auth import get_sso_provider as _get_sso_provider
 except ImportError:  # pragma: no cover - optional dependency
-    _get_sso_provider = None  # type: ignore[misc, no-redef]
+    _get_sso_provider = None
 
 
 def get_sso_provider() -> Any:
@@ -43,10 +44,11 @@ def get_sso_provider() -> Any:
     return _get_sso_provider()
 
 
+auth_config: Any
 try:
     from aragora.server.auth import auth_config as auth_config
 except ImportError:  # pragma: no cover - optional dependency
-    auth_config = None  # type: ignore[misc, no-redef]
+    auth_config = None
 
 try:
     from aragora.auth.sso import SSOProviderType as _SSOProviderType

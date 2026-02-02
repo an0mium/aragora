@@ -286,8 +286,9 @@ def _validate_workspace_id(workspace_id: str) -> tuple[bool, str | None]:
     """
     if not workspace_id:
         return False, "workspace_id is required"
-    if not validate_path_segment(workspace_id):
-        return False, f"Invalid workspace_id format: {workspace_id}"
+    is_valid, err = validate_path_segment(workspace_id, "workspace_id")
+    if not is_valid:
+        return False, err or f"Invalid workspace_id format: {workspace_id}"
     return True, None
 
 
@@ -302,8 +303,9 @@ def _validate_policy_id(policy_id: str) -> tuple[bool, str | None]:
     """
     if not policy_id:
         return False, "policy_id is required"
-    if not validate_path_segment(policy_id):
-        return False, f"Invalid policy_id format: {policy_id}"
+    is_valid, err = validate_path_segment(policy_id, "policy_id")
+    if not is_valid:
+        return False, err or f"Invalid policy_id format: {policy_id}"
     return True, None
 
 
@@ -318,8 +320,9 @@ def _validate_user_id(user_id: str) -> tuple[bool, str | None]:
     """
     if not user_id:
         return False, "user_id is required"
-    if not validate_path_segment(user_id):
-        return False, f"Invalid user_id format: {user_id}"
+    is_valid, err = validate_path_segment(user_id, "user_id")
+    if not is_valid:
+        return False, err or f"Invalid user_id format: {user_id}"
     return True, None
 
 
@@ -716,8 +719,9 @@ class WorkspaceHandler(SecureHandler):
         # GET /api/audit/resource/{id}/history
         if len(parts) >= 4 and parts[2] == "resource" and method == "GET":
             resource_id = parts[3]
-            if not validate_path_segment(resource_id):
-                return error_response(f"Invalid resource_id format: {resource_id}", 400)
+            is_valid, err = validate_path_segment(resource_id, "resource_id")
+            if not is_valid:
+                return error_response(err or f"Invalid resource_id format: {resource_id}", 400)
             return self._handle_resource_history(handler, resource_id, query_params)
 
         # GET /api/audit/denied - Get denied access attempts

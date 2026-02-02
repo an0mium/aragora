@@ -33,13 +33,15 @@ from aragora.server.validation.schema import ORG_INVITE_SCHEMA, validate_against
 from aragora.audit.unified import audit_admin, audit_data
 
 # RBAC imports - graceful fallback if not available
+AuthorizationContext: Any
+check_permission: Any
 try:
     from aragora.rbac import AuthorizationContext, check_permission
 
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: ignore[misc, no-redef]
+    AuthorizationContext = None
     check_permission = None
 
 from .base import (

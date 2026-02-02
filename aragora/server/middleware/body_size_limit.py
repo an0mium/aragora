@@ -37,7 +37,7 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from typing import Any, BinaryIO, Callable, TypeVar
+from typing import Any, BinaryIO, Callable, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -575,7 +575,7 @@ def with_body_size_limit(
 
             return func(self, handler, *args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 

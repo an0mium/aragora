@@ -10,7 +10,7 @@ import asyncio
 import inspect
 import json
 import logging
-from typing import Any
+from typing import Any, Coroutine
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -138,7 +138,7 @@ class OIDCOAuthMixin:
 
         return await _maybe_await(self._complete_oauth_flow(user_info, state_data))
 
-    def _get_oidc_discovery(self, issuer: str) -> dict:
+    def _get_oidc_discovery(self, issuer: str) -> dict | Coroutine[Any, Any, dict]:
         """Fetch OIDC discovery document."""
         discovery_url = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
 
@@ -165,7 +165,7 @@ class OIDCOAuthMixin:
 
         return _discovery_async()
 
-    def _exchange_oidc_code(self, code: str, discovery: dict) -> dict:
+    def _exchange_oidc_code(self, code: str, discovery: dict) -> dict | Coroutine[Any, Any, dict]:
         """Exchange OIDC authorization code for tokens."""
         impl = _impl()
         token_endpoint = discovery.get("token_endpoint")
@@ -206,7 +206,7 @@ class OIDCOAuthMixin:
 
     def _get_oidc_user_info(
         self, access_token: str, id_token: str, discovery: dict
-    ) -> OAuthUserInfo:
+    ) -> OAuthUserInfo | Coroutine[Any, Any, OAuthUserInfo]:
         """Get user info from OIDC userinfo endpoint or id_token."""
         import base64
 

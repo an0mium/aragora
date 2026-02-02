@@ -355,6 +355,14 @@ def _add_v1_aliases(paths: dict[str, Any]) -> dict[str, Any]:
                     if method.lower() in methods and isinstance(operation, dict):
                         operation.pop("operationId", None)
             aliased[v1_path] = alias_spec
+        else:
+            # Merge methods from non-versioned path into existing v1 path
+            alias_spec = copy.deepcopy(spec)
+            for method, operation in alias_spec.items():
+                if method.lower() in methods and method not in aliased[v1_path]:
+                    if isinstance(operation, dict):
+                        operation.pop("operationId", None)
+                    aliased[v1_path][method] = operation
     return aliased
 
 
@@ -582,10 +590,12 @@ def _align_legacy_paths_with_versioned(paths: dict[str, Any]) -> dict[str, Any]:
         if legacy_methods == v1_methods:
             continue
 
+        # Merge v1 methods with legacy methods (union) to avoid dropping SDK-defined methods
+        combined_methods = v1_methods | legacy_methods
         updated: dict[str, Any] = {
             key: value for key, value in spec.items() if key.lower() not in methods
         }
-        for method in sorted(v1_methods):
+        for method in sorted(combined_methods):
             operation = spec.get(method)
             if isinstance(operation, dict):
                 updated[method] = operation
@@ -761,6 +771,14 @@ def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.1 schema."""
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(ALL_ENDPOINTS))
     paths = _filter_unhandled_paths(paths)
+    # Re-merge SDK-required endpoints that may have been filtered out
+    from aragora.server.openapi.endpoints.sdk_missing import SDK_MISSING_ENDPOINTS
+
+    for sdk_path, sdk_methods in SDK_MISSING_ENDPOINTS.items():
+        if sdk_path in paths:
+            paths[sdk_path] = {**paths[sdk_path], **sdk_methods}
+        else:
+            paths[sdk_path] = sdk_methods
     paths = _autogenerate_missing_paths(paths)
     paths = _align_legacy_paths_with_versioned(paths)
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(paths))

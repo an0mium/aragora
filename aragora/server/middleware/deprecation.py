@@ -353,7 +353,8 @@ try:
         return v1_sunset_middleware
 
 except ImportError:
-    # aiohttp not available - provide stubs
+    # aiohttp not available - provide stubs; mypy sees these as redefinitions
+    # of the names conditionally defined in the try block.
     def v1_sunset_middleware(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
         """Stub when aiohttp is not available."""
         raise RuntimeError("aiohttp is required for v1_sunset_middleware")

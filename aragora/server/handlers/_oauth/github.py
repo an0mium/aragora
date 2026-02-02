@@ -11,7 +11,7 @@ import inspect
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Coroutine
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -187,7 +187,7 @@ class GitHubOAuthMixin:
         redirect_url = state_data.get("redirect_url", impl._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    def _exchange_github_code(self, code: str) -> dict:
+    def _exchange_github_code(self, code: str) -> dict | Coroutine[Any, Any, dict]:
         """Exchange GitHub authorization code for access token."""
         impl = _impl()
         data = {
@@ -235,7 +235,9 @@ class GitHubOAuthMixin:
 
         return _exchange_async()
 
-    def _get_github_user_info(self, access_token: str) -> OAuthUserInfo:
+    def _get_github_user_info(
+        self, access_token: str
+    ) -> OAuthUserInfo | Coroutine[Any, Any, OAuthUserInfo]:
         """Get user info from GitHub API."""
         impl = _impl()
         try:

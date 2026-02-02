@@ -16,7 +16,8 @@ import importlib.util
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any
+from collections.abc import Coroutine
+from typing import Any, cast
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
@@ -116,7 +117,7 @@ class GatewayHealthHandler(BaseHandler):
         if not GATEWAY_AVAILABLE:
             return error_response("Gateway module not available", 503)
 
-        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}  # type: ignore[assignment]
+        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}
         now = datetime.now(timezone.utc).isoformat()
 
         # Build per-agent health info
@@ -203,7 +204,7 @@ class GatewayHealthHandler(BaseHandler):
         if not GATEWAY_AVAILABLE:
             return error_response("Gateway module not available", 503)
 
-        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}  # type: ignore[assignment]
+        external_agents: dict[str, Any] = self.ctx.get("external_agents", {}) or {}
 
         if agent_name not in external_agents:
             return error_response(f"Agent not found: {agent_name}", 404)
@@ -270,7 +271,7 @@ class GatewayHealthHandler(BaseHandler):
         if inspect.isawaitable(result):
             from aragora.server.http_utils import run_async
 
-            return run_async(result)  # type: ignore[arg-type]
+            return run_async(cast(Coroutine[Any, Any, bool], result))
 
         return bool(result)
 

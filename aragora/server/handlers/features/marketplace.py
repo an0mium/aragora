@@ -3,6 +3,12 @@
 Provides API endpoints for discovering, browsing, and deploying workflow templates
 across different industry verticals.
 
+Stability: STABLE
+- Circuit breaker pattern for template loading resilience
+- Rate limiting on write operations (deploy, rate)
+- Comprehensive input validation (IDs, pagination, ratings, config)
+- RBAC permission enforcement
+
 Endpoints:
 - GET  /api/v1/marketplace/templates         - List all available templates
 - GET  /api/v1/marketplace/templates/{id}    - Get template details
@@ -13,11 +19,15 @@ Endpoints:
 - GET  /api/v1/marketplace/popular           - Get popular templates
 - POST /api/v1/marketplace/templates/{id}/rate - Rate a template
 - GET  /api/v1/marketplace/demo              - Get demo marketplace data
+- GET  /api/v1/marketplace/status            - Circuit breaker and health status
 """
 
 from __future__ import annotations
 
 import logging
+import re
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -30,12 +40,165 @@ import yaml
 from ..base import (
     HandlerResult,
     error_response,
-    success_response,
+    json_response,
 )
 from ..utils import parse_json_body
+from ..utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.core import sanitize_string
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Constants for Input Validation
+# =============================================================================
+
+# Safe pattern for template IDs and deployment IDs: alphanumeric, hyphens, underscores
+SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$")
+
+MAX_TEMPLATE_NAME_LENGTH = 200
+MAX_DEPLOYMENT_NAME_LENGTH = 200
+MAX_REVIEW_LENGTH = 2000
+MAX_SEARCH_QUERY_LENGTH = 500
+MAX_CONFIG_KEYS = 50
+MAX_CONFIG_SIZE = MAX_CONFIG_KEYS
+MIN_RATING = 1
+MAX_RATING = 5
+DEFAULT_LIMIT = 50
+MIN_LIMIT = 1
+MAX_LIMIT = 200
+MAX_OFFSET = 10000
+
+# =============================================================================
+# Input Validation Functions
+# =============================================================================
+
+
+def _validate_id(value: str, label: str = "ID") -> tuple[bool, str]:
+    """Validate an ID string (template_id or deployment_id).
+
+    Returns:
+        Tuple of (is_valid, error_message). error_message is empty if valid.
+    """
+    if not value or not isinstance(value, str):
+        return False, f"{label} is required"
+    if len(value) > 128:
+        return False, f"{label} must be at most 128 characters"
+    if not SAFE_ID_PATTERN.match(value):
+        return False, f"{label} contains invalid characters"
+    return True, ""
+
+
+def _validate_pagination(query: dict[str, Any]) -> tuple[int, int, str]:
+    """Validate and clamp pagination parameters.
+
+    Returns:
+        Tuple of (limit, offset, error_message). error_message is empty if valid.
+    """
+    try:
+        limit = int(query.get("limit", DEFAULT_LIMIT))
+    except (ValueError, TypeError):
+        return DEFAULT_LIMIT, 0, "limit must be an integer"
+
+    try:
+        offset = int(query.get("offset", 0))
+    except (ValueError, TypeError):
+        return DEFAULT_LIMIT, 0, "offset must be an integer"
+
+    limit, offset = _clamp_pagination(limit, offset)
+
+    return limit, offset, ""
+
+
+def _validate_rating_value(value: Any) -> tuple[bool, int, str]:
+    """Validate a rating value.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None:
+        return False, 0, "Rating is required"
+    if not isinstance(value, int):
+        return False, 0, "Rating must be an integer"
+    if value < MIN_RATING or value > MAX_RATING:
+        return False, 0, f"Rating must be between {MIN_RATING} and {MAX_RATING}"
+    return True, value, ""
+
+
+def _validate_review_internal(value: Any) -> tuple[bool, str | None, str]:
+    """Validate a review string.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None:
+        return True, None, ""
+    if not isinstance(value, str):
+        return False, None, "Review must be a string"
+    if len(value) > MAX_REVIEW_LENGTH:
+        return False, None, f"Review must be at most {MAX_REVIEW_LENGTH} characters"
+    return True, sanitize_string(value, MAX_REVIEW_LENGTH), ""
+
+
+def _validate_deployment_name_internal(value: Any, fallback: str) -> tuple[bool, str, str]:
+    """Validate a deployment name.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None:
+        return True, fallback, ""
+    if not isinstance(value, str):
+        return False, "", "Deployment name must be a string"
+    if len(value) > MAX_DEPLOYMENT_NAME_LENGTH:
+        return False, "", f"Deployment name must be at most {MAX_DEPLOYMENT_NAME_LENGTH} characters"
+    sanitized = sanitize_string(value, MAX_DEPLOYMENT_NAME_LENGTH)
+    if not sanitized:
+        return True, fallback, ""
+    return True, sanitized, ""
+
+
+def _validate_config(value: Any) -> tuple[bool, dict[str, Any], str]:
+    """Validate deployment config.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None:
+        return True, {}, ""
+    if not isinstance(value, dict):
+        return False, {}, "Config must be a dictionary"
+    if len(value) > MAX_CONFIG_SIZE:
+        return False, {}, f"Config must have at most {MAX_CONFIG_SIZE} keys"
+    return True, value, ""
+
+
+def _validate_search_query(value: Any) -> tuple[bool, str, str]:
+    """Validate a search query string.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    if value is None or value == "":
+        return True, "", ""
+    if not isinstance(value, str):
+        return False, "", "Search query must be a string"
+    if len(value) > MAX_SEARCH_QUERY_LENGTH:
+        return False, "", f"Search query must be at most {MAX_SEARCH_QUERY_LENGTH} characters"
+    return True, sanitize_string(value, MAX_SEARCH_QUERY_LENGTH).lower(), ""
+
+
+def _validate_category_filter(value: Any) -> tuple[bool, str | None, str]:
+    """Validate a category filter value.
+
+    Returns:
+        Tuple of (is_valid, sanitized_value, error_message).
+    """
+    valid, category, err = _validate_category(value)
+    if not valid:
+        return False, None, err
+    return True, category.value if category else None, ""
+
 
 # =============================================================================
 # Enums and Data Classes
@@ -170,6 +333,151 @@ class TemplateRating:
 
 
 # =============================================================================
+# Circuit Breaker
+# =============================================================================
+
+
+class MarketplaceCircuitBreaker:
+    """Circuit breaker for marketplace template loading operations.
+
+    Prevents cascading failures when template directory or YAML parsing is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+                logger.info("Marketplace circuit breaker transitioning to HALF_OPEN")
+        return self._state
+
+    def can_proceed(self) -> bool:
+        """Check if a call can proceed."""
+        with self._lock:
+            state = self._check_state()
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:
+                return False
+
+    def is_allowed(self) -> bool:
+        """Alias for can_proceed (public API)."""
+        return self.can_proceed()
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    logger.info("Marketplace circuit breaker closed after successful recovery")
+            elif self._state == self.CLOSED:
+                self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                self._state = self.OPEN
+                self._success_count = 0
+                logger.warning("Marketplace circuit breaker reopened after failure in HALF_OPEN")
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    self._state = self.OPEN
+                    logger.warning(
+                        f"Marketplace circuit breaker opened after {self._failure_count} failures"
+                    )
+
+    def get_status(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        with self._lock:
+            return {
+                "state": self._check_state(),
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+
+# Global circuit breaker instance
+_circuit_breaker: MarketplaceCircuitBreaker | None = None
+_circuit_breaker_lock = threading.Lock()
+
+
+def _get_circuit_breaker() -> MarketplaceCircuitBreaker:
+    """Get or create the marketplace circuit breaker."""
+    global _circuit_breaker
+    with _circuit_breaker_lock:
+        if _circuit_breaker is None:
+            _circuit_breaker = MarketplaceCircuitBreaker()
+        return _circuit_breaker
+
+
+def _get_marketplace_circuit_breaker() -> MarketplaceCircuitBreaker:
+    """Public accessor for the marketplace circuit breaker (for testing)."""
+    return _get_circuit_breaker()
+
+
+def get_marketplace_circuit_breaker_status() -> dict[str, Any]:
+    """Get the marketplace circuit breaker status."""
+    return _get_marketplace_circuit_breaker().get_status()
+
+
+# =============================================================================
 # In-Memory Storage
 # =============================================================================
 
@@ -185,6 +493,23 @@ _ratings: dict[str, list[TemplateRating]] = {}
 # Download counts: template_id -> count
 _download_counts: dict[str, int] = {}
 
+
+def _clear_marketplace_state() -> None:
+    """Clear all marketplace state (for testing)."""
+    global _templates_cache, _circuit_breaker
+    _templates_cache.clear()
+    _deployments.clear()
+    _ratings.clear()
+    _download_counts.clear()
+    with _circuit_breaker_lock:
+        _circuit_breaker = None
+
+
+def _clear_marketplace_components() -> None:
+    """Compatibility wrapper to clear marketplace caches and circuit breaker."""
+    _clear_marketplace_state()
+
+
 # =============================================================================
 # Template Discovery
 # =============================================================================
@@ -196,28 +521,46 @@ def _get_templates_dir() -> Path:
 
 
 def _load_templates() -> dict[str, TemplateMetadata]:
-    """Load all templates from the templates directory."""
+    """Load all templates from the templates directory.
+
+    Uses circuit breaker to handle persistent template loading failures gracefully.
+    Returns cached templates when circuit is open.
+    """
     global _templates_cache
 
     if _templates_cache:
         return _templates_cache
 
-    templates_dir = _get_templates_dir()
-    if not templates_dir.exists():
-        logger.warning(f"Templates directory not found: {templates_dir}")
+    cb = _get_marketplace_circuit_breaker()
+
+    if not cb.is_allowed():
+        logger.warning("Marketplace circuit breaker is open, returning cached templates")
         return _templates_cache
 
-    # Find all YAML templates
-    for yaml_file in templates_dir.rglob("*.yaml"):
-        try:
-            template = _parse_template_file(yaml_file)
-            if template:
-                _templates_cache[template.id] = template
-        except Exception as e:
-            logger.warning(f"Failed to parse template {yaml_file}: {e}")
+    try:
+        templates_dir = _get_templates_dir()
+        if not templates_dir.exists():
+            logger.warning(f"Templates directory not found: {templates_dir}")
+            cb.record_success()
+            return _templates_cache
 
-    logger.info(f"Loaded {len(_templates_cache)} templates from {templates_dir}")
-    return _templates_cache
+        # Find all YAML templates
+        for yaml_file in templates_dir.rglob("*.yaml"):
+            try:
+                template = _parse_template_file(yaml_file)
+                if template:
+                    _templates_cache[template.id] = template
+            except Exception as e:
+                logger.warning(f"Failed to parse template {yaml_file}: {e}")
+
+        logger.info(f"Loaded {len(_templates_cache)} templates from {templates_dir}")
+        cb.record_success()
+        return _templates_cache
+
+    except Exception as e:
+        logger.exception(f"Error loading templates: {e}")
+        cb.record_failure()
+        return _templates_cache
 
 
 def _parse_template_file(file_path: Path) -> TemplateMetadata | None:
@@ -370,7 +713,14 @@ CATEGORY_INFO = {
 
 
 class MarketplaceHandler:
-    """Handler for marketplace API endpoints."""
+    """Handler for marketplace API endpoints.
+
+    Production-ready with:
+    - Circuit breaker for template loading resilience
+    - Rate limiting on write operations (deploy: 20/min, rate: 10/min)
+    - Input validation for IDs, pagination, ratings, config, search queries
+    - RBAC permission enforcement
+    """
 
     ROUTES = [
         "/api/v1/marketplace/templates",
@@ -383,6 +733,7 @@ class MarketplaceHandler:
         "/api/v1/marketplace/deployments/{deployment_id}",
         "/api/v1/marketplace/popular",
         "/api/v1/marketplace/demo",
+        "/api/v1/marketplace/status",
     ]
 
     ctx: dict[str, Any]
@@ -435,14 +786,20 @@ class MarketplaceHandler:
             elif path == "/api/v1/marketplace/demo" and method == "GET":
                 return await self._handle_demo(request, tenant_id)
 
+            # Health/status
+            elif path == "/api/v1/marketplace/status" and method == "GET":
+                return await self._handle_status(request, tenant_id)
+
             # Template-specific paths
-            # Path format: /api/v1/marketplace/templates/{template_id}[/{action}]
-            # Split: ['', 'api', 'v1', 'marketplace', 'templates', 'template_id', ...]
-            # Index:  0     1      2         3             4          5
             elif path.startswith("/api/v1/marketplace/templates/"):
                 parts = path.split("/")
                 if len(parts) >= 6:
                     template_id = parts[5]
+
+                    # Validate template ID
+                    valid, err = _validate_template_id(template_id)
+                    if not valid:
+                        return error_response(err, 400)
 
                     if len(parts) == 6:
                         if method == "GET":
@@ -456,13 +813,16 @@ class MarketplaceHandler:
                             return await self._handle_rate(request, tenant_id, template_id)
 
             # Deployment-specific paths
-            # Path format: /api/v1/marketplace/deployments/{deployment_id}
-            # Split: ['', 'api', 'v1', 'marketplace', 'deployments', 'deployment_id']
-            # Index:  0     1      2         3             4              5
             elif path.startswith("/api/v1/marketplace/deployments/"):
                 parts = path.split("/")
                 if len(parts) == 6:
                     deployment_id = parts[5]
+
+                    # Validate deployment ID
+                    valid, err = _validate_deployment_id(deployment_id)
+                    if not valid:
+                        return error_response(err, 400)
+
                     if method == "GET":
                         return await self._handle_get_deployment(request, tenant_id, deployment_id)
                     elif method == "DELETE":
@@ -474,11 +834,17 @@ class MarketplaceHandler:
 
         except Exception as e:
             logger.exception(f"Error in marketplace handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
-        return getattr(request, "tenant_id", "default")
+        tenant_id = getattr(request, "tenant_id", None)
+        if not tenant_id or not isinstance(tenant_id, str):
+            return "default"
+        # Sanitize tenant ID
+        if len(tenant_id) > 128:
+            return "default"
+        return tenant_id
 
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
         """Parse JSON body from request."""
@@ -492,19 +858,16 @@ class MarketplaceHandler:
     # =========================================================================
 
     async def _handle_list_templates(self, request: Any, tenant_id: str) -> HandlerResult:
-        """List all available templates.
-
-        Query params:
-        - category: Filter by category
-        - limit: Max results (default 50)
-        - offset: Pagination offset
-        """
+        """List all available templates."""
         templates = _load_templates()
         query = getattr(request, "query", {})
 
-        # Filter by category
+        # Validate category filter
         category_filter = query.get("category")
         if category_filter:
+            valid, _, err = _validate_category_filter(category_filter)
+            if not valid:
+                return error_response(err, 400)
             templates = {k: v for k, v in templates.items() if v.category.value == category_filter}
 
         # Convert to list and sort by downloads
@@ -514,13 +877,15 @@ class MarketplaceHandler:
             reverse=True,
         )
 
-        # Pagination
-        limit = int(query.get("limit", 50))
-        offset = int(query.get("offset", 0))
+        # Validate pagination
+        limit, offset, err = _validate_pagination(query)
+        if err:
+            return error_response(err, 400)
+
         total = len(template_list)
         template_list = template_list[offset : offset + limit]
 
-        return success_response(
+        return json_response(
             {
                 "templates": [t.to_dict() for t in template_list],
                 "total": total,
@@ -550,7 +915,7 @@ class MarketplaceHandler:
         ratings = _ratings.get(template_id, [])
         recent_ratings = sorted(ratings, key=lambda r: r.created_at, reverse=True)[:5]
 
-        return success_response(
+        return json_response(
             {
                 "template": meta.to_dict(),
                 "full_definition": full_template,
@@ -618,28 +983,34 @@ class MarketplaceHandler:
                 }
             )
 
-        return success_response({"categories": categories})
+        return json_response({"categories": categories})
 
     # =========================================================================
     # Search Templates
     # =========================================================================
 
     async def _handle_search(self, request: Any, tenant_id: str) -> HandlerResult:
-        """Search templates by query.
-
-        Query params:
-        - q: Search query
-        - category: Filter by category
-        - tags: Filter by tags (comma-separated)
-        - has_debate: Filter by debate feature
-        - has_checkpoint: Filter by human checkpoint feature
-        """
+        """Search templates by query."""
         templates = _load_templates()
         query = getattr(request, "query", {})
 
-        search_query = query.get("q", "").lower()
+        # Validate search query
+        raw_query = query.get("q", "")
+        valid, search_query, err = _validate_search_query(raw_query)
+        if not valid:
+            return error_response(err, 400)
+
+        # Validate category filter
         category_filter = query.get("category")
+        if category_filter:
+            valid, category_filter, err = _validate_category_filter(category_filter)
+            if not valid:
+                return error_response(err, 400)
+
         tags_filter = query.get("tags", "").split(",") if query.get("tags") else []
+        # Sanitize tags
+        tags_filter = [sanitize_string(t.strip(), 100) for t in tags_filter if t.strip()]
+
         has_debate = query.get("has_debate")
         has_checkpoint = query.get("has_checkpoint")
 
@@ -673,9 +1044,13 @@ class MarketplaceHandler:
         # Sort by relevance (downloads as proxy)
         results.sort(key=lambda t: t.downloads, reverse=True)
 
-        return success_response(
+        # Validate pagination
+        limit, offset, _ = _validate_pagination(query)
+        paged_results = results[offset : offset + limit]
+
+        return json_response(
             {
-                "results": [t.to_dict() for t in results[:50]],
+                "results": [t.to_dict() for t in paged_results],
                 "total": len(results),
                 "query": search_query,
             }
@@ -690,7 +1065,9 @@ class MarketplaceHandler:
         templates = _load_templates()
         query = getattr(request, "query", {})
 
-        limit = int(query.get("limit", 10))
+        limit, _, _ = _validate_pagination(query)
+        if limit > 50:
+            limit = 50
 
         # Sort by downloads and rating
         sorted_templates = sorted(
@@ -699,7 +1076,7 @@ class MarketplaceHandler:
             reverse=True,
         )[:limit]
 
-        return success_response(
+        return json_response(
             {
                 "popular": [t.to_dict() for t in sorted_templates],
             }
@@ -709,18 +1086,13 @@ class MarketplaceHandler:
     # Deploy Template
     # =========================================================================
 
+    @rate_limit(requests_per_minute=20, limiter_name="marketplace.deploy")
     async def _handle_deploy(self, request: Any, tenant_id: str, template_id: str) -> HandlerResult:
-        """Deploy a template for the tenant.
+        """Deploy a template for the tenant."""
+        cb = _get_marketplace_circuit_breaker()
+        if not cb.is_allowed():
+            return error_response("Marketplace temporarily unavailable", 503)
 
-        Request body:
-        {
-            "name": "My Invoice Processor",
-            "config": {
-                "auto_approve_threshold": 1000,
-                ...
-            }
-        }
-        """
         try:
             templates = _load_templates()
             meta = templates.get(template_id)
@@ -729,8 +1101,16 @@ class MarketplaceHandler:
                 return error_response("Template not found", 404)
 
             body = await self._get_json_body(request)
-            name = body.get("name", meta.name)
-            config = body.get("config", {})
+
+            # Validate deployment name
+            valid, name, err = _validate_deployment_name_internal(body.get("name"), meta.name)
+            if not valid:
+                return error_response(err, 400)
+
+            # Validate config
+            valid, config, err = _validate_config(body.get("config"))
+            if not valid:
+                return error_response(err, 400)
 
             # Create deployment
             deployment_id = f"deploy_{uuid4().hex[:12]}"
@@ -751,7 +1131,9 @@ class MarketplaceHandler:
             _download_counts[template_id] = _download_counts.get(template_id, 0) + 1
             meta.downloads = _download_counts[template_id]
 
-            return success_response(
+            cb.record_success()
+
+            return json_response(
                 {
                     "deployment": deployment.to_dict(),
                     "template": meta.to_dict(),
@@ -760,8 +1142,9 @@ class MarketplaceHandler:
             )
 
         except Exception as e:
+            cb.record_failure()
             logger.exception(f"Error deploying template: {e}")
-            return error_response(f"Deployment failed: {str(e)}", 500)
+            return error_response("Deployment failed", 500)
 
     # =========================================================================
     # List Deployments
@@ -777,7 +1160,7 @@ class MarketplaceHandler:
             reverse=True,
         )
 
-        return success_response(
+        return json_response(
             {
                 "deployments": [d.to_dict() for d in deployment_list],
                 "total": len(deployment_list),
@@ -798,7 +1181,7 @@ class MarketplaceHandler:
         templates = _load_templates()
         template = templates.get(deployment.template_id)
 
-        return success_response(
+        return json_response(
             {
                 "deployment": deployment.to_dict(),
                 "template": template.to_dict() if template else None,
@@ -817,7 +1200,7 @@ class MarketplaceHandler:
 
         deployment.status = DeploymentStatus.ARCHIVED
 
-        return success_response(
+        return json_response(
             {
                 "message": "Deployment archived",
                 "deployment": deployment.to_dict(),
@@ -828,15 +1211,13 @@ class MarketplaceHandler:
     # Rate Template
     # =========================================================================
 
+    @rate_limit(requests_per_minute=10, limiter_name="marketplace.rate")
     async def _handle_rate(self, request: Any, tenant_id: str, template_id: str) -> HandlerResult:
-        """Rate a template.
+        """Rate a template."""
+        cb = _get_marketplace_circuit_breaker()
+        if not cb.is_allowed():
+            return error_response("Marketplace temporarily unavailable", 503)
 
-        Request body:
-        {
-            "rating": 5,
-            "review": "Great template!"
-        }
-        """
         try:
             templates = _load_templates()
             meta = templates.get(template_id)
@@ -845,14 +1226,16 @@ class MarketplaceHandler:
                 return error_response("Template not found", 404)
 
             body = await self._get_json_body(request)
-            rating_value = body.get("rating")
-            review = body.get("review")
 
-            if not rating_value or not isinstance(rating_value, int):
-                return error_response("Rating must be an integer", 400)
+            # Validate rating
+            valid, rating_value, err = _validate_rating(body.get("rating"))
+            if not valid:
+                return error_response(err, 400)
 
-            if rating_value < 1 or rating_value > 5:
-                return error_response("Rating must be between 1 and 5", 400)
+            # Validate review
+            valid, review, err = _validate_review_internal(body.get("review"))
+            if not valid:
+                return error_response(err, 400)
 
             # Create rating
             rating = TemplateRating(
@@ -874,7 +1257,9 @@ class MarketplaceHandler:
             meta.rating = sum(r.rating for r in all_ratings) / len(all_ratings)
             meta.rating_count = len(all_ratings)
 
-            return success_response(
+            cb.record_success()
+
+            return json_response(
                 {
                     "rating": rating.to_dict(),
                     "template_rating": {
@@ -885,8 +1270,28 @@ class MarketplaceHandler:
             )
 
         except Exception as e:
+            cb.record_failure()
             logger.exception(f"Error rating template: {e}")
-            return error_response(f"Rating failed: {str(e)}", 500)
+            return error_response("Rating failed", 500)
+
+    # =========================================================================
+    # Health / Status
+    # =========================================================================
+
+    async def _handle_status(self, request: Any, tenant_id: str) -> HandlerResult:
+        """Get marketplace health status including circuit breaker state."""
+        templates = _load_templates()
+        cb_status = get_marketplace_circuit_breaker_status()
+
+        return json_response(
+            {
+                "status": "healthy" if cb_status["state"] == "closed" else "degraded",
+                "templates_loaded": len(templates),
+                "circuit_breaker": cb_status,
+                "deployments_count": sum(len(d) for d in _deployments.values()),
+                "ratings_count": sum(len(r) for r in _ratings.values()),
+            }
+        )
 
     # =========================================================================
     # Demo Data
@@ -911,7 +1316,7 @@ class MarketplaceHandler:
             reverse=True,
         )[:6]
 
-        return success_response(
+        return json_response(
             {
                 "featured": [t.to_dict() for t in featured],
                 "by_category": by_category,
@@ -942,3 +1347,94 @@ async def handle_marketplace(request: Any, path: str, method: str) -> HandlerRes
     """Handle a marketplace request."""
     handler = get_marketplace_handler()
     return await handler.handle(request, path, method)
+
+
+# =============================================================================
+# Aliases for backward compatibility with existing tests
+# =============================================================================
+
+# Clear function alias
+_clear_marketplace_components = _clear_marketplace_state
+
+
+def _validate_template_id(value: str) -> tuple[bool, str | None]:  # type: ignore[no-redef]
+    """Validate a template ID (backward-compatible signature).
+
+    Returns (is_valid, error_or_None).
+    """
+    valid, err = _validate_id(value, "Template ID")
+    return valid, err if not valid else None
+
+
+def _validate_deployment_id(value: str) -> tuple[bool, str | None]:  # type: ignore[no-redef]
+    """Validate a deployment ID (backward-compatible signature).
+
+    Returns (is_valid, error_or_None).
+    """
+    valid, err = _validate_id(value, "Deployment ID")
+    return valid, err if not valid else None
+
+
+def _validate_deployment_name(value: Any, fallback: str = "") -> tuple[bool, str | None]:  # type: ignore[no-redef]
+    """Validate a deployment name (backward-compatible 2-tuple signature).
+
+    Returns (is_valid, error_or_None).
+    """
+    valid, _, err = _validate_deployment_name_internal(value, fallback)
+    return valid, err if not valid else None
+
+
+def _validate_review(value: Any) -> tuple[bool, str | None]:  # type: ignore[no-redef]
+    """Validate a review (backward-compatible 2-tuple signature).
+
+    Returns (is_valid, error_or_None).
+    """
+    valid, _, err = _validate_review_internal(value)
+    return valid, err if not valid else None
+
+
+def _validate_rating(value: Any) -> tuple[bool, int, str]:  # type: ignore[no-redef]
+    """Validate a rating value (alias for _validate_rating_value)."""
+    return _validate_rating_value(value)
+
+
+def _validate_category(value: Any) -> tuple[bool, TemplateCategory | None, str]:  # type: ignore[no-redef]
+    """Validate a category filter (backward-compatible, returns enum).
+
+    Returns (is_valid, TemplateCategory_or_None, error_message).
+    """
+    if value is None or value == "":
+        return True, None, ""
+    if not isinstance(value, str):
+        return False, None, "Category must be a string"
+    # Case-insensitive lookup
+    lower = value.lower()
+    valid_categories = {cat.value: cat for cat in TemplateCategory}
+    if lower not in valid_categories:
+        return (
+            False,
+            None,
+            f"Invalid category. Must be one of: {', '.join(sorted(valid_categories))}",
+        )
+    return True, valid_categories[lower], ""
+
+
+def _clamp_pagination(limit: Any, offset: Any) -> tuple[int, int]:  # type: ignore[no-redef]
+    """Clamp pagination values (backward-compatible direct args)."""
+    try:
+        limit_int = int(limit) if limit is not None else DEFAULT_LIMIT
+    except (ValueError, TypeError):
+        limit_int = DEFAULT_LIMIT
+    try:
+        offset_int = int(offset) if offset is not None else 0
+    except (ValueError, TypeError):
+        offset_int = 0
+    return (
+        max(MIN_LIMIT, min(limit_int, MAX_LIMIT)),
+        max(0, min(offset_int, MAX_OFFSET)),
+    )
+
+
+# Constant aliases
+MAX_CONFIG_SIZE = MAX_CONFIG_KEYS
+SAFE_TEMPLATE_ID_PATTERN = SAFE_ID_PATTERN

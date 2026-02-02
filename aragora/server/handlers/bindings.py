@@ -42,6 +42,12 @@ logger = logging.getLogger(__name__)
 _bindings_limiter = RateLimiter(requests_per_minute=60)
 
 # Lazy imports for bindings system
+# Pre-declare with Any to avoid no-redef errors in except branch
+get_binding_router: Any
+BindingRouter: Any
+BindingType: Any
+MessageBinding: Any
+
 try:
     from aragora.server.bindings import (
         BindingRouter,
@@ -53,10 +59,10 @@ try:
     BINDINGS_AVAILABLE = True
 except ImportError:
     BINDINGS_AVAILABLE = False
-    get_binding_router = None  # type: ignore[misc, no-redef]
-    BindingRouter = None  # type: ignore[misc, no-redef]
-    BindingType = None  # type: ignore[misc, no-redef]
-    MessageBinding = None  # type: ignore[misc, no-redef]
+    get_binding_router = None
+    BindingRouter = None
+    BindingType = None
+    MessageBinding = None
 
 
 def _web_response_to_handler_result(response: web.Response) -> HandlerResult:

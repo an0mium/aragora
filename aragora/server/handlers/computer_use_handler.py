@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -37,33 +37,53 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.http_utils import run_async
 from aragora.server.validation.query_params import safe_query_int
 
-# RBAC imports
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext
+    from aragora.computer_use import (
+        ComputerUseOrchestrator,
+    )
+
+# RBAC imports - runtime fallback
+_AuthorizationContext: Any = None
+_check_permission: Any = None
+_extract_user_from_request: Any = None
+
 try:
-    from aragora.rbac import AuthorizationContext, check_permission
-    from aragora.billing.jwt_auth import extract_user_from_request
+    from aragora.rbac import (
+        AuthorizationContext as _AuthorizationContext,
+        check_permission as _check_permission,
+    )
+    from aragora.billing.jwt_auth import (
+        extract_user_from_request as _extract_user_from_request,
+    )
 
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: ignore[misc, no-redef]
 
-# Computer Use imports
+# Computer Use imports - runtime fallback
+_ComputerUseOrchestrator: Any = None
+_ComputerUseConfig: Any = None
+_ComputerPolicy: Any = None
+_create_default_computer_policy: Any = None
+_TaskResult: Any = None
+_TaskStatus: Any = None
+_ApprovalStatus: Any = None
+
 try:
     from aragora.computer_use import (
-        ComputerUseOrchestrator,
-        ComputerUseConfig,
-        ComputerPolicy,
-        create_default_computer_policy,
+        ComputerUseOrchestrator as _ComputerUseOrchestrator,
+        ComputerUseConfig as _ComputerUseConfig,
+        create_default_computer_policy as _create_default_computer_policy,
     )
-    from aragora.computer_use.orchestrator import TaskResult, TaskStatus
-    from aragora.computer_use.approval import ApprovalStatus
+    from aragora.computer_use.orchestrator import (
+        TaskStatus as _TaskStatus,
+    )
+    from aragora.computer_use.approval import ApprovalStatus as _ApprovalStatus
 
     COMPUTER_USE_AVAILABLE = True
 except ImportError:
     COMPUTER_USE_AVAILABLE = False
-    ComputerUseOrchestrator = None  # type: ignore[misc, no-redef]
-    TaskResult = None  # type: ignore[misc, no-redef]
-    TaskStatus = None  # type: ignore[misc, no-redef]
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +107,12 @@ class ComputerUseHandler(BaseHandler):
         "/api/v1/computer-use/approvals/*",
     ]
 
-    def __init__(self, server_context):
+    def __init__(self, server_context: Any) -> None:
         super().__init__(server_context)
         self._orchestrator: ComputerUseOrchestrator | None = None
         self._tasks: dict[str, dict[str, Any]] = {}  # In-memory task store
         self._action_stats: dict[str, dict[str, int]] = {}
-        self._policies: dict[str, ComputerPolicy] = {}
+        self._policies: dict[str, Any] = {}
         self._approval_workflow: Any | None = None
 
     def _get_orchestrator(self) -> ComputerUseOrchestrator | None:
@@ -103,9 +123,9 @@ class ComputerUseHandler(BaseHandler):
         if state and state.computer_orchestrator:
             return state.computer_orchestrator
         if self._orchestrator is None:
-            policy = create_default_computer_policy()
-            config = ComputerUseConfig(max_steps=20, total_timeout_seconds=300)
-            self._orchestrator = ComputerUseOrchestrator(policy=policy, config=config)
+            policy = _create_default_computer_policy()
+            config = _ComputerUseConfig(max_steps=20, total_timeout_seconds=300)
+            self._orchestrator = _ComputerUseOrchestrator(policy=policy, config=config)
         return self._orchestrator
 
     def _get_approval_workflow(self) -> Any | None:
@@ -119,13 +139,13 @@ class ComputerUseHandler(BaseHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_auth_context(self, handler) -> AuthorizationContext | None:
+    def _get_auth_context(self, handler: Any) -> AuthorizationContext | None:
         """Build AuthorizationContext from request."""
-        if not RBAC_AVAILABLE or AuthorizationContext is None:
+        if not RBAC_AVAILABLE or _AuthorizationContext is None:
             return None
 
         user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
+        auth_ctx = _extract_user_from_request(handler, user_store)
 
         if not auth_ctx.is_authenticated:
             return None
@@ -133,13 +153,13 @@ class ComputerUseHandler(BaseHandler):
         user = user_store.get_user_by_id(auth_ctx.user_id) if user_store else None
         roles = set([user.role]) if user and user.role else set()
 
-        return AuthorizationContext(
+        return _AuthorizationContext(
             user_id=auth_ctx.user_id,
             roles=roles,
             org_id=auth_ctx.org_id,
         )
 
-    def _check_rbac_permission(self, handler, permission_key: str) -> HandlerResult | None:
+    def _check_rbac_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check RBAC permission. Returns None if allowed, error response if denied."""
         if not RBAC_AVAILABLE:
             return None
@@ -148,9 +168,10 @@ class ComputerUseHandler(BaseHandler):
         if not rbac_ctx:
             return error_response("Not authenticated", 401)
 
-        decision = check_permission(rbac_ctx, permission_key)
+        decision = _check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
-            logger.warning(f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key}")
+            user_id = getattr(rbac_ctx, "user_id", "unknown")
+            logger.warning(f"RBAC denied: user={user_id} permission={permission_key}")
             return error_response(f"Permission denied: {decision.reason}", 403)
 
         return None
@@ -246,7 +267,7 @@ class ComputerUseHandler(BaseHandler):
     # =========================================================================
 
     @handle_errors("list tasks")
-    def _handle_list_tasks(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_tasks(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/v1/computer-use/tasks."""
         # RBAC check
         if error := self._check_rbac_permission(handler, "computer_use:tasks:read"):
@@ -337,14 +358,14 @@ class ComputerUseHandler(BaseHandler):
                 metadata: dict[str, Any] = {}
                 if auth_ctx:
                     metadata = {
-                        "user_id": auth_ctx.user_id,
-                        "tenant_id": auth_ctx.org_id,
-                        "roles": list(auth_ctx.roles),
+                        "user_id": getattr(auth_ctx, "user_id", None),
+                        "tenant_id": getattr(auth_ctx, "org_id", None),
+                        "roles": list(getattr(auth_ctx, "roles", [])),
                     }
-                result: TaskResult = run_async(
+                result: Any = run_async(
                     orchestrator.run_task(goal=goal, max_steps=max_steps, metadata=metadata)
                 )
-                is_success = result.status == TaskStatus.COMPLETED
+                is_success = result.status == _TaskStatus.COMPLETED
                 task["status"] = "completed" if is_success else "failed"
                 task["result"] = {
                     "success": is_success,
@@ -443,7 +464,7 @@ class ComputerUseHandler(BaseHandler):
             return error
 
         # Return configured policies
-        policies = [
+        policies: list[dict[str, Any]] = [
             {
                 "id": "default",
                 "name": "Default Policy",
@@ -490,7 +511,7 @@ class ComputerUseHandler(BaseHandler):
         policy_id = f"policy-{uuid.uuid4().hex[:8]}"
 
         # Create policy (simplified for now)
-        policy = create_default_computer_policy()
+        policy = _create_default_computer_policy()
 
         self._policies[policy_id] = policy
 
@@ -509,7 +530,7 @@ class ComputerUseHandler(BaseHandler):
     # =========================================================================
 
     @handle_errors("list approvals")
-    def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_approvals(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/v1/computer-use/approvals."""
         if error := self._check_rbac_permission(handler, "computer_use:admin"):
             return error
@@ -524,7 +545,7 @@ class ComputerUseHandler(BaseHandler):
         status = None
         if status_filter:
             try:
-                status = ApprovalStatus(status_filter)
+                status = _ApprovalStatus(status_filter)
             except ValueError:
                 return error_response(f"Invalid status: {status_filter}", 400)
 
@@ -568,7 +589,7 @@ class ComputerUseHandler(BaseHandler):
             return error_response("Approval workflow not available", 503)
 
         auth_ctx = self._get_auth_context(handler)
-        approver_id = auth_ctx.user_id if auth_ctx else "system"
+        approver_id: str = getattr(auth_ctx, "user_id", "system") if auth_ctx else "system"
         body = self.read_json_body(handler) or {}
         reason = body.get("reason")
 
@@ -590,7 +611,7 @@ class ComputerUseHandler(BaseHandler):
             return error_response("Approval workflow not available", 503)
 
         auth_ctx = self._get_auth_context(handler)
-        approver_id = auth_ctx.user_id if auth_ctx else "system"
+        approver_id: str = getattr(auth_ctx, "user_id", "system") if auth_ctx else "system"
         body = self.read_json_body(handler) or {}
         reason = body.get("reason")
 

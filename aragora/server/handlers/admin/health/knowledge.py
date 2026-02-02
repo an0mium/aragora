@@ -79,6 +79,9 @@ class KnowledgeMixin:
         # 2. Check core mound initialization
         mound: KnowledgeMound | None = None
         try:
+            # KnowledgeMound is a concrete class composed of 17 mixins. mypy
+            # reports it as abstract because Protocol bases in the mixin chain
+            # declare abstract methods satisfied at runtime via cooperative MRO.
             mound = KnowledgeMound(workspace_id="health_check")  # type: ignore[abstract]
 
             components["core"] = {

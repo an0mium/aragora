@@ -184,6 +184,7 @@ WS_MAX_CONNECTIONS_PER_IP = max(1, min(_raw_max_per_ip, 100))
 # =============================================================================
 
 
+# Mixin method signatures intentionally differ from ServerBase
 class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[override]
     """
     Unified server using aiohttp to handle both HTTP API and WebSocket on a single port.

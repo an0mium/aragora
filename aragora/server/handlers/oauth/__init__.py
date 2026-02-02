@@ -30,6 +30,7 @@ from .handler import (
     _cleanup_expired_states,
     _generate_state,
 )
+from .config import get_oauth_config_status
 from .._oauth_impl import _OAUTH_STATES
 
 # Re-export for backward compatibility
@@ -114,4 +115,5 @@ __all__ = [
     "ALLOWED_OAUTH_REDIRECT_HOSTS",
     "OAUTH_SUCCESS_URL",
     "OAUTH_ERROR_URL",
+    "get_oauth_config_status",
 ]

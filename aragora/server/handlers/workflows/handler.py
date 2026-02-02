@@ -620,8 +620,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             # Get user_id from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
             created_by = (
-                auth_context.user_id  # type: ignore[union-attr]
-                if auth_context
+                auth_context.user_id
+                if auth_context and not isinstance(auth_context, str)
                 else get_string_param(query_params, "user_id", "")
             )
 
@@ -1088,8 +1088,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             # Get responder from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
             responder_id = (
-                auth_context.user_id  # type: ignore[union-attr]
-                if auth_context
+                auth_context.user_id
+                if auth_context and not isinstance(auth_context, str)
                 else get_string_param(query_params, "user_id", "")
             )
 

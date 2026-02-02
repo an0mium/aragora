@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp import web
 
@@ -30,26 +30,35 @@ from aragora.integrations.twilio_voice import (
 )
 
 # Try to import device registry for device runtime integration
-try:
-    from aragora.gateway.device_registry import DeviceRegistry, DeviceNode
+_DeviceRegistryCls: type[Any] | None = None
+_DeviceNodeCls: type[Any] | None = None
 
+try:
+    from aragora.gateway.device_registry import (
+        DeviceRegistry as _DR,
+        DeviceNode as _DN,
+    )
+
+    _DeviceRegistryCls = _DR
+    _DeviceNodeCls = _DN
     HAS_DEVICE_REGISTRY = True
 except ImportError:
     HAS_DEVICE_REGISTRY = False
-    DeviceRegistry = None  # type: ignore[misc, assignment]
-    DeviceNode = None  # type: ignore[misc, assignment]
 
 # Try to import Twilio request validator
-try:
-    from twilio.request_validator import RequestValidator
+_RequestValidatorCls: type[Any] | None = None
 
+try:
+    from twilio.request_validator import RequestValidator as _RV
+
+    _RequestValidatorCls = _RV
     HAS_TWILIO_VALIDATOR = True
 except ImportError:
     HAS_TWILIO_VALIDATOR = False
-    RequestValidator = None  # type: ignore[misc, assignment]
 
 if TYPE_CHECKING:
     from aiohttp.web import Application, Request, Response
+    from aragora.gateway.device_registry import DeviceRegistry, DeviceNode
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +81,7 @@ class VoiceHandler:
         self,
         voice_integration: TwilioVoiceIntegration | None = None,
         debate_starter: Any | None = None,
-        device_registry: "DeviceRegistry | None" = None,
+        device_registry: DeviceRegistry | None = None,
     ):
         """
         Initialize voice handler.
@@ -84,11 +93,11 @@ class VoiceHandler:
         """
         self.voice = voice_integration or get_twilio_voice()
         self.debate_starter = debate_starter
-        self._device_registry = device_registry
+        self._device_registry: DeviceRegistry | None = device_registry
         self._call_device_map: dict[str, str] = {}  # call_sid -> device_id
 
     @property
-    def device_registry(self) -> "DeviceRegistry | None":
+    def device_registry(self) -> DeviceRegistry | None:
         """Get the device registry if available."""
         return self._device_registry
 
@@ -108,7 +117,8 @@ class VoiceHandler:
             return False
 
         # Verify device exists and has voice capability
-        device = await self._device_registry.get(device_id)
+        registry = cast("DeviceRegistry", self._device_registry)
+        device = await registry.get(device_id)
         if not device:
             logger.warning(f"Device {device_id} not found for call {call_sid}")
             return False
@@ -121,7 +131,7 @@ class VoiceHandler:
         logger.info(f"Associated call {call_sid} with device {device_id}")
         return True
 
-    async def get_device_for_call(self, call_sid: str) -> "DeviceNode | None":
+    async def get_device_for_call(self, call_sid: str) -> DeviceNode | None:
         """
         Get the device associated with a call.
 
@@ -138,7 +148,8 @@ class VoiceHandler:
         if not device_id:
             return None
 
-        return await self._device_registry.get(device_id)
+        registry = cast("DeviceRegistry", self._device_registry)
+        return await registry.get(device_id)
 
     def _get_call_context(self, call_sid: str) -> dict[str, Any]:
         """
@@ -203,7 +214,7 @@ class VoiceHandler:
 
         # Validate the signature
         try:
-            validator = RequestValidator(auth_token)
+            validator = _RequestValidatorCls(auth_token)
             is_valid = validator.validate(url, params, signature)
 
             if not is_valid:
@@ -507,7 +518,7 @@ class VoiceHandler:
 def setup_voice_routes(
     app: "Application",
     handler: VoiceHandler | None = None,
-    device_registry: "DeviceRegistry | None" = None,
+    device_registry: DeviceRegistry | None = None,
 ) -> VoiceHandler:
     """
     Set up voice webhook routes.

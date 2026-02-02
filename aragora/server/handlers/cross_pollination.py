@@ -190,7 +190,7 @@ class CrossPollinationMetricsHandler(BaseHandler):
             metrics_text = get_cross_pollination_metrics_text()
 
             # Return raw response dict for Prometheus format
-            return {
+            return {  # type: ignore[return-value]
                 "status": 200,
                 "body": metrics_text,
                 "headers": {

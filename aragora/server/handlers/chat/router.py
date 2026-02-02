@@ -47,6 +47,13 @@ from aragora.connectors.chat import (
 )
 
 # DecisionRouter for unified routing
+DecisionRequest: Any
+DecisionRouter: Any
+DecisionType: Any
+InputSource: Any
+ResponseChannel: Any
+RequestContext: Any
+get_decision_router: Any
 try:
     from aragora.core.decision import (
         DecisionRequest,
@@ -61,12 +68,12 @@ try:
     DECISION_ROUTER_AVAILABLE = True
 except ImportError:
     DECISION_ROUTER_AVAILABLE = False
-    DecisionRequest = None  # type: ignore[misc,no-redef]
-    DecisionRouter = None  # type: ignore[misc,no-redef]
-    DecisionType = None  # type: ignore[misc,no-redef]
-    InputSource = None  # type: ignore[misc,no-redef]
-    ResponseChannel = None  # type: ignore[misc,no-redef]
-    RequestContext = None  # type: ignore[misc,no-redef]
+    DecisionRequest = None
+    DecisionRouter = None
+    DecisionType = None
+    InputSource = None
+    ResponseChannel = None
+    RequestContext = None
     get_decision_router = None
 
 logger = logging.getLogger(__name__)
@@ -300,7 +307,7 @@ class ChatWebhookRouter:
         platform: str,
         headers: dict[str, str],
         body: bytes,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | HandlerResult:
         """
         Handle an incoming webhook.
 
@@ -310,12 +317,12 @@ class ChatWebhookRouter:
             body: Raw request body
 
         Returns:
-            Response dict with success status and any required response data
+            Response dict with success status, or HandlerResult on error
         """
         # Verify signature
         if not self.verify_webhook(platform, headers, body):
             logger.warning(f"Webhook verification failed for {platform}")
-            return error_response("Invalid signature", code="UNAUTHORIZED", status=401)  # type: ignore[return-value]  # HandlerResult used as error dict
+            return error_response("Invalid signature", code="UNAUTHORIZED", status=401)
 
         # Parse event
         event = self.parse_event(platform, headers, body)
@@ -704,7 +711,7 @@ if HANDLER_BASE_AVAILABLE:
 
         def __init__(self, ctx: dict | None = None):
             """Initialize with router."""
-            self.ctx = ctx  # type: ignore[assignment]  # dict is runtime-compatible with ServerContext
+            self.ctx = ctx or {}
             self.router = ChatWebhookRouter()
 
         def can_handle(self, path: str, method: str = "GET") -> bool:

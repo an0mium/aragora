@@ -471,18 +471,18 @@ class AutomationHandler(SecureHandler):
         payload = body.get("payload", {})
         workspace_id = body.get("workspace_id")
 
-        all_results = []
+        all_results: list[Any] = []
         for connector in self._connectors.values():
-            results = connector.dispatch_event(
+            raw_results: Any = connector.dispatch_event(
                 event_type,
                 payload,
                 workspace_id=workspace_id,
             )
-            if inspect.isawaitable(results):
-                results = await results
-            all_results.extend(results)
+            if inspect.isawaitable(raw_results):
+                raw_results = await raw_results
+            all_results.extend(raw_results)
 
-        success_count = sum(1 for r in all_results if r.success)
+        success_count = sum(bool(r.success) for r in all_results)
         failure_count = len(all_results) - success_count
 
         return success_response(

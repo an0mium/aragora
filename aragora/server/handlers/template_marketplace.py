@@ -1,12 +1,21 @@
 """
 Template Marketplace API Handler.
 
+Stability: STABLE
+
 Provides community marketplace functionality for workflow templates:
 - Browse and search community templates
 - Publish templates to marketplace
 - Rate and review templates
 - Import templates from marketplace
 - Featured and trending templates
+
+Features:
+- Circuit breaker pattern for resilient marketplace operations
+- Rate limiting (10-120 requests/minute depending on endpoint)
+- RBAC permission checks (marketplace:read, marketplace:write)
+- Input validation with safe patterns and parameter clamping
+- Comprehensive error handling with safe error messages
 
 Endpoints:
 - GET  /api/marketplace/templates          - Browse marketplace templates
@@ -23,8 +32,19 @@ Endpoints:
 
 from __future__ import annotations
 
+__all__ = [
+    "TemplateMarketplaceHandler",
+    "TemplateRecommendationsHandler",
+    "MarketplaceTemplate",
+    "TemplateReview",
+    "MarketplaceCircuitBreaker",
+    "get_marketplace_circuit_breaker_status",
+    "_clear_marketplace_state",
+]
+
 import json
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -49,6 +69,343 @@ from .base import (
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Input Validation Patterns
+# =============================================================================
+
+# Template name: 1-100 chars
+TEMPLATE_NAME_MAX_LENGTH = 100
+
+# Description max length
+DESCRIPTION_MAX_LENGTH = 5000
+
+# Review content max length
+REVIEW_CONTENT_MAX_LENGTH = 2000
+
+# Maximum tags per template
+MAX_TAGS = 20
+
+# Maximum tag length
+MAX_TAG_LENGTH = 50
+
+# Valid categories
+VALID_CATEGORIES = frozenset(
+    [
+        "security",
+        "research",
+        "legal",
+        "content",
+        "data",
+        "sme",
+        "quickstart",
+        "automation",
+        "analytics",
+        "development",
+        "marketing",
+        "finance",
+        "hr",
+        "operations",
+        "other",
+    ]
+)
+
+# Valid patterns
+VALID_PATTERNS = frozenset(
+    [
+        "debate",
+        "pipeline",
+        "hive_mind",
+        "map_reduce",
+        "review_cycle",
+        "sequential",
+        "parallel",
+        "conditional",
+        "loop",
+        "custom",
+    ]
+)
+
+
+def validate_template_name(name: str) -> tuple[bool, str]:
+    """Validate template name.
+
+    Args:
+        name: The template name to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not name:
+        return False, "Template name is required"
+    if len(name) > TEMPLATE_NAME_MAX_LENGTH:
+        return False, f"Template name too long (max {TEMPLATE_NAME_MAX_LENGTH} chars)"
+    if not name.strip():
+        return False, "Template name cannot be empty or whitespace only"
+    return True, ""
+
+
+def validate_category(category: str) -> tuple[bool, str]:
+    """Validate category value.
+
+    Args:
+        category: The category to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not category:
+        return False, "Category is required"
+    if category not in VALID_CATEGORIES:
+        return False, f"Invalid category. Valid: {', '.join(sorted(VALID_CATEGORIES))}"
+    return True, ""
+
+
+def validate_pattern(pattern: str) -> tuple[bool, str]:
+    """Validate pattern value.
+
+    Args:
+        pattern: The pattern to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not pattern:
+        return False, "Pattern is required"
+    if pattern not in VALID_PATTERNS:
+        return False, f"Invalid pattern. Valid: {', '.join(sorted(VALID_PATTERNS))}"
+    return True, ""
+
+
+def validate_tags(tags: list[Any]) -> tuple[bool, str]:
+    """Validate tags list.
+
+    Args:
+        tags: The tags list to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(tags, list):
+        return False, "Tags must be a list"
+    if len(tags) > MAX_TAGS:
+        return False, f"Too many tags (max {MAX_TAGS})"
+    for tag in tags:
+        if not isinstance(tag, str):
+            return False, "Each tag must be a string"
+        if len(tag) > MAX_TAG_LENGTH:
+            return False, f"Tag too long (max {MAX_TAG_LENGTH} chars)"
+        if not tag.strip():
+            return False, "Tags cannot be empty"
+    return True, ""
+
+
+def validate_rating(rating: Any) -> tuple[bool, str]:
+    """Validate rating value.
+
+    Args:
+        rating: The rating to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(rating, (int, float)):
+        return False, "Rating must be a number"
+    if rating < 1 or rating > 5:
+        return False, "Rating must be between 1 and 5"
+    return True, ""
+
+
+def validate_review_content(content: str) -> tuple[bool, str]:
+    """Validate review content.
+
+    Args:
+        content: The review content to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not content:
+        return False, "Review content is required"
+    if len(content) > REVIEW_CONTENT_MAX_LENGTH:
+        return False, f"Review content too long (max {REVIEW_CONTENT_MAX_LENGTH} chars)"
+    if not content.strip():
+        return False, "Review content cannot be empty or whitespace only"
+    return True, ""
+
+
+# =============================================================================
+# Circuit Breaker for Marketplace Operations
+# =============================================================================
+
+
+class MarketplaceCircuitBreaker:
+    """Circuit breaker for marketplace operations.
+
+    Prevents cascading failures when marketplace storage is unavailable.
+    Uses a simple state machine: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """
+
+    # State constants
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        cooldown_seconds: float = 30.0,
+        half_open_max_calls: int = 3,
+    ):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            cooldown_seconds: Time to wait before allowing test calls
+            half_open_max_calls: Number of test calls in half-open state
+        """
+        self.failure_threshold = failure_threshold
+        self.cooldown_seconds = cooldown_seconds
+        self.half_open_max_calls = half_open_max_calls
+
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float | None = None
+        self._half_open_calls = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> str:
+        """Get current circuit state."""
+        with self._lock:
+            return self._check_state()
+
+    def _check_state(self) -> str:
+        """Check and potentially transition state (must hold lock)."""
+        if self._state == self.OPEN:
+            # Check if cooldown has elapsed
+            if (
+                self._last_failure_time is not None
+                and time.time() - self._last_failure_time >= self.cooldown_seconds
+            ):
+                logger.info("Marketplace circuit breaker transitioning to HALF_OPEN")
+                self._state = self.HALF_OPEN
+                self._half_open_calls = 0
+        return self._state
+
+    def is_allowed(self) -> bool:
+        """Check if a request should be allowed through.
+
+        Returns:
+            True if request is allowed, False if circuit is open.
+        """
+        with self._lock:
+            state = self._check_state()
+
+            if state == self.CLOSED:
+                return True
+            elif state == self.HALF_OPEN:
+                # Allow limited calls in half-open state
+                if self._half_open_calls < self.half_open_max_calls:
+                    self._half_open_calls += 1
+                    return True
+                return False
+            else:  # OPEN
+                return False
+
+    def record_success(self) -> None:
+        """Record a successful call."""
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.half_open_max_calls:
+                    logger.info("Marketplace circuit breaker closing after successful tests")
+                    self._state = self.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+            elif self._state == self.CLOSED:
+                # Reset failure count on success
+                if self._failure_count > 0:
+                    self._failure_count = 0
+
+    def record_failure(self) -> None:
+        """Record a failed call."""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+
+            if self._state == self.HALF_OPEN:
+                # Any failure in half-open state reopens the circuit
+                logger.warning("Marketplace circuit breaker reopening after test failure")
+                self._state = self.OPEN
+                self._success_count = 0
+            elif self._state == self.CLOSED:
+                if self._failure_count >= self.failure_threshold:
+                    logger.warning(
+                        f"Marketplace circuit breaker opening after {self._failure_count} failures"
+                    )
+                    self._state = self.OPEN
+
+    def reset(self) -> None:
+        """Reset the circuit breaker to closed state."""
+        with self._lock:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+
+    def get_status(self) -> dict[str, Any]:
+        """Get current circuit breaker status.
+
+        Returns:
+            Dict with state, failure_count, cooldown info
+        """
+        with self._lock:
+            state = self._check_state()
+            return {
+                "state": state,
+                "failure_count": self._failure_count,
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "last_failure_time": self._last_failure_time,
+            }
+
+
+# Global circuit breaker instance
+_marketplace_circuit_breaker: MarketplaceCircuitBreaker | None = None
+
+
+def get_marketplace_circuit_breaker() -> MarketplaceCircuitBreaker:
+    """Get or create the marketplace circuit breaker instance."""
+    global _marketplace_circuit_breaker
+    if _marketplace_circuit_breaker is None:
+        _marketplace_circuit_breaker = MarketplaceCircuitBreaker()
+    return _marketplace_circuit_breaker
+
+
+def get_marketplace_circuit_breaker_status() -> dict[str, Any]:
+    """Get the current circuit breaker status.
+
+    Returns:
+        Dict with circuit breaker state and metrics.
+    """
+    return get_marketplace_circuit_breaker().get_status()
+
+
+def _clear_marketplace_state() -> None:
+    """Clear all marketplace state (for testing).
+
+    Clears templates, reviews, ratings, and resets circuit breaker.
+    """
+    global _marketplace_circuit_breaker
+    _marketplace_templates.clear()
+    _template_reviews.clear()
+    _user_ratings.clear()
+    if _marketplace_circuit_breaker is not None:
+        _marketplace_circuit_breaker.reset()
+
 
 # Rate limiters
 _marketplace_limiter = RateLimiter(requests_per_minute=120)
@@ -419,11 +776,21 @@ def _seed_marketplace_templates() -> None:
 
 
 class TemplateMarketplaceHandler(BaseHandler):
-    """Handler for template marketplace API endpoints."""
+    """Handler for template marketplace API endpoints.
+
+    Stability: STABLE
+
+    Includes:
+    - Circuit breaker pattern for resilient marketplace operations
+    - Rate limiting for browse (120/min), publish (10/min), and rate (30/min) operations
+    - Comprehensive input validation for all user-supplied data
+    - RBAC permission checks via @require_permission
+    """
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+        self._circuit_breaker = get_marketplace_circuit_breaker()
 
     ROUTES: list[str] = [
         "/api/v1/marketplace/templates",
@@ -431,6 +798,7 @@ class TemplateMarketplaceHandler(BaseHandler):
         "/api/v1/marketplace/featured",
         "/api/v1/marketplace/trending",
         "/api/v1/marketplace/categories",
+        "/api/v1/marketplace/circuit-breaker",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -439,7 +807,19 @@ class TemplateMarketplaceHandler(BaseHandler):
 
     @require_permission("marketplace:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
-        """Route marketplace requests."""
+        """Route marketplace requests.
+
+        Includes circuit breaker protection: if too many internal errors
+        occur in succession, the handler will fail fast with 503.
+        """
+        # Circuit breaker status endpoint
+        if path == "/api/v1/marketplace/circuit-breaker":
+            return json_response(self._circuit_breaker.get_status())
+
+        # Check circuit breaker
+        if not self._circuit_breaker.is_allowed():
+            return error_response("Marketplace temporarily unavailable (circuit breaker open)", 503)
+
         # Ensure marketplace is seeded
         _seed_marketplace_templates()
 
@@ -450,6 +830,34 @@ class TemplateMarketplaceHandler(BaseHandler):
 
         method = handler.command if hasattr(handler, "command") else "GET"
 
+        try:
+            result = self._route_request(path, query_params, handler, method, client_ip)
+            self._circuit_breaker.record_success()
+            return result
+        except Exception:
+            self._circuit_breaker.record_failure()
+            raise
+
+    def _route_request(
+        self,
+        path: str,
+        query_params: dict,
+        handler: Any,
+        method: str,
+        client_ip: str,
+    ) -> HandlerResult:
+        """Route to appropriate handler method.
+
+        Args:
+            path: Request path
+            query_params: Query parameters dict
+            handler: HTTP handler object
+            method: HTTP method (GET, POST, etc.)
+            client_ip: Client IP address
+
+        Returns:
+            HandlerResult from the matched handler
+        """
         # Featured templates
         if path == "/api/v1/marketplace/featured":
             return self._get_featured()
@@ -579,19 +987,56 @@ class TemplateMarketplaceHandler(BaseHandler):
         if not _publish_limiter.is_allowed(client_ip):
             return error_response("Publishing rate limit exceeded", 429)
 
+        # Body size limit (100KB)
+        content_length = int(handler.headers.get("Content-Length", 0))
+        if content_length > 102400:
+            return error_response("Request body too large (max 100KB)", 413)
+
         # Parse request body
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+        except (json.JSONDecodeError, ValueError):
+            return error_response("Invalid JSON in request body", 400)
 
         # Validate required fields
         required = ["name", "description", "category", "pattern", "workflow_definition"]
         for required_field in required:
             if required_field not in data:
                 return error_response(f"Missing required field: {required_field}", 400)
+
+        # Validate name
+        is_valid, err = validate_template_name(data["name"])
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate description
+        desc = data["description"]
+        if not desc or not desc.strip():
+            return error_response("Description is required", 400)
+        if len(desc) > DESCRIPTION_MAX_LENGTH:
+            return error_response(f"Description too long (max {DESCRIPTION_MAX_LENGTH} chars)", 400)
+
+        # Validate category
+        is_valid, err = validate_category(data["category"])
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate pattern
+        is_valid, err = validate_pattern(data["pattern"])
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate workflow_definition is a dict
+        if not isinstance(data["workflow_definition"], dict):
+            return error_response("workflow_definition must be a JSON object", 400)
+
+        # Validate tags if provided
+        tags = data.get("tags", [])
+        if tags:
+            is_valid, err = validate_tags(tags)
+            if not is_valid:
+                return error_response(err, 400)
 
         # Generate ID
         template_id = f"{data['category']}/{data['name'].lower().replace(' ', '-')}"
@@ -610,7 +1055,7 @@ class TemplateMarketplaceHandler(BaseHandler):
             author_id=data.get("author_id", "anonymous"),
             author_name=data.get("author_name", "Anonymous"),
             version=data.get("version", "1.0.0"),
-            tags=data.get("tags", []),
+            tags=tags,
             workflow_definition=data["workflow_definition"],
             input_schema=data.get("input_schema", {}),
             output_schema=data.get("output_schema", {}),
@@ -639,17 +1084,22 @@ class TemplateMarketplaceHandler(BaseHandler):
         if not template:
             return error_response(f"Template not found: {template_id}", 404)
 
+        # Body size limit (10KB)
+        content_length = int(handler.headers.get("Content-Length", 0))
+        if content_length > 10240:
+            return error_response("Request body too large (max 10KB)", 413)
+
         # Parse request body
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+        except (json.JSONDecodeError, ValueError):
+            return error_response("Invalid JSON in request body", 400)
 
         rating = data.get("rating")
-        if not isinstance(rating, (int, float)) or rating < 1 or rating > 5:
-            return error_response("Rating must be between 1 and 5", 400)
+        is_valid, err = validate_rating(rating)
+        if not is_valid:
+            return error_response(err, 400)
 
         user_id = data.get("user_id", client_ip)
 
@@ -711,13 +1161,17 @@ class TemplateMarketplaceHandler(BaseHandler):
         if template_id not in _marketplace_templates:
             return error_response(f"Template not found: {template_id}", 404)
 
+        # Body size limit (50KB)
+        content_length = int(handler.headers.get("Content-Length", 0))
+        if content_length > 51200:
+            return error_response("Request body too large (max 50KB)", 413)
+
         # Parse request body
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+        except (json.JSONDecodeError, ValueError):
+            return error_response("Invalid JSON in request body", 400)
 
         # Validate required fields
         if "rating" not in data:
@@ -726,16 +1180,32 @@ class TemplateMarketplaceHandler(BaseHandler):
             return error_response("Review content is required", 400)
 
         rating = data["rating"]
-        if not isinstance(rating, (int, float)) or rating < 1 or rating > 5:
-            return error_response("Rating must be between 1 and 5", 400)
+        is_valid, err = validate_rating(rating)
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate review content
+        is_valid, err = validate_review_content(data["content"])
+        if not is_valid:
+            return error_response(err, 400)
+
+        # Validate optional title
+        title = data.get("title", "")
+        if title and len(title) > TEMPLATE_NAME_MAX_LENGTH:
+            return error_response(f"Title too long (max {TEMPLATE_NAME_MAX_LENGTH} chars)", 400)
+
+        # Validate optional user_name
+        user_name = data.get("user_name", "Anonymous")
+        if len(user_name) > TEMPLATE_NAME_MAX_LENGTH:
+            return error_response(f"User name too long (max {TEMPLATE_NAME_MAX_LENGTH} chars)", 400)
 
         review = TemplateReview(
             id=str(uuid.uuid4()),
             template_id=template_id,
             user_id=data.get("user_id", client_ip),
-            user_name=data.get("user_name", "Anonymous"),
+            user_name=user_name,
             rating=int(rating),
-            title=data.get("title", ""),
+            title=title,
             content=data["content"],
         )
 
@@ -764,9 +1234,13 @@ class TemplateMarketplaceHandler(BaseHandler):
         if not template:
             return error_response(f"Template not found: {template_id}", 404)
 
+        # Body size limit (10KB)
+        content_length = int(handler.headers.get("Content-Length", 0))
+        if content_length > 10240:
+            return error_response("Request body too large (max 10KB)", 413)
+
         # Parse request body
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError):
