@@ -182,7 +182,7 @@ class ReverseFlowMixin:
         min_confidence: float = 0.7,
         batch_size: int = 100,
         timeout_config: BatchTimeoutConfig | None = None,
-    ) -> ValidationSyncResult:
+    ) -> dict[str, Any]:
         """Sync KM validations back to the source system (reverse flow).
 
         This is the main template method for reverse flow operations.
@@ -196,12 +196,12 @@ class ReverseFlowMixin:
             timeout_config: Optional per-item and total batch timeout config.
 
         Returns:
-            ValidationSyncResult with sync statistics.
+            Dict with sync statistics (records_analyzed, records_updated, etc.).
         """
         start_time = time.time()
         tc = timeout_config or BatchTimeoutConfig()
 
-        result: ValidationSyncResult = {
+        result: dict[str, Any] = {
             "records_analyzed": 0,
             "records_updated": 0,
             "records_skipped": 0,
@@ -265,7 +265,7 @@ class ReverseFlowMixin:
         item: dict[str, Any],
         source_id: str,
         min_confidence: float,
-        result: ValidationSyncResult,
+        result: dict[str, Any],
     ) -> None:
         """Process a single KM item for reverse validation.
 

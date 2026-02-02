@@ -36,7 +36,7 @@ class TestQueryKnowledgeTool:
         mock_mound.query.return_value = mock_query_result
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await query_knowledge_tool(query="test query")
@@ -58,7 +58,7 @@ class TestQueryKnowledgeTool:
         mock_mound.query.return_value = mock_query_result
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await query_knowledge_tool(
@@ -98,7 +98,7 @@ class TestQueryKnowledgeTool:
         mock_mound.query_graph.return_value = mock_graph_result
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await query_knowledge_tool(
@@ -137,7 +137,7 @@ class TestQueryKnowledgeTool:
         mock_mound.query.return_value = mock_query_result
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await query_knowledge_tool(query="test", node_types="fact")
@@ -166,7 +166,7 @@ class TestQueryKnowledgeTool:
         mock_mound.query.return_value = mock_query_result
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await query_knowledge_tool(query="test")
@@ -177,7 +177,7 @@ class TestQueryKnowledgeTool:
     async def test_query_import_error(self):
         """Test graceful handling when KnowledgeMound not available."""
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             side_effect=ImportError("Not installed"),
         ):
             result = await query_knowledge_tool(query="test")
@@ -192,7 +192,7 @@ class TestQueryKnowledgeTool:
         mock_mound.query.side_effect = RuntimeError("Database error")
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await query_knowledge_tool(query="test")
@@ -211,7 +211,7 @@ class TestStoreKnowledgeTool:
         mock_mound.add.return_value = "node-new-123"
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await store_knowledge_tool(
@@ -276,7 +276,7 @@ class TestStoreKnowledgeTool:
         mock_mound.add.return_value = "node-123"
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await store_knowledge_tool(
@@ -293,7 +293,7 @@ class TestStoreKnowledgeTool:
         mock_mound.add.return_value = "node-123"
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await store_knowledge_tool(
@@ -310,7 +310,7 @@ class TestStoreKnowledgeTool:
     async def test_store_import_error(self):
         """Test graceful handling when KnowledgeMound not available."""
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             side_effect=ImportError("Not installed"),
         ):
             result = await store_knowledge_tool(content="Test")
@@ -338,7 +338,7 @@ class TestGetKnowledgeStatsTool:
         mock_mound.get_stats.return_value = mock_stats
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await get_knowledge_stats_tool()
@@ -365,7 +365,7 @@ class TestGetKnowledgeStatsTool:
         mock_mound.get_stats.return_value = mock_stats
 
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             return_value=mock_mound,
         ):
             result = await get_knowledge_stats_tool()
@@ -377,7 +377,7 @@ class TestGetKnowledgeStatsTool:
     async def test_get_stats_import_error(self):
         """Test graceful handling when KnowledgeMound not available."""
         with patch(
-            "aragora.knowledge.mound.get_knowledge_mound",
+            "aragora.mcp.tools_module.knowledge.get_knowledge_mound",
             side_effect=ImportError("Not installed"),
         ):
             result = await get_knowledge_stats_tool()
