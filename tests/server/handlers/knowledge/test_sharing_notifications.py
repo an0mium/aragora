@@ -196,7 +196,7 @@ def _make_query_params(
 @pytest.fixture
 def handler():
     """Create a SharingNotificationsHandler instance."""
-    return SharingNotificationsHandler(server_context={})
+    return SharingNotificationsHandler(ctx={})
 
 
 @pytest.fixture
@@ -709,6 +709,14 @@ class TestUpdatePreferences:
             patch(
                 "aragora.server.handlers.knowledge.sharing_notifications._notifications_limiter"
             ) as mock_limiter,
+            patch(
+                "aragora.server.handlers.knowledge.sharing_notifications.get_permission_checker",
+                return_value=mock_rbac_checker,
+            ),
+            patch(
+                "aragora.server.handlers.knowledge.sharing_notifications.RBAC_AVAILABLE",
+                True,
+            ),
             patch.object(
                 handler, "read_json_body_validated", return_value=(mock_handler.json_body, None)
             ),
