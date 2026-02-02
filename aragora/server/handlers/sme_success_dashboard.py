@@ -198,8 +198,8 @@ class SMESuccessDashboardHandler(SecureHandler):
     def handle(
         self,
         path: str,
-        query_params: dict,
-        handler,
+        query_params: dict[str, Any],
+        handler: Any,
         method: str = "GET",
     ) -> HandlerResult | None:
         """Route success dashboard requests to appropriate methods."""
@@ -227,7 +227,7 @@ class SMESuccessDashboardHandler(SecureHandler):
 
         return error_response("Method not allowed", 405)
 
-    def _get_user_and_org(self, handler, user):
+    def _get_user_and_org(self, handler: Any, user: Any) -> tuple[Any, Any, HandlerResult | None]:
         """Get user and organization from context."""
         user_store = self.ctx.get("user_store")
         if not user_store:
@@ -246,13 +246,13 @@ class SMESuccessDashboardHandler(SecureHandler):
 
         return db_user, org, None
 
-    def _get_cost_tracker(self):
+    def _get_cost_tracker(self) -> Any | None:
         """Get cost tracker instance."""
         from aragora.billing.cost_tracker import get_cost_tracker
 
         return get_cost_tracker()
 
-    def _get_roi_calculator(self, benchmark: str = "sme"):
+    def _get_roi_calculator(self, benchmark: str = "sme") -> Any:
         """Get ROI calculator with benchmark."""
         from aragora.billing.roi_calculator import IndustryBenchmark, ROICalculator
 
@@ -263,7 +263,7 @@ class SMESuccessDashboardHandler(SecureHandler):
 
         return ROICalculator(benchmark=benchmark_enum)
 
-    def _parse_period(self, handler) -> tuple[datetime, datetime, str]:
+    def _parse_period(self, handler: Any) -> tuple[datetime, datetime, str]:
         """Parse period parameters from request."""
         period = get_string_param(handler, "period", "month")
         now = datetime.now(timezone.utc)
@@ -338,9 +338,9 @@ class SMESuccessDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_success_summary(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get unified success metrics summary.
@@ -399,9 +399,9 @@ class SMESuccessDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_cfo_view(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get CFO-focused success view.
@@ -482,9 +482,9 @@ class SMESuccessDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_pm_view(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get PM-focused success view.
@@ -555,9 +555,9 @@ class SMESuccessDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_hr_view(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get HR-focused success view.
@@ -620,9 +620,9 @@ class SMESuccessDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_milestones(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get achievement milestones and gamification status.
@@ -702,9 +702,9 @@ class SMESuccessDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_insights(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get actionable insights and recommendations.

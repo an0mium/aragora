@@ -109,8 +109,8 @@ class SMEUsageDashboardHandler(SecureHandler):
     def handle(
         self,
         path: str,
-        query_params: dict,
-        handler,
+        query_params: dict[str, Any],
+        handler: Any,
         method: str = "GET",
     ) -> HandlerResult | None:
         """Route usage dashboard requests to appropriate methods."""
@@ -139,7 +139,7 @@ class SMEUsageDashboardHandler(SecureHandler):
 
         return error_response("Method not allowed", 405)
 
-    def _get_user_and_org(self, handler, user):
+    def _get_user_and_org(self, handler: Any, user: Any) -> tuple[Any, Any, HandlerResult | None]:
         """Get user and organization from context."""
         user_store = self.ctx.get("user_store")
         if not user_store:
@@ -158,13 +158,13 @@ class SMEUsageDashboardHandler(SecureHandler):
 
         return db_user, org, None
 
-    def _get_cost_tracker(self):
+    def _get_cost_tracker(self) -> Any | None:
         """Get cost tracker instance."""
         from aragora.billing.cost_tracker import get_cost_tracker
 
         return get_cost_tracker()
 
-    def _get_usage_tracker(self):
+    def _get_usage_tracker(self) -> Any | None:
         """Get usage tracker instance."""
         from aragora.billing.usage import UsageTracker
 
@@ -174,7 +174,7 @@ class SMEUsageDashboardHandler(SecureHandler):
             logger.warning(f"Failed to get usage tracker: {e}")
             return None
 
-    def _get_roi_calculator(self, benchmark: str = "sme"):
+    def _get_roi_calculator(self, benchmark: str = "sme") -> Any:
         """Get ROI calculator instance."""
         from aragora.billing.roi_calculator import (
             ROICalculator,
@@ -188,7 +188,7 @@ class SMEUsageDashboardHandler(SecureHandler):
 
         return ROICalculator(benchmark=benchmark_enum)
 
-    def _parse_period(self, handler) -> tuple[datetime, datetime, str]:
+    def _parse_period(self, handler: Any) -> tuple[datetime, datetime, str]:
         """Parse period parameters from request."""
         period = get_string_param(handler, "period", "month")
 
@@ -230,9 +230,9 @@ class SMEUsageDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_summary(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get unified usage summary for the SME dashboard.
@@ -350,9 +350,9 @@ class SMEUsageDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_breakdown(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get detailed usage breakdown by dimension.
@@ -425,9 +425,9 @@ class SMEUsageDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_roi(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get ROI analysis for the organization.
@@ -524,9 +524,9 @@ class SMEUsageDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_budget_status(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get current budget utilization status.
@@ -626,9 +626,9 @@ class SMEUsageDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_forecast(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get usage forecast based on current patterns.
@@ -671,9 +671,9 @@ class SMEUsageDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _get_benchmarks(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Get industry benchmark comparison data.
@@ -694,9 +694,9 @@ class SMEUsageDashboardHandler(SecureHandler):
     @require_permission("org:usage:read")
     def _export_usage(
         self,
-        handler,
-        query_params: dict,
-        user=None,
+        handler: Any,
+        query_params: dict[str, Any],
+        user: Any | None = None,
     ) -> HandlerResult:
         """
         Export usage data in various formats.
