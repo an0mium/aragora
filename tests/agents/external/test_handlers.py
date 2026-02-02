@@ -6,7 +6,11 @@ import json
 
 import pytest
 
-from aragora.server.handlers.external_agents import ExternalAgentsHandler
+from aragora.server.handlers.external_agents import (
+    AGENTS_READ_PERMISSION,
+    AGENTS_WRITE_PERMISSION,
+    ExternalAgentsHandler,
+)
 
 
 @pytest.fixture
@@ -25,7 +29,7 @@ def handler(server_context: dict) -> ExternalAgentsHandler:
         user_id="test-user",
         org_id="test-org",
         roles={"admin"},
-        permissions=set(),
+        permissions={AGENTS_READ_PERMISSION, AGENTS_WRITE_PERMISSION},
     )
     return handler
 
