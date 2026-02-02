@@ -255,11 +255,13 @@ class TestConvoyTracker:
     def tracker(self, tmp_path):
         from aragora.stores.canonical import CanonicalWorkspaceStores
 
-        bead_store = NomicBeadStore(tmp_path / "beads", git_enabled=False, auto_commit=False)
-        # Use isolated canonical stores for this test
+        # Use consistent paths for test isolation
+        store_dir = tmp_path / ".aragora_beads"
+        store_dir.mkdir(parents=True, exist_ok=True)
+        bead_store = NomicBeadStore(store_dir, git_enabled=False, auto_commit=False)
         canonical_stores = CanonicalWorkspaceStores(
-            bead_dir=str(tmp_path / "beads"),
-            convoy_dir=str(tmp_path / "convoys"),
+            bead_dir=str(store_dir),
+            convoy_dir=str(store_dir / "convoys"),
             git_enabled=False,
             auto_commit=False,
             _bead_store=bead_store,
@@ -352,10 +354,13 @@ class TestWorkspaceManager:
     def ws(self, tmp_path):
         from aragora.stores.canonical import CanonicalWorkspaceStores
 
-        bead_store = NomicBeadStore(tmp_path / "beads", git_enabled=False, auto_commit=False)
+        # Use the same path that resolve_store_dir returns for workspace_root=tmp_path
+        store_dir = tmp_path / ".aragora_beads"
+        store_dir.mkdir(parents=True, exist_ok=True)
+        bead_store = NomicBeadStore(store_dir, git_enabled=False, auto_commit=False)
         canonical_stores = CanonicalWorkspaceStores(
-            bead_dir=str(tmp_path / "beads"),
-            convoy_dir=str(tmp_path / "convoys"),
+            bead_dir=str(store_dir),
+            convoy_dir=str(store_dir / "convoys"),
             git_enabled=False,
             auto_commit=False,
             _bead_store=bead_store,

@@ -52,12 +52,27 @@ async def test_bead_manager_nomic_roundtrip(tmp_path: Path, nomic_store: NomicBe
 
 @pytest.mark.asyncio
 async def test_convoy_tracker_nomic_state_machine(tmp_path: Path, nomic_store: NomicBeadStore):
+    from aragora.stores.canonical import CanonicalWorkspaceStores
+
+    # Use isolated canonical stores for test isolation
+    canonical_stores = CanonicalWorkspaceStores(
+        bead_dir=str(tmp_path / "beads"),
+        convoy_dir=str(tmp_path / "convoys"),
+        git_enabled=False,
+        auto_commit=False,
+        _bead_store=nomic_store,
+    )
     bead_mgr = BeadManager(
         storage_dir=tmp_path / "beads",
         use_nomic_store=True,
         nomic_store=nomic_store,
+        canonical_stores=canonical_stores,
     )
-    tracker = ConvoyTracker(bead_store=nomic_store, use_nomic_store=True)
+    tracker = ConvoyTracker(
+        bead_store=nomic_store,
+        use_nomic_store=True,
+        canonical_stores=canonical_stores,
+    )
 
     bead = await bead_mgr.create_bead("cv-1", "ws-1", title="Step 1")
     convoy = await tracker.create_convoy(
