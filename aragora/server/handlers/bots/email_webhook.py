@@ -33,12 +33,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from aragora.audit.unified import audit_data, audit_security
-
-if TYPE_CHECKING:
-    pass
 
 from aragora.server.handlers.base import (
     HandlerResult,

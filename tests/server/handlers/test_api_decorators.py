@@ -1154,7 +1154,7 @@ class TestRequireQuotaHandlerExtraction:
         )
         org.limits.debates_per_month = 100
 
-        user_store = MockUserStore(organizations={"org-123": org})
+        the_user_store = MockUserStore(organizations={"org-123": org})
         user_ctx = MockUserAuthContext(org_id="org-123")
 
         class MyClass:
@@ -1165,11 +1165,11 @@ class TestRequireQuotaHandlerExtraction:
         instance = MyClass()
 
         # Handler without instance user_store but with class-level one
-        class HandlerClass:
-            user_store = user_store
-            headers = {}
-
-        mock_handler = HandlerClass()
+        mock_handler = MagicMock()
+        mock_handler.headers = {}
+        # Remove instance attribute so it falls back to class attribute
+        del mock_handler.user_store
+        mock_handler.__class__.user_store = the_user_store
 
         result = instance.method(mock_handler, user=user_ctx)
         assert result == {"success": True}
@@ -1347,7 +1347,7 @@ class TestRequireQuotaAuthentication:
 
         class MyClass:
             @require_quota()
-            def method(self, handler):
+            def method(self, handler, user=None):
                 return {"ok": True}
 
         instance = MyClass()
