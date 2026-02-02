@@ -507,31 +507,47 @@ async def handle_batch_payments(
         payment_method: str (optional)
     }
     """
+    # Validate invoice_ids
+    invoice_ids = data.get("invoice_ids")
+    if not invoice_ids:
+        return error_response("invoice_ids is required", status=400)
+    if not isinstance(invoice_ids, list) or len(invoice_ids) == 0:
+        return error_response("invoice_ids must be a non-empty list", status=400)
+
+    # Validate payment_date if provided
+    payment_date = None
+    if data.get("payment_date"):
+        try:
+            payment_date = datetime.fromisoformat(data["payment_date"])
+        except ValueError:
+            return error_response("payment_date must be in ISO format", status=400)
+
+    # Check circuit breaker before processing
+    if not _ap_circuit_breaker.can_proceed():
+        remaining = _ap_circuit_breaker.cooldown_remaining()
+        return error_response(
+            f"AP service temporarily unavailable. Retry in {remaining:.1f}s",
+            status=503,
+        )
+
     try:
         ap = get_ap_automation()
 
-        invoice_ids = data.get("invoice_ids")
-        if not invoice_ids:
-            return error_response("invoice_ids is required", status=400)
+        async with _ap_circuit_breaker.protected_call():
+            # Get invoices
+            invoices = []
+            for inv_id in invoice_ids:
+                inv = await ap.get_invoice(inv_id)
+                if inv:
+                    invoices.append(inv)
+                else:
+                    return error_response(f"Invoice {inv_id} not found", status=404)
 
-        # Get invoices
-        invoices = []
-        for inv_id in invoice_ids:
-            inv = await ap.get_invoice(inv_id)
-            if inv:
-                invoices.append(inv)
-            else:
-                return error_response(f"Invoice {inv_id} not found", status=404)
-
-        payment_date = None
-        if data.get("payment_date"):
-            payment_date = datetime.fromisoformat(data["payment_date"])
-
-        batch = await ap.batch_payments(
-            invoices=invoices,
-            payment_date=payment_date,
-            payment_method=data.get("payment_method"),
-        )
+            batch = await ap.batch_payments(
+                invoices=invoices,
+                payment_date=payment_date,
+                payment_method=data.get("payment_method"),
+            )
 
         return success_response(
             {
@@ -540,6 +556,8 @@ async def handle_batch_payments(
             }
         )
 
+    except CircuitOpenError as e:
+        return error_response(f"AP service temporarily unavailable: {e}", status=503)
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error creating batch payment")
         return error_response(f"Failed to create batch: {e}", status=500)
