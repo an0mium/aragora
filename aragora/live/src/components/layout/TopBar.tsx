@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { Logo } from '@/components/Logo';
 import { useLayout } from '@/context/LayoutContext';
 import { useCommandPalette } from '@/context/CommandPaletteContext';
 import { useAuth } from '@/context/AuthContext';
@@ -18,19 +18,12 @@ export function TopBar() {
       {/* Left section: Logo (clickable to toggle sidebar) + Title */}
       <div className="flex items-center gap-2">
         {/* Aragora logo - toggles sidebar on click */}
-        <button
+        <Logo
+          size="sm"
+          pixelSize={32}
           onClick={toggleLeftSidebar}
           className="p-1.5 hover:bg-[var(--surface-elevated)] rounded transition-colors"
-          aria-label="Toggle navigation menu"
-        >
-          <Image
-            src="/aragora-logo.png"
-            alt="Aragora"
-            width={28}
-            height={28}
-            className="rounded"
-          />
-        </button>
+        />
 
         {/* Title link */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">

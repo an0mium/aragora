@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
@@ -38,21 +37,6 @@ export default function LoginPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10 flex flex-col">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <AsciiBannerCompact connected={true} />
-            <div className="flex items-center gap-4">
-              <Link
-                href="/auth/register"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-              >
-                [CREATE ACCOUNT]
-              </Link>
-            </div>
-          </div>
-        </header>
-
         {/* Login Form */}
         <div className="flex-1 flex items-center justify-center px-4 py-16">
           <div className="w-full max-w-md">

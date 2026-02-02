@@ -62,7 +62,7 @@ export default function AboutPage() {
             {/* Full Aragora Logo */}
             <div className="flex justify-center mb-8">
               <Image
-                src="/aragora-logo.png"
+                src="/aragora-mark.png"
                 alt="Aragora Logo"
                 width={200}
                 height={200}
