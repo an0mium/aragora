@@ -16,6 +16,9 @@ from typing import Any
 
 import pytest
 
+# Skip if optional dependency is missing
+pytest.importorskip("weaviate")
+
 # Check vector store availability
 WEAVIATE_URL = os.environ.get("WEAVIATE_URL", "")
 QDRANT_URL = os.environ.get("QDRANT_URL", "")

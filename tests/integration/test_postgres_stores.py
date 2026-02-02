@@ -30,6 +30,8 @@ import pytest
 POSTGRES_DSN = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
 POSTGRES_AVAILABLE = bool(POSTGRES_DSN)
 
+pytest.importorskip("asyncpg")
+
 import asyncpg
 
 

@@ -40,7 +40,9 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional
+
+from aragora.knowledge.mound.adapters._types import ValidationSyncResult
 
 logger = logging.getLogger(__name__)
 
@@ -59,16 +61,6 @@ class BatchTimeoutConfig:
     per_item_timeout_seconds: float = 2.0
     total_batch_timeout_seconds: float = 60.0
     fail_fast_on_timeout: bool = False
-
-
-class ValidationSyncResult(TypedDict):
-    """Result type for reverse validation sync operations."""
-
-    records_analyzed: int
-    records_updated: int
-    records_skipped: int
-    errors: list[str]
-    duration_ms: float
 
 
 class ReverseFlowMixin:
