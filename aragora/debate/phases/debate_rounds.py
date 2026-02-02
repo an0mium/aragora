@@ -80,7 +80,7 @@ async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT
     try:
         return await asyncio.wait_for(coro, timeout=timeout)
     except asyncio.TimeoutError:
-        logger.warning(f"Callback timed out after {timeout}s, using default: {default}")
+        logger.warning("Callback timed out after %ss, using default: %s", timeout, default)
         return default
 
 
@@ -246,7 +246,7 @@ class DebateRoundsPhase:
             try:
                 self.hooks["on_heartbeat"](phase=phase, status=status)
             except Exception as e:
-                logger.debug(f"Heartbeat emission failed: {e}")
+                logger.debug("Heartbeat emission failed: %s", e)
 
     def _observe_rhetorical_patterns(
         self,
@@ -300,12 +300,14 @@ class DebateRoundsPhase:
             # Log for debugging
             for obs in observations:
                 logger.debug(
-                    f"rhetorical_pattern agent={agent} pattern={obs.pattern.value} "
-                    f"confidence={obs.confidence:.2f}"
+                    "rhetorical_pattern agent=%s pattern=%s confidence=%s",
+                    agent,
+                    obs.pattern.value,
+                    obs.confidence,
                 )
 
         except Exception as e:
-            logger.debug(f"Rhetorical observation failed: {e}")
+            logger.debug("Rhetorical observation failed: %s", e)
 
     async def execute(self, ctx: "DebateContext") -> None:
         """
@@ -330,8 +332,11 @@ class DebateRoundsPhase:
                 if strategy_rec.estimated_rounds != rounds:
                     direction = "increase" if strategy_rec.estimated_rounds > rounds else "decrease"
                     logger.info(
-                        f"[strategy] Adaptive rounds: {rounds} -> {strategy_rec.estimated_rounds} "
-                        f"(confidence={strategy_rec.confidence:.2f}, reason={strategy_rec.reasoning[:50]})"
+                        "[strategy] Adaptive rounds: %s -> %s (confidence=%s, reason=%s)",
+                        rounds,
+                        strategy_rec.estimated_rounds,
+                        strategy_rec.confidence,
+                        strategy_rec.reasoning[:50],
                     )
                     _record_adaptive_round(direction)
                     rounds = strategy_rec.estimated_rounds
@@ -344,7 +349,7 @@ class DebateRoundsPhase:
                             "relevant_memories": strategy_rec.relevant_memories[:3],
                         }
             except Exception as e:
-                logger.debug(f"[strategy] Round estimation failed, using protocol default: {e}")
+                logger.debug("[strategy] Round estimation failed, using protocol default: %s", e)
 
         # Track novelty for initial proposals (round 0 baseline)
         if self.novelty_tracker and proposals:
@@ -365,7 +370,9 @@ class DebateRoundsPhase:
                 try:
                     allowed, reason = ctx.budget_check_callback(round_num)
                     if not allowed:
-                        logger.warning(f"budget_exceeded_pause round={round_num} reason={reason}")
+                        logger.warning(
+                            "budget_exceeded_pause round=%s reason=%s", round_num, reason
+                        )
                         # Store reason in result metadata for transparency
                         if ctx.result and hasattr(ctx.result, "metadata"):
                             if ctx.result.metadata is None:
@@ -376,15 +383,15 @@ class DebateRoundsPhase:
                         break
                 except Exception as e:
                     # Budget check failure should not stop the debate
-                    logger.debug(f"Budget check error (continuing): {e}")
+                    logger.debug("Budget check error (continuing): %s", e)
 
-            logger.info(f"round_start round={round_num}")
+            logger.info("round_start round=%s", round_num)
 
             # Track round with performance monitor for detailed phase metrics
             with perf_monitor.track_round(ctx.debate_id, round_num):
                 should_continue = await self._execute_round(ctx, perf_monitor, round_num, rounds)
                 if not should_continue:
-                    logger.info(f"early_exit_convergence round={round_num}")
+                    logger.info("early_exit_convergence round=%s", round_num)
                     break
 
     async def _execute_round(
@@ -409,7 +416,7 @@ class DebateRoundsPhase:
             try:
                 await ctx.hook_manager.trigger("pre_round", ctx=ctx, round_num=round_num)
             except Exception as e:
-                logger.debug(f"PRE_ROUND hook failed: {e}")
+                logger.debug("PRE_ROUND hook failed: %s", e)
 
         # Emit heartbeat at round start
         self._emit_heartbeat(f"round_{round_num}", "starting")
@@ -432,7 +439,7 @@ class DebateRoundsPhase:
                 if self._assign_stances:
                     self._assign_stances(round_num)
                     stances_str = ", ".join(f"{a.name}:{a.stance}" for a in ctx.agents)
-                    logger.debug(f"stances_rotated stances={stances_str}")
+                    logger.debug("stances_rotated stances=%s", stances_str)
 
         # Emit round start event
         if "on_round_start" in self.hooks:
@@ -443,7 +450,7 @@ class DebateRoundsPhase:
             try:
                 self.recorder.record_phase_change(f"round_{round_num}_start")
             except Exception as e:
-                logger.debug(f"Recorder error for round start: {e}")
+                logger.debug("Recorder error for round start: %s", e)
 
         # Await background research/evidence before round 1 critiques
         # This ensures research context is available for critique prompts
@@ -461,7 +468,7 @@ class DebateRoundsPhase:
         if self.protocol and self.protocol.use_structured_phases and round_num == 7:
             round_phase = self.protocol.get_round_phase(round_num)
             if round_phase and "Final Synthesis" in round_phase.name:
-                logger.info(f"round_7_final_synthesis agents={len(ctx.proposers)}")
+                logger.info("round_7_final_synthesis agents=%s", len(ctx.proposers))
                 await self._execute_final_synthesis_round(ctx, round_num)
                 result.rounds_used = round_num
                 return True  # Skip normal critique/revision, move to Round 8 (continue debate)
@@ -516,7 +523,7 @@ class DebateRoundsPhase:
             try:
                 await self._checkpoint_callback(ctx, round_num)
             except Exception as e:
-                logger.debug(f"Checkpoint failed for round {round_num}: {e}")
+                logger.debug("Checkpoint failed for round %s: %s", round_num, e)
 
         # Trigger POST_ROUND hook if hook_manager is available
         if ctx.hook_manager:
@@ -528,7 +535,7 @@ class DebateRoundsPhase:
                     proposals=ctx.proposals,
                 )
             except Exception as e:
-                logger.debug(f"POST_ROUND hook failed: {e}")
+                logger.debug("POST_ROUND hook failed: %s", e)
 
         # Emit heartbeat before convergence check
         self._emit_heartbeat(f"round_{round_num}", "checking_convergence")
@@ -542,8 +549,11 @@ class DebateRoundsPhase:
         _slow_threshold = perf_monitor.slow_round_threshold
         if _round_duration > _slow_threshold:
             logger.warning(
-                f"slow_round_detected debate_id={ctx.debate_id} round={round_num} "
-                f"duration={_round_duration:.2f}s threshold={_slow_threshold:.2f}s"
+                "slow_round_detected debate_id=%s round=%s duration=%ss threshold=%ss",
+                ctx.debate_id,
+                round_num,
+                _round_duration,
+                _slow_threshold,
             )
             try:
                 from aragora.observability.metrics import (
@@ -591,10 +601,10 @@ class DebateRoundsPhase:
                 available = self.circuit_breaker.filter_available_agents(critics)
                 if len(available) < len(critics):
                     skipped = [c.name for c in critics if c not in available]
-                    logger.info(f"circuit_breaker_skip_critics skipped={skipped}")
+                    logger.info("circuit_breaker_skip_critics skipped=%s", skipped)
                 critics = available
             except Exception as e:
-                logger.error(f"Circuit breaker filter error for critics: {e}")
+                logger.error("Circuit breaker filter error for critics: %s", e)
 
         return critics
 
@@ -616,7 +626,7 @@ class DebateRoundsPhase:
 
         async def generate_critique(critic, proposal_agent, proposal):
             """Generate critique and return (critic, proposal_agent, result_or_error)."""
-            logger.debug(f"critique_generating critic={critic.name} target={proposal_agent}")
+            logger.debug("critique_generating critic=%s target=%s", critic.name, proposal_agent)
             # Use complexity-scaled timeout from governor
             base_timeout = getattr(critic, "timeout", AGENT_TIMEOUT_SECONDS)
             timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
@@ -666,7 +676,7 @@ class DebateRoundsPhase:
         }
         if len(valid_proposals) < len(proposals):
             skipped = [a for a in proposals if a not in valid_proposals]
-            logger.warning(f"critique_skip_empty_proposals skipped={skipped}")
+            logger.warning("critique_skip_empty_proposals skipped=%s", skipped)
 
         for proposal_agent, proposal in valid_proposals.items():
             if self._select_critics_for_proposal:
@@ -721,14 +731,17 @@ class DebateRoundsPhase:
 
             if isinstance(crit_result, Exception):
                 logger.error(
-                    f"critique_error critic={critic.name} target={proposal_agent} error={crit_result}"
+                    "critique_error critic=%s target=%s error=%s",
+                    critic.name,
+                    proposal_agent,
+                    crit_result,
                 )
                 if self.circuit_breaker:
                     self.circuit_breaker.record_failure(critic.name)
             elif crit_result is None:
                 # Handle timeout/error case where autonomic_executor returned None
                 logger.warning(
-                    f"critique_returned_none critic={critic.name} target={proposal_agent}"
+                    "critique_returned_none critic=%s target=%s", critic.name, proposal_agent
                 )
                 if self.circuit_breaker:
                     self.circuit_breaker.record_failure(critic.name)
@@ -765,8 +778,11 @@ class DebateRoundsPhase:
                 self._partial_critiques.append(crit_result)
 
                 logger.debug(
-                    f"critique_complete critic={critic.name} target={proposal_agent} "
-                    f"issues={len(crit_result.issues)} severity={crit_result.severity:.1f}"
+                    "critique_complete critic=%s target=%s issues=%s severity=%s",
+                    critic.name,
+                    proposal_agent,
+                    len(crit_result.issues),
+                    crit_result.severity,
                 )
 
                 # Notify spectator
@@ -799,7 +815,7 @@ class DebateRoundsPhase:
                     try:
                         self.recorder.record_turn(critic.name, critique_content, round_num)
                     except Exception as e:
-                        logger.debug(f"Recorder error for critique: {e}")
+                        logger.debug("Recorder error for critique: %s", e)
 
                 # Add to context
                 msg = Message(
@@ -867,7 +883,7 @@ class DebateRoundsPhase:
 
             # Skip revision if no critiques for this agent
             if not agent_critiques:
-                logger.debug(f"No critiques targeting {agent.name}, skipping revision")
+                logger.debug("No critiques targeting %s, skipping revision", agent.name)
                 continue
 
             revision_prompt = self._build_revision_prompt(
@@ -919,8 +935,9 @@ class DebateRoundsPhase:
             )
         except asyncio.TimeoutError:
             logger.error(
-                f"revision_phase_timeout: phase exceeded {phase_timeout:.0f}s limit, "
-                f"agents={[a.name for a in revision_agents]}"
+                "revision_phase_timeout: phase exceeded %ss limit, agents=%s",
+                phase_timeout,
+                [a.name for a in revision_agents],
             )
             # Return timeout errors for all pending agents
             revision_results = [asyncio.TimeoutError()] * len(revision_tasks)
@@ -943,7 +960,7 @@ class DebateRoundsPhase:
                 f"processed_{revision_count}_of_{total_revisions}",
             )
             if isinstance(revised, BaseException):
-                logger.error(f"revision_error agent={agent.name} error={revised}")
+                logger.error("revision_error agent=%s error=%s", agent.name, revised)
                 if self.circuit_breaker:
                     self.circuit_breaker.record_failure(agent.name)
                 continue
@@ -954,7 +971,7 @@ class DebateRoundsPhase:
                 self.circuit_breaker.record_success(agent.name)
 
             proposals[agent.name] = revised_str
-            logger.debug(f"revision_complete agent={agent.name} length={len(revised_str)}")
+            logger.debug("revision_complete agent=%s length=%s", agent.name, len(revised_str))
 
             # Notify spectator
             if self._notify_spectator:
@@ -990,7 +1007,7 @@ class DebateRoundsPhase:
                 try:
                     self.recorder.record_turn(agent.name, revised_str, round_num)
                 except Exception as e:
-                    logger.debug(f"Recorder error for revision: {e}")
+                    logger.debug("Recorder error for revision: %s", e)
 
             # Record position for grounded personas
             if self._record_grounded_position:

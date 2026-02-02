@@ -86,7 +86,7 @@ class HookHandlerRegistry:
         count += self._register_provenance_handlers()
 
         self._registered = True
-        logger.info(f"HookHandlerRegistry registered {count} handlers")
+        logger.info("HookHandlerRegistry registered %s handlers", count)
         return count
 
     def unregister_all(self) -> int:
@@ -101,11 +101,11 @@ class HookHandlerRegistry:
                 unregister_fn()
                 count += 1
             except Exception as e:
-                logger.debug(f"Error unregistering handler: {e}")
+                logger.debug("Error unregistering handler: %s", e)
 
         self._unregister_fns.clear()
         self._registered = False
-        logger.debug(f"Unregistered {count} hook handlers")
+        logger.debug("Unregistered %s hook handlers", count)
         return count
 
     def _register(
@@ -132,7 +132,7 @@ class HookHandlerRegistry:
             self._unregister_fns.append(unregister)
             return True
         except (ImportError, AttributeError, TypeError, ValueError) as e:
-            logger.debug(f"Failed to register {name}: {e}")
+            logger.debug("Failed to register %s: %s", name, e)
             return False
 
     # =========================================================================
@@ -161,7 +161,7 @@ class HookHandlerRegistry:
                 try:
                     analytics.on_round_complete(ctx, round_num)
                 except Exception as e:
-                    logger.debug(f"Analytics round_complete handler failed: {e}")
+                    logger.debug("Analytics round_complete handler failed: %s", e)
 
             if self._register(
                 HookType.POST_ROUND.value,
@@ -178,7 +178,7 @@ class HookHandlerRegistry:
                 try:
                     analytics.on_agent_response(agent, response)
                 except Exception as e:
-                    logger.debug(f"Analytics agent_response handler failed: {e}")
+                    logger.debug("Analytics agent_response handler failed: %s", e)
 
             if self._register(
                 HookType.POST_GENERATE.value,
@@ -195,7 +195,7 @@ class HookHandlerRegistry:
                 try:
                     analytics.on_debate_complete(ctx, result)
                 except Exception as e:
-                    logger.debug(f"Analytics debate_complete handler failed: {e}")
+                    logger.debug("Analytics debate_complete handler failed: %s", e)
 
             if self._register(
                 HookType.POST_DEBATE.value,
@@ -232,7 +232,7 @@ class HookHandlerRegistry:
                     try:
                         continuum.on_debate_end(ctx, result)
                     except Exception as e:
-                        logger.debug(f"Continuum on_debate_end failed: {e}")
+                        logger.debug("Continuum on_debate_end failed: %s", e)
 
                 if self._register(
                     HookType.POST_DEBATE.value,
@@ -256,7 +256,7 @@ class HookHandlerRegistry:
                     try:
                         consensus.on_consensus_reached(ctx, consensus_text, confidence)
                     except Exception as e:
-                        logger.debug(f"Consensus memory on_consensus failed: {e}")
+                        logger.debug("Consensus memory on_consensus failed: %s", e)
 
                 if self._register(
                     HookType.POST_CONSENSUS.value,
@@ -293,7 +293,7 @@ class HookHandlerRegistry:
                 try:
                     calibration.on_vote(ctx, vote)
                 except Exception as e:
-                    logger.debug(f"Calibration on_vote failed: {e}")
+                    logger.debug("Calibration on_vote failed: %s", e)
 
             if self._register(
                 HookType.POST_VOTE.value,
@@ -310,7 +310,7 @@ class HookHandlerRegistry:
                 try:
                     calibration.on_debate_outcome(ctx, result)
                 except Exception as e:
-                    logger.debug(f"Calibration on_debate_outcome failed: {e}")
+                    logger.debug("Calibration on_debate_outcome failed: %s", e)
 
             if self._register(
                 HookType.POST_DEBATE.value,
@@ -347,7 +347,7 @@ class HookHandlerRegistry:
                 try:
                     outcome_tracker.record_outcome(ctx, result)
                 except Exception as e:
-                    logger.debug(f"OutcomeTracker record_outcome failed: {e}")
+                    logger.debug("OutcomeTracker record_outcome failed: %s", e)
 
             if self._register(
                 HookType.POST_DEBATE.value,
@@ -364,7 +364,7 @@ class HookHandlerRegistry:
                 try:
                     outcome_tracker.on_convergence(ctx)
                 except Exception as e:
-                    logger.debug(f"OutcomeTracker on_convergence failed: {e}")
+                    logger.debug("OutcomeTracker on_convergence failed: %s", e)
 
             if self._register(
                 HookType.ON_CONVERGENCE.value,
@@ -406,7 +406,7 @@ class HookHandlerRegistry:
                 try:
                     performance.record_response(agent, response, latency_ms)
                 except Exception as e:
-                    logger.debug(f"Performance record_response failed: {e}")
+                    logger.debug("Performance record_response failed: %s", e)
 
             if self._register(
                 HookType.POST_GENERATE.value,
@@ -428,7 +428,7 @@ class HookHandlerRegistry:
                 try:
                     performance.record_round(ctx, round_num, duration_ms)
                 except Exception as e:
-                    logger.debug(f"Performance record_round failed: {e}")
+                    logger.debug("Performance record_round failed: %s", e)
 
             if self._register(
                 HookType.POST_ROUND.value,
@@ -465,7 +465,7 @@ class HookHandlerRegistry:
                 try:
                     feedback_loop.record_debate_outcome(ctx, result)
                 except Exception as e:
-                    logger.debug(f"SelectionFeedback record_outcome failed: {e}")
+                    logger.debug("SelectionFeedback record_outcome failed: %s", e)
 
             if self._register(
                 HookType.POST_DEBATE.value,
@@ -505,7 +505,7 @@ class HookHandlerRegistry:
                         votes = votes or []
                         trickster.check_consensus(ctx, votes)
                     except Exception as e:
-                        logger.debug(f"Trickster check_consensus failed: {e}")
+                        logger.debug("Trickster check_consensus failed: %s", e)
 
                 if self._register(
                     HookType.PRE_CONSENSUS.value,
@@ -530,7 +530,7 @@ class HookHandlerRegistry:
                         positions = positions or {}
                         flip_detector.check_positions(ctx, round_num, positions)
                     except Exception as e:
-                        logger.debug(f"FlipDetector check_positions failed: {e}")
+                        logger.debug("FlipDetector check_positions failed: %s", e)
 
                 if self._register(
                     HookType.POST_ROUND.value,
@@ -572,7 +572,7 @@ class HookHandlerRegistry:
                     try:
                         km.on_debate_end(ctx, result)
                     except Exception as e:
-                        logger.debug(f"KM on_debate_end failed: {e}")
+                        logger.debug("KM on_debate_end failed: %s", e)
 
                 if self._register(
                     HookType.POST_DEBATE.value,
@@ -594,7 +594,7 @@ class HookHandlerRegistry:
                     try:
                         km.on_consensus_reached(ctx, consensus_text, confidence)
                     except Exception as e:
-                        logger.debug(f"KM on_consensus_reached failed: {e}")
+                        logger.debug("KM on_consensus_reached failed: %s", e)
 
                 if self._register(
                     HookType.POST_CONSENSUS.value,
@@ -615,7 +615,7 @@ class HookHandlerRegistry:
                     try:
                         km.on_outcome_tracked(ctx, outcome)
                     except Exception as e:
-                        logger.debug(f"KM on_outcome_tracked failed: {e}")
+                        logger.debug("KM on_outcome_tracked failed: %s", e)
 
                 if self._register(
                     HookType.POST_DEBATE.value,
@@ -639,7 +639,7 @@ class HookHandlerRegistry:
                     try:
                         km_coordinator.on_debate_complete(ctx, result)
                     except Exception as e:
-                        logger.debug(f"KM coordinator on_debate_complete failed: {e}")
+                        logger.debug("KM coordinator on_debate_complete failed: %s", e)
 
                 if self._register(
                     HookType.POST_DEBATE.value,
@@ -661,7 +661,7 @@ class HookHandlerRegistry:
                     try:
                         km_coordinator.on_consensus_reached(ctx, consensus_text, confidence)
                     except Exception as e:
-                        logger.debug(f"KM coordinator on_consensus failed: {e}")
+                        logger.debug("KM coordinator on_consensus failed: %s", e)
 
                 if self._register(
                     HookType.POST_CONSENSUS.value,
@@ -748,7 +748,7 @@ class HookHandlerRegistry:
                             # Record delivery in config store
                             store.record_delivery(webhook.id, 200, success=True)
                         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-                            logger.debug(f"Webhook delivery failed for {webhook.id}: {e}")
+                            logger.debug("Webhook delivery failed for %s: %s", webhook.id, e)
                             store.record_delivery(webhook.id, 500, success=False)
 
                 # Run async delivery
@@ -760,7 +760,7 @@ class HookHandlerRegistry:
                     asyncio.run(deliver_all())
 
             except Exception as e:
-                logger.debug(f"Webhook debate_end handler failed: {e}")
+                logger.debug("Webhook debate_end handler failed: %s", e)
 
         if self._register(
             HookType.POST_DEBATE.value,
@@ -812,7 +812,7 @@ class HookHandlerRegistry:
                             )
                             store.record_delivery(webhook.id, 200, success=True)
                         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
-                            logger.debug(f"Webhook delivery failed for {webhook.id}: {e}")
+                            logger.debug("Webhook delivery failed for %s: %s", webhook.id, e)
                             store.record_delivery(webhook.id, 500, success=False)
 
                 try:
@@ -822,7 +822,7 @@ class HookHandlerRegistry:
                     asyncio.run(deliver_all())
 
             except Exception as e:
-                logger.debug(f"Webhook consensus handler failed: {e}")
+                logger.debug("Webhook consensus handler failed: %s", e)
 
         if self._register(
             HookType.POST_CONSENSUS.value,
@@ -832,7 +832,7 @@ class HookHandlerRegistry:
         ):
             count += 1
 
-        logger.debug(f"Registered {count} webhook handlers")
+        logger.debug("Registered %s webhook handlers", count)
         return count
 
     # =========================================================================
@@ -879,7 +879,9 @@ class HookHandlerRegistry:
                 confidence = getattr(result, "confidence", 0.0)
                 if confidence < min_confidence:
                     logger.debug(
-                        f"Skipping receipt generation: confidence {confidence:.2f} < {min_confidence}"
+                        "Skipping receipt generation: confidence %s < %s",
+                        confidence,
+                        min_confidence,
                     )
                     return
 
@@ -893,13 +895,15 @@ class HookHandlerRegistry:
                 if auto_sign:
                     try:
                         receipt.sign()
-                        logger.debug(f"Auto-signed receipt {receipt.receipt_id}")
+                        logger.debug("Auto-signed receipt %s", receipt.receipt_id)
                     except (ImportError, ValueError) as e:
-                        logger.warning(f"Receipt signing failed: {e}")
+                        logger.warning("Receipt signing failed: %s", e)
 
                 logger.info(
-                    f"Generated decision receipt {receipt.receipt_id} for debate "
-                    f"{receipt.gauntlet_id} (confidence: {confidence:.2f})"
+                    "Generated decision receipt %s for debate %s (confidence: %s)",
+                    receipt.receipt_id,
+                    receipt.gauntlet_id,
+                    confidence,
                 )
 
                 # Legacy: If we have a store with save_signed, use that
@@ -919,21 +923,21 @@ class HookHandlerRegistry:
                         receipt_store.save_signed(signed)
                         return
                     except (ImportError, ValueError) as sign_err:
-                        logger.warning(f"Auto-signing failed: {sign_err}")
+                        logger.warning("Auto-signing failed: %s", sign_err)
 
                 # Persist to store if available
                 if receipt_store:
                     try:
                         if hasattr(receipt_store, "save"):
                             receipt_store.save(receipt)
-                            logger.debug(f"Persisted receipt {receipt.receipt_id} to store")
+                            logger.debug("Persisted receipt %s to store", receipt.receipt_id)
                     except (OSError, ValueError, TypeError) as store_err:
-                        logger.warning(f"Failed to persist receipt: {store_err}")
+                        logger.warning("Failed to persist receipt: %s", store_err)
 
             except ImportError as e:
-                logger.debug(f"Receipt generation unavailable: {e}")
+                logger.debug("Receipt generation unavailable: %s", e)
             except Exception as e:
-                logger.warning(f"Receipt generation failed: {e}")
+                logger.warning("Receipt generation failed: %s", e)
 
         if self._register(
             HookType.POST_DEBATE.value,
@@ -997,19 +1001,20 @@ class HookHandlerRegistry:
                 # Verify chain integrity before persisting
                 chain_valid, errors = provenance_manager.verify_chain_integrity()
                 if not chain_valid:
-                    logger.warning(f"Provenance chain has integrity issues: {len(errors)} errors")
+                    logger.warning("Provenance chain has integrity issues: %s errors", len(errors))
 
                 # Persist to store if available
                 if provenance_store and auto_persist:
                     try:
                         provenance_store.save_manager(provenance_manager)
                         logger.info(
-                            f"Persisted provenance chain {provenance_manager.chain.chain_id} "
-                            f"({len(provenance_manager.chain.records)} records, "
-                            f"{len(provenance_manager.graph.citations)} citations)"
+                            "Persisted provenance chain %s (%s records, %s citations)",
+                            provenance_manager.chain.chain_id,
+                            len(provenance_manager.chain.records),
+                            len(provenance_manager.graph.citations),
                         )
                     except (OSError, ValueError, TypeError) as store_err:
-                        logger.warning(f"Failed to persist provenance: {store_err}")
+                        logger.warning("Failed to persist provenance: %s", store_err)
 
                 # Register with provenance handler for API access
                 try:
@@ -1022,7 +1027,7 @@ class HookHandlerRegistry:
                     logger.debug("Provenance server handlers not available")
 
             except Exception as e:
-                logger.warning(f"Provenance persistence failed: {e}")
+                logger.warning("Provenance persistence failed: %s", e)
 
         if self._register(
             HookType.POST_DEBATE.value,

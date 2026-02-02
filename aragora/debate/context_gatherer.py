@@ -229,10 +229,10 @@ class ContextGatherer:
                     logger.debug("[rlm] Compressor module not available: %s", e)
                 except (RuntimeError, ValueError) as e:
                     # Expected: compressor initialization issues
-                    logger.warning(f"[rlm] Failed to initialize compressor: {e}")
+                    logger.warning("[rlm] Failed to initialize compressor: %s", e)
                 except Exception as e:
                     # Unexpected error
-                    logger.warning(f"[rlm] Unexpected error getting compressor: {e}")
+                    logger.warning("[rlm] Unexpected error getting compressor: %s", e)
 
         # Knowledge Mound configuration for auto-grounding
         self._enable_knowledge_grounding = enable_knowledge_grounding and HAS_KNOWLEDGE_MOUND
@@ -249,12 +249,12 @@ class ContextGatherer:
                         auto_initialize=True,
                     )
                     logger.info(
-                        f"[knowledge] ContextGatherer: Knowledge Mound enabled "
-                        f"(workspace={self._knowledge_workspace_id})"
+                        "[knowledge] ContextGatherer: Knowledge Mound enabled (workspace=%s)",
+                        self._knowledge_workspace_id,
                     )
                 except (RuntimeError, ValueError, OSError) as e:
                     # Expected: knowledge mound initialization issues
-                    logger.warning(f"[knowledge] Failed to initialize Knowledge Mound: {e}")
+                    logger.warning("[knowledge] Failed to initialize Knowledge Mound: %s", e)
                     self._enable_knowledge_grounding = False
                 except ImportError:
                     # Fallback: instantiate directly if singleton helper unavailable
@@ -268,16 +268,16 @@ class ContextGatherer:
                             workspace_id=self._knowledge_workspace_id
                         )
                         logger.info(
-                            f"[knowledge] ContextGatherer: Knowledge Mound enabled "
-                            f"(workspace={self._knowledge_workspace_id})"
+                            "[knowledge] ContextGatherer: Knowledge Mound enabled (workspace=%s)",
+                            self._knowledge_workspace_id,
                         )
                     except (RuntimeError, ValueError, OSError) as e:
-                        logger.warning(f"[knowledge] Failed to initialize Knowledge Mound: {e}")
+                        logger.warning("[knowledge] Failed to initialize Knowledge Mound: %s", e)
                         self._enable_knowledge_grounding = False
                 except Exception as e:
                     # Unexpected error
                     logger.warning(
-                        f"[knowledge] Unexpected error initializing Knowledge Mound: {e}"
+                        "[knowledge] Unexpected error initializing Knowledge Mound: %s", e
                     )
                     self._enable_knowledge_grounding = False
             else:
@@ -297,7 +297,7 @@ class ContextGatherer:
                 logger.debug("[belief] Belief analyzer module not available")
                 self._enable_belief_guidance = False
             except Exception as e:
-                logger.warning(f"[belief] Failed to initialize belief analyzer: {e}")
+                logger.warning("[belief] Failed to initialize belief analyzer: %s", e)
                 self._enable_belief_guidance = False
 
         # Threat intelligence enrichment for security topics
@@ -314,10 +314,10 @@ class ContextGatherer:
                         "for security topics"
                     )
                 except (RuntimeError, ValueError, OSError) as e:
-                    logger.warning(f"[threat_intel] Failed to initialize enrichment: {e}")
+                    logger.warning("[threat_intel] Failed to initialize enrichment: %s", e)
                     self._enable_threat_intel = False
                 except Exception as e:
-                    logger.warning(f"[threat_intel] Unexpected error initializing enrichment: {e}")
+                    logger.warning("[threat_intel] Unexpected error initializing enrichment: %s", e)
                     self._enable_threat_intel = False
             else:
                 logger.info("[threat_intel] ContextGatherer: Using provided enrichment instance")
@@ -425,12 +425,12 @@ class ContextGatherer:
                 elif isinstance(result, asyncio.TimeoutError):
                     logger.warning("Context gathering subtask timed out")
                 elif isinstance(result, Exception):
-                    logger.debug(f"Context gathering subtask failed: {result}")
+                    logger.debug("Context gathering subtask failed: %s", result)
 
         try:
             await asyncio.wait_for(_gather_with_timeout(), timeout=timeout)
         except asyncio.TimeoutError:
-            logger.warning(f"Context gathering timed out after {timeout}s, using partial results")
+            logger.warning("Context gathering timed out after %ss, using partial results", timeout)
 
         if context_parts:
             result = "\n\n".join(context_parts)
@@ -470,29 +470,31 @@ class ContextGatherer:
                         "[research] Claude web search returned low-signal summary; ignoring"
                     )
                     return None
-                logger.info(f"[research] Claude web search complete: {len(result)} chars")
+                logger.info("[research] Claude web search complete: %s chars", len(result))
                 return result
             else:
                 logger.info("[research] Claude web search returned no results")
                 return None
 
         except asyncio.TimeoutError:
-            logger.warning(f"[research] Claude web search timed out after {CLAUDE_SEARCH_TIMEOUT}s")
+            logger.warning(
+                "[research] Claude web search timed out after %ss", CLAUDE_SEARCH_TIMEOUT
+            )
             return None
         except ImportError:
             logger.debug("[research] research_phase module not available")
             return None
         except (ConnectionError, OSError) as e:
             # Expected: network or API issues
-            logger.warning(f"[research] Claude web search network error: {e}")
+            logger.warning("[research] Claude web search network error: %s", e)
             return None
         except (ValueError, RuntimeError) as e:
             # Expected: API or response processing issues
-            logger.warning(f"[research] Claude web search failed: {e}")
+            logger.warning("[research] Claude web search failed: %s", e)
             return None
         except Exception as e:
             # Unexpected error
-            logger.warning(f"[research] Unexpected error in Claude web search: {e}")
+            logger.warning("[research] Unexpected error in Claude web search: %s", e)
             return None
 
     async def _gather_evidence_with_timeout(self, task: str) -> str | None:
@@ -502,7 +504,7 @@ class ContextGatherer:
                 self.gather_evidence_context(task), timeout=EVIDENCE_TIMEOUT
             )
         except asyncio.TimeoutError:
-            logger.warning(f"Evidence collection timed out after {EVIDENCE_TIMEOUT}s")
+            logger.warning("Evidence collection timed out after %ss", EVIDENCE_TIMEOUT)
             return None
 
     async def _gather_trending_with_timeout(self) -> str | None:
@@ -510,7 +512,7 @@ class ContextGatherer:
         try:
             return await asyncio.wait_for(self.gather_trending_context(), timeout=TRENDING_TIMEOUT)
         except asyncio.TimeoutError:
-            logger.warning(f"Trending context timed out after {TRENDING_TIMEOUT}s")
+            logger.warning("Trending context timed out after %ss", TRENDING_TIMEOUT)
             return None
 
     async def _gather_knowledge_mound_with_timeout(self, task: str) -> str | None:
@@ -520,7 +522,7 @@ class ContextGatherer:
                 self.gather_knowledge_mound_context(task), timeout=KNOWLEDGE_MOUND_TIMEOUT
             )
         except asyncio.TimeoutError:
-            logger.warning(f"Knowledge mound context timed out after {KNOWLEDGE_MOUND_TIMEOUT}s")
+            logger.warning("Knowledge mound context timed out after %ss", KNOWLEDGE_MOUND_TIMEOUT)
             return None
 
     async def _gather_threat_intel_with_timeout(self, task: str) -> str | None:
@@ -530,7 +532,7 @@ class ContextGatherer:
                 self.gather_threat_intel_context(task), timeout=THREAT_INTEL_TIMEOUT
             )
         except asyncio.TimeoutError:
-            logger.warning(f"Threat intel context timed out after {THREAT_INTEL_TIMEOUT}s")
+            logger.warning("Threat intel context timed out after %ss", THREAT_INTEL_TIMEOUT)
             return None
 
     async def gather_threat_intel_context(self, task: str) -> str | None:
@@ -570,8 +572,9 @@ class ContextGatherer:
                 indicator_count = len(context.indicators)
                 cve_count = len(context.relevant_cves)
                 logger.info(
-                    f"[threat_intel] Enriched security context with "
-                    f"{indicator_count} indicators and {cve_count} CVEs"
+                    "[threat_intel] Enriched security context with %s indicators and %s CVEs",
+                    indicator_count,
+                    cve_count,
                 )
                 return formatted
 
@@ -580,15 +583,15 @@ class ContextGatherer:
 
         except (ConnectionError, OSError) as e:
             # Expected: network or API issues
-            logger.warning(f"[threat_intel] Enrichment network error: {e}")
+            logger.warning("[threat_intel] Enrichment network error: %s", e)
             return None
         except (ValueError, KeyError, AttributeError) as e:
             # Expected: data format or access issues
-            logger.warning(f"[threat_intel] Enrichment failed: {e}")
+            logger.warning("[threat_intel] Enrichment failed: %s", e)
             return None
         except Exception as e:
             # Unexpected error
-            logger.warning(f"[threat_intel] Unexpected error in enrichment: {e}")
+            logger.warning("[threat_intel] Unexpected error in enrichment: %s", e)
             return None
 
     async def gather_aragora_context(self, task: str) -> str | None:
@@ -636,7 +639,7 @@ class ContextGatherer:
                     if path.exists():
                         return path.read_text()
                 except (OSError, UnicodeDecodeError) as e:
-                    logger.debug(f"Failed to read file {path}: {e}")
+                    logger.debug("Failed to read file %s: %s", path, e)
                 return None
 
             # Read key documentation files (full content, RLM will compress)
@@ -683,13 +686,13 @@ class ContextGatherer:
 
         except (OSError, IOError) as e:
             # Expected: file system issues reading docs
-            logger.warning(f"Failed to load Aragora context (file error): {e}")
+            logger.warning("Failed to load Aragora context (file error): %s", e)
         except (ValueError, RuntimeError) as e:
             # Expected: compression or parsing issues
-            logger.warning(f"Failed to load Aragora context: {e}")
+            logger.warning("Failed to load Aragora context: %s", e)
         except Exception as e:
             # Unexpected error
-            logger.warning(f"Unexpected error loading Aragora context: {e}")
+            logger.warning("Unexpected error loading Aragora context: %s", e)
 
         return None
 
@@ -708,7 +711,7 @@ class ContextGatherer:
         try:
             from aragora.rlm.codebase_context import CodebaseContextBuilder
         except Exception as exc:
-            logger.debug(f"Codebase context unavailable: {exc}")
+            logger.debug("Codebase context unavailable: %s", exc)
             return None
 
         if self._codebase_context_builder is None:
@@ -718,7 +721,7 @@ class ContextGatherer:
                     knowledge_mound=self._knowledge_mound,
                 )
             except Exception as exc:
-                logger.warning(f"Failed to initialize codebase context builder: {exc}")
+                logger.warning("Failed to initialize codebase context builder: %s", exc)
                 return None
 
         if self._codebase_context_builder is None:
@@ -734,7 +737,7 @@ class ContextGatherer:
             logger.warning("Codebase context build timed out")
             return None
         except Exception as exc:
-            logger.warning(f"Codebase context build failed: {exc}")
+            logger.warning("Codebase context build failed: %s", exc)
             return None
 
         if not context:
@@ -823,16 +826,16 @@ class ContextGatherer:
 
         except ImportError as e:
             # Expected: evidence collector module not available
-            logger.debug(f"Evidence collector not available: {e}")
+            logger.debug("Evidence collector not available: %s", e)
         except (ConnectionError, OSError) as e:
             # Expected: network or file system issues
-            logger.warning(f"Evidence collection network/IO error: {e}")
+            logger.warning("Evidence collection network/IO error: %s", e)
         except (ValueError, RuntimeError) as e:
             # Expected: data processing issues
-            logger.warning(f"Evidence collection failed: {e}")
+            logger.warning("Evidence collection failed: %s", e)
         except Exception as e:
             # Unexpected error
-            logger.warning(f"Unexpected error in evidence collection: {e}")
+            logger.warning("Unexpected error in evidence collection: %s", e)
 
         return None
 
@@ -882,8 +885,8 @@ class ContextGatherer:
                 if self._prompt_builder:
                     self._prompt_builder.set_trending_topics(self._trending_topics_cache)
                     logger.debug(
-                        f"[pulse] Injected {len(self._trending_topics_cache)} trending topics "
-                        f"into PromptBuilder"
+                        "[pulse] Injected %s trending topics into PromptBuilder",
+                        len(self._trending_topics_cache),
                     )
 
                 trending_context = (
@@ -897,16 +900,16 @@ class ContextGatherer:
 
         except ImportError as e:
             # Expected: pulse module not installed
-            logger.debug(f"Pulse module not available: {e}")
+            logger.debug("Pulse module not available: %s", e)
         except (ConnectionError, OSError) as e:
             # Expected: network issues fetching trends
-            logger.debug(f"Pulse context network error: {e}")
+            logger.debug("Pulse context network error: %s", e)
         except (ValueError, RuntimeError) as e:
             # Expected: API or data processing issues
-            logger.debug(f"Pulse context unavailable: {e}")
+            logger.debug("Pulse context unavailable: %s", e)
         except Exception as e:
             # Unexpected error
-            logger.warning(f"Unexpected error getting pulse context: {e}")
+            logger.warning("Unexpected error getting pulse context: %s", e)
 
         return None
 
@@ -1023,24 +1026,29 @@ class ContextGatherer:
                 return None
 
             logger.info(
-                f"[knowledge] Injected {len(result.items)} knowledge items "
-                f"({len(facts)} facts, {len(evidence)} evidence, {len(insights)} insights) "
-                f"in {result.execution_time_ms:.0f}ms"
+                "[knowledge] Injected %s knowledge items "
+                "(%s facts, %s evidence, %s insights) "
+                "in %sms",
+                len(result.items),
+                len(facts),
+                len(evidence),
+                len(insights),
+                int(result.execution_time_ms),
             )
 
             return "\n".join(context_parts)
 
         except (ConnectionError, OSError) as e:
             # Expected: storage or network issues
-            logger.warning(f"[knowledge] Knowledge Mound query failed (IO error): {e}")
+            logger.warning("[knowledge] Knowledge Mound query failed (IO error): %s", e)
             return None
         except (ValueError, KeyError, AttributeError) as e:
             # Expected: data format or access issues
-            logger.warning(f"[knowledge] Knowledge Mound query failed: {e}")
+            logger.warning("[knowledge] Knowledge Mound query failed: %s", e)
             return None
         except Exception as e:
             # Unexpected error
-            logger.warning(f"[knowledge] Unexpected error in Knowledge Mound query: {e}")
+            logger.warning("[knowledge] Unexpected error in Knowledge Mound query: %s", e)
             return None
 
     async def gather_belief_crux_context(
@@ -1074,7 +1082,7 @@ class ContextGatherer:
                 )
 
                 if result.analysis_error:
-                    logger.debug(f"[belief] Crux analysis error: {result.analysis_error}")
+                    logger.debug("[belief] Crux analysis error: %s", result.analysis_error)
                     return None
 
                 if not result.cruxes:
@@ -1111,7 +1119,9 @@ class ContextGatherer:
                         context_parts.append(f"- {suggestion}")
 
                 logger.info(
-                    f"[belief] Extracted {len(result.cruxes)} cruxes from {len(messages)} messages"
+                    "[belief] Extracted %s cruxes from %s messages",
+                    len(result.cruxes),
+                    len(messages),
                 )
 
                 return "\n".join(context_parts)
@@ -1122,11 +1132,11 @@ class ContextGatherer:
 
         except (ValueError, AttributeError) as e:
             # Expected: data format issues
-            logger.debug(f"[belief] Crux gathering failed: {e}")
+            logger.debug("[belief] Crux gathering failed: %s", e)
             return None
         except Exception as e:
             # Unexpected error
-            logger.warning(f"[belief] Unexpected error gathering cruxes: {e}")
+            logger.warning("[belief] Unexpected error gathering cruxes: %s", e)
             return None
 
     async def _gather_belief_with_timeout(self, task: str) -> str | None:
@@ -1137,7 +1147,7 @@ class ContextGatherer:
                 timeout=BELIEF_CRUX_TIMEOUT,
             )
         except asyncio.TimeoutError:
-            logger.warning(f"[belief] Crux gathering timed out after {BELIEF_CRUX_TIMEOUT}s")
+            logger.warning("[belief] Crux gathering timed out after %ss", BELIEF_CRUX_TIMEOUT)
             return None
 
     async def _gather_culture_with_timeout(self, task: str) -> str | None:
@@ -1243,14 +1253,14 @@ class ContextGatherer:
             if len(context_parts) <= 3:
                 return None
 
-            logger.info(f"[culture] Injected {min(len(patterns), 5)} culture patterns")
+            logger.info("[culture] Injected %s culture patterns", min(len(patterns), 5))
             return "\n".join(context_parts)
 
         except ImportError:
             logger.debug("[culture] CultureAccumulator not available")
             return None
         except Exception as e:
-            logger.warning(f"[culture] Failed to gather culture patterns: {e}")
+            logger.warning("[culture] Failed to gather culture patterns: %s", e)
             return None
 
     def clear_cache(self, task: str | None = None) -> None:
@@ -1343,8 +1353,11 @@ class ContextGatherer:
                 if result.answer and len(result.answer) < len(content):
                     approach = "TRUE RLM" if result.used_true_rlm else "compression fallback"
                     logger.debug(
-                        f"[rlm] Compressed {len(content)} -> {len(result.answer)} chars "
-                        f"({len(result.answer) / len(content) * 100:.0f}%) via {approach}"
+                        "[rlm] Compressed %s -> %s chars (%s%%) via %s",
+                        len(content),
+                        len(result.answer),
+                        int(len(result.answer) / len(content) * 100),
+                        approach,
                     )
                     return (
                         result.answer[:max_chars]
@@ -1356,10 +1369,10 @@ class ContextGatherer:
                 logger.debug("[rlm] AragoraRLM compression timed out")
             except (ValueError, RuntimeError) as e:
                 # Expected: compression configuration or processing issues
-                logger.debug(f"[rlm] AragoraRLM compression failed: {e}")
+                logger.debug("[rlm] AragoraRLM compression failed: %s", e)
             except Exception as e:
                 # Unexpected error
-                logger.warning(f"[rlm] Unexpected error in AragoraRLM compression: {e}")
+                logger.warning("[rlm] Unexpected error in AragoraRLM compression: %s", e)
 
         # FALLBACK: Try direct HierarchicalCompressor (compression-only)
         if self._rlm_compressor:
@@ -1388,8 +1401,10 @@ class ContextGatherer:
 
                 if summary and len(summary) < len(content):
                     logger.debug(
-                        f"[rlm] Compressed {len(content)} -> {len(summary)} chars "
-                        f"({len(summary) / len(content) * 100:.0f}%) via HierarchicalCompressor"
+                        "[rlm] Compressed %s -> %s chars (%s%%) via HierarchicalCompressor",
+                        len(content),
+                        len(summary),
+                        int(len(summary) / len(content) * 100),
                     )
                     return summary[:max_chars] if len(summary) > max_chars else summary
 
@@ -1397,10 +1412,10 @@ class ContextGatherer:
                 logger.debug("[rlm] HierarchicalCompressor timed out")
             except (ValueError, RuntimeError) as e:
                 # Expected: compression configuration or processing issues
-                logger.debug(f"[rlm] HierarchicalCompressor failed: {e}")
+                logger.debug("[rlm] HierarchicalCompressor failed: %s", e)
             except Exception as e:
                 # Unexpected error
-                logger.warning(f"[rlm] Unexpected error in HierarchicalCompressor: {e}")
+                logger.warning("[rlm] Unexpected error in HierarchicalCompressor: %s", e)
 
         # FINAL FALLBACK: Simple truncation
         logger.debug("[rlm] All RLM approaches failed, using simple truncation")
@@ -1443,8 +1458,10 @@ class ContextGatherer:
             # Check if TRUE RLM is available (not just compression fallback)
             if HAS_RLM and HAS_OFFICIAL_RLM:
                 logger.debug(
-                    f"[rlm] Using TRUE RLM for query: '{query[:50]}...' "
-                    f"on {len(content)} chars of {source_type}"
+                    "[rlm] Using TRUE RLM for query: '%s...' on %s chars of %s",
+                    query[:50],
+                    len(content),
+                    source_type,
                 )
 
                 result = await asyncio.wait_for(
@@ -1458,8 +1475,9 @@ class ContextGatherer:
 
                 if result.used_true_rlm and result.answer:
                     logger.debug(
-                        f"[rlm] TRUE RLM query successful: {len(result.answer)} chars, "
-                        f"confidence={result.confidence:.2f}"
+                        "[rlm] TRUE RLM query successful: %s chars, confidence=%s",
+                        len(result.answer),
+                        result.confidence,
                     )
                     return result.answer
 
@@ -1476,17 +1494,17 @@ class ContextGatherer:
 
             if result.answer:
                 approach = "TRUE RLM" if result.used_true_rlm else "compression"
-                logger.debug(f"[rlm] Query via {approach}: {len(result.answer)} chars")
+                logger.debug("[rlm] Query via %s: %s chars", approach, len(result.answer))
                 return result.answer
 
         except asyncio.TimeoutError:
-            logger.debug(f"[rlm] TRUE RLM query timed out for: '{query[:30]}...'")
+            logger.debug("[rlm] TRUE RLM query timed out for: '%s...'", query[:30])
         except (ValueError, RuntimeError) as e:
             # Expected: query processing issues
-            logger.debug(f"[rlm] TRUE RLM query failed: {e}")
+            logger.debug("[rlm] TRUE RLM query failed: %s", e)
         except Exception as e:
             # Unexpected error
-            logger.warning(f"[rlm] Unexpected error in TRUE RLM query: {e}")
+            logger.warning("[rlm] Unexpected error in TRUE RLM query: %s", e)
 
         return None
 
@@ -1538,7 +1556,8 @@ class ContextGatherer:
             )
 
             logger.info(
-                f"[rlm] Created TRUE RLM REPL environment for knowledge query: '{task[:50]}...'"
+                "[rlm] Created TRUE RLM REPL environment for knowledge query: '%s...'",
+                task[:50],
             )
 
             # Return the REPL prompt - the agent will use it to write code
@@ -1552,7 +1571,7 @@ class ContextGatherer:
         except ImportError:
             logger.debug("[rlm] REPL adapter not available for knowledge queries")
         except Exception as e:
-            logger.warning(f"[rlm] Failed to create knowledge REPL: {e}")
+            logger.warning("[rlm] Failed to create knowledge REPL: %s", e)
 
         # Fall back to standard knowledge query
         return await self.gather_knowledge_mound_context(task)
@@ -1613,8 +1632,8 @@ class ContextGatherer:
                 )
                 if glacial_insights:
                     logger.info(
-                        f"  [continuum] Retrieved {len(glacial_insights)} glacial insights "
-                        f"for cross-session learning"
+                        "  [continuum] Retrieved %s glacial insights for cross-session learning",
+                        len(glacial_insights),
                     )
                     all_memories.extend(glacial_insights)
 
@@ -1666,17 +1685,21 @@ class ContextGatherer:
             self._enforce_cache_limit(self._continuum_context_cache, MAX_CONTINUUM_CACHE_SIZE)
             self._continuum_context_cache[task_hash] = context
             logger.info(
-                f"  [continuum] Retrieved {len(recent_mems)} recent + {len(glacial_mems)} glacial "
-                f"memories for domain '{domain}'"
+                "  [continuum] Retrieved %s recent + %s glacial memories for domain '%s'",
+                len(recent_mems),
+                len(glacial_mems),
+                domain,
             )
             return context, retrieved_ids, retrieved_tiers
         except (AttributeError, TypeError, ValueError) as e:
             # Expected errors from memory system
-            logger.warning(f"  [continuum] Memory retrieval error: {e}")
+            logger.warning("  [continuum] Memory retrieval error: %s", e)
             return "", [], {}
         except (KeyError, IndexError, RuntimeError, OSError) as e:
             # Unexpected error - log with more detail but don't crash debate
-            logger.warning(f"  [continuum] Unexpected memory error (type={type(e).__name__}): {e}")
+            logger.warning(
+                "  [continuum] Unexpected memory error (type=%s): %s", type(e).__name__, e
+            )
             return "", [], {}
 
     async def refresh_evidence_for_round(
@@ -1711,7 +1734,7 @@ class ContextGatherer:
             if not claims:
                 return 0, None
 
-            logger.debug(f"evidence_refresh extracting from {len(claims)} claims")
+            logger.debug("evidence_refresh extracting from %s claims", len(claims))
 
             # Collect evidence for the claims
             evidence_pack = await evidence_collector.collect_for_claims(claims)
@@ -1742,5 +1765,5 @@ class ContextGatherer:
             return len(evidence_pack.snippets), self._research_evidence_pack.get(task_hash)
 
         except Exception as e:
-            logger.warning(f"Evidence refresh failed: {e}")
+            logger.warning("Evidence refresh failed: %s", e)
             return 0, None
