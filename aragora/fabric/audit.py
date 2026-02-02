@@ -191,7 +191,7 @@ class AuditStore:
 
     def _read_logs(self, file_path: Path) -> list[dict[str, Any]]:
         """Read all logs from a file."""
-        logs = []
+        logs: list[dict[str, Any]] = []
         if not file_path.exists():
             return logs
 

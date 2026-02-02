@@ -100,13 +100,13 @@ def get_current_trace_id() -> str | None:
     if _OTEL_AVAILABLE and trace is not None:
         span = trace.get_current_span()
         if span and span.is_recording():
-            ctx = span.get_span_context()
-            if ctx.is_valid:
-                return format(ctx.trace_id, "032x")
+            span_ctx = span.get_span_context()
+            if span_ctx.is_valid:
+                return format(span_ctx.trace_id, "032x")
 
     # Fall back to our context var
-    ctx = _trace_context.get()
-    return ctx.trace_id if ctx else None
+    trace_ctx = _trace_context.get()
+    return trace_ctx.trace_id if trace_ctx else None
 
 
 def get_current_span_id() -> str | None:
@@ -119,13 +119,13 @@ def get_current_span_id() -> str | None:
     if _OTEL_AVAILABLE and trace is not None:
         span = trace.get_current_span()
         if span and span.is_recording():
-            ctx = span.get_span_context()
-            if ctx.is_valid:
-                return format(ctx.span_id, "016x")
+            span_ctx = span.get_span_context()
+            if span_ctx.is_valid:
+                return format(span_ctx.span_id, "016x")
 
     # Fall back to our context var
-    ctx = _trace_context.get()
-    return ctx.span_id if ctx else None
+    trace_ctx = _trace_context.get()
+    return trace_ctx.span_id if trace_ctx else None
 
 
 def get_correlation_id() -> str:
