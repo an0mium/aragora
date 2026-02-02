@@ -1278,6 +1278,194 @@ class TestCreatePolicy:
 
 
 # ===========================================================================
+# Test: Computer-use approvals endpoints
+# ===========================================================================
+
+
+class TestApprovalEndpoints:
+    """Test approval workflow endpoints."""
+
+    def test_list_approvals_unavailable(self, handler):
+        """Return 503 when no approval workflow is configured."""
+        handler._approval_workflow = None
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle("/api/v1/computer-use/approvals", {}, mock_handler)
+
+        assert result.status_code == 503
+
+    def test_list_approvals_success(self, handler):
+        """List approvals returns serialized approvals."""
+        approval = MagicMock()
+        approval.to_dict.return_value = {"id": "approval-1", "status": "pending"}
+
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler()
+
+        with (
+            patch.object(handler, "_check_rbac_permission", return_value=None),
+            patch(
+                "aragora.server.handlers.computer_use_handler.run_async",
+                return_value=[approval],
+            ),
+        ):
+            result = handler.handle("/api/v1/computer-use/approvals", {}, mock_handler)
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 1
+        assert body["approvals"][0]["id"] == "approval-1"
+
+    def test_list_approvals_invalid_status(self, handler):
+        """Invalid status filter returns 400."""
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            result = handler.handle(
+                "/api/v1/computer-use/approvals",
+                {"status": "not-a-status"},
+                mock_handler,
+            )
+
+        assert result.status_code == 400
+
+    def test_get_approval_not_found(self, handler):
+        """Return 404 when approval request is missing."""
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler()
+
+        with (
+            patch.object(handler, "_check_rbac_permission", return_value=None),
+            patch(
+                "aragora.server.handlers.computer_use_handler.run_async",
+                return_value=None,
+            ),
+        ):
+            result = handler.handle(
+                "/api/v1/computer-use/approvals/approval-missing",
+                {},
+                mock_handler,
+            )
+
+        assert result.status_code == 404
+
+    def test_get_approval_success(self, handler):
+        """Return approval payload when found."""
+        approval = MagicMock()
+        approval.to_dict.return_value = {"id": "approval-2", "status": "approved"}
+
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler()
+
+        with (
+            patch.object(handler, "_check_rbac_permission", return_value=None),
+            patch(
+                "aragora.server.handlers.computer_use_handler.run_async",
+                return_value=approval,
+            ),
+        ):
+            result = handler.handle(
+                "/api/v1/computer-use/approvals/approval-2",
+                {},
+                mock_handler,
+            )
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["approval"]["id"] == "approval-2"
+
+    def test_approve_approval_success(self, handler):
+        """Approve endpoint returns success."""
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler(body={"reason": "ok"})
+
+        with (
+            patch.object(handler, "_check_rbac_permission", return_value=None),
+            patch.object(handler, "_get_auth_context", return_value=MagicMock(user_id="admin")),
+            patch(
+                "aragora.server.handlers.computer_use_handler.run_async",
+                return_value=True,
+            ),
+        ):
+            result = handler.handle_post(
+                "/api/v1/computer-use/approvals/approval-3/approve",
+                {},
+                mock_handler,
+            )
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["approved"] is True
+
+    def test_approve_approval_missing(self, handler):
+        """Approve endpoint returns 404 when not found."""
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler()
+
+        with (
+            patch.object(handler, "_check_rbac_permission", return_value=None),
+            patch.object(handler, "_get_auth_context", return_value=MagicMock(user_id="admin")),
+            patch(
+                "aragora.server.handlers.computer_use_handler.run_async",
+                return_value=False,
+            ),
+        ):
+            result = handler.handle_post(
+                "/api/v1/computer-use/approvals/approval-missing/approve",
+                {},
+                mock_handler,
+            )
+
+        assert result.status_code == 404
+
+    def test_deny_approval_success(self, handler):
+        """Deny endpoint returns success."""
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler(body={"reason": "no"})
+
+        with (
+            patch.object(handler, "_check_rbac_permission", return_value=None),
+            patch.object(handler, "_get_auth_context", return_value=MagicMock(user_id="admin")),
+            patch(
+                "aragora.server.handlers.computer_use_handler.run_async",
+                return_value=True,
+            ),
+        ):
+            result = handler.handle_post(
+                "/api/v1/computer-use/approvals/approval-4/deny",
+                {},
+                mock_handler,
+            )
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["denied"] is True
+
+    def test_deny_approval_missing(self, handler):
+        """Deny endpoint returns 404 when not found."""
+        handler._approval_workflow = MagicMock()
+        mock_handler = MockRequestHandler()
+
+        with (
+            patch.object(handler, "_check_rbac_permission", return_value=None),
+            patch.object(handler, "_get_auth_context", return_value=MagicMock(user_id="admin")),
+            patch(
+                "aragora.server.handlers.computer_use_handler.run_async",
+                return_value=False,
+            ),
+        ):
+            result = handler.handle_post(
+                "/api/v1/computer-use/approvals/approval-missing/deny",
+                {},
+                mock_handler,
+            )
+
+        assert result.status_code == 404
+
+
+# ===========================================================================
 # Test: RBAC Permission Checks
 # ===========================================================================
 
