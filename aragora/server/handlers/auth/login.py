@@ -12,8 +12,6 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from aragora.auth.lockout import get_lockout_tracker
-
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
 from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import auth_rate_limit, get_client_ip
@@ -239,7 +237,7 @@ def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
         return error_response("Authentication service unavailable", 503)
 
     # Check lockout tracker (tracks by email AND IP)
-    lockout_tracker = get_lockout_tracker()
+    lockout_tracker = handler_instance._get_lockout_tracker()
     if lockout_tracker.is_locked(email=email, ip=client_ip):
         remaining_seconds = lockout_tracker.get_remaining_time(email=email, ip=client_ip)
         remaining_minutes = max(1, remaining_seconds // 60)

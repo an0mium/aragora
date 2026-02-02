@@ -324,6 +324,10 @@ class AuthHandler(SecureHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
+    def _get_lockout_tracker(self) -> Any:
+        """Get lockout tracker for login throttling."""
+        return get_lockout_tracker()
+
     def _check_permission(
         self, handler: Any, permission_key: str, resource_id: str | None = None
     ) -> HandlerResult | None:
