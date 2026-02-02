@@ -523,12 +523,14 @@ class TestAdminUnlockEndpoint:
 
         # Mock authentication, MFA policy, and RBAC permission
         with (
-            patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract,
             patch(
-                "aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None
+                "aragora.server.handlers.admin.handler.extract_user_from_request"
+            ) as mock_extract,
+            patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy", return_value=None
             ),
             patch(
-                "aragora.server.handlers.admin.admin.check_permission", return_value=mock_decision
+                "aragora.server.handlers.admin.handler.check_permission", return_value=mock_decision
             ),
         ):
             mock_auth_ctx = Mock()
@@ -557,7 +559,9 @@ class TestAdminUnlockEndpoint:
         handler = AdminHandler(ctx)
 
         # Patch at the module where it's imported
-        with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.admin.handler.extract_user_from_request"
+        ) as mock_extract:
             mock_auth_ctx = Mock()
             mock_auth_ctx.is_authenticated = True
             mock_auth_ctx.user_id = mock_user.id
@@ -585,12 +589,14 @@ class TestAdminUnlockEndpoint:
 
         # Mock authentication, MFA policy, and RBAC permission
         with (
-            patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract,
             patch(
-                "aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None
+                "aragora.server.handlers.admin.handler.extract_user_from_request"
+            ) as mock_extract,
+            patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy", return_value=None
             ),
             patch(
-                "aragora.server.handlers.admin.admin.check_permission", return_value=mock_decision
+                "aragora.server.handlers.admin.handler.check_permission", return_value=mock_decision
             ),
         ):
             mock_auth_ctx = Mock()

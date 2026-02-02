@@ -372,8 +372,27 @@ class UserStore:
         return self._user_repo.get_by_email(email)
 
     def get_user_by_api_key(self, api_key: str) -> User | None:
-        """Get user by API key."""
-        return self._user_repo.get_by_api_key(api_key)
+        """Get user by API key.
+
+        Returns None if the API key is expired.
+        """
+        user = self._user_repo.get_by_api_key(api_key)
+        if user and hasattr(user, "api_key_expires_at") and user.api_key_expires_at:
+            if isinstance(user.api_key_expires_at, str):
+                try:
+                    expires_at = datetime.fromisoformat(
+                        user.api_key_expires_at.replace("Z", "+00:00")
+                    )
+                    if expires_at < datetime.now(timezone.utc):
+                        logger.warning(f"Attempted use of expired API key for user {user.id}")
+                        return None
+                except (ValueError, AttributeError):
+                    pass  # If we can't parse the date, allow the key
+            elif isinstance(user.api_key_expires_at, datetime):
+                if user.api_key_expires_at < datetime.now(timezone.utc):
+                    logger.warning(f"Attempted use of expired API key for user {user.id}")
+                    return None
+        return user
 
     def update_user(self, user_id: str, **fields) -> bool:
         """Update user fields."""
