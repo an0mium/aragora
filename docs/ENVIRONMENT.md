@@ -179,6 +179,7 @@ config = (
     ArenaConfig.builder()
     .with_supermemory(
         enable_supermemory=True,
+        supermemory_enable_km_adapter=True,  # Force-enable KM adapter in coordinator
         supermemory_inject_on_start=True,
         supermemory_sync_on_conclusion=True,
     )
@@ -186,7 +187,7 @@ config = (
 )
 ```
 
-**Note:** Supermemory is opt-in and disabled by default. Set `enable_supermemory=True` in ArenaConfig to activate.
+**Note:** Supermemory is opt-in and disabled by default. Set `enable_supermemory=True` in ArenaConfig to activate. Use `supermemory_enable_km_adapter=True` to force-enable the Supermemory KM adapter in the bidirectional coordinator (requires `SUPERMEMORY_API_KEY`).
 
 ## Persistence (Supabase)
 

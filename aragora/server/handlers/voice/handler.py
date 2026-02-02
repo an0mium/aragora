@@ -117,8 +117,8 @@ class VoiceHandler:
             return False
 
         # Verify device exists and has voice capability
-        registry = cast("DeviceRegistry", self._device_registry)
-        device = await registry.get(device_id)
+        registry = self._device_registry
+        device = await registry.get(device_id)  # type: ignore[union-attr]
         if not device:
             logger.warning(f"Device {device_id} not found for call {call_sid}")
             return False

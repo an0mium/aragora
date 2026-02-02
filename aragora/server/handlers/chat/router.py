@@ -792,7 +792,7 @@ if HANDLER_BASE_AVAILABLE:
             result = await self.router.handle_webhook(platform, headers, raw_body)
 
             if "error" in result:
-                return error_response(result["error"], result.get("status", 400))
+                return error_response(result["error"], result.get("status", 400))  # type: ignore[union-attr]
 
             return json_response(result)
 

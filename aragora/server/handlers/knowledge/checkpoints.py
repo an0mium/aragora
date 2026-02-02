@@ -211,7 +211,7 @@ class KMCheckpointHandler(BaseHandler):
             return None
 
     @rate_limit(requests_per_minute=20)
-    async def _list_checkpoints(self, handler) -> HandlerResult:  # type: ignore[no-untyped-def]
+    async def _list_checkpoints(self, handler: Any) -> HandlerResult:
         """List all KM checkpoints.
 
         GET /api/km/checkpoints
@@ -263,7 +263,7 @@ class KMCheckpointHandler(BaseHandler):
             return error_response("Failed to list checkpoints", status=500)
 
     @rate_limit(requests_per_minute=5, limiter_name="km_checkpoint_write")
-    async def _create_checkpoint(self, handler) -> HandlerResult:  # type: ignore[no-untyped-def]
+    async def _create_checkpoint(self, handler: Any) -> HandlerResult:
         """Create a new KM checkpoint.
 
         POST /api/km/checkpoints

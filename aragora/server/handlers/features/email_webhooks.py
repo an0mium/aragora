@@ -237,7 +237,7 @@ async def process_gmail_notification(
 
     except Exception as e:
         logger.exception(f"Error processing Gmail notification: {e}")
-        return {}
+        return {}  # type: ignore[return-value]
 
 
 async def process_outlook_notification(

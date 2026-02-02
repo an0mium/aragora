@@ -66,7 +66,7 @@ except ImportError:
 
 
 def _web_response_to_handler_result(response: web.Response) -> HandlerResult:
-    body = response.body if response.body is not None else b""
+    body = response.body if response.body is not None else b""  # type: ignore[arg-type]
     content_type = response.content_type or "application/json"
     headers = dict(response.headers) if response.headers else {}
     return HandlerResult(

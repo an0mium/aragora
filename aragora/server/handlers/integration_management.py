@@ -741,7 +741,7 @@ class IntegrationsHandler(BaseHandler):
                 "Rate limit exceeded. Please try again later.",
                 429,
                 code="RATE_LIMIT_EXCEEDED",
-                headers=headers,
+                headers=headers,  # type: ignore[call-arg]
             )
 
         slack_store = self._get_slack_store()

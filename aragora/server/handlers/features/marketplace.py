@@ -815,7 +815,7 @@ class MarketplaceHandler:
             # Deployment-specific paths
             elif path.startswith("/api/v1/marketplace/deployments/"):
                 parts = path.split("/")
-                if len(parts) == 6:
+                if len(parts) >= 6:
                     deployment_id = parts[5]
 
                     # Validate deployment ID
@@ -823,12 +823,15 @@ class MarketplaceHandler:
                     if not valid:
                         return error_response(err, 400)
 
-                    if method == "GET":
-                        return await self._handle_get_deployment(request, tenant_id, deployment_id)
-                    elif method == "DELETE":
-                        return await self._handle_delete_deployment(
-                            request, tenant_id, deployment_id
-                        )
+                    if len(parts) == 6:
+                        if method == "GET":
+                            return await self._handle_get_deployment(
+                                request, tenant_id, deployment_id
+                            )
+                        elif method == "DELETE":
+                            return await self._handle_delete_deployment(
+                                request, tenant_id, deployment_id
+                            )
 
             return error_response("Not found", 404)
 

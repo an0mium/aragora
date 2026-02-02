@@ -776,7 +776,7 @@ def generate_openapi_schema() -> dict[str, Any]:
 
     for sdk_path, sdk_methods in SDK_MISSING_ENDPOINTS.items():
         if sdk_path in paths:
-            paths[sdk_path] = {**paths[sdk_path], **sdk_methods}
+            paths[sdk_path] = {**paths[sdk_path], **sdk_methods}  # type: ignore[dict-item]
         else:
             paths[sdk_path] = sdk_methods
     paths = _autogenerate_missing_paths(paths)
