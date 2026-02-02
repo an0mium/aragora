@@ -49,6 +49,25 @@ from .policy import PolicyEngine
 from .budget import BudgetManager
 from .fabric import AgentFabric, AgentPool, FabricConfig, FabricStats
 from .hooks import Hook, HookManager, HookManagerConfig, HookStatus
+from .telemetry import (
+    CorrelationContext,
+    TraceContext,
+    get_correlation_id,
+    get_current_trace_id,
+    trace_span,
+)
+from .audit import (
+    AuditStore,
+    BudgetDecisionLog,
+    PolicyDecisionLog,
+    TaskExecutionLog,
+)
+from .isolation import (
+    IsolationEnforcer,
+    ResourceMonitor,
+    ResourceUsage,
+    ResourceViolation,
+)
 
 __all__ = [
     # Core facade
@@ -83,4 +102,20 @@ __all__ = [
     "HookManager",
     "HookManagerConfig",
     "HookStatus",
+    # Telemetry (OpenTelemetry integration)
+    "CorrelationContext",
+    "TraceContext",
+    "get_correlation_id",
+    "get_current_trace_id",
+    "trace_span",
+    # Audit (decision logging)
+    "AuditStore",
+    "BudgetDecisionLog",
+    "PolicyDecisionLog",
+    "TaskExecutionLog",
+    # Isolation (resource enforcement)
+    "IsolationEnforcer",
+    "ResourceMonitor",
+    "ResourceUsage",
+    "ResourceViolation",
 ]
