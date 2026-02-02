@@ -1,0 +1,162 @@
+"""
+Core utilities and shared dependencies for workflow handlers.
+
+This module contains shared imports, utilities, and state management used across
+all workflow handler submodules.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Literal, TYPE_CHECKING, cast
+
+from aragora.server.http_utils import run_async as _run_async
+
+from aragora.workflow.types import (
+    WorkflowDefinition,
+    WorkflowCategory,
+    StepDefinition,
+    StepResult,
+    TransitionRule,
+)
+from aragora.workflow.engine import WorkflowEngine
+from aragora.workflow.persistent_store import get_workflow_store, PersistentWorkflowStore
+from aragora.audit.unified import audit_data
+
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext
+
+# Sentinel type for unauthenticated requests
+_UnauthenticatedSentinel = Literal["unauthenticated"]
+
+# RBAC imports
+try:
+    from aragora.rbac import (
+        AuthorizationContext,
+        check_permission,
+        PermissionDeniedError,
+        get_role_permissions,
+    )
+    from aragora.billing.auth import extract_user_from_request
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
+# Metrics imports
+try:
+    from aragora.observability.metrics import record_rbac_check, track_handler
+
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_rbac_check(*args: Any, **kwargs: Any) -> None:
+        pass
+
+    def track_handler(*args: Any, **kwargs: Any) -> Any:
+        def decorator(fn: Any) -> Any:
+            return fn
+
+        return decorator
+
+
+logger = logging.getLogger(__name__)
+
+
+def _step_result_to_dict(step: StepResult) -> dict[str, Any]:
+    """Convert a StepResult dataclass to a JSON-serializable dictionary.
+
+    StepResult contains datetime fields that need to be converted to ISO format
+    strings for JSON serialization.
+    """
+    return {
+        "step_id": step.step_id,
+        "step_name": step.step_name,
+        "status": step.status.value if hasattr(step.status, "value") else str(step.status),
+        "started_at": step.started_at.isoformat() if step.started_at else None,
+        "completed_at": step.completed_at.isoformat() if step.completed_at else None,
+        "duration_ms": step.duration_ms,
+        "output": step.output,
+        "error": step.error,
+        "metrics": step.metrics,
+        "retry_count": step.retry_count,
+    }
+
+
+# =============================================================================
+# Persistent Storage (SQLite-backed)
+# =============================================================================
+
+
+def _get_store() -> PersistentWorkflowStore:
+    """Get the persistent workflow store.
+
+    Note: get_workflow_store() returns WorkflowStoreType which is a Union of
+    PersistentWorkflowStore and PostgresWorkflowStore. Both have the same
+    interface, so we cast to the base type for consistency.
+    """
+    return cast(PersistentWorkflowStore, get_workflow_store())
+
+
+def _call_store_method(result: Any) -> Any:
+    """Handle both sync and async store method results.
+
+    PostgresWorkflowStore methods are async while PersistentWorkflowStore methods
+    are sync. This helper ensures we properly await async results when needed.
+    """
+    import asyncio
+
+    if asyncio.iscoroutine(result):
+        return _run_async(result)
+    return result
+
+
+_engine: WorkflowEngine | None = None
+
+
+def _get_engine() -> WorkflowEngine:
+    """Lazily initialize the workflow engine to avoid import-time side effects."""
+    global _engine
+    if _engine is None:
+        _engine = WorkflowEngine()
+    return _engine
+
+
+# In-memory template store for built-in and YAML templates
+class _TemplateStore:
+    """In-memory storage for workflow templates."""
+
+    def __init__(self) -> None:
+        self.templates: dict[str, WorkflowDefinition] = {}
+
+
+_store = _TemplateStore()
+
+
+# Re-export commonly used items for convenience
+__all__ = [
+    # Logging
+    "logger",
+    # Utilities
+    "_step_result_to_dict",
+    "_get_store",
+    "_call_store_method",
+    "_get_engine",
+    "_store",
+    "_run_async",
+    # Types
+    "WorkflowDefinition",
+    "WorkflowCategory",
+    "StepDefinition",
+    "StepResult",
+    "TransitionRule",
+    "PersistentWorkflowStore",
+    "_UnauthenticatedSentinel",
+    # RBAC
+    "RBAC_AVAILABLE",
+    "METRICS_AVAILABLE",
+    "record_rbac_check",
+    "track_handler",
+    "audit_data",
+]

@@ -6,7 +6,8 @@ functions and utility names from the ``_oauth_impl`` backward-compatibility
 shim at runtime.  This ensures that ``unittest.mock.patch`` calls targeting
 ``_oauth_impl.<name>`` are visible to the actual mixin code.
 
-Also holds the shared ``_oauth_limiter`` instance with security audit logging.
+Also holds the shared ``_oauth_limiter`` instance with security audit logging
+and exponential backoff for brute force protection.
 """
 
 from __future__ import annotations
@@ -16,7 +17,10 @@ import sys
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Protocol
 
-from aragora.server.handlers.utils.rate_limit import RateLimiter
+from aragora.server.middleware.rate_limit.oauth_limiter import (
+    OAuthRateLimiter,
+    get_oauth_limiter,
+)
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import HandlerResult

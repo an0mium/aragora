@@ -1,0 +1,208 @@
+"""
+CRUD operations for workflows.
+
+Provides create, read, update, and delete operations for workflow definitions.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from .core import (
+    logger,
+    _get_store,
+    WorkflowDefinition,
+    audit_data,
+)
+
+
+async def list_workflows(
+    tenant_id: str = "default",
+    category: str | None = None,
+    tags: Optional[list[str]] = None,
+    search: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """
+    List workflows with optional filtering.
+
+    Returns:
+        {
+            "workflows": [...],
+            "total_count": int,
+            "limit": int,
+            "offset": int,
+        }
+    """
+    store = _get_store()
+    workflows, total = store.list_workflows(
+        tenant_id=tenant_id,
+        category=category,
+        tags=tags,
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+
+    return {
+        "workflows": [w.to_dict() for w in workflows],
+        "total_count": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+async def get_workflow(workflow_id: str, tenant_id: str = "default") -> Optional[dict[str, Any]]:
+    """Get a workflow by ID."""
+    store = _get_store()
+    workflow = store.get_workflow(workflow_id, tenant_id)
+    return workflow.to_dict() if workflow else None
+
+
+async def create_workflow(
+    data: dict[str, Any],
+    tenant_id: str = "default",
+    created_by: str = "",
+) -> dict[str, Any]:
+    """
+    Create a new workflow.
+
+    Args:
+        data: Workflow definition data
+        tenant_id: Tenant ID for isolation
+        created_by: User ID of creator
+
+    Returns:
+        Created workflow definition
+    """
+    store = _get_store()
+
+    # Generate ID if not provided
+    workflow_id = data.get("id") or f"wf_{uuid.uuid4().hex[:12]}"
+    data["id"] = workflow_id
+    data["tenant_id"] = tenant_id
+    data["created_by"] = created_by
+    data["created_at"] = datetime.now(timezone.utc).isoformat()
+    data["updated_at"] = data["created_at"]
+
+    workflow = WorkflowDefinition.from_dict(data)
+
+    # Validate
+    is_valid, errors = workflow.validate()
+    if not is_valid:
+        raise ValueError(f"Invalid workflow: {', '.join(errors)}")
+
+    # Save to persistent store
+    store.save_workflow(workflow)
+
+    # Save initial version
+    store.save_version(workflow)
+
+    logger.info(f"Created workflow {workflow_id}: {workflow.name}")
+    audit_data(
+        user_id=created_by or "system",
+        resource_type="workflow",
+        resource_id=workflow_id,
+        action="create",
+        workflow_name=workflow.name,
+        tenant_id=tenant_id,
+    )
+    return workflow.to_dict()
+
+
+async def update_workflow(
+    workflow_id: str,
+    data: dict[str, Any],
+    tenant_id: str = "default",
+) -> Optional[dict[str, Any]]:
+    """
+    Update an existing workflow.
+
+    Args:
+        workflow_id: ID of workflow to update
+        data: Updated workflow data
+        tenant_id: Tenant ID for isolation
+
+    Returns:
+        Updated workflow definition or None if not found
+    """
+    store = _get_store()
+    existing = store.get_workflow(workflow_id, tenant_id)
+    if not existing:
+        return None
+
+    # Preserve metadata
+    data["id"] = workflow_id
+    data["tenant_id"] = tenant_id
+    data["created_by"] = existing.created_by
+    data["created_at"] = existing.created_at.isoformat() if existing.created_at else None
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    # Increment version
+    old_version = existing.version
+    parts = old_version.split(".")
+    parts[-1] = str(int(parts[-1]) + 1)
+    data["version"] = ".".join(parts)
+
+    workflow = WorkflowDefinition.from_dict(data)
+
+    # Validate
+    is_valid, errors = workflow.validate()
+    if not is_valid:
+        raise ValueError(f"Invalid workflow: {', '.join(errors)}")
+
+    # Save to persistent store
+    store.save_workflow(workflow)
+
+    # Save version history
+    store.save_version(workflow)
+
+    logger.info(f"Updated workflow {workflow_id} to version {workflow.version}")
+    audit_data(
+        user_id="system",
+        resource_type="workflow",
+        resource_id=workflow_id,
+        action="update",
+        new_version=workflow.version,
+        tenant_id=tenant_id,
+    )
+    return workflow.to_dict()
+
+
+async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
+    """
+    Delete a workflow.
+
+    Args:
+        workflow_id: ID of workflow to delete
+        tenant_id: Tenant ID for isolation
+
+    Returns:
+        True if deleted, False if not found
+    """
+    store = _get_store()
+    deleted = store.delete_workflow(workflow_id, tenant_id)
+
+    if deleted:
+        logger.info(f"Deleted workflow {workflow_id}")
+        audit_data(
+            user_id="system",
+            resource_type="workflow",
+            resource_id=workflow_id,
+            action="delete",
+            tenant_id=tenant_id,
+        )
+
+    return deleted
+
+
+__all__ = [
+    "list_workflows",
+    "get_workflow",
+    "create_workflow",
+    "update_workflow",
+    "delete_workflow",
+]

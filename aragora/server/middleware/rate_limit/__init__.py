@@ -135,6 +135,19 @@ from .metrics import (
     get_rate_limit_metrics,
 )
 
+# Re-export from oauth_limiter module
+from .oauth_limiter import (
+    OAuthRateLimitConfig,
+    OAuthBackoffTracker,
+    OAuthRateLimiter,
+    oauth_rate_limit,
+    get_oauth_limiter,
+    reset_oauth_limiter,
+    get_backoff_tracker,
+    reset_backoff_tracker,
+    DEFAULT_CONFIG as OAUTH_DEFAULT_CONFIG,
+)
+
 __all__ = [
     # Base types
     "RateLimitConfig",
@@ -217,4 +230,14 @@ __all__ = [
     "record_fallback_request",
     "record_distributed_metrics",
     "get_rate_limit_metrics",
+    # OAuth rate limiting
+    "OAuthRateLimitConfig",
+    "OAuthBackoffTracker",
+    "OAuthRateLimiter",
+    "oauth_rate_limit",
+    "get_oauth_limiter",
+    "reset_oauth_limiter",
+    "get_backoff_tracker",
+    "reset_backoff_tracker",
+    "OAUTH_DEFAULT_CONFIG",
 ]

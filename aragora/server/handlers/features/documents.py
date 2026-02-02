@@ -31,6 +31,14 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from ..utils.file_validation import (
+    validate_file_upload,
+    validate_filename_security,
+    FileValidationResult,
+    MAX_FILE_SIZE,
+    ALLOWED_MIME_TYPES,
+    ALLOWED_EXTENSIONS,
+)
 
 logger = logging.getLogger(__name__)
 

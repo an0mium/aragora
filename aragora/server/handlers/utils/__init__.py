@@ -84,6 +84,23 @@ from .sanitization import (
     sanitize_payment_response,
     sanitize_output,
 )
+from .file_validation import (
+    validate_file_upload,
+    validate_file_size,
+    validate_mime_type,
+    validate_extension,
+    validate_filename_security,
+    sanitize_filename,
+    get_max_file_size,
+    get_max_file_size_mb,
+    FileValidationResult,
+    FileValidationError,
+    FileValidationErrorCode,
+    ALLOWED_MIME_TYPES,
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_SIZE,
+    MAX_FILENAME_LENGTH,
+)
 
 __all__ = [
     # Rate limiting
@@ -166,4 +183,20 @@ __all__ = [
     # JSON body parsing
     "parse_json_body",
     "parse_json_body_allow_array",
+    # File validation
+    "validate_file_upload",
+    "validate_file_size",
+    "validate_mime_type",
+    "validate_extension",
+    "validate_filename_security",
+    "sanitize_filename",
+    "get_max_file_size",
+    "get_max_file_size_mb",
+    "FileValidationResult",
+    "FileValidationError",
+    "FileValidationErrorCode",
+    "ALLOWED_MIME_TYPES",
+    "ALLOWED_EXTENSIONS",
+    "MAX_FILE_SIZE",
+    "MAX_FILENAME_LENGTH",
 ]

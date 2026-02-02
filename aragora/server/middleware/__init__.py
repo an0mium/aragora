@@ -143,6 +143,23 @@ from .tenancy import (
     scope_query,
     tenant_scoped,
 )
+from .tenant_isolation import (
+    InMemoryMembershipStore,
+    MembershipStore,
+    TenantAccessAttempt,
+    TenantAccessDeniedError,
+    TenantIdMissingError,
+    TenantIsolationError,
+    TenantIsolationMiddleware,
+    TenantMembershipCheckError,
+    get_tenant_isolation_middleware,
+    get_user_accessible_tenants,
+    require_tenant_isolation,
+    require_tenant_isolation_with_config,
+    reset_tenant_isolation_middleware,
+    set_tenant_isolation_middleware,
+    verify_tenant_access,
+)
 from .tier_enforcement import (
     QuotaExceededError,
     check_org_quota,
@@ -271,6 +288,17 @@ from .security_headers import (
     apply_security_headers_to_handler,
     create_security_headers_config,
     get_security_response_headers,
+)
+from .impersonation import (
+    IMPERSONATION_CONTEXT_KEY,
+    IMPERSONATION_SESSION_HEADER,
+    ImpersonationContext,
+    get_impersonation_context,
+    impersonation_middleware,
+    log_impersonation_access,
+    refresh_impersonation_session,
+    require_valid_impersonation,
+    validate_impersonation_session,
 )
 
 __all__ = [
@@ -501,4 +529,14 @@ __all__ = [
     "apply_security_headers_to_handler",
     "create_security_headers_config",
     "get_security_response_headers",
+    # Impersonation enforcement
+    "IMPERSONATION_CONTEXT_KEY",
+    "IMPERSONATION_SESSION_HEADER",
+    "ImpersonationContext",
+    "get_impersonation_context",
+    "impersonation_middleware",
+    "log_impersonation_access",
+    "refresh_impersonation_session",
+    "require_valid_impersonation",
+    "validate_impersonation_session",
 ]
