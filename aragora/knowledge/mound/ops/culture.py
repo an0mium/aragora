@@ -134,6 +134,8 @@ class CultureOperationsMixin(_CultureMixinBase):
         if manager is None:
             from aragora.knowledge.mound.culture import OrganizationCultureManager
 
+            # Mixin pattern: self is the composed KnowledgeMound which satisfies
+            # the manager's mound interface at runtime.
             manager = OrganizationCultureManager(
                 mound=self,  # type: ignore[arg-type]
                 culture_accumulator=self._culture_accumulator,

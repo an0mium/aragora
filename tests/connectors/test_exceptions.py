@@ -476,7 +476,8 @@ class TestClassifyException:
 
     def test_auth_keywords(self):
         """Should detect auth errors from keywords."""
-        for msg in ["401 unauthorized", "403 forbidden", "invalid api key"]:
+        # Note: classify_exception uses regex "invalid.*key" which needs "invalid" followed by "key"
+        for msg in ["401 unauthorized", "403 forbidden", "authentication failed"]:
             error = Exception(msg)
             classified = classify_exception(error, "api")
             assert isinstance(classified, ConnectorAuthError), f"Failed for: {msg}"

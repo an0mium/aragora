@@ -522,6 +522,8 @@ class ConfidenceDecayMixin:
             DecayReport with results
         """
         manager = self._get_decay_manager()
+        # Mixin pattern: self is the composed KnowledgeMound which satisfies
+        # the manager's mound interface at runtime.
         return await manager.apply_decay(self, workspace_id, force)  # type: ignore[arg-type]
 
     async def record_confidence_event(
@@ -541,6 +543,8 @@ class ConfidenceDecayMixin:
             ConfidenceAdjustment if confidence changed
         """
         manager = self._get_decay_manager()
+        # Mixin pattern: self is the composed KnowledgeMound which satisfies
+        # the manager's mound interface at runtime.
         return await manager.record_event(self, item_id, event, reason)  # type: ignore[arg-type]
 
     async def get_confidence_history(

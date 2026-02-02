@@ -605,6 +605,8 @@ class ExtractionMixin:
         min_confidence: float | None = None,
     ) -> int:
         """Promote extracted claims to Knowledge Mound."""
+        # Mixin pattern: self is the composed KnowledgeMound which satisfies
+        # the promote_to_mound's mound interface at runtime.
         return await self._get_extractor().promote_to_mound(
             mound=self,  # type: ignore[arg-type]
             workspace_id=workspace_id,

@@ -137,31 +137,31 @@ class TestCircuitBreaker:
         cb = connector._get_circuit_breaker()
         assert cb is None
 
-    @patch("aragora.connectors.devices.base.get_circuit_breaker")
-    def test_circuit_breaker_creation(self, mock_get_cb):
+    def test_circuit_breaker_creation(self):
         """Should create circuit breaker on first access."""
-        mock_cb = MagicMock()
-        mock_get_cb.return_value = mock_cb
+        with patch("aragora.resilience.get_circuit_breaker") as mock_get_cb:
+            mock_cb = MagicMock()
+            mock_get_cb.return_value = mock_cb
 
-        connector = ConcreteDeviceConnector()
-        cb = connector._get_circuit_breaker()
+            connector = ConcreteDeviceConnector()
+            cb = connector._get_circuit_breaker()
 
-        assert cb is mock_cb
-        mock_get_cb.assert_called_once()
-        assert connector._circuit_breaker_initialized is True
+            assert cb is mock_cb
+            mock_get_cb.assert_called_once()
+            assert connector._circuit_breaker_initialized is True
 
-    @patch("aragora.connectors.devices.base.get_circuit_breaker")
-    def test_circuit_breaker_reuse(self, mock_get_cb):
+    def test_circuit_breaker_reuse(self):
         """Should reuse existing circuit breaker."""
-        mock_cb = MagicMock()
-        mock_get_cb.return_value = mock_cb
+        with patch("aragora.resilience.get_circuit_breaker") as mock_get_cb:
+            mock_cb = MagicMock()
+            mock_get_cb.return_value = mock_cb
 
-        connector = ConcreteDeviceConnector()
-        cb1 = connector._get_circuit_breaker()
-        cb2 = connector._get_circuit_breaker()
+            connector = ConcreteDeviceConnector()
+            cb1 = connector._get_circuit_breaker()
+            cb2 = connector._get_circuit_breaker()
 
-        assert cb1 is cb2
-        mock_get_cb.assert_called_once()
+            assert cb1 is cb2
+            mock_get_cb.assert_called_once()
 
     def test_check_circuit_breaker_disabled(self):
         """Should allow proceed when circuit breaker disabled."""
@@ -173,45 +173,45 @@ class TestCircuitBreaker:
         assert can_proceed is True
         assert error is None
 
-    @patch("aragora.connectors.devices.base.get_circuit_breaker")
-    def test_check_circuit_breaker_open(self, mock_get_cb):
+    def test_check_circuit_breaker_open(self):
         """Should block when circuit breaker is open."""
-        mock_cb = MagicMock()
-        mock_cb.can_proceed.return_value = False
-        mock_cb.cooldown_remaining.return_value = 30.0
-        mock_get_cb.return_value = mock_cb
+        with patch("aragora.resilience.get_circuit_breaker") as mock_get_cb:
+            mock_cb = MagicMock()
+            mock_cb.can_proceed.return_value = False
+            mock_cb.cooldown_remaining.return_value = 30.0
+            mock_get_cb.return_value = mock_cb
 
-        connector = ConcreteDeviceConnector()
-        can_proceed, error = connector._check_circuit_breaker()
+            connector = ConcreteDeviceConnector()
+            can_proceed, error = connector._check_circuit_breaker()
 
-        assert can_proceed is False
-        assert "Circuit breaker open" in error
-        assert "30.0s" in error
+            assert can_proceed is False
+            assert "Circuit breaker open" in error
+            assert "30.0s" in error
 
-    @patch("aragora.connectors.devices.base.get_circuit_breaker")
-    def test_record_success(self, mock_get_cb):
+    def test_record_success(self):
         """Should record success with circuit breaker."""
-        mock_cb = MagicMock()
-        mock_get_cb.return_value = mock_cb
+        with patch("aragora.resilience.get_circuit_breaker") as mock_get_cb:
+            mock_cb = MagicMock()
+            mock_get_cb.return_value = mock_cb
 
-        connector = ConcreteDeviceConnector()
-        connector._get_circuit_breaker()  # Initialize
-        connector._record_success()
+            connector = ConcreteDeviceConnector()
+            connector._get_circuit_breaker()  # Initialize
+            connector._record_success()
 
-        mock_cb.record_success.assert_called_once()
+            mock_cb.record_success.assert_called_once()
 
-    @patch("aragora.connectors.devices.base.get_circuit_breaker")
-    def test_record_failure(self, mock_get_cb):
+    def test_record_failure(self):
         """Should record failure with circuit breaker."""
-        mock_cb = MagicMock()
-        mock_cb.get_status.return_value = "closed"
-        mock_get_cb.return_value = mock_cb
+        with patch("aragora.resilience.get_circuit_breaker") as mock_get_cb:
+            mock_cb = MagicMock()
+            mock_cb.get_status.return_value = "closed"
+            mock_get_cb.return_value = mock_cb
 
-        connector = ConcreteDeviceConnector()
-        connector._get_circuit_breaker()  # Initialize
-        connector._record_failure()
+            connector = ConcreteDeviceConnector()
+            connector._get_circuit_breaker()  # Initialize
+            connector._record_failure()
 
-        mock_cb.record_failure.assert_called_once()
+            mock_cb.record_failure.assert_called_once()
 
 
 class TestRetryLogic:

@@ -135,6 +135,17 @@ def default_params() -> dict[str, Any]:
         "enable_post_debate_workflow": False,
         "post_debate_workflow_threshold": 0.7,
         "initial_messages": None,
+        # Supermemory parameters
+        "enable_supermemory": False,
+        "supermemory_adapter": None,
+        "supermemory_inject_on_start": True,
+        "supermemory_max_context_items": 5,
+        "supermemory_context_container_tag": None,
+        "supermemory_sync_on_conclusion": True,
+        "supermemory_min_confidence_for_sync": 0.7,
+        "supermemory_outcome_container_tag": None,
+        "supermemory_enable_privacy_filter": True,
+        "supermemory_enable_resilience": True,
     }
 
 

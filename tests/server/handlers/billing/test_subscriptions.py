@@ -412,8 +412,9 @@ class TestGetQuotaStatus:
         mock_status.period_resets_at = datetime.now(timezone.utc)
         mock_quota_manager.get_quota_status = AsyncMock(return_value=mock_status)
 
+        # The import is inside the function, so patch in the source module
         with patch(
-            "aragora.server.handlers.billing.subscriptions.get_quota_manager",
+            "aragora.server.middleware.tier_enforcement.get_quota_manager",
             return_value=mock_quota_manager,
         ):
             fn = usage_handler._get_quota_status.__wrapped__.__wrapped__
