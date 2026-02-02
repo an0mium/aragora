@@ -166,7 +166,8 @@ def _get_sso_provider(provider_type: str = "oidc"):
 # =============================================================================
 
 
-@require_permission("auth:manage_sso")
+# NOTE: SSO login is a public endpoint - users must be able to initiate SSO
+# authentication before they have a token. RBAC protection via middleware.
 @auth_rate_limit(
     requests_per_minute=20,
     limiter_name="auth_sso_login",
@@ -219,7 +220,8 @@ async def handle_sso_login(
         return error_response(f"SSO login failed: {str(e)}", status=500)
 
 
-@require_permission("auth:manage_sso")
+# NOTE: SSO callback is a public endpoint - IdP redirects here before user
+# has our token. RBAC protection via middleware.
 @auth_rate_limit(
     requests_per_minute=20,
     limiter_name="auth_sso_callback",
