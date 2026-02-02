@@ -5,6 +5,12 @@ Get started with the Aragora Python SDK in 5 minutes.
 ## Installation
 
 ```bash
+pip install aragora-client
+```
+
+If you want to run a local server, install the full control plane package:
+
+```bash
 pip install aragora
 ```
 
@@ -18,7 +24,7 @@ pip install -e .
 
 ## Prerequisites
 
-Start the Aragora server:
+Start the Aragora server (self-hosted or use a hosted API). For local dev:
 
 ```bash
 # Terminal 1: Start the server
@@ -34,32 +40,45 @@ export OPENAI_API_KEY="sk-..."
 
 ## Basic Usage
 
+All SDK calls are async. The examples below use `asyncio.run()`.
+
 ### 1. Create a Client
 
 ```python
-from aragora.client import AragoraClient
+import asyncio
+from aragora_client import AragoraClient
 
-# Connect to local server
-client = AragoraClient(base_url="http://localhost:8080")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        # Check server health
+        health = await client.health()
+        print(f"Server status: {health.status}")
 
-# Check server health
-health = client.system.health()
-print(f"Server status: {health.status}")
+asyncio.run(main())
 ```
 
 ### 2. Run a Debate
 
 ```python
-# Run a debate and wait for completion
-result = client.debates.run(
-    task="Should we use microservices or a monolith for our new project?",
-    agents=["anthropic-api", "openai-api"],
-    rounds=3,
-)
+import asyncio
+from aragora_client import AragoraClient
 
-print(f"Consensus reached: {result.consensus.reached}")
-print(f"Confidence: {result.consensus.confidence:.1%}")
-print(f"Final answer: {result.consensus.final_answer[:500]}...")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        # Run a debate and wait for completion
+        result = await client.debates.run(
+            task="Should we use microservices or a monolith for our new project?",
+            agents=["anthropic-api", "openai-api"],
+            max_rounds=3,
+        )
+
+        if result.consensus:
+            conclusion = result.consensus.conclusion or ""
+            print(f"Consensus reached: {result.consensus.reached}")
+            print(f"Confidence: {result.consensus.confidence:.1%}")
+            print(f"Final answer: {conclusion[:500]}...")
+
+asyncio.run(main())
 ```
 
 ### 3. Create and Poll a Debate
@@ -67,47 +86,29 @@ print(f"Final answer: {result.consensus.final_answer[:500]}...")
 For more control, create a debate and poll for status:
 
 ```python
-# Create debate (returns immediately)
-debate = client.debates.create(
-    task="What's the best database for a real-time analytics platform?",
-    agents=["anthropic-api", "openai-api", "gemini"],
-    rounds=2,
-    consensus="majority",
-)
-
-print(f"Debate ID: {debate.debate_id}")
-print(f"Status: {debate.status}")
-
-# Poll for completion
-import time
-while True:
-    status = client.debates.get(debate.debate_id)
-    if status.status == "completed":
-        print(f"Completed! Consensus: {status.consensus.reached}")
-        break
-    time.sleep(2)
-```
-
-## Async Usage
-
-For async applications:
-
-```python
 import asyncio
-from aragora.client import AragoraClient
+from aragora_client import AragoraClient
 
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
-        # Health check
-        health = await client.system.health_async()
-        print(f"Status: {health.status}")
-
-        # Run debate asynchronously
-        result = await client.debates.run_async(
-            task="React vs Vue vs Svelte?",
-            agents=["anthropic-api", "gemini"],
+        # Create debate (returns immediately)
+        created = await client.debates.create(
+            task="What's the best database for a real-time analytics platform?",
+            agents=["anthropic-api", "openai-api", "gemini"],
+            max_rounds=2,
+            consensus_threshold=0.6,
         )
-        print(result.consensus.final_answer)
+
+        debate_id = created["id"]
+        print(f"Debate ID: {debate_id}")
+
+        # Poll for completion
+        while True:
+            status = await client.debates.get(debate_id)
+            if status.status == "completed":
+                print("Completed!")
+                break
+            await asyncio.sleep(2)
 
 asyncio.run(main())
 ```
@@ -117,18 +118,27 @@ asyncio.run(main())
 Stream debate events in real-time:
 
 ```python
-from aragora.client import stream_debate
+import asyncio
+from aragora_client import AragoraClient
+from aragora_client.websocket import stream_debate
 
-# Stream events as they happen
-async for event in stream_debate(
-    base_url="http://localhost:8080",
-    task="Design a caching strategy",
-    agents=["anthropic-api", "openai-api"],
-):
-    if event.type == "agent_message":
-        print(f"[{event.agent}]: {event.content[:100]}...")
-    elif event.type == "consensus":
-        print(f"Consensus reached: {event.data}")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        created = await client.debates.create(
+            task="Design a caching strategy",
+            agents=["anthropic-api", "openai-api"],
+        )
+        debate_id = created["id"]
+
+    async for event in stream_debate("http://localhost:8080", debate_id):
+        if event.type == "agent_message":
+            print(event.data.get("content", ""))
+        elif event.type == "consensus":
+            print(f"Consensus: {event.data}")
+        elif event.type == "debate_end":
+            break
+
+asyncio.run(main())
 ```
 
 ## Gauntlet: Adversarial Validation
@@ -136,21 +146,23 @@ async for event in stream_debate(
 Stress-test decisions with adversarial AI personas:
 
 ```python
+import asyncio
 from pathlib import Path
+from aragora_client import AragoraClient
 
-# Validate a policy document
-receipt = client.gauntlet.run_and_wait(
-    input_content=Path("policy.md").read_text(),
-    input_type="policy",
-    persona="gdpr",
-    profile="thorough",
-)
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        receipt = await client.gauntlet.run_and_wait(
+            input_content=Path("policy.md").read_text(),
+            input_type="policy",
+            persona="gdpr",
+        )
 
-print(f"Verdict: {receipt.verdict}")
-print(f"Risk Score: {receipt.risk_score}")
+        print(f"Score: {receipt.score}")
+        for finding in receipt.findings:
+            print(f"  [{finding.severity}] {finding.description}")
 
-for finding in receipt.findings:
-    print(f"  [{finding.severity}] {finding.title}")
+asyncio.run(main())
 ```
 
 ## Agent Rankings
@@ -158,17 +170,23 @@ for finding in receipt.findings:
 Query agent performance:
 
 ```python
-# Get agent leaderboard
-rankings = client.leaderboard.list(limit=10)
+import asyncio
+from aragora_client import AragoraClient
 
-for i, agent in enumerate(rankings, 1):
-    print(f"{i}. {agent.name}: {agent.elo:.0f} ELO")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        leaderboard = await client.agents.get_leaderboard()
 
-# Get specific agent profile
-agent = client.agents.get("anthropic-api")
-print(f"Agent: {agent.name}")
-print(f"Rating: {agent.elo}")
-print(f"Win rate: {agent.win_rate:.1%}")
+        for agent in leaderboard[:10]:
+            print(f"{agent.name}: {agent.elo_rating:.0f} ELO")
+
+        # Get specific agent profile
+        agent = await client.agents.get("anthropic-api")
+        print(f"Agent: {agent.name}")
+        print(f"Rating: {agent.elo_rating:.0f}")
+        print(f"Win rate: {agent.win_rate:.1%}")
+
+asyncio.run(main())
 ```
 
 ## Advanced Features
@@ -178,17 +196,23 @@ print(f"Win rate: {agent.win_rate:.1%}")
 Explore multiple solution paths:
 
 ```python
-# Create a graph debate
-graph = client.graph_debates.create(
-    root_topic="Design a notification system",
-    branch_depth=3,
-    agents=["anthropic-api", "openai-api"],
-)
+import asyncio
+from aragora_client import AragoraClient
 
-# Explore branches
-for branch in graph.branches:
-    print(f"Branch: {branch.topic}")
-    print(f"  Path: {' -> '.join(branch.path)}")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        created = await client.graph_debates.create(
+            task="Design a notification system",
+            max_rounds=3,
+            agents=["anthropic-api", "openai-api"],
+        )
+        graph_id = created["id"]
+
+        graph = await client.graph_debates.get(graph_id)
+        for branch in graph.branches:
+            print(f"Branch: {branch.approach} (divergence {branch.divergence_score:.2f})")
+
+asyncio.run(main())
 ```
 
 ### Matrix Debates (Parallel Scenarios)
@@ -196,20 +220,28 @@ for branch in graph.branches:
 Test multiple scenarios in parallel:
 
 ```python
-# Create a matrix debate
-matrix = client.matrix_debates.create(
-    base_topic="Evaluate authentication approaches",
-    scenarios=[
-        {"name": "high_traffic", "context": "10M daily users"},
-        {"name": "regulated", "context": "HIPAA compliance required"},
-        {"name": "startup", "context": "Minimum viable product"},
-    ],
-    agents=["anthropic-api", "openai-api"],
-)
+import asyncio
+from aragora_client import AragoraClient
 
-# Get results for each scenario
-for scenario in matrix.scenarios:
-    print(f"{scenario.name}: {scenario.recommendation}")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        created = await client.matrix_debates.create(
+            task="Evaluate authentication approaches",
+            scenarios=[
+                {"name": "high_traffic", "parameters": {"context": "10M daily users"}},
+                {"name": "regulated", "parameters": {"context": "HIPAA compliance required"}},
+                {"name": "startup", "parameters": {"context": "Minimum viable product"}},
+            ],
+            agents=["anthropic-api", "openai-api"],
+        )
+        matrix_id = created["id"]
+
+        conclusions = await client.matrix_debates.get_conclusions(matrix_id)
+        print("Universal conclusions:", conclusions.universal)
+        for scenario, points in conclusions.conditional.items():
+            print(f"{scenario}: {points}")
+
+asyncio.run(main())
 ```
 
 ### Formal Verification
@@ -217,55 +249,67 @@ for scenario in matrix.scenarios:
 Verify claims with formal methods:
 
 ```python
-# Verify a claim
-result = client.verification.verify(
-    claim="The system handles all edge cases correctly",
-    context="Based on the test coverage report...",
-    backend="z3",  # or "lean"
-)
+import asyncio
+from aragora_client import AragoraClient
 
-print(f"Status: {result.status}")
-print(f"Verified: {result.verified}")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        result = await client.verification.verify(
+            claim="The system handles all edge cases correctly",
+            backend="z3",
+        )
+
+        print(f"Status: {result.status.value}")
+
+asyncio.run(main())
 ```
 
 ## Error Handling
 
 ```python
-from aragora.client import (
-    AragoraAPIError,
-    RateLimitError,
-    AuthenticationError,
-    NotFoundError,
+import asyncio
+from aragora_client import AragoraClient
+from aragora_client.exceptions import (
+    AragoraAuthenticationError,
+    AragoraNotFoundError,
+    AragoraTimeoutError,
+    AragoraError,
 )
 
-try:
-    result = client.debates.get("invalid-id")
-except NotFoundError:
-    print("Debate not found")
-except RateLimitError as e:
-    print(f"Rate limited. Retry after {e.retry_after}s")
-except AuthenticationError:
-    print("Invalid API token")
-except AragoraAPIError as e:
-    print(f"API error: {e.message}")
+async def main():
+    async with AragoraClient(base_url="http://localhost:8080") as client:
+        try:
+            await client.debates.get("invalid-id")
+        except AragoraNotFoundError as e:
+            print(f"Not found: {e}")
+        except AragoraAuthenticationError:
+            print("Invalid API token")
+        except AragoraTimeoutError:
+            print("Request timed out")
+        except AragoraError as e:
+            print(f"API error: {e.message} (status {e.status})")
+
+asyncio.run(main())
 ```
 
 ## Configuration
 
 ```python
-from aragora.client import AragoraClient, RetryConfig
+import asyncio
+from aragora_client import AragoraClient
 
-# Configure retries and rate limiting
-client = AragoraClient(
-    base_url="http://localhost:8080",
-    api_token="your-token",  # Optional auth
-    retry_config=RetryConfig(
-        max_retries=3,
-        backoff_factor=0.5,
-    ),
-    rate_limit_rps=10,
-    timeout=60,
-)
+async def main():
+    client = AragoraClient(
+        base_url="http://localhost:8080",
+        api_key="your-api-token",  # Optional auth
+        timeout=60.0,
+        headers={"X-Custom-Header": "value"},
+    )
+
+    # Remember to close the client when not using a context manager
+    await client.close()
+
+asyncio.run(main())
 ```
 
 ## Next Steps

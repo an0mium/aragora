@@ -27,13 +27,13 @@ const client = createClient({
 });
 
 // Run a debate
-const result = await client.createDebate({
+const result = await client.runDebate({
   task: 'Should we use TypeScript or JavaScript?',
   agents: ['claude', 'gpt-4'],
   rounds: 3
 });
 
-console.log('Conclusion:', result.final_answer);
+console.log('Conclusion:', result.final_answer ?? result.consensus?.conclusion);
 ```
 
 ## Full Example
@@ -61,7 +61,7 @@ async function main() {
   // Get results
   const result = await client.getDebate(debate.debate_id);
   console.log('Status:', result.status);
-  console.log('Final answer:', result.final_answer);
+  console.log('Final answer:', result.final_answer ?? result.consensus?.conclusion);
 
   // Option 2: Sync-style wrapper (simpler API)
   const syncClient = new AragoraClientSync({
@@ -84,15 +84,15 @@ import { createClient } from '@aragora/sdk';
 const client = createClient({ baseUrl: 'http://localhost:8080' });
 
 // Stream debate events
-const stream = client.streamDebate(debateId);
+const stream = client.streamDebate('debate-123');
 
 for await (const event of stream) {
   switch (event.type) {
     case 'agent_message':
-      console.log(`${event.agent}: ${event.content}`);
+      console.log(event.data);
       break;
     case 'consensus':
-      console.log('Consensus reached:', event.conclusion);
+      console.log('Consensus reached:', event.data);
       break;
   }
 }
@@ -102,12 +102,13 @@ for await (const event of stream) {
 
 | Method | Description |
 |--------|-------------|
-| `client.createDebate()` | Create and run a debate |
+| `client.runDebate()` | Run debate and wait for completion |
+| `client.createDebate()` | Create debate (non-blocking) |
 | `client.getDebate(id)` | Get debate details |
 | `client.listDebates()` | List all debates |
 | `client.streamDebate(id)` | Stream real-time events |
 | `client.getExplanation(id)` | Get decision explanation |
-| `client.health()` | Check API health |
+| `client.health.check()` | Check API health |
 
 ## SME Workflows (Small Business)
 
