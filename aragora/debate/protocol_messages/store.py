@@ -5,21 +5,33 @@ Provides SQLite-backed persistence and querying for protocol messages.
 Enables audit trails, debugging, and debate replay functionality.
 
 Inspired by gastown's beads storage pattern for persistent work state.
+
+Connection Pooling:
+    Uses a bounded connection pool with configurable max_connections to prevent
+    resource exhaustion. Connections are reused from the pool when available.
+
+Async Support:
+    AsyncProtocolMessageStore wraps the sync store and executes all database
+    operations via asyncio.run_in_executor() to avoid blocking the event loop.
 """
 
 from __future__ import annotations
 
-import contextvars
+import asyncio
+import functools
 import json
 import logging
+import queue
 import sqlite3
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator, Optional, TypeVar
 
 from .messages import ProtocolMessage, ProtocolMessageType
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +70,124 @@ class QueryFilters:
     order_desc: bool = False
 
 
+class ConnectionPool:
+    """Thread-safe SQLite connection pool with bounded size.
+
+    Connections are created on-demand up to max_connections, then reused from
+    the pool. When all connections are in use, get_connection() blocks until
+    one becomes available.
+
+    Thread Safety:
+        All pool operations are protected by a threading.Lock. Each connection
+        can only be used by one thread at a time.
+    """
+
+    def __init__(
+        self,
+        db_path: str,
+        max_connections: int = 5,
+        timeout: float = 30.0,
+    ):
+        """Initialize the connection pool.
+
+        Args:
+            db_path: Path to SQLite database (or ":memory:" for in-memory).
+            max_connections: Maximum number of connections in the pool.
+            timeout: Seconds to wait for a connection before raising an error.
+        """
+        self.db_path = db_path
+        self.max_connections = max_connections
+        self.timeout = timeout
+
+        self._pool: queue.Queue[sqlite3.Connection] = queue.Queue(maxsize=max_connections)
+        self._created_count = 0
+        self._lock = threading.Lock()
+        self._closed = False
+
+    def _create_connection(self) -> sqlite3.Connection:
+        """Create a new SQLite connection."""
+        conn = sqlite3.connect(
+            self.db_path,
+            check_same_thread=False,
+            detect_types=sqlite3.PARSE_DECLTYPES,
+        )
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def get_connection(self) -> sqlite3.Connection:
+        """Get a connection from the pool.
+
+        If pool is empty but under max_connections, creates a new connection.
+        If at max_connections, blocks until a connection is returned.
+
+        Returns:
+            SQLite connection ready for use.
+
+        Raises:
+            RuntimeError: If pool is closed or timeout waiting for connection.
+        """
+        if self._closed:
+            raise RuntimeError("Connection pool is closed")
+
+        # Try to get from pool first (non-blocking)
+        try:
+            return self._pool.get_nowait()
+        except queue.Empty:
+            pass
+
+        # Check if we can create a new connection
+        with self._lock:
+            if self._created_count < self.max_connections:
+                self._created_count += 1
+                return self._create_connection()
+
+        # Pool exhausted, wait for a connection
+        try:
+            return self._pool.get(timeout=self.timeout)
+        except queue.Empty:
+            raise RuntimeError(f"Connection pool exhausted: waited {self.timeout}s for connection")
+
+    def return_connection(self, conn: sqlite3.Connection) -> None:
+        """Return a connection to the pool.
+
+        Args:
+            conn: Connection to return.
+        """
+        if self._closed:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            return
+
+        try:
+            self._pool.put_nowait(conn)
+        except queue.Full:
+            # Pool full (shouldn't happen), close the extra connection
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    def close_all(self) -> None:
+        """Close all connections in the pool."""
+        self._closed = True
+
+        # Drain the pool and close connections
+        while True:
+            try:
+                conn = self._pool.get_nowait()
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            except queue.Empty:
+                break
+
+        with self._lock:
+            self._created_count = 0
+
+
 class ProtocolMessageStore:
     """
     SQLite-backed store for protocol messages.
@@ -67,42 +197,37 @@ class ProtocolMessageStore:
     - Indexed queries by debate, agent, type, round
     - Time-range queries for audit trails
     - JSONL export for replay
-    - Context-safe operations
+    - Connection pooling with bounded size
+
+    Thread Safety:
+        Uses a connection pool for thread-safe database access. Each operation
+        acquires a connection, performs the work, and returns it to the pool.
     """
 
-    _conn_var: contextvars.ContextVar[sqlite3.Connection | None] = contextvars.ContextVar(
-        "protocol_message_conn", default=None
-    )
-
-    def __init__(self, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, max_connections: int = 5):
         """
         Initialize the protocol message store.
 
         Args:
             db_path: Path to SQLite database. If None, uses in-memory database.
+            max_connections: Maximum number of pooled connections (default: 5).
         """
         self.db_path = db_path or ":memory:"
-        self._connections: list[sqlite3.Connection] = []
+        self._pool = ConnectionPool(self.db_path, max_connections=max_connections)
         self._init_schema()
         logger.info(f"ProtocolMessageStore initialized: {self.db_path}")
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get context-local database connection."""
-        conn = self._conn_var.get()
-        if conn is None:
-            conn = sqlite3.connect(
-                self.db_path,
-                check_same_thread=False,
-                detect_types=sqlite3.PARSE_DECLTYPES,
-            )
-            conn.row_factory = sqlite3.Row
-            self._conn_var.set(conn)
-            self._connections.append(conn)
-        return conn
+        """Get a connection from the pool."""
+        return self._pool.get_connection()
+
+    def _return_connection(self, conn: sqlite3.Connection) -> None:
+        """Return a connection to the pool."""
+        self._pool.return_connection(conn)
 
     @contextmanager
     def _cursor(self) -> Iterator[sqlite3.Cursor]:
-        """Context manager for database cursor."""
+        """Context manager for database cursor with connection pooling."""
         conn = self._get_connection()
         cursor = conn.cursor()
         try:
@@ -113,6 +238,7 @@ class ProtocolMessageStore:
             raise
         finally:
             cursor.close()
+            self._return_connection(conn)
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
@@ -529,20 +655,247 @@ class ProtocolMessageStore:
         )
 
     def close(self) -> None:
-        """Close the current context's database connection."""
-        conn = self._conn_var.get()
-        if conn is not None:
-            conn.close()
-            self._conn_var.set(None)
-            if conn in self._connections:
-                self._connections.remove(conn)
+        """Close all connections in the pool.
+
+        Note: With connection pooling, close() now closes all pooled connections.
+        For backward compatibility, this behaves the same as close_all().
+        """
+        self._pool.close_all()
 
     def close_all(self) -> None:
-        """Close all tracked connections."""
-        for conn in self._connections:
-            try:
-                conn.close()
-            except Exception:
-                pass
-        self._connections.clear()
-        self._conn_var.set(None)
+        """Close all pooled connections."""
+        self._pool.close_all()
+
+
+class AsyncProtocolMessageStore:
+    """Async wrapper for ProtocolMessageStore that avoids blocking the event loop.
+
+    All database operations are executed in a thread pool via run_in_executor
+    to prevent blocking the async event loop when called from async contexts.
+
+    Usage:
+        store = AsyncProtocolMessageStore()
+
+        # Record a message
+        msg = ProtocolMessage(
+            message_type=ProtocolMessageType.PROPOSAL_SUBMITTED,
+            debate_id="debate-123",
+            agent_id="claude-opus",
+        )
+        await store.record(msg)
+
+        # Query messages
+        messages = await store.query(QueryFilters(debate_id="debate-123"))
+
+        # Get timeline
+        timeline = await store.get_debate_timeline("debate-123")
+    """
+
+    def __init__(self, db_path: str | None = None, max_connections: int = 5):
+        """Initialize the async protocol message store.
+
+        Args:
+            db_path: Path to SQLite database. If None, uses in-memory database.
+            max_connections: Maximum number of pooled connections (default: 5).
+        """
+        self._sync_store = ProtocolMessageStore(db_path, max_connections=max_connections)
+        self._executor = None  # Uses default ThreadPoolExecutor
+
+    async def _run_in_executor(self, func: functools.partial[T]) -> T:
+        """Run a blocking function in a thread pool executor.
+
+        Args:
+            func: Partial function to execute
+
+        Returns:
+            Result from the function
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, func)
+
+    async def record(self, message: ProtocolMessage) -> str:
+        """Record a protocol message (async, non-blocking).
+
+        Args:
+            message: The protocol message to record.
+
+        Returns:
+            The message_id of the recorded message.
+        """
+        return await self._run_in_executor(functools.partial(self._sync_store.record_sync, message))
+
+    async def query(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
+        """Query protocol messages with filters (async, non-blocking).
+
+        Args:
+            filters: Query filters. If None, returns all messages.
+
+        Returns:
+            List of matching protocol messages.
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_store._query_sync_impl, filters)
+        )
+
+    async def get(self, message_id: str) -> ProtocolMessage | None:
+        """Get a single message by ID (async, non-blocking)."""
+
+        def _get_sync() -> ProtocolMessage | None:
+            with self._sync_store._cursor() as cursor:
+                cursor.execute(
+                    "SELECT * FROM protocol_messages WHERE message_id = ?",
+                    (message_id,),
+                )
+                row = cursor.fetchone()
+            if row:
+                return self._sync_store._row_to_message(row)
+            return None
+
+        return await self._run_in_executor(functools.partial(_get_sync))
+
+    async def get_debate_timeline(
+        self, debate_id: str, include_types: Optional[list[ProtocolMessageType]] = None
+    ) -> list[ProtocolMessage]:
+        """Get full timeline of messages for a debate (async, non-blocking).
+
+        Args:
+            debate_id: The debate ID.
+            include_types: Optional filter for specific message types.
+
+        Returns:
+            List of messages in chronological order.
+        """
+        filters = QueryFilters(
+            debate_id=debate_id,
+            message_types=include_types,
+            order_by="timestamp",
+            order_desc=False,
+        )
+        return await self.query(filters)
+
+    async def get_round_messages(self, debate_id: str, round_number: int) -> list[ProtocolMessage]:
+        """Get all messages for a specific round (async, non-blocking)."""
+        filters = QueryFilters(
+            debate_id=debate_id,
+            round_number=round_number,
+            order_by="timestamp",
+        )
+        return await self.query(filters)
+
+    async def get_agent_messages(self, debate_id: str, agent_id: str) -> list[ProtocolMessage]:
+        """Get all messages from a specific agent in a debate (async, non-blocking)."""
+        filters = QueryFilters(
+            debate_id=debate_id,
+            agent_id=agent_id,
+            order_by="timestamp",
+        )
+        return await self.query(filters)
+
+    async def count(self, filters: QueryFilters | None = None) -> int:
+        """Count messages matching filters (async, non-blocking)."""
+        filters = filters or QueryFilters()
+
+        def _count_sync() -> int:
+            conditions: list[str] = []
+            params: list[Any] = []
+
+            if filters.debate_id:
+                conditions.append("debate_id = ?")
+                params.append(filters.debate_id)
+
+            if filters.message_type:
+                conditions.append("message_type = ?")
+                params.append(filters.message_type.value)
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+            with self._sync_store._cursor() as cursor:
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM protocol_messages WHERE {where_clause}",
+                    params,
+                )
+                return cursor.fetchone()[0]
+
+        return await self._run_in_executor(functools.partial(_count_sync))
+
+    async def export_jsonl(self, debate_id: str, output_path: str) -> int:
+        """Export debate messages to JSONL file for replay (async, non-blocking).
+
+        Args:
+            debate_id: The debate to export.
+            output_path: Path to output file.
+
+        Returns:
+            Number of messages exported.
+        """
+        messages = await self.get_debate_timeline(debate_id)
+
+        def _write_sync() -> int:
+            with open(output_path, "w") as f:
+                for msg in messages:
+                    f.write(msg.to_json() + "\n")
+            return len(messages)
+
+        count = await self._run_in_executor(functools.partial(_write_sync))
+        logger.info(f"Exported {count} messages to {output_path}")
+        return count
+
+    async def delete_debate(self, debate_id: str) -> int:
+        """Delete all messages for a debate (async, non-blocking).
+
+        Args:
+            debate_id: The debate to delete.
+
+        Returns:
+            Number of messages deleted.
+        """
+
+        def _delete_sync() -> int:
+            with self._sync_store._cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM protocol_messages WHERE debate_id = ?",
+                    (debate_id,),
+                )
+                return cursor.rowcount
+
+        count = await self._run_in_executor(functools.partial(_delete_sync))
+        logger.info(f"Deleted {count} messages for debate {debate_id[:8]}...")
+        return count
+
+    async def cleanup_old(self, days: int = 30) -> int:
+        """Delete messages older than specified days (async, non-blocking).
+
+        Args:
+            days: Number of days to retain.
+
+        Returns:
+            Number of messages deleted.
+        """
+
+        def _cleanup_sync() -> int:
+            cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            cutoff = cutoff.replace(day=cutoff.day - days)
+
+            with self._sync_store._cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM protocol_messages WHERE timestamp < ?",
+                    (cutoff.isoformat(),),
+                )
+                return cursor.rowcount
+
+        count = await self._run_in_executor(functools.partial(_cleanup_sync))
+        logger.info(f"Cleaned up {count} messages older than {days} days")
+        return count
+
+    def close(self) -> None:
+        """Close all connections in the pool."""
+        self._sync_store.close()
+
+    def close_all(self) -> None:
+        """Close all pooled connections."""
+        self._sync_store.close_all()
+
+    @property
+    def db_path(self) -> str:
+        """Get the database path."""
+        return self._sync_store.db_path

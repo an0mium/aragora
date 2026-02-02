@@ -8,6 +8,8 @@ Handles construction of prompts for proposals, revisions, and judgments.
 from __future__ import annotations
 
 import asyncio
+import functools
+import hashlib
 import logging
 from typing import Any, TYPE_CHECKING, Optional
 
@@ -45,6 +47,222 @@ except ImportError:
     RLMContextAdapter: Any = None  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
+
+
+# --- Module-level cached functions for pure computations ---
+@functools.lru_cache(maxsize=8)
+def _get_stance_guidance_impl(asymmetric_stances: bool, stance: str | None) -> str:
+    """Cached implementation of stance guidance generation."""
+    if not asymmetric_stances:
+        return ""
+    if stance == "affirmative":
+        return """DEBATE STANCE: AFFIRMATIVE
+You are assigned to DEFEND and SUPPORT proposals. Your role is to:
+- Find strengths and merits in arguments
+- Build upon existing ideas
+- Advocate for the proposal's value
+- Counter criticisms constructively
+Even if you personally disagree, argue the affirmative position."""
+    elif stance == "negative":
+        return """DEBATE STANCE: NEGATIVE
+You are assigned to CHALLENGE and CRITIQUE proposals. Your role is to:
+- Identify weaknesses, flaws, and risks
+- Play devil's advocate
+- Raise objections and counterarguments
+- Stress-test the proposal
+Even if you personally agree, argue the negative position."""
+    else:
+        return """DEBATE STANCE: NEUTRAL
+You are assigned to EVALUATE FAIRLY. Your role is to:
+- Weigh arguments from both sides impartially
+- Identify the strongest and weakest points
+- Seek balanced synthesis
+- Judge on merit, not position"""
+
+
+@functools.lru_cache(maxsize=16)
+def _get_agreement_intensity_impl(intensity: int | None) -> str:
+    """Cached implementation of agreement intensity guidance generation."""
+    if intensity is None:
+        return ""
+    if intensity <= 1:
+        return """IMPORTANT: You strongly disagree with other agents. Challenge every assumption,
+find flaws in every argument, and maintain your original position unless presented
+with irrefutable evidence. Be adversarial but constructive."""
+    elif intensity <= 3:
+        return """IMPORTANT: Approach others' arguments with healthy skepticism. Be critical of
+proposals and require strong evidence before changing your position. Point out
+weaknesses even if you partially agree."""
+    elif intensity <= 6:
+        return """Evaluate arguments on their merits. Agree when others make valid points,
+disagree when you see genuine flaws. Let the quality of reasoning guide your response."""
+    elif intensity <= 8:
+        return """Look for common ground with other agents. Acknowledge valid points in others'
+arguments and try to build on them. Seek synthesis where possible while maintaining
+your own reasoned perspective."""
+    else:
+        return """Actively seek to incorporate other agents' perspectives. Find value in all
+proposals and work toward collaborative synthesis. Prioritize finding agreement
+and building on others' ideas."""
+
+
+@functools.lru_cache(maxsize=128)
+def _detect_domain_keywords_impl(question: str) -> str:
+    """Cached keyword-based domain detection."""
+    import re
+
+    lower = question.lower()
+
+    def word_match(keywords: list[str]) -> bool:
+        for kw in keywords:
+            if re.search(rf"\b{re.escape(kw)}\b", lower):
+                return True
+        return False
+
+    philosophical_kw = [
+        "meaning",
+        "meaningful",
+        "life",
+        "purpose",
+        "existence",
+        "happiness",
+        "soul",
+        "consciousness",
+        "free will",
+        "morality",
+        "good life",
+        "philosophy",
+        "wisdom",
+        "death",
+        "love",
+        "truth",
+        "human condition",
+        "fulfillment",
+        "wellbeing",
+        "flourishing",
+        "heaven",
+        "hell",
+        "afterlife",
+        "divine",
+        "god",
+        "theological",
+        "theology",
+        "religious",
+        "faith",
+        "spiritual",
+        "prayer",
+        "scripture",
+        "bible",
+        "sin",
+        "redemption",
+        "salvation",
+        "eternal",
+        "sacred",
+        "holy",
+        "angel",
+        "fetus",
+        "abortion",
+    ]
+    if word_match(philosophical_kw):
+        return "philosophical"
+    ethics_kw = [
+        "should",
+        "ethical",
+        "moral",
+        "right",
+        "wrong",
+        "justice",
+        "fair",
+        "harm",
+        "good or bad",
+        "bad or good",
+    ]
+    if word_match(ethics_kw):
+        return "ethics"
+    technical_kw = [
+        "code",
+        "api",
+        "software",
+        "architecture",
+        "database",
+        "security",
+        "testing",
+        "function",
+        "class",
+        "microservice",
+        "deployment",
+        "infrastructure",
+        "programming",
+        "algorithm",
+        "backend",
+        "frontend",
+    ]
+    if word_match(technical_kw):
+        return "technical"
+    return "general"
+
+
+@functools.lru_cache(maxsize=32)
+def _format_round_phase_impl(
+    round_number: int,
+    phase_name: str,
+    phase_description: str,
+    phase_focus: str,
+    cognitive_mode: str,
+) -> str:
+    """Cached implementation of round phase context formatting."""
+    lines = [f"## ROUND {round_number}: {phase_name.upper()}"]
+    lines.append(f"**Phase Objective:** {phase_description}")
+    lines.append(f"**Focus:** {phase_focus}")
+    lines.append(f"**Cognitive Mode:** {cognitive_mode}")
+    lines.append("")
+    mode_guidance = {
+        "Analyst": "Analyze thoroughly. Establish facts and key considerations.",
+        "Skeptic": "Challenge assumptions. Find weaknesses and edge cases.",
+        "Lateral Thinker": "Think creatively. Explore unconventional approaches.",
+        "Devil's Advocate": "Argue the opposing view. Surface risks.",
+        "Synthesizer": "Integrate insights. Find common ground and build consensus.",
+        "Examiner": "Question directly. Clarify remaining disputes.",
+        "Researcher": "Gather evidence. Research background context.",
+        "Adjudicator": "Render judgment. Weigh all arguments fairly.",
+        "Integrator": "Connect the dots. Identify emerging patterns.",
+    }
+    if cognitive_mode in mode_guidance:
+        lines.append(mode_guidance[cognitive_mode])
+    return "\n".join(lines)
+
+
+@functools.lru_cache(maxsize=8)
+def _get_language_constraint_impl(enforce: bool, language: str) -> str:
+    """Cached implementation of language constraint generation."""
+    if not enforce:
+        return ""
+    return (
+        f"\n\n**LANGUAGE REQUIREMENT**: You MUST respond entirely in {language}. "
+        f"Do not use any other language. If you need to reference foreign terms, "
+        f"provide a {language} translation in parentheses."
+    )
+
+
+def _hash_patterns(patterns: list[dict]) -> str:
+    """Create a stable hash key for a list of pattern dicts."""
+    serialized = str(
+        [
+            (p.get("category", ""), p.get("pattern", ""), p.get("occurrences", 0))
+            for p in patterns[:5]
+        ]
+    )
+    return hashlib.md5(serialized.encode()).hexdigest()
+
+
+def clear_all_prompt_caches() -> None:
+    """Clear all module-level LRU caches. Call at session boundaries."""
+    _get_stance_guidance_impl.cache_clear()
+    _get_agreement_intensity_impl.cache_clear()
+    _detect_domain_keywords_impl.cache_clear()
+    _format_round_phase_impl.cache_clear()
+    _get_language_constraint_impl.cache_clear()
+    logger.debug("Module-level prompt caches cleared")
 
 
 class PromptBuilder:
@@ -121,11 +339,34 @@ class PromptBuilder:
         if HAS_RLM and RLMContextAdapter is not None:
             self._rlm_adapter = RLMContextAdapter()
 
+        # Instance-level caches for mutable argument methods
+        self._pattern_cache: dict[str, str] = {}
+        self._evidence_cache: dict[str, str] = {}
+        self._trending_cache: dict[str, str] = {}
+        self._cache_max_size: int = 100
+
+    def clear_caches(self) -> None:
+        """Clear all caches. Call at session boundaries (e.g., debate end)."""
+        self._pattern_cache.clear()
+        self._evidence_cache.clear()
+        self._trending_cache.clear()
+        clear_all_prompt_caches()
+        logger.debug("PromptBuilder caches cleared")
+
+    def _evict_cache_if_needed(self, cache: dict) -> None:
+        """Evict oldest entries if cache exceeds max size."""
+        if len(cache) > self._cache_max_size:
+            keys_to_remove = list(cache.keys())[: self._cache_max_size // 2]
+            for key in keys_to_remove:
+                cache.pop(key, None)
+
     def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents.
 
         This enables pattern-based learning: agents are warned about
         recurring issues from past debates before they make the same mistakes.
+
+        Results are cached to avoid repeated string operations for identical inputs.
 
         Args:
             patterns: List of pattern dicts with 'category', 'pattern', 'occurrences'
@@ -135,6 +376,11 @@ class PromptBuilder:
         """
         if not patterns:
             return ""
+
+        # Check cache first
+        cache_key = _hash_patterns(patterns)
+        if cache_key in self._pattern_cache:
+            return self._pattern_cache[cache_key]
 
         lines = ["## LEARNED PATTERNS (From Previous Debates)"]
         lines.append("Be especially careful about these recurring issues:\n")
@@ -155,72 +401,28 @@ class PromptBuilder:
             lines.append(f"  (Occurred in {occurrences} past debates)")
 
         lines.append("\nAddress these proactively to improve debate quality.")
-        return "\n".join(lines)
+        result = "\n".join(lines)
+
+        # Cache the result
+        self._evict_cache_if_needed(self._pattern_cache)
+        self._pattern_cache[cache_key] = result
+
+        return result
 
     def get_stance_guidance(self, agent: "Agent") -> str:
-        """Generate prompt guidance based on agent's debate stance."""
-        if not self.protocol.asymmetric_stances:
-            return ""
+        """Generate prompt guidance based on agent's debate stance.
 
+        Uses cached implementation for repeated calls with same stance.
+        """
         stance = getattr(agent, "stance", None)
-        if stance == "affirmative":
-            return """DEBATE STANCE: AFFIRMATIVE
-You are assigned to DEFEND and SUPPORT proposals. Your role is to:
-- Find strengths and merits in arguments
-- Build upon existing ideas
-- Advocate for the proposal's value
-- Counter criticisms constructively
-Even if you personally disagree, argue the affirmative position."""
-
-        elif stance == "negative":
-            return """DEBATE STANCE: NEGATIVE
-You are assigned to CHALLENGE and CRITIQUE proposals. Your role is to:
-- Identify weaknesses, flaws, and risks
-- Play devil's advocate
-- Raise objections and counterarguments
-- Stress-test the proposal
-Even if you personally agree, argue the negative position."""
-
-        else:  # neutral
-            return """DEBATE STANCE: NEUTRAL
-You are assigned to EVALUATE FAIRLY. Your role is to:
-- Weigh arguments from both sides impartially
-- Identify the strongest and weakest points
-- Seek balanced synthesis
-- Judge on merit, not position"""
+        return _get_stance_guidance_impl(self.protocol.asymmetric_stances, stance)
 
     def get_agreement_intensity_guidance(self) -> str:
         """Generate prompt guidance based on agreement intensity setting.
 
-        Agreement intensity (0-10) affects how agents approach disagreements:
-        - Low (0-3): Adversarial - strongly challenge others' positions
-        - Medium (4-6): Balanced - judge arguments on merit
-        - High (7-10): Collaborative - seek common ground and synthesis
+        Uses cached implementation for repeated calls with same intensity.
         """
-        intensity = self.protocol.agreement_intensity
-
-        if intensity is None:
-            return ""  # No agreement intensity guidance when not set
-
-        if intensity <= 1:
-            return """IMPORTANT: You strongly disagree with other agents. Challenge every assumption,
-find flaws in every argument, and maintain your original position unless presented
-with irrefutable evidence. Be adversarial but constructive."""
-        elif intensity <= 3:
-            return """IMPORTANT: Approach others' arguments with healthy skepticism. Be critical of
-proposals and require strong evidence before changing your position. Point out
-weaknesses even if you partially agree."""
-        elif intensity <= 6:
-            return """Evaluate arguments on their merits. Agree when others make valid points,
-disagree when you see genuine flaws. Let the quality of reasoning guide your response."""
-        elif intensity <= 8:
-            return """Look for common ground with other agents. Acknowledge valid points in others'
-arguments and try to build on them. Seek synthesis where possible while maintaining
-your own reasoned perspective."""
-        else:  # 9-10
-            return """Actively seek to incorporate other agents' perspectives. Find value in all
-proposals and work toward collaborative synthesis. Prioritize finding agreement
-and building on others' ideas."""
+        return _get_agreement_intensity_impl(self.protocol.agreement_intensity)
 
     def format_successful_patterns(self, limit: int = 3) -> str:
         """Format successful critique patterns for prompt injection."""
@@ -263,6 +465,8 @@ and building on others' ideas."""
     def get_round_phase_context(self, round_number: int) -> str:
         """Get structured phase context for the current debate round.
 
+        Uses cached implementation for repeated calls with same phase.
+
         Args:
             round_number: 1-indexed round number
 
@@ -273,39 +477,13 @@ and building on others' ideas."""
         if not phase:
             return ""
 
-        lines = [f"## ROUND {round_number}: {phase.name.upper()}"]
-        lines.append(f"**Phase Objective:** {phase.description}")
-        lines.append(f"**Focus:** {phase.focus}")
-        lines.append(f"**Cognitive Mode:** {phase.cognitive_mode}")
-        lines.append("")
-
-        # Add phase-specific guidance
-        if phase.cognitive_mode == "Analyst":
-            lines.append("Analyze thoroughly. Establish facts and key considerations.")
-        elif phase.cognitive_mode == "Skeptic":
-            lines.append("Challenge assumptions. Find weaknesses and edge cases.")
-        elif phase.cognitive_mode == "Lateral Thinker":
-            lines.append("Think creatively. Explore unconventional approaches and analogies.")
-        elif phase.cognitive_mode == "Devil's Advocate":
-            lines.append("Argue the opposing view. Surface risks and unintended consequences.")
-        elif phase.cognitive_mode == "Synthesizer":
-            lines.append("Integrate insights. Find common ground and build consensus.")
-        elif phase.cognitive_mode == "Examiner":
-            lines.append("Question directly. Clarify remaining disputes and test convictions.")
-        elif phase.cognitive_mode == "Researcher":
-            lines.append(
-                "Gather evidence. Research background context, find supporting data, identify key sources."
-            )
-        elif phase.cognitive_mode == "Adjudicator":
-            lines.append(
-                "Render judgment. Weigh all arguments fairly, select the strongest position, explain your verdict."
-            )
-        elif phase.cognitive_mode == "Integrator":
-            lines.append(
-                "Connect the dots. Identify emerging patterns, bridge opposing views, highlight key trade-offs."
-            )
-
-        return "\n".join(lines)
+        return _format_round_phase_impl(
+            round_number,
+            phase.name,
+            phase.description,
+            phase.focus,
+            phase.cognitive_mode,
+        )
 
     async def classify_question_async(self, use_llm: bool = True) -> str:
         """Classify the debate question using LLM (async).
@@ -385,110 +563,11 @@ and building on others' ideas."""
     def _detect_question_domain_keywords(self, question: str) -> str:
         """Keyword-based domain detection (fallback when LLM unavailable).
 
+        Uses cached implementation for repeated calls with same question.
+
         Returns 'philosophical', 'ethics', 'technical', or 'general'.
         """
-        import re
-
-        lower = question.lower()
-
-        def word_match(keywords: list[str]) -> bool:
-            """Check if any keyword appears as a whole word."""
-            for kw in keywords:
-                # Use word boundary regex to avoid substring matches
-                # e.g., "api" shouldn't match "capitalism"
-                if re.search(rf"\b{re.escape(kw)}\b", lower):
-                    return True
-            return False
-
-        # Philosophical/Life/Theological domains - use philosophical personas
-        philosophical_keywords = [
-            "meaning",
-            "meaningful",
-            "life",
-            "purpose",
-            "existence",
-            "happiness",
-            "soul",
-            "consciousness",
-            "free will",
-            "morality",
-            "good life",
-            "philosophy",
-            "wisdom",
-            "death",
-            "love",
-            "truth",
-            "human condition",
-            "fulfillment",
-            "wellbeing",
-            "flourishing",
-            # Theological/Religious keywords
-            "heaven",
-            "hell",
-            "afterlife",
-            "divine",
-            "god",
-            "theological",
-            "theology",
-            "religious",
-            "faith",
-            "spiritual",
-            "prayer",
-            "scripture",
-            "bible",
-            "sin",
-            "redemption",
-            "salvation",
-            "eternal",
-            "sacred",
-            "holy",
-            "angel",
-            "fetus",
-            "abortion",
-        ]
-        if word_match(philosophical_keywords):
-            return "philosophical"
-
-        # Ethics domain - questions about right/wrong, good/bad, should/shouldn't
-        ethics_keywords = [
-            "should",
-            "ethical",
-            "moral",
-            "right",
-            "wrong",
-            "justice",
-            "fair",
-            "harm",
-            "good or bad",
-            "bad or good",
-        ]
-        if word_match(ethics_keywords):
-            return "ethics"
-
-        # Technical domain - keep existing personas (use word boundaries to avoid
-        # false positives like "capitalism" matching "api")
-        technical_keywords = [
-            "code",
-            "api",
-            "software",
-            "architecture",
-            "database",
-            "security",
-            "testing",
-            "function",
-            "class",
-            "microservice",
-            "deployment",
-            "infrastructure",
-            "programming",
-            "algorithm",
-            "backend",
-            "frontend",
-        ]
-        if word_match(technical_keywords):
-            return "technical"
-
-        return "general"
+        return _detect_domain_keywords_impl(question)
 
     def get_persona_context(self, agent: "Agent") -> str:
         """Get persona context for agent specialization.
@@ -696,24 +775,15 @@ The system will provide relevant details from the full history."""
     def get_language_constraint(self) -> str:
         """Get language enforcement instruction for agent prompts.
 
-        Returns instruction requiring agents to respond in the configured
-        debate language. This prevents multilingual models (DeepSeek, Kimi, Qwen)
-        from code-switching mid-response.
+        Uses cached implementation for repeated calls with same settings.
 
         Returns:
             Language constraint instruction, or empty string if disabled.
         """
         from aragora.config import DEFAULT_DEBATE_LANGUAGE, ENFORCE_RESPONSE_LANGUAGE
 
-        if not ENFORCE_RESPONSE_LANGUAGE:
-            return ""
-
         lang = getattr(self.protocol, "language", None) or DEFAULT_DEBATE_LANGUAGE
-        return (
-            f"\n\n**LANGUAGE REQUIREMENT**: You MUST respond entirely in {lang}. "
-            f"Do not use any other language. If you need to reference foreign terms, "
-            f"provide a {lang} translation in parentheses."
-        )
+        return _get_language_constraint_impl(ENFORCE_RESPONSE_LANGUAGE, lang)
 
     def _inject_belief_context(self, limit: int = 3) -> str:
         """Retrieve and format historical belief cruxes for prompt injection.
@@ -977,16 +1047,23 @@ The system will provide relevant details from the full history."""
         return "\n".join(lines)
 
     def set_evidence_pack(self, evidence_pack: Optional["EvidencePack"]) -> None:
-        """Update the evidence pack (called by orchestrator between rounds)."""
+        """Update the evidence pack (called by orchestrator between rounds).
+
+        Clears evidence cache to ensure fresh formatting.
+        """
         self.evidence_pack = evidence_pack
+        self._evidence_cache.clear()
 
     def set_trending_topics(self, topics: list["TrendingTopic"]) -> None:
         """Update trending topics for context injection.
+
+        Clears trending cache to ensure fresh formatting.
 
         Args:
             topics: List of TrendingTopic objects from Pulse system
         """
         self.trending_topics = topics or []
+        self._trending_cache.clear()
 
     def format_trending_for_prompt(self, max_topics: int | None = None) -> str:
         """Format trending topics as context for agent prompts.

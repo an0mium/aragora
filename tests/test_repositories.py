@@ -277,6 +277,152 @@ class TestDebateRepository:
         assert retrieved is not None
         assert retrieved.id == "test-456"
 
+    def test_generate_slug_basic(self, repo):
+        """generate_slug creates basic slug from task."""
+        slug = repo.generate_slug("Test Rate Limiter")
+
+        # Should contain key words (excluding stop words) and date
+        assert "rate" in slug
+        assert "limiter" in slug
+        assert "-" in slug  # Date separator
+
+    def test_generate_slug_handles_collisions(self, repo):
+        """generate_slug handles collisions by appending counter."""
+        from aragora.persistence.repositories import DebateEntity
+        from datetime import datetime
+
+        # Create a task that will generate a specific slug
+        task = "Test Slug Collision"
+        base_slug = repo.generate_slug(task)
+
+        # Save a debate with that slug
+        debate = DebateEntity(
+            id="collision-1",
+            slug=base_slug,
+            task=task,
+            agents=["claude"],
+            artifact_json="{}",
+        )
+        repo.save(debate)
+
+        # Generate another slug for same task - should get numbered variant
+        second_slug = repo.generate_slug(task)
+
+        assert second_slug != base_slug
+        assert second_slug == f"{base_slug}-2"
+
+    def test_generate_slug_handles_multiple_collisions(self, repo):
+        """generate_slug finds next available number with multiple collisions."""
+        from aragora.persistence.repositories import DebateEntity
+
+        task = "Multiple Collision Test"
+        base_slug = repo.generate_slug(task)
+
+        # Create debates for base slug and -2 through -5
+        for i, suffix in enumerate(["", "-2", "-3", "-4", "-5"]):
+            debate = DebateEntity(
+                id=f"multi-collision-{i}",
+                slug=f"{base_slug}{suffix}",
+                task=task,
+                agents=["claude"],
+                artifact_json="{}",
+            )
+            repo.save(debate)
+
+        # Next slug should be -6
+        next_slug = repo.generate_slug(task)
+        assert next_slug == f"{base_slug}-6"
+
+    def test_generate_slug_batch_query_efficiency(self, repo):
+        """generate_slug uses batch query rather than N+1 queries."""
+        from aragora.persistence.repositories import DebateEntity
+        from unittest.mock import patch
+
+        task = "Batch Query Test"
+        base_slug = repo.generate_slug(task)
+
+        # Create several collisions
+        for i in range(5):
+            suffix = "" if i == 0 else f"-{i + 1}"
+            debate = DebateEntity(
+                id=f"batch-test-{i}",
+                slug=f"{base_slug}{suffix}",
+                task=task,
+                agents=["claude"],
+                artifact_json="{}",
+            )
+            repo.save(debate)
+
+        # Track query count
+        query_count = 0
+        original_fetch_all = repo._fetch_all
+
+        def counting_fetch_all(*args, **kwargs):
+            nonlocal query_count
+            query_count += 1
+            return original_fetch_all(*args, **kwargs)
+
+        with patch.object(repo, "_fetch_all", counting_fetch_all):
+            repo.generate_slug(task)
+
+        # Should use exactly 1 batch query, not N queries
+        assert query_count == 1
+
+    def test_increment_view_count_basic(self, repo):
+        """increment_view_count increments and returns new count."""
+        from aragora.persistence.repositories import DebateEntity
+
+        debate = DebateEntity(
+            id="view-test-1",
+            slug="view-count-test",
+            task="View Count Test",
+            agents=["claude"],
+            artifact_json="{}",
+            view_count=0,
+        )
+        repo.save(debate)
+
+        new_count = repo.increment_view_count("view-count-test")
+        assert new_count == 1
+
+        new_count = repo.increment_view_count("view-count-test")
+        assert new_count == 2
+
+    def test_increment_view_count_nonexistent(self, repo):
+        """increment_view_count returns 0 for nonexistent slug."""
+        count = repo.increment_view_count("nonexistent-slug")
+        assert count == 0
+
+    def test_increment_view_count_uses_returning_clause(self, repo):
+        """increment_view_count uses UPDATE with RETURNING clause."""
+        from aragora.persistence.repositories import DebateEntity
+
+        debate = DebateEntity(
+            id="returning-test",
+            slug="returning-clause-slug",
+            task="Returning Clause Test",
+            agents=["claude"],
+            artifact_json="{}",
+            view_count=10,
+        )
+        repo.save(debate)
+
+        # Verify the method works correctly with initial value
+        result = repo.increment_view_count("returning-clause-slug")
+        assert result == 11
+
+        # Verify the actual value was persisted correctly
+        retrieved = repo.get_by_slug("returning-clause-slug")
+        assert retrieved is not None
+        assert retrieved.view_count == 11
+
+        # Increment again to ensure consistency
+        result2 = repo.increment_view_count("returning-clause-slug")
+        assert result2 == 12
+
+        retrieved2 = repo.get_by_slug("returning-clause-slug")
+        assert retrieved2.view_count == 12
+
 
 class TestEloRepository:
     """Tests for EloRepository."""

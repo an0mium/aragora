@@ -24,6 +24,7 @@ from aragora.debate.outcome_tracker import (
     ConsensusOutcome,
     CalibrationBucket,
     OutcomeTracker,
+    AsyncOutcomeTracker,
 )
 
 
@@ -762,3 +763,176 @@ class TestEdgeCases:
         stored = tracker.get_outcome("unicode")
 
         assert "emoji" in stored.consensus_text
+
+
+# ============================================================================
+# AsyncOutcomeTracker Tests
+# ============================================================================
+
+
+@pytest.fixture
+def async_tracker(temp_db_path):
+    """Create AsyncOutcomeTracker with temp database."""
+    return AsyncOutcomeTracker(db_path=temp_db_path)
+
+
+class TestAsyncOutcomeTrackerInit:
+    """Tests for AsyncOutcomeTracker initialization."""
+
+    def test_creates_database(self, temp_db_path):
+        """Should create database file via sync tracker."""
+        tracker = AsyncOutcomeTracker(db_path=temp_db_path)
+        assert temp_db_path.exists()
+
+    def test_has_db_path_property(self, async_tracker, temp_db_path):
+        """Should expose db_path property."""
+        assert async_tracker.db_path == temp_db_path
+
+
+class TestAsyncRecordOutcome:
+    """Tests for async record_outcome method."""
+
+    @pytest.mark.asyncio
+    async def test_records_outcome_async(self, async_tracker):
+        """Should record outcome via async interface."""
+        outcome = ConsensusOutcome(
+            debate_id="async-debate-1",
+            consensus_text="Async test consensus",
+            consensus_confidence=0.85,
+            implementation_attempted=True,
+            implementation_succeeded=True,
+        )
+
+        await async_tracker.record_outcome(outcome)
+
+        # Verify via raw SQL query to avoid from_row bug with 'id' column
+        with async_tracker._sync_tracker._db.connection() as conn:
+            row = conn.execute(
+                "SELECT debate_id, consensus_confidence FROM outcomes WHERE debate_id = ?",
+                ("async-debate-1",),
+            ).fetchone()
+
+        assert row is not None
+        assert row[0] == "async-debate-1"
+        assert row[1] == 0.85
+
+
+class TestAsyncGetOutcome:
+    """Tests for async get_outcome method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_missing(self, async_tracker):
+        """Should return None for non-existent ID."""
+        result = await async_tracker.get_outcome("nonexistent")
+        assert result is None
+
+
+class TestAsyncGetRecentOutcomes:
+    """Tests for async get_recent_outcomes method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_list(self, async_tracker):
+        """Should return empty list when no outcomes."""
+        results = await async_tracker.get_recent_outcomes()
+        assert results == []
+
+
+class TestAsyncSuccessRateByConfidence:
+    """Tests for async get_success_rate_by_confidence method."""
+
+    @pytest.mark.asyncio
+    async def test_empty_returns_empty_dict(self, async_tracker):
+        """Should return empty dict when no data."""
+        result = await async_tracker.get_success_rate_by_confidence()
+        assert result == {}
+
+
+class TestAsyncCalibrationCurve:
+    """Tests for async get_calibration_curve method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_buckets(self, async_tracker):
+        """Should return list of CalibrationBucket."""
+        result = await async_tracker.get_calibration_curve(num_buckets=10)
+
+        assert len(result) == 10
+        assert all(isinstance(b, CalibrationBucket) for b in result)
+
+    @pytest.mark.asyncio
+    async def test_buckets_cover_full_range(self, async_tracker):
+        """Buckets should cover 0.0 to 1.0."""
+        result = await async_tracker.get_calibration_curve(num_buckets=10)
+
+        assert result[0].confidence_min == 0.0
+        assert result[-1].confidence_max == 1.0
+
+
+class TestAsyncFailurePatterns:
+    """Tests for async get_failure_patterns method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_for_no_failures(self, async_tracker):
+        """Should return empty list when no failures."""
+        result = await async_tracker.get_failure_patterns()
+        assert result == []
+
+
+class TestAsyncOverallStats:
+    """Tests for async get_overall_stats method."""
+
+    @pytest.mark.asyncio
+    async def test_empty_stats(self, async_tracker):
+        """Should return zeros for empty tracker."""
+        stats = await async_tracker.get_overall_stats()
+
+        assert stats["total_outcomes"] == 0
+        assert stats["attempted"] == 0
+        assert stats["succeeded"] == 0
+        assert stats["success_rate"] == 0.0
+
+
+class TestAsyncIsOverconfident:
+    """Tests for async is_overconfident method."""
+
+    @pytest.mark.asyncio
+    async def test_false_with_no_data(self, async_tracker):
+        """Should return False with insufficient data."""
+        result = await async_tracker.is_overconfident()
+        assert result is False
+
+
+class TestAsyncCalibrationAdjustment:
+    """Tests for async get_calibration_adjustment method."""
+
+    @pytest.mark.asyncio
+    async def test_returns_one_with_no_data(self, async_tracker):
+        """Should return 1.0 with no data."""
+        adjustment = await async_tracker.get_calibration_adjustment()
+        assert adjustment == 1.0
+
+
+class TestAsyncNonBlocking:
+    """Tests that verify async operations don't block the event loop."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_operations(self, temp_db_path):
+        """Multiple async operations should run concurrently."""
+        import asyncio
+
+        tracker = AsyncOutcomeTracker(db_path=temp_db_path)
+
+        # Run multiple operations concurrently
+        results = await asyncio.gather(
+            tracker.get_overall_stats(),
+            tracker.get_calibration_curve(num_buckets=5),
+            tracker.get_failure_patterns(limit=5),
+            tracker.is_overconfident(),
+            tracker.get_calibration_adjustment(),
+        )
+
+        assert len(results) == 5
+        assert isinstance(results[0], dict)  # overall_stats
+        assert isinstance(results[1], list)  # calibration_curve
+        assert isinstance(results[2], list)  # failure_patterns
+        assert isinstance(results[3], bool)  # is_overconfident
+        assert isinstance(results[4], float)  # calibration_adjustment

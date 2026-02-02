@@ -3,12 +3,77 @@
 Provides standardized result types used across all adapters to ensure
 consistent interfaces and reduce duplication.
 
+Type Hierarchy Guidelines
+-------------------------
+
+**Use standard types when:**
+
+- Your sync operation tracks simple counts (synced/skipped/failed)
+- Your validation operation returns confidence + recommendation
+- Your search results wrap items with relevance scores
+
+**Use domain-specific types when:**
+
+You need additional fields unique to your domain:
+
+- ContinuumAdapter: needs promoted/demoted counts for tier movements
+- CritiqueAdapter: needs patterns_boosted/reputation_adjustments
+- PulseAdapter: needs topics_adjusted/scheduling_changes
+- BeliefAdapter: needs threshold_updates/cruxes_analyzed
+
+The standard type fields don't capture your domain semantics.
+
+Standard Types
+--------------
+
+- ``SyncResult``: Forward sync (Source -> KM) with records_synced/skipped/failed
+- ``ValidationSyncResult``: Reverse sync (KM -> Source) with records_analyzed/updated
+- ``SearchResult[T]``: Generic search wrapper with item + relevance_score + similarity
+- ``ValidationResult``: Individual validation result with source_id + confidence
+- ``BatchSyncResult``: Aggregated results from multiple adapters
+
+Example Adapters Using Standard Types
+-------------------------------------
+
+- ConsensusAdapter: uses SyncResult and ValidationSyncResult
+- ERC8004Adapter: uses SyncResult and ValidationSyncResult
+
+Example Adapters Using Domain-Specific Types (correctly)
+--------------------------------------------------------
+
+- ContinuumAdapter: ValidationSyncResult with promoted/demoted for tier movements
+- PulseAdapter: PulseKMSyncResult with topics_adjusted/scheduling_changes
+- BeliefAdapter: BeliefThresholdSyncResult with threshold_updates
+
 Usage:
     from aragora.knowledge.mound.adapters._types import (
         SyncResult,
         ValidationSyncResult,
         SearchResult,
         ValidationResult,
+        BatchSyncResult,
+    )
+
+    # Forward sync example
+    result = SyncResult(
+        records_synced=10,
+        records_skipped=2,
+        records_failed=1,
+        duration_ms=150.0,
+    )
+
+    # Search result example
+    from dataclasses import dataclass
+
+    @dataclass
+    class MyRecord:
+        id: str
+        content: str
+
+    search_result = SearchResult[MyRecord](
+        item=MyRecord(id="123", content="..."),
+        relevance_score=0.85,
+        similarity=0.92,
     )
 """
 

@@ -33,6 +33,7 @@ Performance optimizations:
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import logging
 import os
@@ -197,6 +198,158 @@ _similarity_cache_lock = threading.Lock()
 MAX_SIMILARITY_CACHES = 100  # Maximum concurrent debate caches
 CACHE_MANAGER_TTL_SECONDS = 3600  # 1 hour - cleanup idle caches
 
+# Periodic cleanup configuration
+PERIODIC_CLEANUP_INTERVAL_SECONDS = 600  # 10 minutes
+
+
+class _PeriodicCacheCleanup:
+    """
+    Background thread for periodic cleanup of stale similarity caches.
+
+    Runs every PERIODIC_CLEANUP_INTERVAL_SECONDS to remove caches that
+    haven't been accessed within CACHE_MANAGER_TTL_SECONDS.
+
+    Thread-safety:
+    - Uses daemon thread that terminates when main program exits
+    - Uses Event for clean shutdown coordination
+    - Uses the global _similarity_cache_lock for cache access
+    - Registered with atexit for graceful shutdown
+    """
+
+    def __init__(self, interval_seconds: float = PERIODIC_CLEANUP_INTERVAL_SECONDS):
+        """
+        Initialize periodic cleanup manager.
+
+        Args:
+            interval_seconds: Seconds between cleanup runs (default 600 = 10 minutes)
+        """
+        self._interval = interval_seconds
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+        self._started = False
+        self._cleanup_count = 0
+        self._last_cleanup_time: float | None = None
+
+    def start(self) -> None:
+        """Start the periodic cleanup thread if not already running."""
+        with self._lock:
+            if self._started and self._thread and self._thread.is_alive():
+                return  # Already running
+
+            self._stop_event.clear()
+            self._thread = threading.Thread(
+                target=self._cleanup_loop,
+                name="SimilarityCacheCleanup",
+                daemon=True,  # Daemon thread - won't prevent program exit
+            )
+            self._thread.start()
+            self._started = True
+            logger.debug("Periodic similarity cache cleanup started")
+
+    def stop(self, timeout: float = 5.0) -> None:
+        """
+        Stop the periodic cleanup thread.
+
+        Args:
+            timeout: Maximum seconds to wait for thread to stop
+        """
+        with self._lock:
+            if not self._started:
+                return
+
+            self._stop_event.set()
+            if self._thread and self._thread.is_alive():
+                self._thread.join(timeout=timeout)
+            self._started = False
+            self._thread = None
+            logger.debug("Periodic similarity cache cleanup stopped")
+
+    def _cleanup_loop(self) -> None:
+        """Background loop that performs periodic cleanup."""
+        while not self._stop_event.is_set():
+            # Wait for interval or until stop is signaled
+            if self._stop_event.wait(timeout=self._interval):
+                break  # Stop event was set
+
+            try:
+                cleaned = cleanup_stale_similarity_caches()
+                self._last_cleanup_time = time.time()
+                self._cleanup_count += cleaned
+                if cleaned > 0:
+                    logger.info(f"Periodic cleanup: removed {cleaned} stale similarity caches")
+            except Exception as e:
+                logger.warning(f"Error during periodic cache cleanup: {e}")
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get cleanup thread statistics."""
+        with self._lock:
+            return {
+                "running": self._started and self._thread is not None and self._thread.is_alive(),
+                "interval_seconds": self._interval,
+                "total_caches_cleaned": self._cleanup_count,
+                "last_cleanup_time": self._last_cleanup_time,
+            }
+
+    def is_running(self) -> bool:
+        """Check if cleanup thread is running."""
+        with self._lock:
+            return self._started and self._thread is not None and self._thread.is_alive()
+
+
+# Global periodic cleanup instance
+_periodic_cleanup: _PeriodicCacheCleanup | None = None
+_periodic_cleanup_init_lock = threading.Lock()
+
+
+def _ensure_periodic_cleanup_started() -> None:
+    """Ensure the periodic cleanup thread is started (lazy initialization)."""
+    global _periodic_cleanup
+    with _periodic_cleanup_init_lock:
+        if _periodic_cleanup is None:
+            _periodic_cleanup = _PeriodicCacheCleanup()
+            # Register shutdown handler
+            atexit.register(_shutdown_periodic_cleanup)
+        if not _periodic_cleanup.is_running():
+            _periodic_cleanup.start()
+
+
+def _shutdown_periodic_cleanup() -> None:
+    """Shutdown handler for periodic cleanup (registered with atexit)."""
+    global _periodic_cleanup
+    if _periodic_cleanup is not None:
+        _periodic_cleanup.stop()
+
+
+def get_periodic_cleanup_stats() -> dict[str, Any]:
+    """
+    Get statistics about the periodic cleanup thread.
+
+    Returns:
+        Dict with running status, interval, total cleaned, last cleanup time
+    """
+    global _periodic_cleanup
+    if _periodic_cleanup is None:
+        return {
+            "running": False,
+            "interval_seconds": PERIODIC_CLEANUP_INTERVAL_SECONDS,
+            "total_caches_cleaned": 0,
+            "last_cleanup_time": None,
+        }
+    return _periodic_cleanup.get_stats()
+
+
+def stop_periodic_cleanup() -> None:
+    """
+    Stop the periodic cleanup thread.
+
+    Useful for testing or controlled shutdown scenarios.
+    The thread will be restarted automatically on the next cache access.
+    """
+    global _periodic_cleanup
+    if _periodic_cleanup is not None:
+        _periodic_cleanup.stop()
+
 
 def get_pairwise_similarity_cache(
     session_id: str,
@@ -210,6 +363,7 @@ def get_pairwise_similarity_cache(
     - Tracks creation/access timestamps for TTL-based eviction
     - Enforces MAX_SIMILARITY_CACHES limit to prevent unbounded growth
     - Runs periodic cleanup when cache count reaches limit
+    - Starts background cleanup thread on first access
 
     Args:
         session_id: Unique debate session identifier
@@ -219,6 +373,9 @@ def get_pairwise_similarity_cache(
     Returns:
         PairwiseSimilarityCache instance for this session
     """
+    # Ensure periodic cleanup is running (lazy start)
+    _ensure_periodic_cleanup_started()
+
     now = time.time()
 
     with _similarity_cache_lock:
@@ -322,6 +479,74 @@ def cleanup_stale_similarity_caches(
         logger.debug(f"Cleaned up {cleaned} stale similarity caches")
 
     return cleaned
+
+
+def cleanup_stale_caches(max_age_seconds: float | None = None) -> dict[str, Any]:
+    """
+    Public function to cleanup stale caches.
+
+    This is the externally-callable cleanup function that can be invoked
+    by external processes, monitoring systems, or scheduled tasks.
+
+    Args:
+        max_age_seconds: Maximum age for cache entries. If None, uses
+            CACHE_MANAGER_TTL_SECONDS (1 hour).
+
+    Returns:
+        Dict with cleanup statistics:
+        - cleaned_count: Number of caches removed
+        - remaining_count: Number of caches still active
+        - cleanup_time: Timestamp of this cleanup
+        - periodic_cleanup_running: Whether background cleanup is active
+    """
+    if max_age_seconds is None:
+        max_age_seconds = CACHE_MANAGER_TTL_SECONDS
+
+    cleaned = cleanup_stale_similarity_caches(max_age_seconds)
+
+    with _similarity_cache_lock:
+        remaining = len(_similarity_cache_manager)
+
+    return {
+        "cleaned_count": cleaned,
+        "remaining_count": remaining,
+        "cleanup_time": time.time(),
+        "periodic_cleanup_running": _periodic_cleanup.is_running() if _periodic_cleanup else False,
+    }
+
+
+def get_cache_manager_stats() -> dict[str, Any]:
+    """
+    Get statistics about the similarity cache manager.
+
+    Returns:
+        Dict with cache manager statistics:
+        - active_caches: Number of active debate caches
+        - max_caches: Maximum allowed caches
+        - cache_ttl_seconds: TTL for stale cache eviction
+        - cleanup_interval_seconds: Periodic cleanup interval
+        - periodic_cleanup: Stats from periodic cleanup thread
+        - caches: Dict of session_id -> {age_seconds, cache_stats}
+    """
+    now = time.time()
+
+    with _similarity_cache_lock:
+        cache_details = {}
+        for session_id, cache in _similarity_cache_manager.items():
+            timestamp = _similarity_cache_timestamps.get(session_id, now)
+            cache_details[session_id] = {
+                "age_seconds": now - timestamp,
+                "stats": cache.get_stats(),
+            }
+
+        return {
+            "active_caches": len(_similarity_cache_manager),
+            "max_caches": MAX_SIMILARITY_CACHES,
+            "cache_ttl_seconds": CACHE_MANAGER_TTL_SECONDS,
+            "cleanup_interval_seconds": PERIODIC_CLEANUP_INTERVAL_SECONDS,
+            "periodic_cleanup": get_periodic_cleanup_stats(),
+            "caches": cache_details,
+        }
 
 
 # Re-export cache utilities
@@ -1282,8 +1507,14 @@ __all__ = [
     "get_pairwise_similarity_cache",
     "cleanup_similarity_cache",
     "cleanup_stale_similarity_caches",
+    "cleanup_stale_caches",
+    "get_cache_manager_stats",
     "MAX_SIMILARITY_CACHES",
     "CACHE_MANAGER_TTL_SECONDS",
+    "PERIODIC_CLEANUP_INTERVAL_SECONDS",
+    # Periodic cleanup management
+    "get_periodic_cleanup_stats",
+    "stop_periodic_cleanup",
     # Backends (re-exported)
     "SimilarityBackend",
     "JaccardBackend",

@@ -18,18 +18,24 @@ __all__ = [
     "ConsensusOutcome",
     "CalibrationBucket",
     "OutcomeTracker",
+    "AsyncOutcomeTracker",
     "DEFAULT_OUTCOMES_DB",
 ]
 
+import asyncio
+import functools
 import json
 import logging
 import sqlite3
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any, TypeVar
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.persistence.db_config import get_nomic_dir
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +65,7 @@ class ConsensusOutcome:
     trickster_interventions: int = 0
     evidence_coverage: float = 0.0  # Average evidence quality
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
         d = asdict(self)
         d["agents_participating"] = json.dumps(d["agents_participating"])
@@ -298,7 +304,7 @@ class OutcomeTracker:
 
         return buckets
 
-    def get_failure_patterns(self, limit: int = 10) -> list[dict]:
+    def get_failure_patterns(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get common failure reasons with frequency.
 
         Returns list of dicts with 'reason' and 'count' keys.
@@ -320,7 +326,7 @@ class OutcomeTracker:
 
             return [{"reason": row[0], "count": row[1]} for row in rows]
 
-    def get_overall_stats(self) -> dict:
+    def get_overall_stats(self) -> dict[str, Any]:
         """Get overall outcome statistics."""
         with self._db.connection() as conn:
             row = conn.execute("""
@@ -412,3 +418,183 @@ class OutcomeTracker:
 
         # Clamp to reasonable range
         return max(0.5, min(1.5, adjustment))
+
+
+class AsyncOutcomeTracker:
+    """Async wrapper for OutcomeTracker that avoids blocking the event loop.
+
+    All database operations are executed in a thread pool via run_in_executor
+    to prevent blocking the async event loop when called from async contexts.
+
+    Usage:
+        tracker = AsyncOutcomeTracker()
+
+        # After a nomic cycle
+        outcome = ConsensusOutcome(
+            debate_id="nomic-cycle-5",
+            consensus_text="Add caching layer...",
+            consensus_confidence=0.85,
+            implementation_attempted=True,
+            implementation_succeeded=True,
+            tests_passed=142,
+            tests_failed=0,
+        )
+        await tracker.record_outcome(outcome)
+
+        # Get calibration data
+        curve = await tracker.get_calibration_curve()
+        for bucket in curve:
+            print(f"Confidence {bucket.confidence_min}-{bucket.confidence_max}: "
+                  f"{bucket.success_rate:.0%} actual vs {bucket.expected_rate:.0%} expected")
+
+        # Adjust Trickster sensitivity
+        if await tracker.is_overconfident(threshold=0.7):
+            trickster.config.hollow_detection_threshold *= 0.9
+    """
+
+    def __init__(self, db_path: Path = DEFAULT_OUTCOMES_DB):
+        """Initialize the async outcome tracker.
+
+        Args:
+            db_path: Path to the SQLite database file
+        """
+        self._sync_tracker = OutcomeTracker(db_path)
+        self._executor = None  # Uses default ThreadPoolExecutor
+
+    async def _run_in_executor(self, func: functools.partial[T]) -> T:
+        """Run a blocking function in a thread pool executor.
+
+        Args:
+            func: Partial function to execute
+
+        Returns:
+            Result from the function
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, func)
+
+    async def record_outcome(self, outcome: ConsensusOutcome) -> None:
+        """Record an outcome to the database (async).
+
+        Args:
+            outcome: ConsensusOutcome to record
+        """
+        await self._run_in_executor(functools.partial(self._sync_tracker.record_outcome, outcome))
+
+    async def get_outcome(self, debate_id: str) -> ConsensusOutcome | None:
+        """Get outcome by debate ID (async).
+
+        Args:
+            debate_id: ID of the debate to retrieve
+
+        Returns:
+            ConsensusOutcome if found, None otherwise
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_tracker.get_outcome, debate_id)
+        )
+
+    async def get_recent_outcomes(self, limit: int = 50) -> list[ConsensusOutcome]:
+        """Get recent outcomes ordered by timestamp (async).
+
+        Args:
+            limit: Maximum number of outcomes to return
+
+        Returns:
+            List of ConsensusOutcome objects
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_tracker.get_recent_outcomes, limit)
+        )
+
+    async def get_success_rate_by_confidence(
+        self,
+        bucket_size: float = 0.1,
+    ) -> dict[str, float]:
+        """Get success rate bucketed by confidence level (async).
+
+        Args:
+            bucket_size: Size of each confidence bucket
+
+        Returns:
+            Dict mapping confidence range (e.g., "0.7-0.8") to success rate
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_tracker.get_success_rate_by_confidence, bucket_size)
+        )
+
+    async def get_calibration_curve(
+        self,
+        num_buckets: int = 10,
+    ) -> list[CalibrationBucket]:
+        """Get calibration curve data (async).
+
+        Args:
+            num_buckets: Number of buckets to divide the confidence range into
+
+        Returns:
+            List of CalibrationBucket objects showing actual vs expected
+            success rates for each confidence level.
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_tracker.get_calibration_curve, num_buckets)
+        )
+
+    async def get_failure_patterns(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Get common failure reasons with frequency (async).
+
+        Args:
+            limit: Maximum number of patterns to return
+
+        Returns:
+            List of dicts with 'reason' and 'count' keys.
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_tracker.get_failure_patterns, limit)
+        )
+
+    async def get_overall_stats(self) -> dict[str, Any]:
+        """Get overall outcome statistics (async).
+
+        Returns:
+            Dict with statistics including total_outcomes, attempted, succeeded,
+            success_rate, rollbacks, avg_confidence, total_tests_passed,
+            total_tests_failed.
+        """
+        return await self._run_in_executor(functools.partial(self._sync_tracker.get_overall_stats))
+
+    async def is_overconfident(self, threshold: float = 0.7) -> bool:
+        """Check if the system is overconfident (async).
+
+        Returns True if high-confidence (>threshold) debates have
+        lower success rate than their confidence suggests.
+
+        Args:
+            threshold: Confidence threshold to consider
+
+        Returns:
+            True if the system is overconfident
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_tracker.is_overconfident, threshold)
+        )
+
+    async def get_calibration_adjustment(self) -> float:
+        """Get recommended adjustment for Trickster sensitivity (async).
+
+        Returns a multiplier:
+        - < 1.0: System is overconfident, increase Trickster sensitivity
+        - > 1.0: System is underconfident, can decrease sensitivity
+        - 1.0: Well-calibrated
+
+        Returns:
+            Adjustment multiplier clamped to [0.5, 1.5]
+        """
+        return await self._run_in_executor(
+            functools.partial(self._sync_tracker.get_calibration_adjustment)
+        )
+
+    @property
+    def db_path(self) -> Path:
+        """Get the database path."""
+        return self._sync_tracker.db_path

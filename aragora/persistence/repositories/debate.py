@@ -281,12 +281,10 @@ class DebateRepository(BaseRepository[DebateEntity]):
             New view count.
         """
         with self._transaction() as conn:
-            conn.execute(
-                "UPDATE debates SET view_count = view_count + 1 WHERE slug = ?",
-                (slug,),
-            )
+            # Use RETURNING clause (SQLite 3.35+) for single-query update
+            # This avoids the N+1 pattern of UPDATE followed by SELECT
             cursor = conn.execute(
-                "SELECT view_count FROM debates WHERE slug = ?",
+                "UPDATE debates SET view_count = view_count + 1 WHERE slug = ? RETURNING view_count",
                 (slug,),
             )
             row = cursor.fetchone()
@@ -419,16 +417,30 @@ class DebateRepository(BaseRepository[DebateEntity]):
         date = datetime.now().strftime("%Y-%m-%d")
         slug = f"{base}-{date}"
 
-        # Handle collisions
-        existing = self.get_by_slug(slug)
-        if not existing:
+        # Handle collisions with batch query instead of N+1 individual queries
+        # Use LIKE to find all slugs that start with our base slug pattern
+        pattern = f"{slug}%"
+        rows = self._fetch_all(
+            "SELECT slug FROM debates WHERE slug LIKE ?",
+            (pattern,),
+        )
+
+        # If no collisions, return the base slug
+        if not rows:
+            return slug
+
+        # Extract existing slugs into a set for O(1) lookup
+        existing_slugs = {row["slug"] for row in rows}
+
+        # Check if base slug is available (unlikely but possible if only numbered variants exist)
+        if slug not in existing_slugs:
             return slug
 
         # Find next available number
         counter = 2
         while True:
             numbered_slug = f"{slug}-{counter}"
-            if not self.get_by_slug(numbered_slug):
+            if numbered_slug not in existing_slugs:
                 return numbered_slug
             counter += 1
 
