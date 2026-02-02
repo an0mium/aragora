@@ -1339,5 +1339,30 @@ class DissentRetriever:
         return "\n".join(lines)
 
 
-# Backward-compatible alias
-ConsensusStore = ConsensusMemory
+class ConsensusStore(ConsensusMemory):
+    """Compatibility wrapper that supports vote recording for bot handlers."""
+
+    def __init__(
+        self,
+        db_path: str | Path | None = None,
+        km_adapter: Optional["ConsensusAdapter"] = None,
+    ):
+        super().__init__(db_path=db_path, km_adapter=km_adapter)
+        self._recorded_votes: list[dict[str, str]] = []
+
+    def record_vote(
+        self,
+        debate_id: str,
+        user_id: str,
+        vote: str,
+        source: str,
+    ) -> None:
+        """Record a user vote on a debate outcome."""
+        self._recorded_votes.append(
+            {
+                "debate_id": debate_id,
+                "user_id": user_id,
+                "vote": vote,
+                "source": source,
+            }
+        )

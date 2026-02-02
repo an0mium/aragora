@@ -174,8 +174,16 @@ class CrudOperationsMixin:
             return json_response(normalize_debate_response(debate))
 
         # Fallback: check in-progress debates that haven't been persisted yet
-        if slug in _active_debates:
-            active = _active_debates[slug]
+        active_debates = _active_debates
+        try:
+            from aragora.server.handlers.debates import handler as handler_module
+
+            active_debates = getattr(handler_module, "_active_debates", _active_debates)
+        except Exception:
+            active_debates = _active_debates
+
+        if slug in active_debates:
+            active = active_debates[slug]
             # Return minimal info for in-progress debate
             # Support both "task" (new) and "question" (legacy) field names
             return json_response(

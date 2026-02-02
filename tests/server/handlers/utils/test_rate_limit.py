@@ -315,7 +315,7 @@ class TestRateLimitDecorator:
         """Should allow requests under the rate limit."""
 
         class Handler:
-            @rate_limit(rpm=5, limiter_name="test_handler_1")
+            @rate_limit(rpm=5, limiter_name="test_handler_1", use_distributed=False)
             def handle(self, handler):
                 return {"success": True}
 
@@ -332,7 +332,7 @@ class TestRateLimitDecorator:
         """Should return 429 error when over limit."""
 
         class Handler:
-            @rate_limit(rpm=3, limiter_name="test_handler_2")
+            @rate_limit(rpm=3, limiter_name="test_handler_2", use_distributed=False)
             def handle(self, handler):
                 return {"success": True}
 
@@ -351,7 +351,7 @@ class TestRateLimitDecorator:
         """Should use custom key function when provided."""
 
         class Handler:
-            @rate_limit(rpm=2, key_func=lambda h: "custom-key", limiter_name="test_handler_3")
+            @rate_limit(rpm=2, key_func=lambda h: "custom-key", limiter_name="test_handler_3", use_distributed=False)
             def handle(self, handler):
                 return {"success": True}
 
@@ -372,7 +372,7 @@ class TestRateLimitDecorator:
         import asyncio
 
         class Handler:
-            @rate_limit(rpm=2, limiter_name="test_handler_4")
+            @rate_limit(rpm=2, limiter_name="test_handler_4", use_distributed=False)
             async def handle(self, handler):
                 return {"success": True}
 
@@ -395,7 +395,7 @@ class TestRateLimitDecorator:
         """Should accept requests_per_minute as alias for rpm."""
 
         class Handler:
-            @rate_limit(requests_per_minute=2, limiter_name="test_handler_5")
+            @rate_limit(requests_per_minute=2, limiter_name="test_handler_5", use_distributed=False)
             def handle(self, handler):
                 return {"success": True}
 
@@ -414,7 +414,7 @@ class TestRateLimitDecorator:
         """Should use validated_client_ip kwarg when provided."""
 
         class Handler:
-            @rate_limit(rpm=2, limiter_name="test_handler_6")
+            @rate_limit(rpm=2, limiter_name="test_handler_6", use_distributed=False)
             def handle(self, validated_client_ip=None, headers=None):
                 return {"success": True}
 

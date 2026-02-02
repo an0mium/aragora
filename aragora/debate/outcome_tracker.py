@@ -27,7 +27,7 @@ import functools
 import json
 import logging
 import sqlite3
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TypeVar
@@ -76,7 +76,10 @@ class ConsensusOutcome:
         """Create from database row."""
         d = dict(row)
         d["agents_participating"] = json.loads(d.get("agents_participating", "[]"))
-        return cls(**d)
+        # Filter out database-only fields (e.g., 'id') that aren't in the dataclass
+        valid_fields = {f.name for f in fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_fields}
+        return cls(**filtered)
 
 
 @dataclass

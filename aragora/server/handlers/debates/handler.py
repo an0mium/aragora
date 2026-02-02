@@ -40,6 +40,7 @@ from typing import Any
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async
 from aragora.server.validation import validate_debate_id
+from aragora.server.debate_utils import _active_debates
 
 from ..base import (
     BaseHandler,
@@ -101,9 +102,12 @@ class DebatesHandler(
     - Search: Cross-debate search
     """
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}  # type: ignore[assignment]  # dict is runtime-compatible with ServerContext
+        if server_context is not None:
+            self.ctx = server_context
+        else:
+            self.ctx = ctx or {}  # type: ignore[assignment]  # dict is runtime-compatible with ServerContext
 
     # Route patterns this handler manages (from routing module)
     ROUTES = ROUTES

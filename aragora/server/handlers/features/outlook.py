@@ -766,8 +766,9 @@ class OutlookHandler(BaseHandler):
         "/api/v1/outlook/conversations/",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize with server context."""
+        ctx = server_context or ctx or {}
         super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:

@@ -65,12 +65,7 @@ class RLMCircuitBreaker:
     OPEN = "open"
     HALF_OPEN = "half_open"
 
-    def __init__(
-        self,
-        failure_threshold: int = 5,
-        cooldown_seconds: float = 30.0,
-        half_open_max_calls: int = 3,
-    ):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize circuit breaker.
 
         Args:
@@ -215,7 +210,7 @@ class RLMHandler(BaseHandler):
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     RESOURCE_TYPE = "rlm"  # For audit logging
 

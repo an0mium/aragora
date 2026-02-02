@@ -328,6 +328,8 @@ class RateLimiter:
         self.rpm = requests_per_minute
         self.cleanup_interval = cleanup_interval
         self._buckets: dict[str, list[float]] = defaultdict(list)
+        # Backward-compatible alias used in tests and legacy code.
+        self._requests = self._buckets
         self._lock = threading.Lock()
         self._last_cleanup = time.time()
 
@@ -505,7 +507,11 @@ def rate_limit(
         else:
             local_limiter_instance = _get_limiter(name, effective_rpm)
 
-        def _get_key_from_args(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+        def _get_key_from_args(
+            args: tuple[Any, ...],
+            kwargs: dict[str, Any],
+            self_obj: Any | None = None,
+        ) -> str:
             """Extract rate limit key from function arguments.
 
             Supports both old pattern (handler object) and new pattern (headers dict).
@@ -526,6 +532,12 @@ def rate_limit(
             # This path uses get_client_ip() which properly validates trusted proxies
             if args and hasattr(args[0], "headers"):
                 return get_client_ip(args[0])
+
+            # Fallback: locate a handler-like argument with headers
+            if args:
+                for arg in args:
+                    if hasattr(arg, "headers"):
+                        return get_client_ip(arg)
 
             # New pattern: headers passed as kwarg
             # SECURITY: We cannot safely use X-Forwarded-For here because we don't
@@ -548,6 +560,9 @@ def rate_limit(
 
                     key_data = f"{ua}:{lang}".encode()
                     return f"anon:{hashlib.sha256(key_data).hexdigest()[:16]}"
+
+            if self_obj is not None:
+                return f"instance:{self_obj.__class__.__name__}:{id(self_obj)}"
 
             return "unknown"
 
@@ -641,7 +656,7 @@ def rate_limit(
 
             @wraps(func)
             async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-                key = _get_key_from_args(args, kwargs)
+                key = _get_key_from_args(args, kwargs, self_obj=self)
                 error = _check_rate_limit(key, args, kwargs)
                 if error:
                     return error
@@ -657,7 +672,7 @@ def rate_limit(
 
             @wraps(func)
             def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-                key = _get_key_from_args(args, kwargs)
+                key = _get_key_from_args(args, kwargs, self_obj=self)
                 error = _check_rate_limit(key, args, kwargs)
                 if error:
                     return error

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useLayout } from '@/context/LayoutContext';
 import { TopBar } from './TopBar';
 import { LeftSidebar } from './LeftSidebar';
@@ -10,6 +11,38 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 interface AppShellProps {
   children: React.ReactNode;
 }
+
+type QuickLink = {
+  label: string;
+  href: string;
+  external?: boolean;
+  accent?: boolean;
+};
+
+const QUICK_LINKS: QuickLink[] = [
+  { label: 'DEBATE', href: '/arena' },
+  { label: 'DOCS', href: '/documents' },
+  { label: 'WORKFLOWS', href: '/workflows' },
+  { label: 'CONNECTORS', href: '/connectors' },
+  { label: 'TEMPLATES', href: '/templates' },
+  { label: 'MEMORY', href: '/memory' },
+  { label: 'KNOWLEDGE', href: '/knowledge' },
+  { label: 'DEBATES', href: '/debates' },
+  { label: 'AGENTS', href: '/agents' },
+  { label: 'ANALYTICS', href: '/analytics' },
+  { label: 'GALLERY', href: '/gallery' },
+  { label: 'LEADERBOARD', href: '/leaderboard' },
+  { label: 'REVIEWS', href: '/reviews' },
+  { label: 'GAUNTLET', href: '/gauntlet' },
+  { label: 'GENESIS', href: '/genesis' },
+  { label: 'INTROSPECTION', href: '/introspection' },
+  { label: 'INBOX', href: '/inbox' },
+  { label: 'TOURNAMENTS', href: '/tournaments' },
+  { label: 'PRICING', href: '/pricing' },
+  { label: 'STATUS', href: '/status' },
+  { label: 'ABOUT', href: '/about' },
+  { label: 'LIVE', href: 'https://live.aragora.ai', external: true, accent: true },
+];
 
 export function AppShell({ children }: AppShellProps) {
   const {
@@ -41,9 +74,43 @@ export function AppShell({ children }: AppShellProps) {
           }}
         >
           <div className="h-[calc(100vh-48px)] overflow-auto">
-            {/* Breadcrumbs */}
-            <div className="border-b border-[var(--border)] bg-[var(--surface)]/30 px-3 sm:px-4 lg:px-6 py-2">
-              <Breadcrumbs />
+            {/* Breadcrumbs + quick links */}
+            <div className="border-b border-[var(--border)] bg-[var(--surface)]/30 px-3 sm:px-4 lg:px-6 py-2 flex items-center gap-4">
+              <div className="min-w-0">
+                <Breadcrumbs />
+              </div>
+              <div className="hidden md:block h-4 w-px bg-[var(--border)]/60" aria-hidden="true" />
+              <nav
+                aria-label="Quick links"
+                className="breadcrumb-links flex-1 overflow-x-auto whitespace-nowrap"
+              >
+                <div className="flex items-center gap-3 pr-2 text-xs font-mono text-text-muted">
+                  {QUICK_LINKS.map((link) => {
+                    if (link.external) {
+                      return (
+                        <a
+                          key={link.label}
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`transition-colors ${link.accent ? 'text-acid-cyan hover:text-acid-green' : 'hover:text-acid-green'}`}
+                        >
+                          [{link.label}]
+                        </a>
+                      );
+                    }
+                    return (
+                      <Link
+                        key={link.label}
+                        href={link.href}
+                        className="hover:text-acid-green transition-colors"
+                      >
+                        [{link.label}]
+                      </Link>
+                    );
+                  })}
+                </div>
+              </nav>
             </div>
 
             {/* Page content */}

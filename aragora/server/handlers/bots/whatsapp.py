@@ -209,7 +209,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Always return 200 to acknowledge
             return json_response({"status": "ok"})
 
-        except (ValueError, KeyError, TypeError, OSError) as e:
+        except Exception as e:
             logger.exception(f"Unexpected WhatsApp webhook error: {e}")
             # Return 200 to prevent retries
             return json_response({"status": "error", "message": str(e)[:100]})

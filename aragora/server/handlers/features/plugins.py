@@ -58,9 +58,9 @@ SUBMISSION_STATUS_REJECTED = "rejected"
 class PluginsHandler(BaseHandler):
     """Handler for plugins endpoints."""
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     # RFC 8594 Sunset header for deprecated legacy paths
     _SUNSET_DATE = "Sat, 31 Dec 2026 23:59:59 GMT"

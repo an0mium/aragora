@@ -313,7 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-      const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+      const response = await fetch(`${API_BASE}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${tokens.access_token}`,
         },
@@ -563,7 +563,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          response = await fetch(`${API_BASE}/api/v1/auth/me`, {
+          response = await fetch(`${API_BASE}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
             },

@@ -1,12 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 
 const MemoryExplorerPanel = dynamic(
@@ -92,37 +89,6 @@ export default function MemoryPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
-            </Link>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [DASHBOARD]
-              </Link>
-              <Link
-                href="/memory-analytics"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [ANALYTICS]
-              </Link>
-              <Link
-                href="/insights"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [INSIGHTS]
-              </Link>
-              <BackendSelector compact />
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">

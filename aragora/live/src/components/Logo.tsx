@@ -15,7 +15,10 @@ const sizes = {
 
 export function Logo({ size = 'md', pixelSize, onClick, className = '' }: LogoProps) {
   const dimension = pixelSize ?? sizes[size];
-  const src = dimension <= 16 ? '/favicon-16.png' : dimension <= 32 ? '/favicon-32.png' : '/favicon.ico';
+  // Use dedicated logo-mark assets for in-app rendering; keep favicons for the browser tab.
+  // Pick the closest asset and scale with pixelated rendering when needed.
+  const assetSize = dimension <= 16 ? 16 : dimension <= 32 ? 32 : 64;
+  const src = `/logo-mark-${assetSize}.png`;
 
   return (
     <button
@@ -27,8 +30,9 @@ export function Logo({ size = 'md', pixelSize, onClick, className = '' }: LogoPr
       <img
         src={src}
         alt="Aragora"
-        width={dimension}
-        height={dimension}
+        width={assetSize}
+        height={assetSize}
+        style={{ width: dimension, height: dimension, imageRendering: 'pixelated' }}
         className="block transition-all group-hover:drop-shadow-[0_0_10px_rgba(57,255,20,0.7)] group-hover:brightness-110"
       />
     </button>

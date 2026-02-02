@@ -46,13 +46,29 @@ def set_approval_flow(flow: ApprovalFlow) -> None:
 def _ensure_auth_context(auth_ctx: object) -> None:
     """Ensure auth context has required attributes for RBAC checks."""
     if getattr(auth_ctx, "roles", None) is None:
-        setattr(auth_ctx, "roles", ["admin"])
+        setattr(auth_ctx, "roles", [])
     if not hasattr(auth_ctx, "org_id"):
         setattr(auth_ctx, "org_id", None)
     if not hasattr(auth_ctx, "api_key_scope"):
         setattr(auth_ctx, "api_key_scope", None)
     if not hasattr(auth_ctx, "workspace_id"):
         setattr(auth_ctx, "workspace_id", None)
+    if not hasattr(auth_ctx, "permissions"):
+        setattr(auth_ctx, "permissions", set())
+        return
+
+    perms = getattr(auth_ctx, "permissions") or set()
+    if not isinstance(perms, set):
+        perms = set(perms)
+    if {"approval.grant", "approvals.manage", "approvals:manage"} & perms:
+        perms.update({AUTONOMOUS_READ_PERMISSION, AUTONOMOUS_APPROVE_PERMISSION})
+    setattr(auth_ctx, "permissions", perms)
+
+
+def _is_admin(auth_ctx: object) -> bool:
+    """Return True if the auth context has an admin/owner role."""
+    roles = getattr(auth_ctx, "roles", []) or []
+    return any(role in ("admin", "owner") for role in roles)
 
 
 class ApprovalHandler:
@@ -79,12 +95,15 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission
-            checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
-            if not decision.allowed:
-                logger.warning(f"User {auth_ctx.user_id} denied read permission: {decision.reason}")
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+            # Check RBAC permission (admins bypass)
+            if not _is_admin(auth_ctx):
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"User {auth_ctx.user_id} denied read permission: {decision.reason}"
+                    )
+                    raise ForbiddenError(f"Permission denied: {decision.reason}")
 
             logger.debug(f"list_pending called by user {auth_ctx.user_id}")
 
@@ -148,12 +167,15 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission
-            checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
-            if not decision.allowed:
-                logger.warning(f"User {auth_ctx.user_id} denied read permission: {decision.reason}")
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+            # Check RBAC permission (admins bypass)
+            if not _is_admin(auth_ctx):
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"User {auth_ctx.user_id} denied read permission: {decision.reason}"
+                    )
+                    raise ForbiddenError(f"Permission denied: {decision.reason}")
 
             logger.debug(f"get_request {request_id} called by user {auth_ctx.user_id}")
 
@@ -226,14 +248,15 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission
-            checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
-            if not decision.allowed:
-                logger.warning(
-                    f"User {auth_ctx.user_id} denied approval permission: {decision.reason}"
-                )
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+            # Check RBAC permission (admins bypass)
+            if not _is_admin(auth_ctx):
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"User {auth_ctx.user_id} denied approval permission: {decision.reason}"
+                    )
+                    raise ForbiddenError(f"Permission denied: {decision.reason}")
 
             data, err = await parse_json_body(request, context="approve_request")
             if err:
@@ -303,14 +326,15 @@ class ApprovalHandler:
             auth_ctx = await get_auth_context(request, require_auth=True)
             _ensure_auth_context(auth_ctx)
 
-            # Check RBAC permission
-            checker = get_permission_checker()
-            decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
-            if not decision.allowed:
-                logger.warning(
-                    f"User {auth_ctx.user_id} denied rejection permission: {decision.reason}"
-                )
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+            # Check RBAC permission (admins bypass)
+            if not _is_admin(auth_ctx):
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_ctx, AUTONOMOUS_APPROVE_PERMISSION)
+                if not decision.allowed:
+                    logger.warning(
+                        f"User {auth_ctx.user_id} denied rejection permission: {decision.reason}"
+                    )
+                    raise ForbiddenError(f"Permission denied: {decision.reason}")
 
             data, err = await parse_json_body(request, context="reject_request")
             if err:

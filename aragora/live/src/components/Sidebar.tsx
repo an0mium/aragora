@@ -48,6 +48,7 @@ const browseItems: NavItem[] = [
   { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
   { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
   { label: 'Gallery', href: '/gallery', icon: '*' },
+  { label: 'About', href: '/about', icon: 'i' },
 ];
 
 // Tools section - management and configuration
@@ -256,6 +257,15 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-acid-green/30 bg-bg">
+          <div className="mb-3 text-center">
+            <Link
+              href="/about"
+              onClick={close}
+              className="text-acid-green/70 hover:text-acid-cyan transition-colors font-mono text-xs"
+            >
+              About
+            </Link>
+          </div>
           {isAuthenticated ? (
             <button
               onClick={handleLogout}

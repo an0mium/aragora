@@ -13,6 +13,7 @@ Implements:
 - User vote counting in consensus
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -179,22 +180,55 @@ async def _start_slack_debate(
             context=context,
         )
 
-        # Route through DecisionRouter
+        # Route through DecisionRouter in the background to keep Slack responsive.
         router = get_decision_router()
-        result = await router.route(request)
 
-        if result.request_id:
-            logger.info(f"DecisionRouter started debate {result.request_id} from Slack")
-            # Track active debate
-            _active_debates[result.request_id] = {
+        def _record_active(debate_key: str) -> None:
+            _active_debates[debate_key] = {
                 "topic": topic,
                 "channel_id": channel_id,
                 "user_id": user_id,
                 "thread_ts": thread_ts,
                 "started_at": time.time(),
             }
-            return result.request_id
-        return debate_id
+
+        task = asyncio.create_task(router.route(request))
+
+        def _route_done(done_task: asyncio.Task) -> None:
+            try:
+                result = done_task.result()
+            except asyncio.CancelledError:
+                return
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.error(
+                    "DecisionRouter task failed for Slack debate %s: %s",
+                    request.request_id,
+                    exc,
+                )
+                return
+
+            if result.request_id and result.request_id != request.request_id:
+                state = _active_debates.pop(request.request_id, None)
+                if state is not None:
+                    _active_debates[result.request_id] = state
+            logger.info("DecisionRouter started debate %s from Slack", result.request_id)
+
+        task.add_done_callback(_route_done)
+
+        # If we can get a quick response (cache/dedup), use its request_id; otherwise fall back.
+        debate_key = request.request_id
+        try:
+            result = await asyncio.wait_for(asyncio.shield(task), timeout=0.5)
+        except asyncio.TimeoutError:
+            result = None
+        except Exception:
+            result = None
+
+        if result and result.request_id:
+            debate_key = result.request_id
+
+        _record_active(debate_key)
+        return debate_key
 
     except ImportError:
         logger.debug("DecisionRouter not available, using fallback")

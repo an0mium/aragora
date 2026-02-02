@@ -114,9 +114,12 @@ class UnifiedDashboard:
 class AnalyticsPlatformsHandler(SecureHandler):
     """Handler for analytics platform API endpoints."""
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        if server_context is not None:
+            self.ctx = server_context
+        else:
+            self.ctx = server_context or ctx or {}
 
     RESOURCE_TYPE = "analytics"
 

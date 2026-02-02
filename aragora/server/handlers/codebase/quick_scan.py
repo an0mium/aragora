@@ -29,6 +29,12 @@ logger = logging.getLogger(__name__)
 SCAN_READ_PERMISSION = "codebase:scan:read"
 SCAN_EXECUTE_PERMISSION = "codebase:scan:execute"
 
+try:
+    from aragora.audit.security_scanner import SecurityScanner, SecuritySeverity
+except ImportError:  # pragma: no cover - optional dependency
+    SecurityScanner = None  # type: ignore[assignment]
+    SecuritySeverity = None  # type: ignore[assignment]
+
 
 async def _check_permission(request: web.Request, permission: str) -> web.Response | None:
     """Check if user has required permission. Returns error response if denied."""
@@ -119,8 +125,8 @@ async def run_quick_scan(
     _quick_scan_results[scan_id] = result
 
     try:
-        # Import scanner
-        from aragora.audit.security_scanner import SecurityScanner, SecuritySeverity
+        if SecurityScanner is None or SecuritySeverity is None:
+            raise ImportError("SecurityScanner not available")
 
         # Determine severity filter
         severity_map = {

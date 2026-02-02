@@ -204,6 +204,15 @@ class MockHandler:
 # ===========================================================================
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Reset the admin rate limiter before each test to ensure test isolation."""
+    from aragora.server.handlers.admin.handler import _admin_limiter
+    _admin_limiter._buckets.clear()
+    yield
+    _admin_limiter._buckets.clear()
+
+
 @pytest.fixture
 def mock_admin_user() -> MockUser:
     """Create a mock admin user."""
@@ -518,7 +527,7 @@ class TestDeactivateUser:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
-                with patch("aragora.server.handlers.admin.handler.audit_admin"):
+                with patch("aragora.server.handlers.admin.users.audit_admin"):
                     result = admin_handler._deactivate_user(mock_http_handler, "user-002")
 
                     assert result.status_code == 200
@@ -569,7 +578,7 @@ class TestActivateUser:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
-                with patch("aragora.server.handlers.admin.handler.audit_admin"):
+                with patch("aragora.server.handlers.admin.users.audit_admin"):
                     result = admin_handler._activate_user(mock_http_handler, "user-002")
 
                     assert result.status_code == 200
@@ -835,4 +844,292 @@ class TestHandleRouting:
             mock_impersonate.assert_called_once_with(post_handler, "user-123")
 
 
-__all__ = ["TestAdminRoles", "TestRouting", "TestRequireAdmin"]
+class TestRateLimiting:
+    """Tests for rate limiting on admin endpoints."""
+
+    def test_rate_limit_exceeded(self, admin_handler, mock_http_handler):
+        """Test rate limit returns 429 when exceeded."""
+        from aragora.server.handlers.admin.handler import _admin_limiter
+
+        # Exhaust the rate limit
+        for _ in range(15):
+            _admin_limiter.is_allowed("test_ip")
+
+        with patch(
+            "aragora.server.handlers.admin.handler.get_client_ip", return_value="test_ip"
+        ):
+            result = admin_handler.handle("/api/v1/admin/stats", {}, mock_http_handler, "GET")
+
+            assert result.status_code == 429
+            data = get_response_data(result)
+            assert "rate limit" in data.get("error", "").lower()
+
+
+class TestRBACPermissionCheck:
+    """Tests for RBAC permission checking."""
+
+    def test_check_rbac_permission_allowed(self, admin_handler, mock_admin_user):
+        """Test RBAC permission check when allowed."""
+        mock_auth_ctx = MockAuthContext(user_id=mock_admin_user.id)
+
+        # When RBAC is available and permission is granted
+        result = admin_handler._check_rbac_permission(
+            mock_auth_ctx, "admin.stats.read"
+        )
+
+        # Should return None (no error) since admin role has fallback access
+        assert result is None
+
+    def test_check_rbac_permission_rbac_unavailable(self, admin_handler):
+        """Test RBAC check when RBAC module is not available."""
+        mock_auth_ctx = MockAuthContext(user_id="test-user")
+
+        with patch("aragora.server.handlers.admin.handler.RBAC_AVAILABLE", False):
+            result = admin_handler._check_rbac_permission(
+                mock_auth_ctx, "admin.stats.read"
+            )
+
+            # Should return None (fallback to role-based check)
+            assert result is None
+
+
+class TestHandlePostRoutes:
+    """Tests for POST route handling."""
+
+    def test_handle_routes_to_deactivate(self, admin_handler, mock_http_handler):
+        """Test handle routes POST deactivate correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        mock_http_handler.command = "POST"
+
+        with patch.object(admin_handler, "_deactivate_user") as mock_deactivate:
+            mock_deactivate.return_value = jr({"success": True}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/users/user-123/deactivate",
+                {},
+                mock_http_handler,
+                "POST",
+            )
+
+            mock_deactivate.assert_called_once_with(mock_http_handler, "user-123")
+
+    def test_handle_routes_to_activate(self, admin_handler, mock_http_handler):
+        """Test handle routes POST activate correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        mock_http_handler.command = "POST"
+
+        with patch.object(admin_handler, "_activate_user") as mock_activate:
+            mock_activate.return_value = jr({"success": True}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/users/user-456/activate",
+                {},
+                mock_http_handler,
+                "POST",
+            )
+
+            mock_activate.assert_called_once_with(mock_http_handler, "user-456")
+
+    def test_handle_routes_to_unlock(self, admin_handler, mock_http_handler):
+        """Test handle routes POST unlock correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        mock_http_handler.command = "POST"
+
+        with patch.object(admin_handler, "_unlock_user") as mock_unlock:
+            mock_unlock.return_value = jr({"success": True}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/users/user-789/unlock",
+                {},
+                mock_http_handler,
+                "POST",
+            )
+
+            mock_unlock.assert_called_once_with(mock_http_handler, "user-789")
+
+    def test_handle_routes_to_nomic_pause(self, admin_handler, mock_http_handler):
+        """Test handle routes POST nomic/pause correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        mock_http_handler.command = "POST"
+
+        with patch.object(admin_handler, "_pause_nomic") as mock_pause:
+            mock_pause.return_value = jr({"status": "paused"}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/nomic/pause",
+                {},
+                mock_http_handler,
+                "POST",
+            )
+
+            mock_pause.assert_called_once()
+
+    def test_handle_routes_to_nomic_resume(self, admin_handler, mock_http_handler):
+        """Test handle routes POST nomic/resume correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        mock_http_handler.command = "POST"
+
+        with patch.object(admin_handler, "_resume_nomic") as mock_resume:
+            mock_resume.return_value = jr({"status": "running"}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/nomic/resume",
+                {},
+                mock_http_handler,
+                "POST",
+            )
+
+            mock_resume.assert_called_once()
+
+    def test_handle_routes_to_nomic_reset(self, admin_handler, mock_http_handler):
+        """Test handle routes POST nomic/reset correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        mock_http_handler.command = "POST"
+
+        with patch.object(admin_handler, "_reset_nomic_phase") as mock_reset:
+            mock_reset.return_value = jr({"success": True}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/nomic/reset",
+                {},
+                mock_http_handler,
+                "POST",
+            )
+
+            mock_reset.assert_called_once()
+
+    def test_handle_routes_to_nomic_circuit_breakers_reset(
+        self, admin_handler, mock_http_handler
+    ):
+        """Test handle routes POST nomic/circuit-breakers/reset correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        mock_http_handler.command = "POST"
+
+        with patch.object(admin_handler, "_reset_nomic_circuit_breakers") as mock_reset:
+            mock_reset.return_value = jr({"success": True}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/nomic/circuit-breakers/reset",
+                {},
+                mock_http_handler,
+                "POST",
+            )
+
+            mock_reset.assert_called_once()
+
+    def test_handle_invalid_user_id_format_deactivate(
+        self, admin_handler, mock_http_handler
+    ):
+        """Test handle returns 400 for invalid user ID in deactivate."""
+        mock_http_handler.command = "POST"
+
+        result = admin_handler.handle(
+            "/api/v1/admin/users/<script>alert('xss')</script>/deactivate",
+            {},
+            mock_http_handler,
+            "POST",
+        )
+
+        assert result.status_code == 400
+        data = get_response_data(result)
+        assert "invalid" in data.get("error", "").lower()
+
+
+class TestHandleGetRoutes:
+    """Tests for GET route handling."""
+
+    def test_handle_routes_to_organizations(self, admin_handler, mock_http_handler):
+        """Test handle routes GET organizations correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        with patch.object(admin_handler, "_list_organizations") as mock_list:
+            mock_list.return_value = jr({"organizations": []}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/organizations", {}, mock_http_handler, "GET"
+            )
+
+            mock_list.assert_called_once()
+
+    def test_handle_routes_to_users(self, admin_handler, mock_http_handler):
+        """Test handle routes GET users correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        with patch.object(admin_handler, "_list_users") as mock_list:
+            mock_list.return_value = jr({"users": []}, 200)
+
+            admin_handler.handle("/api/v1/admin/users", {}, mock_http_handler, "GET")
+
+            mock_list.assert_called_once()
+
+    def test_handle_routes_to_system_metrics(self, admin_handler, mock_http_handler):
+        """Test handle routes GET system/metrics correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        with patch.object(admin_handler, "_get_system_metrics") as mock_metrics:
+            mock_metrics.return_value = jr({"metrics": {}}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/system/metrics", {}, mock_http_handler, "GET"
+            )
+
+            mock_metrics.assert_called_once()
+
+    def test_handle_routes_to_revenue(self, admin_handler, mock_http_handler):
+        """Test handle routes GET revenue correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        with patch.object(admin_handler, "_get_revenue_stats") as mock_revenue:
+            mock_revenue.return_value = jr({"revenue": {}}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/revenue", {}, mock_http_handler, "GET"
+            )
+
+            mock_revenue.assert_called_once()
+
+    def test_handle_routes_to_nomic_status(self, admin_handler, mock_http_handler):
+        """Test handle routes GET nomic/status correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        with patch.object(admin_handler, "_get_nomic_status") as mock_status:
+            mock_status.return_value = jr({"running": True}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/nomic/status", {}, mock_http_handler, "GET"
+            )
+
+            mock_status.assert_called_once()
+
+    def test_handle_routes_to_nomic_circuit_breakers(
+        self, admin_handler, mock_http_handler
+    ):
+        """Test handle routes GET nomic/circuit-breakers correctly."""
+        from aragora.server.handlers.utils.responses import json_response as jr
+
+        with patch.object(admin_handler, "_get_nomic_circuit_breakers") as mock_cb:
+            mock_cb.return_value = jr({"circuit_breakers": {}}, 200)
+
+            admin_handler.handle(
+                "/api/v1/admin/nomic/circuit-breakers", {}, mock_http_handler, "GET"
+            )
+
+            mock_cb.assert_called_once()
+
+
+__all__ = [
+    "TestAdminRoles",
+    "TestRouting",
+    "TestRequireAdmin",
+    "TestRateLimiting",
+    "TestRBACPermissionCheck",
+    "TestHandlePostRoutes",
+    "TestHandleGetRoutes",
+]

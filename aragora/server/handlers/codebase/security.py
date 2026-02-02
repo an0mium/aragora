@@ -326,7 +326,7 @@ async def handle_get_vulnerabilities(
             }
         )
 
-    except (KeyError, ValueError, TypeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to get vulnerabilities: {e}")
         return error_response(str(e), 500)
 

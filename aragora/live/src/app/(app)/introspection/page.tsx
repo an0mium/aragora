@@ -3,9 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { logger } from '@/utils/logger';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 
 interface AgentSummary {
@@ -401,17 +399,6 @@ export default function IntrospectionPage() {
       <CRTVignette />
 
       <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="hover:opacity-80 transition-opacity">
-            <AsciiBannerCompact />
-          </Link>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <BackendSelector />
-          </div>
-        </div>
-
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-mono font-bold text-acid-green mb-2">Agent Introspection</h1>

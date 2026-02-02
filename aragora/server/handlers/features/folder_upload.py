@@ -162,9 +162,9 @@ class FolderUploadJob:
 class FolderUploadHandler(BaseHandler):
     """Handler for folder upload endpoints."""
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     ROUTES = [
         "/api/v1/documents/folder/scan",

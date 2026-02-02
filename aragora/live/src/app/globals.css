@@ -958,6 +958,29 @@ input:focus, textarea:focus {
   display: none;
 }
 
+/* Breadcrumb quick links: horizontal scroll with thin acid scrollbar */
+.breadcrumb-links {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.breadcrumb-links::-webkit-scrollbar {
+  height: 4px;
+}
+
+.breadcrumb-links::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.breadcrumb-links::-webkit-scrollbar-thumb {
+  background: var(--acid-green);
+  opacity: 0.6;
+}
+
+.breadcrumb-links::-webkit-scrollbar-thumb:hover {
+  background: var(--terminal-green);
+}
+
 /* Safe area padding for devices with notches/home indicators */
 .safe-area-bottom {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));

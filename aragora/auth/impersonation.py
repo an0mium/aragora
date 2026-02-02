@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import secrets
 import uuid
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Optional
@@ -142,7 +143,7 @@ class ImpersonationManager:
         self._admin_sessions: dict[str, list[str]] = {}
 
         # In-memory audit log (backup if callback not configured)
-        self._audit_log: list[ImpersonationAuditEntry] = []
+        self._audit_log: deque[ImpersonationAuditEntry] = deque(maxlen=5000)
 
         # Optional persistent store (typed for lazy initialization)
         self._store: Any = None
@@ -166,10 +167,6 @@ class ImpersonationManager:
     def _log_audit(self, entry: ImpersonationAuditEntry) -> None:
         """Log audit entry via callback, in-memory, and persistent store."""
         self._audit_log.append(entry)
-
-        # Keep in-memory log bounded
-        if len(self._audit_log) > 10000:
-            self._audit_log = self._audit_log[-5000:]
 
         # Persist to store
         store = self._get_store()

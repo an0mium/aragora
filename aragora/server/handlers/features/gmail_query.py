@@ -60,9 +60,9 @@ class GmailQueryHandler(SecureHandler):
     Requires authentication and gmail:read/gmail:write permissions.
     """
 
-    def __init__(self, ctx: dict | None = None):
+    def __init__(self, ctx: dict | None = None, server_context: dict | None = None):
         """Initialize handler with optional context."""
-        self.ctx = ctx or {}
+        self.ctx = server_context or ctx or {}
 
     ROUTES = [
         "/api/v1/gmail/query",

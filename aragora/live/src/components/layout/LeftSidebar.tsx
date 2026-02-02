@@ -26,6 +26,7 @@ const quickActions: NavItem[] = [
 // Primary navigation items
 const primaryNav: NavItem[] = [
   { label: 'Home', href: '/', icon: '≡' },
+  { label: 'About', href: '/about', icon: 'i' },
   { label: 'Vetted Decisionmaking', href: '/deliberations', icon: '◎' },
   { label: 'Debates', href: '/debates', icon: '⌘' },
   { label: 'Knowledge', href: '/knowledge', icon: '?' },

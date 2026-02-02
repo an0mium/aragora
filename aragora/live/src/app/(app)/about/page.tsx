@@ -4,58 +4,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBanner } from '@/components/AsciiBanner';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { useSidebar } from '@/context/SidebarContext';
 import { USE_CASES, DOC_CATEGORIES, CAPABILITIES } from './constants';
 
 export default function AboutPage() {
-  const { toggle } = useSidebar();
-
   return (
     <>
       <Scanlines opacity={0.02} />
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggle}
-                className="p-2 text-acid-green hover:text-acid-cyan transition-colors"
-                aria-label="Toggle navigation menu"
-              >
-                <span className="font-mono text-lg">&#9776;</span>
-              </button>
-              <Link href="/" className="text-acid-green font-mono font-bold hover:text-acid-cyan transition-colors">
-                [ARAGORA]
-              </Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/debate"
-                className="hidden sm:block text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [DEBATE]
-              </Link>
-              <Link
-                href="/leaderboard"
-                className="hidden sm:block text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [LEADERBOARD]
-              </Link>
-              <Link
-                href="https://live.aragora.ai"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-              >
-                [LIVE]
-              </Link>
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
         {/* Hero with Full ASCII Art */}
         <section className="py-12 px-4">
           <div className="container mx-auto max-w-4xl">

@@ -325,6 +325,8 @@ class AdminHandler(
         try:
             # Build RBAC context from auth context
             user_store = self._get_user_store()
+            if user_store is None:
+                return None
             user = user_store.get_user_by_id(auth_ctx.user_id)
             roles = [user.role] if user else []
             user_role = user.role if user else None

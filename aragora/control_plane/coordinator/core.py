@@ -44,9 +44,15 @@ from aragora.control_plane.coordinator.policy_enforcer import PolicyEnforcer
 from aragora.control_plane.coordinator.scheduler_bridge import SchedulerBridge
 
 if TYPE_CHECKING:
+    import asyncio
+
     from aragora.control_plane.policy import ControlPlanePolicyManager
+    from aragora.control_plane.registry import AgentRegistry
+    from aragora.control_plane.scheduler import TaskScheduler
+    from aragora.control_plane.health import HealthMonitor
     from aragora.knowledge.mound.adapters.control_plane_adapter import ControlPlaneAdapter
     from aragora.control_plane.watchdog import ThreeTierWatchdog, WatchdogIssue
+    from aragora.control_plane.agent_factory import AgentFactory
 
 # Optional Arena Bridge
 ArenaControlPlaneBridge: Any = None
@@ -797,37 +803,37 @@ class ControlPlaneCoordinator:
     # =========================================================================
 
     @property
-    def _registry(self):
+    def _registry(self) -> "AgentRegistry":
         """Backward compatibility: access to registry."""
         return self._state_manager.registry
 
     @property
-    def _scheduler(self):
+    def _scheduler(self) -> "TaskScheduler":
         """Backward compatibility: access to scheduler."""
         return self._scheduler_bridge.scheduler
 
     @property
-    def _health_monitor(self):
+    def _health_monitor(self) -> "HealthMonitor":
         """Backward compatibility: access to health monitor."""
         return self._state_manager.health_monitor
 
     @property
-    def _km_adapter(self):
+    def _km_adapter(self) -> "ControlPlaneAdapter | None":
         """Backward compatibility: access to KM adapter."""
         return self._state_manager.km_adapter
 
     @property
-    def _watchdog(self):
+    def _watchdog(self) -> "ThreeTierWatchdog | None":
         """Backward compatibility: access to watchdog."""
         return self._state_manager.watchdog
 
     @property
-    def _agent_factory(self):
+    def _agent_factory(self) -> "AgentFactory | None":
         """Backward compatibility: access to agent factory."""
         return self._state_manager.agent_factory
 
     @property
-    def _result_waiters(self):
+    def _result_waiters(self) -> "dict[str, asyncio.Event]":
         """Backward compatibility: access to result waiters."""
         return self._scheduler_bridge._result_waiters
 
