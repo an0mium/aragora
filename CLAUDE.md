@@ -65,7 +65,7 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 2,700+ Python modules | 109,000+ tests | 2,731 test files | 194 debate modules | 431 HTTP handlers + 26 WebSocket streams | 461 API endpoints | 24 KM adapters | 105 SDK namespaces
+**Codebase Scale:** 2,800+ Python modules | 120,000+ tests | 2,919 test files | 194 debate modules | 461 HTTP handlers + 26 WebSocket streams | 461 API endpoints | 25 KM adapters | 105 SDK namespaces
 
 ## Architecture
 
@@ -97,7 +97,7 @@ aragora/
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
-│       └── adapters/       # KM adapters (24 registered)
+│       └── adapters/       # KM adapters (25 registered)
 │           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
 │   ├── chat/               # Telegram, WhatsApp connectors
@@ -109,7 +109,7 @@ aragora/
 │   ├── unified_server.py   # Main server (461 API endpoints)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
-│   ├── handlers/           # HTTP endpoint handlers (431 modules)
+│   ├── handlers/           # HTTP endpoint handlers (461 modules)
 │   │   └── social/         # Chat platform handlers (Telegram, WhatsApp)
 │   └── stream/             # WebSocket streaming (26 modules)
 │       ├── tts_integration.py  # TTS for voice/chat
@@ -310,7 +310,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 109,000+ tests across 2,731 test files
+**Test Suite:** 120,000+ tests across 2,919 test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
@@ -367,7 +367,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 950+ tests passing)
-  - 24 adapters (Belief, CalibrationFusion, ComputerUse, Consensus, Continuum, ControlPlane, Cost, Critique, Culture, ELO, ERC8004, Evidence, Extraction, Fabric, Gateway, Insights, OpenClaw, Performance, Provenance, Pulse, Ranking, Receipt, RLM, Workspace)
+  - 25 adapters (Belief, CalibrationFusion, ComputerUse, Consensus, Continuum, ControlPlane, Cost, Critique, Culture, ELO, ERC8004, Evidence, Extraction, Fabric, Gateway, Insights, OpenClaw, Performance, Provenance, Pulse, Ranking, Receipt, RLM, Supermemory, Workspace)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics
