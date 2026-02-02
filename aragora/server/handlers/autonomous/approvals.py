@@ -43,6 +43,12 @@ def set_approval_flow(flow: ApprovalFlow) -> None:
     _approval_flow = flow
 
 
+def _ensure_roles(auth_ctx: object) -> None:
+    """Ensure auth context has a roles attribute for RBAC checks."""
+    if getattr(auth_ctx, "roles", None) is None:
+        setattr(auth_ctx, "roles", [])
+
+
 class ApprovalHandler:
     """HTTP handlers for approval flow operations."""
 
@@ -65,6 +71,7 @@ class ApprovalHandler:
         try:
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
+            _ensure_roles(auth_ctx)
 
             # Check RBAC permission
             checker = get_permission_checker()
@@ -133,6 +140,7 @@ class ApprovalHandler:
         try:
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
+            _ensure_roles(auth_ctx)
 
             # Check RBAC permission
             checker = get_permission_checker()
@@ -210,6 +218,7 @@ class ApprovalHandler:
         try:
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
+            _ensure_roles(auth_ctx)
 
             # Check RBAC permission
             checker = get_permission_checker()
@@ -286,6 +295,7 @@ class ApprovalHandler:
         try:
             # Require authentication
             auth_ctx = await get_auth_context(request, require_auth=True)
+            _ensure_roles(auth_ctx)
 
             # Check RBAC permission
             checker = get_permission_checker()
